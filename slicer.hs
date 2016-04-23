@@ -135,16 +135,19 @@ allIntersections v fs = filter (/= []) $ map (triangleIntersects v) fs
 getContours :: (Eq a) => [[Point a]] -> [[Point a]]
 getContours = makeContours . (,) []
 
+-- From a list of contours we have already found and a list of pairs of points
+-- (each corresponding to a segment), get all contours described by the points
 makeContours :: (Eq a) => ([[Point a]], [[Point a]]) -> [[Point a]]
 makeContours (contours, pairs)
     | pairs == [] = contours
     | otherwise = makeContours (contours ++ [next], ps)
     where (next, ps) = findContour (head pairs, tail pairs)
 
+-- Extract a single contour from a list of points
 findContour :: (Eq a) => ([Point a], [[Point a]]) -> ([Point a], [[Point a]])
 findContour (contour, pairs)
     | p == Nothing = (contour, pairs)
-    | otherwise = findContour (contour++(delete (last contour) p'), delete p' pairs)
+    | otherwise = findContour (contour ++ (delete (last contour) p'), delete p' pairs)
     where match p0 = head p0 == last contour || last p0 == last contour
           p = find match pairs 
           p' = fromJust p 
@@ -182,7 +185,18 @@ accumulateValues [] = []
 accumulateValues [a] = [a]
 accumulateValues (a:b:cs) = a : accumulateValues (a + b : cs)
 
+-- Generate G-code for a given contour
 gcodeForContour :: (Show a, Floating a, Num a, RealFrac a) => [Point a] -> [String]
 gcodeForContour c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
     where es = map ((++) " E") $ map show exVals
           exVals = accumulateValues $ extrusions (head c) (tail c)
+
+main :: IO ()
+main = do
+    stl <- readFile "cube.stl"
+    let stlLines = lines stl
+    let facets = facetLinesFromSTL stlLines :: [Facet Double]
+    let intersections = allIntersections 10 facets -- just a test, contour at z = 10
+    let contours = getContours intersections
+    let gcode = concatMap gcodeForContour contours
+    writeFile "sampleGcode.txt" (unlines gcode)
