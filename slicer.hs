@@ -1,7 +1,7 @@
 module Main where
 
 import Data.Char (toUpper, toLower, isSpace)
-import Data.List (nub)
+import Data.List (nub, sortBy, find, delete)
 import Data.Maybe (fromJust)
 
 ----------------------------------------------------------
@@ -27,9 +27,9 @@ instance (Show a) => Show (Point a) where
 -- TODO: Is this the best representation, or does it make sense to just have a line
 -- defined by its endpoints? It feels like doing that may make some computations more
 -- complex than they need to be.
-data Line a = Line { point :: Point a, slope :: Point a }
+data Line a = Line { point :: Point a, slope :: Point a } deriving Eq
 
-data Facet a = Facet { sides :: [Line a] }
+data Facet a = Facet { sides :: [Line a] } deriving Eq
 
 -- This should correspond to one line of G-code
 type Command = [String]
@@ -102,6 +102,8 @@ readFacet f
     | otherwise = Facet $ makeLines $ map readPoint f'
     where f' = last f : f -- So that we're cyclic
 
+-- TODO: add header
+
 -- From STL file (as a list of Strings, each String corresponding to one line),
 -- produce a list of lists of Lines, where each list of Lines corresponds to a
 -- facet in the original STL
@@ -123,4 +125,35 @@ trimIntersections l
 -- Find all the points in the mesh at a given z value
 -- Each list in the output should have length 2, corresponding to a line segment
 allIntersections :: (Eq a, RealFrac a) => a -> [Facet a] -> [[Point a]]
-allIntersections = map . triangleIntersects
+allIntersections v fs = filter (/= []) $ map (triangleIntersects v) fs
+
+-- Turn pairs of points into lists of connected points
+getContours :: (Eq a) => [[Point a]] -> [[Point a]]
+getContours = makeContours . (,) []
+
+makeContours :: (Eq a) => ([[Point a]], [[Point a]]) -> [[Point a]]
+makeContours (contours, pairs)
+    | pairs == [] = contours
+    | otherwise = makeContours (contours ++ [next], ps)
+    where (next, ps) = findContour (head pairs, tail pairs)
+
+findContour :: (Eq a) => ([Point a], [[Point a]]) -> ([Point a], [[Point a]])
+findContour (contour, pairs)
+    | p == Nothing = (contour, pairs)
+    | otherwise = findContour (contour++(delete (last contour) p'), delete p' pairs)
+    where match p0 = head p0 == last contour || last p0 == last contour
+          p = find match pairs 
+          p' = fromJust p 
+
+
+-- Sort lists of point pairs by x-value of first point in the pair
+sortSegments :: (Ord a) => [[Point a]] -> [[Point a]]
+sortSegments = sortBy orderSegments 
+
+orderSegments :: (Ord a) => [Point a] -> [Point a] -> Ordering
+orderSegments (p1:_) (p2:_) 
+    | x p1 == x p2 = compare (y p1) (y p2)
+    | otherwise = compare (x p1) (x p2)
+
+
+
