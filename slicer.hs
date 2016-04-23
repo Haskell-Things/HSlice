@@ -65,6 +65,11 @@ type Command = [String]
 showCommand :: Command -> String
 showCommand = map toUpper . unwords
 
+---------------------------------------------------------------------------
+-------------------- Point and Line Arithmetic ----------------------------
+---------------------------------------------------------------------------
+
+
 -- Add the coordinates of two points
 addPoints :: Num a => Point a -> Point a -> Point a
 addPoints (Point x1 y1 z1) (Point x2 y2 z2) = Point (x1 + x2) (y1 + y2) (z1 + z2)
@@ -73,9 +78,12 @@ addPoints (Point x1 y1 z1) (Point x2 y2 z2) = Point (x1 + x2) (y1 + y2) (z1 + z2
 scalePoint :: Num a => a -> Point a -> Point a
 scalePoint = fmap . (*)
 
+magnitude :: (Floating a, Num a) => Point a -> a
+magnitude (Point x y z) = sqrt $ x^2 + y^2 + z^2
+
 -- Distance between two points
 distance :: (Floating a, RealFrac a, Num a) => Point a -> Point a -> a
-distance (Point x1 y1 z1) (Point x2 y2 z2) = sqrt $ (x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2
+distance p1 p2 = magnitude $ addPoints p1 (scalePoint (-1) p2)
 
 -- Create a line given its endpoints
 lineFromEndpoints :: Num a => Point a -> Point a -> Line a
@@ -90,11 +98,40 @@ endpoint l = addPoints (point l) (slope l)
 -- Z value present in that line. The latter should be okay because the properties
 -- of our meshes mean that the two endpoints of our line should be captured by
 -- the other two segments of a triangle.
+pointAtXValue :: (Num a, RealFrac a) => Line a -> a -> Maybe (Point a)
+pointAtXValue (Line p m) v
+    | 0 <= t && t <= 1 = Just $ addPoints p (scalePoint t m)
+    | otherwise = Nothing
+    where t = (v - x p) / x m
+
+pointAtYValue :: (Num a, RealFrac a) => Line a -> a -> Maybe (Point a)
+pointAtYValue (Line p m) v
+    | 0 <= t && t <= 1 = Just $ addPoints p (scalePoint t m)
+    | otherwise = Nothing
+    where t = (v - y p) / y m
+
 pointAtZValue :: (Num a, RealFrac a) => Line a -> a -> Maybe (Point a)
 pointAtZValue (Line p m) v
     | 0 <= t && t <= 1 = Just $ addPoints p (scalePoint t m)
     | otherwise = Nothing
     where t = (v - z p) / z m
+
+-- Line intersection algorithm from http://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
+lineIntersection :: (Num a, RealFrac a, Eq a, Floating a) => Line a -> Line a -> Maybe (Point a)
+lineIntersection l1@(Line p r) l2@(Line q s) 
+    | twoDCrossProduct r s == 0 = Nothing
+    | 0 <= t && t <= 1 && 0 <= u && u <= 1 = Just (addPoints p (scalePoint t r))
+    | otherwise = Nothing
+    where t = (twoDCrossProduct (addPoints q (scalePoint (-1) p)) s) / (twoDCrossProduct r s)
+          u = (twoDCrossProduct (addPoints q (scalePoint (-1) p)) r) / (twoDCrossProduct r s)
+
+crossProduct :: (Num a, RealFrac a) => Point a -> Point a -> Point a
+crossProduct (Point x y z) (Point a b c) = Point (y * c - z * b) (z * a - x * c) (x * b - y * a)
+
+twoDCrossProduct :: (Num a, RealFrac a, Floating a) => Point a -> Point a -> a
+twoDCrossProduct p = magnitude . (crossProduct p)
+
+
 
 ----------------------------------------------------------
 ----------- Functions to deal with STL parsing -----------
