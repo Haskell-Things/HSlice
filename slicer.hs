@@ -250,4 +250,4 @@ main = do
     let intersections = allIntersections 10 facets -- just a test, contour at z = 10
     let contours = getContours intersections
     let gcode = concatMap gcodeForContour contours
-    writeFile "sampleGcode.txt" (unlines gcode)
+    writeFile "sampleGcode.g" (unlines gcode)
