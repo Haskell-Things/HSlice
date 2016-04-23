@@ -117,6 +117,7 @@ pointAtZValue (Line p m) v
     where t = (v - z p) / z m
 
 -- Line intersection algorithm from http://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
+-- (WOW!)
 lineIntersection :: (Num a, RealFrac a, Eq a, Floating a) => Line a -> Line a -> Maybe (Point a)
 lineIntersection l1@(Line p r) l2@(Line q s) 
     | twoDCrossProduct r s == 0 = Nothing
@@ -131,7 +132,11 @@ crossProduct (Point x y z) (Point a b c) = Point (y * c - z * b) (z * a - x * c)
 twoDCrossProduct :: (Num a, RealFrac a, Floating a) => Point a -> Point a -> a
 twoDCrossProduct p = magnitude . (crossProduct p)
 
-
+-- Orders points by x and y (x first, then sorted by y for the same x-values)
+orderPoints:: (Ord a) => Point a -> Point a -> Ordering
+orderPoints (Point x1 y1 z1) (Point x2 y2 z2) 
+    | x1 == x2 = compare y1 y2
+    | otherwise = compare x1 x2
 
 ----------------------------------------------------------
 ----------- Functions to deal with STL parsing -----------
@@ -253,6 +258,20 @@ gcodeForContour c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
 ---------------------- Contour filling --------------------------------
 -----------------------------------------------------------------------
 
+-- Make infill
+makeInfill :: (Enum a, Num a, RealFrac a, Floating a) => [[Point a]] -> [Line a]
+makeInfill contours = concatMap (infillLineInside contours) $ coveringInfill defaultFill
+
+-- Get the segments of an infill line that are inside the contour
+infillLineInside :: (Num a, RealFrac a, Floating a) => [[Point a]] -> Line a -> [Line a]
+infillLineInside contours line = map ((!!) allLines) [0,2..(length allLines) - 1]
+    where allLines = makeLines $ sortBy orderPoints $ getInfillLineIntersections contours line
+
+-- Find all places where an infill line intersects any contour line 
+getInfillLineIntersections :: (Num a, RealFrac a, Floating a) => [[Point a]] -> Line a -> [Point a]
+getInfillLineIntersections contours line = map fromJust $ filter (/= Nothing) $ map (lineIntersection line) contourLines
+    where contourLines = concatMap makeLines (map (\l -> (last l : l)) contours)
+
 -- Generate covering lines for a given percent infill
 coveringInfill :: (Enum a, Num a, RealFrac a) => Int -> [Line a]
 coveringInfill infill = pruneInfill coveringLinesUp ++ pruneInfill coveringLinesDown
@@ -284,7 +303,7 @@ main = do
     stl <- readFile "cube.stl"
     let stlLines = lines stl
     let facets = facetLinesFromSTL stlLines :: [Facet Double]
-    let intersections = allIntersections 10 facets -- just a test, contour at z = 10
+    let intersections = allIntersections 0 facets -- just a test, contour at z = 10
     let contours = getContours intersections
-    let gcode = concatMap gcodeForContour contours
+    let gcode = concatMap gcodeForContour contours ++ concatMap gcodeForLine (makeInfill contours)
     writeFile "sampleGcode.g" (unlines gcode)
