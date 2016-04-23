@@ -5,6 +5,33 @@ import Data.List (nub, sortBy, find, delete)
 import Data.Maybe (fromJust)
 
 ----------------------------------------------------------
+----------------------- Constants ------------------------
+----------------------------------------------------------
+-- TODO: Make a configuration file
+-- in mm
+nozzleDiameter, 
+    filamentDiameter, 
+    layerHeight, 
+    bedSizeX, 
+    bedSizeY, 
+    defaultBottomTopThickness, 
+    lineThickness :: (Num a, RealFrac a) => a
+
+nozzleDiameter = 0.4
+filamentDiameter = 1.75
+layerHeight = 0.2
+bedSizeX = 150.0
+bedSizeY = 150.0
+defaultBottomTopThickness = 0.8
+lineThickness = 0.6
+
+defaultPerimeterLayers,
+    defaultFill :: Int 
+defaultPerimeterLayers = 2
+defaultFill = 20
+
+
+----------------------------------------------------------
 ------------ Overhead (data structures, etc.) ------------
 ----------------------------------------------------------
 
@@ -27,7 +54,7 @@ instance (Show a) => Show (Point a) where
 -- TODO: Is this the best representation, or does it make sense to just have a line
 -- defined by its endpoints? It feels like doing that may make some computations more
 -- complex than they need to be.
-data Line a = Line { point :: Point a, slope :: Point a } deriving Eq
+data Line a = Line { point :: Point a, slope :: Point a } deriving (Eq, Show)
 
 data Facet a = Facet { sides :: [Line a] } deriving Eq
 
@@ -162,12 +189,6 @@ orderSegments (p1:_) (p2:_)
     | x p1 == x p2 = compare (y p1) (y p2)
     | otherwise = compare (x p1) (x p2)
 
--- in mm
-nozzleDiameter, filamentDiameter, layerHeight :: RealFrac a => a
-nozzleDiameter = 0.4
-filamentDiameter = 1.75
-layerHeight = 0.2
-
 -- Amount to extrude when making a line between two points
 extrusionAmount :: (Floating a, Num a, RealFrac a) => Point a -> Point a -> a
 extrusionAmount p1 p2 = nozzleDiameter * layerHeight * (2 / filamentDiameter) * l / pi
@@ -191,6 +212,36 @@ gcodeForContour c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
     where es = map ((++) " E") $ map show exVals
           exVals = accumulateValues $ extrusions (head c) (tail c)
 
+-----------------------------------------------------------------------
+---------------------- Contour filling --------------------------------
+-----------------------------------------------------------------------
+
+-- Generate covering lines for a given percent infill
+coveringInfill :: (Enum a, Num a, RealFrac a) => Int -> [Line a]
+coveringInfill infill = pruneInfill coveringLinesUp ++ pruneInfill coveringLinesDown
+    where n = div 100 infill
+          pruneInfill l = map ((!!) l)[0, n..(length l)-1]
+
+-- Generate lines over entire print area
+coveringLinesUp :: (Enum a, Num a, RealFrac a) => [Line a]
+coveringLinesUp = map (flip Line s) (map f [-bedSizeX,-bedSizeX + lineThickness..bedSizeY])
+    where s = Point (bedSizeX + bedSizeY) (bedSizeX + bedSizeY) 0
+          f v = Point 0 v 0
+
+coveringLinesDown :: (Enum a, Num a, RealFrac a) => [Line a]
+coveringLinesDown = map (flip Line s) (map f [0,lineThickness..bedSizeY + bedSizeX])
+    where s =  Point (bedSizeX + bedSizeY) (- bedSizeX - bedSizeY) 0
+          f v = Point 0 v 0
+
+gcodeForLine :: (Enum a, Num a, RealFrac a, Floating a, Show a) => Line a -> [String]
+gcodeForLine l@(Line p s) = gcodeForContour [p, endpoint l]
+
+coveringGcode :: [String]
+coveringGcode = concatMap gcodeForLine (coveringInfill 20)
+
+-----------------------------------------------------------------------
+--------------------------- Main --------------------------------------
+----------------------------------------------------------------------- 
 main :: IO ()
 main = do
     stl <- readFile "cube.stl"
