@@ -46,6 +46,10 @@ addPoints (Point x1 y1 z1) (Point x2 y2 z2) = Point (x1 + x2) (y1 + y2) (z1 + z2
 scalePoint :: Num a => a -> Point a -> Point a
 scalePoint = fmap . (*)
 
+-- Distance between two points
+distance :: (Floating a, RealFrac a, Num a) => Point a -> Point a -> a
+distance (Point x1 y1 z1) (Point x2 y2 z2) = sqrt $ (x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2
+
 -- Create a line given its endpoints
 lineFromEndpoints :: Num a => Point a -> Point a -> Line a
 lineFromEndpoints p1 p2 = Line p1 (addPoints (scalePoint (-1) p1) p2)
@@ -155,5 +159,30 @@ orderSegments (p1:_) (p2:_)
     | x p1 == x p2 = compare (y p1) (y p2)
     | otherwise = compare (x p1) (x p2)
 
+-- in mm
+nozzleDiameter, filamentDiameter, layerHeight :: RealFrac a => a
+nozzleDiameter = 0.4
+filamentDiameter = 1.75
+layerHeight = 0.2
 
+-- Amount to extrude when making a line between two points
+extrusionAmount :: (Floating a, Num a, RealFrac a) => Point a -> Point a -> a
+extrusionAmount p1 p2 = nozzleDiameter * layerHeight * (2 / filamentDiameter) * l / pi
+    where l = distance p1 p2
 
+-- Given a contour and the point to start from, evaluate to the amount to extrude between
+-- each move
+extrusions :: (Floating a, Num a, RealFrac a) => Point a -> [Point a] -> [a]
+extrusions _ [] = []
+extrusions p c = extrusionAmount p (head c) : extrusions (head c) (tail c)
+
+-- Take absolute values, turn into accumulated values
+accumulateValues :: Num a => [a] -> [a]
+accumulateValues [] = []
+accumulateValues [a] = [a]
+accumulateValues (a:b:cs) = a : accumulateValues (a + b : cs)
+
+gcodeForContour :: (Show a, Floating a, Num a, RealFrac a) => [Point a] -> [String]
+gcodeForContour c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
+    where es = map ((++) " E") $ map show exVals
+          exVals = accumulateValues $ extrusions (head c) (tail c)
