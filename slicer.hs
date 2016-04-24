@@ -93,6 +93,10 @@ lineFromEndpoints p1 p2 = Line p1 (addPoints (scalePoint (-1) p1) p2)
 endpoint :: Num a => Line a -> Point a
 endpoint l = addPoints (point l) (slope l)
 
+-- Shift a facet by the vector p
+shiftFacet :: Num a => Point a -> Facet a -> Facet a
+shiftFacet p = Facet . map (\l -> l { point = addPoints p (point l) }) . sides
+
 -- Find the point on a line for a given Z value. Note that this evaluates to Nothing
 -- in the case that there is no point with that Z value, or if that is the only
 -- Z value present in that line. The latter should be okay because the properties
@@ -148,6 +152,21 @@ facetsFromSTL [] = []
 facetsFromSTL [a] = []
 facetsFromSTL l = map (map (dropWhile isSpace)) $ f : facetsFromSTL (tail r)
     where (f, r) = break (\s -> filter (not . isSpace) (map toLower s) == "endfacet") l
+
+-- Given a list of facets, center them on the print bed
+centerFacets :: (Num a, Fractional a, RealFrac a) => [Facet a] -> [Facet a]
+centerFacets fs = map (shiftFacet (Point dx dy dz)) fs
+    where [dx,dy,dz] = zipWith (-) (map (/2) [bedSizeX,bedSizeY,0]) [x0,y0,zmin]
+          [xmin,ymin,zmin] = map minimum $
+                             foldl (zipWith (flip (:))) [[],[],[]] $
+                             map f $
+                             map point (concatMap sides fs)
+          [xmax,ymax] = map maximum $
+                        foldl (zipWith (flip (:))) [[],[]] $
+                        map (take 2 . f) $
+                        map point (concatMap sides fs)
+          [x0,y0] = zipWith (\a b -> (a + b) / 2 - b) [xmax,ymax] [xmin,ymin]
+          f p = [x,y,z] <*> pure p
 
 -- Clean up a list of strings from STL file (corresponding to a facet) into just
 -- the vertices
@@ -302,7 +321,7 @@ main :: IO ()
 main = do
     stl <- readFile "cube.stl"
     let stlLines = lines stl
-    let facets = facetLinesFromSTL stlLines :: [Facet Double]
+    let facets = centerFacets $ facetLinesFromSTL stlLines :: [Facet Double]
     let intersections = allIntersections 0 facets -- just a test, contour at z = 0
     let contours = getContours intersections
     let gcode = concatMap gcodeForContour contours ++ concatMap gcodeForLine (makeInfill contours)
