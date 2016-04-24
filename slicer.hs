@@ -134,7 +134,7 @@ crossProduct :: (Num a, RealFrac a) => Point a -> Point a -> Point a
 crossProduct (Point x y z) (Point a b c) = Point (y * c - z * b) (z * a - x * c) (x * b - y * a)
 
 twoDCrossProduct :: (Num a, RealFrac a, Floating a) => Point a -> Point a -> a
-twoDCrossProduct p = magnitude . (crossProduct p)
+twoDCrossProduct p1 p2 = z $ (crossProduct p1 {z = 0} p2 {z = 0})
 
 -- Orders points by x and y (x first, then sorted by y for the same x-values)
 orderPoints:: (Ord a) => Point a -> Point a -> Ordering
@@ -323,7 +323,7 @@ gcodeForLine :: (Read a, Enum a, Num a, RealFrac a, Floating a, Show a) => [Stri
 gcodeForLine g l@(Line p s) = gcodeForContour g [p, endpoint l]
 
 gcodeForLines :: (Read a, Enum a, Num a, RealFrac a, Floating a, Show a) => [String] -> [Line a] -> [String]
-gcodeForLines g ls = interleave (travels) $ gcodeForContour g $ (point $ head ls) : (map point ls)
+gcodeForLines g ls = interleave (gcodeForContour g $ (point $ head ls) : (map point ls)) travels
     where travels = map travelGcode $ map point ls
 
 -- Interleave two lists
@@ -352,8 +352,10 @@ main = do
     let intersections = allIntersections 0 facets -- just a test, contour at z = 0
     let contours = getContours intersections
     let contourGcode = concatMap (gcodeForContour []) contours
-    let infillGcode = gcodeForLines contourGcode $ makeInfill contours -- this is wrong
+    let infillGcode = gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours
+   -- let infillGcode = concatMap (gcodeForLine contourGcode) $ makeInfill contours -- this is wrong
     let gcode = contourGcode ++ infillGcode
+ orderPoints) $ ( map (getInfillLineIntersections contours) (coveringInfill defaultFill))
     -- TODO: concatMap doesn't make sense in general, because you can't carry the extrusion amount.
     -- I think we need to use either a separate function entirely or some sort of fold...
     -- let gcode = concatMap (gcodeForContour 0) contours ++ concatMap (gcodeForLine 0) (makeInfill contours)
