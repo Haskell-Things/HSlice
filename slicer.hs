@@ -336,10 +336,10 @@ interleave (a:as) (b:bs) = a:b:(interleave as bs)
 travelGcode :: Show a => Point a -> String
 travelGcode p = "G1 " ++ (show p)
 
-{- TODO: Why is this here?
-coveringGcode :: [String]
-coveringGcode = concatMap gcodeForLine 0 (coveringInfill 20)
--}
+fixGcode :: [String] -> [String]
+fixGcode [] = []
+fixGcode [a] = [a]
+fixGcode (a:b:cs) = (unwords $ init $ words a) : b : (fixGcode cs)
 
 -----------------------------------------------------------------------
 --------------------------- Main --------------------------------------
@@ -352,11 +352,7 @@ main = do
     let intersections = allIntersections 0 facets -- just a test, contour at z = 0
     let contours = getContours intersections
     let contourGcode = concatMap (gcodeForContour []) contours
-    let infillGcode = gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours
-   -- let infillGcode = concatMap (gcodeForLine contourGcode) $ makeInfill contours -- this is wrong
+    let infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours
     let gcode = contourGcode ++ infillGcode
- orderPoints) $ ( map (getInfillLineIntersections contours) (coveringInfill defaultFill))
-    -- TODO: concatMap doesn't make sense in general, because you can't carry the extrusion amount.
-    -- I think we need to use either a separate function entirely or some sort of fold...
-    -- let gcode = concatMap (gcodeForContour 0) contours ++ concatMap (gcodeForLine 0) (makeInfill contours)
+
     writeFile "sampleGcode.g" (unlines gcode)
