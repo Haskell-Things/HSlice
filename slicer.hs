@@ -267,11 +267,18 @@ accumulateValues [] = []
 accumulateValues [a] = [a]
 accumulateValues (a:b:cs) = a : accumulateValues (a + b : cs)
 
--- Generate G-code for a given contour
-gcodeForContour :: (Show a, Floating a, Num a, RealFrac a) => [Point a] -> [String]
-gcodeForContour c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
+-- Generate G-code for a given contour, where e is the amount we have already extruded
+gcodeForContour :: (Show a, Floating a, Num a, RealFrac a) => a -> [Point a] -> [String]
+gcodeForContour e c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
     where es = map ((++) " E") $ map show exVals
-          exVals = accumulateValues $ extrusions (head c) (tail c)
+          exVals = map (+e) $ accumulateValues $ extrusions (head c) (tail c)
+
+-- Given a list of G-code lines, find the last amount extruded
+lastExtrusionAmount :: Read a => [String] -> Maybe a
+lastExtrusionAmount gcode
+    | extrusionValues == [] = Nothing
+    | otherwise = Just $ read $ tail $ last extrusionValues
+    where extrusionValues = filter (\s -> (head s == 'E')) $ map last $ map words gcode
 
 -----------------------------------------------------------------------
 ---------------------- Contour filling --------------------------------
@@ -283,7 +290,8 @@ makeInfill contours = concatMap (infillLineInside contours) $ coveringInfill def
 
 -- Get the segments of an infill line that are inside the contour
 infillLineInside :: (Num a, RealFrac a, Floating a) => [[Point a]] -> Line a -> [Line a]
-infillLineInside contours line = map ((!!) allLines) [0,2..(length allLines) - 1]
+-- TODO: This is our problem: I think the issue is related to sorting
+infillLineInside contours line = allLines -- map ((!!) allLines) [0,2..(length allLines) - 1]
     where allLines = makeLines $ sortBy orderPoints $ getInfillLineIntersections contours line
 
 -- Find all places where an infill line intersects any contour line 
@@ -308,11 +316,13 @@ coveringLinesDown = map (flip Line s) (map f [0,lineThickness..bedSizeY + bedSiz
     where s =  Point (bedSizeX + bedSizeY) (- bedSizeX - bedSizeY) 0
           f v = Point 0 v 0
 
-gcodeForLine :: (Enum a, Num a, RealFrac a, Floating a, Show a) => Line a -> [String]
-gcodeForLine l@(Line p s) = gcodeForContour [p, endpoint l]
+gcodeForLine :: (Enum a, Num a, RealFrac a, Floating a, Show a) => a -> Line a -> [String]
+gcodeForLine e l@(Line p s) = gcodeForContour e [p, endpoint l]
 
+{- TODO: Why is this here?
 coveringGcode :: [String]
-coveringGcode = concatMap gcodeForLine (coveringInfill 20)
+coveringGcode = concatMap gcodeForLine 0 (coveringInfill 20)
+-}
 
 -----------------------------------------------------------------------
 --------------------------- Main --------------------------------------
@@ -324,5 +334,11 @@ main = do
     let facets = centerFacets $ facetLinesFromSTL stlLines :: [Facet Double]
     let intersections = allIntersections 0 facets -- just a test, contour at z = 0
     let contours = getContours intersections
-    let gcode = concatMap gcodeForContour contours ++ concatMap gcodeForLine (makeInfill contours)
+    let contourGcode = concatMap (gcodeForContour 0) contours
+    let extrudedAmount = fromJust $ lastExtrusionAmount contourGcode -- fromJust okay here, only for testing
+    let infillGcode = concatMap (gcodeForLine extrudedAmount) $ makeInfill contours -- this is wrong
+    let gcode = contourGcode ++ infillGcode
+    -- TODO: concatMap doesn't make sense in general, because you can't carry the extrusion amount.
+    -- I think we need to use either a separate function entirely or some sort of fold...
+    -- let gcode = concatMap (gcodeForContour 0) contours ++ concatMap (gcodeForLine 0) (makeInfill contours)
     writeFile "sampleGcode.g" (unlines gcode)
