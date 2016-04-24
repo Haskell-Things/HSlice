@@ -267,11 +267,14 @@ accumulateValues [] = []
 accumulateValues [a] = [a]
 accumulateValues (a:b:cs) = a : accumulateValues (a + b : cs)
 
--- Generate G-code for a given contour, where e is the amount we have already extruded
-gcodeForContour :: (Show a, Floating a, Num a, RealFrac a) => a -> [Point a] -> [String]
-gcodeForContour e c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
+-- Generate G-code for a given contour c, where g is the most recent G-code produced
+gcodeForContour :: (Read a, Show a, Floating a, Num a, RealFrac a) => [String] -> [Point a] -> [String]
+gcodeForContour g c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
     where es = map ((++) " E") $ map show exVals
           exVals = map (+e) $ accumulateValues $ extrusions (head c) (tail c)
+          lastE = lastExtrusionAmount g
+          e = case lastE of Nothing -> 0
+                            Just x -> x
 
 -- Given a list of G-code lines, find the last amount extruded
 lastExtrusionAmount :: Read a => [String] -> Maybe a
@@ -316,8 +319,22 @@ coveringLinesDown = map (flip Line s) (map f [0,lineThickness..bedSizeY + bedSiz
     where s =  Point (bedSizeX + bedSizeY) (- bedSizeX - bedSizeY) 0
           f v = Point 0 v 0
 
-gcodeForLine :: (Enum a, Num a, RealFrac a, Floating a, Show a) => a -> Line a -> [String]
-gcodeForLine e l@(Line p s) = gcodeForContour e [p, endpoint l]
+gcodeForLine :: (Read a, Enum a, Num a, RealFrac a, Floating a, Show a) => [String] -> Line a -> [String]
+gcodeForLine g l@(Line p s) = gcodeForContour g [p, endpoint l]
+
+gcodeForLines :: (Read a, Enum a, Num a, RealFrac a, Floating a, Show a) => [String] -> [Line a] -> [String]
+gcodeForLines g ls = interleave (travels) $ gcodeForContour g $ (point $ head ls) : (map point ls)
+    where travels = map travelGcode $ map point ls
+
+-- Interleave two lists
+interleave :: [a] -> [a] -> [a]
+interleave [] l2 = l2
+interleave l1 [] = l1
+interleave (a:as) (b:bs) = a:b:(interleave as bs)
+
+-- G-code to travel to a point without extruding
+travelGcode :: Show a => Point a -> String
+travelGcode p = "G1 " ++ (show p)
 
 {- TODO: Why is this here?
 coveringGcode :: [String]
@@ -334,9 +351,8 @@ main = do
     let facets = centerFacets $ facetLinesFromSTL stlLines :: [Facet Double]
     let intersections = allIntersections 0 facets -- just a test, contour at z = 0
     let contours = getContours intersections
-    let contourGcode = concatMap (gcodeForContour 0) contours
-    let extrudedAmount = fromJust $ lastExtrusionAmount contourGcode -- fromJust okay here, only for testing
-    let infillGcode = concatMap (gcodeForLine extrudedAmount) $ makeInfill contours -- this is wrong
+    let contourGcode = concatMap (gcodeForContour []) contours
+    let infillGcode = gcodeForLines contourGcode $ makeInfill contours -- this is wrong
     let gcode = contourGcode ++ infillGcode
     -- TODO: concatMap doesn't make sense in general, because you can't carry the extrusion amount.
     -- I think we need to use either a separate function entirely or some sort of fold...
