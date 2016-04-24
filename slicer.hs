@@ -269,7 +269,7 @@ infillLineInside contours line = map ((!!) allLines) [0,2..(length allLines) - 1
 
 -- Find all places where an infill line intersects any contour line 
 getInfillLineIntersections :: (Num a, RealFrac a, Floating a) => [[Point a]] -> Line a -> [Point a]
-getInfillLineIntersections contours line = map fromJust $ filter (/= Nothing) $ map (lineIntersection line) contourLines
+getInfillLineIntersections contours line = nub $ map fromJust $ filter (/= Nothing) $ map (lineIntersection line) contourLines
     where contourLines = concatMap makeLines (map (\l -> (last l : l)) contours)
 
 -- Generate covering lines for a given percent infill
@@ -303,7 +303,7 @@ main = do
     stl <- readFile "cube.stl"
     let stlLines = lines stl
     let facets = facetLinesFromSTL stlLines :: [Facet Double]
-    let intersections = allIntersections 0 facets -- just a test, contour at z = 10
+    let intersections = allIntersections 0 facets -- just a test, contour at z = 0
     let contours = getContours intersections
     let gcode = concatMap gcodeForContour contours ++ concatMap gcodeForLine (makeInfill contours)
     writeFile "sampleGcode.g" (unlines gcode)
