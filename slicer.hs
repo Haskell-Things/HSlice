@@ -378,7 +378,7 @@ getInfillLineIntersections contours line = nub $ map fromJust $ filter (/= Nothi
 -- Generate covering lines for a given percent infill
 coveringInfill :: (Enum a, Num a, RealFrac a) => Int -> a -> [Line a]
 coveringInfill infill z = pruneInfill (coveringLinesUp z) ++ pruneInfill (coveringLinesDown z)
-    where n = div 100 infill
+    where n = max 1 (div 100 infill)
           pruneInfill l = map ((!!) l)[0, n..(length l)-1]
 
 -- Generate lines over entire print area
