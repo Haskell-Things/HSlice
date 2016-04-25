@@ -59,20 +59,26 @@ options :: [OptDescr (Options -> IO Options)]
 options =
     [ Option "p" ["perimeter"]
         (ReqArg
-            (\arg opt -> return opt { perimeterLayers = read arg })
+            (\arg opt -> if (read arg) > 0 then return opt { perimeterLayers = read arg }
+                         else return opt)
             "Perimeter layers")
         "Perimeter layers"
     , Option "i" ["infill"]
         (ReqArg
-            (\arg opt -> return opt { infill = read arg })
+            (\arg opt -> if (read arg) >= 0 then return opt { infill = read arg }
+                         else return opt)
             "Infill percentage")
         "Infill percentage"
     , Option "t" ["thickness"]
-        (ReqArg
-            (\arg opt -> return opt { thickness = read arg })
-            "Layer thickness (mm)")
+        (ReqArg tParser "Layer thickness (mm)")
         "Layer thickness (mm)"
     ]
+
+tParser :: String -> Options -> IO Options
+tParser arg opt
+    | argVal > 0 = return opt { thickness = argVal }
+    | otherwise = return opt
+    where argVal = read arg :: Double
 
 -- A Point data structure
 data Point a = Point { x :: a, y :: a, z :: a } deriving Eq
@@ -442,7 +448,7 @@ layerType (fromStart, toEnd)
 main :: IO ()
 main = do
     args <- getArgs
-    let (actions, nonOptions, errors) = getOpt RequireOrder options args
+    let (actions, nonOptions, errors) = getOpt Permute options args
     opts <- foldl (>>=) (return defaultOptions) actions
     let Options { perimeterLayers = perimeter
                 , infill = infill
