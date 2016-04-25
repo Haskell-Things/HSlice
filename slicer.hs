@@ -1,8 +1,12 @@
 module Main where
 
+import Control.Monad (guard)
 import Data.Char (toUpper, toLower, isSpace)
 import Data.List (nub, sortBy, find, delete)
 import Data.Maybe (fromJust)
+import System.Console.GetOpt
+import System.Environment (getArgs)
+import System.Exit (exitFailure)
 
 ----------------------------------------------------------
 ----------------------- Constants ------------------------
@@ -36,6 +40,39 @@ defaultTopBottomLayers = round $ defaultBottomTopThickness / layerHeight
 ----------------------------------------------------------
 ------------ Overhead (data structures, etc.) ------------
 ----------------------------------------------------------
+
+-- Flags and options adapted from https://wiki.haskell.org/High-level_option_handling_with_GetOpt
+-- Parts of main also adapted from there.
+data Flag = PerimeterLayers Int
+          | Infill Int
+          | Thickness Double
+
+data Options = Options { perimeterLayers :: Int
+                       , infill :: Int
+                       , thickness :: Double
+                       } deriving Show
+
+defaultOptions :: Options
+defaultOptions = Options defaultPerimeterLayers defaultFill layerHeight
+
+options :: [OptDescr (Options -> IO Options)]
+options =
+    [ Option "p" ["perimeter"]
+        (ReqArg
+            (\arg opt -> return opt { perimeterLayers = read arg })
+            "Perimeter layers")
+        "Perimeter layers"
+    , Option "i" ["infill"]
+        (ReqArg
+            (\arg opt -> return opt { infill = read arg })
+            "Infill percentage")
+        "Infill percentage"
+    , Option "t" ["thickness"]
+        (ReqArg
+            (\arg opt -> return opt { thickness = read arg })
+            "Layer thickness (mm)")
+        "Layer thickness (mm)"
+    ]
 
 -- A Point data structure
 data Point a = Point { x :: a, y :: a, z :: a } deriving Eq
@@ -404,16 +441,24 @@ layerType (fromStart, toEnd)
 ----------------------------------------------------------------------- 
 main :: IO ()
 main = do
-    stl <- readFile "cube.stl"
-    let stlLines = lines stl
-    let facets = centerFacets $ facetLinesFromSTL stlLines :: [Facet Double]
-    let allLayers = layers facets
-    let gcode = theWholeDamnThing $ zip3 allLayers [1..length allLayers] $ reverse [1..length allLayers]
-    --let intersections = allIntersections 1.2 facets -- just a test, contour at z = 0
-    --let contours = getContours intersections
-    --print contours
-    --let contourGcode = concatMap (gcodeForContour []) contours
-    --let infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours
-    --let gcode = contourGcode -- ++ infillGcode
-
-    writeFile "sampleGcode.g" (unlines gcode)
+    args <- getArgs
+    let (actions, nonOptions, errors) = getOpt RequireOrder options args
+    opts <- foldl (>>=) (return defaultOptions) actions
+    let Options { perimeterLayers = perimeter
+                , infill = infill
+                , thickness = thickness } = opts
+    if length nonOptions == 0 then (putStrLn "Error: Enter a file name") else do
+        let fname = head nonOptions
+        stl <- readFile fname
+        let stlLines = lines stl
+        let facets = centerFacets $ facetLinesFromSTL stlLines :: [Facet Double]
+        let allLayers = layers facets
+        let gcode = theWholeDamnThing $ zip3 allLayers [1..length allLayers] $ reverse [1..length allLayers]
+        --let intersections = allIntersections 1.2 facets -- just a test, contour at z = 0
+        --let contours = getContours intersections
+        --print contours
+        --let contourGcode = concatMap (gcodeForContour []) contours
+        --let infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours
+        --let gcode = contourGcode -- ++ infillGcode
+    
+        writeFile "sampleGcode.g" (unlines gcode)
