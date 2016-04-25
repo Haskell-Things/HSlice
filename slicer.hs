@@ -65,6 +65,13 @@ type Command = [String]
 showCommand :: Command -> String
 showCommand = map toUpper . unwords
 
+-- Map a function to every other value in a list. This is useful for fixing non-extruding
+-- lines.
+mapEveryOther :: (a -> a) -> [a] -> [a]
+mapEveryOther _ [] = []
+mapEveryOther f [a] = [f a]
+mapEveryOther f (a:b:cs) = (f a) : b : mapEveryOther f cs
+
 ---------------------------------------------------------------------------
 -------------------- Point and Line Arithmetic ----------------------------
 ---------------------------------------------------------------------------
@@ -92,6 +99,10 @@ lineFromEndpoints p1 p2 = Line p1 (addPoints (scalePoint (-1) p1) p2)
 -- Get the other endpoint
 endpoint :: Num a => Line a -> Point a
 endpoint l = addPoints (point l) (slope l)
+
+-- Express a line in terms of the other endpoint
+flipLine :: Num a => Line a -> Line a
+flipLine l@(Line _ s) = Line (endpoint l) (scalePoint (-1) s)
 
 -- Shift a facet by the vector p
 shiftFacet :: Num a => Point a -> Facet a -> Facet a
@@ -365,12 +376,12 @@ theWholeDamnThing [] = []
 theWholeDamnThing [a] = contourGcode -- ++ infillGcode
     where contours = getContours a
           contourGcode = concatMap (gcodeForContour []) contours
-          infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours
+          infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill contours
 theWholeDamnThing (a:as) = theRest ++ [travelGcode (head $ head contours)] ++ contourGcode ++ infillGcode
     where theRest = theWholeDamnThing as
           contours = getContours a
           contourGcode = concatMap (gcodeForContour theRest) contours -- TODO: once we have > 1 contour per layer, this will be trash
-          infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours
+          infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill contours
 
 
 -----------------------------------------------------------------------
