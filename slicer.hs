@@ -26,9 +26,11 @@ defaultBottomTopThickness = 0.8
 lineThickness = 0.6
 
 defaultPerimeterLayers,
+    defaultTopBottomLayers,
     defaultFill :: Int 
 defaultPerimeterLayers = 2
 defaultFill = 20
+defaultTopBottomLayers = round $ defaultBottomTopThickness / layerHeight
 
 
 ----------------------------------------------------------
@@ -58,8 +60,12 @@ data Line a = Line { point :: Point a, slope :: Point a } deriving (Eq, Show)
 
 data Facet a = Facet { sides :: [Line a] } deriving Eq
 
+data LayerType = BaseOdd | BaseEven | Middle
+
 -- This should correspond to one line of G-code
 type Command = [String]
+
+
 
 -- Given a command, write it as one line of G-code
 showCommand :: Command -> String
@@ -296,8 +302,12 @@ lastExtrusionAmount gcode
 -----------------------------------------------------------------------
 
 -- Make infill
-makeInfill :: (Enum a, Num a, RealFrac a, Floating a) => [[Point a]] -> [Line a]
-makeInfill contours = concatMap (infillLineInside contours) $ coveringInfill defaultFill (z (head (head contours)))
+makeInfill :: (Enum a, Num a, RealFrac a, Floating a) => [[Point a]] -> LayerType -> [Line a]
+makeInfill contours layerType = concatMap (infillLineInside contours) $ infillCover layerType
+    where infillCover Middle = coveringInfill defaultFill zHeight
+          infillCover BaseEven = coveringLinesUp zHeight
+          infillCover BaseOdd = coveringLinesDown zHeight
+          zHeight = (z (head (head contours)))
 
 -- Get the segments of an infill line that are inside the contour
 infillLineInside :: (Num a, RealFrac a, Floating a) => [[Point a]] -> Line a -> [Line a]
@@ -360,18 +370,23 @@ layers fs = map allIntersections [zmax,zmax-layerHeight..0] <*> pure fs
     where zmax = maximum $ map z $ map point (concatMap sides fs)
 
 -- Input should be top to bottom, output should be bottom to top
-theWholeDamnThing :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => [[[Point a]]] -> [String]
+theWholeDamnThing :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => [([[Point a]], Int, Int)] -> [String]
 theWholeDamnThing [] = []
-theWholeDamnThing [a] = contourGcode -- ++ infillGcode
+theWholeDamnThing [(a, fromStart, toEnd)] = contourGcode ++ infillGcode
     where contours = getContours a
           contourGcode = concatMap (gcodeForContour []) contours
-          infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours
-theWholeDamnThing (a:as) = theRest ++ [travelGcode (head $ head contours)] ++ contourGcode ++ infillGcode
+          infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours $ layerType (fromStart, toEnd)
+theWholeDamnThing ((a, fromStart, toEnd):as) = theRest ++ [travelGcode (head $ head contours)] ++ contourGcode ++ infillGcode
     where theRest = theWholeDamnThing as
           contours = getContours a
           contourGcode = concatMap (gcodeForContour theRest) contours -- TODO: once we have > 1 contour per layer, this will be trash
-          infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours
+          infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours $ layerType (fromStart, toEnd)
 
+layerType :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => (Int, Int) -> LayerType
+layerType (fromStart, toEnd)
+    | fromStart <= defaultTopBottomLayers || toEnd <= defaultTopBottomLayers && fromStart `mod` 2 == 0 = BaseEven
+    | fromStart <= defaultTopBottomLayers || toEnd <= defaultTopBottomLayers && fromStart `mod` 2 == 1 = BaseOdd
+    | otherwise = Middle
 
 -----------------------------------------------------------------------
 --------------------------- Main --------------------------------------
@@ -382,7 +397,7 @@ main = do
     let stlLines = lines stl
     let facets = centerFacets $ facetLinesFromSTL stlLines :: [Facet Double]
     let allLayers = layers facets
-    let gcode = theWholeDamnThing allLayers
+    let gcode = theWholeDamnThing $ zip3 allLayers [1..length allLayers] $ reverse [1..length allLayers]
     --let intersections = allIntersections 1.2 facets -- just a test, contour at z = 0
     --let contours = getContours intersections
     --print contours
