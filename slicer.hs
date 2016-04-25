@@ -1,3 +1,5 @@
+{-# LANGUAGE Rank2Types #-}
+ 
 module Main where
 
 import Control.Monad (guard)
@@ -15,7 +17,7 @@ import System.Exit (exitFailure)
 -- in mm
 nozzleDiameter, 
     filamentDiameter, 
-    layerHeight, 
+    defaultThickness, 
     bedSizeX, 
     bedSizeY, 
     defaultBottomTopThickness, 
@@ -23,18 +25,15 @@ nozzleDiameter,
 
 nozzleDiameter = 0.4
 filamentDiameter = 1.75
-layerHeight = 0.2
+defaultThickness = 0.2
 bedSizeX = 150.0
 bedSizeY = 150.0
 defaultBottomTopThickness = 0.8
 lineThickness = 0.6
 
-defaultPerimeterLayers,
-    defaultTopBottomLayers,
-    defaultFill :: Int 
+defaultPerimeterLayers, defaultFill :: Int 
 defaultPerimeterLayers = 2
 defaultFill = 20
-defaultTopBottomLayers = round $ defaultBottomTopThickness / layerHeight
 
 
 ----------------------------------------------------------
@@ -49,11 +48,11 @@ data Flag = PerimeterLayers Int
 
 data Options = Options { perimeterLayers :: Int
                        , infill :: Int
-                       , thickness :: Double
-                       } deriving Show
+                       , thickness :: forall a. (Read a, Floating a, RealFrac a) => a
+                       }
 
 defaultOptions :: Options
-defaultOptions = Options defaultPerimeterLayers defaultFill layerHeight
+defaultOptions = Options defaultPerimeterLayers defaultFill defaultThickness
 
 options :: [OptDescr (Options -> IO Options)]
 options =
@@ -76,7 +75,7 @@ options =
 
 tParser :: String -> Options -> IO Options
 tParser arg opt
-    | argVal > 0 = return opt { thickness = argVal }
+    | argVal > 0 = return opt { thickness = read $ show argVal }
     | otherwise = return opt
     where argVal = read arg :: Double
 
@@ -319,15 +318,16 @@ orderSegments (p1:_) (p2:_)
     | otherwise = compare (x p1) (x p2)
 
 -- Amount to extrude when making a line between two points
-extrusionAmount :: (Floating a, Num a, RealFrac a) => Point a -> Point a -> a
-extrusionAmount p1 p2 = nozzleDiameter * layerHeight * (2 / filamentDiameter) * l / pi
+extrusionAmount :: (Read a, Floating a, Num a, RealFrac a) => Options -> Point a -> Point a -> a
+extrusionAmount opts p1 p2 = nozzleDiameter * t * (2 / filamentDiameter) * l / pi
     where l = distance p1 p2
+          t = thickness opts
 
 -- Given a contour and the point to start from, evaluate to the amount to extrude between
 -- each move
-extrusions :: (Floating a, Num a, RealFrac a) => Point a -> [Point a] -> [a]
-extrusions _ [] = []
-extrusions p c = extrusionAmount p (head c) : extrusions (head c) (tail c)
+extrusions :: (Read a, Floating a, Num a, RealFrac a) => Options -> Point a -> [Point a] -> [a]
+extrusions _ _ [] = []
+extrusions opts p c = extrusionAmount opts p (head c) : extrusions opts (head c) (tail c)
 
 -- Take absolute values, turn into accumulated values
 accumulateValues :: Num a => [a] -> [a]
@@ -336,10 +336,10 @@ accumulateValues [a] = [a]
 accumulateValues (a:b:cs) = a : accumulateValues (a + b : cs)
 
 -- Generate G-code for a given contour c, where g is the most recent G-code produced
-gcodeForContour :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a) => [String] -> [Point a] -> [String]
-gcodeForContour g c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
+gcodeForContour :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a) => Options -> [String] -> [Point a] -> [String]
+gcodeForContour opts g c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
     where es = map ((++) " E") $ map show exVals
-          exVals = map (+e) $ accumulateValues $ extrusions (head c) (tail c)
+          exVals = map (+e) $ accumulateValues $ extrusions opts (head c) (tail c)
           lastE = lastExtrusionAmount g
           e = case lastE of Nothing -> 0
                             Just x -> x
@@ -356,12 +356,13 @@ lastExtrusionAmount gcode
 -----------------------------------------------------------------------
 
 -- Make infill
-makeInfill :: (Enum a, Num a, RealFrac a, Floating a) => [[Point a]] -> LayerType -> [Line a]
-makeInfill contours layerType = concatMap (infillLineInside contours) $ infillCover layerType
-    where infillCover Middle = coveringInfill defaultFill zHeight
+makeInfill :: (Enum a, Num a, RealFrac a, Floating a) => Options -> [[Point a]] -> LayerType -> [Line a]
+makeInfill opts contours layerType = concatMap (infillLineInside contours) $ infillCover layerType
+    where infillCover Middle = coveringInfill fillAmount zHeight
           infillCover BaseEven = coveringLinesUp zHeight
           infillCover BaseOdd = coveringLinesDown zHeight
           zHeight = (z (head (head contours)))
+          fillAmount = infill opts
 
 -- Get the segments of an infill line that are inside the contour
 infillLineInside :: (Num a, RealFrac a, Floating a) => [[Point a]] -> Line a -> [Line a]
@@ -391,11 +392,11 @@ coveringLinesDown z = map (flip Line s) (map f [0,lineThickness..bedSizeY + bedS
     where s =  Point (bedSizeX + bedSizeY) (- bedSizeX - bedSizeY) 0
           f v = Point 0 v z
 
-gcodeForLine :: (Read a, Enum a, Num a, RealFrac a, Floating a, Show a) => [String] -> Line a -> [String]
-gcodeForLine g l@(Line p s) = gcodeForContour g [p, endpoint l]
+gcodeForLine :: (Read a, Enum a, Num a, RealFrac a, Floating a, Show a) => Options -> [String] -> Line a -> [String]
+gcodeForLine opts g l@(Line p s) = gcodeForContour opts g [p, endpoint l]
 
-gcodeForLines :: (Read a, Enum a, Num a, RealFrac a, Floating a, Show a) => [String] -> [Line a] -> [String]
-gcodeForLines g ls = interleave (gcodeForContour g $ (point $ head ls) : (map point ls)) travels
+gcodeForLines :: (Read a, Enum a, Num a, RealFrac a, Floating a, Show a) => Options -> [String] -> [Line a] -> [String]
+gcodeForLines opts g ls = interleave (gcodeForContour opts g $ (point $ head ls) : (map point ls)) travels
     where travels = map travelGcode $ map point ls
 
 -- Interleave two lists
@@ -419,28 +420,31 @@ fixGcode (a:b:cs) = (unwords $ init $ words a) : b : (fixGcode cs)
 -----------------------------------------------------------------------
 
 -- Create contours from a list of facets
-layers :: (RealFrac a, Ord a, Enum a) => [Facet a] -> [[[Point a]]]
-layers fs = map allIntersections [zmax,zmax-layerHeight..0] <*> pure fs
+layers :: (Floating a, Read a, RealFrac a, Ord a, Enum a) => Options -> [Facet a] -> [[[Point a]]]
+layers opts fs = map allIntersections [zmax,zmax-t..0] <*> pure fs
     where zmax = maximum $ map z $ map point (concatMap sides fs)
+          t = thickness opts
 
 -- Input should be top to bottom, output should be bottom to top
-theWholeDamnThing :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => [([[Point a]], Int, Int)] -> [String]
-theWholeDamnThing [] = []
-theWholeDamnThing [(a, fromStart, toEnd)] = contourGcode ++ infillGcode
+theWholeDamnThing :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => Options -> [([[Point a]], Int, Int)] -> [String]
+theWholeDamnThing _ [] = []
+theWholeDamnThing opts [(a, fromStart, toEnd)] = contourGcode ++ infillGcode
     where contours = getContours a
-          contourGcode = concatMap (gcodeForContour []) contours
-          infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill contours $ layerType (fromStart, toEnd)
-theWholeDamnThing ((a, fromStart, toEnd):as) = theRest ++ [travelGcode (head $ head contours)] ++ contourGcode ++ infillGcode
-    where theRest = theWholeDamnThing as
+          contourGcode = concatMap (gcodeForContour opts []) contours
+          infillGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts contours $ layerType opts (fromStart, toEnd)
+theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest ++ [travelGcode (head $ head contours)] ++ contourGcode ++ infillGcode
+    where theRest = theWholeDamnThing opts as
           contours = getContours a
-          contourGcode = concatMap (gcodeForContour theRest) contours -- TODO: once we have > 1 contour per layer, this will be trash
-          infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill contours $ layerType (fromStart, toEnd)
+          contourGcode = concatMap (gcodeForContour opts theRest) contours -- TODO: once we have > 1 contour per layer, this will be trash
+          infillGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts contours $ layerType opts (fromStart, toEnd)
 
-layerType :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => (Int, Int) -> LayerType
-layerType (fromStart, toEnd)
-    | fromStart <= defaultTopBottomLayers || toEnd <= defaultTopBottomLayers && fromStart `mod` 2 == 0 = BaseEven
-    | fromStart <= defaultTopBottomLayers || toEnd <= defaultTopBottomLayers && fromStart `mod` 2 == 1 = BaseOdd
+layerType :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => Options -> (Int, Int) -> LayerType
+layerType opts (fromStart, toEnd)
+    | fromStart <= topBottomLayers || toEnd <= topBottomLayers && fromStart `mod` 2 == 0 = BaseEven
+    | fromStart <= topBottomLayers || toEnd <= topBottomLayers && fromStart `mod` 2 == 1 = BaseOdd
     | otherwise = Middle
+    where topBottomLayers = round $ defaultBottomTopThickness / t
+          t = thickness opts
 
 -----------------------------------------------------------------------
 --------------------------- Main --------------------------------------
@@ -458,8 +462,8 @@ main = do
         stl <- readFile fname
         let stlLines = lines stl
         let facets = centerFacets $ facetLinesFromSTL stlLines :: [Facet Double]
-        let allLayers = layers facets
-        let gcode = theWholeDamnThing $ zip3 allLayers [1..length allLayers] $ reverse [1..length allLayers]
+        let allLayers = layers opts facets
+        let gcode = theWholeDamnThing opts $ zip3 allLayers [1..length allLayers] $ reverse [1..length allLayers]
         --let intersections = allIntersections 1.2 facets -- just a test, contour at z = 0
         --let contours = getContours intersections
         --print contours
