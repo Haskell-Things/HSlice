@@ -142,6 +142,14 @@ orderPoints (Point x1 y1 z1) (Point x2 y2 z2)
     | x1 == x2 = compare y1 y2
     | otherwise = compare x1 x2
 
+
+-- round
+roundToFifth :: (Num a, RealFrac a, Fractional a) => a -> a
+roundToFifth a = (fromIntegral $ round (100000 * a)) / 100000
+
+-- round point
+roundPoint :: (Num a, RealFrac a, Fractional a) => Point a -> Point a 
+roundPoint (Point x y z) = Point (roundToFifth x) (roundToFifth y) (roundToFifth z)
 ----------------------------------------------------------
 ----------- Functions to deal with STL parsing -----------
 ----------------------------------------------------------
@@ -217,7 +225,7 @@ trimIntersections l
 -- Find all the points in the mesh at a given z value
 -- Each list in the output should have length 2, corresponding to a line segment
 allIntersections :: (Eq a, RealFrac a) => a -> [Facet a] -> [[Point a]]
-allIntersections v fs = filter (/= []) $ map (triangleIntersects v) fs
+allIntersections v fs = map (map roundPoint) $ filter (/= []) $ map (triangleIntersects v) fs
 
 -- Turn pairs of points into lists of connected points
 getContours :: (Eq a) => [[Point a]] -> [[Point a]]
@@ -268,7 +276,7 @@ accumulateValues [a] = [a]
 accumulateValues (a:b:cs) = a : accumulateValues (a + b : cs)
 
 -- Generate G-code for a given contour c, where g is the most recent G-code produced
-gcodeForContour :: (Read a, Show a, Floating a, Num a, RealFrac a) => [String] -> [Point a] -> [String]
+gcodeForContour :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a) => [String] -> [Point a] -> [String]
 gcodeForContour g c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
     where es = map ((++) " E") $ map show exVals
           exVals = map (+e) $ accumulateValues $ extrusions (head c) (tail c)
@@ -289,7 +297,7 @@ lastExtrusionAmount gcode
 
 -- Make infill
 makeInfill :: (Enum a, Num a, RealFrac a, Floating a) => [[Point a]] -> [Line a]
-makeInfill contours = concatMap (infillLineInside contours) $ coveringInfill defaultFill
+makeInfill contours = concatMap (infillLineInside contours) $ coveringInfill defaultFill (z (head (head contours)))
 
 -- Get the segments of an infill line that are inside the contour
 infillLineInside :: (Num a, RealFrac a, Floating a) => [[Point a]] -> Line a -> [Line a]
@@ -300,24 +308,24 @@ infillLineInside contours line = allLines -- map ((!!) allLines) [0,2..(length a
 -- Find all places where an infill line intersects any contour line 
 getInfillLineIntersections :: (Num a, RealFrac a, Floating a) => [[Point a]] -> Line a -> [Point a]
 getInfillLineIntersections contours line = nub $ map fromJust $ filter (/= Nothing) $ map (lineIntersection line) contourLines
-    where contourLines = concatMap makeLines (map (\l -> (last l : l)) contours)
+    where contourLines = concatMap makeLines contours
 
 -- Generate covering lines for a given percent infill
-coveringInfill :: (Enum a, Num a, RealFrac a) => Int -> [Line a]
-coveringInfill infill = pruneInfill coveringLinesUp ++ pruneInfill coveringLinesDown
+coveringInfill :: (Enum a, Num a, RealFrac a) => Int -> a -> [Line a]
+coveringInfill infill z = pruneInfill (coveringLinesUp z) ++ pruneInfill (coveringLinesDown z)
     where n = div 100 infill
           pruneInfill l = map ((!!) l)[0, n..(length l)-1]
 
 -- Generate lines over entire print area
-coveringLinesUp :: (Enum a, Num a, RealFrac a) => [Line a]
-coveringLinesUp = map (flip Line s) (map f [-bedSizeX,-bedSizeX + lineThickness..bedSizeY])
+coveringLinesUp :: (Enum a, Num a, RealFrac a) => a -> [Line a]
+coveringLinesUp z = map (flip Line s) (map f [-bedSizeX,-bedSizeX + lineThickness..bedSizeY])
     where s = Point (bedSizeX + bedSizeY) (bedSizeX + bedSizeY) 0
-          f v = Point 0 v 0
+          f v = Point 0 v z
 
-coveringLinesDown :: (Enum a, Num a, RealFrac a) => [Line a]
-coveringLinesDown = map (flip Line s) (map f [0,lineThickness..bedSizeY + bedSizeX])
+coveringLinesDown :: (Enum a, Num a, RealFrac a) => a -> [Line a]
+coveringLinesDown z = map (flip Line s) (map f [0,lineThickness..bedSizeY + bedSizeX])
     where s =  Point (bedSizeX + bedSizeY) (- bedSizeX - bedSizeY) 0
-          f v = Point 0 v 0
+          f v = Point 0 v z
 
 gcodeForLine :: (Read a, Enum a, Num a, RealFrac a, Floating a, Show a) => [String] -> Line a -> [String]
 gcodeForLine g l@(Line p s) = gcodeForContour g [p, endpoint l]
@@ -333,13 +341,37 @@ interleave l1 [] = l1
 interleave (a:as) (b:bs) = a:b:(interleave as bs)
 
 -- G-code to travel to a point without extruding
-travelGcode :: Show a => Point a -> String
+travelGcode :: (Num a, Fractional a, RealFrac a ,Show a) => Point a -> String
 travelGcode p = "G1 " ++ (show p)
 
+-- I'm not super happy about this, but it makes extrusion values correct
 fixGcode :: [String] -> [String]
 fixGcode [] = []
 fixGcode [a] = [a]
 fixGcode (a:b:cs) = (unwords $ init $ words a) : b : (fixGcode cs)
+
+-----------------------------------------------------------------------
+--------------------------- LAYERS ------------------------------------
+-----------------------------------------------------------------------
+
+-- Create contours from a list of facets
+layers :: (RealFrac a, Ord a, Enum a) => [Facet a] -> [[[Point a]]]
+layers fs = map allIntersections [zmax,zmax-layerHeight..0] <*> pure fs
+    where zmax = maximum $ map z $ map point (concatMap sides fs)
+
+-- Input should be top to bottom, output should be bottom to top
+theWholeDamnThing :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => [[[Point a]]] -> [String]
+theWholeDamnThing [] = []
+theWholeDamnThing [a] = contourGcode -- ++ infillGcode
+    where contours = getContours a
+          contourGcode = concatMap (gcodeForContour []) contours
+          infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours
+theWholeDamnThing (a:as) = theRest ++ [travelGcode (head $ head contours)] ++ contourGcode ++ infillGcode
+    where theRest = theWholeDamnThing as
+          contours = getContours a
+          contourGcode = concatMap (gcodeForContour theRest) contours -- TODO: once we have > 1 contour per layer, this will be trash
+          infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours
+
 
 -----------------------------------------------------------------------
 --------------------------- Main --------------------------------------
@@ -349,10 +381,13 @@ main = do
     stl <- readFile "cube.stl"
     let stlLines = lines stl
     let facets = centerFacets $ facetLinesFromSTL stlLines :: [Facet Double]
-    let intersections = allIntersections 0 facets -- just a test, contour at z = 0
-    let contours = getContours intersections
-    let contourGcode = concatMap (gcodeForContour []) contours
-    let infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours
-    let gcode = contourGcode ++ infillGcode
+    let allLayers = layers facets
+    let gcode = theWholeDamnThing allLayers
+    --let intersections = allIntersections 1.2 facets -- just a test, contour at z = 0
+    --let contours = getContours intersections
+    --print contours
+    --let contourGcode = concatMap (gcodeForContour []) contours
+    --let infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours
+    --let gcode = contourGcode -- ++ infillGcode
 
     writeFile "sampleGcode.g" (unlines gcode)
