@@ -107,6 +107,9 @@ data LayerType = BaseOdd | BaseEven | Middle
 -- This should correspond to one line of G-code
 type Command = [String]
 
+type Contour a = [Point a]
+
+
 
 
 -- Given a command, write it as one line of G-code
@@ -201,6 +204,11 @@ orderPoints (Point x1 y1 z1) (Point x2 y2 z2)
     | x1 == x2 = compare y1 y2
     | otherwise = compare x1 x2
 
+orderAlongLine :: (Ord a, Floating a) => Line a -> Point a -> Point a -> Ordering
+orderAlongLine line p1@(Point x1 y1 z1) p2@(Point x2 y2 z2)
+    | x1 == x2 && y1 == y2 && z1 == z2 = compare z1 z2
+    | otherwise = compare (magnitude $ addPoints (point line) (scalePoint (-1) p1)) (magnitude $ addPoints (point line) (scalePoint (-1) p2))
+
 
 -- round
 roundToFifth :: (Num a, RealFrac a, Fractional a) => a -> a
@@ -209,6 +217,8 @@ roundToFifth a = (fromIntegral $ round (100000 * a)) / 100000
 -- round point
 roundPoint :: (Num a, RealFrac a, Fractional a) => Point a -> Point a 
 roundPoint (Point x y z) = Point (roundToFifth x) (roundToFifth y) (roundToFifth z)
+
+
 ----------------------------------------------------------
 ----------- Functions to deal with STL parsing -----------
 ----------------------------------------------------------
@@ -308,6 +318,7 @@ findContour (contour, pairs)
           p' = fromJust p 
 
 
+
 -- Sort lists of point pairs by x-value of first point in the pair
 sortSegments :: (Ord a) => [[Point a]] -> [[Point a]]
 sortSegments = sortBy orderSegments 
@@ -351,6 +362,8 @@ lastExtrusionAmount gcode
     | otherwise = Just $ read $ tail $ last extrusionValues
     where extrusionValues = filter (\s -> (head s == 'E')) $ map last $ map words gcode
 
+
+
 -----------------------------------------------------------------------
 ---------------------- Contour filling --------------------------------
 -----------------------------------------------------------------------
@@ -367,7 +380,7 @@ makeInfill opts contours layerType = concatMap (infillLineInside contours) $ inf
 -- Get the segments of an infill line that are inside the contour
 infillLineInside :: (Num a, RealFrac a, Floating a) => [[Point a]] -> Line a -> [Line a]
 -- TODO: This is our problem: I think the issue is related to sorting
-infillLineInside contours line = allLines -- map ((!!) allLines) [0,2..(length allLines) - 1]
+infillLineInside contours line = map ((!!) allLines) [0,2..(length allLines) - 1] 
     where allLines = makeLines $ sortBy orderPoints $ getInfillLineIntersections contours line
 
 -- Find all places where an infill line intersects any contour line 
@@ -416,6 +429,43 @@ fixGcode [a] = [a]
 fixGcode (a:b:cs) = (unwords $ init $ words a) : b : (fixGcode cs)
 
 -----------------------------------------------------------------------
+----------------------------- SUPPORT ---------------------------------
+-----------------------------------------------------------------------
+
+-- Get a bounding box of all contours 
+boundingBoxAll :: (Ord a) => [Contour a] -> [a]
+boundingBoxAll contours = (map minimum $ map (\n -> map (!!n) bBoxes) [0, 1]) ++ (map maximum $ map (\n -> map (!!n) bBoxes) [2, 3])
+    where bBoxes = filter (/= []) $ map boundingBox $ filter (/= []) contours
+
+
+-- Get a bounding box of the contour
+boundingBox :: (Ord a) => Contour a -> [a]
+boundingBox contour = [minX, minY, maxX, maxY]
+    where maxX = maximum $ map x contour
+          maxY = maximum $ map y contour
+          minX = minimum $ map x contour
+          minY = minimum $ map y contour 
+
+-- Bounding box contour
+addBBox :: (Enum a, Num a, RealFrac a, Floating a) => [Contour a] -> [Contour a]
+addBBox contours = [Point x1  y1 z0, Point x2 y1 z0, Point x2 y2 z0, Point x1 y2 z0, Point x1 y1 z0] : contours
+    where bBox = boundingBoxAll contours
+          x1 = (1) + (bBox !! 0)
+          y1 = (1) + (bBox !! 1)
+          x2 = (-1) + (bBox !! 2)
+          y2 = (-1) + (bBox !! 3)
+          z0 = z $ head $ head contours
+
+-- Make support
+makeSupport :: (Enum a, Num a, RealFrac a, Floating a) => Options -> [[Point a]] -> LayerType -> [Line a]
+makeSupport opts contours layerType = concatMap (infillLineInside (addBBox contours)) $ infillCover Middle
+    where infillCover Middle = coveringInfill 15 zHeight
+          infillCover BaseEven = coveringLinesUp zHeight
+          infillCover BaseOdd = coveringLinesDown zHeight
+          zHeight = (z (head (head contours)))
+          fillAmount = infill opts
+
+-----------------------------------------------------------------------
 --------------------------- LAYERS ------------------------------------
 -----------------------------------------------------------------------
 
@@ -428,15 +478,18 @@ layers opts fs = map allIntersections [zmax,zmax-t..0] <*> pure fs
 -- Input should be top to bottom, output should be bottom to top
 theWholeDamnThing :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => Options -> [([[Point a]], Int, Int)] -> [String]
 theWholeDamnThing _ [] = []
-theWholeDamnThing opts [(a, fromStart, toEnd)] = contourGcode ++ infillGcode
+theWholeDamnThing opts [(a, fromStart, toEnd)] = contourGcode ++ infillGcode ++ supportGcode
     where contours = getContours a
           contourGcode = concatMap (gcodeForContour opts []) contours
           infillGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts contours $ layerType opts (fromStart, toEnd)
-theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest ++ [travelGcode (head $ head contours)] ++ contourGcode ++ infillGcode
+          supportGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
+theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest ++ [travelGcode (head $ head contours)] ++ contourGcode ++ infillGcode ++ supportGcode
     where theRest = theWholeDamnThing opts as
           contours = getContours a
           contourGcode = concatMap (gcodeForContour opts theRest) contours -- TODO: once we have > 1 contour per layer, this will be trash
           infillGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts contours $ layerType opts (fromStart, toEnd)
+          supportGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
+
 
 layerType :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => Options -> (Int, Int) -> LayerType
 layerType opts (fromStart, toEnd)
@@ -445,6 +498,26 @@ layerType opts (fromStart, toEnd)
     | otherwise = Middle
     where topBottomLayers = round $ defaultBottomTopThickness / t
           t = thickness opts
+
+
+-----------------------------------------------------------------------
+--------------------- CONTOUR ACCUMULATION ----------------------------
+-----------------------------------------------------------------------
+
+accumulateContour :: Contour a -> Contour a -> Contour a
+accumulateContour a b = a
+
+isInside :: Contour a -> Point a -> Bool 
+isInside contour point = True
+
+-- First argument is a pair of points that define a line segment, 
+-- second is a list of contours that you want to find intersections with
+splitAtIntersections :: (Num a, Floating a, RealFrac a ) => [Contour a] -> [Point a] ->[Point a]
+splitAtIntersections contours linePts@[p1, p2] = [head linePts] ++ (sortBy (orderAlongLine line) intersections) ++ [last linePts] 
+    where intersections = nub $ map fromJust $ filter (/= Nothing) $ map (lineIntersection line) allLines
+          allLines = concatMap (makeLines) contours
+          line = lineFromEndpoints p1 p2
+
 
 -----------------------------------------------------------------------
 --------------------------- Main --------------------------------------
@@ -462,7 +535,8 @@ main = do
         stl <- readFile fname
         let stlLines = lines stl
         let facets = centerFacets $ facetLinesFromSTL stlLines :: [Facet Double]
-        let allLayers = layers opts facets
+        let allLayers = filter (/= []) $ layers opts facets
+        --print allLayers
         let gcode = theWholeDamnThing opts $ zip3 allLayers [1..length allLayers] $ reverse [1..length allLayers]
         --let intersections = allIntersections 1.2 facets -- just a test, contour at z = 0
         --let contours = getContours intersections
