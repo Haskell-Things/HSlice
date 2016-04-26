@@ -2,10 +2,10 @@
 
  a slicer and G-code generator for RepRap firmwares, in Haskell
 
-## to compile
+### to compile
 Run `ghc slicer` from the directory that contains `slicer.hs`.
 
-## to run 
+### to run 
 Run `./slicer [filename].stl`. 
 
 ## FAQ 
@@ -13,7 +13,7 @@ Run `./slicer [filename].stl`.
 
 Glad you asked! This was written as a project for CMSC 22010 (Digital Fabrication) at the University of Chicago, taught by professor Rick Stevens.
 
-#### *No but like...why **Haskell**?*
+#### *No but like...why Haskell?*
 
 Haskell is beautiful.
 
