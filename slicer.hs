@@ -49,10 +49,11 @@ data Flag = PerimeterLayers Int
 data Options = Options { perimeterLayers :: Int
                        , infill :: Int
                        , thickness :: forall a. (Read a, Floating a, RealFrac a) => a
+                       , center :: Point Double
                        }
 
 defaultOptions :: Options
-defaultOptions = Options defaultPerimeterLayers defaultFill defaultThickness
+defaultOptions = Options defaultPerimeterLayers defaultFill defaultThickness (Point 0 0 0)
 
 options :: [OptDescr (Options -> IO Options)]
 options =
@@ -98,11 +99,10 @@ data Facet a = Facet { sides :: [Line a] } deriving Eq
 data LayerType = BaseOdd | BaseEven | Middle
 
 -- This should correspond to one line of G-code
+-- TODO: Use this
 type Command = [String]
 
 type Contour a = [Point a]
-
-
 
 
 -- Given a command, write it as one line of G-code
@@ -143,6 +143,40 @@ lineFromEndpoints p1 p2 = Line p1 (addPoints (scalePoint (-1) p1) p2)
 -- Get the other endpoint
 endpoint :: Num a => Line a -> Point a
 endpoint l = addPoints (point l) (slope l)
+
+-- Midpoint of a line
+midpoint :: (Fractional a, Num a) => Line a -> Point a
+midpoint (Line p s) = addPoints p (scalePoint 0.5 s)
+
+-- Given a point and slope, make a line with that slope from that point of a specified
+-- distance, in the same z plane
+pointSlopeLength :: (Ord a, Fractional a, Floating a, Num a) => Point a -> a -> a -> Line a
+pointSlopeLength p m d
+    | m > 10^100 = Line p (Point 0 d 0)
+    | m < -(10^100) = Line p (Point 0 (-d) 0)
+    | otherwise = Line p s
+    where s = scalePoint scale $ Point 1 yVal 0
+          yVal = m
+          scale = d / sqrt (1 + yVal^2)
+
+-- Given a point and slope (in xy plane), make "infinite" line (i.e. a line that
+-- hits two edges of the bed
+infiniteLine :: (Fractional a, RealFrac a, Floating a, Num a) => Point a -> a -> Line a
+infiniteLine p@(Point _ _ c) m = head $ makeLines $ nub points
+    where edges = (map lineFromEndpoints [Point 0 0 c, Point bedSizeX bedSizeY c])
+                <*> [Point 0 bedSizeY c, Point bedSizeX 0 c]
+          longestLength = sqrt $ bedSizeX^2 + bedSizeY^2
+          halfLine@(Line p' s) = pointSlopeLength p m longestLength -- should have p' == p
+          line = lineFromEndpoints (endpoint halfLine) (addPoints p' (scalePoint (-1) s))
+          points = map fromJust $ filter (/= Nothing) $ map (lineIntersection line) edges
+
+-- Construct a perpendicular bisector of a line (with the same length, assuming
+-- a constant z value)
+perpendicularBisector :: (RealFrac a, Fractional a, Floating a, Num a) => Line a -> Line a
+perpendicularBisector l@(Line p s)
+    | y s == 0 = Line (midpoint l) (Point 0 (magnitude s) 0)
+    | otherwise = pointSlopeLength (midpoint l) m (distance p (endpoint l))
+    where m = -(x s) / (y s)
 
 -- Express a line in terms of the other endpoint
 flipLine :: Num a => Line a -> Line a
@@ -231,8 +265,8 @@ facetsFromSTL l = map (map (dropWhile isSpace)) $ f : facetsFromSTL (tail r)
     where (f, r) = break (\s -> filter (not . isSpace) (map toLower s) == "endfacet") l
 
 -- Given a list of facets, center them on the print bed
-centerFacets :: (Num a, Fractional a, RealFrac a) => [Facet a] -> [Facet a]
-centerFacets fs = map (shiftFacet (Point dx dy dz)) fs
+centerFacets :: (Num a, Fractional a, RealFrac a) => [Facet a] -> ([Facet a], Point a)
+centerFacets fs = (map (shiftFacet (Point dx dy dz)) fs, Point dx dy dz)
     where [dx,dy,dz] = zipWith (-) (map (/2) [bedSizeX,bedSizeY,0]) [x0,y0,zmin]
           [xmin,ymin,zmin] = map minimum $
                              foldl (zipWith (flip (:))) [[],[],[]] $
@@ -270,8 +304,6 @@ readFacet f
     | length f < 3 = error "Invalid facet"
     | otherwise = Facet $ makeLines $ map readPoint f'
     where f' = last f : f -- So that we're cyclic
-
--- TODO: add header
 
 -- From STL file (as a list of Strings, each String corresponding to one line),
 -- produce a list of lists of Lines, where each list of Lines corresponds to a
@@ -395,6 +427,59 @@ coveringLinesDown z = map (flip Line s) (map f [0,lineThickness..bedSizeY + bedS
     where s =  Point (bedSizeX + bedSizeY) (- bedSizeX - bedSizeY) 0
           f v = Point 0 v z
 
+-- Helper function to generate the points we'll need to make the inner perimeters
+pointsForPerimeters :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> Line a -> [Point a]
+pointsForPerimeters opts l@(Line p _) = map endpoint $ map (pointSlopeLength p slope) $ map (*nozzleDiameter) $ filter (/= 0) [-n..n]
+    where n = fromIntegral $ perimeterLayers opts - 1
+          Line _ m = perpendicularBisector l
+          slope = (y m) / (x m)
+
+-- Lines to count intersections to determine if we're on the inside or outside
+perimeterLinesToCheck :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Line a -> [Line a]
+perimeterLinesToCheck l@(Line p _) = map (flip lineFromEndpoints (Point 0 0 (z p))) $ map endpoint $ map (pointSlopeLength (midpoint l) slope) $ map (*nozzleDiameter) [-1,1]
+    where Line _ m = perpendicularBisector l
+          slope = case (x m) of 0 -> 10^101
+                                _ -> (y m) / (x m)
+
+-- Find the point corresponding to the inner perimeter of a given line, given all of the
+-- contours in the object
+innerPerimeterPoint :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Line a -> [[Point a]] -> Point a
+innerPerimeterPoint l contours = snd $ head $ filter (odd . fst) intersections
+    where linesToCheck = perimeterLinesToCheck l
+          contourLines = concatMap makeLines contours
+          numIntersections l' = length $ filter (/= Nothing) $ map (lineIntersection l') contourLines
+          intersections = map (\a -> (numIntersections a, point a)) linesToCheck
+
+-- Construct infinite lines on the interior for a given line
+infiniteInteriorLines :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> Line a -> [[Point a]] -> [Line a]
+infiniteInteriorLines opts l@(Line _ m) contours
+    | innerPoint `elem` firstHalf = map (flip infiniteLine slope) firstHalf
+    | otherwise = map (flip infiniteLine slope) secondHalf
+    where innerPoint = innerPerimeterPoint l contours
+          (firstHalf, secondHalf) = splitAt (perimeterLayers opts - 1) $ pointsForPerimeters opts l
+          slope = (y m) / (x m)
+
+-- List of lists of interior lines for each line in a contour
+allInfiniteInteriors :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> [[Point a]] -> [[Line a]]
+allInfiniteInteriors opts contours = map (flip (infiniteInteriorLines opts) contours) lines
+    where lines = concatMap makeLines contours
+
+-- Make inner contours from a list of (outer) contours---note that we do not
+-- retain the outermost contour.
+innerContours :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> [[Point a]] -> [[[Point a]]]
+innerContours opts contours = constructInnerContours opts interiors
+    where interiors = allInfiniteInteriors opts contours
+
+-- Construct inner contours, given a list of lines constituting the infinite interior
+-- lines. Essentially a helper function for innerContours
+constructInnerContours :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> [[Line a]] -> [[[Point a]]]
+constructInnerContours opts interiors
+    | length interiors == 0 = []
+    | length (head interiors) == 0 = []
+    | length interiors == 1 = [intersections]
+    | otherwise = intersections : constructInnerContours opts (map tail interiors)
+    where intersections = [map point $ map head (last interiors : interiors)]
+
 -- Generate G-code for a given contour c, where g is the most recent G-code produced
 gcodeForContour :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a) => Options -> [String] -> [Point a] -> [String]
 gcodeForContour opts g c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
@@ -482,18 +567,23 @@ layers opts fs = map allIntersections [zmax,zmax-t..0] <*> pure fs
 -- Input should be top to bottom, output should be bottom to top
 theWholeDamnThing :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => Options -> [([[Point a]], Int, Int)] -> [String]
 theWholeDamnThing _ [] = []
-theWholeDamnThing opts [(a, fromStart, toEnd)] = contourGcode ++ supportGcode -- ++ infillGcode
+theWholeDamnThing opts [(a, fromStart, toEnd)] = contourGcode -- ++ supportGcode ++ infillGcode
     where contours = getContours a
-          contourGcode = gcodeForContours opts [] contours
-          infillGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts contours $ layerType opts (fromStart, toEnd)
-          supportGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
-theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest ++ [travelGcode (head $ head contours)] ++ contourGcode ++ infillGcode ++ supportGcode
+          interior = innerContours opts contours
+          --innermostContours = map last interior
+          --allContours = zipWith (:) contours interior
+          contourGcode = gcodeForContours opts [] $ head interior -- contours
+          --supportGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
+          --infillGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts innermostContours $ layerType opts (fromStart, toEnd)
+theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest ++ (map travelGcode $ head contours) ++ contourGcode -- ++ infillGcode
     where theRest = theWholeDamnThing opts as
           contours = getContours a
-          contourGcode = gcodeForContours opts theRest contours -- TODO: once we have > 1 contour per layer, this will be trash
-          infillGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts contours $ layerType opts (fromStart, toEnd)
-          supportGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
-
+          interior = innerContours opts contours
+          --innermostContours = map last interior
+          --allContours = zipWith (:) contours interior
+          contourGcode = gcodeForContours opts theRest $ head interior -- contours
+          --supportGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
+          --infillGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts innermostContours $ layerType opts (fromStart, toEnd)
 
 layerType :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => Options -> (Int, Int) -> LayerType
 layerType opts (fromStart, toEnd)
@@ -530,18 +620,27 @@ main :: IO ()
 main = do
     args <- getArgs
     let (actions, nonOptions, errors) = getOpt Permute options args
-    opts <- foldl (>>=) (return defaultOptions) actions
+    initialOpts <- foldl (>>=) (return defaultOptions) actions
     let Options { perimeterLayers = perimeter
                 , infill = infill
-                , thickness = thickness } = opts
+                , thickness = thickness
+                } = initialOpts
     if length nonOptions == 0 then (putStrLn "Error: Enter a file name") else do
         let fname = head nonOptions
         stl <- readFile fname
         let stlLines = lines stl
-        let facets = centerFacets $ facetLinesFromSTL stlLines :: [Facet Double]
-        let allLayers = filter (/= []) $ layers opts facets
-        --print allLayers
+        let (facets, c) = centerFacets $ facetLinesFromSTL stlLines
+        let opts = initialOpts { center = c }
+        let allLayers = filter (/=[]) $ layers opts facets
         let gcode = theWholeDamnThing opts $ zip3 allLayers [1..length allLayers] $ reverse [1..length allLayers]
+        --print $ head allLayers
+        let contours = getContours $ head allLayers
+        --print contours
+        let interior = innerContours opts contours
+        --print interior
+        let interiors = allInfiniteInteriors opts contours
+        print $ interiors
+        print $ innerContours opts contours
         --let intersections = allIntersections 1.2 facets -- just a test, contour at z = 0
         --let contours = getContours intersections
         --print contours
@@ -549,4 +648,4 @@ main = do
         --let infillGcode = fixGcode $ gcodeForContour contourGcode $ concatMap (\l -> [point l, endpoint l]) $ makeInfill contours
         --let gcode = contourGcode -- ++ infillGcode
     
-        writeFile "sampleGcode.g" (unlines gcode)
+        --writeFile "sampleGcode.g" (unlines gcode)
