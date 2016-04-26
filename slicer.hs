@@ -86,18 +86,11 @@ instance Functor Point where
     fmap f (Point x y z) = Point (f x) (f y) (f z)
 
 -- Display a Point in the format expected by G-code
--- TODO: Will we have too many decimal places when trying to do this with Doubles?
--- Data.Scientific might be useful, but trying to deal with that case will probably
--- break this---and redefining Point to essentially be a Point Double will break the
--- Functor instance.
 instance (Show a) => Show (Point a) where
     show p = unwords $ zipWith (++) ["X","Y","Z"] (map show [x p, y p, z p])
 
 -- Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
--- TODO: Is this the best representation, or does it make sense to just have a line
--- defined by its endpoints? It feels like doing that may make some computations more
--- complex than they need to be.
 data Line a = Line { point :: Point a, slope :: Point a } deriving (Eq, Show)
 
 data Facet a = Facet { sides :: [Line a] } deriving Eq
@@ -217,6 +210,13 @@ roundToFifth a = (fromIntegral $ round (100000 * a)) / 100000
 -- round point
 roundPoint :: (Num a, RealFrac a, Fractional a) => Point a -> Point a 
 roundPoint (Point x y z) = Point (roundToFifth x) (roundToFifth y) (roundToFifth z)
+
+-- shorten line by a millimeter amount on each end 
+shortenLineBy :: (Num a, RealFrac a, Fractional a, Floating a) => a -> Line a -> Line a
+shortenLineBy amt line = Line newStart newSlope
+    where pct = (amt / (magnitude (slope line)))
+          newStart = addPoints (point line) $ scalePoint pct (slope line)
+          newSlope = scalePoint (1 - 2 * pct) (slope line)
 
 
 ----------------------------------------------------------
@@ -346,15 +346,6 @@ accumulateValues [] = []
 accumulateValues [a] = [a]
 accumulateValues (a:b:cs) = a : accumulateValues (a + b : cs)
 
--- Generate G-code for a given contour c, where g is the most recent G-code produced
-gcodeForContour :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a) => Options -> [String] -> [Point a] -> [String]
-gcodeForContour opts g c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
-    where es = map ((++) " E") $ map show exVals
-          exVals = map (+e) $ accumulateValues $ extrusions opts (head c) (tail c)
-          lastE = lastExtrusionAmount g
-          e = case lastE of Nothing -> 0
-                            Just x -> x
-
 -- Given a list of G-code lines, find the last amount extruded
 lastExtrusionAmount :: Read a => [String] -> Maybe a
 lastExtrusionAmount gcode
@@ -379,8 +370,7 @@ makeInfill opts contours layerType = concatMap (infillLineInside contours) $ inf
 
 -- Get the segments of an infill line that are inside the contour
 infillLineInside :: (Num a, RealFrac a, Floating a) => [[Point a]] -> Line a -> [Line a]
--- TODO: This is our problem: I think the issue is related to sorting
-infillLineInside contours line = map ((!!) allLines) [0,2..(length allLines) - 1] 
+infillLineInside contours line = map ((!!) allLines) [0,2..(length allLines) - 1]
     where allLines = makeLines $ sortBy orderPoints $ getInfillLineIntersections contours line
 
 -- Find all places where an infill line intersects any contour line 
@@ -404,6 +394,20 @@ coveringLinesDown :: (Enum a, Num a, RealFrac a) => a -> [Line a]
 coveringLinesDown z = map (flip Line s) (map f [0,lineThickness..bedSizeY + bedSizeX])
     where s =  Point (bedSizeX + bedSizeY) (- bedSizeX - bedSizeY) 0
           f v = Point 0 v z
+
+-- Generate G-code for a given contour c, where g is the most recent G-code produced
+gcodeForContour :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a) => Options -> [String] -> [Point a] -> [String]
+gcodeForContour opts g c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
+    where es = map ((++) " E") $ map show exVals
+          exVals = map (+e) $ accumulateValues $ extrusions opts (head c) (tail c)
+          lastE = lastExtrusionAmount g
+          e = case lastE of Nothing -> 0
+                            Just x -> x
+
+gcodeForContours :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a) => Options -> [String] -> [[Point a]] -> [String]
+gcodeForContours _ _ [] = []
+gcodeForContours opts g [c] = gcodeForContour opts g c
+gcodeForContours opts g (c:cs) = gcodeForContour opts g c ++ gcodeForContours opts (gcodeForContour opts g c) cs
 
 gcodeForLine :: (Read a, Enum a, Num a, RealFrac a, Floating a, Show a) => Options -> [String] -> Line a -> [String]
 gcodeForLine opts g l@(Line p s) = gcodeForContour opts g [p, endpoint l]
@@ -458,8 +462,8 @@ addBBox contours = [Point x1  y1 z0, Point x2 y1 z0, Point x2 y2 z0, Point x1 y2
 
 -- Make support
 makeSupport :: (Enum a, Num a, RealFrac a, Floating a) => Options -> [[Point a]] -> LayerType -> [Line a]
-makeSupport opts contours layerType = concatMap (infillLineInside (addBBox contours)) $ infillCover Middle
-    where infillCover Middle = coveringInfill 15 zHeight
+makeSupport opts contours layerType = map (shortenLineBy $ 2 * defaultThickness) $ concatMap (infillLineInside (addBBox contours)) $ infillCover Middle
+    where infillCover Middle = coveringInfill 20 zHeight
           infillCover BaseEven = coveringLinesUp zHeight
           infillCover BaseOdd = coveringLinesDown zHeight
           zHeight = (z (head (head contours)))
@@ -478,15 +482,15 @@ layers opts fs = map allIntersections [zmax,zmax-t..0] <*> pure fs
 -- Input should be top to bottom, output should be bottom to top
 theWholeDamnThing :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => Options -> [([[Point a]], Int, Int)] -> [String]
 theWholeDamnThing _ [] = []
-theWholeDamnThing opts [(a, fromStart, toEnd)] = contourGcode ++ infillGcode ++ supportGcode
+theWholeDamnThing opts [(a, fromStart, toEnd)] = contourGcode ++ supportGcode -- ++ infillGcode
     where contours = getContours a
-          contourGcode = concatMap (gcodeForContour opts []) contours
+          contourGcode = gcodeForContours opts [] contours
           infillGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts contours $ layerType opts (fromStart, toEnd)
           supportGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
 theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest ++ [travelGcode (head $ head contours)] ++ contourGcode ++ infillGcode ++ supportGcode
     where theRest = theWholeDamnThing opts as
           contours = getContours a
-          contourGcode = concatMap (gcodeForContour opts theRest) contours -- TODO: once we have > 1 contour per layer, this will be trash
+          contourGcode = gcodeForContours opts theRest contours -- TODO: once we have > 1 contour per layer, this will be trash
           infillGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts contours $ layerType opts (fromStart, toEnd)
           supportGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
 
