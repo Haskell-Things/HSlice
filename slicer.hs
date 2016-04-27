@@ -162,6 +162,16 @@ pointSlopeLength p m d
           yVal = m
           scale = d / sqrt (1 + yVal^2)
 
+-- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
+-- if p2 == p3 and the lines are parallel (see canCombineLines)
+combineLines :: Num a => Line a -> Line a -> Line a
+combineLines (Line p _) l2 = lineFromEndpoints p (endpoint l2)
+
+-- Determine if lines can be combined
+canCombineLines :: (Eq a, Fractional a, RealFrac a, Floating a, Num a) => Line a -> Line a -> Bool
+canCombineLines l1 l2@(Line p _) = (extendToInfiniteLine l1) == (extendToInfiniteLine l2)
+                                 && (endpoint l1 == p)
+
 -- Given a point and slope (in xy plane), make "infinite" line (i.e. a line that
 -- hits two edges of the bed
 infiniteLine :: (Fractional a, RealFrac a, Floating a, Num a) => Point a -> a -> Line a
@@ -357,7 +367,14 @@ findContour (contour, pairs)
           p = find match pairs 
           p' = fromJust p 
 
-
+-- Combine lines when possible. Note that we're working with lists of Lines, not with
+-- Contours.
+simplifyContour :: (Eq a, Fractional a, RealFrac a, Floating a, Num a) => [Line a] -> [Line a]
+simplifyContour [] = []
+simplifyContour [a] = [a]
+simplifyContour (a:b:cs)
+    | canCombineLines a b = simplifyContour $ (combineLines a b) : cs
+    | otherwise = a : simplifyContour (b : cs)
 
 -- Sort lists of point pairs by x-value of first point in the pair
 sortSegments :: (Ord a) => [[Point a]] -> [[Point a]]
@@ -437,7 +454,7 @@ coveringLinesDown z = map (flip Line s) (map f [0,lineThickness..bedSizeY + bedS
 
 -- Helper function to generate the points we'll need to make the inner perimeters
 pointsForPerimeters :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> Line a -> [Point a]
-pointsForPerimeters opts l@(Line p _) = map endpoint $ map (pointSlopeLength p slope) $ map (*nozzleDiameter) $ filter (/= 0) [-n..n]
+pointsForPerimeters opts l@(Line p _) = map endpoint $ map (pointSlopeLength (midpoint l) slope) $ map (*nozzleDiameter) $ filter (/= 0) [-n..n]
     where n = fromIntegral $ perimeterLayers opts - 1
           Line _ m = perpendicularBisector l
           slope = (y m) / (x m)
@@ -458,8 +475,9 @@ innerPerimeterPoint l contours
     | otherwise = snd $ head intersections
     where linesToCheck = perimeterLinesToCheck l
           contourLines = concatMap makeLines contours
-          infiniteContourLines = nub $ map extendToInfiniteLine contourLines
-          numIntersections l' = length $ filter (/= Nothing) $ map (lineIntersection l') infiniteContourLines
+          simplifiedContour = simplifyContour contourLines
+--          infiniteContourLines = nub $ map extendToInfiniteLine contourLines
+          numIntersections l' = length $ filter (/= Nothing) $ map (lineIntersection l') simplifiedContour
           intersections = map (\a -> (numIntersections a, point a)) linesToCheck
           oddIntersections = filter (odd . fst) intersections
           nonzeroIntersections = filter (\(v,_) -> v /= 0) intersections
@@ -476,7 +494,7 @@ infiniteInteriorLines opts l@(Line _ m) contours
 -- List of lists of interior lines for each line in a contour
 allInfiniteInteriors :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> [[Point a]] -> [[Line a]]
 allInfiniteInteriors opts contours = map (flip (infiniteInteriorLines opts) contours) lines
-    where lines = concatMap makeLines $ (head contours) : (nub $ tail contours)
+    where lines = concatMap makeLines $ (last contours) : (nub contours)
 
 -- Make inner contours from a list of (outer) contours---note that we do not
 -- retain the outermost contour.
@@ -508,10 +526,15 @@ gcodeForContour opts g c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
           e = case lastE of Nothing -> 0
                             Just x -> x
 
-gcodeForContours :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a) => Options -> [String] -> [[Point a]] -> [String]
+gcodeForNestedContours :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a) => Options -> [String] -> [[Contour a]] -> [String]
+gcodeForNestedContours _ _ [] = []
+gcodeForNestedContours opts g [cs] = gcodeForContours opts g cs
+gcodeForNestedContours opts g (c:cs) = (gcodeForContours opts g c) ++ gcodeForNestedContours opts (gcodeForContours opts g c) cs
+
+gcodeForContours :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a) => Options -> [String] -> [Contour a] -> [String]
 gcodeForContours _ _ [] = []
 gcodeForContours opts g [c] = gcodeForContour opts g c
-gcodeForContours opts g (c:cs) = gcodeForContour opts g c ++ gcodeForContours opts (gcodeForContour opts g c) cs
+gcodeForContours opts g (c:cs) = gcodeForContour opts g c ++ (map travelGcode $ head cs) ++ gcodeForContours opts (gcodeForContour opts g c) cs
 
 gcodeForLine :: (Read a, Enum a, Num a, RealFrac a, Floating a, Show a) => Options -> [String] -> Line a -> [String]
 gcodeForLine opts g l@(Line p s) = gcodeForContour opts g [p, endpoint l]
@@ -589,22 +612,34 @@ theWholeDamnThing _ [] = []
 theWholeDamnThing opts [(a, fromStart, toEnd)] = contourGcode ++ infillGcode -- supportGcode ++ infillGcode
     where contours = getContours a
           interior = innerContours opts contours
-          innermostContours = map last (contours : interior)
+          -- innermostContours = map last (contours : interior)
           allContours = zipWith (:) contours interior
-          contourGcode = gcodeForContours opts [] $ map concat allContours
+          innermostContours = if interior == [] then contours else map last allContours
+          outerContourGcode = gcodeForContours opts [] $ contours
+          innerContourGcode = gcodeForNestedContours opts outerContourGcode interior
+          contourGcode = outerContourGcode ++ innerContourGcode
+--          contourGcode = foldl (gcodeForContour opts) [] $ map concat allContours
+--          contourGcode = gcodeForContours opts [] $ contours -- map concat allContours
           supportGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
 --          NOTE: This is the one to uncomment when we're using support. The difference betwen
 --          this line and the nxt is including supportGcode in the argument to gcodeForContour.
 --          Also note that order matters.
 --          infillGcode = fixGcode $ gcodeForContour opts (contourGcode ++ supportGcode) $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts innermostContours $ layerType opts (fromStart, toEnd)
           infillGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts innermostContours $ layerType opts (fromStart, toEnd)
-theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest ++ contourGcode ++ (map travelGcode $ head contours) ++ infillGcode -- supportGcode ++ infillGcode
+theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest ++ contourGcode ++ infillGcode -- (map travelGcode $ head contours) ++ supportGcode ++ infillGcode
     where theRest = theWholeDamnThing opts as
           contours = getContours a
           interior = innerContours opts contours
-          innermostContours = map last (contours : interior)
+          -- innermostContours = map last (contours : interior)
           allContours = zipWith (:) contours interior
-          contourGcode = gcodeForContours opts theRest $ map concat allContours
+          --allContours = zipWith (:) contours interior
+          -- innermostContours = map last allContours
+          innermostContours = if interior == [] then contours else map last allContours
+          outerContourGcode = gcodeForContours opts theRest $ contours
+          innerContourGcode = gcodeForNestedContours opts outerContourGcode interior
+          contourGcode = outerContourGcode ++ innerContourGcode
+          --contourGcode = gcodeForNestedContours opts theRest allContours
+--          contourGcode = gcodeForContours opts theRest $ map concat allContours
           supportGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
           -- NOTE: See note above.
           --infillGcode = fixGcode $ gcodeForContour opts (contourGcode ++ supportGcode) $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts innermostContours $ layerType opts (fromStart, toEnd)
@@ -612,8 +647,8 @@ theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest ++ contourGcode ++ (
 
 layerType :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => Options -> (Int, Int) -> LayerType
 layerType opts (fromStart, toEnd)
-    | fromStart <= topBottomLayers || toEnd <= topBottomLayers && fromStart `mod` 2 == 0 = BaseEven
-    | fromStart <= topBottomLayers || toEnd <= topBottomLayers && fromStart `mod` 2 == 1 = BaseOdd
+    | (fromStart <= topBottomLayers || toEnd <= topBottomLayers) && fromStart `mod` 2 == 0 = BaseEven
+    | (fromStart <= topBottomLayers || toEnd <= topBottomLayers) && fromStart `mod` 2 == 1 = BaseOdd
     | otherwise = Middle
     where topBottomLayers = round $ defaultBottomTopThickness / t
           t = thickness opts
