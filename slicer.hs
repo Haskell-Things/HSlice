@@ -497,8 +497,8 @@ theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest ++ [travelGcode (hea
 
 layerType :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => Options -> (Int, Int) -> LayerType
 layerType opts (fromStart, toEnd)
-    | fromStart <= topBottomLayers || toEnd <= topBottomLayers && fromStart `mod` 2 == 0 = BaseEven
-    | fromStart <= topBottomLayers || toEnd <= topBottomLayers && fromStart `mod` 2 == 1 = BaseOdd
+    | (fromStart <= topBottomLayers || toEnd <= topBottomLayers) && fromStart `mod` 2 == 0 = BaseEven
+    | (fromStart <= topBottomLayers || toEnd <= topBottomLayers) && fromStart `mod` 2 == 1 = BaseOdd
     | otherwise = Middle
     where topBottomLayers = round $ defaultBottomTopThickness / t
           t = thickness opts
