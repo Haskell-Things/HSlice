@@ -529,7 +529,7 @@ gcodeForContour opts g c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
 gcodeForNestedContours :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a) => Options -> [String] -> [[Contour a]] -> [String]
 gcodeForNestedContours _ _ [] = []
 gcodeForNestedContours opts g [cs] = gcodeForContours opts g cs
-gcodeForNestedContours opts g (c:cs) = (gcodeForContours opts g c) ++ gcodeForNestedContours opts (gcodeForContours opts g c) cs
+gcodeForNestedContours opts g (c:cs) = (gcodeForContours opts g c) ++ (head $ map travelGcode $ head $ head cs) : gcodeForNestedContours opts (gcodeForContours opts g c) cs
 
 gcodeForContours :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a) => Options -> [String] -> [Contour a] -> [String]
 gcodeForContours _ _ [] = []
@@ -550,7 +550,7 @@ interleave l1 [] = l1
 interleave (a:as) (b:bs) = a:b:(interleave as bs)
 
 -- G-code to travel to a point without extruding
-travelGcode :: (Num a, Fractional a, RealFrac a ,Show a) => Point a -> String
+travelGcode :: (Num a, Fractional a, RealFrac a, Show a) => Point a -> String
 travelGcode p = "G1 " ++ (show p)
 
 -- I'm not super happy about this, but it makes extrusion values correct
@@ -609,7 +609,7 @@ layers opts fs = map allIntersections [zmax,zmax-t..0] <*> pure fs
 -- Input should be top to bottom, output should be bottom to top
 theWholeDamnThing :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => Options -> [([[Point a]], Int, Int)] -> [String]
 theWholeDamnThing _ [] = []
-theWholeDamnThing opts [(a, fromStart, toEnd)] = contourGcode ++ infillGcode -- supportGcode ++ infillGcode
+theWholeDamnThing opts [(a, fromStart, toEnd)] = contourGcode ++ {- supportGcode ++ -} infillGcode 
     where contours = getContours a
           interior = innerContours opts contours
           -- innermostContours = map last (contours : interior)
@@ -620,13 +620,13 @@ theWholeDamnThing opts [(a, fromStart, toEnd)] = contourGcode ++ infillGcode -- 
           contourGcode = outerContourGcode ++ innerContourGcode
 --          contourGcode = foldl (gcodeForContour opts) [] $ map concat allContours
 --          contourGcode = gcodeForContours opts [] $ contours -- map concat allContours
-          supportGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
+          supportGcode = fixGcode $ gcodeForContour opts (contourGcode {- ++ supportGcode -}) $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
 --          NOTE: This is the one to uncomment when we're using support. The difference betwen
 --          this line and the nxt is including supportGcode in the argument to gcodeForContour.
 --          Also note that order matters.
 --          infillGcode = fixGcode $ gcodeForContour opts (contourGcode ++ supportGcode) $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts innermostContours $ layerType opts (fromStart, toEnd)
-          infillGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts innermostContours $ layerType opts (fromStart, toEnd)
-theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest ++ contourGcode ++ infillGcode -- (map travelGcode $ head contours) ++ supportGcode ++ infillGcode
+          infillGcode = fixGcode $ gcodeForContour opts (contourGcode {- ++ supportGcode -})$ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts innermostContours $ layerType opts (fromStart, toEnd)
+theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest ++ contourGcode ++ (map travelGcode $ head contours) ++ {- supportGcode ++ -} infillGcode 
     where theRest = theWholeDamnThing opts as
           contours = getContours a
           interior = innerContours opts contours
