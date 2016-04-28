@@ -85,7 +85,7 @@ data Options = Options { perimeterLayers :: Int
                        }
 
 defaultOptions :: Options
-defaultOptions = Options defaultPerimeterLayers defaultFill defaultThickness False False "out.g" (Point 0 0 0)
+defaultOptions = Options defaultPerimeterLayers defaultFill defaultThickness False False "out.gcode" (Point 0 0 0)
 
 options :: [OptDescr (Options -> IO Options)]
 options =
@@ -421,6 +421,10 @@ simplifyContour (a:b:cs)
     | canCombineLines a b = simplifyContour $ (combineLines a b) : cs
     | otherwise = a : simplifyContour (b : cs)
 
+-- Witchcraft
+fixContour :: (Ord a, Eq a) => [Point a] -> [Point a]
+fixContour c = (head c) : (tail c ++ [head c])
+
 -- Sort lists of point pairs by x-value of first point in the pair
 sortSegments :: (Ord a) => [[Point a]] -> [[Point a]]
 sortSegments = sortBy orderSegments 
@@ -554,15 +558,16 @@ infiniteInteriorLines opts l@(Line _ m) contours
           slope = (y m) / (x m)
 
 -- List of lists of interior lines for each line in a contour
-allInteriors :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> [Contour a] -> [[Line a]]
-allInteriors opts contours = map (flip (infiniteInteriorLines opts) contours) lines
-    where lines = concatMap makeLines $ (last contours) : (nub contours)
+allInteriors :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> [Point a] -> [[Point a]] -> [[Line a]]
+allInteriors opts c contours = map (flip (infiniteInteriorLines opts) contours) lines
+    where lines = makeLines c
 
 -- Make inner contours from a list of (outer) contours---note that we do not
 -- retain the outermost contour.
 innerContours :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> [Contour a] -> [[Contour a]]
-innerContours opts contours = constructInnerContours opts (last interiors : interiors)
-    where interiors = allInteriors opts contours
+innerContours opts contours = map concat $ map (constructInnerContours opts) (map (\i -> (last i : i)) interiors)
+    where interiors = map (flip (allInteriors opts) contours) contours
+          cyclic l = last l : l
 
 -- Construct inner contours, given a list of lines constituting the infinite interior
 -- lines. Essentially a helper function for innerContours
@@ -578,13 +583,19 @@ constructInnerContours opts interiors
     | otherwise = [intersections] : constructInnerContours opts (map tail interiors)
     where intersections = map fromJust $ filter (/= Nothing) $ consecutiveIntersections $ map head interiors
 
+changeShape :: Eq a => [[a]] -> [[a]]
+changeShape ls
+    | ls == [] = []
+    | head ls == [] = []
+    | otherwise = (map head ls) : changeShape (map tail ls)
+
 consecutiveIntersections :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => [Line a] -> [Maybe (Point a)]
 consecutiveIntersections [] = []
 consecutiveIntersections [a] = []
 consecutiveIntersections (a:b:cs) = (lineIntersection a b) : consecutiveIntersections (b : cs)
 
 -- Generate G-code for a given contour c, where g is the most recent G-code produced
-gcodeForContour :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a)
+gcodeForContour :: (Eq a, Read a, Show a, Floating a, Num a, RealFrac a, Fractional a)
                 => Options
                 -> [String]
                 -> [Point a]
@@ -596,18 +607,18 @@ gcodeForContour opts g c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
           e = case lastE of Nothing -> 0
                             Just x -> x
 
-gcodeForNestedContours :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a)
+gcodeForNestedContours :: (Eq a, Read a, Show a, Floating a, Num a, RealFrac a, Fractional a)
                        => Options
                        -> [String]
                        -> [[Contour a]]
                        -> [String]
 gcodeForNestedContours _ _ [] = []
 gcodeForNestedContours opts g [cs] = gcodeForContours opts g cs
-gcodeForNestedContours opts g cs = firstContourGcode
-                                 ++ gcodeForNestedContours opts firstContourGcode (filter (/= []) $ map tail cs)
-    where firstContourGcode = gcodeForContours opts g (map head cs)
+gcodeForNestedContours opts g cs = firstContoursGcode
+                                 ++ gcodeForNestedContours opts firstContoursGcode (tail cs)
+    where firstContoursGcode = gcodeForContours opts g (head cs)
 
-gcodeForContours :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a)
+gcodeForContours :: (Eq a, Read a, Show a, Floating a, Num a, RealFrac a, Fractional a)
                  => Options
                  -> [String]
                  -> [Contour a]
@@ -615,18 +626,17 @@ gcodeForContours :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a
 gcodeForContours _ _ [] = []
 gcodeForContours opts g [c] = gcodeForContour opts g c
 gcodeForContours opts g (c:cs) = firstContourGcode
-                               ++ (map travelGcode $ head cs)
                                ++ gcodeForContours opts firstContourGcode cs
     where firstContourGcode = gcodeForContour opts g c
 
-gcodeForLine :: (Read a, Enum a, Num a, RealFrac a, Floating a, Show a)
+gcodeForLine :: (Eq a, Read a, Enum a, Num a, RealFrac a, Floating a, Show a)
              => Options
              -> [String]
              -> Line a
              -> [String]
 gcodeForLine opts g l@(Line p s) = gcodeForContour opts g [p, endpoint l]
 
-gcodeForLines :: (Read a, Enum a, Num a, RealFrac a, Floating a, Show a)
+gcodeForLines :: (Eq a, Read a, Enum a, Num a, RealFrac a, Floating a, Show a)
               => Options
               -> [String]
               -> [Line a]
@@ -634,15 +644,15 @@ gcodeForLines :: (Read a, Enum a, Num a, RealFrac a, Floating a, Show a)
 gcodeForLines opts g ls = interleave (gcodeForContour opts g $ (point $ head ls) : (map point ls)) travels
     where travels = map travelGcode $ map point ls
 
+-- G-code to travel to a point without extruding
+travelGcode :: (Num a, Fractional a, RealFrac a, Show a) => Point a -> String
+travelGcode p = "G1 " ++ (show p)
+
 -- Interleave two lists
 interleave :: [a] -> [a] -> [a]
 interleave [] l2 = l2
 interleave l1 [] = l1
 interleave (a:as) (b:bs) = a:b:(interleave as bs)
-
--- G-code to travel to a point without extruding
-travelGcode :: (Num a, Fractional a, RealFrac a, Show a) => Point a -> String
-travelGcode p = "G1 " ++ (show p)
 
 -- I'm not super happy about this, but it makes extrusion values correct
 fixGcode :: [String] -> [String]
@@ -706,13 +716,13 @@ layers opts fs = map allIntersections (map roundToFifth [maxheight,maxheight-t..
           t = thickness opts
 
 -- Input should be top to bottom, output should be bottom to top
-theWholeDamnThing :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a)
+theWholeDamnThing :: (Eq a, Floating a, RealFrac a, Ord a, Enum a, Read a, Show a)
                   => Options
                   -> [([Contour a], Int, Int)] -> [String]
 theWholeDamnThing _ [] = []
 theWholeDamnThing opts [(a, fromStart, toEnd)] = contourGcode ++ supportGcode ++ infillGcode 
     where contours = getContours a
-          interior = innerContours opts contours
+          interior = map (map fixContour) $ innerContours opts contours
           allContours = zipWith (:) contours interior
           innermostContours = if interior == [] then contours else map last allContours
           outerContourGcode = gcodeForContours opts [] $ contours
@@ -737,7 +747,7 @@ theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest
                                                   ++ infillGcode 
     where theRest = theWholeDamnThing opts as
           contours = getContours a
-          interior = innerContours opts contours
+          interior = map (map fixContour) $ innerContours opts contours
           allContours = zipWith (:) contours interior
           innermostContours = if interior == [] then contours else map last allContours
           outerContourGcode = gcodeForContours opts theRest $ contours
