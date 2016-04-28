@@ -6,7 +6,12 @@
 Run `ghc slicer` from the directory that contains `slicer.hs`.
 
 ### to run 
-Run `./slicer [filename].stl`. 
+Run `./slicer [filename]` with options:
+* `-i infill` Infill percentage as an integer (default is 20)
+* `-o outfile` Name of file to output to (default is `out.g`)
+* `p perimeter` Number of perimeter layers (default is 1)
+* `-s` Print with support
+* `-t thickness` Layer thickness in mm (default is 0.2)
 
 ## FAQ 
 #### *Wait but...why?*

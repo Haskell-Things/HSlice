@@ -10,15 +10,9 @@ import System.Console.GetOpt
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
 
--- TODO (as of 4/27, 1:00 pm):
---   * Fix the infill issue for -p 2 on circles
---   * Cura start and ending G-code
---   * Options for output file name, whether or not to include support
-
 ----------------------------------------------------------
 ----------------------- Constants ------------------------
 ----------------------------------------------------------
--- TODO: Make a configuration file
 -- in mm
 nozzleDiameter, 
     filamentDiameter, 
@@ -36,10 +30,40 @@ bedSizeY = 150.0
 defaultBottomTopThickness = 0.8
 lineThickness = 0.6
 
-defaultPerimeterLayers, defaultFill :: Int 
+defaultPerimeterLayers, defaultFill, speed:: Int 
 defaultPerimeterLayers = 2
 defaultFill = 20
 
+helpString :: String
+helpString = "Usage: slicer filename [-i infill] [-p perimeter] [-s support] [-t thickness] [-o outfile]"
+
+startingGcode, endingGcode :: [String]
+startingGcode = ["G21 ;metric values"
+                ,"G90 ;absolute positioning"
+                ,"M82 ;set extruder to absolute mode"
+                ,"M106 ;start with the fan on"
+                ,"G28 X0 Y0 ;move X/Y to min endstops"
+                ,"G28 Z0 ;move Z to min endstops"
+                ,"G29 ;Run the auto bed leveling"
+                ,"G1 Z15.0 F4200 ;move the platform down 15mm"
+                ,"G92 E0 ;zero the extruded length"
+                ,"G1 F200 E3 ;extrude 3mm of feed stock"
+                ,"G92 E0 ;zero the extruded length again"
+                ,"G1 F4200" -- default speed
+                ,";Put printing message on LCD screen"
+                ,"M117"
+                ]
+endingGcode = [";End GCode"
+              ,"M104 S0 ;extruder heater off"
+              ,"M140 S0 ;heated bed heater off (if you have it)"
+              ,"G91 ;relative positioning"
+              ,"G1 E-1 F300 ;retract the filament a bit before lifting the nozzle, to release some of the pressure"
+              ,"G1 Z+0.5 E-5 X-20 Y-20 F{travel_speed} ;move Z up a bit and retract filament even more"
+              ,"G28 X0 Y0 ;move X/Y to min endstops, so the head is out of the way"
+              ,"M107 ;fan off"
+              ,"M84 ;steppers off"
+              ,"G90 ;absolute positioning"
+              ]
 
 ----------------------------------------------------------
 ------------ Overhead (data structures, etc.) ------------
@@ -54,28 +78,44 @@ data Flag = PerimeterLayers Int
 data Options = Options { perimeterLayers :: Int
                        , infill :: Int
                        , thickness :: forall a. (Read a, Floating a, RealFrac a) => a
+                       , support :: Bool
+                       , help :: Bool
+                       , output :: String
                        , center :: Point Double
                        }
 
 defaultOptions :: Options
-defaultOptions = Options defaultPerimeterLayers defaultFill defaultThickness (Point 0 0 0)
+defaultOptions = Options defaultPerimeterLayers defaultFill defaultThickness False False "out.g" (Point 0 0 0)
 
 options :: [OptDescr (Options -> IO Options)]
 options =
-    [ Option "p" ["perimeter"]
-        (ReqArg
-            (\arg opt -> if (read arg) > 0 then return opt { perimeterLayers = read arg }
-                         else return opt)
-            "Perimeter layers")
-        "Perimeter layers"
+    [ Option "h" ["help"]
+        (NoArg
+            (\opt -> return opt { help = True }))
+        "Get help"
     , Option "i" ["infill"]
         (ReqArg
             (\arg opt -> if (read arg) >= 0 then return opt { infill = read arg }
                          else return opt)
-            "Infill percentage")
+            "INFILL")
         "Infill percentage"
+    , Option "o" ["output"]
+        (ReqArg
+            (\arg opt -> return opt { output = arg })
+            "OUTPUT")
+        "Output file name"
+    , Option "p" ["perimeter"]
+        (ReqArg
+            (\arg opt -> if (read arg) > 0 then return opt { perimeterLayers = read arg }
+                         else return opt)
+            "PERIMETER")
+        "Perimeter layers"
+    , Option "s" ["support"]
+        (NoArg
+            (\opt -> return opt { support = True }))
+        "Enable support"
     , Option "t" ["thickness"]
-        (ReqArg tParser "Layer thickness (mm)")
+        (ReqArg tParser "THICKNESS")
         "Layer thickness (mm)"
     ]
 
@@ -107,7 +147,6 @@ data Facet a = Facet { sides :: [Line a] } deriving Eq
 data LayerType = BaseOdd | BaseEven | Middle
 
 -- This should correspond to one line of G-code
--- TODO: Use this
 type Command = [String]
 
 type Contour a = [Point a]
@@ -501,7 +540,7 @@ infiniteInteriorLines opts l@(Line _ m) contours
 -- List of lists of interior lines for each line in a contour
 allInteriors :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> [Contour a] -> [[Line a]]
 allInteriors opts contours = map (flip (infiniteInteriorLines opts) contours) lines
-    where lines = concatMap makeLines $ (last contours) : (nub contours) -- TODO: I think this is the problem
+    where lines = concatMap makeLines $ (last contours) : (nub contours)
 
 -- Make inner contours from a list of (outer) contours---note that we do not
 -- retain the outermost contour.
@@ -619,41 +658,27 @@ layers opts fs = map allIntersections (map roundToFifth [maxheight,maxheight-t..
 -- Input should be top to bottom, output should be bottom to top
 theWholeDamnThing :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => Options -> [([[Point a]], Int, Int)] -> [String]
 theWholeDamnThing _ [] = []
-theWholeDamnThing opts [(a, fromStart, toEnd)] = contourGcode ++ {- supportGcode ++ -} infillGcode 
+theWholeDamnThing opts [(a, fromStart, toEnd)] = contourGcode ++ supportGcode ++ infillGcode 
     where contours = getContours a
           interior = innerContours opts contours
-          -- innermostContours = map last (contours : interior)
           allContours = zipWith (:) contours interior
           innermostContours = if interior == [] then contours else map last allContours
           outerContourGcode = gcodeForContours opts [] $ contours
           innerContourGcode = gcodeForNestedContours opts outerContourGcode interior
           contourGcode = outerContourGcode ++ innerContourGcode
---          contourGcode = foldl (gcodeForContour opts) [] $ map concat allContours
---          contourGcode = gcodeForContours opts [] $ contours -- map concat allContours
-          supportGcode = fixGcode $ gcodeForContour opts (contourGcode {- ++ supportGcode -}) $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
---          NOTE: This is the one to uncomment when we're using support. The difference betwen
---          this line and the nxt is including supportGcode in the argument to gcodeForContour.
---          Also note that order matters.
---          infillGcode = fixGcode $ gcodeForContour opts (contourGcode ++ supportGcode) $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts innermostContours $ layerType opts (fromStart, toEnd)
-          infillGcode = fixGcode $ gcodeForContour opts (contourGcode {- ++ supportGcode -})$ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts innermostContours $ layerType opts (fromStart, toEnd)
-theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest ++ contourGcode ++ (map travelGcode $ head contours) ++ {- supportGcode ++ -} infillGcode 
+          supportGcode = if (not $ support opts) then [] else fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
+          infillGcode = fixGcode $ gcodeForContour opts (contourGcode ++ supportGcode)$ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts innermostContours $ layerType opts (fromStart, toEnd)
+theWholeDamnThing opts ((a, fromStart, toEnd):as) = theRest ++ contourGcode ++ (map travelGcode $ head contours) ++ supportGcode ++ infillGcode 
     where theRest = theWholeDamnThing opts as
           contours = getContours a
           interior = innerContours opts contours
-          -- innermostContours = map last (contours : interior)
           allContours = zipWith (:) contours interior
-          --allContours = zipWith (:) contours interior
-          -- innermostContours = map last allContours
           innermostContours = if interior == [] then contours else map last allContours
           outerContourGcode = gcodeForContours opts theRest $ contours
           innerContourGcode = gcodeForNestedContours opts outerContourGcode interior
           contourGcode = outerContourGcode ++ innerContourGcode
-          --contourGcode = gcodeForNestedContours opts theRest allContours
---          contourGcode = gcodeForContours opts theRest $ map concat allContours
-          supportGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
-          -- NOTE: See note above.
-          --infillGcode = fixGcode $ gcodeForContour opts (contourGcode ++ supportGcode) $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts innermostContours $ layerType opts (fromStart, toEnd)
-          infillGcode = fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts innermostContours $ layerType opts (fromStart, toEnd)
+          supportGcode = if (not $ support opts) then [] else fixGcode $ gcodeForContour opts contourGcode $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeSupport opts contours $ layerType opts (fromStart, toEnd)
+          infillGcode = fixGcode $ gcodeForContour opts (contourGcode ++ supportGcode) $ concatMap (\l -> [point l, endpoint l]) $ mapEveryOther flipLine $ makeInfill opts innermostContours $ layerType opts (fromStart, toEnd)
 
 layerType :: (Floating a, RealFrac a, Ord a, Enum a, Read a, Show a) => Options -> (Int, Int) -> LayerType
 layerType opts (fromStart, toEnd)
@@ -694,13 +719,17 @@ main = do
     let Options { perimeterLayers = perimeter
                 , infill = infill
                 , thickness = thickness
+                , support = support
+                , help = help
+                , output = output
                 } = initialOpts
-    if length nonOptions == 0 then (putStrLn "Error: Enter a file name") else do
-        let fname = head nonOptions
-        stl <- readFile fname
-        let stlLines = lines stl
-        let (facets, c) = centerFacets $ facetLinesFromSTL stlLines
-        let opts = initialOpts { center = c }
-        let allLayers = map (filter (\l -> (head l) /= (head $ tail l))) $ filter (/=[]) $ layers opts facets
-        let gcode = theWholeDamnThing opts $ zip3 allLayers [1..length allLayers] $ reverse [1..length allLayers]
-        writeFile "sampleGcode.g" (unlines gcode)
+    if help then (putStrLn helpString) else do
+        if length nonOptions == 0 then (putStrLn "Error: Enter a file name") else do
+            let fname = head nonOptions
+            stl <- readFile fname
+            let stlLines = lines stl
+            let (facets, c) = centerFacets $ facetLinesFromSTL stlLines
+            let opts = initialOpts { center = c }
+            let allLayers = map (filter (\l -> (head l) /= (head $ tail l))) $ filter (/=[]) $ layers opts facets
+            let gcode = theWholeDamnThing opts $ zip3 allLayers [1..length allLayers] $ reverse [1..length allLayers]
+            writeFile output (unlines $ startingGcode ++ gcode ++ endingGcode)
