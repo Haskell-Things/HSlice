@@ -10,6 +10,11 @@ import System.Console.GetOpt
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
 
+-- TODO (as of 4/27, 1:00 pm):
+--   * Fix the infill issue for -p 2 on circles
+--   * Cura start and ending G-code
+--   * Options for output file name, whether or not to include support
+
 ----------------------------------------------------------
 ----------------------- Constants ------------------------
 ----------------------------------------------------------
@@ -437,7 +442,9 @@ getInfillLineIntersections contours line = nub $ map fromJust $ filter (/= Nothi
 
 -- Generate covering lines for a given percent infill
 coveringInfill :: (Enum a, Num a, RealFrac a) => Int -> a -> [Line a]
-coveringInfill infill z = pruneInfill (coveringLinesUp z) ++ pruneInfill (coveringLinesDown z)
+coveringInfill infill z
+    | infill == 0 = []
+    | otherwise = pruneInfill (coveringLinesUp z) ++ pruneInfill (coveringLinesDown z)
     where n = max 1 (div 100 infill)
           pruneInfill l = map ((!!) l)[0, n..(length l)-1]
 
@@ -468,7 +475,7 @@ perimeterLinesToCheck l@(Line p _) = map (flip lineFromEndpoints (Point 0 0 (z p
 
 -- Find the point corresponding to the inner perimeter of a given line, given all of the
 -- contours in the object
-innerPerimeterPoint :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Line a -> [[Point a]] -> Point a
+innerPerimeterPoint :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Line a -> [Contour a] -> Point a
 innerPerimeterPoint l contours
     | length oddIntersections > 0 = snd $ head oddIntersections
     | length nonzeroIntersections > 0 = snd $ head nonzeroIntersections
@@ -492,23 +499,24 @@ infiniteInteriorLines opts l@(Line _ m) contours
           slope = (y m) / (x m)
 
 -- List of lists of interior lines for each line in a contour
-allInfiniteInteriors :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> [[Point a]] -> [[Line a]]
-allInfiniteInteriors opts contours = map (flip (infiniteInteriorLines opts) contours) lines
-    where lines = concatMap makeLines $ (last contours) : (nub contours)
+allInteriors :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> [Contour a] -> [[Line a]]
+allInteriors opts contours = map (flip (infiniteInteriorLines opts) contours) lines
+    where lines = concatMap makeLines $ (last contours) : (nub contours) -- TODO: I think this is the problem
 
 -- Make inner contours from a list of (outer) contours---note that we do not
 -- retain the outermost contour.
-innerContours :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> [[Point a]] -> [[[Point a]]]
+innerContours :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> [Contour a] -> [[Contour a]]
 innerContours opts contours = constructInnerContours opts (last interiors : interiors)
-    where interiors = allInfiniteInteriors opts contours
+    where interiors = allInteriors opts contours
 
 -- Construct inner contours, given a list of lines constituting the infinite interior
 -- lines. Essentially a helper function for innerContours
 constructInnerContours :: (Enum a, Fractional a, Floating a, Num a, RealFrac a) => Options -> [[Line a]] -> [[[Point a]]]
 constructInnerContours opts interiors
     | length interiors == 0 = []
-    | length (head interiors) == 0 = []
-    | length interiors == 1 = [[intersections]]
+    | length (head interiors) == 0 && (length interiors == 1) = []
+    | length (head interiors) == 0 = constructInnerContours opts $ tail interiors
+--    | length interiors == 1 = [[intersections]]
     | otherwise = [intersections] : constructInnerContours opts (map tail interiors)
     where intersections = map fromJust $ filter (/= Nothing) $ consecutiveIntersections $ map head interiors
 
@@ -529,7 +537,8 @@ gcodeForContour opts g c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
 gcodeForNestedContours :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a) => Options -> [String] -> [[Contour a]] -> [String]
 gcodeForNestedContours _ _ [] = []
 gcodeForNestedContours opts g [cs] = gcodeForContours opts g cs
-gcodeForNestedContours opts g (c:cs) = (gcodeForContours opts g c) ++ (head $ map travelGcode $ head $ head cs) : gcodeForNestedContours opts (gcodeForContours opts g c) cs
+gcodeForNestedContours opts g cs = (gcodeForContours opts g (map head cs)) ++ gcodeForNestedContours opts (gcodeForContours opts g (map head cs)) (filter (/= []) $ map tail cs)
+--gcodeForNestedContours opts g (c:cs) = (gcodeForContours opts g c) ++ (head $ map travelGcode $ head $ head cs) : gcodeForNestedContours opts (gcodeForContours opts g c) cs
 
 gcodeForContours :: (Read a, Show a, Floating a, Num a, RealFrac a, Fractional a) => Options -> [String] -> [Contour a] -> [String]
 gcodeForContours _ _ [] = []
@@ -602,8 +611,9 @@ makeSupport opts contours layerType = map (shortenLineBy $ 2 * defaultThickness)
 
 -- Create contours from a list of facets
 layers :: (Floating a, Read a, RealFrac a, Ord a, Enum a) => Options -> [Facet a] -> [[[Point a]]]
-layers opts fs = map allIntersections [zmax,zmax-t..0] <*> pure fs
+layers opts fs = map allIntersections (map roundToFifth [maxheight,maxheight-t..0]) <*> pure fs
     where zmax = maximum $ map z $ map point (concatMap sides fs)
+          maxheight = t * (fromIntegral $ floor $ zmax / t)
           t = thickness opts
 
 -- Input should be top to bottom, output should be bottom to top
