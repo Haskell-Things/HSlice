@@ -9,7 +9,7 @@ Run `ghc slicer` from the directory that contains `slicer.hs`.
 Run `./slicer filename` with options:
 * `-i infill` Infill percentage as an integer (default is 20)
 * `-o outfile` Name of file to output to (default is `out.gcode`)
-* `p perimeter` Number of perimeter layers (default is 2)
+* `-p perimeter` Number of perimeter layers (default is 2)
 * `-s` Print with support
 * `-t thickness` Layer thickness in mm (default is 0.2)
 
