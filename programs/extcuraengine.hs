@@ -15,6 +15,8 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
+-- FIXME: Force compilation.
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Rank2Types #-}
  
 module Main where

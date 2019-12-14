@@ -1,0 +1,58 @@
+Name:                slicer
+Version:             0.0.1
+Cabal-version:       >= 1.8
+Tested-with:         GHC >= 8.4
+Build-type:          Simple
+Synopsis:            A GCode generator, that accepts STL files.
+Description:         A slicer in haskell. Use it to slice 3D prints.
+License:             AGPL-3
+License-file:        LICENSE
+Author:              Julia Longtin <julial@turinglace.com>
+Maintainer:          Julia Longtin <julial@turinglace.com>
+Homepage:            http://implicitcad.org/
+Category:            Graphics
+
+Library
+    Build-depends:
+                  base
+    Ghc-options:
+                -optc-O3
+                -- see GHC manual 8.2.1 section 6.5.1.
+                -feager-blackholing
+                -- for debugging.
+                -Wall
+                -Wextra
+                -Weverything
+    Exposed-Modules:
+                    Graphics.Slicer
+    Other-Modules:
+                  Graphics.Slicer.Math.Definitions
+                  Graphics.Slicer.Math.Point
+                  Graphics.Slicer.Math.Line
+                  Graphics.Slicer.Math.Facet
+                  Graphics.Slicer.Math.Contour
+                  Graphics.Slicer.Math.Slicer
+                  Graphics.Slicer.Formats.STL.Definitions
+                  Graphics.Slicer.Formats.GCode.Definitions
+                  Graphics.Slicer.Mechanics.Definitions
+                  
+Executable extcuraengine
+    Main-is: extcuraengine.hs
+    Hs-source-dirs: programs
+    Build-depends:
+                  base,
+                  implicit
+    Ghc-options:
+                -threaded
+                -rtsopts
+                -optc-O3
+                -- see GHC manual 8.2.1 section 6.5.1.
+                -feager-blackholing
+                -- for debugging.
+                -Wall
+                -Wextra
+                -Weverything
+
+Source-repository head
+    Type:            git
+    Location:        https://github.com/colah/ImplicitCAD.git
