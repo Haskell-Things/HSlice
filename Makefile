@@ -56,17 +56,19 @@ install: build
 	cabal install
 
 # Cleanup from using the rules in this file.
-clean: Setup
+clean:
 	rm -f tests/*.gcode
-	rm -f Setup Setup.hi Setup.o
+	rm -f $(TARGETS)
+	rm -rf ${BUILDROOT}/build/Graphics
+	rm -f ${BUILDROOT}/build/libHS*
 
 # Clean up before making a release.
 distclean: clean Setup
-	./Setup clean
+	./Setup clean 
 	rm -f Setup Setup.hi Setup.o
 	rm -rf dist-newstyle
-	rm -f `find ./ -name *~`
-	rm -f `find ./ -name \#*\#`
+	rm -f `find ./ -name "*~"`
+	rm -f `find ./ -name "\#*\#"`
 
 # Destroy the current user's cabal/ghc environment.
 nukeclean: distclean
@@ -75,7 +77,6 @@ nukeclean: distclean
 # Generate documentation.
 docs: $(DOCGEN)
 	./Setup haddock
-	$(DOCGEN) > docs/escad.md
 
 # Upload to hackage?
 dist: $(TARGETS)
@@ -83,17 +84,16 @@ dist: $(TARGETS)
 
 # Generate examples.
 examples: $(EXTCURAENGINE)
-	cd Examples && for each in `find ./ -name '*scad' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINE) $(SCADOPTS) $$each $(RTSOPTS); } done
-	cd Examples && for each in `find ./ -name '*.hs' -type f | sort`; do { filename=$(basename "$$each"); filename="$${filename%.*}"; cd ..; $(GHC) Examples/$$filename.hs -o Examples/$$filename; cd Examples; echo $$filename; $$filename +RTS -t ; } done
+	cd Examples && for each in `find ./ -name '*stl' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINE) $$each $(RTSOPTS); } done
 
 # Generate images from the examples, so we can upload the images to our website.
 images: examples
 	cd Examples && for each in `find ./ -name '*.stl' -type f | sort`; do { filename=$(basename "$$each"); filename="$${filename%.*}"; if [ -e $$filename.transform ] ; then echo ${stl2ps} $$each $$filename.ps `cat $$filename.transform`; else ${stl2ps} $$each $$filename.ps; fi; ${convert} $$filename.ps $$filename.png; } done
 
-# Hspec parser tests.
-tests: $(TESTSUITE)
-#	cd tests && for each in `find ./ -name '*scad' -type f | sort`; do { ../$(EXTCURAENGINE) $$each ${RESOPTS} ${RTSOPTS}; } done
-	$(TESTSUITE)
+# tests.
+tests: $(EXTCURAENGINE)
+	cd tests && for each in `find ./ -name '*.stl' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINE) $$each $(RTSOPTS); } done
+#	$(TESTSUITE)
 
 # The Slicer library.
 $(LIBTARGET): $(LIBFILES)
