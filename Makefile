@@ -13,7 +13,9 @@ TESTBUILDROOT=${BUILDROOT}/t/
 BENCHBUILDROOT=${BUILDROOT}/b/
 
 # The location of the created extcuraengine binary, for running shell based test cases.
-EXTCURAENGINE=${EXEBUILDROOT}/extcuraengine/build/extcuraengine/extcuraengine
+EXTCURAENGINE=extcuraengine
+EXTCURAENGINEDIR=${EXEBUILDROOT}/$(EXTCURAENGINE)/
+EXTCURAENGINEBIN=${EXEBUILDROOT}/$(EXTCURAENGINE)/build/$(EXTCURAENGINE)/$(EXTCURAENGINE)
 # The location of the created test binary, for running haskell test cases.
 TESTSUITE=${TESTBUILDROOT}/test-slicer/build/test-slicer/test-slicer
 
@@ -31,9 +33,10 @@ RTSOPTS=+RTS -N -qg -t
 #VALGRIND=valgrind --tool=cachegrind --cachegrind-out-file=$$each.cachegrind.`date +%s`
 
 LIBFILES=$(shell find Graphics -name '*.hs')
-LIBTARGET=${BUILDROOT}/build/Graphics/slicer.o
+LIBTARGET=${BUILDROOT}/build/Graphics/Slicer.o
 
-EXECTARGETS=$(EXTCURAENGINE)
+EXECBUILDDIRS=$(EXTCURAENGINEDIR)
+EXECTARGETS=$(EXTCURAENGINEBIN)
 TARGETS=$(EXECTARGETS) $(LIBTARGET)
 
 # Mark the below fake targets as unreal, so make will not get choked up if a file with one of these names is created.
@@ -57,10 +60,12 @@ install: build
 
 # Cleanup from using the rules in this file.
 clean:
+	rm -f Setup
 	rm -f tests/*.gcode
 	rm -f $(TARGETS)
-	rm -rf ${BUILDROOT}/build/Graphics
+	rm -rf ${EXECBUILDDIRS}
 	rm -f ${BUILDROOT}/build/libHS*
+	rm -f ${BUILDROOT}/cache/registration
 
 # Clean up before making a release.
 distclean: clean Setup
@@ -75,24 +80,24 @@ nukeclean: distclean
 	rm -rf ~/.cabal/ ~/.ghc/
 
 # Generate documentation.
-docs: $(DOCGEN)
-	./Setup haddock
+#docs: $(DOCGEN)
+#	./Setup haddock
 
 # Upload to hackage?
 dist: $(TARGETS)
 	./Setup sdist
 
 # Generate examples.
-examples: $(EXTCURAENGINE)
-	cd Examples && for each in `find ./ -name '*stl' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINE) $$each $(RTSOPTS); } done
+examples: $(EXTCURAENGINEBIN)
+	cd Examples && for each in `find ./ -name '*stl' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINEBIN) $$each $(RTSOPTS); } done
 
 # Generate images from the examples, so we can upload the images to our website.
 images: examples
 	cd Examples && for each in `find ./ -name '*.stl' -type f | sort`; do { filename=$(basename "$$each"); filename="$${filename%.*}"; if [ -e $$filename.transform ] ; then echo ${stl2ps} $$each $$filename.ps `cat $$filename.transform`; else ${stl2ps} $$each $$filename.ps; fi; ${convert} $$filename.ps $$filename.png; } done
 
 # tests.
-tests: $(EXTCURAENGINE)
-	cd tests && for each in `find ./ -name '*.stl' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINE) $$each $(RTSOPTS); md5sum out.gcode; } done
+tests: $(EXTCURAENGINEBIN)
+	cd tests && for each in `find ./ -name '*.stl' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINEBIN) $$each $(RTSOPTS); md5sum out.gcode; } done
 #	$(TESTSUITE)
 
 # The Slicer library.
@@ -106,6 +111,7 @@ $(LIBTARGET): $(LIBFILES)
 # Build a binary target with cabal.
 ${EXEBUILDROOT}/%: programs/$$(word 1,$$(subst /, ,%)).hs Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)
 	cabal new-build $(word 1,$(subst /, ,$*))
+	touch $@
 
 # Build a benchmark target with cabal.
 #${BENCHBUILDROOT}/%: programs/$$(word 1,$$(subst /, ,%)).hs Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)
@@ -120,4 +126,5 @@ ${BUILDROOT}/setup-config: slicer.cabal
 # The setup command, used to perform administrative tasks (haddock, upload to hackage, clean, etc...).
 Setup: Setup.*hs ${BUILDROOT}/setup-config $(LIBTARGET)
 	$(GHC) -O2 -Wall --make Setup -package Cabal
+	touch Setup
 
