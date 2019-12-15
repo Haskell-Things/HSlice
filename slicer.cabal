@@ -25,16 +25,16 @@ Library
                 -Weverything
     Exposed-Modules:
                     Graphics.Slicer
-    Other-Modules:
-                  Graphics.Slicer.Math.Definitions
-                  Graphics.Slicer.Math.Point
-                  Graphics.Slicer.Math.Line
-                  Graphics.Slicer.Math.Facet
-                  Graphics.Slicer.Math.Contour
-                  Graphics.Slicer.Math.Slicer
-                  Graphics.Slicer.Formats.STL.Definitions
-                  Graphics.Slicer.Formats.GCode.Definitions
-                  Graphics.Slicer.Mechanics.Definitions
+--    Other-Modules:
+--                  Graphics.Slicer.Math.Definitions
+--                  Graphics.Slicer.Math.Point
+--                  Graphics.Slicer.Math.Line
+--                  Graphics.Slicer.Math.Facet
+--                  Graphics.Slicer.Math.Contour
+--                  Graphics.Slicer.Math.Slicer
+--                  Graphics.Slicer.Formats.STL.Definitions
+--                  Graphics.Slicer.Formats.GCode.Definitions
+--                  Graphics.Slicer.Mechanics.Definitions
                   
 Executable extcuraengine
     Main-is: extcuraengine.hs
@@ -56,4 +56,4 @@ Executable extcuraengine
 
 Source-repository head
     Type:            git
-    Location:        https://github.com/colah/ImplicitCAD.git
+    Location:        https://github.com/julialongtin/slicer.git
