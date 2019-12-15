@@ -1,3 +1,4 @@
+-- Slicer.
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco
  -
@@ -18,16 +19,42 @@
 -- FIXME: Force compilation.
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Rank2Types #-}
- 
-module Main where
 
-import Control.Monad (guard)
-import Data.Char (toUpper, toLower, isSpace)
-import Data.List (nub, sortBy, find, delete)
-import Data.Maybe (fromJust)
-import System.Console.GetOpt
+import Prelude (RealFrac, Floating, Num, Double, Enum, Fractional, (*), (/), (+), (-), (^), floor, fromIntegral, odd, div, pi, error, sqrt, mod, round)
+
+import Control.Applicative (pure, (<*>))
+
+import Data.Eq (Eq, (==), (/=))
+
+import Data.Function ((.), ($), flip)
+
+import Data.Ord (Ord, Ordering, (<=), (<), (>), (>=), compare, max)
+
+import Data.Tuple (fst, snd)
+
+import Text.Read(Read, read)
+
+import Data.Int (Int)
+
+import Data.String (String)
+
+import Data.Bool(Bool(True, False), (||), (&&), not, otherwise)
+
+import Data.List (nub, sortBy, find, delete, (++), lines, unlines, length, reverse, zip3, filter, tail, head, zipWith, maximum, (!!), minimum, words, init, unwords, concat, splitAt, elem, take, break, dropWhile, map, foldl, concatMap, last)
+
+import Control.Monad (Functor, fmap, return, (>>=))
+
+import Data.Char (toLower, isSpace)
+
+import Data.Maybe (fromJust, Maybe(Just, Nothing))
+
+import Text.Show(Show, show)
+
+import System.Console.GetOpt (OptDescr(Option), ArgOrder(Permute), getOpt, ArgDescr(NoArg,ReqArg))
+
 import System.Environment (getArgs)
-import System.Exit (exitFailure)
+
+import System.IO (IO, writeFile, readFile, putStrLn)
 
 ----------------------------------------------------------
 ----------------------- Constants ------------------------
@@ -73,15 +100,15 @@ startingGcode = ["G21 ;metric values"
                 ,"M117"
                 ]
 endingGcode = [";End GCode"
-              ,"M104 S0 ;extruder heater off"
-              ,"M140 S0 ;heated bed heater off (if you have it)"
-              ,"G91 ;relative positioning"
-              ,"G1 E-1 F300 ;retract the filament a bit before lifting the nozzle, to release some of the pressure"
+              ,"M104 S0 ;extruder heater off"
+              ,"M140 S0 ;heated bed heater off (if you have it)"
+              ,"G91 ;relative positioning"
+              ,"G1 E-1 F300 ;retract the filament a bit before lifting the nozzle, to release some of the pressure"
               ,"G1 Z+0.5 E-5 X-20 Y-20 F{travel_speed} ;move Z up a bit and retract filament even more"
-              ,"G28 X0 Y0 ;move X/Y to min endstops, so the head is out of the way"
+              ,"G28 X0 Y0 ;move X/Y to min endstops, so the head is out of the way"
               ,"M107 ;fan off"
               ,"M84 ;steppers off"
-              ,"G90 ;absolute positioning"
+              ,"G90 ;absolute positioning"
               ]
 
 ----------------------------------------------------------
@@ -165,15 +192,8 @@ data Facet a = Facet { sides :: [Line a] } deriving Eq
 
 data LayerType = BaseOdd | BaseEven | Middle
 
--- This should correspond to one line of G-code
-type Command = [String]
-
 type Contour a = [Point a]
 
-
--- Given a command, write it as one line of G-code
-showCommand :: Command -> String
-showCommand = map toUpper . unwords
 
 -- Map a function to every other value in a list. This is useful for fixing non-extruding
 -- lines.

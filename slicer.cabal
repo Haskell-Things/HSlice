@@ -41,7 +41,8 @@ Executable extcuraengine
     Hs-source-dirs: programs
     Build-depends:
                   base,
-                  implicit
+                  implicit,
+                  slicer
     Ghc-options:
                 -threaded
                 -rtsopts
