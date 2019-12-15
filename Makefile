@@ -92,7 +92,7 @@ images: examples
 
 # tests.
 tests: $(EXTCURAENGINE)
-	cd tests && for each in `find ./ -name '*.stl' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINE) $$each $(RTSOPTS); } done
+	cd tests && for each in `find ./ -name '*.stl' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINE) $$each $(RTSOPTS); md5sum out.gcode; } done
 #	$(TESTSUITE)
 
 # The Slicer library.
