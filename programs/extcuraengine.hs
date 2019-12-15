@@ -1,6 +1,7 @@
 -- Slicer.
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco
+ - Copyright 2019 Julia Longtin
  -
  - This program is free software: you can redistribute it and/or modify
  - it under the terms of the GNU Affero General Public License as published by
@@ -710,7 +711,7 @@ boundingBoxAll contours = (map minimum $ map (\n -> map (!!n) bBoxes) [0, 1])
     where bBoxes = filter (/= []) $ map boundingBox $ filter (/= []) contours
 
 
--- Get a bounding box of the contour
+-- Get a bounding box of a contour
 boundingBox :: (Ord a) => Contour a -> [a]
 boundingBox contour = [minX, minY, maxX, maxY]
     where maxX = maximum $ map x contour
@@ -838,7 +839,7 @@ splitAtIntersections contours linePts@[p1, p2] = [head linePts]
 main :: IO ()
 main = do
     args <- getArgs
-    let (actions, nonOptions, errors) = getOpt Permute options args
+    let (actions, nonOptions, _) = getOpt Permute options args
     initialOpts <- foldl (>>=) (return defaultOptions) actions
     let Options { perimeterLayers = perimeter
                 , infill = infill
