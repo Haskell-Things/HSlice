@@ -21,7 +21,24 @@
    to be accessible to an end user who is compiling objects using
    this haskell library. -}
 
-module Graphics.Slicer () where
+module Graphics.Slicer (Point(Point), x,y,z, crossProduct, twoDCrossProduct, lineIntersection, Line(Line), point, slope, scalePoint, addPoints, magnitude, distance, lineFromEndpoints, midpoint, endpoint, flipLine, Contour, Facet(Facet), sides, shiftFacet, LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, combineLines, perpendicularBisector, pointAtZValue, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, facetsFromSTL, cleanupFacet, makeLines, facetIntersects, trimIntersections, getContours, simplifyContour,Bed(Rect3), bedWidth, bedDepth, bedHeight, Extruder(Extruder), filamentWidth, nozzleDiameter) where
 
 import Prelude ()
 
+import Graphics.Slicer.Math.Definitions (Point(Point), x, y, z, LayerType(BaseOdd, BaseEven, Middle), Contour)
+
+import Graphics.Slicer.Math.Point (crossProduct, twoDCrossProduct, scalePoint, addPoints, magnitude, distance, orderPoints)
+
+import Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, midpoint, endpoint, flipLine, pointSlopeLength, combineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines)
+
+import Graphics.Slicer.Math.Facet (Facet(Facet), sides, shiftFacet, facetIntersects, trimIntersections)
+
+import Graphics.Slicer.Math.Contour (getContours, simplifyContour)
+
+import Graphics.Slicer.Math.Slicer (accumulateValues)
+
+import Graphics.Slicer.Formats.GCode.Definitions (roundToFifth, roundPoint)
+
+import Graphics.Slicer.Formats.STL.Definitions (facetsFromSTL, cleanupFacet)
+
+import Graphics.Slicer.Mechanics.Definitions (Bed(Rect3), bedWidth, bedDepth, bedHeight, Extruder(Extruder), filamentWidth, nozzleDiameter)
