@@ -25,16 +25,12 @@ Library
                 -Weverything
     Exposed-Modules:
                     Graphics.Slicer
---    Other-Modules:
---                  Graphics.Slicer.Math.Definitions
---                  Graphics.Slicer.Math.Point
---                  Graphics.Slicer.Math.Line
---                  Graphics.Slicer.Math.Facet
---                  Graphics.Slicer.Math.Contour
---                  Graphics.Slicer.Math.Slicer
---                  Graphics.Slicer.Formats.STL.Definitions
---                  Graphics.Slicer.Formats.GCode.Definitions
---                  Graphics.Slicer.Mechanics.Definitions
+    Other-Modules:
+                  Graphics.Slicer.Concepts.Definitions
+                  Graphics.Slicer.Definitions
+                  Graphics.Slicer.FastIntUtil
+                  Graphics.Slicer.IntegralUtil
+                  Graphics.Slicer.Objects.Definitions
                   
 Executable extcuraengine
     Main-is: extcuraengine.hs

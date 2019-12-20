@@ -1,3 +1,4 @@
+
 -- Slicer.
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco
@@ -17,17 +18,19 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- The purpose of this file is to pass on the functionality we want
-   to be accessible to an end user who is compiling objects using
-   this haskell library. -}
+-- The purpose of this file is to hold datatype definitions that are useful in all of the code.
 
-module Graphics.Slicer (
-  module D,
-  Bed(RectBed),
-  BuildArea(RectArea)) where
+module Graphics.Slicer.Definitions (ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ, toFastℕ) where
 
-import Prelude ()
+import Prelude (Double)
 
-import Graphics.Slicer.Definitions as D (ℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ);
-import Graphics.Slicer.Objects.Definitions(Bed(RectBed));
-import Graphics.Slicer.Concepts.Definitions(BuildArea(RectArea));
+import Graphics.Slicer.FastIntUtil (Fastℕ, fromFastℕ, toFastℕ)
+
+import Graphics.Slicer.IntegralUtil (ℕ)
+
+-- Let's make things a bit nicer.
+-- Following the math notation ℝ, ℝ², ℝ³...
+type ℝ = Double
+type ℝ2 = (ℝ,ℝ)
+type ℝ3 = (ℝ,ℝ,ℝ)
+

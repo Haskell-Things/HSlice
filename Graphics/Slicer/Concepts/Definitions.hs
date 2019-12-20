@@ -17,17 +17,16 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- The purpose of this file is to pass on the functionality we want
-   to be accessible to an end user who is compiling objects using
-   this haskell library. -}
+-- The purpose of this file is to define important non-math concepts of a machine.
 
-module Graphics.Slicer (
-  module D,
-  Bed(RectBed),
-  BuildArea(RectArea)) where
+module Graphics.Slicer.Concepts.Definitions (BuildArea(RectArea)) where
 
-import Prelude ()
+import Prelude (Eq)
 
-import Graphics.Slicer.Definitions as D (ℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ);
-import Graphics.Slicer.Objects.Definitions(Bed(RectBed));
-import Graphics.Slicer.Concepts.Definitions(BuildArea(RectArea));
+import Graphics.Slicer.Definitions(ℝ3)
+
+-- The shape of the 3d printer's build area.
+data BuildArea =
+    RectArea ℝ3 -- Width, Depth, and Height of the build area.
+  deriving Eq
+
