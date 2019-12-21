@@ -215,7 +215,7 @@ addPoints (Point x1 y1 z1) (Point x2 y2 z2) = Point (x1 + x2) (y1 + y2) (z1 + z2
 
 -- Scale the coordinates of a point by s
 scalePoint :: ℝ -> Point -> Point
-scalePoint f (Point a b c) = Point (f*a) (f*b) (f*c)
+scalePoint val (Point a b c) = Point (val*a) (val*b) (val*c)
 
 magnitude :: Point -> ℝ
 magnitude (Point x y z) = sqrt $ x^2 + y^2 + z^2
@@ -728,7 +728,7 @@ makeSupport :: Bed
             -> [[Point]]
             -> LayerType
             -> [Line]
-makeSupport bed opts contours layerType = map (shortenLineBy $ 2 * defaultThickness)
+makeSupport bed opts contours _ = map (shortenLineBy $ 2 * defaultThickness)
                                     $ concatMap (infillLineInside (addBBox contours))
                                     $ infillCover Middle
     where infillCover Middle = coveringInfill bed 20 zHeight
@@ -830,11 +830,7 @@ main = do
     args <- getArgs
     let (actions, nonOptions, _) = getOpt Permute options args
     initialOpts <- foldl (>>=) (return defaultOptions) actions
-    let Options { perimeterLayers = perimeter
-                , infill = infill
-                , thickness = thickness
-                , support = support
-                , help = help
+    let Options { help = help
                 , output = output
                 } = initialOpts
     if help then (putStrLn helpString) else do
@@ -842,14 +838,14 @@ main = do
             let fname = head nonOptions
             stl <- readFile fname
             let stlLines = lines stl
-            let (facets, c) = centerFacets printerBed $ facetLinesFromSTL stlLines
-            let opts = initialOpts { center = c }
-            let allLayers = map (filter (\l -> (head l) /= (head $ tail l))) $ filter (/=[]) $ layers opts facets
-            let gcode = sliceObject printerBed opts $ zip3 allLayers [1..(toFastℕ $ length allLayers)] $ reverse [1..(toFastℕ $ length allLayers)]
-            writeFile output (unlines $ startingGcode ++ gcode ++ endingGcode)
+                (facets, c) = centerFacets printerBed $ facetLinesFromSTL stlLines
+                opts = initialOpts { center = c }
+                allLayers = map (filter (\l -> (head l) /= (head $ tail l))) $ filter (/=[]) $ layers opts facets
+                gcode = sliceObject printerBed opts $ zip3 allLayers [1..(toFastℕ $ length allLayers)] $ reverse [1..(toFastℕ $ length allLayers)]
+              in
+              writeFile output (unlines $ startingGcode ++ gcode ++ endingGcode)
               where
                 -- FIXME: pull these values from a cura config.
                 printerBed :: Bed
-                --printerBed = RectBed (230,230)
                 printerBed = RectBed (150,150)
 
