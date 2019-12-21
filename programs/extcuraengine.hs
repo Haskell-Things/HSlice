@@ -62,20 +62,6 @@ import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea), ℝ, ℕ, Fastℕ, fr
 default (ℕ, Fastℕ, ℝ)
 
 ----------------------------------------------------------
------------------------ Constants ------------------------
-----------------------------------------------------------
--- in mm
-nozzleDiameter,
-    filamentDiameter,
-    defaultBottomTopThickness,
-    lineThickness :: ℝ
-
-nozzleDiameter = 0.4
-filamentDiameter = 1.75
-defaultBottomTopThickness = 0.8
-lineThickness = 0.6
-
-----------------------------------------------------------
 ------------ Overhead (data structures, etc.) ------------
 ----------------------------------------------------------
 
@@ -559,12 +545,6 @@ gcodeForContours opts g (c:cs) = firstContourGcode
                                ++ gcodeForContours opts firstContourGcode cs
     where firstContourGcode = gcodeForContour opts g c
 
-gcodeForLine :: Options
-             -> [String]
-             -> Line
-             -> [String]
-gcodeForLine opts g l@(Line p s) = gcodeForContour opts g [p, endpoint l]
-
 -- G-code to travel to a point without extruding
 travelGcode :: Point -> String
 travelGcode p = "G1 " ++ (show p)
@@ -630,6 +610,16 @@ layers opts fs = map allIntersections (map roundToFifth [maxheight,maxheight-t..
           maxheight = t * (fromIntegral $ floor $ zmax / t)
           t = thickness opts
 
+getLayerType :: Options -> (Fastℕ, Fastℕ) -> LayerType
+getLayerType opts (fromStart, toEnd)
+    | (fromStart <= topBottomLayers || toEnd <= topBottomLayers) && fromStart `mod` 2 == 0 = BaseEven
+    | (fromStart <= topBottomLayers || toEnd <= topBottomLayers) && fromStart `mod` 2 == 1 = BaseOdd
+    | otherwise = Middle
+    where
+      topBottomLayers :: Fastℕ
+      topBottomLayers = round $ defaultBottomTopThickness / t
+      t = thickness opts
+
 -- Input should be top to bottom, output should be bottom to top
 sliceObject ::  Bed -> Options
                   -> [([Contour], Fastℕ, Fastℕ)] -> [String]
@@ -647,13 +637,13 @@ sliceObject bed opts [(a, fromStart, toEnd)] = contourGcode ++ supportGcode ++ i
                        $ concatMap (\l -> [point l, endpoint l])
                        $ mapEveryOther flipLine
                        $ makeSupport bed opts contours
-                       $ layerType opts (fromStart, toEnd)
+                       $ getLayerType opts (fromStart, toEnd)
           infillGcode = fixGcode
                       $ gcodeForContour opts (contourGcode ++ supportGcode)
                       $ concatMap (\l -> [point l, endpoint l])
                       $ mapEveryOther flipLine
                       $ makeInfill bed opts innermostContours
-                      $ layerType opts (fromStart, toEnd)
+                      $ getLayerType opts (fromStart, toEnd)
 sliceObject bed opts ((a, fromStart, toEnd):as) = theRest
                                                   ++ contourGcode
                                                   ++ (map travelGcode $ head contours)
@@ -672,23 +662,27 @@ sliceObject bed opts ((a, fromStart, toEnd):as) = theRest
                        $ concatMap (\l -> [point l, endpoint l])
                        $ mapEveryOther flipLine
                        $ makeSupport bed opts contours
-                       $ layerType opts (fromStart, toEnd)
+                       $ getLayerType opts (fromStart, toEnd)
           infillGcode = fixGcode
                       $ gcodeForContour opts (contourGcode ++ supportGcode)
                       $ concatMap (\l -> [point l, endpoint l])
                       $ mapEveryOther flipLine
                       $ makeInfill bed opts innermostContours
-                      $ layerType opts (fromStart, toEnd)
+                      $ getLayerType opts (fromStart, toEnd)
 
-layerType :: Options
-          -> (Fastℕ, Fastℕ)
-          -> LayerType
-layerType opts (fromStart, toEnd)
-    | (fromStart <= topBottomLayers || toEnd <= topBottomLayers) && fromStart `mod` 2 == 0 = BaseEven
-    | (fromStart <= topBottomLayers || toEnd <= topBottomLayers) && fromStart `mod` 2 == 1 = BaseOdd
-    | otherwise = Middle
-    where topBottomLayers = round $ defaultBottomTopThickness / t
-          t = thickness opts
+----------------------------------------------------------
+----------------------- Constants ------------------------
+----------------------------------------------------------
+-- in mm
+nozzleDiameter,
+    filamentDiameter,
+    defaultBottomTopThickness,
+    lineThickness :: ℝ
+
+nozzleDiameter = 0.4
+filamentDiameter = 1.75
+defaultBottomTopThickness = 0.8
+lineThickness = 0.6
 
 ----------------------------------------------------------
 ----------------------- Options --------------------------
@@ -722,7 +716,7 @@ options =
         "Get help"
     , Option "i" ["infill"]
         (ReqArg
-            (\arg opt -> if (read arg) >= 0 then return opt { infill = read arg }
+            (\arg opt -> if (read arg :: ℝ) >= 0 then return opt { infill = read arg }
                          else return opt)
             "INFILL")
         "Infill percentage"
@@ -733,7 +727,7 @@ options =
         "Output file name"
     , Option "p" ["perimeter"]
         (ReqArg
-            (\arg opt -> if (read arg) > 0 then return opt { perimeterLayers = read arg }
+            (\arg opt -> if (read arg :: Fastℕ) > 0 then return opt { perimeterLayers = read arg }
                          else return opt)
             "PERIMETER")
         "Perimeter layers"
