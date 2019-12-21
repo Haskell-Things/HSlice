@@ -67,83 +67,17 @@ default (ℕ, Fastℕ, ℝ)
 -- in mm
 nozzleDiameter,
     filamentDiameter,
-    defaultThickness,
     defaultBottomTopThickness,
     lineThickness :: ℝ
 
 nozzleDiameter = 0.4
 filamentDiameter = 1.75
-defaultThickness = 0.2
-bedSizeX :: Bed -> Double
-bedSizeX (RectBed bed@(x,_))= x
-bedSizeY (RectBed bed@(_,y))= y
 defaultBottomTopThickness = 0.8
 lineThickness = 0.6
-
-defaultPerimeterLayers :: Fastℕ
-defaultPerimeterLayers = 2
-defaultFill :: ℝ
-defaultFill = 20
 
 ----------------------------------------------------------
 ------------ Overhead (data structures, etc.) ------------
 ----------------------------------------------------------
-
--- Flags and options adapted from https://wiki.haskell.org/High-level_option_handling_with_GetOpt
--- Parts of main also adapted from there.
-data Flag = PerimeterLayers ℕ
-          | Infill ℝ
-          | Thickness ℝ
-
-data Options = Options { perimeterLayers :: Fastℕ
-                       , infill :: ℝ
-                       , thickness :: ℝ
-                       , support :: Bool
-                       , help :: Bool
-                       , output :: String
-                       , center :: Point
-                       }
-
-defaultOptions :: Options
-defaultOptions = Options defaultPerimeterLayers defaultFill defaultThickness False False "out.gcode" (Point 0 0 0)
-
-options :: [OptDescr (Options -> IO Options)]
-options =
-    [ Option "h" ["help"]
-        (NoArg
-            (\opt -> return opt { help = True }))
-        "Get help"
-    , Option "i" ["infill"]
-        (ReqArg
-            (\arg opt -> if (read arg) >= 0 then return opt { infill = read arg }
-                         else return opt)
-            "INFILL")
-        "Infill percentage"
-    , Option "o" ["output"]
-        (ReqArg
-            (\arg opt -> return opt { output = arg })
-            "OUTPUT")
-        "Output file name"
-    , Option "p" ["perimeter"]
-        (ReqArg
-            (\arg opt -> if (read arg) > 0 then return opt { perimeterLayers = read arg }
-                         else return opt)
-            "PERIMETER")
-        "Perimeter layers"
-    , Option "s" ["support"]
-        (NoArg
-            (\opt -> return opt { support = True }))
-        "Enable support"
-    , Option "t" ["thickness"]
-        (ReqArg tParser "THICKNESS")
-        "Layer thickness (mm)"
-    ]
-
-tParser :: String -> Options -> IO Options
-tParser arg opt
-    | argVal > 0 = return opt { thickness = read $ show argVal }
-    | otherwise = return opt
-    where argVal = read arg :: ℝ
 
 -- A Point data structure
 data Point = Point { x :: ℝ, y :: ℝ, z :: ℝ } deriving Eq
@@ -229,15 +163,13 @@ canCombineLines bed l1 l2@(Line p _) = (extendToInfiniteLine bed l1) == (extendT
 -- Given a point and slope (in xy plane), make "infinite" line (i.e. a line that
 -- hits two edges of the bed
 infiniteLine :: Bed -> Point -> ℝ -> Line
-infiniteLine bed p@(Point _ _ c) m = head $ makeLines $ nub points
-    where edges = (map lineFromEndpoints [Point 0 0 c, Point bedXSize bedYSize c])
-                <*> [Point 0 bedYSize c, Point bedXSize 0 c]
-          longestLength = sqrt $ bedXSize^2 + bedYSize^2
+infiniteLine (RectBed (bedX,bedY)) p@(Point _ _ c) m = head $ makeLines $ nub points
+    where edges = (map lineFromEndpoints [Point 0 0 c, Point bedX bedY c])
+                <*> [Point 0 bedY c, Point bedX 0 c]
+          longestLength = sqrt $ bedX*bedX + bedY*bedY
           halfLine@(Line p' s) = pointSlopeLength p m longestLength -- should have p' == p
           line = lineFromEndpoints (endpoint halfLine) (addPoints p' (scalePoint (-1) s))
           points = map fromJust $ filter (/= Nothing) $ map (lineIntersection line) edges
-          bedYSize = bedSizeY bed
-          bedXSize = bedSizeX bed
 
 extendToInfiniteLine :: Bed -> Line -> Line
 extendToInfiniteLine bed l@(Line p m) = infiniteLine bed p slope
@@ -341,8 +273,8 @@ facetsFromSTL l = map (map (dropWhile isSpace)) $ f : facetsFromSTL (tail r)
 
 -- Given a list of facets, center them on the print area
 centerFacets :: Bed -> [Facet] -> ([Facet], Point)
-centerFacets bed fs = (map (shiftFacet (Point dx dy dz)) fs, Point dx dy dz)
-    where [dx,dy,dz] = zipWith (-) (map (/2) [bedXSize,bedYSize,0]) [x0,y0,zmin]
+centerFacets (RectBed (bedX,bedY)) fs = (map (shiftFacet (Point dx dy dz)) fs, Point dx dy dz)
+    where [dx,dy,dz] = zipWith (-) (map (/2) [bedX,bedY,0]) [x0,y0,zmin]
           [xmin,ymin,zmin] = map minimum $
                              foldl (zipWith (flip (:))) [[],[],[]] $
                              map f $
@@ -353,8 +285,6 @@ centerFacets bed fs = (map (shiftFacet (Point dx dy dz)) fs, Point dx dy dz)
                         map point (concatMap sides fs)
           [x0,y0] = zipWith (\a b -> (a + b) / 2 - b) [xmax,ymax] [xmin,ymin]
           f p = [x,y,z] <*> pure p
-          bedYSize = bedSizeY bed
-          bedXSize = bedSizeX bed
 
 -- Clean up a list of strings from STL file (corresponding to a facet) into just
 -- the vertices
@@ -511,18 +441,14 @@ coveringInfill bed infill z
 
 -- Generate lines over entire print area
 coveringLinesUp :: Bed -> ℝ -> [Line]
-coveringLinesUp bed z = map (flip Line s) (map f [-bedXSize,-bedXSize + lineThickness..bedYSize])
-    where s = Point (bedXSize + bedYSize) (bedXSize + bedYSize) 0
+coveringLinesUp (RectBed (bedX,bedY)) z = map (flip Line s) (map f [-bedX,-bedX + lineThickness..bedY])
+    where s = Point (bedX + bedY) (bedX + bedY) 0
           f v = Point 0 v z
-          bedYSize = bedSizeY bed
-          bedXSize = bedSizeX bed
 
 coveringLinesDown :: Bed -> ℝ -> [Line]
-coveringLinesDown bed z = map (flip Line s) (map f [0,lineThickness..bedYSize + bedXSize])
-    where s =  Point (bedXSize + bedYSize) (- bedXSize - bedYSize) 0
+coveringLinesDown (RectBed (bedX,bedY)) z = map (flip Line s) (map f [0,lineThickness..bedY + bedX])
+    where s =  Point (bedX + bedY) (- bedX - bedY) 0
           f v = Point 0 v z
-          bedYSize = bedSizeY bed
-          bedXSize = bedSizeX bed
 
 -- Helper function to generate the points we'll need to make the inner perimeters
 pointsForPerimeters :: Options -> Line -> [Point]
@@ -639,22 +565,9 @@ gcodeForLine :: Options
              -> [String]
 gcodeForLine opts g l@(Line p s) = gcodeForContour opts g [p, endpoint l]
 
-gcodeForLines :: Options
-              -> [String]
-              -> [Line]
-              -> [String]
-gcodeForLines opts g ls = interleave (gcodeForContour opts g $ (point $ head ls) : (map point ls)) travels
-    where travels = map travelGcode $ map point ls
-
 -- G-code to travel to a point without extruding
 travelGcode :: Point -> String
 travelGcode p = "G1 " ++ (show p)
-
--- Interleave two lists
-interleave :: [a] -> [a] -> [a]
-interleave [] l2 = l2
-interleave l1 [] = l1
-interleave (a:as) (b:bs) = a:b:(interleave as bs)
 
 -- I'm not super happy about this, but it makes extrusion values correct
 fixGcode :: [String] -> [String]
@@ -697,7 +610,7 @@ makeSupport :: Bed
             -> [[Point]]
             -> LayerType
             -> [Line]
-makeSupport bed opts contours _ = map (shortenLineBy $ 2 * defaultThickness)
+makeSupport bed opts contours _ = map (shortenLineBy $ 2 * (thickness opts))
                                     $ concatMap (infillLineInside (addBBox contours))
                                     $ infillCover Middle
     where infillCover Middle = coveringInfill bed 20 zHeight
@@ -776,6 +689,68 @@ layerType opts (fromStart, toEnd)
     | otherwise = Middle
     where topBottomLayers = round $ defaultBottomTopThickness / t
           t = thickness opts
+
+----------------------------------------------------------
+----------------------- Options --------------------------
+----------------------------------------------------------
+
+-- Options adapted from https://wiki.haskell.org/High-level_option_handling_with_GetOpt
+
+data Options = Options { perimeterLayers :: Fastℕ -- how many parameters go around each contour
+                       , infill :: ℝ              -- the amouth of infill ranging from 0 to 1.
+                       , thickness :: ℝ           -- the layer height, in millimeters.
+                       , support :: Bool          -- whether to print support.
+                       , help :: Bool             -- output help
+                       , output :: String         -- file to store results in
+                       , center :: Point          -- where to place the object being printed on the bed.
+                       }
+
+defaultOptions :: Options
+defaultOptions = Options defaultPerimeterLayers defaultFill defaultThickness False False "out.gcode" (Point 0 0 0)
+  where
+    defaultPerimeterLayers :: Fastℕ
+    defaultPerimeterLayers = 2
+    defaultFill, defaultThickness :: ℝ
+    defaultFill = 20
+    defaultThickness = 0.2
+
+options :: [OptDescr (Options -> IO Options)]
+options =
+    [ Option "h" ["help"]
+        (NoArg
+            (\opt -> return opt { help = True }))
+        "Get help"
+    , Option "i" ["infill"]
+        (ReqArg
+            (\arg opt -> if (read arg) >= 0 then return opt { infill = read arg }
+                         else return opt)
+            "INFILL")
+        "Infill percentage"
+    , Option "o" ["output"]
+        (ReqArg
+            (\arg opt -> return opt { output = arg })
+            "OUTPUT")
+        "Output file name"
+    , Option "p" ["perimeter"]
+        (ReqArg
+            (\arg opt -> if (read arg) > 0 then return opt { perimeterLayers = read arg }
+                         else return opt)
+            "PERIMETER")
+        "Perimeter layers"
+    , Option "s" ["support"]
+        (NoArg
+            (\opt -> return opt { support = True }))
+        "Enable support"
+    , Option "t" ["thickness"]
+        (ReqArg tParser "THICKNESS")
+        "Layer thickness (mm)"
+    ]
+
+tParser :: String -> Options -> IO Options
+tParser arg opt
+    | argVal > 0 = return opt { thickness = read $ show argVal }
+    | otherwise = return opt
+    where argVal = read arg :: ℝ
 
 -----------------------------------------------------------------------
 --------------------------- Main --------------------------------------
