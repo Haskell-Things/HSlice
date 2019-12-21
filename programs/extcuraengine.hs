@@ -85,37 +85,6 @@ defaultPerimeterLayers = 2
 defaultFill :: ℝ
 defaultFill = 20
 
-helpString :: String
-helpString = "Usage: slicer filename [-i infill] [-p perimeter] [-s support] [-t thickness] [-o outfile]"
-
-startingGcode, endingGcode :: [String]
-startingGcode = ["G21 ;metric values"
-                ,"G90 ;absolute positioning"
-                ,"M82 ;set extruder to absolute mode"
-                ,"M106 ;start with the fan on"
-                ,"G28 X0 Y0 ;move X/Y to min endstops"
-                ,"G28 Z0 ;move Z to min endstops"
-                ,"G29 ;Run the auto bed leveling"
-                ,"G1 Z15.0 F4200 ;move the platform down 15mm"
-                ,"G92 E0 ;zero the extruded length"
-                ,"G1 F200 E3 ;extrude 3mm of feed stock"
-                ,"G92 E0 ;zero the extruded length again"
-                ,"G1 F4200" -- default speed
-                ,";Put printing message on LCD screen"
-                ,"M117"
-                ]
-endingGcode = [";End GCode"
-              ,"M104 S0 ;extruder heater off"
-              ,"M140 S0 ;heated bed heater off (if you have it)"
-              ,"G91 ;relative positioning"
-              ,"G1 E-1 F300 ;retract the filament a bit before lifting the nozzle, to release some of the pressure"
-              ,"G1 Z+0.5 E-5 X-20 Y-20 F{travel_speed} ;move Z up a bit and retract filament even more"
-              ,"G28 X0 Y0 ;move X/Y to min endstops, so the head is out of the way"
-              ,"M107 ;fan off"
-              ,"M84 ;steppers off"
-              ,"G90 ;absolute positioning"
-              ]
-
 ----------------------------------------------------------
 ------------ Overhead (data structures, etc.) ------------
 ----------------------------------------------------------
@@ -809,20 +778,6 @@ layerType opts (fromStart, toEnd)
           t = thickness opts
 
 -----------------------------------------------------------------------
---------------------- CONTOUR ACCUMULATION ----------------------------
------------------------------------------------------------------------
-
--- First argument is a pair of points that define a line segment, 
--- second is a list of contours that you want to find intersections with
-splitAtIntersections :: [Contour] -> [Point] ->[Point]
-splitAtIntersections contours linePts@[p1, p2] = [head linePts]
-                                               ++ (sortBy (orderAlongLine line) intersections)
-                                               ++ [last linePts] 
-    where intersections = nub $ map fromJust $ filter (/= Nothing) $ map (lineIntersection line) allLines
-          allLines = concatMap (makeLines) contours
-          line = lineFromEndpoints p1 p2
-
------------------------------------------------------------------------
 --------------------------- Main --------------------------------------
 ----------------------------------------------------------------------- 
 main :: IO ()
@@ -833,6 +788,7 @@ main = do
     let Options { help = help
                 , output = output
                 } = initialOpts
+    let helpString = "Usage: slicer filename [-i infill] [-p perimeter] [-s support] [-t thickness] [-o outfile]"
     if help then (putStrLn helpString) else do
         if length nonOptions == 0 then (putStrLn "Error: Enter a file name") else do
             let fname = head nonOptions
@@ -842,10 +798,37 @@ main = do
                 opts = initialOpts { center = c }
                 allLayers = map (filter (\l -> (head l) /= (head $ tail l))) $ filter (/=[]) $ layers opts facets
                 gcode = sliceObject printerBed opts $ zip3 allLayers [1..(toFastℕ $ length allLayers)] $ reverse [1..(toFastℕ $ length allLayers)]
-              in
-              writeFile output (unlines $ startingGcode ++ gcode ++ endingGcode)
+              in writeFile output (unlines $ startingGcode ++ gcode ++ endingGcode)
               where
                 -- FIXME: pull these values from a cura config.
                 printerBed :: Bed
                 printerBed = RectBed (150,150)
+                startingGcode, endingGcode :: [String]
+                startingGcode = ["G21 ;metric values"
+                                ,"G90 ;absolute positioning"
+                                ,"M82 ;set extruder to absolute mode"
+                                ,"M106 ;start with the fan on"
+                                ,"G28 X0 Y0 ;move X/Y to min endstops"
+                                ,"G28 Z0 ;move Z to min endstops"
+                                ,"G29 ;Run the auto bed leveling"
+                                ,"G1 Z15.0 F4200 ;move the platform down 15mm"
+                                ,"G92 E0 ;zero the extruded length"
+                                ,"G1 F200 E3 ;extrude 3mm of feed stock"
+                                ,"G92 E0 ;zero the extruded length again"
+                                ,"G1 F4200" -- default speed
+                                ,";Put printing message on LCD screen"
+                                ,"M117"
+                                ]
+                endingGcode = [";End GCode"
+                              ,"M104 S0 ;extruder heater off"
+                              ,"M140 S0 ;heated bed heater off (if you have it)"
+                              ,"G91 ;relative positioning"
+                              ,"G1 E-1 F300 ;retract the filament a bit before lifting the nozzle, to release some of the pressure"
+                              ,"G1 Z+0.5 E-5 X-20 Y-20 F{travel_speed} ;move Z up a bit and retract filament even more"
+                              ,"G28 X0 Y0 ;move X/Y to min endstops, so the head is out of the way"
+                              ,"M107 ;fan off"
+                              ,"M84 ;steppers off"
+                              ,"G90 ;absolute positioning"
+                              ]
+
 
