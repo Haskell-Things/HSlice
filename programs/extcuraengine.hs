@@ -423,6 +423,7 @@ coveringInfill bed infill z
     where
       n :: ℝ
       n = max 1 (infill/100)
+      pruneInfill :: [Line] -> [Line]
       pruneInfill l = map ((!!) l)[0, (floor n)..length l-1]
 
 -- Generate lines over entire print area
@@ -502,15 +503,9 @@ constructInnerContours opts interiors
     | otherwise = [intersections] : constructInnerContours opts (map tail interiors)
     where intersections = map fromJust $ filter (/= Nothing) $ consecutiveIntersections $ map head interiors
 
-changeShape :: Eq a => [[a]] -> [[a]]
-changeShape ls
-    | ls == [] = []
-    | head ls == [] = []
-    | otherwise = (map head ls) : changeShape (map tail ls)
-
 consecutiveIntersections :: [Line] -> [Maybe (Point)]
 consecutiveIntersections [] = []
-consecutiveIntersections [a] = []
+consecutiveIntersections [_] = []
 consecutiveIntersections (a:b:cs) = (lineIntersection a b) : consecutiveIntersections (b : cs)
 
 -- Generate G-code for a given contour c, where g is the most recent G-code produced
@@ -521,9 +516,11 @@ gcodeForContour :: Options
 gcodeForContour opts g c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
     where es = map ((++) " E") $ map show exVals
           exVals = map (+e) $ accumulateValues $ extrusions opts (head c) (tail c)
+          lastE :: Maybe ℝ
           lastE = lastExtrusionAmount g
+          e :: ℝ
           e = case lastE of Nothing -> 0
-                            Just x -> x
+                            Just something -> something
 
 gcodeForNestedContours :: Options
                        -> [String]
@@ -584,20 +581,20 @@ addBBox contours = [Point x1  y1 z0, Point x2 y1 z0, Point x2 y2 z0, Point x1 y2
           y2 = (-1) + (bBox !! 3)
           z0 = z $ head $ head contours
 
--- Make support
+-- Generate support
+-- FIXME: hard coded infill amount.
 makeSupport :: Bed
             -> Options
             -> [[Point]]
             -> LayerType
             -> [Line]
 makeSupport bed opts contours _ = map (shortenLineBy $ 2 * (thickness opts))
-                                    $ concatMap (infillLineInside (addBBox contours))
-                                    $ infillCover Middle
+                                  $ concatMap (infillLineInside (addBBox contours))
+                                  $ infillCover Middle
     where infillCover Middle = coveringInfill bed 20 zHeight
           infillCover BaseEven = coveringLinesUp bed zHeight
           infillCover BaseOdd = coveringLinesDown bed zHeight
           zHeight = (z (head (head contours)))
-          fillAmount = infill opts
 
 -----------------------------------------------------------------------
 --------------------------- LAYERS ------------------------------------
@@ -612,13 +609,13 @@ layers opts fs = map allIntersections (map roundToFifth [maxheight,maxheight-t..
 
 getLayerType :: Options -> (Fastℕ, Fastℕ) -> LayerType
 getLayerType opts (fromStart, toEnd)
-    | (fromStart <= topBottomLayers || toEnd <= topBottomLayers) && fromStart `mod` 2 == 0 = BaseEven
-    | (fromStart <= topBottomLayers || toEnd <= topBottomLayers) && fromStart `mod` 2 == 1 = BaseOdd
-    | otherwise = Middle
-    where
-      topBottomLayers :: Fastℕ
-      topBottomLayers = round $ defaultBottomTopThickness / t
-      t = thickness opts
+  | (fromStart <= topBottomLayers || toEnd <= topBottomLayers) && fromStart `mod` 2 == 0 = BaseEven
+  | (fromStart <= topBottomLayers || toEnd <= topBottomLayers) && fromStart `mod` 2 == 1 = BaseOdd
+  | otherwise = Middle
+  where
+    topBottomLayers :: Fastℕ
+    topBottomLayers = round $ defaultBottomTopThickness / t
+    t = thickness opts
 
 -- Input should be top to bottom, output should be bottom to top
 sliceObject ::  Bed -> Options
