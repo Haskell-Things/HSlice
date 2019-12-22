@@ -1,9 +1,9 @@
-# whack
+# Slicer
 
- a slicer and G-code generator for RepRap firmwares, in Haskell
+a slicer and G-code generator for RepRap firmwares, in Haskell
 
 ### to compile
-Run `ghc slicer` from the directory that contains `slicer.hs`.
+Run `make` from the root directory of this repository.
 
 ### to run 
 Run `./slicer filename` with options:
@@ -16,7 +16,7 @@ Run `./slicer filename` with options:
 ## FAQ 
 #### *Wait but...why?*
 
-Glad you asked! This was written as a project for CMSC 22010 (Digital Fabrication) at the University of Chicago, taught by professor Rick Stevens.
+Haskell all of the things.
 
 #### *No but like...why Haskell?*
 
@@ -24,7 +24,10 @@ Haskell is beautiful.
 
 #### *What sick, twisted masochists did this?*
 
-[Catherine Moresco](http://catmores.co) and [Noah Halford](http://noahhalford.com/) are two fourth-year undergraduates at the University of Chicago.
+[Catherine Moresco](http://catmores.co) and [Noah Halford](http://noahhalford.com/) are two fourth-year undergraduates at the University of Chicago who originally wrote this.
+
+[Julia Longtin](http://implicitcad.org) is the developer that picked it up, and is cleaning it off, to run her printers.
 
 #### *Can I contribute?*
-Go ahead. At your own risk.
+
+Pull requests welcome. drop by #implicitcad on freenode IRC, or sign up for the implicitcad mailing list, OR email the author at julia.longtin@gmail.com!
