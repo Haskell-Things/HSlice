@@ -43,7 +43,7 @@ import Data.List (nub, sortBy, (++), lines, unlines, length, reverse, zip3, filt
 
 import Control.Monad (return, (>>=))
 
-import Data.Maybe (fromJust, Maybe(Just, Nothing))
+import Data.Maybe (fromJust, Maybe(Just, Nothing), fromMaybe)
 
 import Text.Show(show)
 
@@ -62,20 +62,18 @@ default (ℕ, Fastℕ, ℝ)
 mapEveryOther :: (a -> a) -> [a] -> [a]
 mapEveryOther _ [] = []
 mapEveryOther f [a] = [f a]
-mapEveryOther f (a:b:cs) = (f a) : b : mapEveryOther f cs
+mapEveryOther f (a:b:cs) = f a : b : mapEveryOther f cs
 
 ---------------------------------------------------------------------------
 -------------------- Point and Line Arithmetic ----------------------------
 ---------------------------------------------------------------------------
 
--- FIXME: i think this should go away.
-
 -- Given a point and slope (in xy plane), make "infinite" line (i.e. a line that
 -- hits two edges of the bed
 infiniteLine :: Bed -> Point -> ℝ -> Line
 infiniteLine (RectBed (bedX,bedY)) p@(Point _ _ c) m = head $ makeLines $ nub points
-    where edges = (map lineFromEndpoints [Point 0 0 c, Point bedX bedY c])
-                <*> [Point 0 bedY c, Point bedX 0 c]
+    where edges = map lineFromEndpoints [Point 0 0 c, Point bedX bedY c]
+                  <*> [Point 0 bedY c, Point bedX 0 c]
           longestLength = sqrt $ bedX*bedX + bedY*bedY
           halfLine@(Line p' s) = pointSlopeLength p m longestLength -- should have p' == p
           line = lineFromEndpoints (endpoint halfLine) (addPoints p' (scalePoint (-1) s))
@@ -91,12 +89,10 @@ centerFacets (RectBed (bedX,bedY)) fs = (map (shiftFacet (Point dx dy dz)) fs, P
     where [dx,dy,dz] = zipWith (-) (map (/2) [bedX,bedY,0]) [x0,y0,zmin]
           [xmin,ymin,zmin] = map minimum $
                              foldl (zipWith (flip (:))) [[],[],[]] $
-                             map f $
-                             map point (concatMap sides fs)
+                             map (f.point) $ concatMap sides fs
           [xmax,ymax] = map maximum $
                         foldl (zipWith (flip (:))) [[],[]] $
-                        map (take 2 . f) $
-                        map point (concatMap sides fs)
+                        map (take 2 . f . point) $ concatMap sides fs
           [x0,y0] = zipWith (\a b -> (a + b) / 2 - b) [xmax,ymax] [xmin,ymin]
           f p = [x,y,z] <*> pure p
 
@@ -105,8 +101,7 @@ readPoint :: String -> Point
 readPoint s = Point a b c
     where [a,b,c] = map read $ take 3 $ words s 
 
--- Read a list of three coordinates (as strings separated by spaces) into the correct
--- Lines
+-- Read a list of three coordinates (as strings separated by spaces) and generate a facet.
 readFacet :: [String] -> Facet
 readFacet f
     | length f < 3 = error "Invalid facet"
@@ -117,16 +112,16 @@ readFacet f
 -- produce a list of lists of Lines, where each list of Lines corresponds to a
 -- facet in the original STL
 facetLinesFromSTL :: [String] -> [Facet]
-facetLinesFromSTL = map readFacet . map cleanupFacet . facetsFromSTL
+facetLinesFromSTL = map (readFacet . cleanupFacet) . facetsFromSTL
 
--- Witchcraft
-fixContour :: [Point] -> [Point]
-fixContour c = (head c) : (tail c ++ [head c])
 
--- Find all the points in a mesh at a given Z value
+-- Find all the points in the mesh at a given z value
 -- Each list in the output should have length 2, corresponding to a line segment
 allIntersections :: ℝ -> [Facet] -> [[Point]]
 allIntersections v fs = map (map roundPoint) $ filter (/= []) $ map (facetIntersects v) fs
+
+fixContour :: [Point] -> [Point]
+fixContour c = head c : tail c ++ [head c]
 
 -- Amount to extrude when making a line between two points.
 extrusionAmount :: Extruder -> Options -> Point -> Point -> ℝ
@@ -146,7 +141,7 @@ lastExtrusionAmount :: [String] -> Maybe ℝ
 lastExtrusionAmount gcode
     | extrusionValues == [] = Nothing
     | otherwise = Just $ read $ tail $ last extrusionValues
-    where extrusionValues = filter (\s -> (head s == 'E')) $ map last $ map words gcode
+    where extrusionValues = filter (\s -> head s == 'E') $ map (last . words) gcode
 
 -----------------------------------------------------------------------
 ---------------------- Contour filling --------------------------------
@@ -158,12 +153,12 @@ makeInfill bed opts contours layerType = concatMap (infillLineInside contours) $
     where infillCover Middle = coveringInfill bed fillAmount zHeight
           infillCover BaseEven = coveringLinesUp bed zHeight
           infillCover BaseOdd = coveringLinesDown bed zHeight
-          zHeight = (z (head (head contours)))
+          zHeight = z $ head $ head contours
           fillAmount = infill opts
 
 -- Get the segments of an infill line that are inside the contour
 infillLineInside :: [[Point]] -> Line -> [Line]
-infillLineInside contours line = map ((!!) allLines) [0,2..(length allLines) - 1]
+infillLineInside contours line = map (allLines !!) [0,2..length allLines - 1]
     where allLines = makeLines $ sortBy orderPoints $ getInfillLineIntersections contours line
 
 -- Find all places where an infill line intersects any contour line 
@@ -174,51 +169,46 @@ getInfillLineIntersections contours line = nub $ map fromJust $ filter (/= Nothi
 
 -- Generate covering lines for a given percent infill
 coveringInfill :: Bed -> ℝ -> ℝ -> [Line]
-coveringInfill bed infill z
-    | infill == 0 = []
-    | otherwise = pruneInfill (coveringLinesUp bed z) ++ pruneInfill (coveringLinesDown bed z)
+coveringInfill bed infillAmount zHeight
+    | infillAmount == 0 = []
+    | otherwise = pruneInfill (coveringLinesUp bed zHeight) ++ pruneInfill (coveringLinesDown bed zHeight)
     where
       n :: ℝ
-      n = max 1 (infill/100)
+      n = max 1 (infillAmount/100)
       pruneInfill :: [Line] -> [Line]
-      pruneInfill l = map ((!!) l)[0, (floor n)..length l-1]
+      pruneInfill l = map (l !! )[0, (floor n)..length l-1]
 
 -- Generate lines over entire print area
 coveringLinesUp :: Bed -> ℝ -> [Line]
-coveringLinesUp (RectBed (bedX,bedY)) z = map (flip Line s) (map f [-bedX,-bedX + lineThickness..bedY])
+coveringLinesUp (RectBed (bedX,bedY)) zHeight = map (flip Line s . f) [-bedX,-bedX + lineThickness..bedY]
     where s = Point (bedX + bedY) (bedX + bedY) 0
-          f v = Point 0 v z
+          f v = Point 0 v zHeight
 
 coveringLinesDown :: Bed -> ℝ -> [Line]
-coveringLinesDown (RectBed (bedX,bedY)) z = map (flip Line s) (map f [0,lineThickness..bedY + bedX])
+coveringLinesDown (RectBed (bedX,bedY)) zHeight = map (flip Line s . f) [0,lineThickness..bedY + bedX]
     where s =  Point (bedX + bedY) (- bedX - bedY) 0
-          f v = Point 0 v z
+          f v = Point 0 v zHeight
+
+lineSlope :: Point -> ℝ
+lineSlope m = case x m of 0 -> if y m > 0 then 10^101 else -(10^101)
+                          _ -> y m / x m
 
 -- Helper function to generate the points we'll need to make the inner perimeters
 pointsForPerimeters :: Extruder -> Options -> Line -> [Point]
-pointsForPerimeters extruder opts l = map endpoint
-                                      $ map (pointSlopeLength (midpoint l) slope)
-                                      $ map (* nozzleDia) $ filter (/= 0) [-n..n]
+pointsForPerimeters extruder opts l = map (endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*nozzleDia)) $ filter (/= 0) [-n..n]
   where
     n :: ℝ
     n = fromIntegral $ perimeterLayers opts - 1
     Line _ m = perpendicularBisector l
-    slope = (y m) / (x m)
     nozzleDia :: ℝ
     nozzleDia = nozzleDiameter extruder
 
 -- Lines to count intersections to determine if we're on the inside or outside
 perimeterLinesToCheck :: Extruder -> Line -> [Line]
-perimeterLinesToCheck extruder l@(Line p _) = map (flip lineFromEndpoints (Point 0 0 (z p)))
-                                              $ map endpoint
-                                              $ map (pointSlopeLength (midpoint l) slope)
-                                              $ map (*nozzleDia) [-1,1]
-  where
-    Line _ m = perpendicularBisector l
-    slope = case (x m) of 0 -> if (y m) > 0 then 10^101 else -(10^101)
-                          _ -> (y m) / (x m)
-    nozzleDia :: ℝ
-    nozzleDia = nozzleDiameter extruder
+perimeterLinesToCheck extruder l@(Line p _) = map ((`lineFromEndpoints` Point 0 0 (z p)) . endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*nozzleDia)) [-1,1]
+  where Line _ m = perpendicularBisector l
+        nozzleDia :: ℝ
+        nozzleDia = nozzleDiameter extruder
 
 -- Find the point corresponding to the inner perimeter of a given line, given all of the
 -- contours in the object
@@ -238,11 +228,10 @@ innerPerimeterPoint extruder l contours
 -- Construct infinite lines on the interior for a given line
 infiniteInteriorLines :: Bed -> Extruder -> Options -> Line -> [[Point]] -> [Line]
 infiniteInteriorLines bed extruder opts l@(Line _ m) contours
-    | innerPoint `elem` firstHalf = map (flip (infiniteLine bed) slope) firstHalf
-    | otherwise = map (flip (infiniteLine bed) slope) secondHalf
+    | innerPoint `elem` firstHalf = map (flip (infiniteLine bed) (lineSlope m)) firstHalf
+    | otherwise = map (flip (infiniteLine bed) (lineSlope m)) secondHalf
     where innerPoint = innerPerimeterPoint extruder l contours
           (firstHalf, secondHalf) = splitAt (fromFastℕ $ perimeterLayers opts - 1) $ pointsForPerimeters extruder opts l
-          slope = (y m) / (x m)
 
 -- List of lists of interior lines for each line in a contour
 allInteriors :: Bed -> Extruder -> Options -> [Point] -> [[Point]] -> [[Line]]
@@ -252,7 +241,7 @@ allInteriors bed extruder opts c contours = map (flip (infiniteInteriorLines bed
 -- Make inner contours from a list of (outer) contours---note that we do not
 -- retain the outermost contour.
 innerContours :: Bed -> Extruder -> Options -> [Contour] -> [[Contour]]
-innerContours bed extruder opts contours = map concat $ map (constructInnerContours opts) (map (\i -> (last i : i)) interiors)
+innerContours bed extruder opts contours = concatMap (constructInnerContours opts .(\i -> last i : i)) interiors
     where interiors = map (flip (allInteriors bed extruder opts) contours) contours
 
 -- Construct inner contours, given a list of lines constituting the infinite interior
@@ -265,10 +254,10 @@ constructInnerContours opts interiors
     | otherwise = [intersections] : constructInnerContours opts (map tail interiors)
     where intersections = map fromJust $ filter (/= Nothing) $ consecutiveIntersections $ map head interiors
 
-consecutiveIntersections :: [Line] -> [Maybe (Point)]
+consecutiveIntersections :: [Line] -> [Maybe Point]
 consecutiveIntersections [] = []
 consecutiveIntersections [_] = []
-consecutiveIntersections (a:b:cs) = (lineIntersection a b) : consecutiveIntersections (b : cs)
+consecutiveIntersections (a:b:cs) = lineIntersection a b : consecutiveIntersections (b : cs)
 
 -- Generate G-code for a given contour c, where g is the most recent G-code produced
 gcodeForContour :: Extruder
@@ -276,14 +265,13 @@ gcodeForContour :: Extruder
                 -> [String]
                 -> [Point]
                 -> [String]
-gcodeForContour extruder opts g c = map ((++) "G1 ") $ zipWith (++) (map show c) ("":es)
-    where es = map ((++) " E") $ map show exVals
+gcodeForContour extruder opts g c = map ("G1 " ++) $ zipWith (++) (map show c) ("":es)
+    where es = map ((" E" ++) . show) exVals
           exVals = map (+e) $ accumulateValues $ extrusions extruder opts (head c) (tail c)
           lastE :: Maybe ℝ
           lastE = lastExtrusionAmount g
           e :: ℝ
-          e = case lastE of Nothing -> 0
-                            Just something -> something
+          e = fromMaybe 0 lastE
 
 gcodeForNestedContours :: Extruder
                        -> Options
@@ -304,18 +292,18 @@ gcodeForContours :: Extruder
 gcodeForContours _ _ _ [] = []
 gcodeForContours extruder opts g [c] = gcodeForContour extruder opts g c
 gcodeForContours extruder opts g (c:cs) = firstContourGcode
-                               ++ gcodeForContours extruder opts firstContourGcode cs
-    where firstContourGcode = gcodeForContour extruder opts g c
+                                          ++ gcodeForContours extruder opts firstContourGcode cs
+  where firstContourGcode = gcodeForContour extruder opts g c
 
 -- G-code to travel to a point without extruding
 travelGcode :: Point -> String
-travelGcode p = "G1 " ++ (show p)
+travelGcode p = "G1 " ++ show p
 
 -- I'm not super happy about this, but it makes extrusion values correct
 fixGcode :: [String] -> [String]
 fixGcode [] = []
 fixGcode [a] = [a]
-fixGcode (a:b:cs) = (unwords $ init $ words a) : b : (fixGcode cs)
+fixGcode (a:b:cs) = unwords (init $ words a) : b : fixGcode cs
 
 -----------------------------------------------------------------------
 ----------------------------- SUPPORT ---------------------------------
@@ -323,8 +311,9 @@ fixGcode (a:b:cs) = (unwords $ init $ words a) : b : (fixGcode cs)
 
 -- Get a bounding box of all contours 
 boundingBoxAll :: [Contour] -> [ℝ]
-boundingBoxAll contours = (map minimum $ map (\n -> map (!!n) bBoxes) [0, 1])
-                        ++ (map maximum $ map (\n -> map (!!n) bBoxes) [2, 3])
+boundingBoxAll contours =
+  map (minimum.(\n -> map (!!n) bBoxes)) [0, 1] ++
+  map (maximum.(\n -> map (!!n) bBoxes)) [2, 3]
     where bBoxes = filter (/= []) $ map boundingBox $ filter (/= []) contours
 
 
@@ -340,8 +329,8 @@ boundingBox contour = [minX, minY, maxX, maxY]
 addBBox :: [Contour] -> [Contour]
 addBBox contours = [Point x1  y1 z0, Point x2 y1 z0, Point x2 y2 z0, Point x1 y2 z0, Point x1 y1 z0] : contours
     where bBox = boundingBoxAll contours
-          x1 = (1) + (bBox !! 0)
-          y1 = (1) + (bBox !! 1)
+          x1 = 1 + head bBox
+          y1 = 1 + (bBox !! 1)
           x2 = (-1) + (bBox !! 2)
           y2 = (-1) + (bBox !! 3)
           z0 = z $ head $ head contours
@@ -353,7 +342,7 @@ makeSupport :: Bed
             -> [[Point]]
             -> LayerType
             -> [Line]
-makeSupport bed opts contours _ = map (shortenLineBy $ 2 * (thickness opts))
+makeSupport bed opts contours _ = map (shortenLineBy $ 2 * thickness opts)
                                   $ concatMap (infillLineInside (addBBox contours))
                                   $ infillCover Middle
     where infillCover Middle = coveringInfill bed 20 zHeight
@@ -367,9 +356,9 @@ makeSupport bed opts contours _ = map (shortenLineBy $ 2 * (thickness opts))
 
 -- Create contours from a list of facets
 layers :: Options -> [Facet] -> [[[Point]]]
-layers opts fs = map allIntersections (map roundToFifth [maxheight,maxheight-t..0]) <*> pure fs
-    where zmax = maximum $ map z $ map point (concatMap sides fs)
-          maxheight = t * (fromIntegral $ floor $ zmax / t)
+layers opts fs = map (allIntersections.roundToFifth) [maxheight,maxheight-t..0] <*> pure fs
+    where zmax = maximum $ map (z.point) (concatMap sides fs)
+          maxheight = t * fromIntegral (floor (zmax / t)::Fastℕ)
           t = thickness opts
 
 getLayerType :: Options -> (Fastℕ, Fastℕ) -> LayerType
@@ -380,6 +369,8 @@ getLayerType opts (fromStart, toEnd)
   where
     topBottomLayers :: Fastℕ
     topBottomLayers = round $ defaultBottomTopThickness / t
+    defaultBottomTopThickness :: ℝ
+    defaultBottomTopThickness = 0.8
     t = thickness opts
 
 -- Input should be top to bottom, output should be bottom to top
@@ -391,10 +382,10 @@ sliceObject bed extruder opts [(a, fromStart, toEnd)] = contourGcode ++ supportG
           interior = map (map fixContour) $ innerContours bed extruder opts contours
           allContours = zipWith (:) contours interior
           innermostContours = if interior == [] then contours else map last allContours
-          outerContourGcode = gcodeForContours extruder opts [] $ contours
+          outerContourGcode = gcodeForContours extruder opts [] contours
           innerContourGcode = gcodeForNestedContours extruder opts outerContourGcode interior
           contourGcode = outerContourGcode ++ innerContourGcode
-          supportGcode = if (not $ support opts) then [] else fixGcode
+          supportGcode = if not $ support opts then [] else fixGcode
                        $ gcodeForContour extruder opts contourGcode
                        $ concatMap (\l -> [point l, endpoint l])
                        $ mapEveryOther flipLine
@@ -408,7 +399,7 @@ sliceObject bed extruder opts [(a, fromStart, toEnd)] = contourGcode ++ supportG
                       $ getLayerType opts (fromStart, toEnd)
 sliceObject bed extruder opts ((a, fromStart, toEnd):as) = theRest
                                                   ++ contourGcode
-                                                  ++ (map travelGcode $ head contours)
+                                                  ++ map travelGcode (head contours)
                                                   ++ supportGcode
                                                   ++ infillGcode 
     where theRest = sliceObject bed extruder opts as
@@ -416,10 +407,10 @@ sliceObject bed extruder opts ((a, fromStart, toEnd):as) = theRest
           interior = map (map fixContour) $ innerContours bed extruder opts contours
           allContours = zipWith (:) contours interior
           innermostContours = if interior == [] then contours else map last allContours
-          outerContourGcode = gcodeForContours extruder opts theRest $ contours
+          outerContourGcode = gcodeForContours extruder opts theRest contours
           innerContourGcode = gcodeForNestedContours extruder opts outerContourGcode interior
           contourGcode = outerContourGcode ++ innerContourGcode
-          supportGcode = if (not $ support opts) then [] else fixGcode
+          supportGcode = if not $ support opts then [] else fixGcode
                        $ gcodeForContour extruder opts contourGcode
                        $ concatMap (\l -> [point l, endpoint l])
                        $ mapEveryOther flipLine
@@ -439,8 +430,7 @@ sliceObject bed extruder opts ((a, fromStart, toEnd):as) = theRest
 -- FIXME: pull these values from a curaengine config.
 
 -- in mm
-defaultBottomTopThickness, lineThickness :: ℝ
-defaultBottomTopThickness = 0.8
+lineThickness :: ℝ
 lineThickness = 0.6
 
 ----------------------------------------------------------
@@ -517,14 +507,18 @@ main = do
                 , output = output
                 } = initialOpts
     let helpString = "Usage: slicer filename [-i infill] [-p perimeter] [-s support] [-t thickness] [-o outfile]"
-    if help then (putStrLn helpString) else do
-        if length nonOptions == 0 then (putStrLn "Error: Enter a file name") else do
+    if help then
+      putStrLn helpString
+      else
+        if length nonOptions == 0 then
+          putStrLn "Error: Enter a file name"
+          else do
             let fname = head nonOptions
             stl <- readFile fname
             let stlLines = lines stl
                 (facets, c) = centerFacets printerBed $ facetLinesFromSTL stlLines
                 opts = initialOpts { center = c }
-                allLayers = map (filter (\l -> (head l) /= (head $ tail l))) $ filter (/=[]) $ layers opts facets
+                allLayers = map (filter (\l -> head l /= head (tail l))) $ filter (/=[]) $ layers opts facets
                 gcode = sliceObject printerBed extruder1 opts $ zip3 allLayers [1..(toFastℕ $ length allLayers)] $ reverse [1..(toFastℕ $ length allLayers)]
               in writeFile output (unlines $ startingGcode ++ gcode ++ endingGcode)
               where
@@ -561,3 +555,4 @@ main = do
                               ,"M84 ;steppers off"
                               ,"G90 ;absolute positioning"
                               ]
+
