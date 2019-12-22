@@ -3,7 +3,7 @@
 -- Copyright 2014-2019, Julia Longtin (julial@turinglace.com)
 -- Released under the GNU AGPLV3+, see LICENSE
 
--- Use existing instances for the wrapped types rather than manually manking them
+-- Use existing instances for the wrapped types rather than manually making them
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Graphics.Slicer.FastIntUtil (Fastℕ(Fastℕ), toFastℕ, fromFastℕ) where

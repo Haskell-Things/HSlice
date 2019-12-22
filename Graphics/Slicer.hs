@@ -22,12 +22,42 @@
    this haskell library. -}
 
 module Graphics.Slicer (
+  module MD,
+  module MP,
+  module ML,
+  module MF,
+  module MC,
+  module MS,
+  module FG,
+  module FS,
+  module MeD,
   module D,
-  Bed(RectBed),
-  BuildArea(RectArea)) where
+  module OD,
+  module CD
+  ) where
 
 import Prelude ()
 
+import Graphics.Slicer.Math.Definitions as MD (Point(Point), x, y, z, LayerType(BaseOdd, BaseEven, Middle), Contour)
+
+import Graphics.Slicer.Math.Point as MP (crossProduct, twoDCrossProduct, scalePoint, addPoints, magnitude, distance, orderPoints)
+
+import Graphics.Slicer.Math.Line as ML (Line(Line), point, slope, lineIntersection, lineFromEndpoints, midpoint, endpoint, flipLine, pointSlopeLength, combineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines)
+
+import Graphics.Slicer.Math.Facet as MF (Facet(Facet), sides, shiftFacet, facetIntersects, trimIntersections)
+
+import Graphics.Slicer.Math.Contour as MC (getContours, simplifyContour)
+
+import Graphics.Slicer.Math.Slicer as MS (accumulateValues)
+
+import Graphics.Slicer.Formats.GCode.Definitions as FG (roundToFifth, roundPoint)
+
+import Graphics.Slicer.Formats.STL.Definitions as FS (facetsFromSTL, cleanupFacet)
+
+import Graphics.Slicer.Mechanics.Definitions as MeD (Extruder(Extruder), filamentWidth, nozzleDiameter)
+
 import Graphics.Slicer.Definitions as D (ℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ);
-import Graphics.Slicer.Objects.Definitions(Bed(RectBed));
-import Graphics.Slicer.Concepts.Definitions(BuildArea(RectArea));
+
+import Graphics.Slicer.Objects.Definitions as OD (Bed(RectBed));
+
+import Graphics.Slicer.Concepts.Definitions as CD (BuildArea(RectArea));
