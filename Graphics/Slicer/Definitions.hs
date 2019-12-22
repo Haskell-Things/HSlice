@@ -1,3 +1,4 @@
+
 -- Slicer.
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco
@@ -17,16 +18,19 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
--- The purpose of this file is to define mechanical characteristics of a machine.
+-- The purpose of this file is to hold datatype definitions that are useful in all of the code.
 
-module Graphics.Slicer.Mechanics.Definitions (Extruder(Extruder), filamentWidth, nozzleDiameter) where
+module Graphics.Slicer.Definitions (ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ, toFastℕ) where
 
-import Prelude (Eq)
+import Prelude (Double)
 
-import Graphics.Slicer.Definitions(ℝ)
+import Graphics.Slicer.FastIntUtil (Fastℕ, fromFastℕ, toFastℕ)
 
+import Graphics.Slicer.IntegralUtil (ℕ)
 
--- The properties of the printer's extruder.
-data Extruder =
-  Extruder { filamentWidth :: ℝ, nozzleDiameter :: ℝ} deriving Eq
+-- Let's make things a bit nicer.
+-- Following the math notation ℝ, ℝ², ℝ³...
+type ℝ = Double
+type ℝ2 = (ℝ,ℝ)
+type ℝ3 = (ℝ,ℝ,ℝ)
 

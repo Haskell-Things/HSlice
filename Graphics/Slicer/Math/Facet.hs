@@ -20,30 +20,32 @@
 
 module Graphics.Slicer.Math.Facet (Facet(Facet), sides, shiftFacet, facetIntersects, trimIntersections) where
 
-import Prelude (Eq, Num, RealFrac, map, (.), ($), (/=), filter, flip, length, (<=), otherwise)
+import Prelude (Eq, map, (.), ($), (/=), filter, flip, length, (<=), otherwise)
 
 import Data.List(nub)
 
 import Data.Maybe(fromJust, Maybe(Nothing))
 
+import Graphics.Slicer.Definitions(ℝ)
+
 import Graphics.Slicer.Math.Point (Point, addPoints)
 
 import Graphics.Slicer.Math.Line (Line, point, pointAtZValue)
 
-data Facet a = Facet { sides :: [Line a] } deriving Eq
+data Facet = Facet { sides :: [Line] } deriving Eq
 
 
 -- Shift a facet by the vector p
-shiftFacet :: Num a => Point a -> Facet a -> Facet a
+shiftFacet :: Point -> Facet -> Facet
 shiftFacet p = Facet . map (\l -> l { point = addPoints p (point l) }) . sides
 
 -- Determine if a facet intersects a plane at a given z value
-facetIntersects :: RealFrac a => a -> Facet a -> [Point a]
+facetIntersects :: ℝ -> Facet -> [Point]
 facetIntersects v f = trimIntersections $ map fromJust $ filter (/= Nothing) intersections
   where intersections = map (flip pointAtZValue v) (sides f)
 
 -- Get rid of the case where a facet intersects the plane at one point
-trimIntersections :: Eq a => [Point a] -> [Point a]
+trimIntersections :: [Point] -> [Point]
 trimIntersections l
   | length l' <= 1 = []
   | otherwise = l'

@@ -21,24 +21,43 @@
    to be accessible to an end user who is compiling objects using
    this haskell library. -}
 
-module Graphics.Slicer (Point(Point), x,y,z, crossProduct, twoDCrossProduct, lineIntersection, Line(Line), point, slope, scalePoint, addPoints, magnitude, distance, lineFromEndpoints, midpoint, endpoint, flipLine, Contour, Facet(Facet), sides, shiftFacet, LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, combineLines, perpendicularBisector, pointAtZValue, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, facetsFromSTL, cleanupFacet, makeLines, facetIntersects, trimIntersections, getContours, simplifyContour,Bed(Rect3), bedWidth, bedDepth, bedHeight, Extruder(Extruder), filamentWidth, nozzleDiameter) where
+module Graphics.Slicer (
+  module MD,
+  module MP,
+  module ML,
+  module MF,
+  module MC,
+  module MS,
+  module FG,
+  module FS,
+  module MeD,
+  module D,
+  module OD,
+  module CD
+  ) where
 
 import Prelude ()
 
-import Graphics.Slicer.Math.Definitions (Point(Point), x, y, z, LayerType(BaseOdd, BaseEven, Middle), Contour)
+import Graphics.Slicer.Math.Definitions as MD (Point(Point), x, y, z, LayerType(BaseOdd, BaseEven, Middle), Contour)
 
-import Graphics.Slicer.Math.Point (crossProduct, twoDCrossProduct, scalePoint, addPoints, magnitude, distance, orderPoints)
+import Graphics.Slicer.Math.Point as MP (crossProduct, twoDCrossProduct, scalePoint, addPoints, magnitude, distance, orderPoints)
 
-import Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, midpoint, endpoint, flipLine, pointSlopeLength, combineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines)
+import Graphics.Slicer.Math.Line as ML (Line(Line), point, slope, lineIntersection, lineFromEndpoints, midpoint, endpoint, flipLine, pointSlopeLength, combineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines)
 
-import Graphics.Slicer.Math.Facet (Facet(Facet), sides, shiftFacet, facetIntersects, trimIntersections)
+import Graphics.Slicer.Math.Facet as MF (Facet(Facet), sides, shiftFacet, facetIntersects, trimIntersections)
 
-import Graphics.Slicer.Math.Contour (getContours, simplifyContour)
+import Graphics.Slicer.Math.Contour as MC (getContours, simplifyContour)
 
-import Graphics.Slicer.Math.Slicer (accumulateValues)
+import Graphics.Slicer.Math.Slicer as MS (accumulateValues)
 
-import Graphics.Slicer.Formats.GCode.Definitions (roundToFifth, roundPoint)
+import Graphics.Slicer.Formats.GCode.Definitions as FG (roundToFifth, roundPoint)
 
-import Graphics.Slicer.Formats.STL.Definitions (facetsFromSTL, cleanupFacet)
+import Graphics.Slicer.Formats.STL.Definitions as FS (facetsFromSTL, cleanupFacet)
 
-import Graphics.Slicer.Mechanics.Definitions (Bed(Rect3), bedWidth, bedDepth, bedHeight, Extruder(Extruder), filamentWidth, nozzleDiameter)
+import Graphics.Slicer.Mechanics.Definitions as MeD (Extruder(Extruder), filamentWidth, nozzleDiameter)
+
+import Graphics.Slicer.Definitions as D (ℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ);
+
+import Graphics.Slicer.Objects.Definitions as OD (Bed(RectBed));
+
+import Graphics.Slicer.Concepts.Definitions as CD (BuildArea(RectArea));

@@ -20,36 +20,38 @@
 
 module Graphics.Slicer.Math.Point (Point(Point), x, y, z, crossProduct, twoDCrossProduct, scalePoint, addPoints, magnitude, distance, orderPoints) where
 
-import Prelude (Num, RealFrac, Floating, sqrt, (*), (-), ($), fmap, (.), (+), Ord, Ordering, (==), compare, otherwise, fromRational)
+import Prelude (sqrt, (*), (-), ($), (+), Ordering, (==), compare, otherwise)
 
 import Graphics.Slicer.Math.Definitions (Point(Point), x, y, z)
+
+import Graphics.Slicer.Definitions (ℝ)
 
 -- import Graphics.Slicer.Math.Slicer(roundToFifth)
 
 -- Basic Arithmatic
-crossProduct :: RealFrac a => Point a -> Point a -> Point a
+crossProduct :: Point -> Point -> Point
 crossProduct (Point x1 y1 z1) (Point x2 y2 z2) = Point (y1 * z2 - z1 * y2) (z1 * x2 - x1 * z2) (x1 * y2 - y1 * x2)
 
-twoDCrossProduct :: RealFrac a => Point a -> Point a -> a
+twoDCrossProduct :: Point -> Point -> ℝ
 twoDCrossProduct p1 p2 = z $ (crossProduct p1 {z = 0} p2 {z = 0})
 
 -- Add the coordinates of two points
-addPoints :: Num a => Point a -> Point a -> Point a
+addPoints :: Point -> Point -> Point
 addPoints (Point x1 y1 z1) (Point x2 y2 z2) = Point (x1 + x2) (y1 + y2) (z1 + z2)
 
 -- Scale the coordinates of a point by s
-scalePoint :: Num a => a -> Point a -> Point a
-scalePoint = fmap . (*)
+scalePoint :: ℝ -> Point -> Point
+scalePoint val (Point a b c) = Point (val*a) (val*b) (val*c)
 
-magnitude :: (Floating a) => Point a -> a
+magnitude :: Point -> ℝ
 magnitude (Point x1 y1 z1) = sqrt $ x1 * x1 + y1 * y1 + z1 * z1
 
 -- Distance between two points. needed for the equivilence instance of line, and to determine amount of extrusion.
-distance :: (Floating a) => Point a -> Point a -> a
+distance :: Point -> Point -> ℝ
 distance p1 p2 = magnitude $ addPoints p1 (scalePoint (-1) p2)
 
 -- Orders points by x and y (x first, then sorted by y for the same x-values)
-orderPoints :: (Ord a) => Point a -> Point a -> Ordering
+orderPoints :: Point -> Point -> Ordering
 orderPoints (Point x1 y1 _) (Point x2 y2 _)
   | x1 == x2 = compare y1 y2
   | otherwise = compare x1 x2

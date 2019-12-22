@@ -22,21 +22,20 @@
 -- FIXME: remove x, y, and z from this export list. 
 module Graphics.Slicer.Math.Definitions(Point(Point), x, y, z, LayerType(BaseOdd,BaseEven,Middle), Contour) where
 
-import Prelude (Eq, fmap, Show, show, ($), zipWith, (++), map, Functor, unwords)
+import Prelude (Eq, Show, show, ($), zipWith, (++), map, unwords)
+
+import Graphics.Slicer.Definitions (ℝ)
 
 -- A single Point in 3d space.
-data Point a = Point { x :: a, y :: a, z :: a } deriving Eq
-
-instance Functor Point where
-      fmap f (Point x1 y1 z1) = Point (f x1) (f y1) (f z1)
+data Point = Point { x :: ℝ, y :: ℝ, z :: ℝ } deriving Eq
 
 -- Display a Point in the format expected by G-code
-instance (Show a) => Show (Point a) where
+instance Show Point where
       show p = unwords $ zipWith (++) ["X","Y","Z"] (map show [x p, y p, z p])
 
 data LayerType = BaseOdd | BaseEven | Middle
 
-type Contour a = [Point a]
+type Contour = [Point]
 
 
       

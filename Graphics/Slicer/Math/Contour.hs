@@ -34,7 +34,7 @@ import Graphics.Slicer.Math.Line (Line, combineLines, canCombineLines)
 -- A contour is a closed loop of lines on a layer.
 
 -- Extract a single contour from a list of points
-findContour :: (Eq a) => ([Point a], [[Point a]]) -> ([Point a], [[Point a]])
+findContour :: ([Point], [[Point]]) -> ([Point], [[Point]])
 findContour (contour, pairs)
   | p == Nothing = (contour, pairs)
   | otherwise = findContour (contour ++ (delete (last contour) p'), delete p' pairs)
@@ -44,7 +44,7 @@ findContour (contour, pairs)
 
 -- From a list of contours we have already found and a list of pairs of points
 -- (each corresponding to a segment), get all contours described by the points
-makeContours :: (Eq a) => ([[Point a]], [[Point a]]) -> [[Point a]]
+makeContours :: ([[Point]], [[Point]]) -> [[Point]]
 makeContours (contours, pairs)
   | pairs == [] = contours
   | otherwise = makeContours (contours ++ [next], ps)
@@ -52,11 +52,11 @@ makeContours (contours, pairs)
                   
 
 -- Turn pairs of points into lists of connected points
-getContours :: (Eq a) => [[Point a]] -> [[Point a]]
+getContours :: [[Point]] -> [[Point]]
 getContours = makeContours . (,) []
 
 -- Attempt to combine lines on a contour..
-simplifyContour :: (RealFrac a, Floating a) => [Line a] -> [Line a]
+simplifyContour :: [Line] -> [Line]
 simplifyContour [] = []
 simplifyContour [a] = [a]
 simplifyContour (a:b:cs)

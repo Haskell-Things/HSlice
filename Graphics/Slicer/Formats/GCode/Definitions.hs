@@ -20,18 +20,18 @@
    structures used when generating GCode. -}
 module Graphics.Slicer.Formats.GCode.Definitions (roundToFifth, roundPoint) where
 
-import Prelude(($), RealFrac, Rational, round, fromRational, (*))
+import Prelude(round, fromIntegral, (*), (/))
 
-import Data.Ratio((%))
+import Graphics.Slicer.Definitions(ℝ, Fastℕ)
 
 import Graphics.Slicer.Math.Point (Point(Point))
 
 -- The GCode spec (https://ws680.nist.gov/publication/get_pdf.cfm?pub_id=823374) specifies only 5 digits of precision.
 
 -- round a value
-roundToFifth :: (RealFrac a) => a -> Rational
-roundToFifth a = (round (100000 * a)) % 100000
+roundToFifth :: ℝ -> ℝ
+roundToFifth a = (fromIntegral (round (100000 * a) :: Fastℕ)) / 100000
 
 -- round a point
-roundPoint :: RealFrac a => Point a -> Point a
-roundPoint (Point x1 y1 z1) = Point (fromRational $ roundToFifth x1) (fromRational $ roundToFifth y1) (fromRational $ roundToFifth z1)
+roundPoint :: Point -> Point
+roundPoint (Point x1 y1 z1) = Point (roundToFifth x1) (roundToFifth y1) (roundToFifth z1)

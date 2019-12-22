@@ -17,16 +17,16 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
--- The purpose of this file is to define mechanical characteristics of a machine.
+-- The purpose of this file is to define important non-math concepts of a machine.
 
-module Graphics.Slicer.Mechanics.Definitions (Extruder(Extruder), filamentWidth, nozzleDiameter) where
+module Graphics.Slicer.Concepts.Definitions (BuildArea(RectArea)) where
 
 import Prelude (Eq)
 
-import Graphics.Slicer.Definitions(ℝ)
+import Graphics.Slicer.Definitions(ℝ3)
 
-
--- The properties of the printer's extruder.
-data Extruder =
-  Extruder { filamentWidth :: ℝ, nozzleDiameter :: ℝ} deriving Eq
+-- The shape of the 3d printer's build area.
+data BuildArea =
+    RectArea ℝ3 -- Width, Depth, and Height of the build area.
+  deriving Eq
 

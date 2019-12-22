@@ -19,14 +19,15 @@
 
 -- The purpose of this file is to define mechanical characteristics of a machine.
 
-module Graphics.Slicer.Mechanics.Definitions (Extruder(Extruder), filamentWidth, nozzleDiameter) where
+module Graphics.Slicer.Objects.Definitions (Bed(RectBed)) where
 
 import Prelude (Eq)
 
-import Graphics.Slicer.Definitions(ℝ)
+import Graphics.Slicer.Definitions(ℝ, ℝ2)
 
-
--- The properties of the printer's extruder.
-data Extruder =
-  Extruder { filamentWidth :: ℝ, nozzleDiameter :: ℝ} deriving Eq
+-- The shape of the 3d printer's bed.
+data Bed =
+  RectBed ℝ2 -- Width and Depth of the build plate.
+  | CircleBed ℝ -- Diameter of the circle we are printing on.
+  deriving Eq
 

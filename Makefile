@@ -12,10 +12,13 @@ EXEBUILDROOT=${BUILDROOT}/x/
 TESTBUILDROOT=${BUILDROOT}/t/
 BENCHBUILDROOT=${BUILDROOT}/b/
 
+exebin = ${EXEBUILDROOT}/$(1)/build/$(1)/$(1)
+exedir = ${EXEBUILDROOT}/$(1)
+
 # The location of the created extcuraengine binary, for running shell based test cases.
 EXTCURAENGINE=extcuraengine
-EXTCURAENGINEDIR=${EXEBUILDROOT}/$(EXTCURAENGINE)/
-EXTCURAENGINEBIN=${EXEBUILDROOT}/$(EXTCURAENGINE)/build/$(EXTCURAENGINE)/$(EXTCURAENGINE)
+EXTCURAENGINEDIR=$(call exedir,${EXTCURAENGINE})
+EXTCURAENGINEBIN=$(call exebin,${EXTCURAENGINE})
 # The location of the created test binary, for running haskell test cases.
 TESTSUITE=${TESTBUILDROOT}/test-slicer/build/test-slicer/test-slicer
 

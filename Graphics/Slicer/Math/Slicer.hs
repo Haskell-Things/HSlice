@@ -25,6 +25,8 @@ import Prelude (Num, RealFrac, Fractional, Integer, fromIntegral, round, (*), ($
 
 import Data.Ratio((%), Ratio)
 
+import Graphics.Slicer.Definitions (ℝ)
+
 -- import Data.List (map, unwords)
 
 -- import Data.Char (toUpper)
@@ -40,8 +42,8 @@ showCommand :: Command -> String
 showCommand = map toUpper . unwords
 -}
 
--- Take absolute values, turn into accumulated values
-accumulateValues :: Num a => [a] -> [a]
+-- Take absolute values, turn into acc
+accumulateValues :: [ℝ] -> [ℝ]
 accumulateValues [] = []
 accumulateValues [a] = [a]
 accumulateValues (a:b:cs) = a : accumulateValues (a + b : cs)
