@@ -1,4 +1,4 @@
-# Slicer Makefile. Build and test Slicer.
+# Hslice Makefile. Build and test Hslice.
 
 ## This is the makefile if you are running cabal-install 1.24 or later.
 
@@ -7,7 +7,7 @@
 GHC=ghc
 GHCVERSION=$(shell ${GHC} --version | sed "s/.*version //")
 # new-style location root. must NOT have trailing slash
-BUILDROOT=dist-newstyle/build/i386-linux/ghc-${GHCVERSION}/slicer-0.0.1
+BUILDROOT=dist-newstyle/build/i386-linux/ghc-${GHCVERSION}/hslice-0.0.1
 EXEBUILDROOT=${BUILDROOT}/x/
 TESTBUILDROOT=${BUILDROOT}/t/
 BENCHBUILDROOT=${BUILDROOT}/b/
@@ -20,7 +20,7 @@ EXTCURAENGINE=extcuraengine
 EXTCURAENGINEDIR=$(call exedir,${EXTCURAENGINE})
 EXTCURAENGINEBIN=$(call exebin,${EXTCURAENGINE})
 # The location of the created test binary, for running haskell test cases.
-TESTSUITE=${TESTBUILDROOT}/test-slicer/build/test-slicer/test-slicer
+TESTSUITE=${TESTBUILDROOT}/test-hslice/build/test-hslice/test-hslice
 
 ## Options used when calling ImplicitCAD. for testing, and for image generation.
 # Enable multiple CPU usage.
@@ -36,7 +36,7 @@ RTSOPTS=+RTS -N -qg -t
 #VALGRIND=valgrind --tool=cachegrind --cachegrind-out-file=$$each.cachegrind.`date +%s`
 
 LIBFILES=$(shell find Graphics -name '*.hs')
-LIBTARGET=${BUILDROOT}/build/Graphics/Slicer.o
+LIBTARGET=${BUILDROOT}/build/Graphics/Hslice.o
 
 EXECBUILDDIRS=$(EXTCURAENGINEDIR)
 EXECTARGETS=$(EXTCURAENGINEBIN)
@@ -103,9 +103,9 @@ tests: $(EXTCURAENGINEBIN)
 	cd tests && for each in `find ./ -name '*.stl' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINEBIN) $$each $(RTSOPTS); md5sum out.gcode; } done
 #	$(TESTSUITE)
 
-# The Slicer library.
+# The Hslice library.
 $(LIBTARGET): $(LIBFILES)
-	cabal new-build slicer
+	cabal new-build hslice
 
 # The parser test suite, since it's source is stored in a different location than the other binaries we build:
 #${TESTBUILDROOT}/test-implicit/build/test-implicit/test-implicit: Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)
@@ -121,7 +121,7 @@ ${EXEBUILDROOT}/%: programs/$$(word 1,$$(subst /, ,%)).hs Setup ${BUILDROOT}/set
 #	cabal new-build $(word 1,$(subst /, ,$*))
 
 # Prepare to build.
-${BUILDROOT}/setup-config: slicer.cabal
+${BUILDROOT}/setup-config: hslice.cabal
 	cabal new-update
 	cabal new-install --only-dependencies --upgrade-dependencies $(PROFILING)
 	cabal new-configure --enable-tests --enable-benchmarks $(PROFILING)

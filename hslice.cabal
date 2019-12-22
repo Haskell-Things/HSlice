@@ -1,4 +1,4 @@
-Name:                slicer
+Name:                hslice
 Version:             0.0.1
 Cabal-version:       >= 1.8
 Tested-with:         GHC >= 8.4
@@ -39,7 +39,6 @@ Library
                   Graphics.Slicer.Definitions
                   Graphics.Slicer.FastIntUtil
                   Graphics.Slicer.IntegralUtil
-                  Graphics.Slicer.Objects.Definitions
                   
 Executable extcuraengine
     Main-is: extcuraengine.hs
@@ -47,7 +46,7 @@ Executable extcuraengine
     Build-depends:
                   base,
                   implicit,
-                  slicer
+                  hslice
     Ghc-options:
                 -threaded
                 -rtsopts
@@ -61,4 +60,4 @@ Executable extcuraengine
 
 Source-repository head
     Type:            git
-    Location:        https://github.com/julialongtin/slicer.git
+    Location:        https://github.com/julialongtin/hslice.git

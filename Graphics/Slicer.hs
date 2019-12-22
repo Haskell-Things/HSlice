@@ -32,7 +32,6 @@ module Graphics.Slicer (
   module FS,
   module MeD,
   module D,
-  module OD,
   module CD
   ) where
 
@@ -54,10 +53,8 @@ import Graphics.Slicer.Formats.GCode.Definitions as FG (roundToFifth, roundPoint
 
 import Graphics.Slicer.Formats.STL.Definitions as FS (facetsFromSTL, cleanupFacet)
 
-import Graphics.Slicer.Mechanics.Definitions as MeD (Extruder(Extruder), filamentWidth, nozzleDiameter)
+import Graphics.Slicer.Mechanics.Definitions as MeD (Extruder(Extruder), Bed(RectBed), filamentWidth, nozzleDiameter)
 
 import Graphics.Slicer.Definitions as D (ℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ);
-
-import Graphics.Slicer.Objects.Definitions as OD (Bed(RectBed));
 
 import Graphics.Slicer.Concepts.Definitions as CD (BuildArea(RectArea));
