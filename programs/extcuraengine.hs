@@ -79,10 +79,11 @@ data Line = Line { point :: Point, slope :: Point} deriving Show
 instance Eq Line where
     (==) (Line p1 m1) (Line p2 m2) = distance p1 p2 < 0.0001 && distance m1 m2 < 0.0001
 
-data Facet = Facet { sides :: [Line] } deriving Eq
+newtype Facet = Facet { sides :: [Line] } deriving Eq
 
 data LayerType = BaseOdd | BaseEven | Middle
 
+-- FIXME: promote this to a newtype.
 type Contour = [Point]
 
 
@@ -91,7 +92,7 @@ type Contour = [Point]
 mapEveryOther :: (a -> a) -> [a] -> [a]
 mapEveryOther _ [] = []
 mapEveryOther f [a] = [f a]
-mapEveryOther f (a:b:cs) = (f a) : b : mapEveryOther f cs
+mapEveryOther f (a:b:cs) = f a : b : mapEveryOther f cs
 
 ---------------------------------------------------------------------------
 -------------------- Point and Line Arithmetic ----------------------------
@@ -143,15 +144,15 @@ combineLines (Line p _) l2 = lineFromEndpoints p (endpoint l2)
 
 -- Determine if lines can be combined
 canCombineLines :: Bed -> Line -> Line -> Bool
-canCombineLines bed l1 l2@(Line p _) = (extendToInfiniteLine bed l1) == (extendToInfiniteLine bed l2)
+canCombineLines bed l1 l2@(Line p _) = extendToInfiniteLine bed l1 == extendToInfiniteLine bed l2
                                  && (endpoint l1 == p)
 
 -- Given a point and slope (in xy plane), make "infinite" line (i.e. a line that
 -- hits two edges of the bed
 infiniteLine :: Bed -> Point -> ℝ -> Line
 infiniteLine (RectBed (bedX,bedY)) p@(Point _ _ c) m = head $ makeLines $ nub points
-    where edges = (map lineFromEndpoints [Point 0 0 c, Point bedX bedY c])
-                <*> [Point 0 bedY c, Point bedX 0 c]
+    where edges = map lineFromEndpoints [Point 0 0 c, Point bedX bedY c]
+                  <*> [Point 0 bedY c, Point bedX 0 c]
           longestLength = sqrt $ bedX*bedX + bedY*bedY
           halfLine@(Line p' s) = pointSlopeLength p m longestLength -- should have p' == p
           line = lineFromEndpoints (endpoint halfLine) (addPoints p' (scalePoint (-1) s))
@@ -171,7 +172,7 @@ perpendicularBisector :: Line -> Line
 perpendicularBisector l@(Line p s)
     | y s == 0 = Line (midpoint l) (Point 0 (magnitude s) 0)
     | otherwise = pointSlopeLength (midpoint l) m (distance p (endpoint l))
-    where m = -(x s) / (y s)
+    where m = -x s / y s
 
 -- Express a line in terms of the other endpoint
 flipLine :: Line -> Line
@@ -211,14 +212,14 @@ lineIntersection l1@(Line p r) l2@(Line q s)
     | twoDCrossProduct r s == 0 = Nothing
     | 0 <= t && t <= 1 && 0 <= u && u <= 1 = Just (addPoints p (scalePoint t r))
     | otherwise = Nothing
-    where t = (twoDCrossProduct (addPoints q (scalePoint (-1) p)) s) / (twoDCrossProduct r s)
-          u = (twoDCrossProduct (addPoints q (scalePoint (-1) p)) r) / (twoDCrossProduct r s)
+    where t = twoDCrossProduct (addPoints q (scalePoint (-1) p)) s / twoDCrossProduct r s
+          u = twoDCrossProduct (addPoints q (scalePoint (-1) p)) r / twoDCrossProduct r s
 
 crossProduct :: Point -> Point -> Point
 crossProduct (Point x y z) (Point a b c) = Point (y * c - z * b) (z * a - x * c) (x * b - y * a)
 
 twoDCrossProduct :: Point -> Point -> ℝ
-twoDCrossProduct p1 p2 = z $ (crossProduct p1 {z = 0} p2 {z = 0})
+twoDCrossProduct p1 p2 = z $ crossProduct p1 {z = 0} p2 {z = 0}
 
 -- Orders points by x and y (x first, then sorted by y for the same x-values)
 orderPoints :: Point -> Point -> Ordering
@@ -230,12 +231,12 @@ orderAlongLine :: Line -> Point -> Point -> Ordering
 orderAlongLine line p1@(Point x1 y1 z1) p2@(Point x2 y2 z2)
     | x1 == x2 && y1 == y2 && z1 == z2 = compare z1 z2
     | otherwise = compare (magnitude $ addPoints (point line) (scalePoint (-1) p1))
-                $ (magnitude $ addPoints (point line) (scalePoint (-1) p2))
+                          (magnitude $ addPoints (point line) (scalePoint (-1) p2))
 
 
 -- round
 roundToFifth :: ℝ -> ℝ
-roundToFifth a = (fromIntegral $ (round (100000 * a)::Fastℕ)) / 100000
+roundToFifth a = fromIntegral (round (100000 * a)::Fastℕ) / 100000
 
 -- round point
 roundPoint :: Point -> Point 
@@ -244,7 +245,7 @@ roundPoint (Point x y z) = Point (roundToFifth x) (roundToFifth y) (roundToFifth
 -- shorten line by a millimeter amount on each end 
 shortenLineBy :: ℝ -> Line -> Line
 shortenLineBy amt line = Line newStart newSlope
-    where pct = (amt / (magnitude (slope line)))
+    where pct = amt / magnitude (slope line)
           newStart = addPoints (point line) $ scalePoint pct (slope line)
           newSlope = scalePoint (1 - 2 * pct) (slope line)
 
@@ -266,19 +267,17 @@ centerFacets (RectBed (bedX,bedY)) fs = (map (shiftFacet (Point dx dy dz)) fs, P
     where [dx,dy,dz] = zipWith (-) (map (/2) [bedX,bedY,0]) [x0,y0,zmin]
           [xmin,ymin,zmin] = map minimum $
                              foldl (zipWith (flip (:))) [[],[],[]] $
-                             map f $
-                             map point (concatMap sides fs)
+                             map (f.point) $ concatMap sides fs
           [xmax,ymax] = map maximum $
                         foldl (zipWith (flip (:))) [[],[]] $
-                        map (take 2 . f) $
-                        map point (concatMap sides fs)
+                        map (take 2 . f . point) $ concatMap sides fs
           [x0,y0] = zipWith (\a b -> (a + b) / 2 - b) [xmax,ymax] [xmin,ymin]
           f p = [x,y,z] <*> pure p
 
 -- Clean up a list of strings from STL file (corresponding to a facet) into just
 -- the vertices
 cleanupFacet :: [String] -> [String]
-cleanupFacet = map unwords . map tail . filter ((== "vertex") . head) . map words
+cleanupFacet = map (unwords . tail) . filter ((== "vertex") . head) . map words
 
 -- Read a point when it's given a string of the form "x y z"
 readPoint :: String -> Point
@@ -293,8 +292,7 @@ makeLines l
     | otherwise = lineFromEndpoints (head l) (head l') : makeLines l'
     where l' = tail l
 
--- Read a list of three coordinates (as strings separated by spaces) into the correct
--- Lines
+-- Read a list of three coordinates (as strings separated by spaces) and generate a facet.
 readFacet :: [String] -> Facet
 readFacet f
     | length f < 3 = error "Invalid facet"
@@ -305,12 +303,12 @@ readFacet f
 -- produce a list of lists of Lines, where each list of Lines corresponds to a
 -- facet in the original STL
 facetLinesFromSTL :: [String] -> [Facet]
-facetLinesFromSTL = map readFacet . map cleanupFacet . facetsFromSTL
+facetLinesFromSTL = map (readFacet . cleanupFacet) . facetsFromSTL
 
 -- Determine if a triangle intersects a plane at a given z value
 triangleIntersects :: ℝ -> Facet -> [Point]
 triangleIntersects v f = trimIntersections $ map fromJust $ filter (/= Nothing) intersections
-    where intersections = map (flip pointAtZValue v) (sides f)
+    where intersections = map (`pointAtZValue` v) $ sides f
 
 -- Get rid of the case where a triangle intersects the plane at one point
 trimIntersections :: [Point] -> [Point]
@@ -340,7 +338,7 @@ makeContours (contours, pairs)
 findContour :: ([Point], [[Point]]) -> ([Point], [[Point]])
 findContour (contour, pairs)
     | p == Nothing = (contour, pairs)
-    | otherwise = findContour (contour ++ (delete (last contour) p'), delete p' pairs)
+    | otherwise = findContour (contour ++ delete (last contour) p' , delete p' pairs)
     where match p0 = head p0 == last contour || last p0 == last contour
           p = find match pairs 
           p' = fromJust p 
@@ -351,7 +349,7 @@ simplifyContour :: Bed -> [Line] -> [Line]
 simplifyContour _ [] = []
 simplifyContour _ [a] = [a]
 simplifyContour bed (a:b:cs)
-    | canCombineLines bed a b = simplifyContour bed $ (combineLines a b) : cs
+    | canCombineLines bed a b = simplifyContour bed $ combineLines a b : cs
     | otherwise = a : simplifyContour bed (b : cs)
 
 -- Witchcraft
@@ -411,31 +409,33 @@ getInfillLineIntersections contours line = nub $ map fromJust $ filter (/= Nothi
 
 -- Generate covering lines for a given percent infill
 coveringInfill :: Bed -> ℝ -> ℝ -> [Line]
-coveringInfill bed infill z
-    | infill == 0 = []
-    | otherwise = pruneInfill (coveringLinesUp bed z) ++ pruneInfill (coveringLinesDown bed z)
+coveringInfill bed infillAmount zHeight
+    | infillAmount == 0 = []
+    | otherwise = pruneInfill (coveringLinesUp bed zHeight) ++ pruneInfill (coveringLinesDown bed zHeight)
     where
       n :: ℝ
-      n = max 1 (infill/100)
+      n = max 1 (infillAmount/100)
       pruneInfill :: [Line] -> [Line]
       pruneInfill l = map (l !! )[0, (floor n)..length l-1]
 
 -- Generate lines over entire print area
 coveringLinesUp :: Bed -> ℝ -> [Line]
-coveringLinesUp (RectBed (bedX,bedY)) z = map (flip Line s . f) [-bedX,-bedX + lineThickness..bedY]
+coveringLinesUp (RectBed (bedX,bedY)) zHeight = map (flip Line s . f) [-bedX,-bedX + lineThickness..bedY]
     where s = Point (bedX + bedY) (bedX + bedY) 0
-          f v = Point 0 v z
+          f v = Point 0 v zHeight
 
 coveringLinesDown :: Bed -> ℝ -> [Line]
-coveringLinesDown (RectBed (bedX,bedY)) z = map (flip Line s . f) [0,lineThickness..bedY + bedX]
+coveringLinesDown (RectBed (bedX,bedY)) zHeight = map (flip Line s . f) [0,lineThickness..bedY + bedX]
     where s =  Point (bedX + bedY) (- bedX - bedY) 0
-          f v = Point 0 v z
+          f v = Point 0 v zHeight
 
 -- Helper function to generate the points we'll need to make the inner perimeters
 pointsForPerimeters :: Options -> Line -> [Point]
-pointsForPerimeters opts l@(Line p _) = map (endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*nozzleDiameter)) $ filter (/= 0) [-n..n]
-    where n = fromIntegral $ perimeterLayers opts - 1
-          Line _ m = perpendicularBisector l
+pointsForPerimeters opts l = map (endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*nozzleDiameter)) $ filter (/= 0) [-n..n]
+    where
+      n :: ℝ
+      n = fromIntegral $ perimeterLayers opts - 1
+      Line _ m = perpendicularBisector l
 
 -- Lines to count intersections to determine if we're on the inside or outside
 perimeterLinesToCheck :: Line -> [Line]
@@ -587,7 +587,7 @@ makeSupport bed opts contours _ = map (shortenLineBy $ 2 * thickness opts)
 layers :: Options -> [Facet] -> [[[Point]]]
 layers opts fs = map (allIntersections.roundToFifth) [maxheight,maxheight-t..0] <*> pure fs
     where zmax = maximum $ map (z.point) (concatMap sides fs)
-          maxheight = t * fromIntegral (floor $ zmax / t)
+          maxheight = t * fromIntegral (floor (zmax / t)::Fastℕ)
           t = thickness opts
 
 getLayerType :: Options -> (Fastℕ, Fastℕ) -> LayerType
