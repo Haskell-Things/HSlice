@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.Point (Point, addPoints)
 
 import Graphics.Slicer.Math.Line (Line, point, pointAtZValue)
 
-data Facet = Facet { sides :: [Line] } deriving Eq
+newtype Facet = Facet { sides :: [Line] } deriving Eq
 
 
 -- Shift a facet by the vector p
@@ -42,7 +42,7 @@ shiftFacet p = Facet . map (\l -> l { point = addPoints p (point l) }) . sides
 -- Determine if a facet intersects a plane at a given z value
 facetIntersects :: ℝ -> Facet -> [Point]
 facetIntersects v f = trimIntersections $ map fromJust $ filter (/= Nothing) intersections
-  where intersections = map (flip pointAtZValue v) (sides f)
+  where intersections = map (`pointAtZValue` v) (sides f)
 
 -- Get rid of the case where a facet intersects the plane at one point
 trimIntersections :: [Point] -> [Point]

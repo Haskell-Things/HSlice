@@ -35,5 +35,5 @@ facetsFromSTL l = map (map (dropWhile isSpace)) $ f : facetsFromSTL (tail r)
 -- Clean up a list of strings from STL file (corresponding to a facet) into just
 -- the vertices
 cleanupFacet :: [String] -> [String]
-cleanupFacet = map unwords . map tail . filter ((== "vertex") . head) . map words
+cleanupFacet = map (unwords . tail) . filter ((== "vertex") . head) . map words
 

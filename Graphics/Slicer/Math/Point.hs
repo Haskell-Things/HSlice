@@ -33,7 +33,7 @@ crossProduct :: Point -> Point -> Point
 crossProduct (Point x1 y1 z1) (Point x2 y2 z2) = Point (y1 * z2 - z1 * y2) (z1 * x2 - x1 * z2) (x1 * y2 - y1 * x2)
 
 twoDCrossProduct :: Point -> Point -> ℝ
-twoDCrossProduct p1 p2 = z $ (crossProduct p1 {z = 0} p2 {z = 0})
+twoDCrossProduct p1 p2 = z $ crossProduct p1 {z = 0} p2 {z = 0}
 
 -- Add the coordinates of two points
 addPoints :: Point -> Point -> Point

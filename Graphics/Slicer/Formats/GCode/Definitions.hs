@@ -30,7 +30,7 @@ import Graphics.Slicer.Math.Point (Point(Point))
 
 -- round a value
 roundToFifth :: ℝ -> ℝ
-roundToFifth a = (fromIntegral (round (100000 * a) :: Fastℕ)) / 100000
+roundToFifth a = fromIntegral (round (100000 * a) :: Fastℕ) / 100000
 
 -- round a point
 roundPoint :: Point -> Point

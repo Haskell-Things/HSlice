@@ -21,11 +21,11 @@
 
 module Graphics.Slicer.Math.Contour (getContours, simplifyContour) where
 
-import Prelude (Eq, RealFrac, Floating, (==), otherwise, (++), (||), (.), ($))
+import Prelude (Eq, RealFrac, Floating, (==), otherwise, (++), (||), (.), ($), null)
 
 import Data.List(find, delete, tail, last, head)
 
-import Data.Maybe(Maybe(Nothing), fromJust)
+import Data.Maybe(Maybe(Nothing), fromJust, isNothing)
 
 import Graphics.Slicer.Math.Point (Point)
 
@@ -36,8 +36,8 @@ import Graphics.Slicer.Math.Line (Line, combineLines, canCombineLines)
 -- Extract a single contour from a list of points
 findContour :: ([Point], [[Point]]) -> ([Point], [[Point]])
 findContour (contour, pairs)
-  | p == Nothing = (contour, pairs)
-  | otherwise = findContour (contour ++ (delete (last contour) p'), delete p' pairs)
+  | isNothing p = (contour, pairs)
+  | otherwise = findContour (contour ++ delete (last contour) p', delete p' pairs)
   where match p0 = head p0 == last contour || last p0 == last contour
         p = find match pairs
         p' = fromJust p
@@ -46,7 +46,7 @@ findContour (contour, pairs)
 -- (each corresponding to a segment), get all contours described by the points
 makeContours :: ([[Point]], [[Point]]) -> [[Point]]
 makeContours (contours, pairs)
-  | pairs == [] = contours
+  | null pairs = contours
   | otherwise = makeContours (contours ++ [next], ps)
   where (next, ps) = findContour (head pairs, tail pairs)
                   
@@ -60,6 +60,6 @@ simplifyContour :: [Line] -> [Line]
 simplifyContour [] = []
 simplifyContour [a] = [a]
 simplifyContour (a:b:cs)
-  | canCombineLines a b = simplifyContour $ (combineLines a b) : cs
+  | canCombineLines a b = simplifyContour $ combineLines a b : cs
   | otherwise = a : simplifyContour (b : cs)
         

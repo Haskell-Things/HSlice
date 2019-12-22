@@ -39,7 +39,7 @@ import Data.String (String)
 
 import Data.Bool(Bool(True, False), (||), (&&), not, otherwise)
 
-import Data.List (nub, sortBy, (++), lines, unlines, length, reverse, zip3, filter, tail, head, zipWith, maximum, (!!), minimum, words, init, unwords, concat, splitAt, elem, take, map, foldl, concatMap, last)
+import Data.List (nub, sortBy, (++), lines, unlines, length, reverse, zip3, filter, tail, head, zipWith, maximum, (!!), minimum, words, init, unwords, splitAt, elem, take, map, foldl, concatMap, last)
 
 import Control.Monad (return, (>>=))
 

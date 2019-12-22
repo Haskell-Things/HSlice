@@ -39,13 +39,13 @@ instance Eq Line where
       (==) (Line p1 m1) (Line p2 m2) = distance p1 p2 < 0.0001 && distance m1 m2 < 0.0001
 
 -- Line intersection algorithm from http://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
-lineIntersection :: Line -> Line -> Maybe (Point)
+lineIntersection :: Line -> Line -> Maybe Point
 lineIntersection (Line p r) (Line q s)
   | twoDCrossProduct r s == 0 = Nothing
   | 0 <= t && t <= 1 && 0 <= u && u <= 1 = Just (addPoints p (scalePoint t r))
   | otherwise = Nothing
-  where t = (twoDCrossProduct (addPoints q (scalePoint (-1) p)) s) / (twoDCrossProduct r s)
-        u = (twoDCrossProduct (addPoints q (scalePoint (-1) p)) r) / (twoDCrossProduct r s)
+  where t = twoDCrossProduct (addPoints q (scalePoint (-1) p)) s / twoDCrossProduct r s
+        u = twoDCrossProduct (addPoints q (scalePoint (-1) p)) r / twoDCrossProduct r s
 
 -- Create a line given its endpoints
 lineFromEndpoints :: Point -> Point -> Line
@@ -100,17 +100,17 @@ perpendicularBisector :: Line -> Line
 perpendicularBisector l@(Line p s)
   | y s == 0 = Line (midpoint l) (Point 0 (magnitude s) 0)
   | otherwise = pointSlopeLength (midpoint l) m (distance p (endpoint l))
-  where m = -(x s) / (y s)
+  where m = - x s / y s
 
 -- Not used by our slicer.
 {-
-pointAtXValue :: Line -> ℝ -> Maybe (Point)
+pointAtXValue :: Line -> ℝ -> Maybe Point
 pointAtXValue (Line p m) v
   | 0 <= t && t <= 1 = Just $ addPoints p (scalePoint t m)
   | otherwise = Nothing
   where t = (v - x p) / x m
 
-pointAtYValue :: Line -> ℝ -> Maybe (Point)
+pointAtYValue :: Line -> ℝ -> Maybe Point
 pointAtYValue (Line p m) v
   | 0 <= t && t <= 1 = Just $ addPoints p (scalePoint t m)
   | otherwise = Nothing
@@ -122,7 +122,7 @@ pointAtYValue (Line p m) v
 -- Z value present in that line. The latter should be okay because the properties
 -- of our meshes mean that the two endpoints of our line should be captured by
 -- the other two segments of a triangle.
-pointAtZValue :: Line -> ℝ -> Maybe (Point)
+pointAtZValue :: Line -> ℝ -> Maybe Point
 pointAtZValue (Line p m) v
   | 0 <= t && t <= 1 = Just $ addPoints p (scalePoint t m)
   | otherwise = Nothing
@@ -131,7 +131,7 @@ pointAtZValue (Line p m) v
 -- shorten line by an amount in millimeters on each end
 shortenLineBy :: ℝ -> Line -> Line
 shortenLineBy amt line = Line newStart newSlope
-  where pct = (amt / (magnitude (slope line)))
+  where pct = amt / magnitude (slope line)
         newStart = addPoints (point line) $ scalePoint pct (slope line)
         newSlope = scalePoint (1 - 2 * pct) (slope line)
                                                     
