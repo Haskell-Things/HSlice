@@ -1,6 +1,6 @@
-# Slicer
+# HSlice
 
-a slicer and G-code generator for RepRap firmwares, in Haskell
+A slicer and G-code generator for RepRap firmwares, in Haskell.
 
 ### to compile
 Run `make` from the root directory of this repository.
@@ -20,7 +20,7 @@ Haskell all of the things.
 
 #### *No but like...why Haskell?*
 
-Haskell is beautiful.
+Functional programming is beautiful.
 
 #### *What sick, twisted masochists did this?*
 
@@ -30,4 +30,4 @@ Haskell is beautiful.
 
 #### *Can I contribute?*
 
-Pull requests welcome. drop by #implicitcad on freenode IRC, or sign up for the implicitcad mailing list, OR email the author at julia.longtin@gmail.com!
+Pull requests welcome. Drop by #implicitcad on freenode IRC, or sign up for the implicitcad mailing list, OR email the author at julia.longtin@gmail.com!
