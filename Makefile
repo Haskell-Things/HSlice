@@ -6,8 +6,9 @@
 # The location of GHC, used to compile .hs examples.
 GHC=ghc
 GHCVERSION=$(shell ${GHC} --version | sed "s/.*version //")
+ARCHITECTURE=$(shell arch)
 # new-style location root. must NOT have trailing slash
-BUILDROOT=dist-newstyle/build/i386-linux/ghc-${GHCVERSION}/slicer-0.0.1
+BUILDROOT=dist-newstyle/build/${ARCHITECTURE}-linux/ghc-${GHCVERSION}/slicer-0.0.1
 EXEBUILDROOT=${BUILDROOT}/x/
 TESTBUILDROOT=${BUILDROOT}/t/
 BENCHBUILDROOT=${BUILDROOT}/b/
