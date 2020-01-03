@@ -21,7 +21,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Rank2Types #-}
 
-import Prelude ((*), (/), (+), (-), (^), fromIntegral, odd, pi, error, sqrt, mod, round, floor, foldMap, fmap)
+import Prelude ((*), (/), (+), (-), (^), fromIntegral, odd, pi, error, sqrt, mod, round, floor, foldMap, fmap, (<>))
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -39,7 +39,7 @@ import Data.String (String)
 
 import Data.Bool(Bool(True, False), (||), (&&), not, otherwise)
 
-import Data.List (nub, sortBy, (++), lines, unlines, length, reverse, zip3, filter, tail, head, zipWith, maximum, (!!), minimum, words, init, unwords, splitAt, elem, take, foldl, last)
+import Data.List (nub, sortBy, lines, unlines, length, reverse, zip3, filter, tail, head, zipWith, maximum, (!!), minimum, words, init, unwords, splitAt, elem, take, foldl, last)
 
 import Control.Monad ((>>=))
 
@@ -82,10 +82,10 @@ centerFacets (RectBed (bedX,bedY)) fs = (shiftFacet (Point dx dy dz) <$> fs, Poi
     where [dx,dy,dz] = zipWith (-) (fmap (/2) [bedX,bedY,0]) [x0,y0,zmin]
           [xmin,ymin,zmin] = fmap minimum $
                              foldl (zipWith (flip (:))) [[],[],[]] $
-                             fmap (f.point) $ foldMap sides fs
+                             (f.point) <$> foldMap sides fs
           [xmax,ymax] = fmap maximum $
                         foldl (zipWith (flip (:))) [[],[]] $
-                        fmap (take 2 . f . point) $ foldMap sides fs
+                        (take 2 . f . point) <$> foldMap sides fs
           [x0,y0] = zipWith (\a b -> (a + b) / 2 - b) [xmax,ymax] [xmin,ymin]
           f p = [x,y,z] <*> pure p
 
@@ -107,7 +107,6 @@ readFacet f
 facetLinesFromSTL :: [String] -> [Facet]
 facetLinesFromSTL = fmap (readFacet . cleanupFacet) . facetsFromSTL
 
-
 -- Amount to extrude when making a line between two points.
 extrusionAmount :: Extruder -> Options -> Point -> Point -> ℝ
 extrusionAmount extruder opts p1 p2 = nozzleDia * t * (2 / filamentDia) * l / pi
@@ -126,7 +125,7 @@ lastExtrusionAmount :: [String] -> Maybe ℝ
 lastExtrusionAmount gcode
     | extrusionValues == [] = Nothing
     | otherwise = Just $ read $ tail $ last extrusionValues
-    where extrusionValues = filter (\s -> head s == 'E') $ (last . words) <$> gcode
+    where extrusionValues = filter (\s -> head s == 'E') $ last . words <$> gcode
 
 -----------------------------------------------------------------------
 ---------------------- Contour filling --------------------------------
@@ -156,7 +155,7 @@ getInfillLineIntersections contours line = nub $ fmap fromJust $ filter (/= Noth
 coveringInfill :: Bed -> ℝ -> ℝ -> [Line]
 coveringInfill bed infillAmount zHeight
     | infillAmount == 0 = []
-    | otherwise = pruneInfill (coveringLinesUp bed zHeight) ++ pruneInfill (coveringLinesDown bed zHeight)
+    | otherwise = pruneInfill (coveringLinesUp bed zHeight) <> pruneInfill (coveringLinesDown bed zHeight)
     where
       n :: ℝ
       n = max 1 (infillAmount/100)
@@ -165,12 +164,12 @@ coveringInfill bed infillAmount zHeight
 
 -- Generate lines over entire print area
 coveringLinesUp :: Bed -> ℝ -> [Line]
-coveringLinesUp (RectBed (bedX,bedY)) zHeight = (flip Line s . f) <$> [-bedX,-bedX + lineThickness..bedY]
+coveringLinesUp (RectBed (bedX,bedY)) zHeight = flip Line s . f <$> [-bedX,-bedX + lineThickness..bedY]
     where s = Point (bedX + bedY) (bedX + bedY) 0
           f v = Point 0 v zHeight
 
 coveringLinesDown :: Bed -> ℝ -> [Line]
-coveringLinesDown (RectBed (bedX,bedY)) zHeight = (flip Line s . f) <$> [0,lineThickness..bedY + bedX]
+coveringLinesDown (RectBed (bedX,bedY)) zHeight = flip Line s . f <$> [0,lineThickness..bedY + bedX]
     where s =  Point (bedX + bedY) (- bedX - bedY) 0
           f v = Point 0 v zHeight
 
@@ -205,7 +204,7 @@ innerPerimeterPoint extruder l contours
     where linesToCheck = perimeterLinesToCheck extruder l
           contourLines = foldMap makeLines contours
           simplifiedContour = simplifyContour contourLines
-          numIntersections l' = length $ filter (/= Nothing) $ (lineIntersection l') <$> simplifiedContour
+          numIntersections l' = length $ filter (/= Nothing) $ lineIntersection l' <$> simplifiedContour
           intersections = (\a -> (numIntersections a, point a)) <$> linesToCheck
           oddIntersections = filter (odd . fst) intersections
           nonzeroIntersections = filter (\(v,_) -> v /= 0) intersections
@@ -213,21 +212,21 @@ innerPerimeterPoint extruder l contours
 -- Construct infinite lines on the interior for a given line
 infiniteInteriorLines :: Bed -> Extruder -> Options -> Line -> [[Point]] -> [Line]
 infiniteInteriorLines bed extruder opts l@(Line _ m) contours
-    | innerPoint `elem` firstHalf = (flip (infiniteLine bed) (lineSlope m)) <$> firstHalf
-    | otherwise = (flip (infiniteLine bed) (lineSlope m)) <$> secondHalf
+    | innerPoint `elem` firstHalf = flip (infiniteLine bed) (lineSlope m) <$> firstHalf
+    | otherwise = flip (infiniteLine bed) (lineSlope m) <$> secondHalf
     where innerPoint = innerPerimeterPoint extruder l contours
           (firstHalf, secondHalf) = splitAt (fromFastℕ $ perimeterLayers opts - 1) $ pointsForPerimeters extruder opts l
 
 -- List of lists of interior lines for each line in a contour
 allInteriors :: Bed -> Extruder -> Options -> [Point] -> [[Point]] -> [[Line]]
-allInteriors bed extruder opts c contours = (flip (infiniteInteriorLines bed extruder opts) contours) <$> targetLines
+allInteriors bed extruder opts c contours = flip (infiniteInteriorLines bed extruder opts) contours <$> targetLines
     where targetLines = makeLines c
 
 -- Make inner contours from a list of (outer) contours---note that we do not
 -- retain the outermost contour.
 innerContours :: Bed -> Extruder -> Options -> [Contour] -> [[Contour]]
 innerContours bed extruder opts contours = foldMap (constructInnerContours opts .(\i -> last i : i)) interiors
-    where interiors = (flip (allInteriors bed extruder opts) contours) <$> contours
+    where interiors = flip (allInteriors bed extruder opts) contours <$> contours
 
 -- Construct inner contours, given a list of lines constituting the infinite interior
 -- lines. Essentially a helper function for innerContours
@@ -250,8 +249,8 @@ gcodeForContour :: Extruder
                 -> [String]
                 -> [Point]
                 -> [String]
-gcodeForContour extruder opts g c = fmap ("G1 " ++) $ zipWith (++) (fmap show c) ("":es)
-    where es = fmap ((" E" ++) . show) exVals
+gcodeForContour extruder opts g c = ("G1 " <>) <$> zipWith (<>) (show <$> c) ("":es)
+    where es = fmap ((" E" <>) . show) exVals
           exVals = fmap (+e) $ accumulateValues $ extrusions extruder opts (head c) (tail c)
           lastE :: Maybe ℝ
           lastE = lastExtrusionAmount g
@@ -266,7 +265,7 @@ gcodeForNestedContours :: Extruder
 gcodeForNestedContours _ _ _ [] = []
 gcodeForNestedContours extruder opts g [cs] = gcodeForContours extruder opts g cs
 gcodeForNestedContours extruder opts g cs = firstContoursGcode
-                                            ++ gcodeForNestedContours extruder opts firstContoursGcode (tail cs)
+                                            <> gcodeForNestedContours extruder opts firstContoursGcode (tail cs)
   where firstContoursGcode = gcodeForContours extruder opts g (head cs)
 
 gcodeForContours :: Extruder
@@ -277,12 +276,12 @@ gcodeForContours :: Extruder
 gcodeForContours _ _ _ [] = []
 gcodeForContours extruder opts g [c] = gcodeForContour extruder opts g c
 gcodeForContours extruder opts g (c:cs) = firstContourGcode
-                                          ++ gcodeForContours extruder opts firstContourGcode cs
+                                          <> gcodeForContours extruder opts firstContourGcode cs
   where firstContourGcode = gcodeForContour extruder opts g c
 
 -- G-code to travel to a point without extruding
 travelGcode :: Point -> String
-travelGcode p = "G1 " ++ show p
+travelGcode p = "G1 " <> show p
 
 -- I'm not super happy about this, but it makes extrusion values correct
 fixGcode :: [String] -> [String]
@@ -297,9 +296,9 @@ fixGcode (a:b:cs) = unwords (init $ words a) : b : fixGcode cs
 -- Get a bounding box of all contours 
 boundingBoxAll :: [Contour] -> [ℝ]
 boundingBoxAll contours =
-  fmap (minimum.(\n -> fmap (!!n) bBoxes)) [0, 1] ++
+  fmap (minimum.(\n -> fmap (!!n) bBoxes)) [0, 1] <>
   fmap (maximum.(\n -> fmap (!!n) bBoxes)) [2, 3]
-    where bBoxes = filter (/= []) $ fmap boundingBox $ filter (/= []) contours
+    where bBoxes = filter (/= []) $ boundingBox <$> filter (/= []) contours
 
 
 -- Get a bounding box of a contour
@@ -363,7 +362,7 @@ getLayerType opts (fromStart, toEnd)
 ----------------------------------------------------------------------
 
 fixContour :: [Point] -> [Point]
-fixContour c = head c : tail c ++ [head c]
+fixContour c = head c : tail c <> [head c]
 
 -- Find all the points in the mesh at a given z value
 -- Each list in the output should have length 2, corresponding to a line segment
@@ -385,14 +384,14 @@ mapEveryOther f (a:b:cs) = f a : b : mapEveryOther f cs
 sliceObject ::  Bed -> Extruder -> Options
                   -> [([Contour], Fastℕ, Fastℕ)] -> [String]
 sliceObject _ _ _ [] = []
-sliceObject bed extruder opts [(a, fromStart, toEnd)] = contourGcode ++ supportGcode ++ infillGcode 
+sliceObject bed extruder opts [(a, fromStart, toEnd)] = contourGcode <> supportGcode <> infillGcode 
     where contours = getContours a
-          interior = fmap (fmap fixContour) $ innerContours bed extruder opts contours
+          interior = fmap fixContour <$> innerContours bed extruder opts contours
           allContours = zipWith (:) contours interior
           innermostContours = if interior == [] then contours else fmap last allContours
           outerContourGcode = gcodeForContours extruder opts [] contours
           innerContourGcode = gcodeForNestedContours extruder opts outerContourGcode interior
-          contourGcode = outerContourGcode ++ innerContourGcode
+          contourGcode = outerContourGcode <> innerContourGcode
           supportGcode = if not $ support opts then [] else fixGcode
                        $ gcodeForContour extruder opts contourGcode
                        $ foldMap (\l -> [point l, endpoint l])
@@ -400,24 +399,24 @@ sliceObject bed extruder opts [(a, fromStart, toEnd)] = contourGcode ++ supportG
                        $ makeSupport bed opts contours
                        $ getLayerType opts (fromStart, toEnd)
           infillGcode = fixGcode
-                      $ gcodeForContour extruder opts (contourGcode ++ supportGcode)
+                      $ gcodeForContour extruder opts (contourGcode <> supportGcode)
                       $ foldMap (\l -> [point l, endpoint l])
                       $ mapEveryOther flipLine
                       $ makeInfill bed opts innermostContours
                       $ getLayerType opts (fromStart, toEnd)
 sliceObject bed extruder opts ((a, fromStart, toEnd):as) = theRest
-                                                  ++ contourGcode
-                                                  ++ fmap travelGcode (head contours)
-                                                  ++ supportGcode
-                                                  ++ infillGcode 
+                                                  <> contourGcode
+                                                  <> fmap travelGcode (head contours)
+                                                  <> supportGcode
+                                                  <> infillGcode 
     where theRest = sliceObject bed extruder opts as
           contours = getContours a
-          interior = fmap (fmap fixContour) $ innerContours bed extruder opts contours
+          interior = fmap fixContour <$> innerContours bed extruder opts contours
           allContours = zipWith (:) contours interior
           innermostContours = if interior == [] then contours else fmap last allContours
           outerContourGcode = gcodeForContours extruder opts theRest contours
           innerContourGcode = gcodeForNestedContours extruder opts outerContourGcode interior
-          contourGcode = outerContourGcode ++ innerContourGcode
+          contourGcode = outerContourGcode <> innerContourGcode
           supportGcode = if not $ support opts then [] else fixGcode
                        $ gcodeForContour extruder opts contourGcode
                        $ foldMap (\l -> [point l, endpoint l])
@@ -425,7 +424,7 @@ sliceObject bed extruder opts ((a, fromStart, toEnd):as) = theRest
                        $ makeSupport bed opts contours
                        $ getLayerType opts (fromStart, toEnd)
           infillGcode = fixGcode
-                      $ gcodeForContour extruder opts (contourGcode ++ supportGcode)
+                      $ gcodeForContour extruder opts (contourGcode <> supportGcode)
                       $ foldMap (\l -> [point l, endpoint l])
                       $ mapEveryOther flipLine
                       $ makeInfill bed opts innermostContours
@@ -528,7 +527,7 @@ main = do
                 opts = initialOpts { center = c }
                 allLayers = fmap (filter (\l -> head l /= head (tail l))) $ filter (/=[]) $ layers opts facets
                 gcode = sliceObject printerBed extruder1 opts $ zip3 allLayers [1..(toFastℕ $ length allLayers)] $ reverse [1..(toFastℕ $ length allLayers)]
-              in writeFile output (unlines $ startingGcode ++ gcode ++ endingGcode)
+              in writeFile output (startingGcode <> unlines gcode <> endingGcode)
               where
                 -- FIXME: pull all of these values from a curaengine json config.
                 -- The bed of the printer. assumed to be some form of rectangle, with the build area coresponding to all of the space above it.
@@ -536,31 +535,28 @@ main = do
                 printerBed = RectBed (150,150)
                 -- The Extruder. note that this includes the diameter of the feed filament.
                 extruder1 = Extruder 1.75 0.4
-                startingGcode, endingGcode :: [String]
-                startingGcode = ["G21 ;metric values"
-                                ,"G90 ;absolute positioning"
-                                ,"M82 ;set extruder to absolute mode"
-                                ,"M106 ;start with the fan on"
-                                ,"G28 X0 Y0 ;move X/Y to min endstops"
-                                ,"G28 Z0 ;move Z to min endstops"
-                                ,"G29 ;Run the auto bed leveling"
-                                ,"G1 Z15.0 F4200 ;move the platform down 15mm"
-                                ,"G92 E0 ;zero the extruded length"
-                                ,"G1 F200 E3 ;extrude 3mm of feed stock"
-                                ,"G92 E0 ;zero the extruded length again"
-                                ,"G1 F4200" -- default speed
-                                ,";Put printing message on LCD screen"
-                                ,"M117"
-                                ]
-                endingGcode = [";End GCode"
-                              ,"M104 S0 ;extruder heater off"
-                              ,"M140 S0 ;heated bed heater off (if you have it)"
-                              ,"G91 ;relative positioning"
-                              ,"G1 E-1 F300 ;retract the filament a bit before lifting the nozzle, to release some of the pressure"
-                              ,"G1 Z+0.5 E-5 X-20 Y-20 F{travel_speed} ;move Z up a bit and retract filament even more"
-                              ,"G28 X0 Y0 ;move X/Y to min endstops, so the head is out of the way"
-                              ,"M107 ;fan off"
-                              ,"M84 ;steppers off"
-                              ,"G90 ;absolute positioning"
-                              ]
+                startingGcode =    "G21 ;metric values\n"
+                                <> "G90 ;absolute positioning\n"
+                                <> "M82 ;set extruder to absolute mode\n"
+                                <> "M106 ;start with the fan on\n"
+                                <> "G28 X0 Y0 ;move X/Y to min endstops\n"
+                                <> "G28 Z0 ;move Z to min endstops\n"
+                                <> "G29 ;Run the auto bed leveling\n"
+                                <> "G1 Z15.0 F4200 ;move the platform down 15mm\n"
+                                <> "G92 E0 ;zero the extruded length\n"
+                                <> "G1 F200 E3 ;extrude 3mm of feed stock\n"
+                                <> "G92 E0 ;zero the extruded length again\n"
+                                <> "G1 F4200 ;default speed\n"
+                                <> ";Put printing message on LCD screen\n"
+                                <> "M117\n"
+                endingGcode =    ";End GCode\n"
+                              <> "M104 S0 ;extruder heater off\n"
+                              <> "M140 S0 ;heated bed heater off (if you have it)\n"
+                              <> "G91 ;relative positioning\n"
+                              <> "G1 E-1 F300 ;retract the filament a bit before lifting the nozzle, to release some of the pressure\n"
+                              <> "G1 Z+0.5 E-5 X-20 Y-20 F{travel_speed} ;move Z up a bit and retract filament even more\n"
+                              <> "G28 X0 Y0 ;move X/Y to min endstops, so the head is out of the way\n"
+                              <> "M107 ;fan off\n"
+                              <> "M84 ;steppers off\n"
+                              <> "G90 ;absolute positioning\n"
 
