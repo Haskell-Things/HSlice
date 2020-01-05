@@ -20,9 +20,9 @@
 
 -- The purpose of this file is to hold datatype definitions that are useful in all of the code.
 
-module Graphics.Slicer.Definitions (ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ, toFastℕ) where
+module Graphics.Slicer.Definitions (ℝ, toℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ, toFastℕ) where
 
-import Prelude (Double)
+import Prelude (Double, Rational, fromRational)
 
 import Graphics.Slicer.FastIntUtil (Fastℕ, fromFastℕ, toFastℕ)
 
@@ -33,4 +33,7 @@ import Graphics.Slicer.IntegralUtil (ℕ)
 type ℝ = Double
 type ℝ2 = (ℝ,ℝ)
 type ℝ3 = (ℝ,ℝ,ℝ)
+
+toℝ :: Rational -> ℝ
+toℝ val = fromRational val
 

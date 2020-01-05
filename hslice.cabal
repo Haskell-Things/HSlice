@@ -14,7 +14,8 @@ Category:            Graphics
 
 Library
     Build-depends:
-                  base
+                  base,
+                  mtl
     Ghc-options:
                 -optc-O3
                 -- see GHC manual 8.2.1 section 6.5.1.
@@ -39,6 +40,7 @@ Library
                   Graphics.Slicer.Definitions
                   Graphics.Slicer.FastIntUtil
                   Graphics.Slicer.IntegralUtil
+                  Graphics.Slicer.Machine.StateM
                   
 Executable extcuraengine
     Main-is: extcuraengine.hs
@@ -46,7 +48,8 @@ Executable extcuraengine
     Build-depends:
                   base,
                   implicit,
-                  hslice
+                  hslice,
+                  mtl
     Ghc-options:
                 -threaded
                 -rtsopts

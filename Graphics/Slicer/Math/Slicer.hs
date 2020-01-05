@@ -42,7 +42,7 @@ showCommand :: Command -> String
 showCommand = map toUpper . unwords
 -}
 
--- Take absolute values, turn into acc
+-- Take absolute values, turn into a vector of rising values
 accumulateValues :: [ℝ] -> [ℝ]
 accumulateValues [] = []
 accumulateValues [a] = [a]

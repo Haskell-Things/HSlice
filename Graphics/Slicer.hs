@@ -32,7 +32,8 @@ module Graphics.Slicer (
   module FS,
   module MeD,
   module D,
-  module CD
+  module CD,
+  module MaS
   ) where
 
 import Prelude ()
@@ -55,6 +56,8 @@ import Graphics.Slicer.Formats.STL.Definitions as FS (facetsFromSTL, cleanupFace
 
 import Graphics.Slicer.Mechanics.Definitions as MeD (Extruder(Extruder), Bed(RectBed), filamentWidth, nozzleDiameter)
 
-import Graphics.Slicer.Definitions as D (ℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ);
+import Graphics.Slicer.Definitions as D (ℝ, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ);
 
 import Graphics.Slicer.Concepts.Definitions as CD (BuildArea(RectArea));
+
+import Graphics.Slicer.Machine.StateM as MaS (EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos);
