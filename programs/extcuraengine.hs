@@ -84,10 +84,10 @@ centerFacets (RectBed (bedX,bedY)) fs = (shiftFacet (Point dx dy dz) <$> fs, Poi
     where [dx,dy,dz] = zipWith (-) (fmap (/2) [bedX,bedY,0]) [x0,y0,zmin]
           [xmin,ymin,zmin] = fmap minimum $
                              foldl (zipWith (flip (:))) [[],[],[]] $
-                             (f.point) <$> foldMap sides fs
+                             f.point <$> foldMap sides fs
           [xmax,ymax] = fmap maximum $
                         foldl (zipWith (flip (:))) [[],[]] $
-                        (take 2 . f . point) <$> foldMap sides fs
+                        take 2 . f . point <$> foldMap sides fs
           [x0,y0] = zipWith (\a b -> (a + b) / 2 - b) [xmax,ymax] [xmin,ymin]
           f p = [x,y,z] <*> pure p
 
@@ -174,7 +174,7 @@ lineSlope m = case x m of 0 -> if y m > 0 then 10^101 else -(10^101)
 
 -- Helper function to generate the points we'll need to make the inner perimeters
 pointsForPerimeters :: Extruder -> Options -> Line -> [Point]
-pointsForPerimeters extruder opts l = (endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*nozzleDia)) <$> filter (/= 0) [-n..n]
+pointsForPerimeters extruder opts l = endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*nozzleDia) <$> filter (/= 0) [-n..n]
   where
     n :: ℝ
     n = fromIntegral $ perimeterLayers opts - 1
@@ -247,7 +247,7 @@ gcodeForContour extruder opts c = do
   currentPos <- toℝ <$> getEPos
   let
     extrusionAmounts = extrusions extruder opts (head c) (tail c)
-    ePoses = accumulateValues $ extrusionAmounts
+    ePoses = accumulateValues extrusionAmounts
     newPoses = (currentPos+) <$> ePoses
     es = fmap (" E" <>) $ show <$> newPoses
   setEPos $ toRational $ last newPoses
@@ -386,7 +386,8 @@ sliceObject bed extruder opts ((a, fromStart, toEnd):as) = do
   theRest <- sliceObject bed extruder opts as
   outerContourGCode <- gcodeForContours extruder opts contours
   innerContourGCode <- gcodeForNestedContours extruder opts interior
-  travelGCode <- pure $ if theRest /= [] then makeTravelGCode <$> (head contours) else []
+  let
+    travelGCode = if theRest /= [] then makeTravelGCode <$> head contours else []
   supportGCode <- if not $ support opts then pure [] else fixGCode <$> gcodeForContour extruder opts supportContours
   infillGCode <- fixGCode <$> gcodeForContour extruder opts infillContours
   pure $ theRest <> outerContourGCode <> innerContourGCode <> travelGCode <> supportGCode <> infillGCode 
