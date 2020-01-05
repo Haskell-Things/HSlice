@@ -21,7 +21,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Rank2Types #-}
 
-import Prelude ((*), (/), (+), (-), (^), fromIntegral, odd, pi, error, sqrt, mod, round, floor, foldMap, fmap, (<>), fromRational, toRational)
+import Prelude ((*), (/), (+), (-), (^), fromIntegral, odd, pi, error, sqrt, mod, round, floor, foldMap, fmap, (<>), toRational)
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -43,7 +43,7 @@ import Data.List (nub, sortBy, lines, unlines, length, reverse, zip3, filter, ta
 
 import Control.Monad ((>>=))
 
-import Data.Maybe (fromJust, Maybe(Just, Nothing), fromMaybe)
+import Data.Maybe (fromJust, Maybe(Nothing))
 
 import Text.Show(show)
 
@@ -231,7 +231,7 @@ constructInnerContours opts interiors
     | length (head interiors) == 0 && (length interiors == 1) = []
     | length (head interiors) == 0 = constructInnerContours opts $ tail interiors
     | otherwise = [intersections] : constructInnerContours opts (tail <$> interiors)
-    where intersections = fmap fromJust $ filter (/= Nothing) $ consecutiveIntersections $ fmap head interiors
+    where intersections = fmap fromJust $ filter (/= Nothing) $ consecutiveIntersections $ head <$> interiors
 
 consecutiveIntersections :: [Line] -> [Maybe Point]
 consecutiveIntersections [] = [Nothing]
@@ -257,6 +257,7 @@ gcodeForNestedContours :: Extruder
                        -> Options
                        -> [[Contour]]
                        -> StateM [String]
+gcodeForNestedContours _ _ [] = pure []
 gcodeForNestedContours extruder opts [c] = gcodeForContours extruder opts c
 gcodeForNestedContours extruder opts (c:cs) = do
   oneContour <- firstContoursGCode
@@ -268,6 +269,7 @@ gcodeForContours :: Extruder
                  -> Options
                  -> [Contour]
                  -> StateM [String]
+gcodeForContours _ _ [] = pure []
 gcodeForContours extruder opts [c] = gcodeForContour extruder opts c
 gcodeForContours extruder opts (c:cs) = do
   oneContour <- firstContourGCode
@@ -276,8 +278,8 @@ gcodeForContours extruder opts (c:cs) = do
     where firstContourGCode = gcodeForContour extruder opts c
 
 -- G-code to travel to a point without extruding
-travelGCode :: Point -> String
-travelGCode p = "G1 " <> show p
+makeTravelGCode :: Point -> String
+makeTravelGCode p = "G1 " <> show p
 
 -- I'm not super happy about this, but it makes extrusion values correct
 fixGCode :: [String] -> [String]
@@ -379,33 +381,14 @@ mapEveryOther f (a:b:cs) = f a : b : mapEveryOther f cs
 -- Input should be top to bottom, output should be bottom to top
 sliceObject ::  Bed -> Extruder -> Options
                   -> [([Contour], Fastℕ, Fastℕ)] -> StateM [String]
-sliceObject bed extruder opts [(a, fromStart, toEnd)] = do
-  outerContourGCode <- gcodeForContours extruder opts contours
-  innerContourGCode <- gcodeForNestedContours extruder opts interior
-  supportGCode <- if not $ support opts then pure [] else fixGCode <$> gcodeForContour extruder opts supportContours
-  infillGCode <- fixGCode <$> gcodeForContour extruder opts infilContours
-  pure $ outerContourGCode <> innerContourGCode <> supportGCode <> infillGCode
-    where
-      contours = getContours a
-      interior = fmap fixContour <$> innerContours bed extruder opts contours
-      supportContours = foldMap (\l -> [point l, endpoint l])
-                        $ mapEveryOther flipLine
-                        $ makeSupport bed opts contours
-                        $ getLayerType opts (fromStart, toEnd)
-      infilContours = foldMap (\l -> [point l, endpoint l])
-                      $ mapEveryOther flipLine
-                      $ makeInfill bed opts innermostContours
-                      $ getLayerType opts (fromStart, toEnd)
-      allContours = zipWith (:) contours interior
-      innermostContours = if interior == [] then contours else fmap last allContours
+sliceObject _ _ _ [] = pure []
 sliceObject bed extruder opts ((a, fromStart, toEnd):as) = do
   theRest <- sliceObject bed extruder opts as
   outerContourGCode <- gcodeForContours extruder opts contours
   innerContourGCode <- gcodeForNestedContours extruder opts interior
-  travelGCode <- pure $ travelGCode <$> (head contours)
+  travelGCode <- pure $ if theRest /= [] then makeTravelGCode <$> (head contours) else []
   supportGCode <- if not $ support opts then pure [] else fixGCode <$> gcodeForContour extruder opts supportContours
   infillGCode <- fixGCode <$> gcodeForContour extruder opts infillContours
-  let
   pure $ theRest <> outerContourGCode <> innerContourGCode <> travelGCode <> supportGCode <> infillGCode 
     where
       contours = getContours a
