@@ -21,7 +21,9 @@
 
 module Graphics.Slicer.Machine.StateM (getEPos, setEPos, EPos(EPos), StateM, MachineState(MachineState)) where
 
-import Prelude (IO, Rational, Show(show), ($), fromRational, pure)
+import Prelude (Rational, Show(show), ($), fromRational, pure)
+
+import Data.Functor.Identity (Identity)
 
 import Control.Monad.State (StateT, get, put)
 
@@ -37,7 +39,7 @@ instance Show EPos where
 -- FIXME: support multiple extruders.
 newtype MachineState = MachineState EPos
 
-type StateM = StateT MachineState IO
+type StateM = StateT MachineState Identity
 
 getEPos :: StateM Rational
 getEPos = do
