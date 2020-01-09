@@ -49,6 +49,7 @@ Executable extcuraengine
                   base,
                   implicit,
                   hslice,
+                  text,
                   mtl
     Ghc-options:
                 -threaded
