@@ -50,6 +50,7 @@ Executable extcuraengine
                   implicit,
                   hslice,
                   text,
+                  optparse-applicative,
                   mtl
     Ghc-options:
                 -threaded
