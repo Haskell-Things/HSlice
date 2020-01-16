@@ -539,14 +539,14 @@ run rawArgs = do
     let
       args = rawArgs
     stl <- readFile (inputFile args)
-    let stlLines = lines stl
-        (facets, _) = centerFacets printerBed $ facetLinesFromSTL stlLines
-        allLayers = (filter (\l -> head l /= head (tail l)) . filter (/=[])) <$> layers args facets
-        object = zip3 allLayers [1..(toFastℕ $ length allLayers)] $ reverse [1..(toFastℕ $ length allLayers)]
-        (gcode, _) = runState (sliceObject printerBed extruder1 args object) (MachineState (EPos 0))
-        outFile = fromMaybe "out.gcode" $ outputFile args
-      in
-      writeFile outFile $ unpack (startingGCode <> unlines gcode <> endingGCode)
+    let
+      stlLines = lines stl
+      (facets, _) = centerFacets printerBed $ facetLinesFromSTL stlLines
+      allLayers = (filter (\l -> head l /= head (tail l)) . filter (/=[])) <$> layers args facets
+      object = zip3 allLayers [1..(toFastℕ $ length allLayers)] $ reverse [1..(toFastℕ $ length allLayers)]
+      (gcode, _) = runState (sliceObject printerBed extruder1 args object) (MachineState (EPos 0))
+      outFile = fromMaybe "out.gcode" $ outputFile args
+    writeFile outFile $ unpack (startingGCode <> unlines gcode <> endingGCode)
       where
         -- FIXME: pull all of these values from a curaengine json config.
         -- The bed of the printer. assumed to be some form of rectangle, with the build area coresponding to all of the space above it.
@@ -555,30 +555,30 @@ run rawArgs = do
         -- The Extruder. note that this includes the diameter of the feed filament.
         extruder1 = Extruder 1.75 0.4
         startingGCode, endingGCode :: Text
-        startingGCode =    "G21 ;metric values\n"
-                           <> "G90 ;absolute positioning\n"
-                           <> "M82 ;set extruder to absolute mode\n"
-                           <> "M106 ;start with the fan on\n"
-                           <> "G28 X0 Y0 ;move X/Y to min endstops\n"
-                           <> "G28 Z0 ;move Z to min endstops\n"
-                           <> "G29 ;Run the auto bed leveling\n"
-                           <> "G1 Z15.0 F4200 ;move the platform down 15mm\n"
-                           <> "G92 E0 ;zero the extruded length\n"
-                           <> "G1 F200 E3 ;extrude 3mm of feed stock\n"
-                           <> "G92 E0 ;zero the extruded length again\n"
-                           <> "G1 F4200 ;default speed\n"
-                           <> ";Put printing message on LCD screen\n"
-                           <> "M117\n"
-        endingGCode =    ";End GCode\n"
-                         <> "M104 S0 ;extruder heater off\n"
-                         <> "M140 S0 ;heated bed heater off (if you have it)\n"
-                         <> "G91 ;relative positioning\n"
-                         <> "G1 E-1 F300 ;retract the filament a bit before lifting the nozzle, to release some of the pressure\n"
-                         <> "G1 Z+0.5 E-5 X-20 Y-20 F{travel_speed} ;move Z up a bit and retract filament even more\n"
-                         <> "G28 X0 Y0 ;move X/Y to min endstops, so the head is out of the way\n"
-                         <> "M107 ;fan off\n"
-                         <> "M84 ;steppers off\n"
-                         <> "G90 ;absolute positioning\n"
+        startingGCode = "G21 ;metric values\n"
+                        <> "G90 ;absolute positioning\n"
+                        <> "M82 ;set extruder to absolute mode\n"
+                        <> "M106 ;start with the fan on\n"
+                        <> "G28 X0 Y0 ;move X/Y to min endstops\n"
+                        <> "G28 Z0 ;move Z to min endstops\n"
+                        <> "G29 ;Run the auto bed leveling\n"
+                        <> "G1 Z15.0 F4200 ;move the platform down 15mm\n"
+                        <> "G92 E0 ;zero the extruded length\n"
+                        <> "G1 F200 E3 ;extrude 3mm of feed stock\n"
+                        <> "G92 E0 ;zero the extruded length again\n"
+                        <> "G1 F4200 ;default speed\n"
+                        <> ";Put printing message on LCD screen\n"
+                        <> "M117\n"
+        endingGCode = ";End GCode\n"
+                      <> "M104 S0 ;extruder heater off\n"
+                      <> "M140 S0 ;heated bed heater off (if you have it)\n"
+                      <> "G91 ;relative positioning\n"
+                      <> "G1 E-1 F300 ;retract the filament a bit before lifting the nozzle, to release some of the pressure\n"
+                      <> "G1 Z+0.5 E-5 X-20 Y-20 F{travel_speed} ;move Z up a bit and retract filament even more\n"
+                      <> "G28 X0 Y0 ;move X/Y to min endstops, so the head is out of the way\n"
+                      <> "M107 ;fan off\n"
+                      <> "M84 ;steppers off\n"
+                      <> "G90 ;absolute positioning\n"
 
 -- | The entry point. Use the option parser then run the slicer.
 main :: IO ()
@@ -586,7 +586,7 @@ main = execParser opts >>= run
     where
       opts= info (helper <*> extCuraEngineOpts)
             ( fullDesc
-              <> progDesc "HSlice: STL to ASCII GCode slicer."
+              <> progDesc "HSlice: STL to GCode slicer."
               <> header "extcuraengine - Extended CuraEngine"
             )
 
