@@ -143,9 +143,9 @@ extrusions extruder opts p c = extrusionAmount extruder opts p (head c) : extrus
 -- Make infill
 makeInfill :: Bed -> ExtCuraEngineOpts -> [[Point]] -> LayerType -> [Line]
 makeInfill bed opts contours layerType = foldMap (infillLineInside contours) $ infillCover layerType
-    where infillCover Middle = coveringInfill bed fillAmount zHeight
-          infillCover BaseEven = coveringLinesUp bed zHeight
-          infillCover BaseOdd = coveringLinesDown bed zHeight
+    where infillCover Middle = coveringInfill bed opts fillAmount zHeight
+          infillCover BaseEven = coveringLinesUp bed opts zHeight
+          infillCover BaseOdd = coveringLinesDown bed opts zHeight
           zHeight = z $ head $ head contours
           defaultInfill :: ℝ
           defaultInfill = 20
@@ -162,10 +162,10 @@ getInfillLineIntersections contours line = nub $ mapMaybe (lineIntersection line
     where contourLines = foldMap makeLines contours
 
 -- Generate covering lines for a given percent infill
-coveringInfill :: Bed -> ℝ -> ℝ -> [Line]
-coveringInfill bed infillAmount zHeight
+coveringInfill :: Bed -> ExtCuraEngineOpts -> ℝ -> ℝ -> [Line]
+coveringInfill bed opts infillAmount zHeight
     | infillAmount == 0 = []
-    | otherwise = pruneInfill (coveringLinesUp bed zHeight) <> pruneInfill (coveringLinesDown bed zHeight)
+    | otherwise = pruneInfill (coveringLinesUp bed opts zHeight) <> pruneInfill (coveringLinesDown bed opts zHeight)
     where
       n :: ℝ
       n = max 1 (infillAmount/100)
@@ -173,15 +173,21 @@ coveringInfill bed infillAmount zHeight
       pruneInfill l = (l !!) <$> [0, (floor n)..length l-1]
 
 -- Generate lines over entire print area
-coveringLinesUp :: Bed -> ℝ -> [Line]
-coveringLinesUp (RectBed (bedX,bedY)) zHeight = flip Line s . f <$> [-bedX,-bedX + lineThickness..bedY]
+coveringLinesUp :: Bed -> ExtCuraEngineOpts -> ℝ -> [Line]
+coveringLinesUp (RectBed (bedX,bedY)) opts zHeight = flip Line s . f <$> [-bedX,-bedX + separation..bedY]
     where s = Point (bedX + bedY) (bedX + bedY) 0
           f v = Point 0 v zHeight
+          defaultLineThickness :: ℝ
+          defaultLineThickness = 0.6
+          separation = fromMaybe defaultLineThickness $ lineThickness opts
 
-coveringLinesDown :: Bed -> ℝ -> [Line]
-coveringLinesDown (RectBed (bedX,bedY)) zHeight = flip Line s . f <$> [0,lineThickness..bedY + bedX]
+coveringLinesDown :: Bed -> ExtCuraEngineOpts -> ℝ -> [Line]
+coveringLinesDown (RectBed (bedX,bedY)) opts zHeight = flip Line s . f <$> [0,separation..bedY + bedX]
     where s =  Point (bedX + bedY) (- bedX - bedY) 0
           f v = Point 0 v zHeight
+          defaultLineThickness :: ℝ
+          defaultLineThickness = 0.6
+          separation = fromMaybe defaultLineThickness $ lineThickness opts
 
 lineSlope :: Point -> ℝ
 lineSlope m = case x m of 0 -> if y m > 0 then 10**101 else -(10**101)
@@ -364,9 +370,9 @@ makeSupport :: Bed
 makeSupport bed opts contours _ = fmap (shortenLineBy $ 2 * t)
                                   $ foldMap (infillLineInside (addBBox contours))
                                   $ infillCover Middle
-    where infillCover Middle = coveringInfill bed 20 zHeight
-          infillCover BaseEven = coveringLinesUp bed zHeight
-          infillCover BaseOdd = coveringLinesDown bed zHeight
+    where infillCover Middle = coveringInfill bed opts 20 zHeight
+          infillCover BaseEven = coveringLinesUp bed opts zHeight
+          infillCover BaseOdd = coveringLinesDown bed opts zHeight
           defaultThickness :: ℝ
           defaultThickness = 0.2
           t = fromMaybe defaultThickness $ thickness opts
@@ -450,28 +456,19 @@ sliceObject bed extruder opts ((a, fromStart, toEnd):as) = do
       innermostContours = if interior == [] then contours else last <$> allContours
 
 ----------------------------------------------------------
------------------------ Constants ------------------------
-----------------------------------------------------------
-
--- FIXME: pull these values from a curaengine config.
-
--- in mm
-lineThickness :: ℝ
-lineThickness = 0.6
-
-----------------------------------------------------------
 ------------------------ OPTIONS -------------------------
 ----------------------------------------------------------
 
--- Note: we're modeling the current engine options, and will switch to curaEngine style later.
+-- Note: we're modeling the current engine options, and will switch to curaEngine style after the json parser is integrated.
 data ExtCuraEngineOpts = ExtCuraEngineOpts
     { perimeterLayers :: Maybe Fastℕ
-    , infill     :: Maybe ℝ
-    , thickness  :: Maybe ℝ
-    , support    :: Bool
-    , outputFile :: Maybe FilePath
+    , infill          :: Maybe ℝ
+    , thickness       :: Maybe ℝ
+    , support         :: Bool
+    , outputFile      :: Maybe FilePath
 --    , center     :: Maybe Point
-    , inputFile  :: String
+    , lineThickness   :: Maybe ℝ
+    , inputFile       :: String
     }
 
 -- | The parser for our command line arguments.
@@ -513,6 +510,14 @@ extCuraEngineOpts = ExtCuraEngineOpts
       <> help "Output file name"
       )
     )
+  <*> optional (
+  option auto
+    (    short 'l'
+      <> long "linethickness"
+      <> metavar "LINETHICKNESS"
+      <> help "The distance between lines of the infill (in millimeters)"
+    )
+  )
 {-  <*> optional (
   option auto
     (    short 'c'
