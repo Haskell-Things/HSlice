@@ -70,10 +70,10 @@ default (ℕ, Fastℕ, ℝ)
 -------------------- Point and Line Arithmetic ----------------------------
 ---------------------------------------------------------------------------
 
--- Given a point and slope (in xy plane), make "infinite" line (i.e. a line that
--- hits two edges of the bed
-infiniteLine :: Bed -> Point -> ℝ -> Line
-infiniteLine (RectBed (bedX,bedY)) p@(Point _ _ c) m = head . makeLines $ nub points
+-- | Given a point and slope (in an xy plane), make "infinite" line
+-- (i.e. a line that hits two edges of the bed)
+lineToEdges :: Bed -> Point -> ℝ -> Line
+lineToEdges (RectBed (bedX,bedY)) p@(Point _ _ c) m = head . makeLines $ nub points
     where edges = lineFromEndpoints <$> [Point 0 0 c, Point bedX bedY c]
                                     <*> [Point 0 bedY c, Point bedX 0 c]
           longestLength = sqrt $ bedX*bedX + bedY*bedY
@@ -81,11 +81,7 @@ infiniteLine (RectBed (bedX,bedY)) p@(Point _ _ c) m = head . makeLines $ nub po
           line = lineFromEndpoints (endpoint halfLine) (addPoints p' (scalePoint (-1) s))
           points = mapMaybe (lineIntersection line) edges
 
-----------------------------------------------------------
------------ Functions to deal with STL parsing -----------
-----------------------------------------------------------
-
--- Given the printer bed and a list of facets, center them on the print bed
+-- Center facets on the print bed
 centerFacets :: Bed -> [Facet] -> ([Facet], Point)
 centerFacets (RectBed (bedX,bedY)) fs = (shiftFacet (Point dx dy dz) <$> fs, Point dx dy dz)
     where (dx,dy,dz) = ((bedX/2-x0), (bedY/2-y0), (-zMin))
@@ -95,6 +91,10 @@ centerFacets (RectBed (bedX,bedY)) fs = (shiftFacet (Point dx dy dz) <$> fs, Poi
           xMax = maximum $ x.point <$> foldMap sides fs
           yMax = maximum $ y.point <$> foldMap sides fs
           (x0,y0) = ((xMax+xMin)/2-xMin, (yMax+yMin)/2-yMin)
+
+----------------------------------------------------------
+----------- Functions to deal with STL parsing -----------
+----------------------------------------------------------
 
 -- Read a point when it's given a string of the form "x y z"
 readPoint :: String -> Point
@@ -121,35 +121,30 @@ readFacet f
 facetLinesFromSTL :: [String] -> [Facet]
 facetLinesFromSTL = fmap (readFacet . cleanupFacet) . facetsFromSTL
 
--- Amount to extrude when making a line between two points.
-extrusionAmount :: Extruder -> ExtCuraEngineOpts -> Point -> Point -> ℝ
-extrusionAmount extruder opts p1 p2 = nozzleDia * t * (2 / filamentDia) * l / pi
-    where l = distance p1 p2
-          defaultThickness :: ℝ
-          defaultThickness = 0.2
-          t = fromMaybe defaultThickness $ thickness opts
-          nozzleDia = nozzleDiameter extruder
-          filamentDia = filamentWidth extruder
-
--- Given a contour and the point to start from, calculate the amount of material to extrude for each line.
-extrusions :: Extruder -> ExtCuraEngineOpts -> Point -> [Point] -> [ℝ]
-extrusions _ _ _ [] = []
-extrusions extruder opts p c = extrusionAmount extruder opts p (head c) : extrusions extruder opts (head c) (tail c)
-
 -----------------------------------------------------------------------
 ---------------------- Contour filling --------------------------------
 -----------------------------------------------------------------------
 
+-- The amount to extrude when making a line between two points.
+extrusionAmount :: Extruder -> ℝ -> Point -> Point -> ℝ
+extrusionAmount extruder t p1 p2 = nozzleDia * t * (2 / filamentDia) * l / pi
+    where l = distance p1 p2
+          nozzleDia = nozzleDiameter extruder
+          filamentDia = filamentWidth extruder
+
+-- Given a contour and the point to start from, calculate the amount of material to extrude for each line.
+extrusions :: Extruder -> ℝ -> Point -> [Point] -> [ℝ]
+extrusions _ _ _ [] = []
+extrusions extruder lh p c = extrusionAmount extruder lh p (head c) : extrusions extruder lh (head c) (tail c)
+
 -- Make infill
-makeInfill :: Bed -> ExtCuraEngineOpts -> [[Point]] -> LayerType -> [Line]
-makeInfill bed opts contours layerType = foldMap (infillLineInside contours) $ infillCover layerType
-    where infillCover Middle = coveringInfill bed opts fillAmount zHeight
-          infillCover BaseEven = coveringLinesUp bed opts zHeight
-          infillCover BaseOdd = coveringLinesDown bed opts zHeight
+makeInfill :: Bed -> Print -> [[Point]] -> LayerType -> [Line]
+makeInfill bed print contours layerType = foldMap (infillLineInside contours) $ infillCover layerType
+    where infillCover Middle = coveringInfill bed print zHeight
+          infillCover BaseEven = coveringLinesUp bed ls zHeight
+          infillCover BaseOdd = coveringLinesDown bed ls zHeight
           zHeight = z $ head $ head contours
-          defaultInfill :: ℝ
-          defaultInfill = 20
-          fillAmount = fromMaybe defaultInfill $ infill opts
+          ls = lineSpacing print
 
 -- Get the segments of an infill line that are inside the contour
 infillLineInside :: [[Point]] -> Line -> [Line]
@@ -162,46 +157,39 @@ getInfillLineIntersections contours line = nub $ mapMaybe (lineIntersection line
     where contourLines = foldMap makeLines contours
 
 -- Generate covering lines for a given percent infill
-coveringInfill :: Bed -> ExtCuraEngineOpts -> ℝ -> ℝ -> [Line]
-coveringInfill bed opts infillAmount zHeight
-    | infillAmount == 0 = []
-    | otherwise = pruneInfill (coveringLinesUp bed opts zHeight) <> pruneInfill (coveringLinesDown bed opts zHeight)
+coveringInfill :: Bed -> Print -> ℝ -> [Line]
+coveringInfill bed print zHeight
+    | infill == 0 = []
+    | otherwise = pruneInfill (coveringLinesUp bed ls zHeight) <> pruneInfill (coveringLinesDown bed ls zHeight)
     where
       n :: ℝ
-      n = max 1 (infillAmount/100)
+      n = max 1 (infill/100)
       pruneInfill :: [Line] -> [Line]
       pruneInfill l = (l !!) <$> [0, (floor n)..length l-1]
+      ls = lineSpacing print
+      infill = infillAmmount print
 
 -- Generate lines over entire print area
-coveringLinesUp :: Bed -> ExtCuraEngineOpts -> ℝ -> [Line]
-coveringLinesUp (RectBed (bedX,bedY)) opts zHeight = flip Line s . f <$> [-bedX,-bedX + separation..bedY]
+coveringLinesUp :: Bed -> ℝ -> ℝ -> [Line]
+coveringLinesUp (RectBed (bedX,bedY)) lt zHeight = flip Line s . f <$> [-bedX,-bedX + lt..bedY]
     where s = Point (bedX + bedY) (bedX + bedY) 0
           f v = Point 0 v zHeight
-          defaultLineThickness :: ℝ
-          defaultLineThickness = 0.6
-          separation = fromMaybe defaultLineThickness $ lineThickness opts
 
-coveringLinesDown :: Bed -> ExtCuraEngineOpts -> ℝ -> [Line]
-coveringLinesDown (RectBed (bedX,bedY)) opts zHeight = flip Line s . f <$> [0,separation..bedY + bedX]
+coveringLinesDown :: Bed -> ℝ -> ℝ -> [Line]
+coveringLinesDown (RectBed (bedX,bedY)) lt zHeight = flip Line s . f <$> [0,lt..bedY + bedX]
     where s =  Point (bedX + bedY) (- bedX - bedY) 0
           f v = Point 0 v zHeight
-          defaultLineThickness :: ℝ
-          defaultLineThickness = 0.6
-          separation = fromMaybe defaultLineThickness $ lineThickness opts
 
 lineSlope :: Point -> ℝ
 lineSlope m = case x m of 0 -> if y m > 0 then 10**101 else -(10**101)
                           _ -> y m / x m
 
 -- Helper function to generate the points we'll need to make the inner perimeters
-pointsForPerimeters :: Extruder -> ExtCuraEngineOpts -> Line -> [Point]
-pointsForPerimeters extruder opts l = endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*nozzleDia) <$> filter (/= 0) [-n..n]
+pointsForPerimeters :: Extruder -> Fastℕ -> Line -> [Point]
+pointsForPerimeters extruder perimeterCount l = endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*nozzleDia) <$> filter (/= 0) [-n..n]
   where
     n :: ℝ
-    n = fromIntegral $ perimeters - 1
-    defaultPerimeterLayers :: Fastℕ
-    defaultPerimeterLayers = 2
-    perimeters = fromMaybe defaultPerimeterLayers $ perimeterLayers opts
+    n = fromIntegral $ perimeterCount - 1
     Line _ m = perpendicularBisector l
     nozzleDia :: ℝ
     nozzleDia = nozzleDiameter extruder
@@ -228,35 +216,33 @@ innerPerimeterPoint extruder l contours
           oddIntersections = filter (odd . fst) intersections
           nonzeroIntersections = filter (\(v,_) -> v /= 0) intersections
 
--- Construct infinite lines on the interior for a given line
-infiniteInteriorLines :: Bed -> Extruder -> ExtCuraEngineOpts -> Line -> [[Point]] -> [Line]
-infiniteInteriorLines bed extruder opts l@(Line _ m) contours
-    | innerPoint `elem` firstHalf = flip (infiniteLine bed) (lineSlope m) <$> firstHalf
-    | otherwise = flip (infiniteLine bed) (lineSlope m) <$> secondHalf
+-- Construct lines on the interior for a given line
+interiorLines :: Printer -> Fastℕ -> Line -> [[Point]] -> [Line]
+interiorLines (Printer bed extruder) perimeterCount l@(Line _ m) contours
+    | innerPoint `elem` firstHalf = flip (lineToEdges bed) (lineSlope m) <$> firstHalf
+    | otherwise = flip (lineToEdges bed) (lineSlope m) <$> secondHalf
     where innerPoint = innerPerimeterPoint extruder l contours
-          defaultPerimeterLayers :: Fastℕ
-          defaultPerimeterLayers = 2
-          (firstHalf, secondHalf) = splitAt (fromFastℕ $ (fromMaybe defaultPerimeterLayers $ perimeterLayers opts) - 1) $ pointsForPerimeters extruder opts l
+          (firstHalf, secondHalf) = splitAt (fromFastℕ $ perimeterCount - 1) $ pointsForPerimeters extruder perimeterCount l
 
 -- List of lists of interior lines for each line in a contour
-allInteriors :: Bed -> Extruder -> ExtCuraEngineOpts -> [Point] -> [[Point]] -> [[Line]]
-allInteriors bed extruder opts c contours = flip (infiniteInteriorLines bed extruder opts) contours <$> targetLines
+allInteriors :: Printer -> Fastℕ -> [Point] -> [[Point]] -> [[Line]]
+allInteriors printer perimeterCount c contours = flip (interiorLines printer perimeterCount) contours <$> targetLines
     where targetLines = makeLines c
 
--- Make inner contours from a list of (outer) contours---note that we do not
--- retain the outermost contour.
-innerContours :: Bed -> Extruder -> ExtCuraEngineOpts -> [Contour] -> [[Contour]]
-innerContours bed extruder opts contours = foldMap (constructInnerContours opts .(\i -> last i : i)) interiors
-    where interiors = flip (allInteriors bed extruder opts) contours <$> contours
+-- Make inner contours from a list of (outer) contours.
+-- note that we do not retain the outermost contour.
+innerContours :: Printer -> Fastℕ -> [Contour] -> [[Contour]]
+innerContours printer perimeterCount contours = foldMap (constructInnerContours .(\i -> last i : i)) interiors
+    where interiors = flip (allInteriors printer perimeterCount) contours <$> contours
 
--- Construct inner contours, given a list of lines constituting the infinite interior
--- lines. Essentially a helper function for innerContours
-constructInnerContours :: ExtCuraEngineOpts -> [[Line]] -> [[Contour]]
-constructInnerContours opts interiors
+-- Construct inner contours, given a list of lines constituting the interior
+-- lines. Essentially a helper function for innerContours.
+constructInnerContours :: [[Line]] -> [[Contour]]
+constructInnerContours interiors
     | length interiors == 0 = []
     | length (head interiors) == 0 && (length interiors == 1) = []
-    | length (head interiors) == 0 = constructInnerContours opts $ tail interiors
-    | otherwise = [intersections] : constructInnerContours opts (tail <$> interiors)
+    | length (head interiors) == 0 = constructInnerContours $ tail interiors
+    | otherwise = [intersections] : constructInnerContours (tail <$> interiors)
     where intersections = catMaybes $ consecutiveIntersections $ head <$> interiors
 
 consecutiveIntersections :: [Line] -> [Maybe Point]
@@ -266,13 +252,13 @@ consecutiveIntersections (a:b:cs) = lineIntersection a b : consecutiveIntersecti
 
 -- Generate G-code for a given contour c.
 gcodeForContour :: Extruder
-                -> ExtCuraEngineOpts
+                -> ℝ
                 -> [Point]
                 -> StateM [Text]
-gcodeForContour extruder opts c = do
+gcodeForContour extruder lh c = do
   currentPos <- toℝ <$> getEPos
   let
-    extrusionAmounts = extrusions extruder opts (head c) (tail c)
+    extrusionAmounts = extrusions extruder lh (head c) (tail c)
     ePoses = accumulateValues extrusionAmounts
     newPoses = (currentPos+) <$> ePoses
     es = (" E" <>) . pack . show <$> newPoses
@@ -280,28 +266,28 @@ gcodeForContour extruder opts c = do
   pure $ ("G1 " <>) <$> zipWith (<>) (pack . show <$> c) ("":es)
 
 gcodeForNestedContours :: Extruder
-                       -> ExtCuraEngineOpts
+                       -> ℝ
                        -> [[Contour]]
                        -> StateM [Text]
 gcodeForNestedContours _ _ [] = pure []
-gcodeForNestedContours extruder opts [c] = gcodeForContours extruder opts c
-gcodeForNestedContours extruder opts (c:cs) = do
+gcodeForNestedContours extruder lh [c] = gcodeForContours extruder lh c
+gcodeForNestedContours extruder lh (c:cs) = do
   oneContour <- firstContoursGCode
-  remainingContours <- gcodeForNestedContours extruder opts cs
+  remainingContours <- gcodeForNestedContours extruder lh cs
   pure $ oneContour <> remainingContours
-    where firstContoursGCode = gcodeForContours extruder opts c
+    where firstContoursGCode = gcodeForContours extruder lh c
 
 gcodeForContours :: Extruder
-                 -> ExtCuraEngineOpts
+                 -> ℝ
                  -> [Contour]
                  -> StateM [Text]
 gcodeForContours _ _ [] = pure []
-gcodeForContours extruder opts [c] = gcodeForContour extruder opts c
-gcodeForContours extruder opts (c:cs) = do
+gcodeForContours extruder lh [c] = gcodeForContour extruder lh c
+gcodeForContours extruder lh (c:cs) = do
   oneContour <- firstContourGCode
-  remainingContours <- gcodeForContours extruder opts cs
+  remainingContours <- gcodeForContours extruder lh cs
   pure $ oneContour <> remainingContours
-    where firstContourGCode = gcodeForContour extruder opts c
+    where firstContourGCode = gcodeForContour extruder lh c
 
 -- G-code to travel to a point without extruding
 makeTravelGCode :: Point -> Text
@@ -363,47 +349,35 @@ addBBox contours = [Point x1 y1 z0, Point x2 y1 z0, Point x2 y2 z0, Point x1 y2 
 -- Generate support
 -- FIXME: hard coded infill amount.
 makeSupport :: Bed
-            -> ExtCuraEngineOpts
+            -> Print
             -> [[Point]]
-            -> LayerType
             -> [Line]
-makeSupport bed opts contours _ = fmap (shortenLineBy $ 2 * t)
-                                  $ foldMap (infillLineInside (addBBox contours))
-                                  $ infillCover Middle
-    where infillCover Middle = coveringInfill bed opts 20 zHeight
-          infillCover BaseEven = coveringLinesUp bed opts zHeight
-          infillCover BaseOdd = coveringLinesDown bed opts zHeight
-          defaultThickness :: ℝ
-          defaultThickness = 0.2
-          t = fromMaybe defaultThickness $ thickness opts
-          zHeight = z $ head $ head contours
+makeSupport bed print contours = fmap (shortenLineBy $ 2 * lh)
+                                 $ foldMap (infillLineInside (addBBox contours))
+                                 $ coveringInfill bed print zHeight
+    where
+      zHeight = z $ head $ head contours
+      lh = layerHeight print
 
 -----------------------------------------------------------------------
 --------------------------- LAYERS ------------------------------------
 -----------------------------------------------------------------------
 
 -- Create contours from a list of facets
-layers :: ExtCuraEngineOpts -> [Facet] -> [[[Point]]]
-layers opts fs = fmap (allIntersections.roundToFifth) [maxheight,maxheight-t..0] <*> pure fs
+layers :: Print -> [Facet] -> [[[Point]]]
+layers print fs = fmap (allIntersections.roundToFifth) [maxheight,maxheight-t..0] <*> pure fs
     where zmax = maximum $ (z.point) <$> (foldMap sides fs)
           maxheight = t * fromIntegral (floor (zmax / t)::Fastℕ)
-          defaultThickness :: ℝ
-          defaultThickness = 0.2
-          t = fromMaybe defaultThickness $ thickness opts
+          t = layerHeight print
 
-getLayerType :: ExtCuraEngineOpts -> (Fastℕ, Fastℕ) -> LayerType
-getLayerType opts (fromStart, toEnd)
+getLayerType :: Print -> (Fastℕ, Fastℕ) -> LayerType
+getLayerType print (fromStart, toEnd)
   | (fromStart <= topBottomLayers || toEnd <= topBottomLayers) && fromStart `mod` 2 == 0 = BaseEven
   | (fromStart <= topBottomLayers || toEnd <= topBottomLayers) && fromStart `mod` 2 == 1 = BaseOdd
   | otherwise = Middle
   where
     topBottomLayers :: Fastℕ
-    topBottomLayers = round $ defaultBottomTopThickness / t
-    defaultBottomTopThickness :: ℝ
-    defaultBottomTopThickness = 0.8
-    defaultThickness :: ℝ
-    defaultThickness = 0.2
-    t = fromMaybe defaultThickness $ thickness opts
+    topBottomLayers = round $ surfaceThickness print / layerHeight print
 
 ----------------------------------------------------------------------
 ---------------------------- MISC ------------------------------------
@@ -429,29 +403,28 @@ mapEveryOther f (a:b:cs) = f a : b : mapEveryOther f cs
 -------------------------------------------------------------
 
 -- Input should be top to bottom, output should be bottom to top
-sliceObject ::  Bed -> Extruder -> ExtCuraEngineOpts
+sliceObject ::  Printer ->  Print
                   -> [([Contour], Fastℕ, Fastℕ)] -> StateM [Text]
-sliceObject _ _ _ [] = pure []
-sliceObject bed extruder opts ((a, fromStart, toEnd):as) = do
-  theRest <- sliceObject bed extruder opts as
-  outerContourGCode <- gcodeForContours extruder opts contours
-  innerContourGCode <- gcodeForNestedContours extruder opts interior
+sliceObject _ _ [] = pure []
+sliceObject printer@(Printer bed extruder) print@(Print perimeterCount _ lh _ hasSupport _) ((a, fromStart, toEnd):as) = do
+  theRest <- sliceObject printer print as
+  outerContourGCode <- gcodeForContours extruder lh contours
+  innerContourGCode <- gcodeForNestedContours extruder lh interior
   let
     travelGCode = if theRest == [] then [] else makeTravelGCode <$> head contours
-  supportGCode <- if support opts then fixGCode <$> gcodeForContour extruder opts supportContours else pure []
-  infillGCode <- fixGCode <$> gcodeForContour extruder opts infillContours
+  supportGCode <- if hasSupport then fixGCode <$> gcodeForContour extruder lh supportContours else pure []
+  infillGCode <- fixGCode <$> gcodeForContour extruder lh infillContours
   pure $ theRest <> outerContourGCode <> innerContourGCode <> travelGCode <> supportGCode <> infillGCode
     where
       contours = getContours a
-      interior = fmap fixContour <$> innerContours bed extruder opts contours
+      interior = fmap fixContour <$> innerContours printer perimeterCount contours
       supportContours = foldMap (\l -> [point l, endpoint l])
                         $ mapEveryOther flipLine
-                        $ makeSupport bed opts contours
-                        $ getLayerType opts (fromStart, toEnd)
+                        $ makeSupport bed print contours
       infillContours = foldMap (\l -> [point l, endpoint l])
                        $ mapEveryOther flipLine
-                       $ makeInfill bed opts innermostContours
-                       $ getLayerType opts (fromStart, toEnd)
+                       $ makeInfill bed print innermostContours
+                       $ getLayerType print (fromStart, toEnd)
       allContours = zipWith (:) contours interior
       innermostContours = if interior == [] then contours else last <$> allContours
 
@@ -461,14 +434,15 @@ sliceObject bed extruder opts ((a, fromStart, toEnd):as) = do
 
 -- Note: we're modeling the current engine options, and will switch to curaEngine style after the json parser is integrated.
 data ExtCuraEngineOpts = ExtCuraEngineOpts
-    { perimeterLayers :: Maybe Fastℕ
-    , infill          :: Maybe ℝ
-    , thickness       :: Maybe ℝ
-    , support         :: Bool
-    , outputFile      :: Maybe FilePath
---    , center     :: Maybe Point
-    , lineThickness   :: Maybe ℝ
-    , inputFile       :: String
+    { perimeterCountOpt       :: Maybe Fastℕ
+    , infillPercentOpt        :: Maybe ℝ
+    , layerHeightMMOpt        :: Maybe ℝ
+    , topBottomThicknessMMOpt :: Maybe ℝ
+    , generateSupportOpt      :: Bool
+    , outputFile              :: Maybe FilePath
+--    , center           :: Maybe Point
+    , lineSpacingMMOpt        :: Maybe ℝ
+    , inputFile               :: String
     }
 
 -- | The parser for our command line arguments.
@@ -477,7 +451,7 @@ extCuraEngineOpts = ExtCuraEngineOpts
   <$> optional (
   option auto
     (    short 'p'
-      <> long "perimeter"
+      <> long "perimeters"
       <> help "How many layers go around each contour"
     )
   )
@@ -498,6 +472,14 @@ extCuraEngineOpts = ExtCuraEngineOpts
       <> help "The layer height (in millimeters)"
     )
   )
+  <*> optional (
+  option auto
+    (    short 's'
+      <> long "surfacethickness"
+      <> metavar "SURFACE"
+      <> help "The thickness of the top and bottom layers (in millimeters)"
+    )
+  )
   <*> switch
   (     long "support"
      <> help "Whether to generate support structures"
@@ -510,14 +492,6 @@ extCuraEngineOpts = ExtCuraEngineOpts
       <> help "Output file name"
       )
     )
-  <*> optional (
-  option auto
-    (    short 'l'
-      <> long "linethickness"
-      <> metavar "LINETHICKNESS"
-      <> help "The distance between lines of the infill (in millimeters)"
-    )
-  )
 {-  <*> optional (
   option auto
     (    short 'c'
@@ -526,14 +500,41 @@ extCuraEngineOpts = ExtCuraEngineOpts
       <> help "The position on the print bed to center the object."
     )
   )
--}  <*> argument str
+-}
+  <*> optional (
+  option auto
+    (    short 'l'
+      <> long "linespacing"
+      <> metavar "LINESPACING"
+      <> help "The distance between lines of the infill (in millimeters)"
+    )
+  )
+  <*> argument str
   (  metavar "FILE"
-     <> help "Input ascii STL file"
+     <> help "Input ASCII formatted STL file"
   )
 
 -----------------------------------------------------------------------
 --------------------------- Main --------------------------------------
 -----------------------------------------------------------------------
+-- Characteristics of the printer we are using.
+data Printer = Printer
+  {
+    _bed      :: Bed
+  , _extruder :: Extruder
+  }
+
+-- The parameters of the print that is being requested.
+data Print = Print
+  {
+    _perimeters      :: Fastℕ
+  , infillAmmount    :: ℝ
+  , layerHeight      :: ℝ
+  , surfaceThickness :: ℝ
+  , _withSupport     :: Bool
+  , lineSpacing      :: ℝ -- In Millimeters.
+  }
+
 run :: ExtCuraEngineOpts -> IO ()
 run rawArgs = do
     let
@@ -541,19 +542,43 @@ run rawArgs = do
     stl <- readFile (inputFile args)
     let
       stlLines = lines stl
-      (facets, _) = centerFacets printerBed $ facetLinesFromSTL stlLines
-      allLayers = (filter (\l -> head l /= head (tail l)) . filter (/=[])) <$> layers args facets
+      printer@(Printer printbed _) = printerFromArgs args
+      (facets, _) = centerFacets printbed $ facetLinesFromSTL stlLines
+      print = printFromArgs args
+      allLayers = (filter (\l -> head l /= head (tail l)) . filter (/=[])) <$> layers print facets
       object = zip3 allLayers [1..(toFastℕ $ length allLayers)] $ reverse [1..(toFastℕ $ length allLayers)]
-      (gcode, _) = runState (sliceObject printerBed extruder1 args object) (MachineState (EPos 0))
+      (gcode, _) = runState (sliceObject printer print object) (MachineState (EPos 0))
       outFile = fromMaybe "out.gcode" $ outputFile args
     writeFile outFile $ unpack (startingGCode <> unlines gcode <> endingGCode)
       where
+        -- The Printer.
         -- FIXME: pull all of these values from a curaengine json config.
-        -- The bed of the printer. assumed to be some form of rectangle, with the build area coresponding to all of the space above it.
-        printerBed :: Bed
-        printerBed = RectBed (150,150)
-        -- The Extruder. note that this includes the diameter of the feed filament.
-        extruder1 = Extruder 1.75 0.4
+        printerFromArgs :: ExtCuraEngineOpts -> Printer
+        printerFromArgs _ = Printer printBed extruder1
+          where
+            -- The bed of the printer. assumed to be some form of rectangle, with the build area coresponding to all of the space above it.
+            printBed = RectBed (150,150)
+            -- The Extruder. note that this includes the diameter of the feed filament.
+            extruder1 = Extruder 1.75 0.4
+
+        -- The Print
+        -- FIXME: pull all of these values from a curaengine json config.
+        printFromArgs :: ExtCuraEngineOpts -> Print
+        printFromArgs args = Print
+                             (fromMaybe defaultPerimeterCount $ perimeterCountOpt args)
+                             (fromMaybe defaultInfillPercent $ infillPercentOpt args)
+                             (fromMaybe defaultThickness $ layerHeightMMOpt args)
+                             (fromMaybe defaultBottomTopThickness $ topBottomThicknessMMOpt args)
+                             (generateSupportOpt args)
+                             (fromMaybe defaultLineThickness $ lineSpacingMMOpt args)
+          where
+            defaultInfillPercent,defaultThickness,defaultBottomTopThickness,defaultLineThickness :: ℝ
+            defaultInfillPercent = 20
+            defaultThickness = 0.2
+            defaultBottomTopThickness = 0.8
+            defaultLineThickness = 0.6
+            defaultPerimeterCount :: Fastℕ
+            defaultPerimeterCount = 2
         startingGCode, endingGCode :: Text
         startingGCode = "G21 ;metric values\n"
                         <> "G90 ;absolute positioning\n"
