@@ -62,7 +62,7 @@ import Control.Monad.State(runState)
 
 import Options.Applicative (fullDesc, progDesc, header, auto, info, helper, help, str, argument, long, short, option, metavar, execParser, Parser, optional, strOption, switch)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea), ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ, Point(Point), x,y,z, Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet(Facet), sides, Contour, LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, facetsFromSTL, cleanupFacet, makeLines, facetIntersects, getContours, simplifyContour, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos)
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ, Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet(Facet), sides, Contour, LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, facetsFromSTL, cleanupFacet, makeLines, facetIntersects, getContours, simplifyContour, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos)
 
 default (ℕ, Fastℕ, ℝ)
 
@@ -70,10 +70,11 @@ default (ℕ, Fastℕ, ℝ)
 -------------------- Point and Line Arithmetic ----------------------------
 ---------------------------------------------------------------------------
 
--- | Given a point and slope (in an xy plane), make "infinite" line
+-- | Given a point and slope (on an xy plane), make "infinite" line
+-- FIXME: assumes the origin is at the corner.
 -- (i.e. a line that hits two edges of the bed)
-lineToEdges :: Bed -> Point -> ℝ -> Line
-lineToEdges (RectBed (bedX,bedY)) p@(Point _ _ c) m = head . makeLines $ nub points
+lineToEdges :: BuildArea -> Point -> ℝ -> Line
+lineToEdges (RectArea (bedX,bedY,_)) p@(Point _ _ c) m = head . makeLines $ nub points
     where edges = lineFromEndpoints <$> [Point 0 0 c, Point bedX bedY c]
                                     <*> [Point 0 bedY c, Point bedX 0 c]
           longestLength = sqrt $ bedX*bedX + bedY*bedY
@@ -81,16 +82,20 @@ lineToEdges (RectBed (bedX,bedY)) p@(Point _ _ c) m = head . makeLines $ nub poi
           line = lineFromEndpoints (endpoint halfLine) (addPoints p' (scalePoint (-1) s))
           points = mapMaybe (lineIntersection line) edges
 
--- Center facets on the print bed
-centerFacets :: Bed -> [Facet] -> ([Facet], Point)
-centerFacets (RectBed (bedX,bedY)) fs = (shiftFacet (Point dx dy dz) <$> fs, Point dx dy dz)
+-- Center facets relative to the center of the build area.
+centerFacets :: BuildArea -> [Facet] -> ([Facet], Point)
+centerFacets (RectArea (bedX,bedY,_)) fs = (shiftFacet (Point dx dy dz) <$> fs, Point dx dy dz)
     where (dx,dy,dz) = ((bedX/2-x0), (bedY/2-y0), (-zMin))
-          xMin = minimum $ x.point <$> foldMap sides fs
-          yMin = minimum $ y.point <$> foldMap sides fs
-          zMin = minimum $ z.point <$> foldMap sides fs
-          xMax = maximum $ x.point <$> foldMap sides fs
-          yMax = maximum $ y.point <$> foldMap sides fs
+          xMin = minimum $ xOf.point <$> foldMap sides fs
+          yMin = minimum $ yOf.point <$> foldMap sides fs
+          zMin = minimum $ zOf.point <$> foldMap sides fs
+          xMax = maximum $ xOf.point <$> foldMap sides fs
+          yMax = maximum $ yOf.point <$> foldMap sides fs
           (x0,y0) = ((xMax+xMin)/2-xMin, (yMax+yMin)/2-yMin)
+          xOf, yOf, zOf :: Point -> ℝ
+          xOf (Point x _ _) = x
+          yOf (Point _ y _) = y
+          zOf (Point _ _ z) = z
 
 ----------------------------------------------------------
 ----------- Functions to deal with STL parsing -----------
@@ -138,13 +143,15 @@ extrusions _ _ _ [] = []
 extrusions extruder lh p c = extrusionAmount extruder lh p (head c) : extrusions extruder lh (head c) (tail c)
 
 -- Make infill
-makeInfill :: Bed -> Print -> [[Point]] -> LayerType -> [Line]
-makeInfill bed print contours layerType = foldMap (infillLineInside contours) $ infillCover layerType
-    where infillCover Middle = coveringInfill bed print zHeight
-          infillCover BaseEven = coveringLinesUp bed ls zHeight
-          infillCover BaseOdd = coveringLinesDown bed ls zHeight
-          zHeight = z $ head $ head contours
+makeInfill :: BuildArea -> Print -> [[Point]] -> LayerType -> [Line]
+makeInfill buildarea print contours layerType = foldMap (infillLineInside contours) $ infillCover layerType
+    where infillCover Middle = coveringInfill buildarea print zHeight
+          infillCover BaseEven = coveringLinesUp buildarea ls zHeight
+          infillCover BaseOdd = coveringLinesDown buildarea ls zHeight
+          zHeight = zOf . head $ head contours
           ls = lineSpacing print
+          zOf :: Point -> ℝ
+          zOf (Point _ _ z) = z
 
 -- Get the segments of an infill line that are inside the contour
 infillLineInside :: [[Point]] -> Line -> [Line]
@@ -157,10 +164,10 @@ getInfillLineIntersections contours line = nub $ mapMaybe (lineIntersection line
     where contourLines = foldMap makeLines contours
 
 -- Generate covering lines for a given percent infill
-coveringInfill :: Bed -> Print -> ℝ -> [Line]
-coveringInfill bed print zHeight
+coveringInfill :: BuildArea -> Print -> ℝ -> [Line]
+coveringInfill buildarea print zHeight
     | infill == 0 = []
-    | otherwise = pruneInfill (coveringLinesUp bed ls zHeight) <> pruneInfill (coveringLinesDown bed ls zHeight)
+    | otherwise = pruneInfill (coveringLinesUp buildarea ls zHeight) <> pruneInfill (coveringLinesDown buildarea ls zHeight)
     where
       n :: ℝ
       n = max 1 (infill/100)
@@ -170,19 +177,24 @@ coveringInfill bed print zHeight
       infill = infillAmmount print
 
 -- Generate lines over entire print area
-coveringLinesUp :: Bed -> ℝ -> ℝ -> [Line]
-coveringLinesUp (RectBed (bedX,bedY)) lt zHeight = flip Line s . f <$> [-bedX,-bedX + lt..bedY]
+coveringLinesUp :: BuildArea -> ℝ -> ℝ -> [Line]
+coveringLinesUp (RectArea (bedX,bedY,_)) lt zHeight = flip Line s . f <$> [-bedX,-bedX + lt..bedY]
     where s = Point (bedX + bedY) (bedX + bedY) 0
           f v = Point 0 v zHeight
 
-coveringLinesDown :: Bed -> ℝ -> ℝ -> [Line]
-coveringLinesDown (RectBed (bedX,bedY)) lt zHeight = flip Line s . f <$> [0,lt..bedY + bedX]
+coveringLinesDown :: BuildArea -> ℝ -> ℝ -> [Line]
+coveringLinesDown (RectArea (bedX,bedY,_)) lt zHeight = flip Line s . f <$> [0,lt..bedY + bedX]
     where s =  Point (bedX + bedY) (- bedX - bedY) 0
           f v = Point 0 v zHeight
 
+-- FIXME: better way to handle infinity.
 lineSlope :: Point -> ℝ
-lineSlope m = case x m of 0 -> if y m > 0 then 10**101 else -(10**101)
-                          _ -> y m / x m
+lineSlope m = case xOf m of 0 -> if yOf m > 0 then 10**101 else -(10**101)
+                            _ -> yOf m / xOf m
+  where
+    yOf, xOf :: Point -> ℝ
+    xOf (Point x _ _) = x
+    yOf (Point _ y _) = y
 
 -- Helper function to generate the points we'll need to make the inner perimeters
 pointsForPerimeters :: Extruder -> Fastℕ -> Line -> [Point]
@@ -196,10 +208,13 @@ pointsForPerimeters extruder perimeterCount l = endpoint . pointSlopeLength (mid
 
 -- Lines to count intersections to determine if we're on the inside or outside
 perimeterLinesToCheck :: Extruder -> Line -> [Line]
-perimeterLinesToCheck extruder l@(Line p _) = ((`lineFromEndpoints` Point 0 0 (z p)) . endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*nozzleDia)) <$> [-1,1]
-  where Line _ m = perpendicularBisector l
-        nozzleDia :: ℝ
-        nozzleDia = nozzleDiameter extruder
+perimeterLinesToCheck extruder l@(Line p _) = ((`lineFromEndpoints` Point 0 0 (zOf p)) . endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*nozzleDia)) <$> [-1,1]
+  where
+    Line _ m = perpendicularBisector l
+    nozzleDia :: ℝ
+    nozzleDia = nozzleDiameter extruder
+    zOf :: Point -> ℝ
+    zOf (Point _ _ z) = z
 
 -- Find the point corresponding to the inner perimeter of a given line, given all of the
 -- contours in the object
@@ -218,9 +233,9 @@ innerPerimeterPoint extruder l contours
 
 -- Construct lines on the interior for a given line
 interiorLines :: Printer -> Fastℕ -> Line -> [[Point]] -> [Line]
-interiorLines (Printer bed extruder) perimeterCount l@(Line _ m) contours
-    | innerPoint `elem` firstHalf = flip (lineToEdges bed) (lineSlope m) <$> firstHalf
-    | otherwise = flip (lineToEdges bed) (lineSlope m) <$> secondHalf
+interiorLines (Printer _ buildarea extruder) perimeterCount l@(Line _ m) contours
+    | innerPoint `elem` firstHalf = flip (lineToEdges buildarea) (lineSlope m) <$> firstHalf
+    | otherwise = flip (lineToEdges buildarea) (lineSlope m) <$> secondHalf
     where innerPoint = innerPerimeterPoint extruder l contours
           (firstHalf, secondHalf) = splitAt (fromFastℕ $ perimeterCount - 1) $ pointsForPerimeters extruder perimeterCount l
 
@@ -326,12 +341,15 @@ boundingBoxAll contours = if (isEmpty box) then Nothing else Just box
 boundingBox :: Contour -> Maybe BBox
 boundingBox [] = Nothing
 boundingBox contour = if (isEmpty box) then Nothing else Just box
-    where
-          box  = BBox (minX, minY) (maxX, maxY)
-          minX = minimum $ x <$> contour
-          minY = minimum $ y <$> contour
-          maxX = maximum $ x <$> contour
-          maxY = maximum $ y <$> contour
+  where
+    box  = BBox (minX, minY) (maxX, maxY)
+    minX = minimum $ xOf <$> contour
+    minY = minimum $ yOf <$> contour
+    maxX = maximum $ xOf <$> contour
+    maxY = maximum $ yOf <$> contour
+    xOf,yOf :: Point -> ℝ
+    xOf (Point x _ _) = x
+    yOf (Point _ y _) = y
 
 -- Put a fixed amount around the bounding box.
 incBBox :: BBox -> ℝ -> BBox
@@ -344,20 +362,24 @@ addBBox contours = [Point x1 y1 z0, Point x2 y1 z0, Point x2 y2 z0, Point x1 y2 
     where
       bbox = fromMaybe (BBox (1,1) (-1,-1)) $ boundingBoxAll contours
       (BBox (x1, y1) (x2, y2)) = incBBox bbox 1
-      z0 = z $ head $ head contours
+      z0 = zOf . head $ head contours
+      zOf :: Point -> ℝ
+      zOf (Point _ _ z) = z
 
 -- Generate support
 -- FIXME: hard coded infill amount.
-makeSupport :: Bed
+makeSupport :: BuildArea
             -> Print
             -> [[Point]]
             -> [Line]
-makeSupport bed print contours = fmap (shortenLineBy $ 2 * lh)
-                                 $ foldMap (infillLineInside (addBBox contours))
-                                 $ coveringInfill bed print zHeight
+makeSupport buildarea print contours = fmap (shortenLineBy $ 2 * lh)
+                                       $ foldMap (infillLineInside (addBBox contours))
+                                       $ coveringInfill buildarea print zHeight
     where
-      zHeight = z $ head $ head contours
       lh = layerHeight print
+      zHeight = zOf . head $ head contours
+      zOf :: Point -> ℝ
+      zOf (Point _ _ z) = z
 
 -----------------------------------------------------------------------
 --------------------------- LAYERS ------------------------------------
@@ -365,10 +387,13 @@ makeSupport bed print contours = fmap (shortenLineBy $ 2 * lh)
 
 -- Create contours from a list of facets
 layers :: Print -> [Facet] -> [[[Point]]]
-layers print fs = fmap (allIntersections.roundToFifth) [maxheight,maxheight-t..0] <*> pure fs
-    where zmax = maximum $ (z.point) <$> (foldMap sides fs)
-          maxheight = t * fromIntegral (floor (zmax / t)::Fastℕ)
-          t = layerHeight print
+layers print fs = fmap (allIntersections.roundToFifth) [maxheight,maxheight-lh..0] <*> pure fs
+    where zmax = maximum $ (zOf.point) <$> (foldMap sides fs)
+          maxheight = lh * fromIntegral (floor (zmax / lh)::Fastℕ)
+          lh = layerHeight print
+          zOf :: Point -> ℝ
+          zOf (Point _ _ z) = z
+
 
 getLayerType :: Print -> (Fastℕ, Fastℕ) -> LayerType
 getLayerType print (fromStart, toEnd)
@@ -406,7 +431,7 @@ mapEveryOther f (a:b:cs) = f a : b : mapEveryOther f cs
 sliceObject ::  Printer ->  Print
                   -> [([Contour], Fastℕ, Fastℕ)] -> StateM [Text]
 sliceObject _ _ [] = pure []
-sliceObject printer@(Printer bed extruder) print@(Print perimeterCount _ lh _ hasSupport _) ((a, fromStart, toEnd):as) = do
+sliceObject printer@(Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ hasSupport _) ((a, fromStart, toEnd):as) = do
   theRest <- sliceObject printer print as
   outerContourGCode <- gcodeForContours extruder lh contours
   innerContourGCode <- gcodeForNestedContours extruder lh interior
@@ -420,10 +445,10 @@ sliceObject printer@(Printer bed extruder) print@(Print perimeterCount _ lh _ ha
       interior = fmap fixContour <$> innerContours printer perimeterCount contours
       supportContours = foldMap (\l -> [point l, endpoint l])
                         $ mapEveryOther flipLine
-                        $ makeSupport bed print contours
+                        $ makeSupport buildarea print contours
       infillContours = foldMap (\l -> [point l, endpoint l])
                        $ mapEveryOther flipLine
-                       $ makeInfill bed print innermostContours
+                       $ makeInfill buildarea print innermostContours
                        $ getLayerType print (fromStart, toEnd)
       allContours = zipWith (:) contours interior
       innermostContours = if interior == [] then contours else last <$> allContours
@@ -520,7 +545,8 @@ extCuraEngineOpts = ExtCuraEngineOpts
 -- Characteristics of the printer we are using.
 data Printer = Printer
   {
-    _bed      :: Bed
+    _printBed :: Bed
+  , buildArea :: BuildArea
   , _extruder :: Extruder
   }
 
@@ -541,9 +567,10 @@ run rawArgs = do
       args = rawArgs
     stl <- readFile (inputFile args)
     let
-      stlLines = lines stl
-      printer@(Printer printbed _) = printerFromArgs args
-      (facets, _) = centerFacets printbed $ facetLinesFromSTL stlLines
+      stlLines  = lines stl
+      printer   = printerFromArgs args
+      buildarea = buildArea printer
+      (facets, _) = centerFacets buildarea $ facetLinesFromSTL stlLines
       print = printFromArgs args
       allLayers = (filter (\l -> head l /= head (tail l)) . filter (/=[])) <$> layers print facets
       object = zip3 allLayers [1..(toFastℕ $ length allLayers)] $ reverse [1..(toFastℕ $ length allLayers)]
@@ -554,10 +581,12 @@ run rawArgs = do
         -- The Printer.
         -- FIXME: pull all of these values from a curaengine json config.
         printerFromArgs :: ExtCuraEngineOpts -> Printer
-        printerFromArgs _ = Printer printBed extruder1
+        printerFromArgs _ = Printer printbed buildarea extruder1
           where
             -- The bed of the printer. assumed to be some form of rectangle, with the build area coresponding to all of the space above it.
-            printBed = RectBed (150,150)
+            printbed = RectBed (150,150)
+            -- The area we can print inside of.
+            buildarea = RectArea (150,150,50)
             -- The Extruder. note that this includes the diameter of the feed filament.
             extruder1 = Extruder 1.75 0.4
 

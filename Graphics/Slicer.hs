@@ -38,7 +38,7 @@ module Graphics.Slicer (
 
 import Prelude ()
 
-import Graphics.Slicer.Math.Definitions as MD (Point(Point), x, y, z, LayerType(BaseOdd, BaseEven, Middle), Contour)
+import Graphics.Slicer.Math.Definitions as MD (Point(Point), LayerType(BaseOdd, BaseEven, Middle), Contour)
 
 import Graphics.Slicer.Math.Point as MP (crossProduct, twoDCrossProduct, scalePoint, addPoints, magnitude, distance, orderPoints)
 
@@ -58,6 +58,6 @@ import Graphics.Slicer.Mechanics.Definitions as MeD (Extruder(Extruder), Bed(Rec
 
 import Graphics.Slicer.Definitions as D (ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ);
 
-import Graphics.Slicer.Concepts.Definitions as CD (BuildArea(RectArea));
+import Graphics.Slicer.Concepts.Definitions as CD (BuildArea(RectArea, CylinderArea));
 
 import Graphics.Slicer.Machine.StateM as MaS (EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos);

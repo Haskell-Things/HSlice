@@ -19,14 +19,15 @@
 
 -- The purpose of this file is to define important non-math concepts of a machine.
 
-module Graphics.Slicer.Concepts.Definitions (BuildArea(RectArea)) where
+module Graphics.Slicer.Concepts.Definitions (BuildArea(RectArea, CylinderArea)) where
 
 import Prelude (Eq)
 
-import Graphics.Slicer.Definitions(ℝ3)
+import Graphics.Slicer.Definitions(ℝ2, ℝ3)
 
 -- The shape of the 3d printer's build area.
 data BuildArea =
     RectArea ℝ3 -- Width, Depth, and Height of the build area.
+  | CylinderArea ℝ2 -- Radius and Height of the build area.
   deriving Eq
 
