@@ -21,11 +21,11 @@
 
 module Graphics.Slicer.Math.Contour (getContours, simplifyContour) where
 
-import Prelude (Eq, RealFrac, Floating, (==), otherwise, (++), (||), (.), ($), null)
+import Prelude ((==), otherwise, (++), (||), (.), ($), null)
 
 import Data.List(find, delete, tail, last, head)
 
-import Data.Maybe(Maybe(Nothing), fromJust, isNothing)
+import Data.Maybe(fromJust, isNothing)
 
 import Graphics.Slicer.Math.Point (Point)
 
@@ -62,4 +62,3 @@ simplifyContour [a] = [a]
 simplifyContour (a:b:cs)
   | canCombineLines a b = simplifyContour $ combineLines a b : cs
   | otherwise = a : simplifyContour (b : cs)
-        
