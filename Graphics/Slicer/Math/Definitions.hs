@@ -20,18 +20,24 @@
    structures used when performing slicing related math. -}
 
 -- FIXME: remove x, y, and z from this export list. 
-module Graphics.Slicer.Math.Definitions(Point(Point), x, y, z, LayerType(BaseOdd,BaseEven,Middle), Contour) where
+module Graphics.Slicer.Math.Definitions(Point(Point), LayerType(BaseOdd,BaseEven,Middle), Contour) where
 
 import Prelude (Eq, Show, show, ($), zipWith, (++), map, unwords)
 
 import Graphics.Slicer.Definitions (ℝ)
 
 -- A single Point in 3d space.
-data Point = Point { x :: ℝ, y :: ℝ, z :: ℝ } deriving Eq
+data Point = Point ℝ ℝ ℝ
+  deriving Eq
 
 -- Display a Point in the format expected by G-code
 instance Show Point where
-      show p = unwords $ zipWith (++) ["X","Y","Z"] (map show [x p, y p, z p])
+  show p = unwords $ zipWith (++) ["X","Y","Z"] (map show [xOf p, yOf p, zOf p])
+    where
+      xOf, yOf, zOf :: Point ->  ℝ
+      xOf (Point x _ _) = x
+      yOf (Point _ y _) = y
+      zOf (Point _ _ z) = z
 
 data LayerType = BaseOdd | BaseEven | Middle
 

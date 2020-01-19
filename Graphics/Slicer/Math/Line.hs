@@ -27,7 +27,7 @@ import Data.Maybe (Maybe(Just, Nothing))
 import Graphics.Slicer.Definitions (ℝ)
 import Graphics.Slicer.Math.Definitions (Point(Point))
 
-import Graphics.Slicer.Math.Point (twoDCrossProduct, scalePoint, addPoints, distance, x, y, z, magnitude)
+import Graphics.Slicer.Math.Point (twoDCrossProduct, scalePoint, addPoints, distance, magnitude)
 
 -- Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
@@ -98,24 +98,13 @@ canCombineLines l1@(Line _ s1) (Line p2 s2)
 -- a constant z value)
 perpendicularBisector :: Line -> Line
 perpendicularBisector l@(Line p s)
-  | y s == 0 = Line (midpoint l) (Point 0 (magnitude s) 0)
+  | yOf s == 0 = Line (midpoint l) (Point 0 (magnitude s) 0)
   | otherwise = pointSlopeLength (midpoint l) m (distance p (endpoint l))
-  where m = - x s / y s
-
--- Not used by our slicer.
-{-
-pointAtXValue :: Line -> ℝ -> Maybe Point
-pointAtXValue (Line p m) v
-  | 0 <= t && t <= 1 = Just $ addPoints p (scalePoint t m)
-  | otherwise = Nothing
-  where t = (v - x p) / x m
-
-pointAtYValue :: Line -> ℝ -> Maybe Point
-pointAtYValue (Line p m) v
-  | 0 <= t && t <= 1 = Just $ addPoints p (scalePoint t m)
-  | otherwise = Nothing
-  where t = (v - y p) / y m
--}
+  where
+    m = - xOf s / yOf s
+    yOf,xOf :: Point -> ℝ
+    xOf (Point _ _ x) = x
+    yOf (Point _ y _) = y
 
 -- Find the point on a line for a given Z value. Note that this evaluates to Nothing
 -- in the case that there is no point with that Z value, or if that is the only
@@ -126,7 +115,10 @@ pointAtZValue :: Line -> ℝ -> Maybe Point
 pointAtZValue (Line p m) v
   | 0 <= t && t <= 1 = Just $ addPoints p (scalePoint t m)
   | otherwise = Nothing
-  where t = (v - z p) / z m
+  where
+    t = (v - zOf p) / zOf m
+    zOf :: Point ->  ℝ
+    zOf (Point _ _ z) = z
 
 -- shorten line by an amount in millimeters on each end
 shortenLineBy :: ℝ -> Line -> Line
