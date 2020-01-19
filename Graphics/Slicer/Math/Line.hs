@@ -103,7 +103,7 @@ perpendicularBisector l@(Line p s)
   where
     m = - xOf s / yOf s
     yOf,xOf :: Point -> ℝ
-    xOf (Point _ _ x) = x
+    xOf (Point x _ _) = x
     yOf (Point _ y _) = y
 
 -- Find the point on a line for a given Z value. Note that this evaluates to Nothing
