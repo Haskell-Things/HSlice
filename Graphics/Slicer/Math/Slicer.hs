@@ -21,26 +21,9 @@
 
 module Graphics.Slicer.Math.Slicer (accumulateValues) where
 
-import Prelude (Num, RealFrac, Fractional, Integer, fromIntegral, round, (*), ($), (/), (+), Rational)
-
-import Data.Ratio((%), Ratio)
+import Prelude ((+))
 
 import Graphics.Slicer.Definitions (ℝ)
-
--- import Data.List (map, unwords)
-
--- import Data.Char (toUpper)
-
--- import Data.Function ((.))
-
-{-
--- This should correspond to one line of G-code
-type Command = [String]
-
--- Given a command, write it as one line of G-code
-showCommand :: Command -> String
-showCommand = map toUpper . unwords
--}
 
 -- Take absolute values, turn into a vector of rising values
 accumulateValues :: [ℝ] -> [ℝ]
