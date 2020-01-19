@@ -30,26 +30,26 @@ import Graphics.Slicer.Definitions (ℝ)
 
 -- Basic Arithmatic
 crossProduct :: Point -> Point -> Point
-crossProduct (Point x1 y1 z1) (Point x2 y2 z2) = Point (y1 * z2 - z1 * y2) (z1 * x2 - x1 * z2) (x1 * y2 - y1 * x2)
+crossProduct (Point (x1,y1,z1)) (Point (x2,y2,z2)) = Point ((y1 * z2 - z1 * y2),(z1 * x2 - x1 * z2),(x1 * y2 - y1 * x2))
 
 twoDCrossProduct :: Point -> Point -> ℝ
 twoDCrossProduct p1 p2 = zOf $ crossProduct (zeroPoint p1) (zeroPoint p2)
   where
     zeroPoint :: Point -> Point
-    zeroPoint (Point x y _) = Point x y 0
+    zeroPoint (Point (x,y,_)) = Point (x,y,0)
     zOf :: Point -> ℝ
-    zOf (Point _ _ z) = z
+    zOf (Point (_,_,z)) = z
 
 -- Add the coordinates of two points
 addPoints :: Point -> Point -> Point
-addPoints (Point x1 y1 z1) (Point x2 y2 z2) = Point (x1 + x2) (y1 + y2) (z1 + z2)
+addPoints (Point (x1,y1,z1)) (Point (x2,y2,z2)) = Point ((x1 + x2),(y1 + y2),(z1 + z2))
 
 -- Scale the coordinates of a point by s
 scalePoint :: ℝ -> Point -> Point
-scalePoint val (Point a b c) = Point (val*a) (val*b) (val*c)
+scalePoint val (Point (a,b,c)) = Point ((val*a),(val*b),(val*c))
 
 magnitude :: Point -> ℝ
-magnitude (Point x1 y1 z1) = sqrt $ x1 * x1 + y1 * y1 + z1 * z1
+magnitude (Point (x1,y1,z1)) = sqrt $ x1 * x1 + y1 * y1 + z1 * z1
 
 -- Distance between two points. needed for the equivilence instance of line, and to determine amount of extrusion.
 distance :: Point -> Point -> ℝ
@@ -57,7 +57,7 @@ distance p1 p2 = magnitude $ addPoints p1 (scalePoint (-1) p2)
 
 -- Orders points by x and y (x first, then sorted by y for the same x-values)
 orderPoints :: Point -> Point -> Ordering
-orderPoints (Point x1 y1 _) (Point x2 y2 _)
+orderPoints (Point (x1,y1,_)) (Point (x2,y2,_))
   | x1 == x2 = compare y1 y2
   | otherwise = compare x1 x2
 

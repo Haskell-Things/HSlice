@@ -24,10 +24,10 @@ module Graphics.Slicer.Math.Definitions(Point(Point), LayerType(BaseOdd,BaseEven
 
 import Prelude (Eq, Show, show, ($), zipWith, (++), map, unwords)
 
-import Graphics.Slicer.Definitions (ℝ)
+import Graphics.Slicer.Definitions (ℝ, ℝ3)
 
--- A single Point in 3d space.
-data Point = Point ℝ ℝ ℝ
+-- A single Point in 3D space.
+newtype Point = Point ℝ3
   deriving Eq
 
 -- Display a Point in the format expected by G-code
@@ -35,9 +35,9 @@ instance Show Point where
   show p = unwords $ zipWith (++) ["X","Y","Z"] (map show [xOf p, yOf p, zOf p])
     where
       xOf, yOf, zOf :: Point ->  ℝ
-      xOf (Point x _ _) = x
-      yOf (Point _ y _) = y
-      zOf (Point _ _ z) = z
+      xOf (Point (x,_,_)) = x
+      yOf (Point (_,y,_)) = y
+      zOf (Point (_,_,z)) = z
 
 data LayerType = BaseOdd | BaseEven | Middle
 

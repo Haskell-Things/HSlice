@@ -74,9 +74,9 @@ default (ℕ, Fastℕ, ℝ)
 -- FIXME: assumes the origin is at the corner.
 -- (i.e. a line that hits two edges of the bed)
 lineToEdges :: BuildArea -> Point -> ℝ -> Line
-lineToEdges (RectArea (bedX,bedY,_)) p@(Point _ _ c) m = head . makeLines $ nub points
-    where edges = lineFromEndpoints <$> [Point 0 0 c, Point bedX bedY c]
-                                    <*> [Point 0 bedY c, Point bedX 0 c]
+lineToEdges (RectArea (bedX,bedY,_)) p@(Point (_,_,c)) m = head . makeLines $ nub points
+    where edges = lineFromEndpoints <$> [Point (0,0,c), Point (bedX,bedY,c)]
+                                    <*> [Point (0,bedY,c), Point (bedX,0,c)]
           longestLength = sqrt $ bedX*bedX + bedY*bedY
           halfLine@(Line p' s) = pointSlopeLength p m longestLength -- should have p' == p
           line = lineFromEndpoints (endpoint halfLine) (addPoints p' (scalePoint (-1) s))
@@ -84,7 +84,7 @@ lineToEdges (RectArea (bedX,bedY,_)) p@(Point _ _ c) m = head . makeLines $ nub 
 
 -- Center facets relative to the center of the build area.
 centerFacets :: BuildArea -> [Facet] -> ([Facet], Point)
-centerFacets (RectArea (bedX,bedY,_)) fs = (shiftFacet (Point dx dy dz) <$> fs, Point dx dy dz)
+centerFacets (RectArea (bedX,bedY,_)) fs = (shiftFacet (Point (dx,dy,dz)) <$> fs, Point (dx,dy,dz))
     where (dx,dy,dz) = ((bedX/2-x0), (bedY/2-y0), (-zMin))
           xMin = minimum $ xOf.point <$> foldMap sides fs
           yMin = minimum $ yOf.point <$> foldMap sides fs
@@ -93,9 +93,9 @@ centerFacets (RectArea (bedX,bedY,_)) fs = (shiftFacet (Point dx dy dz) <$> fs, 
           yMax = maximum $ yOf.point <$> foldMap sides fs
           (x0,y0) = ((xMax+xMin)/2-xMin, (yMax+yMin)/2-yMin)
           xOf, yOf, zOf :: Point -> ℝ
-          xOf (Point x _ _) = x
-          yOf (Point _ y _) = y
-          zOf (Point _ _ z) = z
+          xOf (Point (x,_,_)) = x
+          yOf (Point (_,y,_)) = y
+          zOf (Point (_,_,z)) = z
 
 ----------------------------------------------------------
 ----------- Functions to deal with STL parsing -----------
@@ -107,7 +107,7 @@ readPoint s = do
   let
     xval, yval, zval :: ℝ
     (xval, yval, zval) = readThree $ take 3 $ DL.words s
-  Point (xval) (yval) (zval)
+  Point ((xval),(yval),(zval))
     where
       readThree :: [String] -> (ℝ,ℝ,ℝ)
       readThree [xv,yv,zv] = (read xv,read yv,read zv)
@@ -151,7 +151,7 @@ makeInfill buildarea print contours layerType = foldMap (infillLineInside contou
           zHeight = zOf . head $ head contours
           ls = lineSpacing print
           zOf :: Point -> ℝ
-          zOf (Point _ _ z) = z
+          zOf (Point (_,_,z)) = z
 
 -- Get the segments of an infill line that are inside the contour
 infillLineInside :: [[Point]] -> Line -> [Line]
@@ -179,13 +179,13 @@ coveringInfill buildarea print zHeight
 -- Generate lines over entire print area
 coveringLinesUp :: BuildArea -> ℝ -> ℝ -> [Line]
 coveringLinesUp (RectArea (bedX,bedY,_)) lt zHeight = flip Line s . f <$> [-bedX,-bedX + lt..bedY]
-    where s = Point (bedX + bedY) (bedX + bedY) 0
-          f v = Point 0 v zHeight
+    where s = Point ((bedX + bedY),(bedX + bedY),0)
+          f v = Point (0,v,zHeight)
 
 coveringLinesDown :: BuildArea -> ℝ -> ℝ -> [Line]
 coveringLinesDown (RectArea (bedX,bedY,_)) lt zHeight = flip Line s . f <$> [0,lt..bedY + bedX]
-    where s =  Point (bedX + bedY) (- bedX - bedY) 0
-          f v = Point 0 v zHeight
+    where s =  Point ((bedX + bedY),(- bedX - bedY),0)
+          f v = Point (0,v,zHeight)
 
 -- FIXME: better way to handle infinity.
 lineSlope :: Point -> ℝ
@@ -193,8 +193,8 @@ lineSlope m = case xOf m of 0 -> if yOf m > 0 then 10**101 else -(10**101)
                             _ -> yOf m / xOf m
   where
     yOf, xOf :: Point -> ℝ
-    xOf (Point x _ _) = x
-    yOf (Point _ y _) = y
+    xOf (Point (x,_,_)) = x
+    yOf (Point (_,y,_)) = y
 
 -- Helper function to generate the points we'll need to make the inner perimeters
 pointsForPerimeters :: Extruder -> Fastℕ -> Line -> [Point]
@@ -208,13 +208,13 @@ pointsForPerimeters extruder perimeterCount l = endpoint . pointSlopeLength (mid
 
 -- Lines to count intersections to determine if we're on the inside or outside
 perimeterLinesToCheck :: Extruder -> Line -> [Line]
-perimeterLinesToCheck extruder l@(Line p _) = ((`lineFromEndpoints` Point 0 0 (zOf p)) . endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*nozzleDia)) <$> [-1,1]
+perimeterLinesToCheck extruder l@(Line p _) = ((`lineFromEndpoints` Point (0,0,(zOf p))) . endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*nozzleDia)) <$> [-1,1]
   where
     Line _ m = perpendicularBisector l
     nozzleDia :: ℝ
     nozzleDia = nozzleDiameter extruder
     zOf :: Point -> ℝ
-    zOf (Point _ _ z) = z
+    zOf (Point (_,_,z)) = z
 
 -- Find the point corresponding to the inner perimeter of a given line, given all of the
 -- contours in the object
@@ -348,8 +348,8 @@ boundingBox contour = if (isEmpty box) then Nothing else Just box
     maxX = maximum $ xOf <$> contour
     maxY = maximum $ yOf <$> contour
     xOf,yOf :: Point -> ℝ
-    xOf (Point x _ _) = x
-    yOf (Point _ y _) = y
+    xOf (Point (x,_,_)) = x
+    yOf (Point (_,y,_)) = y
 
 -- Put a fixed amount around the bounding box.
 incBBox :: BBox -> ℝ -> BBox
@@ -358,13 +358,13 @@ incBBox (BBox (x1,y1) (x2,y2)) ammount = BBox (x1+ammount, y1+ammount) (x2-ammou
 -- add the bounding box to a list of contours, as the first layer.
 -- FIXME: magic number.
 addBBox :: [Contour] -> [Contour]
-addBBox contours = [Point x1 y1 z0, Point x2 y1 z0, Point x2 y2 z0, Point x1 y2 z0, Point x1 y1 z0] : contours
+addBBox contours = [Point (x1,y1,z0), Point (x2,y1,z0), Point (x2,y2,z0), Point (x1,y2,z0), Point (x1,y1,z0)] : contours
     where
       bbox = fromMaybe (BBox (1,1) (-1,-1)) $ boundingBoxAll contours
       (BBox (x1, y1) (x2, y2)) = incBBox bbox 1
       z0 = zOf . head $ head contours
       zOf :: Point -> ℝ
-      zOf (Point _ _ z) = z
+      zOf (Point (_,_,z)) = z
 
 -- Generate support
 -- FIXME: hard coded infill amount.
@@ -379,7 +379,7 @@ makeSupport buildarea print contours = fmap (shortenLineBy $ 2 * lh)
       lh = layerHeight print
       zHeight = zOf . head $ head contours
       zOf :: Point -> ℝ
-      zOf (Point _ _ z) = z
+      zOf (Point (_,_,z)) = z
 
 -----------------------------------------------------------------------
 --------------------------- LAYERS ------------------------------------
@@ -392,7 +392,7 @@ layers print fs = fmap (allIntersections.roundToFifth) [maxheight,maxheight-lh..
           maxheight = lh * fromIntegral (floor (zmax / lh)::Fastℕ)
           lh = layerHeight print
           zOf :: Point -> ℝ
-          zOf (Point _ _ z) = z
+          zOf (Point (_,_,z)) = z
 
 
 getLayerType :: Print -> (Fastℕ, Fastℕ) -> LayerType

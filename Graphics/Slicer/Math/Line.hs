@@ -76,10 +76,10 @@ makeLines l
 -- FIXME: magic numbers.
 pointSlopeLength :: Point -> ℝ -> ℝ -> Line
 pointSlopeLength p m d
-  | m > 10**100 = Line p (Point 0 d 0)
-  | m < -(10**100) = Line p (Point 0 (-d) 0)
+  | m > 10**100 = Line p (Point (0,d,0))
+  | m < -(10**100) = Line p (Point (0,(-d),0))
   | otherwise = Line p s
-  where s = scalePoint scale $ Point 1 yVal 0
+  where s = scalePoint scale $ Point (1,yVal,0)
         yVal = m
         scale = d / sqrt (1 + yVal*yVal)
 
@@ -98,13 +98,13 @@ canCombineLines l1@(Line _ s1) (Line p2 s2)
 -- a constant z value)
 perpendicularBisector :: Line -> Line
 perpendicularBisector l@(Line p s)
-  | yOf s == 0 = Line (midpoint l) (Point 0 (magnitude s) 0)
+  | yOf s == 0 = Line (midpoint l) (Point (0,(magnitude s),0))
   | otherwise = pointSlopeLength (midpoint l) m (distance p (endpoint l))
   where
     m = - xOf s / yOf s
     yOf,xOf :: Point -> ℝ
-    xOf (Point x _ _) = x
-    yOf (Point _ y _) = y
+    xOf (Point (x,_,_)) = x
+    yOf (Point (_,y,_)) = y
 
 -- Find the point on a line for a given Z value. Note that this evaluates to Nothing
 -- in the case that there is no point with that Z value, or if that is the only
@@ -118,7 +118,7 @@ pointAtZValue (Line p m) v
   where
     t = (v - zOf p) / zOf m
     zOf :: Point ->  ℝ
-    zOf (Point _ _ z) = z
+    zOf (Point (_,_,z)) = z
 
 -- shorten line by an amount in millimeters on each end
 shortenLineBy :: ℝ -> Line -> Line
