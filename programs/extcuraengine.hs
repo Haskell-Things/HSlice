@@ -38,9 +38,9 @@ import Data.Tuple (fst, snd)
 
 import Text.Read(read)
 
-import Data.Text (Text, pack, unpack, unlines, unwords)
+import Data.Text.Lazy (Text, pack, unpack, unlines, unwords)
 
-import Data.Text as DT (words)
+import Data.Text.Lazy as DT (words)
 
 import Data.String (String)
 
@@ -61,6 +61,8 @@ import System.IO (IO, writeFile, readFile)
 import Control.Monad.State(runState)
 
 import Options.Applicative (fullDesc, progDesc, header, auto, info, helper, help, str, argument, long, short, option, metavar, execParser, Parser, optional, strOption, switch)
+
+import Formatting(format, (%), fixed)
 
 import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ, Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet(Facet), sides, Contour, LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, facetsFromSTL, cleanupFacet, makeLines, facetIntersects, getContours, simplifyContour, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos)
 
@@ -276,10 +278,14 @@ gcodeForContour extruder lh c = do
     extrusionAmounts = extrusions extruder lh (head c) (tail c)
     ePoses = accumulateValues extrusionAmounts
     newPoses = (currentPos+) <$> ePoses
-    es = (" E" <>) . pack . show <$> newPoses
+    es = eIze <$> newPoses
   setEPos . toRational $ last newPoses
   pure $ ("G1 " <>) <$> zipWith (<>) (pack . show <$> c) ("":es)
-
+    where
+      eIze :: ℝ -> Text
+      eIze pos
+        | pos < 0.1 && pos > -0.1 = format (" E" % fixed 5) pos
+        | otherwise = (" E" <>) . pack . show $ roundToFifth pos
 gcodeForNestedContours :: Extruder
                        -> ℝ
                        -> [[Contour]]
