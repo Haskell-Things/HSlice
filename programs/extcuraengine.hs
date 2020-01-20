@@ -280,12 +280,18 @@ gcodeForContour extruder lh c = do
     newPoses = (currentPos+) <$> ePoses
     es = eIze <$> newPoses
   setEPos . toRational $ last newPoses
-  pure $ ("G1 " <>) <$> zipWith (<>) (pack . show <$> c) ("":es)
+  pure $ ("G1 " <>) <$> zipWith (<>) (showPoint <$> c) ("":es)
     where
+      showPoint (Point (x1,y1,z1)) = "X" <> posIze x1 <> " Y" <> posIze y1 <> " Z" <> posIze z1
+      posIze :: ℝ -> Text
+      posIze pos
+        | pos < 0.1 && pos > -0.1 = format (fixed 5) pos
+        | otherwise = pack . show $ roundToFifth pos
       eIze :: ℝ -> Text
       eIze pos
         | pos < 0.1 && pos > -0.1 = format (" E" % fixed 5) pos
         | otherwise = (" E" <>) . pack . show $ roundToFifth pos
+
 gcodeForNestedContours :: Extruder
                        -> ℝ
                        -> [[Contour]]
@@ -312,7 +318,13 @@ gcodeForContours extruder lh (c:cs) = do
 
 -- G-code to travel to a point without extruding
 makeTravelGCode :: Point -> Text
-makeTravelGCode p = ("G1 " <>) $ pack $ show p
+makeTravelGCode p = ("G1 " <>) $ showPoint p
+  where
+    showPoint (Point (x1,y1,z1)) = "X" <> posIze x1 <> " Y" <> posIze y1 <> " Z" <> posIze z1
+    posIze :: ℝ -> Text
+    posIze pos
+      | pos < 0.1 && pos > -0.1 = format (fixed 5) pos
+      | otherwise = pack . show $ roundToFifth pos
 
 -- I'm not super happy about this, but it makes extrusion values correct
 fixGCode :: [Text] -> [Text]
