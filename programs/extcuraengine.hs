@@ -278,19 +278,32 @@ gcodeForContour extruder lh c = do
     extrusionAmounts = extrusions extruder lh (head c) (tail c)
     ePoses = accumulateValues extrusionAmounts
     newPoses = (currentPos+) <$> ePoses
-    es = eIze <$> newPoses
+    es = newPoses
   setEPos . toRational $ last newPoses
-  pure $ ("G1 " <>) <$> zipWith (<>) (showPoint <$> c) ("":es)
-    where
-      showPoint (Point (x1,y1,z1)) = "X" <> posIze x1 <> " Y" <> posIze y1 <> " Z" <> posIze z1
-      posIze :: ℝ -> Text
-      posIze pos
-        | pos < 0.1 && pos > -0.1 = format (fixed 5) pos
-        | otherwise = pack . show $ roundToFifth pos
-      eIze :: ℝ -> Text
-      eIze pos
-        | pos < 0.1 && pos > -0.1 = format (" E" % fixed 5) pos
-        | otherwise = (" E" <>) . pack . show $ roundToFifth pos
+  pure $ makeTravelGCode (head c) : zipWith (makeExtrudeGCode) (tail c) (es)
+
+makeExtrudeGCode :: Point -> ℝ -> Text
+makeExtrudeGCode p e = "G1 " <> showPoint p <> eIze e
+  where
+    showPoint (Point (x1,y1,z1)) = "X" <> posIze x1 <> " Y" <> posIze y1 <> " Z" <> posIze z1
+    posIze :: ℝ -> Text
+    posIze pos
+      | pos < 0.1 && pos > -0.1 = format (fixed 5) pos
+      | otherwise = pack . show $ roundToFifth pos
+    eIze :: ℝ -> Text
+    eIze pos
+      | pos < 0.1 && pos > -0.1 = format (" E" % fixed 5) pos
+      | otherwise = (" E" <>) . pack . show $ roundToFifth pos
+
+-- G-code to travel to a point without extruding
+makeTravelGCode :: Point -> Text
+makeTravelGCode p = "G1 " <> showPoint p
+  where
+    showPoint (Point (x1,y1,z1)) = "X" <> posIze x1 <> " Y" <> posIze y1 <> " Z" <> posIze z1
+    posIze :: ℝ -> Text
+    posIze pos
+      | pos < 0.1 && pos > -0.1 = format (fixed 5) pos
+      | otherwise = pack . show $ roundToFifth pos
 
 gcodeForNestedContours :: Extruder
                        -> ℝ
@@ -316,17 +329,7 @@ gcodeForContours extruder lh (c:cs) = do
   pure $ oneContour <> remainingContours
     where firstContourGCode = gcodeForContour extruder lh c
 
--- G-code to travel to a point without extruding
-makeTravelGCode :: Point -> Text
-makeTravelGCode p = ("G1 " <>) $ showPoint p
-  where
-    showPoint (Point (x1,y1,z1)) = "X" <> posIze x1 <> " Y" <> posIze y1 <> " Z" <> posIze z1
-    posIze :: ℝ -> Text
-    posIze pos
-      | pos < 0.1 && pos > -0.1 = format (fixed 5) pos
-      | otherwise = pack . show $ roundToFifth pos
-
--- I'm not super happy about this, but it makes extrusion values correct
+-- FIXME: why is this necessary?
 fixGCode :: [Text] -> [Text]
 fixGCode [] = []
 fixGCode [a] = [a]
