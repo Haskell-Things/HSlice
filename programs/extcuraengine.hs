@@ -276,32 +276,29 @@ gcodeForContour extruder lh c = do
   currentPos <- toℝ <$> getEPos
   let
     extrusionAmounts = extrusions extruder lh (head c) (tail c)
-    ePoses = accumulateValues extrusionAmounts
-    newPoses = (currentPos+) <$> ePoses
-    es = newPoses
-  setEPos . toRational $ last newPoses
-  pure $ makeTravelGCode (head c) : zipWith (makeExtrudeGCode) (tail c) (es)
+    ePoses = (currentPos+) <$> accumulateValues extrusionAmounts
+  setEPos . toRational $ last ePoses
+  pure $ makeTravelGCode (head c) : zipWith (makeExtrudeGCode) (tail c) (ePoses)
 
+-- GCode to travel to a point while extruding.
 makeExtrudeGCode :: Point -> ℝ -> Text
-makeExtrudeGCode p e = "G1 " <> showPoint p <> eIze e
+makeExtrudeGCode p e = "G1 " <> showPoint p <> " E" <> posIze e
   where
     showPoint (Point (x1,y1,z1)) = "X" <> posIze x1 <> " Y" <> posIze y1 <> " Z" <> posIze z1
     posIze :: ℝ -> Text
     posIze pos
+      | pos == 0 = "0"
       | pos < 0.1 && pos > -0.1 = format (fixed 5) pos
       | otherwise = pack . show $ roundToFifth pos
-    eIze :: ℝ -> Text
-    eIze pos
-      | pos < 0.1 && pos > -0.1 = format (" E" % fixed 5) pos
-      | otherwise = (" E" <>) . pack . show $ roundToFifth pos
 
--- G-code to travel to a point without extruding
+-- GCode to travel to a point without extruding
 makeTravelGCode :: Point -> Text
 makeTravelGCode p = "G1 " <> showPoint p
   where
     showPoint (Point (x1,y1,z1)) = "X" <> posIze x1 <> " Y" <> posIze y1 <> " Z" <> posIze z1
     posIze :: ℝ -> Text
     posIze pos
+      | pos == 0 = "0"
       | pos < 0.1 && pos > -0.1 = format (fixed 5) pos
       | otherwise = pack . show $ roundToFifth pos
 
