@@ -139,10 +139,10 @@ extrusionAmount extruder t p1 p2 = nozzleDia * t * (2 / filamentDia) * l / pi
           nozzleDia = nozzleDiameter extruder
           filamentDia = filamentWidth extruder
 
--- Given a contour and the point to start from, calculate the amount of material to extrude for each line.
-extrusions :: Extruder -> ℝ -> Point -> [Point] -> [ℝ]
+-- Calculate the amount of material to extrude for each line in a contour.
+extrusions :: Extruder -> ℝ -> Point -> Contour -> [ℝ]
 extrusions _ _ _ [] = []
-extrusions extruder lh p c = extrusionAmount extruder lh p (head c) : extrusions extruder lh (head c) (tail c)
+extrusions extruder lh startPoint (contourPoints) = zipWith (extrusionAmount extruder lh) (startPoint:contourPoints) contourPoints
 
 -- Make infill
 makeInfill :: BuildArea -> Print -> [[Point]] -> LayerType -> [Line]
@@ -265,7 +265,7 @@ constructInnerContours interiors
 consecutiveIntersections :: [Line] -> [Maybe Point]
 consecutiveIntersections [] = [Nothing]
 consecutiveIntersections [_] = [Nothing]
-consecutiveIntersections (a:b:cs) = lineIntersection a b : consecutiveIntersections (b : cs)
+consecutiveIntersections (points) = zipWith lineIntersection points (tail points)
 
 -- Generate G-code for a given contour c.
 gcodeForContour :: Extruder
