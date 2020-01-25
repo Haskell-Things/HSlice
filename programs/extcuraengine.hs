@@ -326,12 +326,6 @@ gcodeForContours extruder lh (c:cs) = do
   pure $ oneContour <> remainingContours
     where firstContourGCode = gcodeForContour extruder lh c
 
--- FIXME: why is this necessary?
-fixGCode :: [Text] -> [Text]
-fixGCode [] = []
-fixGCode [a] = [a]
-fixGCode (a:b:cs) = unwords (init $ DT.words a) : b : fixGCode cs
-
 -----------------------------------------------------------------------
 ----------------------------- SUPPORT ---------------------------------
 -----------------------------------------------------------------------
@@ -455,8 +449,8 @@ sliceObject printer@(Printer _ buildarea extruder) print@(Print perimeterCount _
   innerContourGCode <- gcodeForNestedContours extruder lh interior
   let
     travelGCode = if theRest == [] then [] else makeTravelGCode <$> head contours
-  supportGCode <- if hasSupport then fixGCode <$> gcodeForContour extruder lh supportContours else pure []
-  infillGCode <- fixGCode <$> gcodeForContour extruder lh infillContours
+  supportGCode <- if hasSupport then gcodeForContour extruder lh supportContours else pure []
+  infillGCode <- gcodeForContour extruder lh infillContours
   pure $ theRest <> outerContourGCode <> innerContourGCode <> travelGCode <> supportGCode <> infillGCode
     where
       contours = getContours a
