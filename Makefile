@@ -6,7 +6,7 @@
 # The location of GHC, used to compile .hs examples.
 GHC=ghc
 GHCVERSION=$(shell ${GHC} --version | sed "s/.*version //")
-ARCHITECTURE=$(shell arch | sed "s/i[3-6]86/i386/" )
+ARCHITECTURE=$(shell uname -m | sed "s/i[3-6]86/i386/" )
 # new-style location root. must NOT have trailing slash
 BUILDROOT=dist-newstyle/build/${ARCHITECTURE}-linux/ghc-${GHCVERSION}/hslice-0.0.1
 EXEBUILDROOT=${BUILDROOT}/x/
@@ -36,8 +36,10 @@ RTSOPTS=+RTS -N -qg -t
 # Uncomment for valgrind on the examples.
 #VALGRIND=valgrind --tool=cachegrind --cachegrind-out-file=$$each.cachegrind.`date +%s`
 
-LIBFILES=$(shell find Graphics -name '*.hs')
-LIBTARGET=${BUILDROOT}/build/Graphics/Hslice.o
+LIBDIR=Graphics
+LIBFILES=$(shell find ${LIBDIR} -name '*.hs')
+LIBBUILD=$(shell find ${LIBDIR} -name '*.hi')
+LIBTARGET=${BUILDROOT}/build/${LIBDIR}/Hslice.o
 
 EXECBUILDDIRS=$(EXTCURAENGINEDIR)
 EXECTARGETS=$(EXTCURAENGINEBIN)
@@ -67,6 +69,7 @@ clean:
 	rm -f Setup
 	rm -f tests/*.gcode
 	rm -f $(TARGETS)
+	rm -f $(LIBBUILD)
 	rm -rf ${EXECBUILDDIRS}
 	rm -f ${BUILDROOT}/build/libHS*
 	rm -f ${BUILDROOT}/cache/registration
