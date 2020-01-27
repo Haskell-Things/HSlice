@@ -395,7 +395,7 @@ makeSupport buildarea print contours = fmap (shortenLineBy $ 2 * lh)
 
 -- Create contours from a list of facets
 layers :: Print -> [Facet] -> [[[Point]]]
-layers print fs = fmap (allIntersections.roundToFifth) [maxheight,maxheight-lh..0] <*> pure fs
+layers print fs = fmap allIntersections [lh,lh*2..maxheight] <*> pure fs
     where zmax = maximum $ (zOf.point) <$> (foldMap sides fs)
           maxheight = lh * fromIntegral (floor (zmax / lh)::Fastℕ)
           lh = layerHeight print
@@ -580,7 +580,7 @@ run rawArgs = do
       buildarea = buildArea printer
       (facets, _) = centerFacets buildarea $ facetLinesFromSTL stlLines
       print = printFromArgs args
-      allLayers = (filter (\l -> head l /= head (tail l)) . filter (/=[])) <$> layers print facets
+      allLayers = reverse $ (filter (\l -> head l /= head (tail l)) . filter (/=[])) <$> layers print facets
       object = zip3 allLayers [1..(toFastℕ $ length allLayers)] $ reverse [1..(toFastℕ $ length allLayers)]
       (gcode, _) = runState (sliceObject printer print object) (MachineState (EPos 0))
       outFile = fromMaybe "out.gcode" $ outputFile args
