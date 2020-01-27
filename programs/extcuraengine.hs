@@ -38,17 +38,13 @@ import Data.Tuple (fst, snd)
 
 import Text.Read(read)
 
-import Data.Text.Lazy (Text, pack, unpack, unlines, unwords)
-
-import Data.Text.Lazy as DT (words)
+import Data.Text.Lazy (Text, pack, unpack, unlines)
 
 import Data.String (String)
 
 import Data.Bool(Bool, (||), (&&), otherwise)
 
-import Data.List (nub, sortBy, lines, length, reverse, zip3, filter, tail, head, zipWith, maximum, (!!), minimum, init, splitAt, elem, take, last)
-
-import Data.List as DL (words)
+import Data.List (nub, sortBy, lines, length, reverse, zip3, filter, tail, head, zipWith, maximum, (!!), minimum, splitAt, elem, take, last, words)
 
 import Control.Monad ((>>=))
 
@@ -62,7 +58,7 @@ import Control.Monad.State(runState)
 
 import Options.Applicative (fullDesc, progDesc, header, auto, info, helper, help, str, argument, long, short, option, metavar, execParser, Parser, optional, strOption, switch)
 
-import Formatting(format, (%), fixed)
+import Formatting(format, fixed)
 
 import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ, Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet(Facet), sides, Contour, LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, facetsFromSTL, cleanupFacet, makeLines, facetIntersects, getContours, simplifyContour, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos)
 
@@ -108,8 +104,8 @@ readPoint :: String -> Point
 readPoint s = do
   let
     xval, yval, zval :: ℝ
-    (xval, yval, zval) = readThree $ take 3 $ DL.words s
-  Point ((xval),(yval),(zval))
+    (xval, yval, zval) = readThree $ take 3 $ words s
+  Point (xval,yval,zval)
     where
       readThree :: [String] -> (ℝ,ℝ,ℝ)
       readThree [xv,yv,zv] = (read xv,read yv,read zv)

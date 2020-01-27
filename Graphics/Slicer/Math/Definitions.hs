@@ -43,5 +43,3 @@ data LayerType = BaseOdd | BaseEven | Middle
 
 type Contour = [Point]
 
-
-      
