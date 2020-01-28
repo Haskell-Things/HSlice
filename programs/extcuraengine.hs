@@ -440,14 +440,14 @@ sliceObject ::  Printer ->  Print
                   -> [([Contour], Fastℕ, Fastℕ)] -> StateM [Text]
 sliceObject _ _ [] = pure []
 sliceObject printer@(Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ hasSupport _) ((a, fromStart, toEnd):as) = do
-  theRest <- sliceObject printer print as
   outerContourGCode <- gcodeForContours extruder lh contours
   innerContourGCode <- gcodeForNestedContours extruder lh interior
-  let
-    travelGCode = if theRest == [] then [] else makeTravelGCode <$> head contours
   supportGCode <- if hasSupport then gcodeForContour extruder lh supportContours else pure []
   infillGCode <- gcodeForContour extruder lh infillContours
-  pure $ theRest <> outerContourGCode <> innerContourGCode <> travelGCode <> supportGCode <> infillGCode
+  theRest <- sliceObject printer print as
+  let
+    travelGCode = if theRest == [] then [] else makeTravelGCode <$> head contours
+  pure $ outerContourGCode <> innerContourGCode <> travelGCode <> supportGCode <> infillGCode <> theRest
     where
       contours = getContours a
       interior = fmap fixContour <$> innerContours printer perimeterCount contours
@@ -580,8 +580,8 @@ run rawArgs = do
       buildarea = buildArea printer
       (facets, _) = centerFacets buildarea $ facetLinesFromSTL stlLines
       print = printFromArgs args
-      allLayers = reverse $ (filter (\l -> head l /= head (tail l)) . filter (/=[])) <$> layers print facets
-      object = zip3 allLayers [1..(toFastℕ $ length allLayers)] $ reverse [1..(toFastℕ $ length allLayers)]
+      allLayers = (filter (\l -> head l /= head (tail l)) . filter (/=[])) <$> layers print facets
+      object = zip3 allLayers [1..(toFastℕ $ length allLayers)] [2..(toFastℕ $ length allLayers + 1)]
       (gcode, _) = runState (sliceObject printer print object) (MachineState (EPos 0))
       outFile = fromMaybe "out.gcode" $ outputFile args
     writeFile outFile $ unpack (startingGCode <> unlines gcode <> endingGCode)
