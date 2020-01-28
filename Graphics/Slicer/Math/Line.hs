@@ -31,7 +31,7 @@ import Graphics.Slicer.Math.Point (twoDCrossProduct, scalePoint, addPoints, dist
 
 -- Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
-data Line = Line { point :: Point, slope :: Point } deriving Show
+data Line = Line { point :: Point, slope :: Point }
 
 -- a difference that makes no difference is no difference..
 -- FIXME: magic numbers.

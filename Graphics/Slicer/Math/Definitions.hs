@@ -30,15 +30,6 @@ import Graphics.Slicer.Definitions (ℝ, ℝ3)
 newtype Point = Point ℝ3
   deriving Eq
 
--- Display a Point in the format expected by G-code
-instance Show Point where
-  show p = unwords $ zipWith (++) ["X","Y","Z"] (map show [xOf p, yOf p, zOf p])
-    where
-      xOf, yOf, zOf :: Point ->  ℝ
-      xOf (Point (x,_,_)) = x
-      yOf (Point (_,y,_)) = y
-      zOf (Point (_,_,z)) = z
-
 data LayerType = BaseOdd | BaseEven | Middle
 
 type Contour = [Point]
