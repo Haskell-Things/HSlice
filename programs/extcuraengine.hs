@@ -95,35 +95,6 @@ centerFacets (RectArea (bedX,bedY,_)) fs = (shiftFacet (Point (dx,dy,dz)) <$> fs
           yOf (Point (_,y,_)) = y
           zOf (Point (_,_,z)) = z
 
-----------------------------------------------------------
------------ Functions to deal with STL parsing -----------
-----------------------------------------------------------
-
--- Read a point when it's given a string of the form "x y z"
-readPoint :: String -> Point
-readPoint s = do
-  let
-    xval, yval, zval :: ℝ
-    (xval, yval, zval) = readThree $ take 3 $ words s
-  Point (xval,yval,zval)
-    where
-      readThree :: [String] -> (ℝ,ℝ,ℝ)
-      readThree [xv,yv,zv] = (read xv,read yv,read zv)
-      readThree _ = error "unexpected value when reading point."
-
--- Read a list of three coordinates (as strings separated by spaces) and generate a facet.
-readFacet :: [String] -> Facet
-readFacet f
-    | length f < 3 = error "Invalid facet"
-    | otherwise = Facet . makeLines $ readPoint <$> f'
-    where f' = last f : f -- So that we're cyclic
-
--- From STL file (as a list of Strings, each String corresponding to one line),
--- produce a list of lists of Lines, where each list of Lines corresponds to a
--- facet in the original STL
-facetLinesFromSTL :: [String] -> [Facet]
-facetLinesFromSTL = fmap (readFacet . cleanupFacet) . facetsFromSTL
-
 -----------------------------------------------------------------------
 ---------------------- Contour filling --------------------------------
 -----------------------------------------------------------------------

@@ -52,7 +52,7 @@ import Graphics.Slicer.Math.Slicer as MS (accumulateValues)
 
 import Graphics.Slicer.Formats.GCode.Definitions as FG (roundToFifth, roundPoint)
 
-import Graphics.Slicer.Formats.STL.Definitions as FS (facetsFromSTL, cleanupFacet)
+import Graphics.Slicer.Formats.STL.Definitions as FS (facetLinesFromSTL)
 
 import Graphics.Slicer.Mechanics.Definitions as MeD (Extruder(Extruder), Bed(RectBed), filamentWidth, nozzleDiameter)
 
