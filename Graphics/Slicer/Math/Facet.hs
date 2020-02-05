@@ -18,13 +18,13 @@
 
 {- The purpose of this file is to hold facet based arithmatic. -}
 
-module Graphics.Slicer.Math.Facet (Facet(Facet), sides, shiftFacet, facetIntersects, trimIntersections) where
+module Graphics.Slicer.Math.Facet (Facet(Facet), sides, shiftFacet, facetIntersects) where
 
 import Prelude (Eq, map, (.), ($), length, (<=), otherwise)
 
 import Data.List(nub)
 
-import Data.Maybe(catMaybes)
+import Data.Maybe(catMaybes, Maybe(Just, Nothing))
 
 import Graphics.Slicer.Definitions(ℝ)
 
@@ -40,13 +40,13 @@ shiftFacet :: Point -> Facet -> Facet
 shiftFacet p = Facet . map (\l -> l { point = addPoints p (point l) }) . sides
 
 -- determine where a facet intersects a plane at a given z value
-facetIntersects :: ℝ -> Facet -> [Point]
+facetIntersects :: ℝ -> Facet -> Maybe [Point]
 facetIntersects v f = trimIntersections $ catMaybes intersections
   where intersections = map (`pointAtZValue` v) (sides f)
 
 -- Get rid of the case where a facet intersects the plane at one point
-trimIntersections :: [Point] -> [Point]
+trimIntersections :: [Point] -> Maybe [Point]
 trimIntersections l
-  | length l' <= 1 = []
-  | otherwise = l'
+  | length l' <= 1 = Nothing
+  | otherwise = Just l'
   where l' = nub l

@@ -422,7 +422,7 @@ fixContour c = head c : tail c <> [head c]
 -- Find all the points in the mesh at a given z value
 -- Each list in the output should have length 2, corresponding to a line segment
 allIntersections :: ℝ -> [Facet] -> [[Point]]
-allIntersections v fs = fmap (fmap roundPoint) $ filter (/= []) $ (facetIntersects v) <$> fs
+allIntersections v fs = fmap (fmap roundPoint) $ catMaybes $ (facetIntersects v) <$> fs
 
 -- Map a function to every other value in a list. This is useful for fixing non-extruding
 -- lines.

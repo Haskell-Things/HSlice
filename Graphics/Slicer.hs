@@ -44,7 +44,7 @@ import Graphics.Slicer.Math.Point as MP (crossProduct, twoDCrossProduct, scalePo
 
 import Graphics.Slicer.Math.Line as ML (Line(Line), point, slope, lineIntersection, lineFromEndpoints, midpoint, endpoint, flipLine, pointSlopeLength, combineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines)
 
-import Graphics.Slicer.Math.Facet as MF (Facet(Facet), sides, shiftFacet, facetIntersects, trimIntersections)
+import Graphics.Slicer.Math.Facet as MF (Facet(Facet), sides, shiftFacet, facetIntersects)
 
 import Graphics.Slicer.Math.Contour as MC (getContours, simplifyContour)
 
