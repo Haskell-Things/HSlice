@@ -395,13 +395,12 @@ makeSupport buildarea print contours = fmap (shortenLineBy $ 2 * lh)
 
 -- Create contours from a list of facets
 layers :: Print -> [Facet] -> [[[Point]]]
-layers print fs = fmap allIntersections [lh,lh*2..maxheight] <*> pure fs
+layers print fs = allIntersections <$> [lh,lh*2..maxheight] <*> pure fs
     where zmax = maximum $ (zOf.point) <$> (foldMap sides fs)
           maxheight = lh * fromIntegral (floor (zmax / lh)::Fastℕ)
           lh = layerHeight print
           zOf :: Point -> ℝ
           zOf (Point (_,_,z)) = z
-
 
 getLayerType :: Print -> (Fastℕ, Fastℕ) -> LayerType
 getLayerType print (fromStart, toEnd)
