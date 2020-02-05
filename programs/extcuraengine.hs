@@ -24,7 +24,7 @@
 -- To treat literal strings as Text
 {-# LANGUAGE OverloadedStrings #-}
 
-import Prelude ((*), (/), (+), (-), fromIntegral, odd, pi, error, sqrt, mod, round, floor, foldMap, fmap, (<>), toRational, error, FilePath, (**))
+import Prelude ((*), (/), (+), (-), fromIntegral, odd, pi, sqrt, mod, round, floor, foldMap, fmap, (<>), toRational, FilePath, (**))
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -36,15 +36,13 @@ import Data.Ord ((<=), (<), (>), max)
 
 import Data.Tuple (fst, snd)
 
-import Text.Read(read)
-
 import Data.Text.Lazy (Text, pack, unpack, unlines)
 
 import Data.String (String)
 
 import Data.Bool(Bool, (||), (&&), otherwise)
 
-import Data.List (nub, sortBy, lines, length, reverse, zip3, filter, tail, head, zipWith, maximum, (!!), minimum, splitAt, elem, take, last, words)
+import Data.List (nub, sortBy, lines, length, zip3, filter, tail, head, zipWith, maximum, (!!), minimum, splitAt, elem, last)
 
 import Control.Monad ((>>=))
 
@@ -60,7 +58,7 @@ import Options.Applicative (fullDesc, progDesc, header, auto, info, helper, help
 
 import Formatting(format, fixed)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ, Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet(Facet), sides, Contour, LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, facetsFromSTL, cleanupFacet, makeLines, facetIntersects, getContours, simplifyContour, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos)
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ, Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet, sides, Contour, LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, makeLines, facetIntersects, getContours, simplifyContour, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos, facetLinesFromSTL)
 
 default (ℕ, Fastℕ, ℝ)
 
