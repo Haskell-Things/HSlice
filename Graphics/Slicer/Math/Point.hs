@@ -26,8 +26,6 @@ import Graphics.Slicer.Math.Definitions (Point(Point))
 
 import Graphics.Slicer.Definitions (ℝ)
 
--- import Graphics.Slicer.Math.Slicer(roundToFifth)
-
 -- Basic Arithmatic
 crossProduct :: Point -> Point -> Point
 crossProduct (Point (x1,y1,z1)) (Point (x2,y2,z2)) = Point ((y1 * z2 - z1 * y2),(z1 * x2 - x1 * z2),(x1 * y2 - y1 * x2))
