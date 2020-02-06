@@ -332,16 +332,12 @@ boundingBox contour = if (isEmpty box) then Nothing else Just box
 incBBox :: BBox -> ℝ -> BBox
 incBBox (BBox (x1,y1) (x2,y2)) ammount = BBox (x1+ammount, y1+ammount) (x2-ammount, y2-ammount)
 
--- add the bounding box to a list of contours, as the first layer.
--- FIXME: magic number.
-addBBox :: [Contour] -> [Contour]
-addBBox contours = [Point (x1,y1,z0), Point (x2,y1,z0), Point (x2,y2,z0), Point (x1,y2,z0), Point (x1,y1,z0)] : contours
+-- add a 2D bounding box to a list of contours, as the first contour in the list.
+addBBox :: [Contour] -> ℝ -> [Contour]
+addBBox contours z0 = [Point (x1,y1,z0), Point (x2,y1,z0), Point (x2,y2,z0), Point (x1,y2,z0), Point (x1,y1,z0)] : contours
     where
       bbox = fromMaybe (BBox (1,1) (-1,-1)) $ boundingBoxAll contours
       (BBox (x1, y1) (x2, y2)) = incBBox bbox 1
-      z0 = zOf . head $ head contours
-      zOf :: Point -> ℝ
-      zOf (Point (_,_,z)) = z
 
 -- Generate support
 -- FIXME: hard coded infill amount.
@@ -350,7 +346,7 @@ makeSupport :: BuildArea
             -> [Contour]
             -> [Line]
 makeSupport buildarea print contours = fmap (shortenLineBy $ 2 * lh)
-                                       $ foldMap (infillLineInside (addBBox contours))
+                                       $ foldMap (infillLineInside (addBBox contours zHeight))
                                        $ coveringInfill buildarea print zHeight
     where
       lh = layerHeight print
