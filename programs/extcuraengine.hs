@@ -110,7 +110,7 @@ extrusions _ _ _ [] = []
 extrusions extruder lh startPoint (contourPoints) = zipWith (extrusionAmount extruder lh) (startPoint:contourPoints) contourPoints
 
 -- Make infill
-makeInfill :: BuildArea -> Print -> [[Point]] -> LayerType -> [Line]
+makeInfill :: BuildArea -> Print -> [Contour] -> LayerType -> [Line]
 makeInfill buildarea print contours layerType = foldMap (infillLineInside contours) $ infillCover layerType
     where infillCover Middle = coveringInfill buildarea print zHeight
           infillCover BaseEven = coveringLinesUp buildarea ls zHeight
@@ -121,12 +121,12 @@ makeInfill buildarea print contours layerType = foldMap (infillLineInside contou
           zOf (Point (_,_,z)) = z
 
 -- Get the segments of an infill line that are inside the contour
-infillLineInside :: [[Point]] -> Line -> [Line]
+infillLineInside :: [Contour] -> Line -> [Line]
 infillLineInside contours line = (allLines !!) <$> [0,2..length allLines - 1]
     where allLines = makeLines $ sortBy orderPoints $ getInfillLineIntersections contours line
 
 -- Find all places where an infill line intersects any contour line 
-getInfillLineIntersections :: [[Point]] -> Line -> [Point]
+getInfillLineIntersections :: [Contour] -> Line -> [Point]
 getInfillLineIntersections contours line = nub $ mapMaybe (lineIntersection line) contourLines
     where contourLines = foldMap makeLines contours
 
@@ -199,7 +199,7 @@ innerPerimeterPoint extruder l contours
           nonzeroIntersections = filter (\(v,_) -> v /= 0) intersections
 
 -- Construct lines on the interior for a given line
-interiorLines :: Printer -> Fastℕ -> Line -> [[Point]] -> [Line]
+interiorLines :: Printer -> Fastℕ -> Line -> [Contour] -> [Line]
 interiorLines (Printer _ buildarea extruder) perimeterCount l@(Line _ m) contours
     | innerPoint `elem` firstHalf = flip (lineToEdges buildarea) (lineSlope m) <$> firstHalf
     | otherwise = flip (lineToEdges buildarea) (lineSlope m) <$> secondHalf
@@ -207,7 +207,7 @@ interiorLines (Printer _ buildarea extruder) perimeterCount l@(Line _ m) contour
           (firstHalf, secondHalf) = splitAt (fromFastℕ $ perimeterCount - 1) $ pointsForPerimeters extruder perimeterCount l
 
 -- List of lists of interior lines for each line in a contour
-allInteriors :: Printer -> Fastℕ -> [Point] -> [[Point]] -> [[Line]]
+allInteriors :: Printer -> Fastℕ -> Contour -> [Contour] -> [[Line]]
 allInteriors printer perimeterCount c contours = flip (interiorLines printer perimeterCount) contours <$> targetLines
     where targetLines = makeLines c
 
@@ -235,7 +235,7 @@ consecutiveIntersections (points) = zipWith lineIntersection points (tail points
 -- Generate G-code for a given contour c.
 gcodeForContour :: Extruder
                 -> ℝ
-                -> [Point]
+                -> Contour
                 -> StateM [Text]
 gcodeForContour extruder lh c = do
   currentPos <- toℝ <$> getEPos
@@ -347,7 +347,7 @@ addBBox contours = [Point (x1,y1,z0), Point (x2,y1,z0), Point (x2,y2,z0), Point 
 -- FIXME: hard coded infill amount.
 makeSupport :: BuildArea
             -> Print
-            -> [[Point]]
+            -> [Contour]
             -> [Line]
 makeSupport buildarea print contours = fmap (shortenLineBy $ 2 * lh)
                                        $ foldMap (infillLineInside (addBBox contours))
@@ -384,7 +384,7 @@ getLayerType print (fromStart, toEnd)
 ---------------------------- MISC ------------------------------------
 ----------------------------------------------------------------------
 
-fixContour :: [Point] -> [Point]
+fixContour :: Contour -> Contour
 fixContour c = head c : tail c <> [head c]
 
 -- Find all the points in the mesh at a given z value
