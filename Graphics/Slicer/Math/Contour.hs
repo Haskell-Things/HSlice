@@ -21,7 +21,7 @@
 
 module Graphics.Slicer.Math.Contour (getContours, simplifyContour) where
 
-import Prelude ((==), otherwise, (++), (||), (.), ($), null)
+import Prelude ((==), otherwise, (++), (||), (.), ($), null, fmap, (<$>))
 
 import Data.List(find, delete, tail, last, head)
 
@@ -30,6 +30,8 @@ import Data.Maybe(fromJust, isNothing)
 import Graphics.Slicer.Math.Point (Point)
 
 import Graphics.Slicer.Math.Line (Line, combineLines, canCombineLines)
+
+import Graphics.Slicer.Math.Definitions (Contour(Contour))
 
 -- A contour is a closed loop of lines on a layer.
 
@@ -52,8 +54,8 @@ makeContours (contours, pairs)
                   
 
 -- Turn pairs of points into lists of connected points
-getContours :: [[Point]] -> [[Point]]
-getContours = makeContours . (,) []
+getContours :: [[Point]] -> [Contour]
+getContours = fmap Contour <$> makeContours . (,) []
 
 -- Attempt to combine lines on a contour..
 simplifyContour :: [Line] -> [Line]

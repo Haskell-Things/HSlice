@@ -58,7 +58,7 @@ import Options.Applicative (fullDesc, progDesc, header, auto, info, helper, help
 
 import Formatting(format, fixed)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ, Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet, sides, Contour, LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, makeLines, facetIntersects, getContours, simplifyContour, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos, facetLinesFromSTL)
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ, Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet, sides, Contour(Contour), LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, makeLines, facetIntersects, getContours, simplifyContour, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos, facetLinesFromSTL)
 
 default (ℕ, Fastℕ, ℝ)
 
@@ -106,8 +106,8 @@ extrusionAmount extruder t p1 p2 = nozzleDia * t * (2 / filamentDia) * l / pi
 
 -- Calculate the amount of material to extrude for each line in a contour.
 extrusions :: Extruder -> ℝ -> Point -> Contour -> [ℝ]
-extrusions _ _ _ [] = []
-extrusions extruder lh startPoint (contourPoints) = zipWith (extrusionAmount extruder lh) (startPoint:contourPoints) contourPoints
+extrusions _ _ _ (Contour []) = []
+extrusions extruder lh startPoint (Contour contourPoints) = zipWith (extrusionAmount extruder lh) (startPoint:contourPoints) contourPoints
 
 -- Make infill
 makeInfill :: BuildArea -> Print -> [Contour] -> LayerType -> [Line]
@@ -115,8 +115,9 @@ makeInfill buildarea print contours layerType = foldMap (infillLineInside contou
     where infillCover Middle = coveringInfill buildarea print zHeight
           infillCover BaseEven = coveringLinesUp buildarea ls zHeight
           infillCover BaseOdd = coveringLinesDown buildarea ls zHeight
-          zHeight = zOf . head $ head contours
           ls = lineSpacing print
+          zHeight = zOfContour $ head contours
+          zOfContour (Contour contourPoints) = zOf $ head contourPoints
           zOf :: Point -> ℝ
           zOf (Point (_,_,z)) = z
 
@@ -128,7 +129,9 @@ infillLineInside contours line = (allLines !!) <$> [0,2..length allLines - 1]
 -- Find all places where an infill line intersects any contour line 
 getInfillLineIntersections :: [Contour] -> Line -> [Point]
 getInfillLineIntersections contours line = nub $ mapMaybe (lineIntersection line) contourLines
-    where contourLines = foldMap makeLines contours
+    where
+      contourLines = foldMap makeLines $ contourPoints <$> contours
+      contourPoints (Contour points) = points
 
 -- Generate covering lines for a given percent infill
 coveringInfill :: BuildArea -> Print -> ℝ -> [Line]
@@ -191,7 +194,8 @@ innerPerimeterPoint extruder l contours
     | length nonzeroIntersections > 0 = snd $ head nonzeroIntersections
     | otherwise = snd $ head intersections
     where linesToCheck = perimeterLinesToCheck extruder l
-          contourLines = foldMap makeLines contours
+          contourLines = foldMap makeLines $ contourPoints <$> contours
+          contourPoints (Contour points) = points
           simplifiedContour = simplifyContour contourLines
           numIntersections l' = length $ mapMaybe (lineIntersection l') simplifiedContour
           intersections = (\a -> (numIntersections a, point a)) <$> linesToCheck
@@ -208,8 +212,8 @@ interiorLines (Printer _ buildarea extruder) perimeterCount l@(Line _ m) contour
 
 -- List of lists of interior lines for each line in a contour
 allInteriors :: Printer -> Fastℕ -> Contour -> [Contour] -> [[Line]]
-allInteriors printer perimeterCount c contours = flip (interiorLines printer perimeterCount) contours <$> targetLines
-    where targetLines = makeLines c
+allInteriors printer perimeterCount (Contour contourPoints) contours = flip (interiorLines printer perimeterCount) contours <$> targetLines
+    where targetLines = makeLines contourPoints
 
 -- Make inner contours from a list of (outer) contours.
 -- note that we do not retain the outermost contour.
@@ -224,7 +228,7 @@ constructInnerContours interiors
     | length interiors == 0 = []
     | length (head interiors) == 0 && (length interiors == 1) = []
     | length (head interiors) == 0 = constructInnerContours $ tail interiors
-    | otherwise = [intersections] : constructInnerContours (tail <$> interiors)
+    | otherwise = [(Contour intersections)] : constructInnerContours (tail <$> interiors)
     where intersections = catMaybes $ consecutiveIntersections $ head <$> interiors
 
 consecutiveIntersections :: [Line] -> [Maybe Point]
@@ -237,13 +241,13 @@ gcodeForContour :: Extruder
                 -> ℝ
                 -> Contour
                 -> StateM [Text]
-gcodeForContour extruder lh c = do
+gcodeForContour extruder lh (Contour contourPoints) = do
   currentPos <- toℝ <$> getEPos
   let
-    extrusionAmounts = extrusions extruder lh (head c) (tail c)
+    extrusionAmounts = extrusions extruder lh (head contourPoints) (Contour $ tail contourPoints)
     ePoses = (currentPos+) <$> accumulateValues extrusionAmounts
   setEPos . toRational $ last ePoses
-  pure $ makeTravelGCode (head c) : zipWith (makeExtrudeGCode) (tail c) (ePoses)
+  pure $ makeTravelGCode (head contourPoints) : zipWith (makeExtrudeGCode) (tail contourPoints) (ePoses)
 
 -- GCode to travel to a point while extruding.
 makeExtrudeGCode :: Point -> ℝ -> Text
@@ -316,14 +320,14 @@ boundingBoxAll contours = if (isEmpty box) then Nothing else Just box
 
 -- Get a bounding box of a contour.
 boundingBox :: Contour -> Maybe BBox
-boundingBox [] = Nothing
-boundingBox contour = if (isEmpty box) then Nothing else Just box
+boundingBox (Contour []) = Nothing
+boundingBox (Contour contourPoints) = if (isEmpty box) then Nothing else Just box
   where
     box  = BBox (minX, minY) (maxX, maxY)
-    minX = minimum $ xOf <$> contour
-    minY = minimum $ yOf <$> contour
-    maxX = maximum $ xOf <$> contour
-    maxY = maximum $ yOf <$> contour
+    minX = minimum $ xOf <$> contourPoints
+    minY = minimum $ yOf <$> contourPoints
+    maxX = maximum $ xOf <$> contourPoints
+    maxY = maximum $ yOf <$> contourPoints
     xOf,yOf :: Point -> ℝ
     xOf (Point (x,_,_)) = x
     yOf (Point (_,y,_)) = y
@@ -334,7 +338,7 @@ incBBox (BBox (x1,y1) (x2,y2)) ammount = BBox (x1+ammount, y1+ammount) (x2-ammou
 
 -- add a 2D bounding box to a list of contours, as the first contour in the list.
 addBBox :: [Contour] -> ℝ -> [Contour]
-addBBox contours z0 = [Point (x1,y1,z0), Point (x2,y1,z0), Point (x2,y2,z0), Point (x1,y2,z0), Point (x1,y1,z0)] : contours
+addBBox contours z0 = (Contour [Point (x1,y1,z0), Point (x2,y1,z0), Point (x2,y2,z0), Point (x1,y2,z0), Point (x1,y1,z0)]) : contours
     where
       bbox = fromMaybe (BBox (1,1) (-1,-1)) $ boundingBoxAll contours
       (BBox (x1, y1) (x2, y2)) = incBBox bbox 1
@@ -350,7 +354,8 @@ makeSupport buildarea print contours = fmap (shortenLineBy $ 2 * lh)
                                        $ coveringInfill buildarea print zHeight
     where
       lh = layerHeight print
-      zHeight = zOf . head $ head contours
+      zHeight = zOfContour $ head contours
+      zOfContour (Contour contourPoints) = zOf $ head contourPoints
       zOf :: Point -> ℝ
       zOf (Point (_,_,z)) = z
 
@@ -381,7 +386,7 @@ getLayerType print (fromStart, toEnd)
 ----------------------------------------------------------------------
 
 fixContour :: Contour -> Contour
-fixContour c = head c : tail c <> [head c]
+fixContour (Contour c) = Contour (head c : tail c <> [head c])
 
 -- Find all the points in the mesh at a given z value
 -- Each list in the output should have length 2, corresponding to a line segment
@@ -410,15 +415,16 @@ sliceObject printer@(Printer _ buildarea extruder) print@(Print perimeterCount _
   infillGCode <- gcodeForContour extruder lh infillContours
   theRest <- sliceObject printer print as
   let
-    travelGCode = if theRest == [] then [] else makeTravelGCode <$> head contours
+    travelGCode = if theRest == [] then [] else makeTravelGCode <$> (pointsOfContour $ head contours)
   pure $ outerContourGCode <> innerContourGCode <> travelGCode <> supportGCode <> infillGCode <> theRest
     where
-      contours = getContours a
+      contours = getContours (pointsOfContour <$> a)
+      pointsOfContour (Contour points) = points
       interior = fmap fixContour <$> innerContours printer perimeterCount contours
-      supportContours = foldMap (\l -> [point l, endpoint l])
+      supportContours = foldMap (\l -> Contour [point l, endpoint l])
                         $ mapEveryOther flipLine
                         $ makeSupport buildarea print contours
-      infillContours = foldMap (\l -> [point l, endpoint l])
+      infillContours = foldMap (\l -> Contour [point l, endpoint l])
                        $ mapEveryOther flipLine
                        $ makeInfill buildarea print innermostContours
                        $ getLayerType print (fromStart, toEnd)
@@ -544,7 +550,8 @@ run rawArgs = do
       buildarea = buildArea printer
       (facets, _) = centerFacets buildarea $ facetLinesFromSTL stlLines
       print = printFromArgs args
-      allLayers = (filter (\l -> head l /= head (tail l)) . filter (/=[])) <$> layers print facets
+      allLayers :: [[Contour]]
+      allLayers = (filter (\(Contour l) -> head l /= head (tail l)) . filter (/=(Contour []))) <$> (fmap Contour <$> layers print facets)
       object = zip3 allLayers [1..(toFastℕ $ length allLayers)] [2..(toFastℕ $ length allLayers + 1)]
       (gcode, _) = runState (sliceObject printer print object) (MachineState (EPos 0))
       outFile = fromMaybe "out.gcode" $ outputFile args

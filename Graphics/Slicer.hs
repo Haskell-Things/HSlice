@@ -38,7 +38,7 @@ module Graphics.Slicer (
 
 import Prelude ()
 
-import Graphics.Slicer.Math.Definitions as MD (Point(Point), LayerType(BaseOdd, BaseEven, Middle), Contour)
+import Graphics.Slicer.Math.Definitions as MD (Point(Point), LayerType(BaseOdd, BaseEven, Middle), Contour(Contour))
 
 import Graphics.Slicer.Math.Point as MP (crossProduct, twoDCrossProduct, scalePoint, addPoints, magnitude, distance, orderPoints)
 

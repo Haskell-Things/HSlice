@@ -20,9 +20,9 @@
    structures used when performing slicing related math. -}
 
 -- FIXME: remove x, y, and z from this export list. 
-module Graphics.Slicer.Math.Definitions(Point(Point), LayerType(BaseOdd,BaseEven,Middle), Contour) where
+module Graphics.Slicer.Math.Definitions(Point(Point), LayerType(BaseOdd,BaseEven,Middle), Contour(Contour)) where
 
-import Prelude (Eq, Show, show, ($), zipWith, (++), map, unwords)
+import Prelude (Eq, Show, show, ($), zipWith, (++), map, unwords, Monoid(mempty, mappend), Semigroup((<>)))
 
 import Graphics.Slicer.Definitions (ℝ, ℝ3)
 
@@ -32,5 +32,13 @@ newtype Point = Point ℝ3
 
 data LayerType = BaseOdd | BaseEven | Middle
 
-type Contour = [Point]
+-- a list of points around a shape.
+newtype Contour = Contour [Point]
+  deriving Eq
 
+instance Semigroup Contour where
+  (<>) (Contour a) (Contour b) = Contour (a ++ b)
+
+instance Monoid Contour where
+  mempty = Contour []
+  mappend (Contour a) (Contour b) = Contour (a ++ b)
