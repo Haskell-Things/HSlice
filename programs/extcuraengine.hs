@@ -67,8 +67,8 @@ default (ℕ, Fastℕ, ℝ)
 ---------------------------------------------------------------------------
 
 -- | Given a point and slope (on an xy plane), make "infinite" line
--- FIXME: assumes the origin is at the corner.
 -- (i.e. a line that hits two edges of the bed)
+-- FIXME: assumes the origin is at the corner.
 lineToEdges :: BuildArea -> Point -> ℝ -> Line
 lineToEdges (RectArea (bedX,bedY,_)) p@(Point (_,_,c)) m = head . makeLines $ nub points
     where edges = lineFromEndpoints <$> [Point (0,0,c), Point (bedX,bedY,c)]
@@ -134,6 +134,7 @@ getInfillLineIntersections contours line = nub $ mapMaybe (lineIntersection line
       contourPoints (Contour points) = points
 
 -- Generate covering lines for a given percent infill
+-- FIXME: magic number: 100.
 coveringInfill :: BuildArea -> Print -> ℝ -> [Line]
 coveringInfill buildarea print zHeight
     | infill == 0 = []
@@ -210,7 +211,7 @@ interiorLines (Printer _ buildarea extruder) perimeterCount l@(Line _ m) contour
     where innerPoint = innerPerimeterPoint extruder l contours
           (firstHalf, secondHalf) = splitAt (fromFastℕ $ perimeterCount - 1) $ pointsForPerimeters extruder perimeterCount l
 
--- List of lists of interior lines for each line in a contour
+-- List of interior lines for each line in a contour
 allInteriors :: Printer -> Fastℕ -> Contour -> [Contour] -> [[Line]]
 allInteriors printer perimeterCount (Contour contourPoints) contours = flip (interiorLines printer perimeterCount) contours <$> targetLines
     where targetLines = makeLines contourPoints
@@ -221,8 +222,8 @@ innerContours :: Printer -> Fastℕ -> [Contour] -> [[Contour]]
 innerContours printer perimeterCount contours = foldMap (constructInnerContours .(\i -> last i : i)) interiors
     where interiors = flip (allInteriors printer perimeterCount) contours <$> contours
 
--- Construct inner contours, given a list of lines constituting the interior
--- lines. Essentially a helper function for innerContours.
+-- Construct inner contours for a list of Contours.
+-- Essentially a helper function for innerContours.
 constructInnerContours :: [[Line]] -> [[Contour]]
 constructInnerContours interiors
     | length interiors == 0 = []
@@ -236,7 +237,7 @@ consecutiveIntersections [] = [Nothing]
 consecutiveIntersections [_] = [Nothing]
 consecutiveIntersections (points) = zipWith lineIntersection points (tail points)
 
--- Generate G-code for a given contour c.
+-- Generate G-code for a given contour.
 gcodeForContour :: Extruder
                 -> ℝ
                 -> Contour
@@ -337,6 +338,7 @@ incBBox :: BBox -> ℝ -> BBox
 incBBox (BBox (x1,y1) (x2,y2)) ammount = BBox (x1+ammount, y1+ammount) (x2-ammount, y2-ammount)
 
 -- add a 2D bounding box to a list of contours, as the first contour in the list.
+-- FIXME: assumes 2D contour.
 addBBox :: [Contour] -> ℝ -> [Contour]
 addBBox contours z0 = (Contour [Point (x1,y1,z0), Point (x2,y1,z0), Point (x2,y2,z0), Point (x1,y2,z0), Point (x1,y1,z0)]) : contours
     where
