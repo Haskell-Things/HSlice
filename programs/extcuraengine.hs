@@ -395,12 +395,11 @@ fixContour (Contour c) = Contour (head c : tail c <> [head c])
 allIntersections :: ℝ -> [Facet] -> [[Point]]
 allIntersections v fs = fmap (fmap roundPoint) $ catMaybes $ (facetIntersects v) <$> fs
 
--- Map a function to every other value in a list. This is useful for fixing non-extruding
--- lines.
+-- Map a function to every other value in a list. This is useful for fixing non-extruding lines.
 mapEveryOther :: (a -> a) -> [a] -> [a]
 mapEveryOther _ [] = []
 mapEveryOther f [a] = [f a]
-mapEveryOther f (a:b:cs) = f a : b : mapEveryOther f cs
+mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [1::Fastℕ,2..]
 
 -------------------------------------------------------------
 ----------------------- ENTRY POINT -------------------------
