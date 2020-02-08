@@ -81,7 +81,7 @@ lineToEdges (RectArea (bedX,bedY,_)) p@(Point (_,_,c)) m = head . makeLines $ nu
 -- Center facets relative to the center of the build area.
 centerFacets :: BuildArea -> [Facet] -> ([Facet], Point)
 centerFacets (RectArea (bedX,bedY,_)) fs = (shiftFacet (Point (dx,dy,dz)) <$> fs, Point (dx,dy,dz))
-    where (dx,dy,dz) = ((bedX/2-x0), (bedY/2-y0), (-zMin))
+    where (dx,dy,dz) = (bedX/2-x0, bedY/2-y0, -zMin)
           xMin = minimum $ xOf.point <$> foldMap sides fs
           yMin = minimum $ yOf.point <$> foldMap sides fs
           zMin = minimum $ zOf.point <$> foldMap sides fs
@@ -99,8 +99,8 @@ centerFacets (RectArea (bedX,bedY,_)) fs = (shiftFacet (Point (dx,dy,dz)) <$> fs
 
 -- The amount to extrude when making a line between two points.
 extrusionAmount :: Extruder -> ℝ -> Point -> Point -> ℝ
-extrusionAmount extruder t p1 p2 = nozzleDia * t * (2 / filamentDia) * l / pi
-    where l = distance p1 p2
+extrusionAmount extruder lh p1 p2 = nozzleDia * lh * (2 / filamentDia) * length / pi
+    where length = distance p1 p2
           nozzleDia = nozzleDiameter extruder
           filamentDia = filamentWidth extruder
 
@@ -110,16 +110,12 @@ extrusions _ _ _ (Contour []) = []
 extrusions extruder lh startPoint (Contour contourPoints) = zipWith (extrusionAmount extruder lh) (startPoint:contourPoints) contourPoints
 
 -- Make infill
-makeInfill :: BuildArea -> Print -> [Contour] -> LayerType -> [Line]
-makeInfill buildarea print contours layerType = foldMap (infillLineInside contours) $ infillCover layerType
+makeInfill :: BuildArea -> Print -> [Contour] -> ℝ -> LayerType -> [Line]
+makeInfill buildarea print contours zHeight layerType = foldMap (infillLineInside contours) $ infillCover layerType
     where infillCover Middle = coveringInfill buildarea print zHeight
           infillCover BaseEven = coveringLinesUp buildarea ls zHeight
           infillCover BaseOdd = coveringLinesDown buildarea ls zHeight
           ls = lineSpacing print
-          zHeight = zOfContour $ head contours
-          zOfContour (Contour contourPoints) = zOf $ head contourPoints
-          zOf :: Point -> ℝ
-          zOf (Point (_,_,z)) = z
 
 -- Get the segments of an infill line that are inside the contour
 infillLineInside :: [Contour] -> Line -> [Line]
@@ -150,12 +146,12 @@ coveringInfill buildarea print zHeight
 -- Generate lines over entire print area
 coveringLinesUp :: BuildArea -> ℝ -> ℝ -> [Line]
 coveringLinesUp (RectArea (bedX,bedY,_)) lt zHeight = flip Line s . f <$> [-bedX,-bedX + lt..bedY]
-    where s = Point ((bedX + bedY),(bedX + bedY),0)
+    where s = Point (bedX + bedY,bedX + bedY,0)
           f v = Point (0,v,zHeight)
 
 coveringLinesDown :: BuildArea -> ℝ -> ℝ -> [Line]
 coveringLinesDown (RectArea (bedX,bedY,_)) lt zHeight = flip Line s . f <$> [0,lt..bedY + bedX]
-    where s =  Point ((bedX + bedY),(- bedX - bedY),0)
+    where s =  Point (bedX + bedY,- bedX - bedY,0)
           f v = Point (0,v,zHeight)
 
 -- FIXME: better way to handle infinity.
@@ -179,7 +175,7 @@ pointsForPerimeters extruder perimeterCount l = endpoint . pointSlopeLength (mid
 
 -- Lines to count intersections to determine if we're on the inside or outside
 perimeterLinesToCheck :: Extruder -> Line -> [Line]
-perimeterLinesToCheck extruder l@(Line p _) = ((`lineFromEndpoints` Point (0,0,(zOf p))) . endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*nozzleDia)) <$> [-1,1]
+perimeterLinesToCheck extruder l@(Line p _) = (`lineFromEndpoints` Point (0,0,zOf p)) . endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*nozzleDia) <$> [-1,1]
   where
     Line _ m = perpendicularBisector l
     nozzleDia :: ℝ
@@ -229,13 +225,13 @@ constructInnerContours interiors
     | length interiors == 0 = []
     | length (head interiors) == 0 && (length interiors == 1) = []
     | length (head interiors) == 0 = constructInnerContours $ tail interiors
-    | otherwise = [(Contour intersections)] : constructInnerContours (tail <$> interiors)
+    | otherwise = [Contour intersections] : constructInnerContours (tail <$> interiors)
     where intersections = catMaybes $ consecutiveIntersections $ head <$> interiors
 
 consecutiveIntersections :: [Line] -> [Maybe Point]
 consecutiveIntersections [] = [Nothing]
 consecutiveIntersections [_] = [Nothing]
-consecutiveIntersections (points) = zipWith lineIntersection points (tail points)
+consecutiveIntersections points = zipWith lineIntersection points (tail points)
 
 -- Generate G-code for a given contour.
 gcodeForContour :: Extruder
@@ -248,7 +244,7 @@ gcodeForContour extruder lh (Contour contourPoints) = do
     extrusionAmounts = extrusions extruder lh (head contourPoints) (Contour $ tail contourPoints)
     ePoses = (currentPos+) <$> accumulateValues extrusionAmounts
   setEPos . toRational $ last ePoses
-  pure $ makeTravelGCode (head contourPoints) : zipWith (makeExtrudeGCode) (tail contourPoints) (ePoses)
+  pure $ makeTravelGCode (head contourPoints) : zipWith makeExtrudeGCode (tail contourPoints) ePoses
 
 -- GCode to travel to a point while extruding.
 makeExtrudeGCode :: Point -> ℝ -> Text
@@ -309,7 +305,7 @@ isEmpty (BBox (x1,y1) (x2,y2)) = x1 == x2 || y1 == y2
 
 -- Get a bounding box of all contours.
 boundingBoxAll :: [Contour] -> Maybe BBox
-boundingBoxAll contours = if (isEmpty box) then Nothing else Just box
+boundingBoxAll contours = if isEmpty box then Nothing else Just box
     where
       box  = BBox (minX, minY) (maxX, maxY)
       minX = minimum $ (\(BBox (x1,_) _) -> x1) <$> bBoxes
@@ -322,7 +318,7 @@ boundingBoxAll contours = if (isEmpty box) then Nothing else Just box
 -- Get a bounding box of a contour.
 boundingBox :: Contour -> Maybe BBox
 boundingBox (Contour []) = Nothing
-boundingBox (Contour contourPoints) = if (isEmpty box) then Nothing else Just box
+boundingBox (Contour contourPoints) = if isEmpty box then Nothing else Just box
   where
     box  = BBox (minX, minY) (maxX, maxY)
     minX = minimum $ xOf <$> contourPoints
@@ -340,7 +336,7 @@ incBBox (BBox (x1,y1) (x2,y2)) ammount = BBox (x1+ammount, y1+ammount) (x2-ammou
 -- add a 2D bounding box to a list of contours, as the first contour in the list.
 -- FIXME: assumes 2D contour.
 addBBox :: [Contour] -> ℝ -> [Contour]
-addBBox contours z0 = (Contour [Point (x1,y1,z0), Point (x2,y1,z0), Point (x2,y2,z0), Point (x1,y2,z0), Point (x1,y1,z0)]) : contours
+addBBox contours z0 = Contour [Point (x1,y1,z0), Point (x2,y1,z0), Point (x2,y2,z0), Point (x1,y2,z0), Point (x1,y1,z0)] : contours
     where
       bbox = fromMaybe (BBox (1,1) (-1,-1)) $ boundingBoxAll contours
       (BBox (x1, y1) (x2, y2)) = incBBox bbox 1
@@ -350,16 +346,13 @@ addBBox contours z0 = (Contour [Point (x1,y1,z0), Point (x2,y1,z0), Point (x2,y2
 makeSupport :: BuildArea
             -> Print
             -> [Contour]
+            -> ℝ
             -> [Line]
-makeSupport buildarea print contours = fmap (shortenLineBy $ 2 * lh)
-                                       $ foldMap (infillLineInside (addBBox contours zHeight))
-                                       $ coveringInfill buildarea print zHeight
+makeSupport buildarea print contours zHeight = fmap (shortenLineBy $ 2 * lh)
+                                             $ foldMap (infillLineInside (addBBox contours zHeight))
+                                             $ coveringInfill buildarea print zHeight
     where
       lh = layerHeight print
-      zHeight = zOfContour $ head contours
-      zOfContour (Contour contourPoints) = zOf $ head contourPoints
-      zOf :: Point -> ℝ
-      zOf (Point (_,_,z)) = z
 
 -----------------------------------------------------------------------
 --------------------------- LAYERS ------------------------------------
@@ -368,7 +361,7 @@ makeSupport buildarea print contours = fmap (shortenLineBy $ 2 * lh)
 -- Create contours from a list of facets
 layers :: Print -> [Facet] -> [[[Point]]]
 layers print fs = allIntersections <$> [lh,lh*2..maxheight] <*> pure fs
-    where zmax = maximum $ (zOf.point) <$> (foldMap sides fs)
+    where zmax = maximum $ zOf . point <$> foldMap sides fs
           maxheight = lh * fromIntegral (floor (zmax / lh)::Fastℕ)
           lh = layerHeight print
           zOf :: Point -> ℝ
@@ -393,7 +386,7 @@ fixContour (Contour c) = Contour (head c : tail c <> [head c])
 -- Find all the points in the mesh at a given z value
 -- Each list in the output should have length 2, corresponding to a line segment
 allIntersections :: ℝ -> [Facet] -> [[Point]]
-allIntersections v fs = fmap (fmap roundPoint) $ catMaybes $ (facetIntersects v) <$> fs
+allIntersections v fs = fmap (fmap roundPoint) $ catMaybes $ facetIntersects v <$> fs
 
 -- Map a function to every other value in a list. This is useful for fixing non-extruding lines.
 mapEveryOther :: (a -> a) -> [a] -> [a]
@@ -416,7 +409,7 @@ sliceObject printer@(Printer _ buildarea extruder) print@(Print perimeterCount _
   infillGCode <- gcodeForContour extruder lh infillContours
   theRest <- sliceObject printer print as
   let
-    travelGCode = if theRest == [] then [] else makeTravelGCode <$> (pointsOfContour $ head contours)
+    travelGCode = if theRest == [] then [] else makeTravelGCode <$> pointsOfContour (head contours)
   pure $ outerContourGCode <> innerContourGCode <> travelGCode <> supportGCode <> infillGCode <> theRest
     where
       contours = getContours (pointsOfContour <$> a)
@@ -424,13 +417,17 @@ sliceObject printer@(Printer _ buildarea extruder) print@(Print perimeterCount _
       interior = fmap fixContour <$> innerContours printer perimeterCount contours
       supportContours = foldMap (\l -> Contour [point l, endpoint l])
                         $ mapEveryOther flipLine
-                        $ makeSupport buildarea print contours
+                        $ makeSupport buildarea print contours (zHeightOfLayer contours)
       infillContours = foldMap (\l -> Contour [point l, endpoint l])
                        $ mapEveryOther flipLine
-                       $ makeInfill buildarea print innermostContours
+                       $ makeInfill buildarea print innermostContours (zHeightOfLayer innermostContours)
                        $ getLayerType print (fromStart, toEnd)
       allContours = zipWith (:) contours interior
       innermostContours = if interior == [] then contours else last <$> allContours
+      zHeightOfLayer targetContours = zOfContour $ head targetContours
+      zOfContour (Contour contourPoints) = zOf $ head contourPoints
+      zOf :: Point -> ℝ
+      zOf (Point (_,_,z)) = z
 
 ----------------------------------------------------------
 ------------------------ OPTIONS -------------------------
@@ -552,7 +549,7 @@ run rawArgs = do
       (facets, _) = centerFacets buildarea $ facetLinesFromSTL stlLines
       print = printFromArgs args
       allLayers :: [[Contour]]
-      allLayers = (filter (\(Contour l) -> head l /= head (tail l)) . filter (/=(Contour []))) <$> (fmap Contour <$> layers print facets)
+      allLayers = filter (\(Contour l) -> head l /= head (tail l)) . filter (/=Contour []) <$> (fmap Contour <$> layers print facets)
       object = zip3 allLayers [1..(toFastℕ $ length allLayers)] [2..(toFastℕ $ length allLayers + 1)]
       (gcode, _) = runState (sliceObject printer print object) (MachineState (EPos 0))
       outFile = fromMaybe "out.gcode" $ outputFile args

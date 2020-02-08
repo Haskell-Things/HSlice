@@ -20,7 +20,7 @@
 
 module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, endpoint, midpoint, flipLine, pointSlopeLength, combineLines, canCombineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines) where
 
-import Prelude ((/), (<), (>), (*), (**), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, Show, length, head, tail, Bool(False), (/=))
+import Prelude ((/), (<), (>), (*), (**), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool(False), (/=))
 
 import Data.Maybe (Maybe(Just, Nothing))
 
@@ -77,7 +77,7 @@ makeLines l
 pointSlopeLength :: Point -> ℝ -> ℝ -> Line
 pointSlopeLength p m d
   | m > 10**100 = Line p (Point (0,d,0))
-  | m < -(10**100) = Line p (Point (0,(-d),0))
+  | m < -(10**100) = Line p (Point (0,-d,0))
   | otherwise = Line p s
   where s = scalePoint scale $ Point (1,yVal,0)
         yVal = m
@@ -98,7 +98,7 @@ canCombineLines l1@(Line _ s1) (Line p2 s2)
 -- a constant z value)
 perpendicularBisector :: Line -> Line
 perpendicularBisector l@(Line p s)
-  | yOf s == 0 = Line (midpoint l) (Point (0,(magnitude s),0))
+  | yOf s == 0 = Line (midpoint l) (Point (0, magnitude s, 0))
   | otherwise = pointSlopeLength (midpoint l) m (distance p (endpoint l))
   where
     m = - xOf s / yOf s

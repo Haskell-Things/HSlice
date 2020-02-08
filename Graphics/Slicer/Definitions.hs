@@ -35,5 +35,5 @@ type ℝ2 = (ℝ,ℝ)
 type ℝ3 = (ℝ,ℝ,ℝ)
 
 toℝ :: Rational -> ℝ
-toℝ val = fromRational val
+toℝ = fromRational
 

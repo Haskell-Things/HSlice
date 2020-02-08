@@ -22,9 +22,9 @@
 -- FIXME: remove x, y, and z from this export list. 
 module Graphics.Slicer.Math.Definitions(Point(Point), LayerType(BaseOdd,BaseEven,Middle), Contour(Contour)) where
 
-import Prelude (Eq, Show, show, ($), zipWith, (++), map, unwords, Monoid(mempty, mappend), Semigroup((<>)))
+import Prelude (Eq, (++), Monoid(mempty, mappend), Semigroup((<>)))
 
-import Graphics.Slicer.Definitions (ℝ, ℝ3)
+import Graphics.Slicer.Definitions (ℝ3)
 
 -- A single Point in 3D space.
 newtype Point = Point ℝ3
@@ -41,4 +41,4 @@ instance Semigroup Contour where
 
 instance Monoid Contour where
   mempty = Contour []
-  mappend (Contour a) (Contour b) = Contour (a ++ b)
+  mappend = (<>)
