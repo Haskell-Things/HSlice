@@ -108,8 +108,8 @@ centerFacets (RectArea (bedX,bedY,_)) fs = (shiftFacet (Point (dx,dy,dz)) <$> fs
 
 -- The amount to extrude when making a line between two points.
 extrusionAmount :: Extruder -> ℝ -> Point -> Point -> ℝ
-extrusionAmount extruder lh p1 p2 = nozzleDia * lh * (2 / filamentDia) * length / pi
-    where length = distance p1 p2
+extrusionAmount extruder lh p1 p2 = nozzleDia * lh * (2 / filamentDia) * pathLength / pi
+    where pathLength = distance p1 p2
           nozzleDia = nozzleDiameter extruder
           filamentDia = filamentWidth extruder
 
