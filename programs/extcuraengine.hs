@@ -87,6 +87,7 @@ lineToEdges (RectArea (bedX,bedY,_)) p@(Point (_,_,c)) m = head . makeLines $ nu
           points = mapMaybe (lineIntersection line) edges
 
 -- Center facets relative to the center of the build area.
+-- FIXME: assumes the origin is at the corner.
 centerFacets :: BuildArea -> [Facet] -> ([Facet], Point)
 centerFacets (RectArea (bedX,bedY,_)) fs = (shiftFacet (Point (dx,dy,dz)) <$> fs, Point (dx,dy,dz))
     where (dx,dy,dz) = (bedX/2-x0, bedY/2-y0, -zMin)
@@ -673,7 +674,7 @@ run rawArgs = do
     writeFile outFile $ unpack ((startingGCode settings) <> unlines gcode <> (endingGCode settings))
       where
         -- The Printer.
-        -- FIXME: pull all of these values from a curaengine json config.
+        -- FIXME: pull defaults for these values from a curaengine json config.
         printerFromSettings :: VarLookup -> Printer
         printerFromSettings vars =
           Printer (getPrintBed vars) (defaultBuildArea vars) (defaultExtruder vars)
