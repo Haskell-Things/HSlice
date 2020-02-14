@@ -104,7 +104,7 @@ images: examples
 
 # tests.
 tests: $(EXTCURAENGINEBIN)
-	cd tests && for each in `find ./ -name '*.stl' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINEBIN) $$each $(RTSOPTS); md5sum out.gcode; } done
+	cd tests && for each in `find ./ -name '*.stl' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINEBIN) slice -l $$each $(RTSOPTS); md5sum out.gcode; } done
 #	$(TESTSUITE)
 
 # The Hslice library.

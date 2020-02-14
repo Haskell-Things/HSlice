@@ -24,6 +24,9 @@
 -- To treat literal strings as Text
 {-# LANGUAGE OverloadedStrings #-}
 
+-- For matching our OpenScad variable types.
+{-# LANGUAGE ViewPatterns #-}
+
 import Prelude ((*), (/), (+), (-), fromIntegral, odd, pi, sqrt, mod, round, floor, foldMap, fmap, (<>), toRational, FilePath, (**))
 
 import Control.Applicative (pure, (<*>), (<$>))
@@ -40,13 +43,13 @@ import Data.Text.Lazy (Text, pack, unpack, unlines)
 
 import Data.String (String)
 
-import Data.Bool(Bool, (||), (&&), otherwise)
+import Data.Bool(Bool(False), (||), (&&), otherwise)
 
 import Data.List (nub, sortBy, lines, length, zip3, filter, tail, head, zipWith, maximum, (!!), minimum, splitAt, elem, last)
 
 import Control.Monad ((>>=))
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe, fromMaybe)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe, fromMaybe, isJust)
 
 import Text.Show(show)
 
@@ -54,9 +57,14 @@ import System.IO (IO, writeFile, readFile)
 
 import Control.Monad.State(runState)
 
-import Options.Applicative (fullDesc, progDesc, header, auto, info, helper, help, str, argument, long, short, option, metavar, execParser, Parser, optional, strOption, switch)
+import Options.Applicative (fullDesc, progDesc, header, auto, info, helper, help, str, argument, long, short, option, metavar, execParser, Parser, optional, strOption, switch, hsubparser, command, many)
 
 import Formatting(format, fixed)
+
+import Graphics.Implicit.ExtOpenScad.Eval.Constant (addConstants)
+
+-- The definition of the symbol type, so we can access variables, and see settings.
+import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString), lookupVarIn, Message(Message), MessageType(TextOut), ScadOpts(ScadOpts))
 
 import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ, Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet, sides, Contour(Contour), LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, makeLines, facetIntersects, getContours, simplifyContour, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos, facetLinesFromSTL)
 
@@ -433,23 +441,151 @@ sliceObject printer@(Printer _ buildarea extruder) print@(Print perimeterCount _
 ------------------------ OPTIONS -------------------------
 ----------------------------------------------------------
 
--- Note: we're modeling the current engine options, and will switch to curaEngine style after the json parser is integrated.
-data ExtCuraEngineOpts = ExtCuraEngineOpts
-    { perimeterCountOpt       :: Maybe Fastℕ
-    , infillPercentOpt        :: Maybe ℝ
-    , layerHeightMMOpt        :: Maybe ℝ
-    , topBottomThicknessMMOpt :: Maybe ℝ
-    , generateSupportOpt      :: Bool
-    , outputFile              :: Maybe FilePath
---    , center           :: Maybe Point
-    , lineSpacingMMOpt        :: Maybe ℝ
-    , inputFile               :: String
+{-
+-- Optional settings, that can happen at the global scope, or in the individual scope.
+data CuraSettings =
+  CuraSettings
+    {
+      perimeterCountCOpt       :: Maybe Fastℕ
+    , infillPercentCOpt        :: Maybe ℝ
+    , layerHeightMMCOpt        :: Maybe ℝ
+    , topBottomThicknessMMCOpt :: Maybe ℝ
+    , generateSupportCOpt      :: Bool
+    , lineSpacingMMCOpt        :: Maybe ℝ
     }
 
--- | The parser for our command line arguments.
+-- Container for the individual scope.
+data ExtCuraObjectOpts =
+  ExtCuraObjectOpts
+    {
+    }
+-}
+
+-- Container for the global scope.
+-- FIXME: extruders and STLs are supposed to be different scopes.
+data ExtCuraEngineOpts =
+  ExtCuraEngineOpts
+    {
+      commandOpt              :: String
+    , targetOpt               :: Maybe String
+    , settingFileOpt          :: Maybe FilePath
+    , verboseOpt              :: Bool
+    , threadsOpt              :: Maybe Fastℕ
+    , progressOpt             :: Bool
+    , outputFileOpt           :: Maybe String
+    , inputFileOpt            :: Maybe String
+    , perimeterCountOpt       :: Maybe Fastℕ
+    , infillPercentOpt        :: Maybe ℝ
+    , topBottomThicknessMMOpt :: Maybe ℝ
+    , generateSupportOpt      :: Bool
+    , lineSpacingMMOpt        :: Maybe ℝ
+    , settingOpts             :: [String]
+    , commandOpt2             :: Maybe String
+    }
+
+-- | A parser for curaengine style command line arguments.
 extCuraEngineOpts :: Parser ExtCuraEngineOpts
-extCuraEngineOpts = ExtCuraEngineOpts
-  <$> optional (
+extCuraEngineOpts = hsubparser
+  (( command "connect"
+    (info connectParser (progDesc "Connect to target"))
+  ) <>
+  ( command "slice"
+    (info sliceParser (progDesc "Slice input file"))
+  )) 
+
+--connectParser :: Parser ExtCuraEngineOpts
+connectParser = ExtCuraEngineOpts <$>
+  pure "connect"
+  <*> optional (
+  option auto
+    (    long "connect"
+      <> metavar "TARGET"
+      <> help "Target to connect to (and optional port)"
+    )
+  )
+  <*> optional (
+  option auto
+    (    short 'j'
+      <> long "json"
+      <> metavar "JSONFILE"
+      <> help "A file defining your printer's parameters (in CURA json format 2.0)"
+    )
+  )
+  <*> switch
+    (    short 'v'
+      <> long "verbose"
+      <> help "Increase the verbosity"
+    )
+  <*> optional (
+  option auto
+    (    short 'm'
+      <> long "threads"
+      <> help "number of threads to use when slicing. Ignored."
+    )
+  )
+  <*> pure False
+  <*> pure Nothing
+  <*> pure Nothing
+  <*> pure Nothing
+  <*> pure Nothing
+  <*> pure Nothing
+  <*> pure False
+  <*> pure Nothing
+  <*> pure []
+  <*> optional (
+  argument str
+    (    metavar "TARGET"
+      <> help "Target to connect to (and optional port)"
+  )
+  )
+
+--sliceParser :: Parser ExtCuraEngineOpts
+sliceParser = ExtCuraEngineOpts <$>
+  pure "slice"
+  <*>
+  pure Nothing
+  <*> optional (
+  option auto
+    (    short 'j'
+      <> long "json"
+      <> metavar "JSONFILE"
+      <> help "A file defining your printer's parameters (in CURA json format 2.0)"
+    )
+  )
+  <*> switch
+    (    short 'v'
+      <> long "verbose"
+      <> help "Increase the verbosity"
+    )
+  <*> optional (
+  option auto
+    (    short 'm'
+      <> long "threads"
+      <> help "number of threads to use when slicing. Ignored."
+    )
+  )
+  <*> switch
+    (    short 'p'
+      <> long "progress"
+      <> help "display progress information. Ignored."
+    )
+  <*> optional (
+  strOption
+    (    short 'o'
+      <> long "output"
+      <> metavar "OUTPUT"
+      <> help "Output file name"
+      )
+    )
+  <*> optional (
+  strOption
+    (    short 'l'
+      <> long "load"
+      <> metavar "INPUTFILE"
+      <> help "load an ASCII formatted STL file"
+      )
+    )
+  <*> optional (
   option auto
     (    short 'p'
       <> long "perimeters"
@@ -465,43 +601,19 @@ extCuraEngineOpts = ExtCuraEngineOpts
       <> help "Infill amount (ranging from 0 to 1)"
     )
   )
-  <*> optional (
-  option auto
-    (    short 't'
-      <> long "thickness"
-      <> metavar "THICKNESS"
-      <> help "The layer height (in millimeters)"
-    )
-  )
-  <*> optional (
+  <*> pure Nothing
+  {-optional (
   option auto
     (    short 's'
       <> long "surfacethickness"
       <> metavar "SURFACE"
       <> help "The thickness of the top and bottom layers (in millimeters)"
     )
-  )
+  )-}
   <*> switch
   (     long "support"
      <> help "Whether to generate support structures"
   )
-  <*> optional (
-  strOption
-    (    short 'o'
-      <> long "output"
-      <> metavar "OUTPUT"
-      <> help "Output file name"
-      )
-    )
-{-  <*> optional (
-  option auto
-    (    short 'c'
-      <> long "center"
-      <> metavar "CENTER"
-      <> help "The position on the print bed to center the object."
-    )
-  )
--}
   <*> optional (
   option auto
     (    short 'l'
@@ -510,10 +622,13 @@ extCuraEngineOpts = ExtCuraEngineOpts
       <> help "The distance between lines of the infill (in millimeters)"
     )
   )
-  <*> argument str
-  (  metavar "FILE"
-     <> help "Input ASCII formatted STL file"
-  )
+  <*> many (
+    strOption
+      (  short 's'
+         <> help "Set a setting to a value."
+      )
+    )
+  <*> pure Nothing
 
 -----------------------------------------------------------------------
 --------------------------- Main --------------------------------------
@@ -541,43 +656,64 @@ run :: ExtCuraEngineOpts -> IO ()
 run rawArgs = do
     let
       args = rawArgs
-    stl <- readFile (inputFile args)
+      inFile = fromMaybe "in.stl" $ inputFileOpt args
+    stl <- readFile inFile
+    (settings, messages) <- addConstants $ settingOpts args
     let
       stlLines  = lines stl
-      printer   = printerFromArgs args
+      printer   = printerFromSettings settings
       buildarea = buildArea printer
       (facets, _) = centerFacets buildarea $ facetLinesFromSTL stlLines
-      print = printFromArgs args
+      print = printFromArgs args settings
       allLayers :: [[Contour]]
       allLayers = filter (\(Contour l) -> head l /= head (tail l)) . filter (/=Contour []) <$> (fmap Contour <$> layers print facets)
       object = zip3 allLayers [1..(toFastℕ $ length allLayers)] [2..(toFastℕ $ length allLayers + 1)]
       (gcode, _) = runState (sliceObject printer print object) (MachineState (EPos 0))
-      outFile = fromMaybe "out.gcode" $ outputFile args
-    writeFile outFile $ unpack (startingGCode <> unlines gcode <> endingGCode)
+      outFile = fromMaybe "out.gcode" $ outputFileOpt args
+    writeFile outFile $ unpack ((startingGCode settings) <> unlines gcode <> (endingGCode settings))
       where
         -- The Printer.
         -- FIXME: pull all of these values from a curaengine json config.
-        printerFromArgs :: ExtCuraEngineOpts -> Printer
-        printerFromArgs _ = Printer printbed buildarea extruder1
-          where
-            -- The bed of the printer. assumed to be some form of rectangle, with the build area coresponding to all of the space above it.
-            printbed = RectBed (150,150)
-            -- The area we can print inside of.
-            buildarea = RectArea (150,150,50)
-            -- The Extruder. note that this includes the diameter of the feed filament.
-            extruder1 = Extruder 1.75 0.4
+        printerFromSettings :: VarLookup -> Printer
+        printerFromSettings vars =
+          Printer (getPrintBed vars) (defaultBuildArea vars) (defaultExtruder vars)
+            where
+              maybeX (lookupVarIn "machine_width" -> Just (ONum width)) = Just width
+              maybeX _ = Nothing
+              maybeY (lookupVarIn "machine_depth" -> Just (ONum depth)) = Just depth
+              maybeY _ = Nothing
+              maybeZ (lookupVarIn "machine_height" -> Just (ONum height)) = Just height
+              maybeZ _ = Nothing
+              maybeNozzleDiameter (lookupVarIn "machine_nozzle_size" -> Just (ONum diameter)) = Just diameter
+              maybeNozzleDiameter _ = Nothing
+              maybeFillamentDiameter (lookupVarIn "material_diameter" -> Just (ONum diameter)) = Just diameter
+              maybeFillamentDiameter _ = Nothing
+
+              -- The bed of the printer. assumed to be some form of rectangle, with the build area coresponding to all of the space above it.
+              getPrintBed var = RectBed ((fromMaybe 150 $ maybeX var),
+                                         (fromMaybe 150 $ maybeY var))
+              -- The area we can print inside of.
+              defaultBuildArea var = RectArea ((fromMaybe 150 $ maybeX var),
+                                           (fromMaybe 150 $ maybeY var),
+                                           (fromMaybe 50  $ maybeZ var))
+              -- The Extruder. note that this includes the diameter of the feed filament.
+              defaultExtruder :: VarLookup -> Extruder
+              defaultExtruder var = Extruder (fromMaybe 1.75 $ maybeFillamentDiameter var)
+                                             (fromMaybe 0.4 $ maybeNozzleDiameter var)
 
         -- The Print
-        -- FIXME: pull all of these values from a curaengine json config.
-        printFromArgs :: ExtCuraEngineOpts -> Print
-        printFromArgs args = Print
+        -- FIXME: pull all of these values from a curaengine json config or the command line.
+        printFromArgs :: ExtCuraEngineOpts -> VarLookup -> Print
+        printFromArgs args vars = Print
                              (fromMaybe defaultPerimeterCount $ perimeterCountOpt args)
                              (fromMaybe defaultInfillPercent $ infillPercentOpt args)
-                             (fromMaybe defaultThickness $ layerHeightMMOpt args)
+                             (fromMaybe 0.2 $ maybeLayerHeight vars)
                              (fromMaybe defaultBottomTopThickness $ topBottomThicknessMMOpt args)
                              (generateSupportOpt args)
                              (fromMaybe defaultLineThickness $ lineSpacingMMOpt args)
           where
+            maybeLayerHeight (lookupVarIn "layer_height" -> Just (ONum layerHeight)) = Just layerHeight
+            maybeLayerHeight _ = Nothing
             defaultInfillPercent,defaultThickness,defaultBottomTopThickness,defaultLineThickness :: ℝ
             defaultInfillPercent = 20
             defaultThickness = 0.2
@@ -585,8 +721,9 @@ run rawArgs = do
             defaultLineThickness = 0.6
             defaultPerimeterCount :: Fastℕ
             defaultPerimeterCount = 2
-        startingGCode, endingGCode :: Text
-        startingGCode = "G21 ;metric values\n"
+        startingGCode, endingGCode :: VarLookup -> Text
+        startingGCode (lookupVarIn "machine_start_gcode" -> Just (OString startGCode)) = pack startGCode
+        startingGCode _ = "G21 ;metric values\n"
                         <> "G90 ;absolute positioning\n"
                         <> "M82 ;set extruder to absolute mode\n"
                         <> "M106 ;start with the fan on\n"
@@ -600,7 +737,8 @@ run rawArgs = do
                         <> "G1 F4200 ;default speed\n"
                         <> ";Put printing message on LCD screen\n"
                         <> "M117\n"
-        endingGCode = ";End GCode\n"
+        endingGCode (lookupVarIn "machine_end_gcode" -> Just (OString endGCode)) = pack endGCode
+        endingGCode _ = ";End GCode\n"
                       <> "M104 S0 ;extruder heater off\n"
                       <> "M140 S0 ;heated bed heater off (if you have it)\n"
                       <> "G91 ;relative positioning\n"
