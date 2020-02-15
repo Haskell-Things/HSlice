@@ -340,7 +340,7 @@ boundingBox (Contour contourPoints) = if isEmpty box then Nothing else Just box
 
 -- Put a fixed amount around the bounding box.
 incBBox :: BBox -> ℝ -> BBox
-incBBox (BBox (x1,y1) (x2,y2)) ammount = BBox (x1+ammount, y1+ammount) (x2-ammount, y2-ammount)
+incBBox (BBox (x1,y1) (x2,y2)) amount = BBox (x1+amount, y1+amount) (x2-amount, y2-amount)
 
 -- add a 2D bounding box to a list of contours, as the first contour in the list.
 -- FIXME: assumes 2D contour.
