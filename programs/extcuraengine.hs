@@ -49,7 +49,7 @@ import Data.List (nub, sortBy, lines, length, zip3, filter, tail, head, zipWith,
 
 import Control.Monad ((>>=))
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe, fromMaybe, isJust)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe, fromMaybe)
 
 import Text.Show(show)
 
@@ -64,9 +64,9 @@ import Formatting(format, fixed)
 import Graphics.Implicit.ExtOpenScad.Eval.Constant (addConstants)
 
 -- The definition of the symbol type, so we can access variables, and see settings.
-import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString), lookupVarIn, Message(Message), MessageType(TextOut), ScadOpts(ScadOpts))
+import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString, OBool), lookupVarIn, Message(Message), MessageType(TextOut), ScadOpts(ScadOpts))
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ, Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet, sides, Contour(Contour), LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, makeLines, facetIntersects, getContours, simplifyContour, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos, facetLinesFromSTL)
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ, maybeToFastℕ, Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet, sides, Contour(Contour), LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, makeLines, facetIntersects, getContours, simplifyContour, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos, facetLinesFromSTL)
 
 default (ℕ, Fastℕ, ℝ)
 
@@ -475,10 +475,7 @@ data ExtCuraEngineOpts =
     , progressOpt             :: Bool
     , outputFileOpt           :: Maybe String
     , inputFileOpt            :: Maybe String
-    , perimeterCountOpt       :: Maybe Fastℕ
     , infillPercentOpt        :: Maybe ℝ
-    , topBottomThicknessMMOpt :: Maybe ℝ
-    , generateSupportOpt      :: Bool
     , lineSpacingMMOpt        :: Maybe ℝ
     , settingOpts             :: [String]
     , commandOpt2             :: Maybe String
@@ -528,9 +525,6 @@ connectParser = ExtCuraEngineOpts <$>
   <*> pure Nothing
   <*> pure Nothing
   <*> pure Nothing
-  <*> pure Nothing
-  <*> pure Nothing
-  <*> pure False
   <*> pure Nothing
   <*> pure []
   <*> optional (
@@ -586,13 +580,6 @@ sliceParser = ExtCuraEngineOpts <$>
       <> help "load an ASCII formatted STL file"
       )
     )
-  <*> optional (
-  option auto
-    (    short 'p'
-      <> long "perimeters"
-      <> help "How many layers go around each contour"
-    )
-  )
 -- FIXME: constrain this to be 0 or greater.
   <*> optional (
   option auto
@@ -601,19 +588,6 @@ sliceParser = ExtCuraEngineOpts <$>
       <> metavar "INFILL"
       <> help "Infill amount (ranging from 0 to 1)"
     )
-  )
-  <*> pure Nothing
-  {-optional (
-  option auto
-    (    short 's'
-      <> long "surfacethickness"
-      <> metavar "SURFACE"
-      <> help "The thickness of the top and bottom layers (in millimeters)"
-    )
-  )-}
-  <*> switch
-  (     long "support"
-     <> help "Whether to generate support structures"
   )
   <*> optional (
   option auto
@@ -706,22 +680,24 @@ run rawArgs = do
         -- FIXME: pull all of these values from a curaengine json config or the command line.
         printFromArgs :: ExtCuraEngineOpts -> VarLookup -> Print
         printFromArgs args vars = Print
-                             (fromMaybe defaultPerimeterCount $ perimeterCountOpt args)
+                             (fromMaybe 2 $ maybeWallLineCount vars)
                              (fromMaybe defaultInfillPercent $ infillPercentOpt args)
                              (fromMaybe 0.2 $ maybeLayerHeight vars)
-                             (fromMaybe defaultBottomTopThickness $ topBottomThicknessMMOpt args)
-                             (generateSupportOpt args)
+                             (fromMaybe 0.8 $ maybeTopBottomThickness vars)
+                             (fromMaybe False $ maybeSupport vars)
                              (fromMaybe defaultLineThickness $ lineSpacingMMOpt args)
           where
             maybeLayerHeight (lookupVarIn "layer_height" -> Just (ONum layerHeight)) = Just layerHeight
             maybeLayerHeight _ = Nothing
-            defaultInfillPercent,defaultThickness,defaultBottomTopThickness,defaultLineThickness :: ℝ
+            maybeWallLineCount (lookupVarIn "wall_line_count" -> Just (ONum wallLineCount)) = maybeToFastℕ wallLineCount
+            maybeWallLineCount _ = Nothing
+            maybeSupport (lookupVarIn "support_enable" -> Just (OBool supportEnable)) = Just supportEnable
+            maybeSupport _ = Nothing
+            maybeTopBottomThickness (lookupVarIn "top_bottom_thickness" -> Just (ONum topBottomThickness)) = Just topBottomThickness
+            maybeTopBottomThickness _ = Nothing
+            defaultInfillPercent,defaultLineThickness :: ℝ
             defaultInfillPercent = 20
-            defaultThickness = 0.2
-            defaultBottomTopThickness = 0.8
             defaultLineThickness = 0.6
-            defaultPerimeterCount :: Fastℕ
-            defaultPerimeterCount = 2
         startingGCode, endingGCode :: VarLookup -> Text
         startingGCode (lookupVarIn "machine_start_gcode" -> Just (OString startGCode)) = pack startGCode
         startingGCode _ = "G21 ;metric values\n"

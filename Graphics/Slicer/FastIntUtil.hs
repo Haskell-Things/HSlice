@@ -6,13 +6,19 @@
 -- Use existing instances for the wrapped types rather than manually making them
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Graphics.Slicer.FastIntUtil (Fastℕ(Fastℕ), toFastℕ, fromFastℕ) where
+-- Use ℝ somewhat like it's a real type, instead of referring to Double.
+{-# LANGUAGE TypeSynonymInstances #-}
 
-import Prelude (Integral, Num, Eq, Ord, Enum, Real, Show, Read, Int, id)
+module Graphics.Slicer.FastIntUtil (Fastℕ(Fastℕ), toFastℕ, fromFastℕ, maybeToFastℕ) where
+
+import Prelude (Integral, Num, Eq, Ord, Enum, Real, Show, Read, Int, Maybe(Just, Nothing), fromIntegral, id, floor, (==), ($), (.))
+
+import Graphics.Slicer.RationalUtil (ℝ)
 
 class FastN n where
   fromFastℕ :: Fastℕ -> n
   toFastℕ :: n -> Fastℕ
+  maybeToFastℕ :: n -> Maybe Fastℕ
 
 instance FastN Int where
   fromFastℕ (Fastℕ a) = a
@@ -25,6 +31,12 @@ instance FastN Fastℕ where
   {-# INLINABLE fromFastℕ #-}
   toFastℕ = id
   {-# INLINABLE toFastℕ #-}
+
+instance FastN ℝ where
+  fromFastℕ (Fastℕ a) = fromIntegral a
+  {-# INLINABLE fromFastℕ #-}
+  maybeToFastℕ n = if (fromIntegral $ floor n) == n then Just . Fastℕ $ floor n else Nothing
+  {-# INLINABLE maybeToFastℕ #-}
 
 -- System integers, meant to go fast, and have no chance of wrapping 2^31.
 newtype Fastℕ = Fastℕ Int
