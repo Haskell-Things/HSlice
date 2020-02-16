@@ -138,19 +138,17 @@ getInfillLineIntersections contours line = nub $ mapMaybe (lineIntersection line
       contourLines = foldMap makeLines $ contourPoints <$> contours
       contourPoints (Contour points) = points
 
--- Generate covering lines for a given percent infill
--- FIXME: magic number: 100.
+-- Generate covering lines as infill.
+-- FIXME: Very bad algorithm. Prunes down lines instead of adjusting their spacing.
 coveringInfill :: BuildArea -> Print -> ℝ -> [Line]
 coveringInfill buildarea print zHeight
     | infill == 0 = []
     | otherwise = pruneInfill (coveringLinesUp buildarea ls zHeight) <> pruneInfill (coveringLinesDown buildarea ls zHeight)
     where
-      n :: ℝ
-      n = max 1 (infill/100)
       pruneInfill :: [Line] -> [Line]
-      pruneInfill l = (l !!) <$> [0, (floor n)..length l-1]
+      pruneInfill l = (l !!) <$> [0, (floor $ 1/infill) ..length l-1]
       ls = lineSpacing print
-      infill = infillAmmount print
+      infill = infillAmount print
 
 -- Generate lines over entire print area
 coveringLinesUp :: BuildArea -> ℝ -> ℝ -> [Line]
@@ -475,7 +473,6 @@ data ExtCuraEngineOpts =
     , progressOpt             :: Bool
     , outputFileOpt           :: Maybe String
     , inputFileOpt            :: Maybe String
-    , infillPercentOpt        :: Maybe ℝ
     , lineSpacingMMOpt        :: Maybe ℝ
     , settingOpts             :: [String]
     , commandOpt2             :: Maybe String
@@ -522,7 +519,6 @@ connectParser = ExtCuraEngineOpts <$>
     )
   )
   <*> pure False
-  <*> pure Nothing
   <*> pure Nothing
   <*> pure Nothing
   <*> pure Nothing
@@ -580,15 +576,6 @@ sliceParser = ExtCuraEngineOpts <$>
       <> help "load an ASCII formatted STL file"
       )
     )
--- FIXME: constrain this to be 0 or greater.
-  <*> optional (
-  option auto
-    (    short 'i'
-      <> long "infill"
-      <> metavar "INFILL"
-      <> help "Infill amount (ranging from 0 to 1)"
-    )
-  )
   <*> optional (
   option auto
     (    short 'l'
@@ -620,7 +607,7 @@ data Printer = Printer
 data Print = Print
   {
     _perimeters      :: Fastℕ
-  , infillAmmount    :: ℝ
+  , infillAmount     :: ℝ -- as an amount from 0 (none) to 1 (full density).
   , layerHeight      :: ℝ
   , surfaceThickness :: ℝ
   , _withSupport     :: Bool
@@ -676,12 +663,12 @@ run rawArgs = do
               defaultExtruder var = Extruder (fromMaybe 1.75 $ maybeFillamentDiameter var)
                                              (fromMaybe 0.4 $ maybeNozzleDiameter var)
 
-        -- The Print
+        -- Print settings for the item currently being sliced.
         -- FIXME: pull all of these values from a curaengine json config or the command line.
         printFromArgs :: ExtCuraEngineOpts -> VarLookup -> Print
         printFromArgs args vars = Print
                              (fromMaybe 2 $ maybeWallLineCount vars)
-                             (fromMaybe defaultInfillPercent $ infillPercentOpt args)
+                             (fromMaybe 1 $ (maybeInfillAmount vars / 100))
                              (fromMaybe 0.2 $ maybeLayerHeight vars)
                              (fromMaybe 0.8 $ maybeTopBottomThickness vars)
                              (fromMaybe False $ maybeSupport vars)
@@ -689,14 +676,15 @@ run rawArgs = do
           where
             maybeLayerHeight (lookupVarIn "layer_height" -> Just (ONum layerHeight)) = Just layerHeight
             maybeLayerHeight _ = Nothing
+            maybeInfillAmount (lookupVarIn "infill_sparse_density" -> Just (ONum infillAmount)) = Just infillAmount
+            maybeInfillAmount _ = Nothing
             maybeWallLineCount (lookupVarIn "wall_line_count" -> Just (ONum wallLineCount)) = maybeToFastℕ wallLineCount
             maybeWallLineCount _ = Nothing
             maybeSupport (lookupVarIn "support_enable" -> Just (OBool supportEnable)) = Just supportEnable
             maybeSupport _ = Nothing
             maybeTopBottomThickness (lookupVarIn "top_bottom_thickness" -> Just (ONum topBottomThickness)) = Just topBottomThickness
             maybeTopBottomThickness _ = Nothing
-            defaultInfillPercent,defaultLineThickness :: ℝ
-            defaultInfillPercent = 20
+            defaultLineThickness :: ℝ
             defaultLineThickness = 0.6
         startingGCode, endingGCode :: VarLookup -> Text
         startingGCode (lookupVarIn "machine_start_gcode" -> Just (OString startGCode)) = pack startGCode
