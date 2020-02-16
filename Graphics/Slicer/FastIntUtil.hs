@@ -11,7 +11,7 @@
 
 module Graphics.Slicer.FastIntUtil (Fastℕ(Fastℕ), toFastℕ, fromFastℕ, maybeToFastℕ) where
 
-import Prelude (Integral, Num, Eq, Ord, Enum, Real, Show, Read, Int, Maybe(Just, Nothing), fromIntegral, id, floor, (==), ($), (.))
+import Prelude (Integral, Num, Eq, Ord, Enum, Real, Show, Read, Int, Maybe(Just, Nothing), fromInteger, fromIntegral, id, floor, (==), ($), (.), error)
 
 import Graphics.Slicer.RationalUtil (ℝ)
 
@@ -25,17 +25,23 @@ instance FastN Int where
   {-# INLINABLE fromFastℕ #-}
   toFastℕ = Fastℕ
   {-# INLINABLE toFastℕ #-}
+  maybeToFastℕ = Just . Fastℕ
+  {-# INLINABLE maybeToFastℕ #-}
 
 instance FastN Fastℕ where
   fromFastℕ = id
   {-# INLINABLE fromFastℕ #-}
   toFastℕ = id
   {-# INLINABLE toFastℕ #-}
+  maybeToFastℕ = Just
+  {-# INLINABLE maybeToFastℕ #-}
 
 instance FastN ℝ where
   fromFastℕ (Fastℕ a) = fromIntegral a
   {-# INLINABLE fromFastℕ #-}
-  maybeToFastℕ n = if (fromIntegral $ floor n) == n then Just . Fastℕ $ floor n else Nothing
+  toFastℕ = error "there can be no toFastℕ of an ℝ"
+  {-# INLINABLE toFastℕ #-}
+  maybeToFastℕ n = if (fromInteger $ floor n) == (n::ℝ) then Just . Fastℕ $ floor n else Nothing
   {-# INLINABLE maybeToFastℕ #-}
 
 -- System integers, meant to go fast, and have no chance of wrapping 2^31.
