@@ -473,7 +473,6 @@ data ExtCuraEngineOpts =
     , progressOpt             :: Bool
     , outputFileOpt           :: Maybe String
     , inputFileOpt            :: Maybe String
-    , lineSpacingMMOpt        :: Maybe ℝ
     , settingOpts             :: [String]
     , commandOpt2             :: Maybe String
     }
@@ -519,7 +518,6 @@ connectParser = ExtCuraEngineOpts <$>
     )
   )
   <*> pure False
-  <*> pure Nothing
   <*> pure Nothing
   <*> pure Nothing
   <*> pure []
@@ -576,14 +574,6 @@ sliceParser = ExtCuraEngineOpts <$>
       <> help "load an ASCII formatted STL file"
       )
     )
-  <*> optional (
-  option auto
-    (    short 'l'
-      <> long "linespacing"
-      <> metavar "LINESPACING"
-      <> help "The distance between lines of the infill (in millimeters)"
-    )
-  )
   <*> many (
     strOption
       (  short 's'
@@ -626,7 +616,7 @@ run rawArgs = do
       printer   = printerFromSettings settings
       buildarea = buildArea printer
       (facets, _) = centerFacets buildarea $ facetLinesFromSTL stlLines
-      print = printFromArgs args settings
+      print = printFromSettings settings
       allLayers :: [[Contour]]
       allLayers = filter (\(Contour l) -> head l /= head (tail l)) . filter (/=Contour []) <$> (fmap Contour <$> layers print facets)
       object = zip3 allLayers [1..(toFastℕ $ length allLayers)] [2..(toFastℕ $ length allLayers + 1)]
@@ -665,14 +655,14 @@ run rawArgs = do
 
         -- Print settings for the item currently being sliced.
         -- FIXME: pull all of these values from a curaengine json config or the command line.
-        printFromArgs :: ExtCuraEngineOpts -> VarLookup -> Print
-        printFromArgs args vars = Print
-                             (fromMaybe 2 $ maybeWallLineCount vars)
-                             (fromMaybe 1 $ (maybeInfillAmount vars / 100))
-                             (fromMaybe 0.2 $ maybeLayerHeight vars)
-                             (fromMaybe 0.8 $ maybeTopBottomThickness vars)
-                             (fromMaybe False $ maybeSupport vars)
-                             (fromMaybe defaultLineThickness $ lineSpacingMMOpt args)
+        printFromSettings :: VarLookup -> Print
+        printFromSettings vars = Print
+                                 (fromMaybe 2 $ maybeWallLineCount vars)
+                                 (fromMaybe 1 $ maybeInfillAmount vars)
+                                 (fromMaybe 0.2 $ maybeLayerHeight vars)
+                                 (fromMaybe 0.8 $ maybeTopBottomThickness vars)
+                                 (fromMaybe False $ maybeSupport vars)
+                                 (fromMaybe 0.6 $ maybeInfillLineWidth vars)
           where
             maybeLayerHeight (lookupVarIn "layer_height" -> Just (ONum layerHeight)) = Just layerHeight
             maybeLayerHeight _ = Nothing
@@ -684,8 +674,8 @@ run rawArgs = do
             maybeSupport _ = Nothing
             maybeTopBottomThickness (lookupVarIn "top_bottom_thickness" -> Just (ONum topBottomThickness)) = Just topBottomThickness
             maybeTopBottomThickness _ = Nothing
-            defaultLineThickness :: ℝ
-            defaultLineThickness = 0.6
+            maybeInfillLineWidth (lookupVarIn "infill_line_width" -> Just (ONum infillLineWidth)) = Just infillLineWidth
+            maybeInfillLineWidth _ = Nothing
         startingGCode, endingGCode :: VarLookup -> Text
         startingGCode (lookupVarIn "machine_start_gcode" -> Just (OString startGCode)) = pack startGCode
         startingGCode _ = "G21 ;metric values\n"
