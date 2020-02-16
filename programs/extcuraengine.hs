@@ -676,7 +676,7 @@ run rawArgs = do
           where
             maybeLayerHeight (lookupVarIn "layer_height" -> Just (ONum layerHeight)) = Just layerHeight
             maybeLayerHeight _ = Nothing
-            maybeInfillAmount (lookupVarIn "infill_sparse_density" -> Just (ONum infillAmount)) = Just infillAmount
+            maybeInfillAmount (lookupVarIn "infill_sparse_density" -> Just (ONum infillAmount)) = Just (infillAmount / 100)
             maybeInfillAmount _ = Nothing
             maybeWallLineCount (lookupVarIn "wall_line_count" -> Just (ONum wallLineCount)) = maybeToFastℕ wallLineCount
             maybeWallLineCount _ = Nothing
