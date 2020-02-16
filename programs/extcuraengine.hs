@@ -35,7 +35,7 @@ import Data.Eq ((==), (/=))
 
 import Data.Function ((.), ($), flip)
 
-import Data.Ord ((<=), (<), (>), max)
+import Data.Ord ((<=), (<), (>))
 
 import Data.Tuple (fst, snd)
 
@@ -465,16 +465,16 @@ data ExtCuraObjectOpts =
 data ExtCuraEngineOpts =
   ExtCuraEngineOpts
     {
-      commandOpt              :: String
-    , targetOpt               :: Maybe String
-    , settingFileOpt          :: Maybe FilePath
-    , verboseOpt              :: Bool
-    , threadsOpt              :: Maybe Fastℕ
-    , progressOpt             :: Bool
+      _commandOpt             :: String
+    , _targetOpt              :: Maybe String
+    , _settingFileOpt         :: Maybe FilePath
+    , _verboseOpt             :: Bool
+    , _threadsOpt             :: Maybe Fastℕ
+    , _progressOpt            :: Bool
     , outputFileOpt           :: Maybe String
     , inputFileOpt            :: Maybe String
     , settingOpts             :: [String]
-    , commandOpt2             :: Maybe String
+    , _commandOpt2            :: Maybe String
     }
 
 -- | A parser for curaengine style command line arguments.
@@ -610,6 +610,7 @@ run rawArgs = do
       args = rawArgs
       inFile = fromMaybe "in.stl" $ inputFileOpt args
     stl <- readFile inFile
+    -- FIXME: do something with messages.
     (settings, messages) <- addConstants $ settingOpts args
     let
       stlLines  = lines stl
@@ -664,17 +665,17 @@ run rawArgs = do
                                  (fromMaybe False $ maybeSupport vars)
                                  (fromMaybe 0.6 $ maybeInfillLineWidth vars)
           where
-            maybeLayerHeight (lookupVarIn "layer_height" -> Just (ONum layerHeight)) = Just layerHeight
+            maybeLayerHeight (lookupVarIn "layer_height" -> Just (ONum thickness)) = Just thickness
             maybeLayerHeight _ = Nothing
-            maybeInfillAmount (lookupVarIn "infill_sparse_density" -> Just (ONum infillAmount)) = Just (infillAmount / 100)
+            maybeInfillAmount (lookupVarIn "infill_sparse_density" -> Just (ONum amount)) = Just (amount / 100)
             maybeInfillAmount _ = Nothing
-            maybeWallLineCount (lookupVarIn "wall_line_count" -> Just (ONum wallLineCount)) = maybeToFastℕ wallLineCount
+            maybeWallLineCount (lookupVarIn "wall_line_count" -> Just (ONum count)) = maybeToFastℕ count
             maybeWallLineCount _ = Nothing
-            maybeSupport (lookupVarIn "support_enable" -> Just (OBool supportEnable)) = Just supportEnable
+            maybeSupport (lookupVarIn "support_enable" -> Just (OBool enable)) = Just enable
             maybeSupport _ = Nothing
-            maybeTopBottomThickness (lookupVarIn "top_bottom_thickness" -> Just (ONum topBottomThickness)) = Just topBottomThickness
+            maybeTopBottomThickness (lookupVarIn "top_bottom_thickness" -> Just (ONum thickness)) = Just thickness
             maybeTopBottomThickness _ = Nothing
-            maybeInfillLineWidth (lookupVarIn "infill_line_width" -> Just (ONum infillLineWidth)) = Just infillLineWidth
+            maybeInfillLineWidth (lookupVarIn "infill_line_width" -> Just (ONum width)) = Just width
             maybeInfillLineWidth _ = Nothing
         startingGCode, endingGCode :: VarLookup -> Text
         startingGCode (lookupVarIn "machine_start_gcode" -> Just (OString startGCode)) = pack startGCode

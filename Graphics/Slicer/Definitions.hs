@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Definitions (ℝ, toℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ, toFastℕ, maybeToFastℕ) where
 
-import Prelude (Double, Rational, fromRational)
+import Prelude (Rational, fromRational)
 
 import Graphics.Slicer.FastIntUtil (Fastℕ, fromFastℕ, toFastℕ, maybeToFastℕ)
 
