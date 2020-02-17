@@ -266,7 +266,7 @@ makeExtrudeGCode p e = "G1 " <> showPoint p <> " E" <> posIze e
 
 -- GCode to travel to a point without extruding
 makeTravelGCode :: Point -> Text
-makeTravelGCode p = "G1 " <> showPoint p
+makeTravelGCode p = "G0 " <> showPoint p
   where
     showPoint (Point (x1,y1,z1)) = "X" <> posIze x1 <> " Y" <> posIze y1 <> " Z" <> posIze z1
     posIze :: ℝ -> Text
@@ -275,6 +275,10 @@ makeTravelGCode p = "G1 " <> showPoint p
       | pos < 0.1 && pos > -0.1 = format (fixed 5) pos
       | otherwise = pack . show $ roundToFifth pos
 
+-- FIXME: generate ';LAYER_COUNT:75'
+-- FIXME: generate ';TYPE:WALL-INNER'
+-- FIXME: generate ';TYPE:WALL-OUTER'
+-- FIXME: generate ';TYPE:SKIN'
 gcodeForNestedContours :: Extruder
                        -> ℝ
                        -> [[Contour]]
@@ -287,6 +291,7 @@ gcodeForNestedContours extruder lh (c:cs) = do
   pure $ oneContour <> remainingContours
     where firstContoursGCode = gcodeForContours extruder lh c
 
+-- FIXME: generate ';LAYER:0'
 gcodeForContours :: Extruder
                  -> ℝ
                  -> [Contour]
@@ -406,6 +411,7 @@ mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [1::Fastℕ,2
 -------------------------------------------------------------
 
 -- Input should be top to bottom, output should be bottom to top
+-- FIXME: construct ';TYPE:FILL'
 sliceObject ::  Printer ->  Print
                   -> [([Contour], Fastℕ, Fastℕ)] -> StateM [Text]
 sliceObject _ _ [] = pure []
@@ -699,7 +705,7 @@ run rawArgs = do
                       <> "M140 S0 ;heated bed heater off (if you have it)\n"
                       <> "G91 ;relative positioning\n"
                       <> "G1 E-1 F300 ;retract the filament a bit before lifting the nozzle, to release some of the pressure\n"
-                      <> "G1 Z+0.5 E-5 X-20 Y-20 F{travel_speed} ;move Z up a bit and retract filament even more\n"
+                      <> "G1 Z+0.5 E-5 X-20 Y-20 F300 ;move Z up a bit and retract filament even more\n"
                       <> "G28 X0 Y0 ;move X/Y to min endstops, so the head is out of the way\n"
                       <> "M107 ;fan off\n"
                       <> "M84 ;steppers off\n"
