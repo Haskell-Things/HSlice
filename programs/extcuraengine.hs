@@ -448,30 +448,10 @@ sliceObject printer@(Printer _ buildarea extruder) print@(Print perimeterCount _
 ------------------------ OPTIONS -------------------------
 ----------------------------------------------------------
 
-{-
--- Optional settings, that can happen at the global scope, or in the individual scope.
-data CuraSettings =
-  CuraSettings
-    {
-      perimeterCountCOpt       :: Maybe Fastℕ
-    , infillPercentCOpt        :: Maybe ℝ
-    , layerHeightMMCOpt        :: Maybe ℝ
-    , topBottomThicknessMMCOpt :: Maybe ℝ
-    , generateSupportCOpt      :: Bool
-    , lineSpacingMMCOpt        :: Maybe ℝ
-    }
-
--- Container for the individual scope.
-data ExtCuraObjectOpts =
-  ExtCuraObjectOpts
-    {
-    }
--}
-
 -- Container for the global scope.
 -- FIXME: extruders and STLs are supposed to be different scopes.
-data ExtCuraEngineOpts =
-  ExtCuraEngineOpts
+data ExtCuraEngineRootOpts =
+  ExtCuraEngineRootOpts
     {
       _commandOpt             :: String
     , _targetOpt              :: Maybe String
@@ -485,8 +465,17 @@ data ExtCuraEngineOpts =
     , _commandOpt2            :: Maybe String
     }
 
+{-
+-- Container for sub scopes.
+data ExtCuraEngineSubOpts =
+  ExtCuraEngineSubOpts
+    {
+      _
+    }
+-}
+
 -- | A parser for curaengine style command line arguments.
-extCuraEngineOpts :: Parser ExtCuraEngineOpts
+extCuraEngineOpts :: Parser ExtCuraEngineRootOpts
 extCuraEngineOpts = hsubparser
   (( command "connect"
     (info connectParser (progDesc "Connect to target"))
@@ -495,8 +484,8 @@ extCuraEngineOpts = hsubparser
     (info sliceParser (progDesc "Slice input file"))
   )) 
 
---connectParser :: Parser ExtCuraEngineOpts
-connectParser = ExtCuraEngineOpts <$>
+connectParser :: Parser ExtCuraEngineRootOpts
+connectParser = ExtCuraEngineRootOpts <$>
   pure "connect"
   <*> optional (
   option auto
@@ -536,8 +525,8 @@ connectParser = ExtCuraEngineOpts <$>
   )
   )
 
---sliceParser :: Parser ExtCuraEngineOpts
-sliceParser = ExtCuraEngineOpts <$>
+sliceParser :: Parser ExtCuraEngineRootOpts
+sliceParser = ExtCuraEngineRootOpts <$>
   pure "slice"
   <*>
   pure Nothing
@@ -612,7 +601,7 @@ data Print = Print
   , lineSpacing      :: ℝ -- In Millimeters.
   }
 
-run :: ExtCuraEngineOpts -> IO ()
+run :: ExtCuraEngineRootOpts -> IO ()
 run rawArgs = do
     let
       args = rawArgs
