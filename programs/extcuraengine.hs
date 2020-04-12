@@ -27,7 +27,7 @@
 -- For matching our OpenScad variable types.
 {-# LANGUAGE ViewPatterns #-}
 
-import Prelude ((*), (/), (+), (-), fromIntegral, odd, pi, sqrt, mod, round, floor, foldMap, fmap, (<>), toRational, FilePath, (**))
+import Prelude ((*), (/), (+), (-), fromIntegral, odd, pi, sqrt, mod, round, floor, foldMap, fmap, (<>), toRational, FilePath, (**), Int, fromInteger, Eq, fromRational, init)
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -66,7 +66,9 @@ import Graphics.Implicit.ExtOpenScad.Eval.Constant (addConstants)
 -- The definition of the symbol type, so we can access variables, and see settings.
 import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString, OBool), lookupVarIn, Message(Message), MessageType(TextOut), ScadOpts(ScadOpts))
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ, maybeToFastℕ, Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet, sides, Contour(Contour), LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, makeLines, facetIntersects, getContours, simplifyContour, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos, facetLinesFromSTL)
+import Graphics.Implicit.Definitions (ℝ, ℝ2, ℝ3, ℕ, Fastℕ(Fastℕ), fromFastℕ, toFastℕ)
+
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet, sides, Contour(Contour), LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, makeLines, facetIntersects, getContours, simplifyContour, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos, facetLinesFromSTL)
 
 default (ℕ, Fastℕ, ℝ)
 
@@ -246,7 +248,7 @@ gcodeForContour :: Extruder
                 -> Contour
                 -> StateM [Text]
 gcodeForContour extruder lh (Contour contourPoints) = do
-  currentPos <- toℝ <$> getEPos
+  currentPos <- fromRational <$> getEPos
   let
     extrusionAmounts = extrusions extruder lh (head contourPoints) (Contour $ tail contourPoints)
     ePoses = (currentPos+) <$> accumulateValues extrusionAmounts
