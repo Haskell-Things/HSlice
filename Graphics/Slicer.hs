@@ -56,7 +56,7 @@ import Graphics.Slicer.Formats.STL.Definitions as FS (facetLinesFromSTL)
 
 import Graphics.Slicer.Mechanics.Definitions as MeD (Extruder(Extruder), Bed(RectBed), filamentWidth, nozzleDiameter)
 
-import Graphics.Slicer.Definitions as D (ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ, maybeToFastℕ);
+import Graphics.Slicer.Definitions as D (ℝ, ℝ2, toℝ, ℕ, Fastℕ, fromFastℕ, toFastℕ);
 
 import Graphics.Slicer.Concepts.Definitions as CD (BuildArea(RectArea, CylinderArea));
 

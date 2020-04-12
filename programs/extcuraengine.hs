@@ -676,6 +676,8 @@ run rawArgs = do
             maybeInfillAmount (lookupVarIn "infill_sparse_density" -> Just (ONum amount)) = Just (amount / 100)
             maybeInfillAmount _ = Nothing
             maybeWallLineCount (lookupVarIn "wall_line_count" -> Just (ONum count)) = maybeToFastℕ count
+              where
+                maybeToFastℕ n = if (fromInteger $ floor n) == (n::ℝ) then Just . Fastℕ $ floor n else Nothing
             maybeWallLineCount _ = Nothing
             maybeSupport (lookupVarIn "support_enable" -> Just (OBool enable)) = Just enable
             maybeSupport _ = Nothing

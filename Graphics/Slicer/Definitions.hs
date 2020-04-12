@@ -20,7 +20,7 @@
 
 -- The purpose of this file is to hold datatype definitions that are useful in all of the code.
 
-module Graphics.Slicer.Definitions (ℝ, toℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ, toFastℕ, maybeToFastℕ) where
+module Graphics.Slicer.Definitions (ℝ, toℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ, toFastℕ) where
 
 import Prelude (Rational, fromRational)
 
