@@ -329,7 +329,7 @@ boundingBoxAll contours = if isEmpty box then Nothing else Just box
       bBoxes = mapMaybe boundingBox contours
 
 
--- Get a bounding box of a contour.
+-- Get a 2D bounding box of a 2D contour.
 boundingBox :: Contour -> Maybe BBox
 boundingBox (Contour []) = Nothing
 boundingBox (Contour contourPoints) = if isEmpty box then Nothing else Just box
@@ -343,7 +343,7 @@ boundingBox (Contour contourPoints) = if isEmpty box then Nothing else Just box
     xOf (Point (x,_,_)) = x
     yOf (Point (_,y,_)) = y
 
--- Put a fixed amount around the bounding box.
+-- Put a fixed amount around the 2d bounding box.
 incBBox :: BBox -> ℝ -> BBox
 incBBox (BBox (x1,y1) (x2,y2)) amount = BBox (x1+amount, y1+amount) (x2-amount, y2-amount)
 
@@ -689,20 +689,21 @@ run rawArgs = do
             maybeInfillLineWidth _ = Nothing
         startingGCode, endingGCode :: VarLookup -> Text
         startingGCode (lookupVarIn "machine_start_gcode" -> Just (OString startGCode)) = pack startGCode
-        startingGCode _ = "G21 ;metric values\n"
-                        <> "G90 ;absolute positioning\n"
-                        <> "M82 ;set extruder to absolute mode\n"
-                        <> "M106 ;start with the fan on\n"
-                        <> "G28 X0 Y0 ;move X/Y to min endstops\n"
-                        <> "G28 Z0 ;move Z to min endstops\n"
-                        <> "G29 ;Run the auto bed leveling\n"
-                        <> "G1 Z15.0 F4200 ;move the platform down 15mm\n"
-                        <> "G92 E0 ;zero the extruded length\n"
-                        <> "G1 F200 E3 ;extrude 3mm of feed stock\n"
-                        <> "G92 E0 ;zero the extruded length again\n"
-                        <> "G1 F4200 ;default speed\n"
-                        <> ";Put printing message on LCD screen\n"
-                        <> "M117\n"
+        startingGCode _ = ";FLAVOR:Marlin\n"
+                       <> "G21 ;metric values\n"
+                       <> "G90 ;absolute positioning\n"
+                       <> "M82 ;set extruder to absolute mode\n"
+                       <> "M106 ;start with the fan on\n"
+                       <> "G28 X0 Y0 ;move X/Y to min endstops\n"
+                       <> "G28 Z0 ;move Z to min endstops\n"
+                       <> "G29 ;Run the auto bed leveling\n"
+                       <> "G1 Z15.0 F4200 ;move the platform down 15mm\n"
+                       <> "G92 E0 ;zero the extruded length\n"
+                       <> "G1 F200 E3 ;extrude 3mm of feed stock\n"
+                       <> "G92 E0 ;zero the extruded length again\n"
+                       <> "G1 F4200 ;default speed\n"
+                       <> ";Put printing message on LCD screen\n"
+                       <> "M117\n"
         endingGCode (lookupVarIn "machine_end_gcode" -> Just (OString endGCode)) = pack endGCode
         endingGCode _ = ";End GCode\n"
                       <> "M104 S0 ;extruder heater off\n"
