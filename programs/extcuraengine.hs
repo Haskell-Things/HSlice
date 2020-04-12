@@ -250,8 +250,8 @@ gcodeForContour :: Extruder
 gcodeForContour extruder lh (Contour contourPoints) = do
   currentPos <- fromRational <$> getEPos
   let
-    extrusionAmounts = extrusions extruder lh (head contourPoints) (Contour $ tail contourPoints)
     ePoses = (currentPos+) <$> accumulateValues extrusionAmounts
+    extrusionAmounts = extrusions extruder lh (head contourPoints) (Contour $ tail contourPoints)
   setEPos . toRational $ last ePoses
   pure $ makeTravelGCode (head contourPoints) : zipWith makeExtrudeGCode (tail contourPoints) ePoses
 
