@@ -288,10 +288,10 @@ gcodeForNestedContours :: Extruder
 gcodeForNestedContours _ _ [] = pure []
 gcodeForNestedContours extruder lh [c] = gcodeForContours extruder lh c
 gcodeForNestedContours extruder lh (c:cs) = do
-  oneContour <- firstContoursGCode
+  oneContour <- firstContourGCode
   remainingContours <- gcodeForNestedContours extruder lh cs
   pure $ oneContour <> remainingContours
-    where firstContoursGCode = gcodeForContours extruder lh c
+    where firstContourGCode = gcodeForContours extruder lh c
 
 -- FIXME: generate ';LAYER:0'
 gcodeForContours :: Extruder
