@@ -46,10 +46,12 @@ Executable extcuraengine
     Hs-source-dirs: programs
     Build-depends:
                   base,
+                  deepseq,
                   implicit,
                   hslice,
                   text,
                   optparse-applicative,
+                  parallel,
                   formatting,
                   mtl
     Ghc-options:

@@ -27,7 +27,11 @@
 -- For matching our OpenScad variable types.
 {-# LANGUAGE ViewPatterns #-}
 
-import Prelude ((*), (/), (+), (-), fromIntegral, odd, pi, sqrt, mod, round, floor, foldMap, fmap, (<>), toRational, FilePath, (**), Int, fromInteger, Eq, fromRational, init)
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+
+import GHC.Generics (Generic)
+
+import Prelude ((*), (/), (+), (-), fromIntegral, odd, pi, sqrt, mod, round, floor, concatMap, foldMap, fmap, (<>), toRational, FilePath, (**), Int, fromInteger, Eq, fromRational, init, error, seq, ceiling)
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -43,9 +47,9 @@ import Data.Text.Lazy (Text, pack, unpack, unlines)
 
 import Data.String (String)
 
-import Data.Bool(Bool(False), (||), (&&), otherwise)
+import Data.Bool(Bool(True, False), (||), (&&), otherwise, not)
 
-import Data.List (nub, sortBy, lines, length, zip, zip3, filter, tail, head, zipWith, zipWith3, maximum, (!!), minimum, splitAt, elem, last)
+import Data.List (nub, sortBy, lines, length, zip, filter, tail, head, zipWith, maximum, (!!), minimum, splitAt, elem, last, null, (++), concat)
 
 import Control.Monad ((>>=))
 
@@ -61,12 +65,16 @@ import Options.Applicative (fullDesc, progDesc, header, auto, info, helper, help
 
 import Formatting(format, fixed)
 
+import Control.Parallel.Strategies (using, rdeepseq, parBuffer)
+
+import Control.DeepSeq (NFData(rnf))
+
 import Graphics.Implicit.ExtOpenScad.Eval.Constant (addConstants)
 
 -- The definition of the symbol type, so we can access variables, and see settings.
 import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString, OBool), lookupVarIn, Message(Message), MessageType(TextOut), ScadOpts(ScadOpts))
 
-import Graphics.Implicit.Definitions (ℝ, ℝ2, ℝ3, ℕ, Fastℕ(Fastℕ), fromFastℕ, toFastℕ)
+import Graphics.Implicit.Definitions (ℝ, ℝ2, ℝ3, ℕ, Fastℕ(Fastℕ), fromFastℕ)
 
 import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet, sides, Contour(Contour), LayerType(BaseOdd, BaseEven, Middle), pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundToFifth, roundPoint, shortenLineBy, accumulateValues, makeLines, facetIntersects, getContours, simplifyContour, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos, facetLinesFromSTL)
 
@@ -107,18 +115,6 @@ centerFacets (RectArea (bedX,bedY,_)) fs = (shiftFacet (Point (dx,dy,dz)) <$> fs
 -----------------------------------------------------------------------
 ---------------------- Contour filling --------------------------------
 -----------------------------------------------------------------------
-
--- The amount to extrude when making a line between two points.
-extrusionAmount :: Extruder -> ℝ -> Point -> Point -> ℝ
-extrusionAmount extruder lh p1 p2 = nozzleDia * lh * (2 / filamentDia) * pathLength / pi
-    where pathLength = distance p1 p2
-          nozzleDia = nozzleDiameter extruder
-          filamentDia = filamentWidth extruder
-
--- Calculate the amount of material to extrude for each line in a contour.
-extrusions :: Extruder -> ℝ -> Point -> Contour -> [ℝ]
-extrusions _ _ _ (Contour []) = []
-extrusions extruder lh startPoint (Contour contourPoints) = zipWith (extrusionAmount extruder lh) (startPoint:contourPoints) contourPoints
 
 -- Make infill
 makeInfill :: BuildArea -> Print -> [Contour] -> ℝ -> LayerType -> [Line]
@@ -245,32 +241,64 @@ consecutiveIntersections points = zipWith lineIntersection points (tail points)
 data GCode =
     GCMove2 { _startPoint2 :: ℝ2, _stopPoint2 :: ℝ2 }
   | GCMove3 { _startPoint3 :: ℝ3, _stopPoint3 :: ℝ3 }
-  | GCExtrude2 { _startPoint2 :: ℝ2, _stopPoint2 :: ℝ2, _extrudeAmount :: ℝ }
-  | GCExtrude3 { _startPoint3 :: ℝ3, _stopPoint3 :: ℝ3, _extrudeAmount :: ℝ }
+  | GCExtrude2 { _startPoint2 :: ℝ2, _stopPoint2 :: ℝ2, _extrusion :: Extrusion }
+  | GCExtrude3 { _startPoint3 :: ℝ3, _stopPoint3 :: ℝ3, _extrusion :: Extrusion }
   | GCMarkLayerStart { _layerNumber :: Fastℕ }
   | GCMarkInnerWallStart
   | GCMarkOuterWallStart
   | GCMarkSupportStart
   | GCMarkInfillStart
-  deriving Eq
+  deriving (Eq, Generic, NFData)
+
+instance NFData Fastℕ where
+  rnf a = seq a ()
+
+instance NFData Point where
+  rnf a = seq a ()
+
+data Extrusion =
+    RawExtrude { _pathLength :: ℝ, _pathWidth :: ℝ, _pathHeight :: ℝ }
+  | ExtruderPosition { _value :: ℝ }
+  deriving (Eq, Generic, NFData)
+
+calculateExtrusions :: Extruder -> [GCode] -> StateM [GCode]
+calculateExtrusions extruder gcodes = do
+  currentPos <- fromRational <$> getEPos
+  let
+    ePoses = [currentPos+amount | amount <- accumulateValues extrusionAmounts] `using` parBuffer 32 rdeepseq
+    extrusionAmounts = calculateExtrusion <$> gcodes
+  setEPos . toRational $ last ePoses
+  pure $ applyExtrusions gcodes ePoses
+  where
+    applyExtrusions :: [GCode] -> [ℝ] -> [GCode]
+    applyExtrusions rawGCodes ePoses = zipWith applyExtrusion rawGCodes ePoses
+    applyExtrusion :: GCode -> ℝ -> GCode
+    applyExtrusion (GCExtrude2 startPoint stopPoint _) ePos =
+      GCExtrude2 startPoint stopPoint (ExtruderPosition ePos)
+    applyExtrusion (GCExtrude3 startPoint stopPoint _) ePos =
+      GCExtrude3 startPoint stopPoint (ExtruderPosition ePos)
+    applyExtrusion gcode _ = gcode
+    -- FIXME: pathWidth is not taken into account here, which is clearly a problem...
+    calculateExtrusion :: GCode -> ℝ
+    calculateExtrusion (GCExtrude2 _ _ (RawExtrude pathLength _ pathHeight)) =
+      nozzleDia * pathHeight * (2 / filamentDia) * pathLength / pi
+    calculateExtrusion (GCExtrude3 _ _ (RawExtrude pathLength _ pathHeight)) =
+      nozzleDia * pathHeight * (2 / filamentDia) * pathLength / pi
+    calculateExtrusion _ = 0
+    nozzleDia = nozzleDiameter extruder
+    filamentDia = filamentWidth extruder
 
 -- Generate G-Code for a given contour.
 -- Assumes we are already at the first point.
-gcodeForContour :: Extruder
-                -> ℝ
-                -> Contour
-                -> StateM [GCode]
-gcodeForContour extruder lh (Contour contourPoints) = do
-  currentPos <- fromRational <$> getEPos
-  let
-    ePoses = (currentPos+) <$> accumulateValues extrusionAmounts
-    extrusionAmounts = extrusions extruder lh (head contourPoints) (Contour $ tail contourPoints)
-  setEPos . toRational $ last ePoses
-  pure $ zipWith3 makeExtrudeGCode (init contourPoints) (tail contourPoints) ePoses
+gcodeForContour :: ℝ -> Contour -> [GCode]
+gcodeForContour lh (Contour contourPoints) =
+  zipWith (makeExtrudeGCode lh) (init contourPoints) (tail contourPoints) 
 
 -- GCode to travel to a point while extruding.
-makeExtrudeGCode :: Point -> Point -> ℝ -> GCode
-makeExtrudeGCode (Point (x1,y1,z1)) (Point (x2,y2,z2)) e = GCExtrude3 (x1, y1, z1) (x2, y2, z2) e
+makeExtrudeGCode :: ℝ -> Point -> Point -> GCode
+makeExtrudeGCode pathThickness p1@(Point (x1,y1,z1)) p2@(Point (x2,y2,z2)) = GCExtrude3 (x1, y1, z1) (x2, y2, z2) (RawExtrude pathLength 0 pathThickness)
+  where
+   pathLength = distance p1 p2
 
 -- render a value as text, in the number of characters that are suitable to use in a gcode file.
 posIze :: ℝ -> Text
@@ -279,14 +307,16 @@ posIze pos
   | pos < 0.1 && pos > -0.1 = format (fixed 5) pos
   | otherwise = pack . show $ roundToFifth pos
 
--- actually render a gcode into a piece of text.
+-- render a gcode into a piece of text.
 gcodeToText :: GCode -> Text
 gcodeToText (GCMove2 _ (x2,y2)) = "G0 X" <> posIze x2 <> " Y" <> posIze y2
 gcodeToText (GCMove3 _ (x2,y2,z2)) = "G0 X" <> posIze x2 <> " Y" <> posIze y2 <> " Z" <> posIze z2
-gcodeToText (GCExtrude2 _ (x2,y2) e) = "G1 X" <> posIze x2 <> " Y" <> posIze y2 <> " E" <> posIze e
-gcodeToText (GCExtrude3 _ (x2,y2,z2) e) = "G1 X" <> posIze x2 <> " Y" <> posIze y2 <> " Z" <> posIze z2 <> " E" <> posIze e
+gcodeToText (GCExtrude2 _ (x2,y2) (ExtruderPosition e)) = "G1 X" <> posIze x2 <> " Y" <> posIze y2 <> " E" <> posIze e
+gcodeToText (GCExtrude2 _ _ (RawExtrude _ _ _)) = error "Attempting to generate gcode for a 2D extrude command that has not yet been rendered."
+gcodeToText (GCExtrude3 _ (x2,y2,z2) (ExtruderPosition e)) = "G1 X" <> posIze x2 <> " Y" <> posIze y2 <> " Z" <> posIze z2 <> " E" <> posIze e
+gcodeToText (GCExtrude3 _ _ (RawExtrude _ _ _)) = error "Attempting to generate gcode for a 3D extrude command that has not yet been rendered."
 -- The current layer count, where 1 == the bottom layer of the object being printed. rafts are represented as negative layers.
-gcodeToText (GCMarkLayerStart layerNo) = ";LAYER:" <> (pack $ show $ (fromFastℕ (layerNo-1) :: Int))
+gcodeToText (GCMarkLayerStart layerNo) = ";LAYER:" <> (pack $ show $ (fromFastℕ (layerNo) :: Int))
 -- perimeters on the inside of the object. may contact the infill, or an outer paremeter, but will not be exposed on the outside of the object.
 gcodeToText (GCMarkInnerWallStart) = ";TYPE:WALL-INNER"
 -- a perimeter on the outside of the object. may contact the infill, or an inside paremeter.
@@ -296,33 +326,38 @@ gcodeToText (GCMarkSupportStart) = ";TYPE:SUPPORT"
 -- The interior of an object. should only contact inner parameters, skin, or outer paremeters.
 gcodeToText (GCMarkInfillStart) = ";TYPE:FILL"
 
--- GCode to travel to a point without extruding
+----------------------------------------------------
+------------------ FIXED STRINGS -------------------
+----------------------------------------------------
+-- FIXME: put these in the right places.
+{-
+-- The beginning of a sequence of gcodes instructing the printer to place a skirt around the object.
+skirtStartGCode :: [Text]
+skirtStartGCode = [";TYPE:SKIRT"]
+-- The time consumed by the gcode in the file being generated thus far. generated by cura after each layer transition.
+timeMarkerGCode :: Text
+timeMarkerGCode = ";TIME_ELAPSED:"
+-- Part of the support, may touch the build plate, or be part of the last two layers before support contacts the object.
+-- support-interface is generated with 100% infill.
+supportInterfaceStartGCode :: [Text]
+supportInterfaceStartGCode = [";TYPE:SUPPORT-INTERFACE"]
+-- The top / bottom surfaces of an object.
+skinStartGCode :: [Text]
+skinStartGCode = [";TYPE:SKIN"]
+-- A gcode identifying the source mesh that is being sliced.
+meshStartGCode :: Text
+meshStartGCode = ";MESH:"
+-}
+
+-- travel to a point without extruding
 makeTravelGCode :: Point -> Point -> GCode
 makeTravelGCode (Point (x1,y1,z1)) (Point (x2,y2,z2)) = GCMove3 (x1,y1,z1) (x2,y2,z2)
 
-gcodeForNestedContours :: Extruder
-                       -> ℝ
-                       -> [[Contour]]
-                       -> StateM [GCode]
-gcodeForNestedContours _ _ [] = pure []
-gcodeForNestedContours extruder lh [c] = gcodeForContours extruder lh c
-gcodeForNestedContours extruder lh (c:cs) = do
-  oneContour <- firstContourGCode
-  remainingContours <- gcodeForNestedContours extruder lh cs
-  pure $ oneContour <> remainingContours
-    where firstContourGCode = gcodeForContours extruder lh c
+gcodeForNestedContours :: ℝ -> [[Contour]] -> [GCode]
+gcodeForNestedContours lh contourSet = concatMap (gcodeForContours lh) contourSet
 
-gcodeForContours :: Extruder
-                 -> ℝ
-                 -> [Contour]
-                 -> StateM [GCode]
-gcodeForContours _ _ [] = pure []
-gcodeForContours extruder lh [c] = gcodeForContour extruder lh c
-gcodeForContours extruder lh (c:cs) = do
-  oneContour <- firstContourGCode
-  remainingContours <- gcodeForContours extruder lh cs
-  pure $ oneContour <> remainingContours
-    where firstContourGCode = gcodeForContour extruder lh c
+gcodeForContours :: ℝ -> [Contour] -> [GCode]
+gcodeForContours lh contours = concatMap (gcodeForContour lh) contours
 
 -----------------------------------------------------------------------
 ----------------------------- SUPPORT ---------------------------------
@@ -392,7 +427,7 @@ makeSupport buildarea print contours zHeight = fmap (shortenLineBy $ 2 * lh)
 
 -- Create contours from a list of facets
 layers :: Print -> [Facet] -> [[[Point]]]
-layers print fs = allIntersections <$> [lh,lh*2..maxheight] <*> pure fs
+layers print fs = [ allIntersections currentLayer fs | currentLayer <- [lh,lh*2..maxheight] ] `using` parBuffer (ceiling $ maxheight/lh) rdeepseq
     where zmax = maximum $ zOf . point <$> foldMap sides fs
           maxheight = lh * fromIntegral (floor (zmax / lh)::Fastℕ)
           lh = layerHeight print
@@ -427,56 +462,35 @@ mapEveryOther f [a] = [f a]
 mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [1::Fastℕ,2..]
 
 
-----------------------------------------------------
------------------- FIXED STRINGS -------------------
-----------------------------------------------------
--- FIXME: put these in the right places.
-{-
--- The beginning of a sequence of gcodes instructing the printer to place a skirt around the object.
-skirtStartGCode :: [Text]
-skirtStartGCode = [";TYPE:SKIRT"]
--- The time consumed by the gcode in the file being generated thus far. generated by cura after each layer transition.
-timeMarkerGCode :: Text
-timeMarkerGCode = ";TIME_ELAPSED:"
--- Part of the support, may touch the build plate, or be part of the last two layers before support contacts the object.
--- support-interface is generated with 100% infill.
-supportInterfaceStartGCode :: [Text]
-supportInterfaceStartGCode = [";TYPE:SUPPORT-INTERFACE"]
--- The top / bottom surfaces of an object.
-skinStartGCode :: [Text]
-skinStartGCode = [";TYPE:SKIN"]
--- A gcode identifying the source mesh that is being sliced.
-meshStartGCode :: Text
-meshStartGCode = ";MESH:"
--}
-
 -------------------------------------------------------------
 ----------------------- ENTRY POINT -------------------------
 -------------------------------------------------------------
--- Input should be top to bottom, output should be bottom to top
-sliceObject ::  Printer ->  Print
-                  -> [([Contour], Fastℕ)] -> StateM [Text]
-sliceObject _ _ [] = pure []
-sliceObject printer@(Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ hasSupport _) ((a, layerNumber):as) = do
-  -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
-  outerContourGCode <- gcodeForContours extruder lh contours
-  innerContourGCode <- gcodeForNestedContours extruder lh interior
-  supportGCode <- if hasSupport then gcodeForContour extruder lh supportContours else pure []
-  infillGCode <- gcodeForContour extruder lh infillContours
-  theRest <- sliceObject printer print as
+sliceObject :: Printer ->  Print ->  [([Contour], Fastℕ)] -> StateM [GCode]
+sliceObject printer@(Printer _ _ extruder) print alllayers = do
   let
+    layersWithFollowers = [sliceLayer printer print False layer | layer <- (init alllayers)] `using` parBuffer ((length alllayers)-1) rdeepseq
+    lastLayer = sliceLayer printer print True (last alllayers)
+  calculateExtrusions extruder (concat $ layersWithFollowers ++ [lastLayer])
+
+sliceLayer ::  Printer ->  Print -> Bool -> ([Contour], Fastℕ) -> [GCode]
+sliceLayer printer@(Printer _ buildarea _) print@(Print perimeterCount _ lh _ hasSupport _) isLastLayer (a, layerNumber) = do
+  let
+    outerContourGCode = gcodeForContours lh contours
+    innerContourGCode = gcodeForNestedContours lh interior
+    supportGCode = if hasSupport then gcodeForContour lh supportContours else []
+    infillGCode = gcodeForContour lh infillContours
+    layerStart = [GCMarkLayerStart (layerNumber-1)]
+    -- FIXME: make travel gcode from the previous contour's last position?
+    travelToOuterContour = [makeTravelGCode (Point (0,0,0)) $ firstPoint $ head contours]
     outerContour = (GCMarkOuterWallStart : outerContourGCode)
     innerContour = innerContourGCode
+    travelGCode = if isLastLayer then [] else (GCMarkInnerWallStart : layerChange)
     -- FIXME: not all support is support. what about supportInterface?
     support = if supportGCode == [] then [] else (GCMarkSupportStart : supportGCode)
     infill = if infillGCode == [] then [] else (GCMarkInfillStart : infillGCode)
-    -- Markers and actions that are performed on each layer change. Note that a raft is negative layers, and only the first layer of the object is layer 1.
-    layerStart = [GCMarkLayerStart layerNumber]
-    -- FIXME: make travel gcode from the last contour's last position?
-    travelToOuterContour = [makeTravelGCode (Point (0,0,0)) $ firstPoint $ head contours]
     layerChange = (makeTravelGCode (Point (0,0,0)) $ head $ pointsOfContour (head contours)) : (zipWith makeTravelGCode (init $ pointsOfContour (head contours)) (tail $ pointsOfContour (head contours)))
-    travelGCode = if theRest == [] then [] else (GCMarkInnerWallStart : layerChange)
-  pure $ (gcodeToText <$> layerStart <> travelToOuterContour <> outerContour <> innerContour <> travelGCode <> support <> infill) <> theRest
+  -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
+  layerStart <> travelToOuterContour <> outerContour <> innerContour <> travelGCode <> support <> infill
     where
       firstPoint (Contour contourPoints) = head contourPoints
       contours = getContours (pointsOfContour <$> a)
@@ -668,12 +682,13 @@ run rawArgs = do
       (facets, _) = centerFacets buildarea $ facetLinesFromSTL stlLines
       print = printFromSettings settings
       allLayers :: [[Contour]]
-      allLayers = filter (\(Contour l) -> head l /= head (tail l)) . filter (/=Contour []) <$> (fmap Contour <$> layers print facets)
-      layerCount = length allLayers
-      object = zip allLayers [1..(toFastℕ layerCount)]
-      (gcode, _) = runState (sliceObject printer print object) (MachineState (EPos 0))
+      allLayers = fmap Contour <$> (filter (\l -> head l /= head (tail l)) $ filter (not . null) $ layers print facets)
+      object = zip allLayers [(1::Fastℕ)..]
+      (gcodes, _) = runState (sliceObject printer print object) (MachineState (EPos 0))
+      gcodesAsText = gcodeToText <$> (gcodes)
+      layerCount = length (allLayers)
       outFile = fromMaybe "out.gcode" $ outputFileOpt args
-    writeFile outFile $ unpack ((startingGCode settings) <> (";LAYER_COUNT:" <> (pack $ show layerCount) <> "\n") <> unlines gcode <> (endingGCode settings))
+    writeFile outFile $ unpack ((startingGCode settings) <> (";LAYER_COUNT:" <> (pack $ show layerCount) <> "\n") <> unlines gcodesAsText <> (endingGCode settings))
       where
         -- The Printer.
         -- FIXME: pull defaults for these values from a curaengine json config.
@@ -689,8 +704,8 @@ run rawArgs = do
               maybeZ _ = Nothing
               maybeNozzleDiameter (lookupVarIn "machine_nozzle_size" -> Just (ONum diameter)) = Just diameter
               maybeNozzleDiameter _ = Nothing
-              maybeFillamentDiameter (lookupVarIn "material_diameter" -> Just (ONum diameter)) = Just diameter
-              maybeFillamentDiameter _ = Nothing
+              maybeFilamentDiameter (lookupVarIn "material_diameter" -> Just (ONum diameter)) = Just diameter
+              maybeFilamentDiameter _ = Nothing
 
               -- The bed of the printer. assumed to be some form of rectangle, with the build area coresponding to all of the space above it.
               getPrintBed var = RectBed ((fromMaybe 150 $ maybeX var),
@@ -701,7 +716,7 @@ run rawArgs = do
                                            (fromMaybe 50  $ maybeZ var))
               -- The Extruder. note that this includes the diameter of the feed filament.
               defaultExtruder :: VarLookup -> Extruder
-              defaultExtruder var = Extruder (fromMaybe 1.75 $ maybeFillamentDiameter var)
+              defaultExtruder var = Extruder (fromMaybe 1.75 $ maybeFilamentDiameter var)
                                              (fromMaybe 0.4 $ maybeNozzleDiameter var)
 
         -- Print settings for the item currently being sliced.
