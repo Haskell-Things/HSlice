@@ -268,7 +268,7 @@ calculateExtrusions extruder gcodes = do
   pure $ applyExtrusions gcodes ePoses
   where
     applyExtrusions :: [GCode] -> [ℝ] -> [GCode]
-    applyExtrusions rawGCodes ePoses = zipWith applyExtrusion rawGCodes ePoses
+    applyExtrusions = zipWith applyExtrusion
     applyExtrusion :: GCode -> ℝ -> GCode
     applyExtrusion (GCExtrude2 startPoint stopPoint _) ePos =
       GCExtrude2 startPoint stopPoint (ExtruderPosition ePos)
@@ -309,19 +309,19 @@ gcodeToText :: GCode -> Text
 gcodeToText (GCMove2 _ (x2,y2)) = "G0 X" <> posIze x2 <> " Y" <> posIze y2
 gcodeToText (GCMove3 _ (x2,y2,z2)) = "G0 X" <> posIze x2 <> " Y" <> posIze y2 <> " Z" <> posIze z2
 gcodeToText (GCExtrude2 _ (x2,y2) (ExtruderPosition e)) = "G1 X" <> posIze x2 <> " Y" <> posIze y2 <> " E" <> posIze e
-gcodeToText (GCExtrude2 _ _ (RawExtrude _ _ _)) = error "Attempting to generate gcode for a 2D extrude command that has not yet been rendered."
+gcodeToText (GCExtrude2 _ _ RawExtrude {}) = error "Attempting to generate gcode for a 2D extrude command that has not yet been rendered."
 gcodeToText (GCExtrude3 _ (x2,y2,z2) (ExtruderPosition e)) = "G1 X" <> posIze x2 <> " Y" <> posIze y2 <> " Z" <> posIze z2 <> " E" <> posIze e
-gcodeToText (GCExtrude3 _ _ (RawExtrude _ _ _)) = error "Attempting to generate gcode for a 3D extrude command that has not yet been rendered."
+gcodeToText (GCExtrude3 _ _ RawExtrude {}) = error "Attempting to generate gcode for a 3D extrude command that has not yet been rendered."
 -- The current layer count, where 1 == the bottom layer of the object being printed. rafts are represented as negative layers.
-gcodeToText (GCMarkLayerStart layerNo) = ";LAYER:" <> (pack $ show $ (fromFastℕ (layerNo) :: Int))
+gcodeToText (GCMarkLayerStart layerNo) = ";LAYER:" <> pack (show (fromFastℕ layerNo :: Int))
 -- perimeters on the inside of the object. may contact the infill, or an outer paremeter, but will not be exposed on the outside of the object.
-gcodeToText (GCMarkInnerWallStart) = ";TYPE:WALL-INNER"
+gcodeToText GCMarkInnerWallStart = ";TYPE:WALL-INNER"
 -- a perimeter on the outside of the object. may contact the infill, or an inside paremeter.
-gcodeToText (GCMarkOuterWallStart) = ";TYPE:WALL-OUTER"
+gcodeToText GCMarkOuterWallStart = ";TYPE:WALL-OUTER"
 -- Marker indicating the following gcode commands are part of the support, and do not touch the object or the build plate. think: the sparsely generated back-and-forth 
-gcodeToText (GCMarkSupportStart) = ";TYPE:SUPPORT"
+gcodeToText GCMarkSupportStart = ";TYPE:SUPPORT"
 -- The interior of an object. should only contact inner parameters, skin, or outer paremeters.
-gcodeToText (GCMarkInfillStart) = ";TYPE:FILL"
+gcodeToText GCMarkInfillStart = ";TYPE:FILL"
 
 ----------------------------------------------------
 ------------------ FIXED STRINGS -------------------
@@ -351,10 +351,10 @@ makeTravelGCode :: Point -> Point -> GCode
 makeTravelGCode (Point (x1,y1,z1)) (Point (x2,y2,z2)) = GCMove3 (x1,y1,z1) (x2,y2,z2)
 
 gcodeForNestedContours :: ℝ -> [[Contour]] -> [GCode]
-gcodeForNestedContours lh contourSet = concatMap (gcodeForContours lh) contourSet
+gcodeForNestedContours lh = concatMap (gcodeForContours lh)
 
 gcodeForContours :: ℝ -> [Contour] -> [GCode]
-gcodeForContours lh contours = concatMap (gcodeForContour lh) contours
+gcodeForContours lh = concatMap (gcodeForContour lh)
 
 -----------------------------------------------------------------------
 ----------------------------- SUPPORT ---------------------------------
@@ -431,8 +431,9 @@ layers print fs = [ allIntersections currentLayer fs | currentLayer <- [lh,lh*2.
           zOf :: Point -> ℝ
           zOf (Point (_,_,z)) = z
 
-getLayerType :: Print -> (Fastℕ) -> LayerType
-getLayerType print (fromStart)
+-- FIXME: detect top and bottoms seperately.
+getLayerType :: Print -> Fastℕ -> LayerType
+getLayerType print fromStart
   | (fromStart <= topBottomLayers || (fromStart+1) <= topBottomLayers) && fromStart `mod` 2 == 0 = BaseEven
   | (fromStart <= topBottomLayers || (fromStart+1) <= topBottomLayers) && fromStart `mod` 2 == 1 = BaseOdd
   | otherwise = Middle
@@ -465,7 +466,7 @@ mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [1::Fastℕ,2
 sliceObject :: Printer ->  Print ->  [([Contour], Fastℕ)] -> StateM [GCode]
 sliceObject printer@(Printer _ _ extruder) print alllayers = do
   let
-    layersWithFollowers = [sliceLayer printer print False layer | layer <- (init alllayers)] `using` parBuffer ((length alllayers)-1) rdeepseq
+    layersWithFollowers = [sliceLayer printer print False layer | layer <- init alllayers] `using` parBuffer (length alllayers - 1) rdeepseq
     lastLayer = sliceLayer printer print True (last alllayers)
   calculateExtrusions extruder (concat $ layersWithFollowers ++ [lastLayer])
 
@@ -476,16 +477,16 @@ sliceLayer printer@(Printer _ buildarea _) print@(Print perimeterCount _ lh _ ha
     innerContourGCode = gcodeForNestedContours lh interior
     supportGCode = if hasSupport then gcodeForContour lh supportContours else []
     infillGCode = gcodeForContour lh infillContours
-    layerStart = [GCMarkLayerStart (layerNumber-1)]
+    layerStart = [GCMarkLayerStart layerNumber]
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToOuterContour = [makeTravelGCode (Point (0,0,0)) $ firstPoint $ head contours]
-    outerContour = (GCMarkOuterWallStart : outerContourGCode)
+    outerContour = GCMarkOuterWallStart : outerContourGCode
     innerContour = innerContourGCode
-    travelGCode = if isLastLayer then [] else (GCMarkInnerWallStart : layerChange)
+    travelGCode = if isLastLayer then [] else GCMarkInnerWallStart : layerChange
     -- FIXME: not all support is support. what about supportInterface?
-    support = if supportGCode == [] then [] else (GCMarkSupportStart : supportGCode)
-    infill = if infillGCode == [] then [] else (GCMarkInfillStart : infillGCode)
-    layerChange = (makeTravelGCode (Point (0,0,0)) $ head $ pointsOfContour (head contours)) : (zipWith makeTravelGCode (init $ pointsOfContour (head contours)) (tail $ pointsOfContour (head contours)))
+    support = if supportGCode == [] then [] else GCMarkSupportStart : supportGCode
+    infill = if infillGCode == [] then [] else GCMarkInfillStart : infillGCode
+    layerChange = (makeTravelGCode $ Point (0,0,0)) (head $ pointsOfContour $ head contours) : zipWith makeTravelGCode (init $ pointsOfContour $ head contours) (tail $ pointsOfContour $ head contours)
   -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
   layerStart <> travelToOuterContour <> outerContour <> innerContour <> travelGCode <> support <> infill
     where
@@ -499,7 +500,7 @@ sliceLayer printer@(Printer _ buildarea _) print@(Print perimeterCount _ lh _ ha
       infillContours = foldMap (\l -> Contour [point l, endpoint l])
                        $ mapEveryOther flipLine
                        $ makeInfill buildarea print innermostContours (zHeightOfLayer innermostContours)
-                       $ getLayerType print (layerNumber)
+                       $ getLayerType print layerNumber
       allContours = zipWith (:) contours interior
       innermostContours = if interior == [] then contours else last <$> allContours
       zHeightOfLayer targetContours = zOfContour $ head targetContours
@@ -539,13 +540,13 @@ data ExtCuraEngineSubOpts =
 
 -- | A parser for curaengine style command line arguments.
 extCuraEngineOpts :: Parser ExtCuraEngineRootOpts
-extCuraEngineOpts = hsubparser
-  (( command "connect"
-    (info connectParser (progDesc "Connect to target"))
-  ) <>
-  ( command "slice"
-    (info sliceParser (progDesc "Slice input file"))
-  )) 
+extCuraEngineOpts = hsubparser $ 
+  command "connect"
+  (info connectParser (progDesc "Connect to target"))
+  <>
+  command "slice"
+  (info sliceParser (progDesc "Slice input file"))
+   
 
 connectParser :: Parser ExtCuraEngineRootOpts
 connectParser = ExtCuraEngineRootOpts <$>
@@ -679,13 +680,13 @@ run rawArgs = do
       (facets, _) = centerFacets buildarea $ facetLinesFromSTL stlLines
       print = printFromSettings settings
       allLayers :: [[Contour]]
-      allLayers = fmap Contour <$> (filter (\l -> head l /= head (tail l)) $ filter (not . null) $ layers print facets)
-      object = zip allLayers [(1::Fastℕ)..]
+      allLayers = fmap Contour <$> (filter(\l -> head l /= head (tail l)).filter (not . null) $ layers print facets)
+      object = zip allLayers [(0::Fastℕ)..]
       (gcodes, _) = runState (sliceObject printer print object) (MachineState (EPos 0))
-      gcodesAsText = gcodeToText <$> (gcodes)
-      layerCount = length (allLayers)
+      gcodesAsText = gcodeToText <$> gcodes
+      layerCount = length allLayers
       outFile = fromMaybe "out.gcode" $ outputFileOpt args
-    writeFile outFile $ unpack ((startingGCode settings) <> (";LAYER_COUNT:" <> (pack $ show layerCount) <> "\n") <> unlines gcodesAsText <> (endingGCode settings))
+    writeFile outFile $ unpack (startingGCode settings <> (";LAYER_COUNT:" <> pack (show layerCount) <> "\n") <> unlines gcodesAsText <> endingGCode settings)
       where
         -- The Printer.
         -- FIXME: pull defaults for these values from a curaengine json config.
@@ -705,12 +706,12 @@ run rawArgs = do
               maybeFilamentDiameter _ = Nothing
 
               -- The bed of the printer. assumed to be some form of rectangle, with the build area coresponding to all of the space above it.
-              getPrintBed var = RectBed ((fromMaybe 150 $ maybeX var),
-                                         (fromMaybe 150 $ maybeY var))
+              getPrintBed var = RectBed ( fromMaybe 150 $ maybeX var
+                                        , fromMaybe 150 $ maybeY var )
               -- The area we can print inside of.
-              defaultBuildArea var = RectArea ((fromMaybe 150 $ maybeX var),
-                                           (fromMaybe 150 $ maybeY var),
-                                           (fromMaybe 50  $ maybeZ var))
+              defaultBuildArea var = RectArea ( fromMaybe 150 $ maybeX var
+                                              , fromMaybe 150 $ maybeY var
+                                              , fromMaybe  50 $ maybeZ var )
               -- The Extruder. note that this includes the diameter of the feed filament.
               defaultExtruder :: VarLookup -> Extruder
               defaultExtruder var = Extruder (fromMaybe 1.75 $ maybeFilamentDiameter var)
@@ -733,7 +734,7 @@ run rawArgs = do
             maybeInfillAmount _ = Nothing
             maybeWallLineCount (lookupVarIn "wall_line_count" -> Just (ONum count)) = maybeToFastℕ count
               where
-                maybeToFastℕ n = if (fromInteger $ floor n) == (n::ℝ) then Just . Fastℕ $ floor n else Nothing
+                maybeToFastℕ n = if fromInteger (floor n) == (n::ℝ) then Just . Fastℕ $ floor n else Nothing
             maybeWallLineCount _ = Nothing
             maybeSupport (lookupVarIn "support_enable" -> Just (OBool enable)) = Just enable
             maybeSupport _ = Nothing
