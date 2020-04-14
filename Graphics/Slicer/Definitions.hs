@@ -22,5 +22,7 @@
 
 module Graphics.Slicer.Definitions (ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ, toFastℕ) where
 
+import Prelude ()
+
 import Graphics.Implicit.Definitions (Fastℕ, fromFastℕ, toFastℕ, ℕ, ℝ, ℝ2, ℝ3)
 
