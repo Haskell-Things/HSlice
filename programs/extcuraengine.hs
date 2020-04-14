@@ -236,7 +236,7 @@ constructInnerContours interiors
 consecutiveIntersections :: [Line] -> [Maybe Point]
 consecutiveIntersections [] = [Nothing]
 consecutiveIntersections [_] = [Nothing]
-consecutiveIntersections points = zipWith lineIntersection points (tail points)
+consecutiveIntersections points = zipWith lineIntersection (init points) (tail points)
 
 data GCode =
     GCMove2 { _startPoint2 :: ℝ2, _stopPoint2 :: ℝ2 }
@@ -277,23 +277,23 @@ calculateExtrusions extruder gcodes = do
     applyExtrusion gcode _ = gcode
     -- FIXME: pathWidth is not taken into account here, which is clearly a problem...
     calculateExtrusion :: GCode -> ℝ
-    calculateExtrusion (GCExtrude2 _ _ (RawExtrude pathLength _ pathHeight)) =
-      nozzleDia * pathHeight * (2 / filamentDia) * pathLength / pi
-    calculateExtrusion (GCExtrude3 _ _ (RawExtrude pathLength _ pathHeight)) =
-      nozzleDia * pathHeight * (2 / filamentDia) * pathLength / pi
+    calculateExtrusion (GCExtrude2 _ _ (RawExtrude pathLength pathWidth pathHeight)) =
+      pathWidth * pathHeight * (2 / filamentDia) * pathLength / pi
+    calculateExtrusion (GCExtrude3 _ _ (RawExtrude pathLength pathWidth pathHeight)) =
+      pathWidth * pathHeight * (2 / filamentDia) * pathLength / pi
     calculateExtrusion _ = 0
-    nozzleDia = nozzleDiameter extruder
     filamentDia = filamentWidth extruder
 
 -- Generate G-Code for a given contour.
 -- Assumes we are already at the first point.
-gcodeForContour :: ℝ -> Contour -> [GCode]
-gcodeForContour lh (Contour contourPoints) =
-  zipWith (makeExtrudeGCode lh) (init contourPoints) (tail contourPoints) 
+gcode2ForContour :: ℝ -> ℝ -> Contour -> [GCode]
+gcode2ForContour lh pathWidth (Contour contourPoints) =
+  zipWith (makeExtrudeGCode2 lh pathWidth) (init contourPoints) (tail contourPoints) 
 
 -- GCode to travel to a point while extruding.
-makeExtrudeGCode :: ℝ -> Point -> Point -> GCode
-makeExtrudeGCode pathThickness p1@(Point (x1,y1,z1)) p2@(Point (x2,y2,z2)) = GCExtrude3 (x1, y1, z1) (x2, y2, z2) (RawExtrude pathLength 0 pathThickness)
+-- FIXME: assumes pathwidth == nozzle diameter, which is clearly wrong...
+makeExtrudeGCode2 :: ℝ -> ℝ -> Point -> Point -> GCode
+makeExtrudeGCode2 pathThickness pathWidth p1@(Point (x1,y1,_)) p2@(Point (x2,y2,_)) = GCExtrude2 (x1, y1) (x2, y2) (RawExtrude pathLength pathWidth pathThickness)
   where
    pathLength = distance p1 p2
 
@@ -350,11 +350,11 @@ meshStartGCode = ";MESH:"
 makeTravelGCode :: Point -> Point -> GCode
 makeTravelGCode (Point (x1,y1,z1)) (Point (x2,y2,z2)) = GCMove3 (x1,y1,z1) (x2,y2,z2)
 
-gcodeForNestedContours :: ℝ -> [[Contour]] -> [GCode]
-gcodeForNestedContours lh = concatMap (gcodeForContours lh)
+gcode2ForNestedContours :: ℝ -> ℝ -> [[Contour]] -> [GCode]
+gcode2ForNestedContours lh pathWidth = concatMap (gcode2ForContours lh pathWidth)
 
-gcodeForContours :: ℝ -> [Contour] -> [GCode]
-gcodeForContours lh = concatMap (gcodeForContour lh)
+gcode2ForContours :: ℝ -> ℝ -> [Contour] -> [GCode]
+gcode2ForContours lh pathWidth = concatMap (gcode2ForContour lh pathWidth)
 
 -----------------------------------------------------------------------
 ----------------------------- SUPPORT ---------------------------------
@@ -424,7 +424,7 @@ makeSupport buildarea print contours zHeight = fmap (shortenLineBy $ 2 * lh)
 
 -- Create contours from a list of facets
 layers :: Print -> [Facet] -> [[[Point]]]
-layers print fs = [ allIntersections currentLayer fs | currentLayer <- [lh,lh*2..maxheight] ] `using` parBuffer (ceiling $ maxheight/lh) rdeepseq
+layers print fs = [ allIntersections currentLayer fs | currentLayer <- [lh,lh*2..maxheight] ] `using` parBuffer (ceiling $ zmax/lh) rdeepseq
     where zmax = maximum $ zOf . point <$> foldMap sides fs
           maxheight = lh * fromIntegral (floor (zmax / lh)::Fastℕ)
           lh = layerHeight print
@@ -471,12 +471,12 @@ sliceObject printer@(Printer _ _ extruder) print alllayers = do
   calculateExtrusions extruder (concat $ layersWithFollowers ++ [lastLayer])
 
 sliceLayer ::  Printer ->  Print -> Bool -> ([Contour], Fastℕ) -> [GCode]
-sliceLayer printer@(Printer _ buildarea _) print@(Print perimeterCount _ lh _ hasSupport _) isLastLayer (a, layerNumber) = do
+sliceLayer printer@(Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ hasSupport _) isLastLayer (a, layerNumber) = do
   let
-    outerContourGCode = gcodeForContours lh contours
-    innerContourGCode = gcodeForNestedContours lh interior
-    supportGCode = if hasSupport then gcodeForContour lh supportContours else []
-    infillGCode = gcodeForContour lh infillContours
+    outerContourGCode = gcode2ForContours lh pathWidth contours
+    innerContourGCode = gcode2ForNestedContours lh pathWidth interior
+    supportGCode = if hasSupport then gcode2ForContour lh pathWidth supportContours else []
+    infillGCode = gcode2ForContour lh pathWidth infillContours
     layerStart = [GCMarkLayerStart layerNumber]
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToOuterContour = [makeTravelGCode (Point (0,0,0)) $ firstPoint $ head contours]
@@ -503,6 +503,7 @@ sliceLayer printer@(Printer _ buildarea _) print@(Print perimeterCount _ lh _ ha
                        $ getLayerType print layerNumber
       allContours = zipWith (:) contours interior
       innermostContours = if interior == [] then contours else last <$> allContours
+      pathWidth = nozzleDiameter extruder
       zHeightOfLayer targetContours = zOfContour $ head targetContours
       zOfContour (Contour contourPoints) = zOf $ head contourPoints
       zOf :: Point -> ℝ
