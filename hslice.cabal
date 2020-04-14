@@ -15,6 +15,7 @@ Category:            Graphics
 Library
     Build-depends:
                   base,
+                  deepseq,
                   implicit,
                   mtl
     Ghc-options:

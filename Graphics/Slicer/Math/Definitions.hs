@@ -19,16 +19,22 @@
 {- The purpose of this file is to hold the definitions of the data
    structures used when performing slicing related math. -}
 
--- FIXME: remove x, y, and z from this export list. 
+-- for adding Generic and NFData to Point.
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+
 module Graphics.Slicer.Math.Definitions(Point(Point), LayerType(BaseOdd,BaseEven,Middle), Contour(Contour)) where
 
 import Prelude (Eq, (++), Monoid(mempty, mappend), Semigroup((<>)))
+
+import GHC.Generics (Generic)
+
+import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions (ℝ3)
 
 -- A single Point in 3D space.
 newtype Point = Point ℝ3
-  deriving Eq
+  deriving (Eq, Generic, NFData)
 
 data LayerType = BaseOdd | BaseEven | Middle
 

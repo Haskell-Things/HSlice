@@ -253,9 +253,6 @@ data GCode =
 instance NFData Fastℕ where
   rnf a = seq a ()
 
-instance NFData Point where
-  rnf a = seq a ()
-
 data Extrusion =
     RawExtrude { _pathLength :: ℝ, _pathWidth :: ℝ, _pathHeight :: ℝ }
   | ExtruderPosition { _value :: ℝ }
