@@ -19,7 +19,7 @@
 
 {- The purpose of this file is to hold information about contoured surfaces. -}
 
-module Graphics.Slicer.Math.Contour (getContours, simplifyContour) where
+module Graphics.Slicer.Math.Contour (getContours) where
 
 import Prelude ((==), otherwise, (++), (||), (.), ($), null, fmap, (<$>))
 
@@ -46,21 +46,15 @@ findContour (contour, pairs)
 
 -- From a list of contours we have already found and a list of pairs of points
 -- (each corresponding to a segment), get all contours described by the points
+-- FIXME
 makeContours :: ([[Point]], [[Point]]) -> [[Point]]
 makeContours (contours, pairs)
   | null pairs = contours
   | otherwise = makeContours (contours ++ [next], ps)
   where (next, ps) = findContour (head pairs, tail pairs)
-                  
 
+-- FIXME: square is double loop?
 -- Turn pairs of points into lists of connected points
 getContours :: [[Point]] -> [Contour]
 getContours = fmap Contour <$> makeContours . (,) []
 
--- Attempt to combine lines on a contour..
-simplifyContour :: [Line] -> [Line]
-simplifyContour [] = []
-simplifyContour [a] = [a]
-simplifyContour (a:b:cs)
-  | canCombineLines a b = simplifyContour $ combineLines a b : cs
-  | otherwise = a : simplifyContour (b : cs)

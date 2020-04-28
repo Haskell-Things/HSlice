@@ -24,7 +24,7 @@
 
 module Graphics.Slicer.Math.Definitions(Point(Point), LayerType(BaseOdd,BaseEven,Middle), Contour(Contour)) where
 
-import Prelude (Eq, (++), Monoid(mempty, mappend), Semigroup((<>)))
+import Prelude (Eq, (++), Monoid(mempty, mappend), Semigroup((<>)), Show)
 
 import GHC.Generics (Generic)
 
@@ -34,13 +34,13 @@ import Graphics.Slicer.Definitions (ℝ3)
 
 -- A single Point in 3D space.
 newtype Point = Point ℝ3
-  deriving (Eq, Generic, NFData)
+  deriving (Eq, Generic, NFData, Show)
 
 data LayerType = BaseOdd | BaseEven | Middle
 
 -- a list of points around a shape.
 newtype Contour = Contour [Point]
-  deriving Eq
+  deriving (Eq, Generic, NFData)
 
 instance Semigroup Contour where
   (<>) (Contour a) (Contour b) = Contour (a ++ b)

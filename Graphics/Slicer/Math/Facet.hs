@@ -18,6 +18,9 @@
 
 {- The purpose of this file is to hold facet based arithmatic. -}
 
+-- for adding Generic and NFData to Facet.
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+
 module Graphics.Slicer.Math.Facet (Facet(Facet), sides, shiftFacet, facetIntersects) where
 
 import Prelude (Eq, map, (.), ($), length, (<=), otherwise)
@@ -26,13 +29,18 @@ import Data.List(nub)
 
 import Data.Maybe(catMaybes, Maybe(Just, Nothing))
 
+import GHC.Generics (Generic)
+
+import Control.DeepSeq (NFData)
+
 import Graphics.Slicer.Definitions(ℝ)
 
 import Graphics.Slicer.Math.Point (Point, addPoints)
 
 import Graphics.Slicer.Math.Line (Line, point, pointAtZValue)
 
-newtype Facet = Facet { sides :: [Line] } deriving Eq
+newtype Facet = Facet { sides :: [Line] }
+  deriving (Eq, Generic, NFData)
 
 
 -- Shift a facet by the vector p

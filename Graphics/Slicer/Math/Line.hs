@@ -18,20 +18,32 @@
 
 {- The purpose of this file is to hold line based arithmatic. -}
 
-module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, endpoint, midpoint, flipLine, pointSlopeLength, combineLines, canCombineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines) where
+-- for adding Generic and NFData to Line.
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-import Prelude ((/), (<), (>), (*), (**), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool(False), (/=))
+module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, endpoint, midpoint, flipLine, pointSlopeLength, combineLines, canCombineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), combineConsecutiveLines) where
+
+import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool(False), (/=), (++), last, init, (<$>))
 
 import Data.Maybe (Maybe(Just, Nothing))
 
+import Data.List.Ordered (foldt)
+
+import GHC.Generics (Generic)
+
+import Control.DeepSeq (NFData)
+
 import Graphics.Slicer.Definitions (ℝ)
+
 import Graphics.Slicer.Math.Definitions (Point(Point))
 
 import Graphics.Slicer.Math.Point (twoDCrossProduct, scalePoint, addPoints, distance, magnitude)
 
 -- Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
+-- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
 data Line = Line { point :: Point, slope :: Point }
+  deriving (Generic, NFData)
 
 -- a difference that makes no difference is no difference..
 -- FIXME: magic numbers.
@@ -71,17 +83,51 @@ makeLines l
   | otherwise = lineFromEndpoints (head l) (head l') : makeLines l'
   where l' = tail l
 
--- Given a point and slope, make a line with that slope from that point of a specified
--- distance, in the same z plane
+data Direction =
+    Positive
+  | Negative
+  deriving Eq
+
+data Slope =
+    IsOrigin
+  | OnXAxis Direction
+  | OnYAxis Direction
+  | HasSlope ℝ
+  deriving Eq
+
+-- FIXME: better way to handle no angle, or alignment on an axis.
+lineSlope :: Point -> Slope
+lineSlope (Point (x,y,_))
+  | x == 0 && y == 0 = IsOrigin
+  | x == 0 && y > 0 = OnXAxis Positive
+  | x == 0 && y < 0 = OnXAxis Positive
+  | x > 0 && y == 0 = OnYAxis Positive
+  | x < 0 && y == 0 = OnYAxis Positive
+  | otherwise = HasSlope $ y / x
+
+-- Given a Point and Slope, make a line with that slope from that point of a specified
+-- distance, in the same z plane.
 -- FIXME: magic numbers.
-pointSlopeLength :: Point -> ℝ -> ℝ -> Line
-pointSlopeLength p m d
-  | m > 10**100 = Line p (Point (0,d,0))
-  | m < -(10**100) = Line p (Point (0,-d,0))
-  | otherwise = Line p s
+pointSlopeLength :: Point -> Slope -> ℝ -> Line
+pointSlopeLength p1 IsOrigin _ = Line p1 p1
+pointSlopeLength p1 (OnXAxis Positive) dist = Line p1 (Point (dist,0,0))
+pointSlopeLength p1 (OnXAxis Negative) dist = Line p1 (Point (-dist,0,0))
+pointSlopeLength p1 (OnYAxis Positive) dist = Line p1 (Point (0,dist,0))
+pointSlopeLength p1 (OnYAxis Negative) dist = Line p1 (Point (0,-dist,0))
+pointSlopeLength p1 (HasSlope sl) dist = Line p1 s
   where s = scalePoint scale $ Point (1,yVal,0)
-        yVal = m
-        scale = d / sqrt (1 + yVal*yVal)
+        yVal = sl
+        scale = dist / sqrt (1 + yVal*yVal)
+
+-- Combine consecutive lines. expects lines with their end points connecting, EG, a contour fenerated by makeContours.
+combineConsecutiveLines :: [Line] -> [Line]
+combineConsecutiveLines lines
+  | length lines > 1 = foldt combine [last lines] ((:[]) <$> init lines)
+  | otherwise = lines
+  where
+    combine :: [Line] -> [Line] -> [Line]
+    combine l1 [] = l1 
+    combine l1 (l2:ls) = if canCombineLines (last l1) (l2) then (init l1) ++ (combineLines (last l1) l2):ls else l1 ++ l2:ls
 
 -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
 -- if p2 == p3 and the lines are parallel (see canCombineLines)
@@ -91,20 +137,17 @@ combineLines (Line p _) l2 = lineFromEndpoints p (endpoint l2)
 -- Determine if two lines can be combined
 canCombineLines :: Line -> Line -> Bool
 canCombineLines l1@(Line _ s1) (Line p2 s2)
-  | s1 /= s2 = False
+  | lineSlope s1 /= lineSlope s2 = False
   | otherwise = endpoint l1 == p2
 
 -- Construct a perpendicular bisector of a line (with the same length, assuming
 -- a constant z value)
 perpendicularBisector :: Line -> Line
-perpendicularBisector l@(Line p s)
-  | yOf s == 0 = Line (midpoint l) (Point (0, magnitude s, 0))
+perpendicularBisector l@(Line p s@(Point (_,y,_)))
+  | y == 0 = Line (midpoint l) (Point (0, magnitude s, 0))
   | otherwise = pointSlopeLength (midpoint l) m (distance p (endpoint l))
   where
-    m = - xOf s / yOf s
-    yOf,xOf :: Point -> ℝ
-    xOf (Point (x,_,_)) = x
-    yOf (Point (_,y,_)) = y
+    m = lineSlope s
 
 -- Find the point on a line for a given Z value. Note that this evaluates to Nothing
 -- in the case that there is no point with that Z value, or if that is the only

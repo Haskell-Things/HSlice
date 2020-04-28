@@ -19,11 +19,26 @@
 
 -- The top module of our STL handling routines.
 
+-- Allow us to use string literals for ByteStrings
+{-# LANGUAGE OverloadedStrings #-}
+
 module Graphics.Slicer.Formats.STL.Definitions (facetLinesFromSTL) where
 
-import Prelude (String, map, dropWhile, ($), break, filter, not, map, tail, (==), (.), unwords, head, words, read, error, length, (<), otherwise, last, (<$>), fmap)
+import Prelude (($), filter, not, (==), (.), head, read, error, length, (<), otherwise, last, (<$>), fmap, (<>), (/=), show, (/), div)
 
-import Data.Char (isSpace, toLower)
+import Data.Char (isSpace)
+
+import Data.List (take, tail)
+
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe, fromMaybe)
+
+import Data.ByteString(ByteString)
+
+import Data.ByteString.Char8(lines, dropWhile, words, unpack, append, breakSubstring, break, null, drop)
+
+import Control.Parallel.Strategies (using, rdeepseq, parBuffer, parList, rseq, parListChunk)
+
+import Control.DeepSeq (NFData(rnf))
 
 import Graphics.Slicer.Math.Definitions (Point(Point))
 
@@ -31,48 +46,42 @@ import Graphics.Slicer.Math.Facet (Facet(Facet))
 
 import Graphics.Slicer.Math.Line (makeLines)
 
-import Graphics.Slicer.Definitions (ℝ3, ℝ)
+import Graphics.Slicer.Definitions (ℝ, ℝ3, Fastℕ, fromFastℕ)
 
-import Data.List (take)
+----------------------------------------------------------------
+----------- Functions to deal with ASCII STL parsing -----------
+----------------------------------------------------------------
 
-----------------------------------------------------------
------------ Functions to deal with STL parsing -----------
-----------------------------------------------------------
+-- produce a list of Facets from the input STL file.
+facetLinesFromSTL :: Fastℕ -> ByteString -> [Facet]
+facetLinesFromSTL threads stl = [readFacet singleFacet | singleFacet <- facetsFromSTL strippedStl] `using` parBuffer (fromFastℕ threads) rdeepseq
+  where
+    stlLines = lines stl
+    -- strip the first line header off of the stl file.
+    (header, headStrippedStl) = break (== '\n') stl
+    -- and the last line terminator off of the stl file.
+    (strippedStl, footer) = breakSubstring "endsolid" headStrippedStl
 
--- From STL file (as a list of Strings, each String corresponding to one line),
--- produce a list of lists of Lines, where each list of Lines corresponds to a
--- facet in the original STL
-facetLinesFromSTL :: [String] -> [Facet]
-facetLinesFromSTL = fmap (readFacet . cleanupFacet) . facetsFromSTL
+-- Separate STL file into facets
+facetsFromSTL :: ByteString -> [ByteString]
+facetsFromSTL l = if null l then [] else f : facetsFromSTL (drop 1 remainder)
+    where (f, r) = breakSubstring "endfacet" l
+          (endfacet, remainder) = break (=='\n') r
 
--- Separate lines of STL file into facets
-facetsFromSTL :: [String] -> [[String]]
-facetsFromSTL [] = []
-facetsFromSTL [_] = []
-facetsFromSTL l = map (map (dropWhile isSpace)) $ f : facetsFromSTL (tail r)
-    where (f, r) = break (\s -> filter (not . isSpace) (map toLower s) == "endfacet") l
-
--- Read a point when it's given a string of the form "x y z"
-readPoint :: String -> Point
+-- Read a point when it's given a string of the form "vertex x y z"
+readPoint :: ByteString -> Maybe Point
 readPoint s = do
-  let
-    xval, yval, zval :: ℝ
-    (xval, yval, zval) = readThree $ take 3 $ words s
-  Point (xval,yval,zval)
+  readVertex $ words s
     where
-      readThree :: [String] -> ℝ3
-      readThree [xv,yv,zv] = (read xv,read yv,read zv)
-      readThree _ = error "unexpected value when reading point."
+      readVertex :: [ByteString] -> Maybe Point
+      readVertex [vertex,xv,yv,zv]
+        | vertex == "vertex" = Just (Point (read $ unpack xv,read $ unpack yv,read $ unpack zv))
+        | otherwise = Nothing
+      readVertex _ = Nothing
 
 -- Read a list of three coordinates (as strings separated by spaces) and generate a facet.
-readFacet :: [String] -> Facet
-readFacet f
-    | length f < 3 = error "Invalid facet"
-    | otherwise = Facet . makeLines $ readPoint <$> f'
-    where f' = last f : f -- So that we're cyclic
-
--- Clean up a list of strings from STL file (corresponding to a facet) into just
--- the vertices
-cleanupFacet :: [String] -> [String]
-cleanupFacet = map (unwords . tail) . filter ((== "vertex") . head) . map words
-
+readFacet :: ByteString -> Facet
+readFacet f = do
+        let
+          foundPoints = catMaybes $ readPoint <$> lines f
+        if length foundPoints == 3 then Facet (makeLines $ (last foundPoints) : foundPoints) else error $ "wrong number of points found: " <> (show $ length foundPoints) <> "\n" <> (show f)

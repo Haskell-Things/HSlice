@@ -15,9 +15,12 @@ Category:            Graphics
 Library
     Build-depends:
                   base,
+                  bytestring,
+                  data-ordlist,
                   deepseq,
                   implicit,
-                  mtl
+                  mtl,
+                  parallel
     Ghc-options:
                 -optc-O3
                 -- see GHC manual 8.2.1 section 6.5.1.
@@ -26,6 +29,7 @@ Library
                 -Wall
                 -Wextra
                 -Weverything
+		-- for profiling.
     Exposed-Modules:
                     Graphics.Slicer
     Other-Modules:
@@ -47,14 +51,18 @@ Executable extcuraengine
     Hs-source-dirs: programs
     Build-depends:
                   base,
+                  bytestring,
+                  data-ordlist,
                   deepseq,
-                  implicit,
+                  double-conversion,
+                  formatting,
                   hslice,
-                  text,
+                  implicit,
+                  mtl,
                   optparse-applicative,
                   parallel,
-                  formatting,
-                  mtl
+                  text,
+                  utf8-string
     Ghc-options:
                 -threaded
                 -rtsopts
@@ -65,6 +73,9 @@ Executable extcuraengine
                 -Wall
                 -Wextra
                 -Weverything
+		-- for profiling.
+--                -prof
+--                -fprof-auto
 
 Source-repository head
     Type:            git
