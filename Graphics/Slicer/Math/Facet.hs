@@ -49,12 +49,12 @@ shiftFacet p = Facet . map (\l -> l { point = addPoints p (point l) }) . sides
 
 -- determine where a facet intersects a plane at a given z value
 facetIntersects :: ℝ -> Facet -> Maybe [Point]
-facetIntersects v f = trimIntersections $ catMaybes intersections
+facetIntersects v f = trimIntersections $ nub $ catMaybes intersections
   where intersections = map (`pointAtZValue` v) (sides f)
 
 -- Get rid of the case where a facet intersects the plane at one point
 trimIntersections :: [Point] -> Maybe [Point]
-trimIntersections l
-  | length l' <= 1 = Nothing
-  | otherwise = Just l'
-  where l' = nub l
+trimIntersections []      = Nothing
+trimIntersections [_]     = Nothing
+trimIntersections l@(_:_) = Just l
+
