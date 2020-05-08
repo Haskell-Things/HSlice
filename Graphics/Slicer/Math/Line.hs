@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, endpoint, midpoint, flipLine, pointSlopeLength, combineLines, canCombineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), combineConsecutiveLines) where
 
-import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool(False), (/=), (++), last, init, (<$>), Show, error)
+import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool(False), (/=), (++), last, init, (<$>), Show, error, negate)
 
 import Data.Maybe (Maybe(Just, Nothing))
 
@@ -107,7 +107,7 @@ lineSlope (Point (x,y,_))
 
 -- make a new line with the given origin point, slope, and distance, with both ends in the same Z plane.
 pointSlopeLength :: Point -> Slope -> ℝ -> Line
-pointSlopeLength p1 IsOrigin _ = error "trying to construct empty line?" -- Line p1 p1
+pointSlopeLength _  IsOrigin _ = error "trying to construct empty line?" -- Line p1 p1
 pointSlopeLength p1 (OnXAxis Positive) dist = Line p1 (Point (dist,0,0))
 pointSlopeLength p1 (OnXAxis Negative) dist = Line p1 (Point (-dist,0,0))
 pointSlopeLength p1 (OnYAxis Positive) dist = Line p1 (Point (0,dist,0))
@@ -125,7 +125,7 @@ combineConsecutiveLines lines
   where
     combine :: [Line] -> [Line] -> [Line]
     combine l1 [] = l1 
-    combine l1 (l2:ls) = if canCombineLines (last l1) (l2) then (init l1) ++ (combineLines (last l1) l2):ls else l1 ++ l2:ls
+    combine l1 (l2:ls) = if canCombineLines (last l1) l2 then init l1 ++ combineLines (last l1) l2 : ls else l1 ++ l2:ls
 
 -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
 -- if p2 == p3 and the lines are parallel (see canCombineLines)
@@ -139,10 +139,9 @@ canCombineLines l1@(Line _ s1) (Line p2 s2)
   | otherwise = endpoint l1 == p2
 
 -- Construct a perpendicular bisector of a line (with the same length, assuming a constant z value)
--- FIXME: totally wrong.
 perpendicularBisector :: Line -> Line
-perpendicularBisector l@(Line p s@(Point (x,y,_))) =
-  combineLines (flipLine (pointSlopeLength (midpoint l) m (0-( distance p (endpoint l) / 2)))) (pointSlopeLength (midpoint l) m (distance p (endpoint l) / 2)) 
+perpendicularBisector l@(Line p s) =
+  combineLines (flipLine (pointSlopeLength (midpoint l) m (negate ( distance p (endpoint l) / 2)))) (pointSlopeLength (midpoint l) m (distance p (endpoint l) / 2)) 
   where
     m = lineSlopeFlipped s
 

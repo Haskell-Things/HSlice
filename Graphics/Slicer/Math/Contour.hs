@@ -21,15 +21,13 @@
 
 module Graphics.Slicer.Math.Contour (getContours) where
 
-import Prelude ((==), otherwise, (++), (||), (.), ($), null, fmap, (<$>))
+import Prelude ((==), otherwise, (++), (||), (.), null, fmap, (<$>))
 
 import Data.List(find, delete, tail, last, head)
 
 import Data.Maybe(fromJust, isNothing)
 
 import Graphics.Slicer.Math.Point (Point)
-
-import Graphics.Slicer.Math.Line (Line, combineLines, canCombineLines)
 
 import Graphics.Slicer.Math.Definitions (Contour(Contour))
 

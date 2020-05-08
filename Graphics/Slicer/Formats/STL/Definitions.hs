@@ -24,21 +24,15 @@
 
 module Graphics.Slicer.Formats.STL.Definitions (facetLinesFromSTL) where
 
-import Prelude (($), filter, not, (==), (.), head, read, error, length, (<), otherwise, last, (<$>), fmap, (<>), (/=), show, (/), div)
+import Prelude (($), (==), read, error, length, otherwise, last, (<$>), (<>), show)
 
-import Data.Char (isSpace)
-
-import Data.List (take, tail)
-
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe, fromMaybe)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes)
 
 import Data.ByteString(ByteString)
 
-import Data.ByteString.Char8(lines, dropWhile, words, unpack, append, breakSubstring, break, null, drop)
+import Data.ByteString.Char8(lines, words, unpack, breakSubstring, break, null, drop)
 
-import Control.Parallel.Strategies (using, rdeepseq, parBuffer, parList, rseq, parListChunk)
-
-import Control.DeepSeq (NFData(rnf))
+import Control.Parallel.Strategies (using, rdeepseq, parBuffer)
 
 import Graphics.Slicer.Math.Definitions (Point(Point))
 
@@ -46,7 +40,7 @@ import Graphics.Slicer.Math.Facet (Facet(Facet))
 
 import Graphics.Slicer.Math.Line (makeLines)
 
-import Graphics.Slicer.Definitions (ℝ, ℝ3, Fastℕ, fromFastℕ)
+import Graphics.Slicer.Definitions (Fastℕ, fromFastℕ)
 
 ----------------------------------------------------------------
 ----------- Functions to deal with ASCII STL parsing -----------
@@ -56,32 +50,30 @@ import Graphics.Slicer.Definitions (ℝ, ℝ3, Fastℕ, fromFastℕ)
 facetLinesFromSTL :: Fastℕ -> ByteString -> [Facet]
 facetLinesFromSTL threads stl = [readFacet singleFacet | singleFacet <- facetsFromSTL strippedStl] `using` parBuffer (fromFastℕ threads) rdeepseq
   where
-    stlLines = lines stl
     -- strip the first line header off of the stl file.
-    (header, headStrippedStl) = break (== '\n') stl
+    (_ , headStrippedStl) = break (== '\n') stl
     -- and the last line terminator off of the stl file.
-    (strippedStl, footer) = breakSubstring "endsolid" headStrippedStl
+    (strippedStl, _) = breakSubstring "endsolid" headStrippedStl
 
 -- Separate STL file into facets
 facetsFromSTL :: ByteString -> [ByteString]
 facetsFromSTL l = if null l then [] else f : facetsFromSTL (drop 1 remainder)
     where (f, r) = breakSubstring "endfacet" l
-          (endfacet, remainder) = break (=='\n') r
+          (_ , remainder) = break (=='\n') r
 
 -- Read a point when it's given a string of the form "vertex x y z"
 readPoint :: ByteString -> Maybe Point
-readPoint s = do
-  readVertex $ words s
-    where
-      readVertex :: [ByteString] -> Maybe Point
-      readVertex [vertex,xv,yv,zv]
-        | vertex == "vertex" = Just (Point (read $ unpack xv,read $ unpack yv,read $ unpack zv))
-        | otherwise = Nothing
-      readVertex _ = Nothing
+readPoint s = readVertex $ words s
+  where
+    readVertex :: [ByteString] -> Maybe Point
+    readVertex [vertex,xv,yv,zv]
+      | vertex == "vertex" = Just (Point (read $ unpack xv,read $ unpack yv,read $ unpack zv))
+      | otherwise = Nothing
+    readVertex _ = Nothing
 
 -- Read a list of three coordinates (as strings separated by spaces) and generate a facet.
 readFacet :: ByteString -> Facet
 readFacet f = do
         let
           foundPoints = catMaybes $ readPoint <$> lines f
-        if length foundPoints == 3 then Facet (makeLines $ (last foundPoints) : foundPoints) else error $ "wrong number of points found: " <> (show $ length foundPoints) <> "\n" <> (show f)
+        if length foundPoints == 3 then Facet (makeLines $ last foundPoints : foundPoints) else error $ "wrong number of points found: " <> show (length foundPoints) <> "\n" <> show f

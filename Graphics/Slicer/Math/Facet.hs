@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.Facet (Facet(Facet), sides, shiftFacet, facetIntersects) where
 
-import Prelude (Eq, map, (.), ($), length, (<=), otherwise)
+import Prelude (Eq, (<$>), (.), ($), map)
 
 import Data.List(nub)
 
@@ -50,7 +50,7 @@ shiftFacet p = Facet . map (\l -> l { point = addPoints p (point l) }) . sides
 -- determine where a facet intersects a plane at a given z value
 facetIntersects :: ℝ -> Facet -> Maybe [Point]
 facetIntersects v f = trimIntersections $ nub $ catMaybes intersections
-  where intersections = map (`pointAtZValue` v) (sides f)
+  where intersections = (`pointAtZValue` v) <$> (sides f)
 
 -- Get rid of the case where a facet intersects the plane at one point
 trimIntersections :: [Point] -> Maybe [Point]
