@@ -21,9 +21,9 @@
 -- for adding Generic and NFData to Line.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, endpoint, midpoint, flipLine, pointSlopeLength, combineLines, canCombineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), combineConsecutiveLines) where
+module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, pointsFromLines, endpoint, midpoint, flipLine, pointSlopeLength, combineLines, canCombineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), combineConsecutiveLines) where
 
-import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool(False), (/=), (++), last, init, (<$>), Show, error, negate)
+import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool(False), (/=), (++), last, init, (<$>), Show, error, negate, fst, snd, (.))
 
 import Data.Maybe (Maybe(Just, Nothing))
 
@@ -66,6 +66,15 @@ lineFromEndpoints p1 p2 = Line p1 (addPoints (scalePoint (-1) p1) p2)
 -- Get the other endpoint
 endpoint :: Line -> Point
 endpoint l = addPoints (point l) (slope l)
+
+-- take a list of lines, connected at their end points, and generate a list of the points.
+pointsFromLines :: [Line] -> [Point]
+pointsFromLines lines
+  | lines == [] = error "found no inner points for contour."   
+  | otherwise = (fst . pointsFromLine $ head lines) : (snd . pointsFromLine <$> lines)
+  where
+    pointsFromLine :: Line -> (Point, Point)
+    pointsFromLine ln@(Line p _) = (p,endpoint ln)
 
 -- Midpoint of a line
 midpoint :: Line -> Point
