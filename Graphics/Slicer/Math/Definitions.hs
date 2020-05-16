@@ -22,25 +22,43 @@
 -- for adding Generic and NFData to Point.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Definitions(Point(Point), LayerType(BaseOdd,BaseEven,Middle), Contour(Contour)) where
+module Graphics.Slicer.Math.Definitions(Point(Point), LayerType(BaseOdd,BaseEven,Middle), Contour(Contour), magnitude, distance, addPoints, scalePoint) where
 
-import Prelude (Eq, (++), Monoid(mempty, mappend), Semigroup((<>)), Show)
+import Prelude (Eq, (++), Monoid(mempty, mappend), Semigroup((<>)), Show, (==), (*), sqrt, (+), (<), ($))
 
 import GHC.Generics (Generic)
 
 import Control.DeepSeq (NFData)
 
-import Graphics.Slicer.Definitions (ℝ3)
+import Graphics.Slicer.Definitions (ℝ, ℝ3)
 
 -- A single Point in 3D space.
 newtype Point = Point ℝ3
-  deriving (Eq, Generic, NFData, Show)
+  deriving (Generic, NFData, Show)
+
+instance Eq Point where
+  (==) p1 p2 = distance p1 p2 < 0.00001
 
 data LayerType = BaseOdd | BaseEven | Middle
 
--- a list of points around a shape.
+magnitude :: Point -> ℝ
+magnitude (Point (x1,y1,z1)) = sqrt $ x1 * x1 + y1 * y1 + z1 * z1
+
+-- Distance between two points. needed for the equivilence instance of line, and to determine amount of extrusion.
+distance :: Point -> Point -> ℝ
+distance p1 p2 = magnitude $ addPoints p1 (scalePoint (-1) p2)
+
+-- Add the coordinates of two points
+addPoints :: Point -> Point -> Point
+addPoints (Point (x1,y1,z1)) (Point (x2,y2,z2)) = Point (x1+x2 ,y1+y2 ,z1+z2)
+
+-- Scale the coordinates of a point by s
+scalePoint :: ℝ -> Point -> Point
+scalePoint val (Point (a,b,c)) = Point (val*a ,val*b ,val*c)
+
+-- a list of points around a (2d) shape.
 newtype Contour = Contour [Point]
-  deriving (Eq, Generic, NFData)
+  deriving (Eq, Generic, NFData, Show)
 
 instance Semigroup Contour where
   (<>) (Contour a) (Contour b) = Contour (a ++ b)

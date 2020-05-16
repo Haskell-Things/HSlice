@@ -35,7 +35,7 @@ import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions(ℝ)
 
-import Graphics.Slicer.Math.Point (Point, addPoints)
+import Graphics.Slicer.Math.Definitions (Point, addPoints)
 
 import Graphics.Slicer.Math.Line (Line, point, pointAtZValue)
 
@@ -50,11 +50,12 @@ shiftFacet p = Facet . map (\l -> l { point = addPoints p (point l) }) . sides
 -- determine where a facet intersects a plane at a given z value
 facetIntersects :: ℝ -> Facet -> Maybe [Point]
 facetIntersects v f = trimIntersections $ nub $ catMaybes intersections
-  where intersections = (`pointAtZValue` v) <$> (sides f)
+  where
+    intersections = (`pointAtZValue` v) <$> sides f
+    -- Get rid of the case where a facet intersects the plane at one point
+    trimIntersections :: [Point] -> Maybe [Point]
+    trimIntersections []      = Nothing
+    trimIntersections [_]     = Nothing
+    trimIntersections l@(_:_) = Just l
 
--- Get rid of the case where a facet intersects the plane at one point
-trimIntersections :: [Point] -> Maybe [Point]
-trimIntersections []      = Nothing
-trimIntersections [_]     = Nothing
-trimIntersections l@(_:_) = Just l
 

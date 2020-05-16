@@ -21,9 +21,9 @@
 -- for adding Generic and NFData to Line.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, pointsFromLines, endpoint, midpoint, flipLine, pointSlopeLength, combineLines, canCombineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), combineConsecutiveLines) where
+module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, pointsFromLines, endpoint, midpoint, flipLine, pointSlopeLength, combineLines, canCombineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, makeLinesLooped, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), combineConsecutiveLines) where
 
-import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool(False), (/=), (++), last, init, (<$>), Show, error, negate, fst, snd, (.))
+import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool(False), (/=), (++), last, init, (<$>), Show, error, negate, fst, snd, (.), null, zipWith, (<>), show, concat)
 
 import Data.Maybe (Maybe(Just, Nothing))
 
@@ -35,9 +35,11 @@ import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point(Point))
+import Graphics.Slicer.Math.Definitions (Point(Point), addPoints, scalePoint, distance, magnitude)
 
-import Graphics.Slicer.Math.Point (twoDCrossProduct, scalePoint, addPoints, distance, magnitude)
+import Graphics.Slicer.Math.Point (twoDCrossProduct)
+
+--import Graphics.Slicer.Formats.GCode.Definitions (roundPoint, roundToFifth)
 
 -- Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
@@ -48,8 +50,9 @@ data Line = Line { point :: Point, slope :: Point }
 -- a difference that makes no difference is no difference..
 -- FIXME: magic numbers.
 instance Eq Line where
-      (==) (Line p1 m1) (Line p2 m2) = distance p1 p2 < 0.0001 && distance m1 m2 < 0.0001
+  (==) (Line p1 m1) (Line p2 m2) = (distance p1 p2) + (distance m1 m2) < 0.00001
 
+-- FIXME: how does this handle endpoints?
 -- Line intersection algorithm from http://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
 lineIntersection :: Line -> Line -> Maybe Point
 lineIntersection (Line p r) (Line q s)
@@ -61,7 +64,9 @@ lineIntersection (Line p r) (Line q s)
 
 -- Create a line given its endpoints
 lineFromEndpoints :: Point -> Point -> Line
-lineFromEndpoints p1 p2 = Line p1 (addPoints (scalePoint (-1) p1) p2)
+lineFromEndpoints p1 p2
+  | p1 == p2 = error $ "creating an empty line for point: " <> show p1 <> "\n"
+  | otherwise = Line p1 (addPoints (scalePoint (-1) p1) p2)
 
 -- Get the other endpoint
 endpoint :: Line -> Point
@@ -70,7 +75,7 @@ endpoint l = addPoints (point l) (slope l)
 -- take a list of lines, connected at their end points, and generate a list of the points.
 pointsFromLines :: [Line] -> [Point]
 pointsFromLines lines
-  | lines == [] = error "found no inner points for contour."   
+  | null lines = [] -- error "found no inner points for contour."
   | otherwise = (fst . pointsFromLine $ head lines) : (snd . pointsFromLine <$> lines)
   where
     pointsFromLine :: Line -> (Point, Point)
@@ -84,19 +89,28 @@ midpoint (Line p s) = addPoints p (scalePoint 0.5 s)
 flipLine :: Line -> Line
 flipLine l@(Line _ s) = Line (endpoint l) (scalePoint (-1) s)
 
--- Given a list of points (in order), construct lines that go between them. Note
--- that this is NOT cyclic, which is why we make sure we have cyclicity in readFacet
+-- Given a list of points (in order), construct lines that go between them.
 makeLines :: [Point] -> [Line]
 makeLines l
-  | length l < 2 = []
-  | otherwise = lineFromEndpoints (head l) (head l') : makeLines l'
-  where l' = tail l
+  | length l > 1 = zipWith lineFromEndpoints (init l) (tail l)
+  | otherwise = error $ "tried to makeLines a list with " <> show (length l) <> " entries.\n" <> (concat $ show <$> l) <> "\n"
+
+-- Given a list of points (in order), construct lines that go between them. make sure to construct a line from the last point back to the first.
+makeLinesLooped :: [Point] -> [Line]
+makeLinesLooped l
+  -- too short, bail.
+  | length l < 3 = []
+  -- already looped, use makeLines.
+  | head l == last l = makeLines l
+  -- ok, do the work and loop it.
+  | otherwise = zipWith lineFromEndpoints l ((tail l) ++ l)
 
 data Direction =
     Positive
   | Negative
   deriving Eq
 
+-- FIXME: try to move HasSlope to Ratio Integer
 data Slope =
     IsOrigin
   | OnXAxis Direction
@@ -112,7 +126,9 @@ lineSlope (Point (x,y,_))
   | x == 0 && y < 0 = OnYAxis Negative
   | x > 0 && y == 0 = OnXAxis Positive
   | x < 0 && y == 0 = OnXAxis Negative
-  | otherwise = HasSlope $ y / x
+  | otherwise = HasSlope $ sl
+    where
+      sl = y / x
 
 -- make a new line with the given origin point, slope, and distance, with both ends in the same Z plane.
 pointSlopeLength :: Point -> Slope -> ℝ -> Line
@@ -149,8 +165,9 @@ canCombineLines l1@(Line _ s1) (Line p2 s2)
 
 -- Construct a perpendicular bisector of a line (with the same length, assuming a constant z value)
 perpendicularBisector :: Line -> Line
-perpendicularBisector l@(Line p s) =
-  combineLines (flipLine (pointSlopeLength (midpoint l) m (negate ( distance p (endpoint l) / 2)))) (pointSlopeLength (midpoint l) m (distance p (endpoint l) / 2)) 
+perpendicularBisector l@(Line p s)
+  | s == Point (0,0,0) = error $ "trying to bisect zero length line: " <> show l <> "\n"
+  | otherwise = combineLines (flipLine (pointSlopeLength (midpoint l) m (negate ( distance p (endpoint l) / 2)))) (pointSlopeLength (midpoint l) m (distance p (endpoint l) / 2))
   where
     m = lineSlopeFlipped s
 

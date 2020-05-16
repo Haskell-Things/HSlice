@@ -24,7 +24,7 @@ import Prelude(round, fromIntegral, (*), (/))
 
 import Graphics.Slicer.Definitions(ℝ, Fastℕ)
 
-import Graphics.Slicer.Math.Point (Point(Point))
+import Graphics.Slicer.Math.Definitions (Point(Point))
 
 -- The GCode spec (https://ws680.nist.gov/publication/get_pdf.cfm?pub_id=823374) specifies only 5 digits of precision.
 

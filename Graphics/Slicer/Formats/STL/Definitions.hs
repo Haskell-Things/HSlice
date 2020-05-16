@@ -24,7 +24,7 @@
 
 module Graphics.Slicer.Formats.STL.Definitions (facetLinesFromSTL) where
 
-import Prelude (($), (==), read, error, length, otherwise, last, (<$>), (<>), show)
+import Prelude (($), (==), read, error, length, otherwise, (<$>), (<>), show)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes)
 
@@ -38,7 +38,7 @@ import Graphics.Slicer.Math.Definitions (Point(Point))
 
 import Graphics.Slicer.Math.Facet (Facet(Facet))
 
-import Graphics.Slicer.Math.Line (makeLines)
+import Graphics.Slicer.Math.Line (makeLinesLooped)
 
 import Graphics.Slicer.Definitions (Fastℕ, fromFastℕ)
 
@@ -76,4 +76,4 @@ readFacet :: ByteString -> Facet
 readFacet f = do
         let
           foundPoints = catMaybes $ readPoint <$> lines f
-        if length foundPoints == 3 then Facet (makeLines $ last foundPoints : foundPoints) else error $ "wrong number of points found: " <> show (length foundPoints) <> "\n" <> show f
+        if length foundPoints == 3 then Facet (makeLinesLooped foundPoints) else error $ "wrong number of points found: " <> show (length foundPoints) <> "\n" <> show f

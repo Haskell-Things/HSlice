@@ -30,7 +30,7 @@ TESTSUITE=${TESTBUILDROOT}/test-hslice/build/test-hslice/test-hslice
 RTSOPTS=+RTS -N -qg -t
 
 # Uncomment for profiling support. Note that you will need to recompile all of the libraries, as well.
-#PROFILING= --enable-profiling
+PROFILING= --enable-profiling
 
 ## FIXME: escape this right
 # Uncomment for valgrind on the examples.
@@ -109,7 +109,7 @@ tests: $(EXTCURAENGINEBIN)
 
 # The Hslice library.
 $(LIBTARGET): $(LIBFILES)
-	cabal new-build hslice
+	cabal v2-build ${PROFILING} hslice
 
 # The parser test suite, since it's source is stored in a different location than the other binaries we build:
 #${TESTBUILDROOT}/test-implicit/build/test-implicit/test-implicit: Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)
@@ -117,7 +117,7 @@ $(LIBTARGET): $(LIBFILES)
 
 # Build a binary target with cabal.
 ${EXEBUILDROOT}/%: programs/$$(word 1,$$(subst /, ,%)).hs Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)
-	cabal new-build $(word 1,$(subst /, ,$*))
+	cabal v2-build ${PROFILING} $(word 1,$(subst /, ,$*))
 	touch $@
 
 # Build a benchmark target with cabal.

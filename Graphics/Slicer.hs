@@ -38,11 +38,11 @@ module Graphics.Slicer (
 
 import Prelude ()
 
-import Graphics.Slicer.Math.Definitions as MD (Point(Point), LayerType(BaseOdd, BaseEven, Middle), Contour(Contour))
+import Graphics.Slicer.Math.Definitions as MD (Point(Point), LayerType(BaseOdd, BaseEven, Middle), Contour(Contour), distance, magnitude, addPoints, scalePoint)
 
-import Graphics.Slicer.Math.Point as MP (crossProduct, twoDCrossProduct, scalePoint, addPoints, magnitude, distance, orderPoints)
+import Graphics.Slicer.Math.Point as MP (crossProduct, twoDCrossProduct, orderPoints)
 
-import Graphics.Slicer.Math.Line as ML (Line(Line), point, slope, lineIntersection, lineFromEndpoints, midpoint, endpoint, flipLine, pointSlopeLength, combineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), canCombineLines, combineConsecutiveLines, pointsFromLines)
+import Graphics.Slicer.Math.Line as ML (Line(Line), point, slope, lineIntersection, lineFromEndpoints, midpoint, endpoint, flipLine, pointSlopeLength, combineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, makeLinesLooped, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), canCombineLines, combineConsecutiveLines, pointsFromLines)
 
 import Graphics.Slicer.Math.Facet as MF (Facet(Facet), sides, shiftFacet, facetIntersects)
 

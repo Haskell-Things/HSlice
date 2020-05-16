@@ -27,9 +27,7 @@ import Data.List(find, delete, tail, last, head)
 
 import Data.Maybe(fromJust, isNothing)
 
-import Graphics.Slicer.Math.Point (Point)
-
-import Graphics.Slicer.Math.Definitions (Contour(Contour))
+import Graphics.Slicer.Math.Definitions (Contour(Contour), Point)
 
 -- A contour is a closed loop of lines on a layer.
 
