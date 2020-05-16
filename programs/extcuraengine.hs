@@ -245,7 +245,7 @@ shrinkContour surface amount allContours contour@(Contour contourPoints)
 -- Add one contour inside of the given contour.
 -- FIXME: there are four types of contour: raw, inside, middle, and outside. this code needs to be aware of the differences. fix the type system.
 addInsideContour :: BuildArea -> ℝ -> [Contour] -> Contour -> [Contour]
-addInsideContour surface pathWidth allContours (Contour contourPoints) = -- error $ show $ length $ pointsFromLines $ catMaybes foundContour
+addInsideContour surface pathWidth allContours contour@(Contour contourPoints) = -- error $ show $ length $ pointsFromLines $ catMaybes foundContour
   Contour (pointsFromLines $ catMaybes foundContour) : foundNewContours
   where
     -- FIXME: implement me. we need this so we can handle further interior contours, and only check against the contour they are inside of.
@@ -296,7 +296,7 @@ addInsideContour surface pathWidth allContours (Contour contourPoints) = -- erro
             -- line segments for a hypothetical line, without being shortened yet.
             rawMidToEdge contours ln@(Line _ m) = lineToEdge surface (lineSlope m) (innerPerimeterPoint pathWidth contours ln)
             noIntersectionError :: Line -> Line -> Line -> Line -> Point
-            noIntersectionError l1 newL1 l2 newL2 = error $ "no intersection on contour: \n" <> (concat $ show <$> contourPoints) <> "\n" <> show l1 <> " -> " <> show newL1 <> "\n" <> show l2 <> " -> " <> show newL2 <> "\n" 
+            noIntersectionError l1 newL1 l2 newL2 = error $ "no intersection on contour: \n" <> (show contour) <> "\n" <> show l1 <> " -> " <> show newL1 <> "\n" <> show l2 <> " -> " <> show newL2 <> "\n"
 
 ---------------------------------------------------------
 --------------------- GCode Generation ------------------
