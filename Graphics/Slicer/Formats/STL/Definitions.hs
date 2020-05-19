@@ -76,4 +76,4 @@ readFacet :: ByteString -> Facet
 readFacet f = do
         let
           foundPoints = catMaybes $ readPoint <$> lines f
-        if length foundPoints == 3 then Facet (makeLinesLooped foundPoints) else error $ "wrong number of points found: " <> show (length foundPoints) <> "\n" <> show f
+        if length foundPoints == 3 then Facet (makeLinesLooped foundPoints) else error $ "wrong number of points found: " <> show (length foundPoints) <> "\n" <> show f <> "\n" <> show foundPoints <> "\n"
