@@ -65,7 +65,7 @@ lineIntersection (Line p r) (Line q s)
 -- Create a line given its endpoints
 lineFromEndpoints :: Point -> Point -> Line
 lineFromEndpoints p1 p2
-  | p1 == p2 = error $ "creating an empty line for point: " <> show p1 <> "\n"
+  | p1 == p2 = error $ "Trying to create a line from two identical points: " <> show p1 <> "\n"
   | otherwise = Line p1 (addPoints (scalePoint (-1) p1) p2)
 
 -- Get the other endpoint
@@ -75,7 +75,7 @@ endpoint l = addPoints (point l) (slope l)
 -- take a list of lines, connected at their end points, and generate a list of the points.
 pointsFromLines :: [Line] -> [Point]
 pointsFromLines lines
-  | null lines = [] -- error "found no inner points for contour."
+  | null lines = error "no lines to make points of."
   | otherwise = (fst . pointsFromLine $ head lines) : (snd . pointsFromLine <$> lines)
   where
     pointsFromLine :: Line -> (Point, Point)
@@ -99,7 +99,7 @@ makeLines l
 makeLinesLooped :: [Point] -> [Line]
 makeLinesLooped l
   -- too short, bail.
-  | length l < 3 = []
+  | length l < 2 = []
   -- already looped, use makeLines.
   | head l == last l = makeLines l
   -- ok, do the work and loop it.
@@ -155,11 +155,12 @@ combineConsecutiveLines lines
     combine [l1] (l2:ls) = if canCombineLines l1 l2 then combineLines l1 l2 : ls else l1:l2:ls
     combine  l1  [l2]    = if canCombineLines (last l1) l2 then init l1 ++ [combineLines (last l1) l2] else l1 ++ [l2]
     combine  l1  (l2:ls) = if canCombineLines (last l1) l2 then init l1 ++ combineLines (last l1) l2 : ls else l1 ++ l2:ls
+    combineEnds :: [Line] -> [Line]
     combineEnds  []      = []
     combineEnds  [l1]    = [l1]
     combineEnds  (l1:ls)
       | length ls > 1 = if canCombineLines (last ls) l1 then init ls ++ [combineLines (last ls) l1] else l1:ls
-      | otherwise = error "one length ls"
+      | otherwise = combine [l1] ls
 
 -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
 -- if p2 == p3 and the lines are parallel (see canCombineLines)
