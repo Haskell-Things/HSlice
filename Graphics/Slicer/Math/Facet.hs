@@ -21,9 +21,9 @@
 -- for adding Generic and NFData to Facet.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Facet (Facet(Facet), sides, shiftFacet, facetIntersects) where
+module Graphics.Slicer.Math.Facet (Facet(Facet), sides, shiftFacet, facetIntersects, facetFromPoints) where
 
-import Prelude (Eq, (<$>), (.), ($), map)
+import Prelude (Eq, (<$>), (.), ($), fmap, error)
 
 import Data.List(nub)
 
@@ -37,15 +37,18 @@ import Graphics.Slicer.Definitions(ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point, addPoints)
 
-import Graphics.Slicer.Math.Line (Line, point, pointAtZValue)
+import Graphics.Slicer.Math.Line (Line, point, pointAtZValue, rawLineFromEndpoints)
 
 newtype Facet = Facet { sides :: [Line] }
   deriving (Eq, Generic, NFData)
 
-
 -- Shift a facet by the vector p
 shiftFacet :: Point -> Facet -> Facet
-shiftFacet p = Facet . map (\l -> l { point = addPoints p (point l) }) . sides
+shiftFacet p = Facet . fmap (\l -> l { point = addPoints p (point l) }) . sides
+
+facetFromPoints :: [Point] -> Facet
+facetFromPoints pts@(p1:p2:p3:[]) = Facet $ (rawLineFromEndpoints p1 p2):(rawLineFromEndpoints p2 p3):(rawLineFromEndpoints p3 p1):[]
+facetFromPoints _ = error "tried to make a facet from something other than 3 points."
 
 -- determine where a facet intersects a plane at a given z value
 facetIntersects :: ℝ -> Facet -> Maybe [Point]

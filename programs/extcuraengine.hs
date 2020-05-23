@@ -31,7 +31,7 @@
 
 import GHC.Generics (Generic)
 
-import Prelude ((*), (/), (+), (-), fromIntegral, odd, pi, sqrt, mod, round, floor, concatMap, foldMap, fmap, (<>), toRational, FilePath, Int, fromInteger, Eq, fromRational, init, error, seq, div, fromRational, negate)
+import Prelude ((*), (/), (+), (-), fromIntegral, odd, pi, sqrt, mod, round, floor, concatMap, foldMap, fmap, (<>), toRational, FilePath, Int, fromInteger, Eq, fromRational, init, error, seq, div, fromRational, negate, Show)
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -82,7 +82,7 @@ import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString,
 
 import Graphics.Implicit.Definitions (ℝ, ℝ2, ℝ3, ℕ, Fastℕ(Fastℕ), fromFastℕ)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet, sides, Contour(Contour), LayerType(BaseOdd, BaseEven, Middle), lineSlope, Slope, pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundPoint, shortenLineBy, accumulateValues, makeLines, makeLinesLooped, facetIntersects, getContours, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos, facetLinesFromSTL, combineLines, combineConsecutiveLines, pointsFromLines)
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet, sides, Contour(Contour), LayerType(BaseOdd, BaseEven, Middle), lineSlope, Slope, pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundPoint, shortenLineBy, accumulateValues, makeLines, makeLinesLooped, facetIntersects, getContours, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos, facetLinesFromSTL, combineLines, combineConsecutiveLines, pointsFromLines, makeContourTree, innerPerimeterPoint, outerPerimeterPoint, ContourTree(ContourTree))
 
 default (ℕ, Fastℕ, ℝ)
 
@@ -135,8 +135,8 @@ centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
 -- Basically, cover the build plane in lines, then remove the portions of those lines that are not inside of one of the target contours.
 -- The target contours should be the innermost parameters.
 -- FIXME: reduce size of build area to box around contours, to reduce the area searched?
-makeInfill :: BuildArea -> Print -> [Contour] -> ℝ -> LayerType -> [Line]
-makeInfill buildarea print contours zHeight layerType = foldMap (infillLineInside contours) $ infillCover layerType
+makeInfill :: BuildArea -> Print -> Contour -> [Contour] -> ℝ -> LayerType -> [Line]
+makeInfill buildarea print contour insideContours zHeight layerType = foldMap (infillLineInside [contour]) $ infillCover layerType
     where infillCover Middle = coveringInfill buildarea print zHeight
           infillCover BaseEven = coveringLinesUp buildarea ls zHeight
           infillCover BaseOdd = coveringLinesDown buildarea ls zHeight
@@ -180,48 +180,20 @@ coveringLinesDown (RectArea (bedX,bedY,_)) lt zHeight = flip Line s . f <$> [0,l
     where s =  Point (bedX + bedY,- bedX - bedY,0)
           f v = Point (0,v,zHeight)
 
--- Given a line, generate a pair of lines from points on both sides of the given line's midpoint to the origin, on the same z plane as the given line.
-perimeterLinesToCheck :: ℝ -> Line -> (Line, Line)
-perimeterLinesToCheck pathWidth l@(Line p _) = (head linePair, last linePair)
-  where
-    linePair = (`lineFromEndpoints` Point (0,0,zOf p)) . endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*pathWidth) <$> [-1,1]
-    Line _ m = perpendicularBisector l
-    zOf :: Point -> ℝ
-    zOf (Point (_,_,z)) = z
-
--- Find an interior point on the perpendicular bisector of the given line, pathWidth from the line.
-innerPerimeterPoint :: ℝ -> [Contour] -> Line -> Point
-innerPerimeterPoint pathWidth contours l
-    | length oddIntersections > 0 = snd $ head oddIntersections
-    | length nonzeroIntersections > 0 = snd $ head nonzeroIntersections
-    | length intersections > 0 = snd $ head intersections
-    | otherwise = error $ "no intersections for line " <> show l <> "\n"
-    where
-      linesToCheck = perimeterLinesToCheck pathWidth l
-      bothLinesToCheck = fst linesToCheck : [snd linesToCheck]
-      intersections = (\a -> (numIntersections a, point a)) <$> bothLinesToCheck
-      contourLines = foldMap makeLinesLooped $ (\(Contour points) -> points) <$> contours
-      numIntersections l' = length $ mapMaybe (lineIntersection l') contourLines
-      oddIntersections = filter (odd . fst) intersections
-      nonzeroIntersections = filter ((/=0) . fst) intersections
-
 -- Contour optimizer. Merges small line fragments into larger ones.
-cleanContour :: Contour -> Contour
-cleanContour (Contour points) = Contour $ cleanPoints points
+cleanContour :: Contour -> Maybe Contour
+cleanContour (Contour points)
+  | length (cleanPoints points) > 2 = Just $ Contour $ cleanPoints points
+  | otherwise = Nothing -- error $ "asked to clean a contour with " <> show (length points) <> "points: " <> show points <> "\n"
   where
     cleanPoints :: [Point] -> [Point]
     cleanPoints pts
       | null pts = []
-      | otherwise = pointsFromLines $ combineConsecutiveLines $ makeLinesLooped $ nub $ roundPoint <$> pts
-
--- Get all of the contours inside of the given contours. may be recursed into by the helper when contours close off a region of the interior of the object.
--- FIXME: return result should be a tree.
-getInnerContours :: Printer -> Fastℕ -> [Contour] -> [[Contour]]
-getInnerContours (Printer _ surface extruder) innerPerimeterCount contours
-  | innerPerimeterCount == 0 = []
-  | otherwise  = [ addInsideContour surface pathWidth contours thisContour | thisContour <- contours ]
-  where
-    pathWidth = nozzleDiameter extruder
+      | length lines > 2 = pointsFromLines $ combineConsecutiveLines $ lines
+      | otherwise = [] 
+        where
+          lines = makeLinesLooped pointsRemaining
+          pointsRemaining = nub $ roundPoint <$> pts
 
 -- like map, only with previous, current, and next item, and wrapping around so the first entry gets the last entry as previous, and vica versa.
 mapWithNeighbors :: (a -> a -> a -> b) -> [a] -> [b]
@@ -234,67 +206,61 @@ mapWithNeighbors  f l =
     in
       withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
 
--- reduce a contour by a given amount.
-shrinkContour :: BuildArea -> ℝ -> [Contour] -> Contour -> Contour
-shrinkContour surface amount allContours contour@(Contour contourPoints)
-  | not (null res) = head res
-  | otherwise = error $ "contour did not shrink:\n" <> (concat $ show <$> contourPoints) <> "\n"
-  where
-    res = addInsideContour surface amount allContours contour
+data Direction =
+    Inward
+  | Outward
+  deriving (Eq)
 
--- Add one contour inside of the given contour.
--- FIXME: there are four types of contour: raw, inside, middle, and outside. this code needs to be aware of the differences. fix the type system.
-addInsideContour :: BuildArea -> ℝ -> [Contour] -> Contour -> [Contour]
-addInsideContour surface pathWidth allContours contour@(Contour contourPoints) = -- error $ show $ length $ pointsFromLines $ catMaybes foundContour
-  Contour (pointsFromLines $ catMaybes foundContour) : foundNewContours
+-- reduce a contour by a given amount.
+shrinkContour, addInsideContour :: BuildArea -> ℝ -> [Contour] -> Contour -> Contour
+shrinkContour surface amount allContours contour@(Contour contourPoints) = modifyContour surface amount allContours contour Inward
+addInsideContour surface amount allContours contour@(Contour contourPoints) = modifyContour surface amount allContours contour Inward
+
+-- increase a contour by a given amount.
+expandContour, addOutsideContour :: BuildArea -> ℝ -> [Contour] -> Contour -> Contour
+expandContour surface amount allContours contour@(Contour contourPoints) = modifyContour surface amount allContours contour Outward
+addOutsideContour surface amount allContours contour@(Contour contourPoints) = modifyContour surface amount allContours contour Outward
+
+-- FIXME: implement this.
+-- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.
+-- FIXME: draw a line before, and after the intersection. the line after is the first line of the new contour, the line before is still this contour.
+-- Optimization: only check non-neighbor lines when the angles add up to a certain amount? looking for curling back. anything over ~180 degrees, relative to the slope of this line.
+findExtraContours :: Contour -> Contour -> [Contour]
+findExtraContours _ _ = []
+
+-- Add one contour inside or outside of a given contour, in a naieve fashion.
+modifyContour :: BuildArea -> ℝ -> [Contour] -> Contour -> Direction -> Contour
+modifyContour surface pathWidth allContours contour@(Contour contourPoints) direction = Contour $ pointsFromLines foundContour
   where
     -- FIXME: implement me. we need this so we can handle further interior contours, and only check against the contour they are inside of.
-    isInsideContour :: [Contour] -> Contour -> Bool 
-    isInsideContour _ _ = False
-    foundNewContours :: [Contour]
-    foundNewContours = []
     foundContour
       | (length contourPoints) > 2 = mapWithNeighbors (findLine allContours) $ (makeLinesLooped contourPoints)
-      | otherwise = [] -- error "wtf"
+      | otherwise = error $ "tried to modify a contour with too few points: "
       where
-{-
-      | otherwise = error $  "made these lines:\n" <> (intercalate "\n" $ show <$> makeLinesLooped contourPoints) <> "\n" <> (intercalate "\n" $ show . (perpendicularBisector) <$> makeLinesLooped contourPoints) <> "\n" <> (intercalate "\n" $ show . (perimeterLinesToCheck pathWidth) <$> makeLinesLooped contourPoints) <> "\n" <> (intercalate "\n" $ show . intersections <$> makeLinesLooped contourPoints) <> (intercalate "\n" $ show . (innerPerimeterPoint pathWidth allContours) <$> makeLinesLooped contourPoints) <> "\n"
-      where
-        linesToCheck l = perimeterLinesToCheck pathWidth l
-        bothLinesToCheck l = fst (linesToCheck l) : [snd (linesToCheck l)]
-        intersections l = (\a -> (numIntersections a, point a)) <$> bothLinesToCheck l
-        contourLines = makeLinesLooped $ (\(Contour points) -> points) contour
-        numIntersections l' = length $ mapMaybe (lineIntersection l') contourLines
---        oddIntersections = filter (odd . fst) intersections
---        nonzeroIntersections = filter ((/=0) . fst) intersections
--}
---        findLine contours previousln ln@(Line _ m) nextln = error $ "Given contour: " <> (concat $ show <$> contourPoints) <> "\n" <> show previousln <> "\n" <> show ln <> "\n" <> show nextln <> "\n"
         -- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.
         -- Optimization: only check non-neighbor lines when the angles add up to a certain amount? looking for curling back. anything over ~180 degrees, relative to the slope of this line.
-        findLine :: [Contour] -> Line -> Line -> Line -> Maybe Line
-        findLine contours previousln ln@(Line _ m) nextln = Just $ flipLine midToStart `combineLines` midToEnd
+        findLine :: [Contour] -> Line -> Line -> Line -> Line
+        findLine contours previousln ln@(Line _ m) nextln = flipLine midToStart `combineLines` midToEnd
           where
             midToEnd, midToStart :: Line
-            midToEnd =   pointSlopeLength (innerPerimeterPoint pathWidth contours ln) (lineSlope m) (lengthToIntersection ln nextln)
-            midToStart = pointSlopeLength (innerPerimeterPoint pathWidth contours ln) (lineSlope m) (negate $ lengthToIntersection ln previousln)
-        -- FIXME: implement this.
-        -- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.
-        -- FIXME: draw a line before, and after the intersection. the line after is the first line of the new contour, the line before is still this contour.
-        -- Optimization: only check non-neighbor lines when the angles add up to a certain amount? looking for curling back. anything over ~180 degrees, relative to the slope of this line.
-        findExtraContours :: Line -> [Contour]
-        findExtraContours _ = []
+            midToEnd   = pointSlopeLength (perimeterPoint pathWidth contours ln) (lineSlope m) (lengthToIntersection ln nextln)
+            midToStart = pointSlopeLength (perimeterPoint pathWidth contours ln) (lineSlope m) (negate $ lengthToIntersection ln previousln)
+        perimeterPoint :: ℝ -> [Contour] -> Line -> Point
+        perimeterPoint pathWidth contours ln
+          | direction == Inward  = innerPerimeterPoint pathWidth contours ln
+          | direction == Outward = outerPerimeterPoint pathWidth contours ln
         -- get the length to where these lines intersect, assuming they are pathWidth away from the lines themselves.
         lengthToIntersection :: Line -> Line -> ℝ
         lengthToIntersection l1 l2
           | lineSlope (roundPoint $ slopeOf newL1) == lineSlope (roundPoint $ slopeOf newL2) = distance (linePoint newL1) (linePoint newL2)
-          | otherwise = distance (innerPerimeterPoint pathWidth allContours l1) $ fromMaybe (noIntersectionError l1 newL1 l2 newL2) $ lineIntersection newL1 newL2
+          | otherwise = distance (perimeterPoint pathWidth allContours l1) $ fromMaybe (noIntersectionError l1 newL1 l2 newL2) $ lineIntersection newL1 newL2
           where
             linePoint (Line p _) = p
             slopeOf (Line _ m) = m
             newL1 = rawMidToEdge allContours l1
             newL2 = flipLine $ rawMidToEdge allContours l2
             -- line segments for a hypothetical line, without being shortened yet.
-            rawMidToEdge contours ln@(Line _ m) = lineToEdge surface (lineSlope m) (innerPerimeterPoint pathWidth contours ln)
+            rawMidToEdge contours ln@(Line _ m) = lineToEdge surface (lineSlope m) (perimeterPoint pathWidth contours ln)
             noIntersectionError :: Line -> Line -> Line -> Line -> Point
             noIntersectionError l1 newL1 l2 newL2 = error $ "no intersection on contour: \n" <> (show contour) <> "\n" <> show l1 <> " -> " <> show newL1 <> "\n" <> show l2 <> " -> " <> show newL2 <> "\n"
 
@@ -455,7 +421,6 @@ boundingBoxAll contours = if isEmptyBBox box then Nothing else Just box
       maxY = maximum $ (\(BBox _ (_,y2)) -> y2) <$> bBoxes
       bBoxes = mapMaybe boundingBox contours
 
-
 -- Get a 2D bounding box of a 2D contour.
 boundingBox :: Contour -> Maybe BBox
 boundingBox (Contour []) = Nothing
@@ -469,7 +434,6 @@ boundingBox (Contour contourPoints) = if isEmptyBBox box then Nothing else Just 
     xOf,yOf :: Point -> ℝ
     xOf (Point (x,_,_)) = x
     yOf (Point (_,y,_)) = y
-
 
 -- add a 2D bounding box to a list of contours, as the first contour in the list.
 -- FIXME: assumes 2D contour.
@@ -500,8 +464,9 @@ makeSupport buildarea print contours zHeight = fmap (shortenLineBy $ 2 * lh)
 
 -- Create contours from a list of facets
 layers :: Print -> [Facet] -> [[Contour]]
-layers print fs = [ cleanContour <$> (getContours $ allIntersections currentLayer) | currentLayer <- [lh,lh*2..zmax] ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
+layers print fs = catMaybes <$> rawContours
   where
+    rawContours = [cleanContour <$> (getContours $ allIntersections currentLayer) | currentLayer <- [lh,lh*2..zmax] ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
     allIntersections :: ℝ -> [[Point]]
     allIntersections zLayer = catMaybes $ facetIntersects zLayer <$> fs
     zs = [zOf $ point triPoints | triPoints <- foldMap sides fs ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
@@ -551,23 +516,65 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
     travelBetweenContours sourceContour destContour = [make2DTravelGCode (lastPoint $ sourceContour) $ firstPoint destContour]
     travelFromContourToInfill :: Contour -> Contour -> [GCode]
     travelFromContourToInfill sourceContour destContour = [addFeedRate infillSpeed $ make2DTravelGCode (lastPoint $ sourceContour) $ firstPoint destContour]
-    renderContour :: Contour -> [GCode]
-    renderContour contour
-      | outerWallBeforeInner == True = (travelToContour contour) <> (drawOuterContour contour) <> (travelBetweenContours contour $ innerContour contour) <> (drawInnerContour $ innerContour contour) <> remainder contour
-      | otherwise = (travelToContour $ innerContour contour) <> (drawInnerContour $ innerContour contour) <> (travelBetweenContours (innerContour contour) contour) <> (drawOuterContour contour) <> remainder contour
+    renderContourTree :: ContourTree -> [GCode]
+    renderContourTree (ContourTree (thisContour, subContours)) = (renderSurface thisContour (interiorContours subContours)) <> (concat $ renderContourTree <$> (insidePositiveSpaces subContours))
+      where
+        interiorContours :: [ContourTree] -> [Contour]
+        interiorContours trees = (\(ContourTree (a,_)) -> a) <$> trees
+        insidePositiveSpaces :: [ContourTree] -> [ContourTree]
+        insidePositiveSpaces trees = concat $ (\(ContourTree (_,a)) -> a) <$> trees
+    -- FIXME: shrink the outside contours here, add the inner ones, and grow the inside ones.
+    renderSurface :: Contour -> [Contour] -> [GCode]
+    renderSurface outsideContour insideContours
+      | outerWallBeforeInner == True =
+        (travelToContour contour) <> (drawOuterContour contour)
+        <> if null childContours
+           then travelBetweenContours contour $ innerContourOf contour
+           else (travelBetweenContours contour $ head childContours)
+                <> (drawOuterContour $ head childContours)
+                <> drawChildContours
+                <> (travelBetweenContours (last childContours) $ innerContourOf contour)
+        <> (drawInnerContour $ innerContourOf contour)
+        <> if null childContours
+           then travelBetweenContours (innerContourOf contour) contour
+           else (travelBetweenContours (innerContourOf contour) $ outerContourOf $ head childContours)
+                <> (drawInnerContour $ outerContourOf $ head childContours) <> drawChildOuterContours <> (travelBetweenContours (outerContourOf $ last childContours) $ contour)
+        <> remainder contour childContours
+      | otherwise =
+        (travelToContour $ innerContourOf contour) <> (drawInnerContour $ innerContourOf contour)
+        <> if null childContours
+           then travelBetweenContours (innerContourOf contour) contour
+           else (travelBetweenContours (innerContourOf contour) $ outerContourOf $ head childContours)
+                <> (drawInnerContour $ outerContourOf $ head childContours) <> drawChildOuterContours <> (travelBetweenContours (outerContourOf $ last childContours) $ contour)
+        <> (drawOuterContour contour)
+        <> if null childContours
+           then travelBetweenContours contour $ innerContourOf contour
+           else (travelBetweenContours contour $ head childContours)
+                <> (drawOuterContour $ head childContours) <> drawChildContours <> (travelBetweenContours (last childContours) $ innerContourOf contour)
+        <> remainder contour childContours
         where
+          contour = fromMaybe (error "failed to shrink contour") $ cleanContour $ shrinkContour buildarea (pathWidth/2) (insideContours ++ [outsideContour]) outsideContour
+          childContours = (fromMaybe (error "failed to expand contour") . cleanContour . expandContour buildarea (pathWidth/2) (insideContours ++ [outsideContour])) <$> insideContours
+          drawChildContours = (concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) (init childContours) (tail childContours))
+          drawChildOuterContours = (concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init $ outerContourOf <$> childContours) (tail $ outerContourOf <$> childContours))
           drawOuterContour c = GCMarkOuterWallStart : gcodeFor2DContour lh pathWidth c
           drawInnerContour c = GCMarkInnerWallStart : gcodeFor2DContour lh pathWidth c
-          drawInfillContour c = GCMarkInfillStart : (gcodeFor2DContour lh pathWidth $ renderInfill c)
-          remainder c
-            | outerWallBeforeInner == True = (travelFromContourToInfill (innerContour c) (renderInfill c)) <> (drawInfillContour $ innerContour c)
-            | otherwise = (travelFromContourToInfill c (renderInfill c)) <> (drawInfillContour $ innerContour c)
-          innerContour c = cleanContour $ head $ addInsideContour buildarea pathWidth [c] c
+          drawInfillContour :: Contour -> [Contour] -> [GCode]
+          drawInfillContour c cs = GCMarkInfillStart : (gcodeFor2DContour lh pathWidth $ infillContour (innerContourOf c) (outerContourOf <$> childContours))
+          remainder :: Contour -> [Contour] -> [GCode]
+          remainder c cs
+            | outerWallBeforeInner == True = (travelFromContourToInfill (innerContourOf c) (infillContour c cs)) <> (drawInfillContour c cs)
+            | otherwise = (travelFromContourToInfill c (infillContour c cs)) <> (drawInfillContour (innerContourOf c) (outerContourOf <$> childContours))
+          -- FIXME: move this to a maybe.
+          innerContourOf c = fromMaybe (Contour []) $ cleanContour $ addInsideContour buildarea pathWidth [c] c
+          outerContourOf c = fromMaybe (Contour []) $ cleanContour $ addOutsideContour buildarea pathWidth [c] c
+          -- FIXME: take into account inside negative spaces.
           -- FIXME: infill should remain [Line].
-          renderInfill c = foldMap (\l -> Contour [point l, endpoint l])
-                           $ mapEveryOther flipLine
-                           $ makeInfill buildarea print [(innerContour c)] zHeightOfLayer
-                           $ getLayerType print layerNumber
+          infillContour :: Contour -> [Contour] -> Contour
+          infillContour c cs = foldMap (\l -> Contour [point l, endpoint l])
+                            $ mapEveryOther flipLine
+                            $ makeInfill buildarea print (innerContourOf c) (outerContourOf <$> childContours) zHeightOfLayer
+                            $ getLayerType print layerNumber
     supportGCode, layerEnd :: [GCode]
     supportGCode = if hasSupport then gcodeFor2DContour lh pathWidth supportContour else []
     layerEnd = if isLastLayer then [] else travelToLayerChange ++ gcodeFor2DContourNoExtrude (firstOuterContour)
@@ -577,9 +584,12 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToLayerChange = [make2DTravelGCode (Point (0,0,0)) $ firstPoint $ firstOuterContour]
   -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
-  layerStart <> (concat $ renderContour <$> outerContours) <> support <> layerEnd 
+  layerStart <> (concat $ renderContourTree <$> makeContourTree layerContours) <> support <> layerEnd 
     where
-      outerContours = [cleanContour $ shrinkContour buildarea (pathWidth/2) layerContours contour | contour <- layerContours] `using` parBuffer (fromFastℕ threads) rdeepseq
+      layerContourTree = makeContourTree layerContours
+--      positiveContours =
+--      negativeContours =
+      outerContours = catMaybes ( [cleanContour $ shrinkContour buildarea (pathWidth/2) layerContours contour | contour <- layerContours] `using` parBuffer (fromFastℕ threads) rdeepseq)
       firstOuterContour = if not (null outerContours) && not (null $ pointsOfContour $ head outerContours) then head outerContours else error $ "no outer contour?\n"
       supportContour :: Contour
       supportContour = foldMap (\l -> Contour [point l, endpoint l])
@@ -765,7 +775,7 @@ run rawArgs = do
       printer   = printerFromSettings settings
       buildarea = buildArea printer
       print = printFromSettings settings
-      facets = centeredFacetsFromSTL buildarea  stl
+      facets = centeredFacetsFromSTL buildarea stl
       allLayers :: [[Contour]]
       allLayers = layers print facets
       object = zip allLayers [(0::Fastℕ)..]
@@ -773,7 +783,6 @@ run rawArgs = do
       gcodesAsText = [gcodeToText gcode | gcode <- gcodes] `using` parListChunk (div (length gcodes) (fromFastℕ threads)) rseq
       layerCount = length allLayers
       outFile = fromMaybe "out.gcode" $ outputFileOpt args
---    error $ show allLayers
     writeFile outFile $ startingGCode settings <> (";LAYER_COUNT:" <> fromString (show layerCount) <> "\n") <> unlines gcodesAsText <> endingGCode settings
       where
         -- The Printer.

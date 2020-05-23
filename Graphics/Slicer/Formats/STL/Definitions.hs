@@ -36,7 +36,7 @@ import Control.Parallel.Strategies (using, rdeepseq, parBuffer)
 
 import Graphics.Slicer.Math.Definitions (Point(Point))
 
-import Graphics.Slicer.Math.Facet (Facet(Facet))
+import Graphics.Slicer.Math.Facet (Facet, facetFromPoints)
 
 import Graphics.Slicer.Math.Line (makeLinesLooped)
 
@@ -76,4 +76,4 @@ readFacet :: ByteString -> Facet
 readFacet f = do
         let
           foundPoints = catMaybes $ readPoint <$> lines f
-        if length foundPoints == 3 then Facet (makeLinesLooped foundPoints) else error $ "wrong number of points found: " <> show (length foundPoints) <> "\n" <> show f <> "\n" <> show foundPoints <> "\n"
+        if length foundPoints == 3 then facetFromPoints foundPoints else error $ "wrong number of points found: " <> show (length foundPoints) <> "\n" <> show f <> "\n" <> show foundPoints <> "\n"

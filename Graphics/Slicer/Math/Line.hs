@@ -21,7 +21,7 @@
 -- for adding Generic and NFData to Line.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, pointsFromLines, endpoint, midpoint, flipLine, pointSlopeLength, combineLines, canCombineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, makeLinesLooped, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), combineConsecutiveLines) where
+module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, rawLineFromEndpoints, pointsFromLines, endpoint, midpoint, flipLine, pointSlopeLength, combineLines, canCombineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, makeLinesLooped, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), combineConsecutiveLines) where
 
 import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool(False), (/=), (++), last, init, (<$>), Show, error, negate, fst, snd, (.), null, zipWith, (<>), show, concat)
 
@@ -67,6 +67,10 @@ lineFromEndpoints :: Point -> Point -> Line
 lineFromEndpoints p1 p2
   | p1 == p2 = error $ "Trying to create a line from two identical points: " <> show p1 <> "\n"
   | otherwise = Line p1 (addPoints (scalePoint (-1) p1) p2)
+
+-- Create a line given its endpoints, without equivalence checking.
+rawLineFromEndpoints :: Point -> Point -> Line
+rawLineFromEndpoints p1 p2 = Line p1 (addPoints (scalePoint (-1) p1) p2)
 
 -- Get the other endpoint
 endpoint :: Line -> Point

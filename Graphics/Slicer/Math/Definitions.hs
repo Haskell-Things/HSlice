@@ -36,6 +36,7 @@ import Graphics.Slicer.Definitions (ℝ, ℝ3)
 newtype Point = Point ℝ3
   deriving (Generic, NFData, Show)
 
+-- Breaks STL reading by creating degenerate triangles.
 instance Eq Point where
   (==) p1 p2 = distance p1 p2 < 0.00001
 
