@@ -1,7 +1,7 @@
 Name:                hslice
 Version:             0.0.1
 Cabal-version:       >= 1.8
-Tested-with:         GHC >= 8.4
+Tested-with:         GHC >= 8.6
 Build-type:          Simple
 Synopsis:            A GCode generator, that accepts STL files.
 Description:         A slicer in haskell. Use it to slice 3D prints.

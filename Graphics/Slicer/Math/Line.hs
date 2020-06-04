@@ -21,9 +21,9 @@
 -- for adding Generic and NFData to Line.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, rawLineFromEndpoints, pointsFromLines, endpoint, midpoint, flipLine, pointSlopeLength, combineLines, canCombineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, makeLinesLooped, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), combineConsecutiveLines) where
+module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, rawLineFromEndpoints, pointsFromLines, endpoint, midpoint, flipLine, pointSlopeLength, combineLines, canCombineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, makeLinesLooped, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), combineConsecutiveLines, Intersection (IntersectsAt, NoIntersection, Parallel, HitEndpointL1, HitEndpointL2), angleOf, SearchDirection(Clockwise,CounterClockwise), lineBetween) where
 
-import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool(False), (/=), (++), last, init, (<$>), Show, error, negate, fst, snd, (.), null, zipWith, (<>), show, concat)
+import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool(False), (/=), (++), last, init, (<$>), Show, error, negate, fst, snd, (.), null, zipWith, (<>), show, concat, (||), atan, pi)
 
 import Data.Maybe (Maybe(Just, Nothing))
 
@@ -53,12 +53,34 @@ instance Eq Line where
   (==) (Line p1 m1) (Line p2 m2) = (distance p1 p2) + (distance m1 m2) < 0.00001
 
 -- FIXME: how does this handle endpoints?
+
+-- The result of a line intersection in 2 dimensions.
+data Intersection =
+  Collinear
+  | Parallel
+  | IntersectsAt Point Point
+  | NoIntersection
+  | HitEndpointL1 Point
+  | HitEndpointL2 Point
+  | ShareEndpoint
+  deriving (Show)
+
 -- Line intersection algorithm from http://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
-lineIntersection :: Line -> Line -> Maybe Point
+lineIntersection :: Line -> Line -> Intersection
 lineIntersection (Line p r) (Line q s)
-  | twoDCrossProduct r s == 0 = Nothing
-  | 0 <= t && t <= 1 && 0 <= u && u <= 1 = Just (addPoints p (scalePoint t r))
-  | otherwise = Nothing
+  -- the two lines are collinear
+  | twoDCrossProduct r s == 0 &&
+    twoDCrossProduct (addPoints q (scalePoint (-1) p)) r == 0 = Collinear
+  -- the two lines are parallel, and non-interserting
+  | twoDCrossProduct r s == 0 &&
+    twoDCrossProduct (addPoints q (scalePoint (-1) p)) r /= 0 = Parallel
+  -- the two lines have an intersection
+  | 0 < t && t < 1 && 0 < u && u < 1 = IntersectsAt (addPoints p (scalePoint t r)) (addPoints q (scalePoint u s))
+  -- the intersection lies at one of the endpoints of the first line.
+  | t==0 || t==1 = HitEndpointL1 (addPoints q (scalePoint u s))
+  -- the intersection lies at one of the endpoints of the second line.
+  | u==0 || u==1 = HitEndpointL2 (addPoints p (scalePoint t r))
+  | otherwise = NoIntersection
   where t = twoDCrossProduct (addPoints q (scalePoint (-1) p)) s / twoDCrossProduct r s
         u = twoDCrossProduct (addPoints q (scalePoint (-1) p)) r / twoDCrossProduct r s
 
@@ -145,6 +167,31 @@ pointSlopeLength p1 (HasSlope sl) dist = Line p1 s
   where s = scalePoint scale $ Point (1,yVal,0)
         yVal = sl
         scale = dist / sqrt (1 + yVal*yVal)
+
+data SearchDirection = Clockwise | CounterClockwise
+
+-- given two lines with the same origin, start at the first one, and search in the given direction for the second one. if we hit it before we run into the third line (from the same origin), return true.
+lineBetween :: Line -> SearchDirection -> Line -> Line -> Bool
+lineBetween l1 (CounterClockwise) l2 l3
+  | (angleOf l3) > (angleOf l1) = (angleOf l3) > (angleOf l2) && (angleOf l2) > (angleOf l1)
+  | (angleOf l3) < (angleOf l1) = (angleOf l3) > (angleOf l2) || (angleOf l2) > (angleOf l1)
+
+-- given a line, determine the angle it is at, in radians. 
+angleOf :: Line -> ℝ
+angleOf (Line _ m@(Point (x,y,_)))
+  | (lineSlope m) == IsOrigin = error "tried to get the angle of a point."
+  | (lineSlope m) == (OnXAxis Positive) = 0
+  | (lineSlope m) == (OnYAxis Positive) = pi/2
+  | (lineSlope m) == (OnXAxis Negative) = pi
+  | (lineSlope m) == (OnYAxis Negative) = pi*1.5
+  | x>0 && y>0 = (atan $ slopeOf $ lineSlope m)
+  | x>0 && y<0 = (atan $ slopeOf $ lineSlope $ Point (-y, x, 0)) + pi/2
+  | x<0 && y<0 = (atan $ slopeOf $ lineSlope $ Point (-x, -y, 0)) + pi
+  | x<0 && y>0 = (atan $ slopeOf $ lineSlope $ Point (y, -x, 0)) + (pi*1.5)
+  | otherwise = error "unknown condition"
+  where
+    slopeOf (HasSlope sl) = sl
+    slopeOf _             = error "can not happen."
 
 -- Combine consecutive lines. expects lines with their end points connecting, EG, a contour generated by makeContours.
 combineConsecutiveLines :: [Line] -> [Line]

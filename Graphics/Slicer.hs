@@ -42,11 +42,11 @@ import Graphics.Slicer.Math.Definitions as MD (Point(Point), LayerType(BaseOdd, 
 
 import Graphics.Slicer.Math.Point as MP (crossProduct, twoDCrossProduct, orderPoints)
 
-import Graphics.Slicer.Math.Line as ML (Line(Line), point, slope, lineIntersection, lineFromEndpoints, midpoint, endpoint, flipLine, pointSlopeLength, combineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, makeLinesLooped, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), canCombineLines, combineConsecutiveLines, pointsFromLines)
+import Graphics.Slicer.Math.Line as ML (Line(Line), point, slope, lineIntersection, lineFromEndpoints, midpoint, endpoint, flipLine, pointSlopeLength, combineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, makeLinesLooped, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), canCombineLines, combineConsecutiveLines, pointsFromLines, Intersection(IntersectsAt, NoIntersection, Parallel, HitEndpointL2))
 
 import Graphics.Slicer.Math.Facet as MF (Facet(Facet), sides, shiftFacet, facetIntersects)
 
-import Graphics.Slicer.Math.Contour as MC (getContours, makeContourTree, innerPerimeterPoint, outerPerimeterPoint, ContourTree(ContourTree))
+import Graphics.Slicer.Math.Contour as MC (getContours, makeContourTree, innerPerimeterPoint, outerPerimeterPoint, ContourTree(ContourTree), lineEntersContour)
 
 import Graphics.Slicer.Math.Slicer as MS (accumulateValues)
 
