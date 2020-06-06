@@ -143,7 +143,7 @@ centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
 -- FIXME: reduce size of build area to box around contours, to reduce the area searched?
 -- FIXME: other ways to only generate covering lines over the outer contour?
 makeInfill :: BuildArea -> Print -> Contour -> [Contour] -> ℝ -> LayerType -> [[Line]]
-makeInfill buildarea print contour insideContours zHeight layerType = foldMap (infillLineInside contour insideContours) $ infillCover layerType
+makeInfill buildarea print contour insideContours zHeight layerType = infillLineInside contour insideContours <$> infillCover layerType
     where infillCover Middle = coveringInfill buildarea print zHeight
           infillCover BaseEven = coveringLinesUp buildarea ls zHeight
           infillCover BaseOdd = coveringLinesDown buildarea ls zHeight
@@ -151,12 +151,14 @@ makeInfill buildarea print contour insideContours zHeight layerType = foldMap (i
 
 -- Get the segments of an infill line that are inside of the outer contour, skipping space occluded by any of the child contours.
 -- May return multiple lines, or empty set.
-infillLineInside :: Contour -> [Contour] -> Line -> [[Line]]
+infillLineInside :: Contour -> [Contour] -> Line -> [Line]
 infillLineInside contour childContours line
 --  | not (null allLines) && length allLines > 1 = error $ show contour <> "\n" <> show childContours <> "\n" <> show line <> concat (show <$> [(allLines !!) <$> [0,2..length allLines - 1]] )
-  | not (null allLines) = [(allLines !!) <$> [0,2..length allLines - 1]] 
+--  | not (null allLines) = [head allLine]
+  | not (null allLines) = (allLines !!) <$> [0,2..length allLines - 1]
   | otherwise = [] -- error $ "did not find an intersection with a contour for: \n" <> show line <> "\n"
     where
+      allLines :: [Line]
       allLines = if null allPoints then [] else makeLines $ allPoints
       allPoints = filterTooShort $ sortBy orderPoints $ concat $ getLineIntersections line <$> contour:childContours
       filterTooShort :: [Point] -> [Point]
@@ -401,6 +403,25 @@ gcodeFor2DContour lh pathWidth (Contour contourPoints)
   | length contourPoints == 1 = error $ "Given a contour with a single point in it:" <> show contourPoints <> "\n"
   | otherwise                 = []
 
+-- for each group of lines, generate gcode for the segments, with move commands between them.
+gcodeFor2DInfill :: ℝ -> ℝ -> [[Line]] -> [GCode]
+gcodeFor2DInfill _ _ [] = []
+gcodeFor2DInfill lh pathWidth lineGroups = concat $ renderLineGroup (head lineGroups) : (zipWith (\group1 group2 -> (moveBetweenLineGroups group1 group2) ++ (renderLineGroup group2)) (init lineGroups) (tail lineGroups))
+  where
+    -- FIXME: this should be a single gcode. why are we getting empty line groups given to us?
+    moveBetweenLineGroups :: [Line] -> [Line] -> [GCode]
+    moveBetweenLineGroups [] g2 = [] -- error $ "given empty line group?\n"
+    moveBetweenLineGroups g1 [] = [] -- error $ "line group empty when finding line group following " <> show g1 <> "\n"
+    moveBetweenLineGroups g1 g2 = [moveBetween (last g1) (head g2)]
+    renderLineGroup :: [Line] -> [GCode]
+    renderLineGroup [] = []
+    renderLineGroup group = (make2DExtrudeGCode lh pathWidth (point $ head group) (endpoint $ head group)) : 
+                            (concat $ zipWith (\ l1 l2 -> moveBetween l1 l2 : [renderSegment l2]) (init group) (tail group))
+    moveBetween :: Line -> Line -> GCode
+    moveBetween l1 (Line startPointl2 _) = make2DTravelGCode (endpoint l1) startPointl2
+    renderSegment :: Line -> GCode
+    renderSegment ln@(Line startPoint _) = make2DExtrudeGCode lh pathWidth startPoint $ endpoint ln
+
 gcodeFor2DContourNoExtrude :: Contour -> [GCode]
 gcodeFor2DContourNoExtrude (Contour contourPoints)
   | length contourPoints > 1  = zipWith make2DTravelGCode (init contourPoints) (tail contourPoints)
@@ -485,8 +506,8 @@ makeSupport :: BuildArea
             -> ℝ
             -> [Line]
 makeSupport buildarea print contour childContours zHeight = fmap (shortenLineBy $ 2 * lh)
-                                                          $ concat $ foldMap (infillLineInside contour (addBBox childContours zHeight))
-                                                          $ coveringInfill buildarea print zHeight
+                                                          $ concat $ infillLineInside contour (addBBox childContours zHeight)
+                                                          <$> coveringInfill buildarea print zHeight
     where
       lh = layerHeight print
 
@@ -546,8 +567,8 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
     travelToInfill contour = [addFeedRate infillSpeed $ make3DTravelGCode (Point (0,0,0)) $ firstPoint contour]
     travelBetweenContours :: Contour -> Contour -> [GCode]
     travelBetweenContours sourceContour destContour = [make2DTravelGCode (lastPoint $ sourceContour) $ firstPoint destContour]
-    travelFromContourToInfill :: Contour -> Contour -> [GCode]
-    travelFromContourToInfill sourceContour destContour = [addFeedRate infillSpeed $ make2DTravelGCode (lastPoint $ sourceContour) $ firstPoint destContour]
+    travelFromContourToInfill :: Contour -> [[Line]] -> [GCode]
+    travelFromContourToInfill source dest = [addFeedRate infillSpeed $ make2DTravelGCode (lastPoint $ source) $ firstPointOfInfill dest]
     renderContourTree :: ContourTree -> [GCode]
     renderContourTree (ContourTree (thisContour, subContours)) = (renderSurface thisContour (interiorContours subContours)) <> (concat $ renderContourTree <$> (insidePositiveSpaces subContours))
       where
@@ -566,7 +587,7 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
       | otherwise =
         (travelToContour $ innerContourOf contour) <> (drawInnerContour $ innerContourOf contour)
         <> renderChildInnerContours (innerContourOf contour) contour
-        <> (drawOuterContour contour)
+        <> drawOuterContour contour
         <> renderChildOuterContours contour (innerContourOf contour)
         <> remainder contour childContours
         where
@@ -583,19 +604,16 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
           drawChildOuterContours = (concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init $ outerContourOf <$> childContours) (tail $ outerContourOf <$> childContours))
           drawOuterContour c = GCMarkOuterWallStart : gcodeFor2DContour lh pathWidth c
           drawInnerContour c = GCMarkInnerWallStart : gcodeFor2DContour lh pathWidth c
-          drawInfillContour :: Contour -> [Contour] -> [GCode]
-          drawInfillContour c cs = GCMarkInfillStart : (gcodeFor2DContour lh pathWidth $ infillContour (innerContourOf c) (outerContourOf <$> childContours))
+          drawInfill :: Contour -> [Contour] -> [GCode]
+          drawInfill c cs = GCMarkInfillStart : (gcodeFor2DInfill lh pathWidth $ infillLines c cs)
           remainder :: Contour -> [Contour] -> [GCode]
           remainder c cs
-            | outerWallBeforeInner == True = (travelFromContourToInfill (innerContourOf c) (infillContour c cs)) <> (drawInfillContour c cs)
-            | otherwise = (travelFromContourToInfill c (infillContour c cs)) <> (drawInfillContour (innerContourOf c) (outerContourOf <$> childContours))
+            | outerWallBeforeInner == True = (travelFromContourToInfill (innerContourOf c) (infillLines c cs)) <> (drawInfill c cs)
+            | otherwise = (travelFromContourToInfill c (infillLines c cs)) <> (drawInfill (innerContourOf c) (outerContourOf <$> childContours))
           -- FIXME: move this to a maybe.
           innerContourOf c = fromMaybe (Contour []) $ cleanContour $ addInsideContour buildarea pathWidth [c] c
           outerContourOf c = fromMaybe (Contour []) $ cleanContour $ addOutsideContour buildarea pathWidth [c] c
-          -- FIXME: infill should remain [Line].
-          infillContour :: Contour -> [Contour] -> Contour
-          infillContour c cs = foldMap (\l -> Contour [point l, endpoint l])
-                            $ concat $ mapEveryOther (\l -> reverse $ flipLine <$> l) $ (makeInfill buildarea print (innerContourOf c) (outerContourOf <$> childContours) zHeightOfLayer $ getLayerType print layerNumber)
+          infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill buildarea print (innerContourOf c) (outerContourOf <$> cs) zHeightOfLayer $ getLayerType print layerNumber
     supportGCode, layerEnd :: [GCode]
     supportGCode = if hasSupport then gcodeFor2DContour lh pathWidth supportContour else []
     layerEnd = if isLastLayer then [] else travelToLayerChange -- ++ gcodeFor2DContourNoExtrude (firstOuterContour)
@@ -617,6 +635,9 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
                         $ makeSupport buildarea print (head outerContours) outerContours zHeightOfLayer
       firstPoint (Contour contourPoints) = if not (null contourPoints) then head contourPoints else error "tried to get the first point of an empty contour.\n"
       lastPoint (Contour contourPoints) = last contourPoints
+      firstPointOfInfill (x:xs) = if null x then firstPointOfInfill xs else startOfLine $ head x
+        where
+          startOfLine (Line p _) = p
       pointsOfContour (Contour points) = points
       pathWidth = nozzleDiameter extruder
       zHeightOfLayer = zOfContour $ head layerContours
