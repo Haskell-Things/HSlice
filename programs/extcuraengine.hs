@@ -140,31 +140,39 @@ centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
 -- Generate infill for a layer.
 -- Basically, cover the build plane in lines, then remove the portions of those lines that are not inside of one of the target contours.
 -- The target contours should be the innermost parameters.
--- FIXME: reduce size of build area to box around contours, to reduce the area searched?
+-- FIXME: reduce size of build area to box around contour, to reduce the area searched?
 -- FIXME: other ways to only generate covering lines over the outer contour?
 makeInfill :: BuildArea -> Print -> Contour -> [Contour] -> ℝ -> LayerType -> [[Line]]
-makeInfill buildarea print contour insideContours zHeight layerType = infillLineInside contour insideContours <$> infillCover layerType
+makeInfill buildarea print contour insideContours zHeight layerType = catMaybes $ infillLineInside contour insideContours <$> infillCover layerType
     where infillCover Middle = coveringInfill buildarea print zHeight
           infillCover BaseEven = coveringLinesUp buildarea ls zHeight
           infillCover BaseOdd = coveringLinesDown buildarea ls zHeight
           ls = lineSpacing print
 
--- Get the segments of an infill line that are inside of the outer contour, skipping space occluded by any of the child contours.
+-- Get the segments of an infill line that are inside of a contour, skipping space occluded by any of the child contours.
 -- May return multiple lines, or empty set.
-infillLineInside :: Contour -> [Contour] -> Line -> [Line]
+infillLineInside :: Contour -> [Contour] -> Line -> Maybe [Line]
 infillLineInside contour childContours line
 --  | not (null allLines) && length allLines > 1 = error $ show contour <> "\n" <> show childContours <> "\n" <> show line <> concat (show <$> [(allLines !!) <$> [0,2..length allLines - 1]] )
 --  | not (null allLines) = [head allLine]
-  | not (null allLines) = (allLines !!) <$> [0,2..length allLines - 1]
-  | otherwise = [] -- error $ "did not find an intersection with a contour for: \n" <> show line <> "\n"
+  | not (null allLines) = Just $ (allLines !!) <$> [0,2..length allLines - 1]
+  | otherwise = Nothing -- error $ "did not find an intersection with a contour for: \n" <> show line <> "\n"
     where
       allLines :: [Line]
       allLines = if null allPoints then [] else makeLines $ allPoints
-      allPoints = filterTooShort $ sortBy orderPoints $ concat $ getLineIntersections line <$> contour:childContours
-      filterTooShort :: [Point] -> [Point]
-      filterTooShort [] = []
-      filterTooShort [a] = error $ "single point? " <> show a <> "\n"
-      filterTooShort (a:b:xs) = if distance a b < 0.01 then filterTooShort xs else a:b:(filterTooShort xs)
+      allPoints = (filterTooShort True) $ sortBy orderPoints $ concat $ getLineIntersections line <$> contour:childContours
+      filterTooShort :: Bool -> [Point] -> [Point]
+      filterTooShort _ [] = []
+      filterTooShort True [a] = [] -- error $ "single point? " <> show a <> "\n"
+      filterTooShort False [a] = [a] -- error $ "single point? " <> show a <> "\n"
+      filterTooShort True (a:b:xs) = if distance a b < 0.01
+                                      then
+                                        if length (filterTooShort False (a:xs)) == 1 then [] else (filterTooShort False (a:xs))
+                                      else if length (filterTooShort False (b:xs)) > 1 then a:(filterTooShort False (b:xs)) else a:(filterTooShort False (b:xs))
+      filterTooShort False (a:b:xs) = if distance a b < 0.01
+                                      then
+                                        if null xs then [b] else filterTooShort False (a:xs)
+                                      else a:(filterTooShort False (b:xs))
       getLineIntersections :: Line -> Contour -> [Point]
       getLineIntersections myline c = catMaybes $ saneIntersections $ cookIntersections $ lineIntersection myline <$> linesOfContour c
         where
@@ -506,7 +514,7 @@ makeSupport :: BuildArea
             -> ℝ
             -> [Line]
 makeSupport buildarea print contour childContours zHeight = fmap (shortenLineBy $ 2 * lh)
-                                                          $ concat $ infillLineInside contour (addBBox childContours zHeight)
+                                                          $ concat $ catMaybes $ infillLineInside contour (addBBox childContours zHeight)
                                                           <$> coveringInfill buildarea print zHeight
     where
       lh = layerHeight print
@@ -568,7 +576,7 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
     travelBetweenContours :: Contour -> Contour -> [GCode]
     travelBetweenContours sourceContour destContour = [make2DTravelGCode (lastPoint $ sourceContour) $ firstPoint destContour]
     travelFromContourToInfill :: Contour -> [[Line]] -> [GCode]
-    travelFromContourToInfill source dest = [addFeedRate infillSpeed $ make2DTravelGCode (lastPoint $ source) $ firstPointOfInfill dest]
+    travelFromContourToInfill source dest = if firstPointOfInfill dest /= Nothing then [addFeedRate infillSpeed $ make2DTravelGCode (lastPoint $ source) $ fromMaybe (Point (0,0,0)) $ firstPointOfInfill dest] else []
     renderContourTree :: ContourTree -> [GCode]
     renderContourTree (ContourTree (thisContour, subContours)) = (renderSurface thisContour (interiorContours subContours)) <> (concat $ renderContourTree <$> (insidePositiveSpaces subContours))
       where
@@ -635,7 +643,9 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
                         $ makeSupport buildarea print (head outerContours) outerContours zHeightOfLayer
       firstPoint (Contour contourPoints) = if not (null contourPoints) then head contourPoints else error "tried to get the first point of an empty contour.\n"
       lastPoint (Contour contourPoints) = last contourPoints
-      firstPointOfInfill (x:xs) = if null x then firstPointOfInfill xs else startOfLine $ head x
+      firstPointOfInfill :: [[Line]] -> Maybe Point
+      firstPointOfInfill [] = Nothing
+      firstPointOfInfill (x:xs) = {-if null x then firstPointOfInfill xs else -} Just $ startOfLine $ head x
         where
           startOfLine (Line p _) = p
       pointsOfContour (Contour points) = points
