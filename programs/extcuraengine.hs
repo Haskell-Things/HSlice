@@ -172,7 +172,8 @@ infillLineInside contour childContours line
       allPoints = filterTooShort $ uniq $ sortBy orderPoints $ concat $ getLineIntersections line <$> contour:childContours
       uniq :: Eq a => [a] -> [a]
       uniq [] = []
-      uniq (x:xs) = (if x `elem` xs then id else (x:)) $ uniq xs
+      uniq [a] = [a]
+      uniq (a:b:xs) = if a == b then uniq xs else a:(uniq (b:xs))
       filterTooShort :: [Point] -> [Point]
       filterTooShort [] = []
       filterTooShort points@(a:b:[]) = if distance a b < 0.01 then [] else points
