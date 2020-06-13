@@ -12,7 +12,7 @@
  - but WITHOUT ANY WARRANTY; without even the implied warranty of
  - MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  - GNU Affero General Public License for more details.
- 
+ -
  - You should have received a copy of the GNU Affero General Public License
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
@@ -90,6 +90,16 @@ default (ℕ, Fastℕ, ℝ)
 threads :: Fastℕ
 threads = 32
 
+------------------------ STEAL ME ---------------------------
+{-
+https://crypto.stanford.edu/~blynn/haskell/
+https://hackaday.com/2020/05/17/look-ma-no-support-for-my-floating-holes/
+https://homes.cs.washington.edu/~ztatlock/pubs/reincarnate-nandi-icfp18.pdf
+https://github.com/uwplse/reincarnate-aec
+https://github.com/Zip-o-mat/Slic3r/tree/nonplanar
+-}
+
+
 ---------------------------------------------------------------------------
 -------------------- Point and Line Arithmetic ----------------------------
 ---------------------------------------------------------------------------
@@ -114,7 +124,7 @@ lineToEdge (RectArea (bedX,bedY,_)) m p@(Point (_,_,c)) = head . makeLines . nub
       saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"    
 
 -- Center facets relative to the center of the build area.
--- FIXME: assumes the origin is at the corner.
+-- FIXME: assumes the origin is at the front left corner.
 centeredFacetsFromSTL :: BuildArea -> ByteString -> [Facet]
 centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
     where
@@ -144,9 +154,8 @@ centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
 -- FIXME: other ways to only generate covering lines over the outer contour?
 makeInfill :: BuildArea -> Print -> Contour -> [Contour] -> ℝ -> LayerType -> [[Line]]
 makeInfill buildarea print contour insideContours zHeight layerType = catMaybes $ infillLineInside contour insideContours <$> infillCover layerType
-    where infillCover Middle = coveringInfill buildarea print zHeight
-          infillCover BaseEven = coveringLinesUp buildarea ls zHeight
-          infillCover BaseOdd = coveringLinesDown buildarea ls zHeight
+    where infillCover BaseEven = coveringLinesVertical buildarea ls zHeight
+          infillCover BaseOdd = coveringLinesHorizontal buildarea ls zHeight
           ls = lineSpacing print
 
 -- Get the segments of an infill line that are inside of a contour, skipping space occluded by any of the child contours.
@@ -202,28 +211,28 @@ infillLineInside contour childContours line
           saneIntersection res = error $ "insane result when infilling line inside: " <> show res <> "\n"    
           linesOfContour myC = (\(Contour contourPoints) -> makeLinesLooped contourPoints) myC
 
--- Generate covering lines as infill.
--- FIXME: Very bad algorithm. Prunes down lines instead of adjusting their spacing.
-coveringInfill :: BuildArea -> Print -> ℝ -> [Line]
-coveringInfill buildarea print zHeight
-    | infill == 0 = []
-    | otherwise = pruneInfill (coveringLinesUp buildarea ls zHeight) <> pruneInfill (coveringLinesDown buildarea ls zHeight)
-    where
-      pruneInfill :: [Line] -> [Line]
-      pruneInfill l = (l !!) <$> [0, (floor $ 1/infill) ..length l-1]
-      ls = lineSpacing print
-      infill = infillAmount print
-
--- Generate lines over entire print area
-coveringLinesUp :: BuildArea -> ℝ -> ℝ -> [Line]
-coveringLinesUp (RectArea (bedX,bedY,_)) lt zHeight = flip Line s . f <$> [-bedX,-bedX + lt..bedY]
+-- Generate lines over entire print area, where each one is aligned with a -1 slope.
+coveringLinesNegative :: BuildArea -> ℝ -> ℝ -> [Line]
+coveringLinesNegative (RectArea (bedX,bedY,_)) ls zHeight = flip Line s . f <$> [-bedX,-bedX + ls..bedY]
     where s = Point (bedX + bedY,bedX + bedY,0)
           f v = Point (0,v,zHeight)
 
--- Generate lines over entire print area
-coveringLinesDown :: BuildArea -> ℝ -> ℝ -> [Line]
-coveringLinesDown (RectArea (bedX,bedY,_)) lt zHeight = flip Line s . f <$> [0,lt..bedY + bedX]
+-- Generate lines over entire print area, where each one is aligned with a +1 slope.
+coveringLinesPositive :: BuildArea -> ℝ -> ℝ -> [Line]
+coveringLinesPositive (RectArea (bedX,bedY,_)) ls zHeight = flip Line s . f <$> [0,ls..bedY + bedX]
     where s =  Point (bedX + bedY,- bedX - bedY,0)
+          f v = Point (0,v,zHeight)
+
+-- Generate lines over entire print area, where each one is aligned with the Y axis.
+coveringLinesVertical :: BuildArea -> ℝ -> ℝ -> [Line]
+coveringLinesVertical (RectArea (bedX,bedY,_)) ls zHeight = flip Line s . f <$> [0,ls..bedX]
+    where s =  Point (0,bedY,0)
+          f v = Point (v,0,zHeight)
+
+-- Generate lines over entire print area, where each one is aligned with the X axis.
+coveringLinesHorizontal :: BuildArea -> ℝ -> ℝ -> [Line]
+coveringLinesHorizontal (RectArea (bedX,bedY,_)) ls zHeight = flip Line s . f <$> [0,ls..bedY]
+    where s =  Point (bedX,0,0)
           f v = Point (0,v,zHeight)
 
 -- Contour optimizer. Merges small line fragments into larger ones.
@@ -432,8 +441,7 @@ gcodeFor2DInfill lh pathWidth lineGroups = concat $ renderLineGroup (head lineGr
     moveBetweenLineGroups g1 g2 = [moveBetween (last g1) (head g2)]
     renderLineGroup :: [Line] -> [GCode]
     renderLineGroup [] = []
-    renderLineGroup group = (make2DExtrudeGCode lh pathWidth (point $ head group) (endpoint $ head group)) : 
-                            (concat $ zipWith (\ l1 l2 -> moveBetween l1 l2 : [renderSegment l2]) (init group) (tail group))
+    renderLineGroup group = renderSegment (head group) : (concat $ zipWith (\ l1 l2 -> moveBetween l1 l2 : [renderSegment l2]) (init group) (tail group))
     moveBetween :: Line -> Line -> GCode
     moveBetween l1 (Line startPointl2 _) = make2DTravelGCode (endpoint l1) startPointl2
     renderSegment :: Line -> GCode
@@ -516,6 +524,7 @@ addBBox contours z0 = Contour [Point (x1,y1,z0), Point (x2,y1,z0), Point (x2,y2,
 
 -- Generate support
 -- FIXME: hard coded infill amount.
+-- FIXME: should be one string.
 makeSupport :: BuildArea
             -> Print
             -> Contour
@@ -524,9 +533,10 @@ makeSupport :: BuildArea
             -> [Line]
 makeSupport buildarea print contour childContours zHeight = fmap (shortenLineBy $ 2 * lh)
                                                           $ concat $ catMaybes $ infillLineInside contour (addBBox childContours zHeight)
-                                                          <$> coveringInfill buildarea print zHeight
+                                                          <$> coveringLinesPositive buildarea ls zHeight
     where
       lh = layerHeight print
+      ls = lineSpacing print
 
 -----------------------------------------------------------------------
 --------------------------- LAYERS ------------------------------------
@@ -546,12 +556,13 @@ layers print fs = catMaybes <$> rawContours
     zOf :: Point -> ℝ
     zOf (Point (_,_,z)) = z
 
--- FIXME: detect top and bottoms seperately.
+-- get the layer type for infill on this layer.
+-- FIXME: handle top and bottom surfaces.
 getLayerType :: Print -> Fastℕ -> LayerType
 getLayerType print fromStart
-  | (fromStart <= topBottomLayers || (fromStart+1) <= topBottomLayers) && fromStart `mod` 2 == 0 = BaseEven
-  | (fromStart <= topBottomLayers || (fromStart+1) <= topBottomLayers) && fromStart `mod` 2 == 1 = BaseOdd
-  | otherwise = Middle
+--  | (fromStart <= topBottomLayers || (fromStart+1) <= topBottomLayers) &&
+  | fromStart `mod` 2 == 0 = BaseEven
+  | otherwise = BaseOdd
   where
     topBottomLayers :: Fastℕ
     topBottomLayers = round $ surfaceThickness print / layerHeight print
@@ -581,11 +592,10 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToContour :: Contour -> [GCode]
     travelToContour contour = [make3DTravelGCode (Point (0,0,0)) $ firstPoint contour]
-    travelToInfill contour = [addFeedRate infillSpeed $ make3DTravelGCode (Point (0,0,0)) $ firstPoint contour]
     travelBetweenContours :: Contour -> Contour -> [GCode]
-    travelBetweenContours sourceContour destContour = [make2DTravelGCode (lastPoint $ sourceContour) $ firstPoint destContour]
+    travelBetweenContours sourceContour destContour = [make2DTravelGCode (lastPoint sourceContour) $ firstPoint destContour]
     travelFromContourToInfill :: Contour -> [[Line]] -> [GCode]
-    travelFromContourToInfill source dest = if firstPointOfInfill dest /= Nothing then [addFeedRate infillSpeed $ make2DTravelGCode (lastPoint $ source) $ fromMaybe (Point (0,0,0)) $ firstPointOfInfill dest] else []
+    travelFromContourToInfill source dest = if firstPointOfInfill dest /= Nothing then [addFeedRate infillSpeed $ make2DTravelGCode (lastPoint source) $ fromMaybe (Point (0,0,0)) $ firstPointOfInfill dest] else []
     renderContourTree :: ContourTree -> [GCode]
     renderContourTree (ContourTree (thisContour, subContours)) = (renderSurface thisContour (interiorContours subContours)) <> (concat $ renderContourTree <$> (insidePositiveSpaces subContours))
       where
@@ -626,7 +636,7 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
           remainder :: Contour -> [Contour] -> [GCode]
           remainder c cs
             | outerWallBeforeInner == True = (travelFromContourToInfill (innerContourOf c) (infillLines c cs)) <> (drawInfill c cs)
-            | otherwise = (travelFromContourToInfill c (infillLines c cs)) <> (drawInfill (innerContourOf c) (outerContourOf <$> childContours))
+            | otherwise = (travelFromContourToInfill c (infillLines (innerContourOf c) (outerContourOf <$> cs))) <> (drawInfill (innerContourOf c) (outerContourOf <$> cs))
           -- FIXME: move this to a maybe.
           innerContourOf c = fromMaybe (Contour []) $ cleanContour $ addInsideContour buildarea pathWidth [c] c
           outerContourOf c = fromMaybe (Contour []) $ cleanContour $ addOutsideContour buildarea pathWidth [c] c
@@ -651,10 +661,11 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
                         $ mapEveryOther flipLine
                         $ makeSupport buildarea print (head outerContours) outerContours zHeightOfLayer
       firstPoint (Contour contourPoints) = if not (null contourPoints) then head contourPoints else error "tried to get the first point of an empty contour.\n"
-      lastPoint (Contour contourPoints) = last contourPoints
+      -- since we always print contours as a big loop, the first point IS the last point.
+      lastPoint (Contour contourPoints) = head contourPoints
       firstPointOfInfill :: [[Line]] -> Maybe Point
       firstPointOfInfill [] = Nothing
-      firstPointOfInfill (x:xs) = {-if null x then firstPointOfInfill xs else -} Just $ startOfLine $ head x
+      firstPointOfInfill (x:_) = Just $ startOfLine $ head x
         where
           startOfLine (Line p _) = p
       pointsOfContour (Contour points) = points
