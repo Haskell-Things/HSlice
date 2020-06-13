@@ -37,7 +37,7 @@ import Control.Applicative (pure, (<*>), (<$>))
 
 import Data.Eq ((==), (/=))
 
-import Data.Function ((.), ($), flip)
+import Data.Function ((.), ($), flip, id)
 
 import Data.Ord ((<=), (>), (<))
 
@@ -49,7 +49,7 @@ import Data.String (String)
 
 import Data.Bool(Bool(True, False), (||), (&&), otherwise, not)
 
-import Data.List (nub, sortBy, length, zip, filter, tail, head, zipWith, maximum, (!!), minimum, last, (++), concat, foldl', take, drop, cycle, zipWith3, null, intercalate)
+import Data.List (nub, sortBy, length, zip, filter, tail, head, zipWith, maximum, (!!), minimum, last, (++), concat, foldl', take, drop, cycle, zipWith3, null, intercalate, elem)
 
 import Control.Monad ((>>=))
 
@@ -160,8 +160,16 @@ infillLineInside contour childContours line
     where
       allLines :: [Line]
       allLines = if null allPoints then [] else makeLines $ allPoints
-      allPoints = (filterTooShort True) $ sortBy orderPoints $ concat $ getLineIntersections line <$> contour:childContours
-      filterTooShort :: Bool -> [Point] -> [Point]
+      allPoints = filterTooShort $ uniq $ sortBy orderPoints $ concat $ getLineIntersections line <$> contour:childContours
+      uniq :: Eq a => [a] -> [a]
+      uniq [] = []
+      uniq (x:xs) = (if x `elem` xs then id else (x:)) $ uniq xs
+      filterTooShort :: [Point] -> [Point]
+      filterTooShort [] = []
+      filterTooShort points@(a:b:[]) = if distance a b < 0.01 then [] else points
+      filterTooShort points = points
+
+{-      filterTooShort :: Bool -> [Point] -> [Point]
       filterTooShort _ [] = []
       filterTooShort True [a] = [] -- error $ "single point? " <> show a <> "\n"
       filterTooShort False [a] = [a] -- error $ "single point? " <> show a <> "\n"
@@ -173,6 +181,7 @@ infillLineInside contour childContours line
                                       then
                                         if null xs then [b] else filterTooShort False (a:xs)
                                       else a:(filterTooShort False (b:xs))
+-}
       getLineIntersections :: Line -> Contour -> [Point]
       getLineIntersections myline c = catMaybes $ saneIntersections $ cookIntersections $ lineIntersection myline <$> linesOfContour c
         where
