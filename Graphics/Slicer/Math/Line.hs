@@ -169,12 +169,16 @@ pointSlopeLength p1 (HasSlope sl) dist = Line p1 s
         scale = dist / sqrt (1 + yVal*yVal)
 
 data SearchDirection = Clockwise | CounterClockwise
-
+  deriving Show
 -- given two lines with the same origin, start at the first one, and search in the given direction for the second one. if we hit it before we run into the third line (from the same origin), return true.
 lineBetween :: Line -> SearchDirection -> Line -> Line -> Bool
 lineBetween l1 (CounterClockwise) l2 l3
   | (angleOf l3) > (angleOf l1) = (angleOf l3) > (angleOf l2) && (angleOf l2) > (angleOf l1)
   | (angleOf l3) < (angleOf l1) = (angleOf l3) > (angleOf l2) || (angleOf l2) > (angleOf l1)
+lineBetween l1 (Clockwise) l2 l3
+  | (angleOf l3) < (angleOf l1) = (angleOf l3) > (angleOf l2) && (angleOf l2) > (angleOf l1)
+  | (angleOf l3) > (angleOf l1) = (angleOf l3) > (angleOf l2) || (angleOf l2) > (angleOf l1)
+lineBetween l1 dir l2 l3 = error $ "impossible situation: " <> show l1 <> " " <> show l2 <> " " <> show l3 <> " " <> show dir <> "\n"
 
 -- given a line, determine the angle it is at, in radians. 
 angleOf :: Line -> ℝ
