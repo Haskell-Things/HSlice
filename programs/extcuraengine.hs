@@ -150,10 +150,8 @@ centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
 -- Generate infill for a layer.
 -- Basically, cover the build plane in lines, then remove the portions of those lines that are not inside of the target contour.
 -- The target contour should be the innermost parameter, and the target inside contours should also be the innermost parameters.
--- FIXME: reduce size of build area to box around contour, to reduce the area searched?
--- FIXME: other ways to only generate covering lines over the outer contour?
-makeInfill :: BuildArea -> Print -> Contour -> [Contour] -> ℝ -> LayerType -> [[Line]]
-makeInfill buildarea print contour insideContours zHeight layerType = catMaybes $ infillLineInside contour insideContours <$> infillCover layerType
+makeInfill :: Print -> Contour -> [Contour] -> ℝ -> LayerType -> [[Line]]
+makeInfill print contour insideContours zHeight layerType = catMaybes $ infillLineInside contour insideContours <$> infillCover layerType
     where infillCover BaseEven = coveringLinesVertical contour ls zHeight
           infillCover BaseOdd = coveringLinesHorizontal contour ls zHeight
           ls = lineSpacing print
@@ -195,18 +193,21 @@ infillLineInside contour childContours line
           linesOfContour myC = (\(Contour contourPoints) -> makeLinesLooped contourPoints) myC
 
 -- Generate lines over entire print area, where each one is aligned with a -1 slope.
+-- FIXME: other ways to only generate covering lines over the outer contour?
 coveringLinesNegative :: BuildArea -> ℝ -> ℝ -> [Line]
 coveringLinesNegative (RectArea (bedX,bedY,_)) ls zHeight = flip Line s . f <$> [-bedX,-bedX + ls..bedY]
     where s = Point (bedX + bedY,bedX + bedY,0)
           f v = Point (0,v,zHeight)
 
 -- Generate lines over entire print area, where each one is aligned with a +1 slope.
+-- FIXME: other ways to only generate covering lines over the outer contour?
 coveringLinesPositive :: BuildArea -> ℝ -> ℝ -> [Line]
 coveringLinesPositive (RectArea (bedX,bedY,_)) ls zHeight = flip Line s . f <$> [0,ls..bedY + bedX]
     where s =  Point (bedX + bedY,- bedX - bedY,0)
           f v = Point (0,v,zHeight)
 
 -- Generate lines over entire contour, where each one is aligned with the Y axis.
+-- FIXME: assumes we're in positive space.
 coveringLinesVertical :: Contour -> ℝ -> ℝ -> [Line]
 coveringLinesVertical (Contour contourPoints) ls zHeight = flip Line s . f <$> [xMin,xMin+ls..xMax]
     where s =  Point (0,yMaxOutside,0)
@@ -214,12 +215,14 @@ coveringLinesVertical (Contour contourPoints) ls zHeight = flip Line s . f <$> [
           xMinRaw = minimum $ xOf <$> contourPoints
           xMin = head $ filter (> xMinRaw) [0,ls..]
           xMax = maximum $ xOf <$> contourPoints
-          yMaxOutside = ls + (maximum $ yOf <$> contourPoints)
+          yMax = maximum $ yOf <$> contourPoints
+          yMaxOutside = yMax + ls
           xOf, yOf :: Point -> ℝ
           xOf (Point (x,_,_)) = x
           yOf (Point (_,y,_)) = y
 
 -- Generate lines over entire contour, where each one is aligned with the X axis.
+-- FIXME: assumes we're in positive space.
 coveringLinesHorizontal :: Contour -> ℝ -> ℝ -> [Line]
 coveringLinesHorizontal (Contour contourPoints) ls zHeight = flip Line s . f <$> [yMin,yMin+ls..yMax]
     where s =  Point (xMaxOutside,0,0)
@@ -227,7 +230,8 @@ coveringLinesHorizontal (Contour contourPoints) ls zHeight = flip Line s . f <$>
           yMinRaw = minimum $ yOf <$> contourPoints
           yMin = head $ filter (> yMinRaw) [0,ls..]
           yMax = maximum $ yOf <$> contourPoints
-          xMaxOutside = ls + (maximum $ xOf <$> contourPoints)
+          xMax = maximum $ xOf <$> contourPoints
+          xMaxOutside = xMax + ls
           xOf, yOf :: Point -> ℝ
           xOf (Point (x,_,_)) = x
           yOf (Point (_,y,_)) = y
@@ -637,7 +641,7 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
           -- FIXME: move this to a maybe.
           innerContourOf c = fromMaybe (Contour []) $ cleanContour $ addInsideContour buildarea pathWidth [c] c
           outerContourOf c = fromMaybe (Contour []) $ cleanContour $ addOutsideContour buildarea pathWidth [c] c
-          infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill buildarea print (innerContourOf c) (outerContourOf <$> cs) zHeightOfLayer $ getLayerType print layerNumber
+          infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill print (innerContourOf c) (outerContourOf <$> cs) zHeightOfLayer $ getLayerType print layerNumber
     supportGCode, layerEnd :: [GCode]
     supportGCode = if hasSupport then gcodeFor2DContour lh pathWidth supportContour else []
     layerEnd = if isLastLayer then [] else travelToLayerChange -- ++ gcodeFor2DContourNoExtrude (firstOuterContour)
