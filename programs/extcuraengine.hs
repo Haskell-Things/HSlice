@@ -148,14 +148,14 @@ centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
 -----------------------------------------------------------------------
 
 -- Generate infill for a layer.
--- Basically, cover the build plane in lines, then remove the portions of those lines that are not inside of one of the target contours.
--- The target contours should be the innermost parameters.
+-- Basically, cover the build plane in lines, then remove the portions of those lines that are not inside of the target contour.
+-- The target contour should be the innermost parameter, and the target inside contours should also be the innermost parameters.
 -- FIXME: reduce size of build area to box around contour, to reduce the area searched?
 -- FIXME: other ways to only generate covering lines over the outer contour?
 makeInfill :: BuildArea -> Print -> Contour -> [Contour] -> ℝ -> LayerType -> [[Line]]
 makeInfill buildarea print contour insideContours zHeight layerType = catMaybes $ infillLineInside contour insideContours <$> infillCover layerType
-    where infillCover BaseEven = coveringLinesVertical buildarea ls zHeight
-          infillCover BaseOdd = coveringLinesHorizontal buildarea ls zHeight
+    where infillCover BaseEven = coveringLinesVertical contour ls zHeight
+          infillCover BaseOdd = coveringLinesHorizontal contour ls zHeight
           ls = lineSpacing print
 
 -- Get the segments of an infill line that are inside of a contour, skipping space occluded by any of the child contours.
@@ -169,11 +169,7 @@ infillLineInside contour childContours line
     where
       allLines :: [Line]
       allLines = if null allPoints then [] else makeLines $ allPoints
-      allPoints = filterTooShort $ uniq $ sortBy orderPoints $ concat $ getLineIntersections line <$> contour:childContours
-      uniq :: Eq a => [a] -> [a]
-      uniq [] = []
-      uniq [a] = [a]
-      uniq (a:b:xs) = if a == b then uniq xs else a:(uniq (b:xs))
+      allPoints = filterTooShort $ sortBy orderPoints $ concat $ getLineIntersections line <$> contour:childContours
       filterTooShort :: [Point] -> [Point]
       filterTooShort [] = []
       filterTooShort [a] = [a]
@@ -210,17 +206,31 @@ coveringLinesPositive (RectArea (bedX,bedY,_)) ls zHeight = flip Line s . f <$> 
     where s =  Point (bedX + bedY,- bedX - bedY,0)
           f v = Point (0,v,zHeight)
 
--- Generate lines over entire print area, where each one is aligned with the Y axis.
-coveringLinesVertical :: BuildArea -> ℝ -> ℝ -> [Line]
-coveringLinesVertical (RectArea (bedX,bedY,_)) ls zHeight = flip Line s . f <$> [0,ls..bedX]
-    where s =  Point (0,bedY,0)
+-- Generate lines over entire contour, where each one is aligned with the Y axis.
+coveringLinesVertical :: Contour -> ℝ -> ℝ -> [Line]
+coveringLinesVertical (Contour contourPoints) ls zHeight = flip Line s . f <$> [xMin,xMin+ls..xMax]
+    where s =  Point (0,yMaxOutside,0)
           f v = Point (v,0,zHeight)
+          xMinRaw = minimum $ xOf <$> contourPoints
+          xMin = head $ filter (> xMinRaw) [0,ls..]
+          xMax = maximum $ xOf <$> contourPoints
+          yMaxOutside = ls + (maximum $ yOf <$> contourPoints)
+          xOf, yOf :: Point -> ℝ
+          xOf (Point (x,_,_)) = x
+          yOf (Point (_,y,_)) = y
 
--- Generate lines over entire print area, where each one is aligned with the X axis.
-coveringLinesHorizontal :: BuildArea -> ℝ -> ℝ -> [Line]
-coveringLinesHorizontal (RectArea (bedX,bedY,_)) ls zHeight = flip Line s . f <$> [0,ls..bedY]
-    where s =  Point (bedX,0,0)
+-- Generate lines over entire contour, where each one is aligned with the X axis.
+coveringLinesHorizontal :: Contour -> ℝ -> ℝ -> [Line]
+coveringLinesHorizontal (Contour contourPoints) ls zHeight = flip Line s . f <$> [yMin,yMin+ls..yMax]
+    where s =  Point (xMaxOutside,0,0)
           f v = Point (0,v,zHeight)
+          yMinRaw = minimum $ yOf <$> contourPoints
+          yMin = head $ filter (> yMinRaw) [0,ls..]
+          yMax = maximum $ yOf <$> contourPoints
+          xMaxOutside = ls + (maximum $ xOf <$> contourPoints)
+          xOf, yOf :: Point -> ℝ
+          xOf (Point (x,_,_)) = x
+          yOf (Point (_,y,_)) = y
 
 -- Contour optimizer. Merges small line fragments into larger ones.
 cleanContour :: Contour -> Maybe Contour
