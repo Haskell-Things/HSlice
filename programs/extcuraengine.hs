@@ -176,22 +176,8 @@ infillLineInside contour childContours line
       uniq (a:b:xs) = if a == b then uniq xs else a:(uniq (b:xs))
       filterTooShort :: [Point] -> [Point]
       filterTooShort [] = []
-      filterTooShort points@(a:b:[]) = if distance a b < 0.01 then [] else points
-      filterTooShort points = points
-
-{-      filterTooShort :: Bool -> [Point] -> [Point]
-      filterTooShort _ [] = []
-      filterTooShort True [a] = [] -- error $ "single point? " <> show a <> "\n"
-      filterTooShort False [a] = [a] -- error $ "single point? " <> show a <> "\n"
-      filterTooShort True (a:b:xs) = if distance a b < 0.01
-                                      then
-                                        if length (filterTooShort False (a:xs)) == 1 then [] else (filterTooShort False (a:xs))
-                                      else if length (filterTooShort False (b:xs)) > 1 then a:(filterTooShort False (b:xs)) else a:(filterTooShort False (b:xs))
-      filterTooShort False (a:b:xs) = if distance a b < 0.01
-                                      then
-                                        if null xs then [b] else filterTooShort False (a:xs)
-                                      else a:(filterTooShort False (b:xs))
--}
+      filterTooShort [a] = [a]
+      filterTooShort (a:b:xs) = if distance a b < 0.01 then filterTooShort xs else a:(filterTooShort (b:xs))
       getLineIntersections :: Line -> Contour -> [Point]
       getLineIntersections myline c = catMaybes $ saneIntersections $ cookIntersections $ lineIntersection myline <$> linesOfContour c
         where
