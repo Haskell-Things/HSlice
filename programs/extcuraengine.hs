@@ -152,8 +152,8 @@ centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
 -- The target contour should be the innermost parameter, and the target inside contours should also be the innermost parameters.
 makeInfill :: Print -> Contour -> [Contour] -> ℝ -> LayerType -> [[Line]]
 makeInfill print contour insideContours zHeight layerType = catMaybes $ infillLineInside contour insideContours <$> infillCover layerType
-    where infillCover BaseEven = coveringLinesVertical contour ls zHeight
-          infillCover BaseOdd = coveringLinesHorizontal contour ls zHeight
+    where infillCover BaseEven = coveringLinesNegative contour ls zHeight
+          infillCover BaseOdd = coveringLinesPositive contour ls zHeight
           ls = lineSpacing print
 
 -- Get the segments of an infill line that are inside of a contour, skipping space occluded by any of the child contours.
@@ -194,17 +194,37 @@ infillLineInside contour childContours line
 
 -- Generate lines over entire print area, where each one is aligned with a -1 slope.
 -- FIXME: other ways to only generate covering lines over the outer contour?
-coveringLinesNegative :: BuildArea -> ℝ -> ℝ -> [Line]
-coveringLinesNegative (RectArea (bedX,bedY,_)) ls zHeight = flip Line s . f <$> [-bedX,-bedX + ls..bedY]
-    where s = Point (bedX + bedY,bedX + bedY,0)
-          f v = Point (0,v,zHeight)
+coveringLinesNegative :: Contour -> ℝ -> ℝ -> [Line]
+coveringLinesNegative (Contour contourPoints) ls zHeight = flip Line s . f <$> [-xMin,-xMin+lsX..xMax]
+    where s = Point (xMaxOutside,yMaxOutside,0)
+          f v = Point (v,0,zHeight)
+          xMinRaw = minimum $ xOf <$> contourPoints
+          xMin = head $ filter (> xMinRaw) [0,ls..]
+          xMax = maximum $ xOf <$> contourPoints
+          yMax = maximum $ yOf <$> contourPoints
+          xMaxOutside = xMax + ls
+          yMaxOutside = yMax + ls
+          lsX = sqrt $ ls*ls+ls*ls
+          xOf, yOf :: Point -> ℝ
+          xOf (Point (x,_,_)) = x
+          yOf (Point (_,y,_)) = y
 
 -- Generate lines over entire print area, where each one is aligned with a +1 slope.
 -- FIXME: other ways to only generate covering lines over the outer contour?
-coveringLinesPositive :: BuildArea -> ℝ -> ℝ -> [Line]
-coveringLinesPositive (RectArea (bedX,bedY,_)) ls zHeight = flip Line s . f <$> [0,ls..bedY + bedX]
-    where s =  Point (bedX + bedY,- bedX - bedY,0)
+coveringLinesPositive :: Contour -> ℝ -> ℝ -> [Line]
+coveringLinesPositive (Contour contourPoints) ls zHeight = flip Line s . f <$> [0,lsY..yMax + xMax]
+    where s =  Point (xMaxOutside + yMaxOutside,- xMaxOutside - yMaxOutside,0)
           f v = Point (0,v,zHeight)
+          yMinRaw = minimum $ yOf <$> contourPoints
+          yMin = head $ filter (> yMinRaw) [0,ls..]
+          yMax = maximum $ yOf <$> contourPoints
+          xMax = maximum $ xOf <$> contourPoints
+          xMaxOutside = xMax + ls
+          yMaxOutside = yMax + ls
+          lsY = sqrt $ ls*ls+ls*ls
+          xOf, yOf :: Point -> ℝ
+          xOf (Point (x,_,_)) = x
+          yOf (Point (_,y,_)) = y
 
 -- Generate lines over entire contour, where each one is aligned with the Y axis.
 -- FIXME: assumes we're in positive space.
@@ -526,15 +546,14 @@ addBBox contours z0 = Contour [Point (x1,y1,z0), Point (x2,y1,z0), Point (x2,y2,
 -- Generate support
 -- FIXME: hard coded infill amount.
 -- FIXME: should be one string.
-makeSupport :: BuildArea
-            -> Print
+makeSupport :: Print
             -> Contour
             -> [Contour]
             -> ℝ
             -> [Line]
-makeSupport buildarea print contour childContours zHeight = fmap (shortenLineBy $ 2 * lh)
-                                                          $ concat $ catMaybes $ infillLineInside contour (addBBox childContours zHeight)
-                                                          <$> coveringLinesPositive buildarea ls zHeight
+makeSupport print contour childContours zHeight = fmap (shortenLineBy $ 2 * lh)
+                                                  $ concat $ catMaybes $ infillLineInside contour (addBBox childContours zHeight)
+                                                  <$> coveringLinesVertical contour ls zHeight
     where
       lh = layerHeight print
       ls = lineSpacing print
@@ -660,7 +679,7 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
       supportContour :: Contour
       supportContour = foldMap (\l -> Contour [point l, endpoint l])
                         $ mapEveryOther flipLine
-                        $ makeSupport buildarea print (head outerContours) outerContours zHeightOfLayer
+                        $ makeSupport print (head outerContours) outerContours zHeightOfLayer
       firstPoint (Contour contourPoints) = if not (null contourPoints) then head contourPoints else error "tried to get the first point of an empty contour.\n"
       -- since we always print contours as a big loop, the first point IS the last point.
       lastPoint (Contour contourPoints) = head contourPoints
