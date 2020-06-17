@@ -99,15 +99,13 @@ https://github.com/uwplse/reincarnate-aec
 https://github.com/Zip-o-mat/Slic3r/tree/nonplanar
 -}
 
-
 ---------------------------------------------------------------------------
 -------------------- Point and Line Arithmetic ----------------------------
 ---------------------------------------------------------------------------
 
 -- | Given a point and slope (on an xy plane), make a line segment, where the far end is at the edge of the print bed.
 -- FIXME: assumes the origin is at the corner.
--- FIXME: round beds?
--- FIXMEMORE: concave beds?
+-- FIXME: other bed types?
 lineToEdge :: BuildArea -> Slope -> Point -> Line
 lineToEdge (RectArea (bedX,bedY,_)) m p@(Point (_,_,c)) = head . makeLines . nub $ (roundPoint <$> points)
     where

@@ -39,8 +39,6 @@ import Graphics.Slicer.Math.Definitions (Point(Point), addPoints, scalePoint, di
 
 import Graphics.Slicer.Math.Point (twoDCrossProduct)
 
---import Graphics.Slicer.Formats.GCode.Definitions (roundPoint, roundToFifth)
-
 -- Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
 -- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
