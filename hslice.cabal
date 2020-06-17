@@ -32,6 +32,9 @@ Library
 		-- for profiling.
     Exposed-Modules:
                     Graphics.Slicer
+                    Graphics.Slicer.Machine.StateM
+                    Graphics.Slicer.Machine.Infill
+                    Graphics.Slicer.Machine.Contour
     Other-Modules:
                   Graphics.Slicer.Math.Definitions
                   Graphics.Slicer.Math.Point
@@ -44,7 +47,6 @@ Library
                   Graphics.Slicer.Mechanics.Definitions
                   Graphics.Slicer.Concepts.Definitions
                   Graphics.Slicer.Definitions
-                  Graphics.Slicer.Machine.StateM
                   
 Executable extcuraengine
     Main-is: extcuraengine.hs
