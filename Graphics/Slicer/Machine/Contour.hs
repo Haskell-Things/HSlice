@@ -1,7 +1,3 @@
----------------------------------------------------------------
--------------------- Contour Optimizer ------------------------
----------------------------------------------------------------
-
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco
  - Copyright 2019 Julia Longtin
@@ -44,6 +40,10 @@ import Graphics.Slicer.Formats.GCode.Definitions (roundPoint)
 
 import Graphics.Slicer.Definitions(ℝ)
 
+---------------------------------------------------------------
+-------------------- Contour Optimizer ------------------------
+---------------------------------------------------------------
+
 -- Contour optimizer. Merges small line fragments into larger ones.
 cleanContour :: Contour -> Maybe Contour
 cleanContour (Contour points)
@@ -58,6 +58,10 @@ cleanContour (Contour points)
         where
           lines = makeLinesLooped pointsRemaining
           pointsRemaining = nub $ roundPoint <$> pts
+
+---------------------------------------------------------------
+-------------------- Contour Modifiers ------------------------
+---------------------------------------------------------------
 
 -- FIXME: replace this with lineToOutsideContour.
 -- | Given a point and slope (on an xy plane), make a line segment, where the far end is at the edge of the print bed.
@@ -134,7 +138,7 @@ modifyContour surface pathWidth allContours contour@(Contour contourPoints) dire
         lengthToIntersection :: Line -> Line -> ℝ
         lengthToIntersection l1 l2
           | lineSlope (roundPoint $ slopeOf newL1) == lineSlope (roundPoint $ slopeOf newL2) = distance (linePoint newL1) (linePoint newL2)
-          | otherwise = distance (perimeterPoint pathWidth allContours l1) $ fromMaybe (noIntersectionError l1 newL1 l2 newL2) $ saneIntersection $ lineIntersection newL1 newL2
+          | otherwise = distance (perimeterPoint pathWidth allContours l1) $ fromMaybe (noIntersectionError) $ saneIntersection $ lineIntersection newL1 newL2
           where
             saneIntersection :: Intersection -> Maybe Point
             saneIntersection (IntersectsAt _ p2) = Just p2
@@ -146,6 +150,6 @@ modifyContour surface pathWidth allContours contour@(Contour contourPoints) dire
             newL2 = flipLine $ rawMidToEdge allContours l2
             -- line segments for a hypothetical line, without being shortened yet.
             rawMidToEdge contours ln@(Line _ m) = lineToEdge surface (lineSlope m) (perimeterPoint pathWidth contours ln)
-            noIntersectionError :: Line -> Line -> Line -> Line -> Point
-            noIntersectionError l1 newL1 l2 newL2 = error $ "no intersection on contour: \n" <> (show contour) <> "\n" <> show l1 <> " -> " <> show newL1 <> "\n" <> show l2 <> " -> " <> show newL2 <> "\n"
+            noIntersectionError :: Point
+            noIntersectionError = error $ "no intersection on contour: \n" <> (show contour) <> "\n" <> show l1 <> " -> " <> show newL1 <> "\n" <> show l2 <> " -> " <> show newL2 <> "\n"
 

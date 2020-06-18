@@ -18,9 +18,11 @@ Library
                   bytestring,
                   data-ordlist,
                   deepseq,
+                  double-conversion,
                   implicit,
                   mtl,
-                  parallel
+                  parallel,
+                  utf8-string
     Ghc-options:
                 -optc-O3
                 -- see GHC manual 8.2.1 section 6.5.1.
@@ -35,6 +37,7 @@ Library
                     Graphics.Slicer.Machine.StateM
                     Graphics.Slicer.Machine.Infill
                     Graphics.Slicer.Machine.Contour
+                    Graphics.Slicer.Machine.GCode
     Other-Modules:
                   Graphics.Slicer.Math.Definitions
                   Graphics.Slicer.Math.Point

@@ -21,7 +21,7 @@
 
 module Graphics.Slicer.Math.Contour (getContours, makeContourTree, innerPerimeterPoint, outerPerimeterPoint, ContourTree(ContourTree), lineEntersContour) where
 
-import Prelude ((==), otherwise, (++), (||), (.), null, fmap, (<$>), ($), (>), (>=), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, foldMap, (*), even, Bool, (-), (<), pi, (&&))
+import Prelude ((==), otherwise, (++), (||), (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, (*), Bool, (-), (<), pi, (&&))
 
 import Data.List(find, delete, tail, last, head, init, zipWith)
 
@@ -176,7 +176,7 @@ contourContainedByContour child parent = if odd noIntersections then Just child 
 -- Does a given line, in the direction it is given, enter from outside of a contour to inside of a contour, through a given point?
 -- Used to check the corner case of corner cases.
 lineEntersContour :: Line -> Intersection -> Contour -> Bool
-lineEntersContour line@(Line _ m) intersection contour@(Contour contourPoints) = lineBetween lineFrom searchDirection continuation lineToInverted
+lineEntersContour (Line _ m) intersection contour@(Contour contourPoints) = lineBetween lineFrom searchDirection continuation lineToInverted
   where
     lineToInverted = flipLine lineTo
     continuation = Line (intersectionPoint intersection) m
@@ -191,5 +191,5 @@ lineEntersContour line@(Line _ m) intersection contour@(Contour contourPoints) =
     -- lineTo has an endpoint of the intersection, lineFrom has a starting point of the intersection.
     (lineTo, lineFrom) = findLinesInContour intersection
     contourLines = makeLinesLooped contourPoints
-    findLinesInContour (HitEndpointL2 point) = head $ catMaybes $ zipWith (\l1@(Line p1 m1) l2@(Line p2 m2) -> if p2 == point then Just (l1,l2) else Nothing) (init contourLines) (tail contourLines)
+    findLinesInContour (HitEndpointL2 point) = head $ catMaybes $ zipWith (\l1@(Line _ _) l2@(Line p2 _) -> if p2 == point then Just (l1,l2) else Nothing) (init contourLines) (tail contourLines)
     findLinesInContour other = error $ "trying to find where a line enters a contour on something not a point of a contour where two lines intersect: " <> show other <> "\n" 
