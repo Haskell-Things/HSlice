@@ -18,3 +18,8 @@ cabal.sandbox.config
 slicer
 # emacs
 *~
+# build results.
+.ghc.environment.*
+Setup
+cabal.project.local
+dist-newstyle/
