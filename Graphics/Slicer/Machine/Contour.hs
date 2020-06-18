@@ -20,7 +20,7 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, addInsideContour, expandContour, addOutsideContour) where
+module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
 import Prelude (length, (>), ($), otherwise, (<$>), Int, Eq, (<>), show, error, (==), negate, (.), head, (<*>), sqrt, (*), (+), take, drop, cycle, (-))
 
@@ -59,6 +59,7 @@ cleanContour (Contour points)
           lines = makeLinesLooped pointsRemaining
           pointsRemaining = nub $ roundPoint <$> pts
 
+-- FIXME: replace this with lineToOutsideContour.
 -- | Given a point and slope (on an xy plane), make a line segment, where the far end is at the edge of the print bed.
 -- FIXME: assumes the origin is at the corner.
 -- FIXME: other bed types?
@@ -94,14 +95,12 @@ data Direction =
   deriving (Eq)
 
 -- reduce a contour by a given amount.
-shrinkContour, addInsideContour :: BuildArea -> ℝ -> [Contour] -> Contour -> Contour
+shrinkContour :: BuildArea -> ℝ -> [Contour] -> Contour -> Contour
 shrinkContour surface amount allContours contour = modifyContour surface amount allContours contour Inward
-addInsideContour surface amount allContours contour = modifyContour surface amount allContours contour Inward
 
 -- increase a contour by a given amount.
-expandContour, addOutsideContour :: BuildArea -> ℝ -> [Contour] -> Contour -> Contour
+expandContour :: BuildArea -> ℝ -> [Contour] -> Contour -> Contour
 expandContour surface amount allContours contour = modifyContour surface amount allContours contour Outward
-addOutsideContour surface amount allContours contour@(Contour contourPoints) = modifyContour surface amount allContours contour Outward
 
 -- FIXME: implement this.
 -- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.

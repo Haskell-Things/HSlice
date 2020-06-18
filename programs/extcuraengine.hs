@@ -31,29 +31,29 @@
 
 import GHC.Generics (Generic)
 
-import Prelude ((*), (/), (+), (-), fromIntegral, odd, pi, sqrt, mod, round, floor, concatMap, foldMap, fmap, (<>), toRational, FilePath, Int, fromInteger, Eq, fromRational, init, error, seq, div, fromRational, negate, Show, reverse)
+import Prelude ((*), (/), (+), (-), odd, pi, mod, round, floor, foldMap, (<>), toRational, FilePath, Int, fromInteger, Eq, fromRational, init, error, seq, div, fromRational, reverse)
 
 import Control.Applicative (pure, (<*>), (<$>))
 
 import Data.Eq ((==), (/=))
 
-import Data.Function ((.), ($), flip, id)
+import Data.Function ((.), ($))
 
-import Data.Ord ((<=), (>), (<))
+import Data.Ord ((>))
 
-import Data.Tuple (fst, snd)
+import Data.Tuple (fst)
 
 import Data.ByteString.UTF8 (fromString)
 
 import Data.String (String)
 
-import Data.Bool(Bool(True, False), (||), (&&), otherwise, not)
+import Data.Bool(Bool(True, False), (&&), otherwise, not)
 
-import Data.List (nub, sortBy, length, zip, filter, tail, head, zipWith, maximum, (!!), minimum, last, (++), concat, foldl', take, drop, cycle, zipWith3, null, intercalate, elem)
+import Data.List (length, zip, tail, head, zipWith, maximum, minimum, last, (++), concat, null)
 
 import Control.Monad ((>>=))
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe, fromMaybe)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe)
 
 import Text.Show(show)
 
@@ -69,9 +69,7 @@ import Options.Applicative (fullDesc, progDesc, header, auto, info, helper, help
 
 import Data.Double.Conversion.ByteString (toFixed)
 
-import Control.Parallel.Strategies (using, rdeepseq, rseq, parListChunk, parBuffer, withStrategy, parList, rpar)
-
-import Control.Parallel (par, pseq)
+import Control.Parallel.Strategies (using, rdeepseq, rseq, parListChunk, parBuffer)
 
 import Control.DeepSeq (NFData(rnf))
 
@@ -82,11 +80,11 @@ import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString,
 
 import Graphics.Implicit.Definitions (ℝ, ℝ2, ℝ3, ℕ, Fastℕ(Fastℕ), fromFastℕ)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Point(Point), Line(Line), point, lineIntersection, scalePoint, addPoints, distance, lineFromEndpoints, endpoint, midpoint, flipLine, Facet, sides, Contour(Contour), LayerType(BaseOdd, BaseEven, Middle), lineSlope, Slope, pointSlopeLength, perpendicularBisector, shiftFacet, orderPoints, roundPoint, shortenLineBy, accumulateValues, makeLines, makeLinesLooped, facetIntersects, getContours, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos, facetLinesFromSTL, combineLines, combineConsecutiveLines, pointsFromLines, makeContourTree, innerPerimeterPoint, outerPerimeterPoint, ContourTree(ContourTree), Intersection(IntersectsAt, NoIntersection, Parallel, HitEndpointL2), lineEntersContour)
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Point(Point), Line(Line), point, distance, endpoint, flipLine, Facet, sides, Contour(Contour), LayerType(BaseOdd, BaseEven), shiftFacet, accumulateValues, facetIntersects, getContours, Extruder(Extruder), nozzleDiameter, filamentWidth, EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos, facetLinesFromSTL, makeContourTree, ContourTree(ContourTree))
 
 import Graphics.Slicer.Machine.Infill (makeInfill, makeSupport)
 
-import Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour, addInsideContour, addOutsideContour)
+import Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour)
 
 default (ℕ, Fastℕ, ℝ)
 
@@ -216,8 +214,8 @@ gcodeFor2DInfill lh pathWidth lineGroups = concat $ renderLineGroup (head lineGr
   where
     -- FIXME: this should be a single gcode. why are we getting empty line groups given to us?
     moveBetweenLineGroups :: [Line] -> [Line] -> [GCode]
-    moveBetweenLineGroups [] g2 = [] -- error $ "given empty line group?\n"
-    moveBetweenLineGroups g1 [] = [] -- error $ "line group empty when finding line group following " <> show g1 <> "\n"
+    moveBetweenLineGroups [] g2 = error $ "given empty line group?\n" <> show g2 <> "\n"
+    moveBetweenLineGroups g1 [] = error $ "line group empty when finding line group following " <> show g1 <> "\n"
     moveBetweenLineGroups g1 g2 = [moveBetween (last g1) (head g2)]
     renderLineGroup :: [Line] -> [GCode]
     renderLineGroup [] = []
@@ -226,12 +224,6 @@ gcodeFor2DInfill lh pathWidth lineGroups = concat $ renderLineGroup (head lineGr
     moveBetween l1 (Line startPointl2 _) = make2DTravelGCode (endpoint l1) startPointl2
     renderSegment :: Line -> GCode
     renderSegment ln@(Line startPoint _) = make2DExtrudeGCode lh pathWidth startPoint $ endpoint ln
-
-gcodeFor2DContourNoExtrude :: Contour -> [GCode]
-gcodeFor2DContourNoExtrude (Contour contourPoints)
-  | length contourPoints > 1  = zipWith make2DTravelGCode (init contourPoints) (tail contourPoints)
-  | length contourPoints == 1 = error $ "Given a contour with a single point in it:" <> show contourPoints <> "\n"
-  | otherwise                 = []
 
 ----------------------------------------------------
 ------------------ FIXED STRINGS -------------------
@@ -380,8 +372,8 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
             | outerWallBeforeInner == True = (travelFromContourToInfill (innerContourOf c) (infillLines c cs)) <> (drawInfill c cs)
             | otherwise = (travelFromContourToInfill c (infillLines (innerContourOf c) (outerContourOf <$> cs))) <> (drawInfill (innerContourOf c) (outerContourOf <$> cs))
           -- FIXME: move this to a maybe.
-          innerContourOf c = fromMaybe (Contour []) $ cleanContour $ addInsideContour buildarea pathWidth [c] c
-          outerContourOf c = fromMaybe (Contour []) $ cleanContour $ addOutsideContour buildarea pathWidth [c] c
+          innerContourOf c = fromMaybe (Contour []) $ cleanContour $ shrinkContour buildarea pathWidth [c] c
+          outerContourOf c = fromMaybe (Contour []) $ cleanContour $ expandContour buildarea pathWidth [c] c
           infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill (innerContourOf c) (outerContourOf <$> cs) ls zHeightOfLayer $ getLayerType print layerNumber
     supportGCode, layerEnd :: [GCode]
     supportGCode = if hasSupport then gcodeFor2DContour lh pathWidth supportContour else []
@@ -395,7 +387,6 @@ sliceLayer (Printer _ buildarea extruder) print@(Print perimeterCount _ lh _ has
 --  error $ show $ makeContourTree layerContours
   layerStart <> (concat $ renderContourTree <$> makeContourTree layerContours) <> support <> layerEnd 
     where
-      layerContourTree = makeContourTree layerContours
       outerContours = catMaybes ( [cleanContour $ shrinkContour buildarea (pathWidth/2) layerContours contour | contour <- layerContours] `using` parBuffer (fromFastℕ threads) rdeepseq)
       firstOuterContour = if not (null outerContours) && not (null $ pointsOfContour $ head outerContours) then head outerContours else error $ "no outer contour?\n"
       supportContour :: Contour
