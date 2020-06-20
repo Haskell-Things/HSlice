@@ -19,17 +19,19 @@
 
 {- The purpose of this file is to hold information about contoured surfaces. -}
 
-module Graphics.Slicer.Math.Contour (getContours, makeContourTree, innerPerimeterPoint, outerPerimeterPoint, ContourTree(ContourTree), lineEntersContour) where
+module Graphics.Slicer.Math.Contour (getContours, makeContourTree, innerPerimeterPoint, outerPerimeterPoint, lineToOutsideContour, ContourTree(ContourTree), lineEntersContour) where
 
-import Prelude ((==), otherwise, (++), (||), (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, (*), Bool, (-), (<), pi, (&&))
+import Prelude ((==), otherwise, (++), (||), (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, (*), Bool, (-), (<), pi, (&&), sqrt, (+), (<*>), minimum, maximum)
 
-import Data.List(find, delete, tail, last, head, init, zipWith)
+import Data.List(find, delete, tail, last, head, init, zipWith, nub)
 
 import Data.Maybe(fromJust, isNothing, Maybe(Just,Nothing), catMaybes, mapMaybe)
 
-import Graphics.Slicer.Math.Definitions (Contour(Contour), Point(Point))
+import Graphics.Slicer.Math.Definitions (Contour(Contour), Point(Point), scalePoint, addPoints)
 
-import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, lineIntersection, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, Intersection(NoIntersection, IntersectsAt, Parallel, HitEndpointL1, HitEndpointL2), angleOf, flipLine, lineBetween, SearchDirection (Clockwise, CounterClockwise))
+import Graphics.Slicer.Formats.GCode.Definitions (roundPoint)
+
+import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, lineIntersection, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, Intersection(NoIntersection, IntersectsAt, Parallel, HitEndpointL1, HitEndpointL2), angleOf, flipLine, lineBetween, SearchDirection (Clockwise, CounterClockwise), Slope)
 
 import Graphics.Implicit.Definitions (ℝ)
 
@@ -59,16 +61,16 @@ getContours :: [[Point]] -> [Contour]
 getContours pointPairs = Contour <$> (filteredContourSets foundContourSets)
   where
     filteredContourSets :: [[Point]] -> [[Point]]
-    filteredContourSets points = catMaybes $ contourLongEnough <$> points
+    filteredContourSets pointset = catMaybes $ contourLongEnough <$> pointset
       where
         contourLongEnough :: [Point] -> Maybe [Point]
-        contourLongEnough points
-          | length points > 3 = Just points
+        contourLongEnough pts
+          | length pts > 3 = Just pts
           | otherwise = Nothing
     foundContourSets :: [[Point]]
     foundContourSets = makeContours . (,) [] $ pointPairs
 
--- Given a line, generate a pair of lines from points on both sides of the given line's midpoint to the origin, on the same z plane as the given line.
+-- | Given a line, generate a pair of lines from points on both sides of the given line's midpoint to the origin, on the same z plane as the given line.
 perimeterLinesToCheck :: ℝ -> Line -> (Line, Line)
 perimeterLinesToCheck pathWidth l@(Line p _) = (head linePair, last linePair)
   where
@@ -77,7 +79,7 @@ perimeterLinesToCheck pathWidth l@(Line p _) = (head linePair, last linePair)
     zOf :: Point -> ℝ
     zOf (Point (_,_,z)) = z
 
--- Find a point on the interior of the given contour, on the perpendicular bisector of the given line, pathWidth from the line.
+-- | Find a point on the interior of the given contour, on the perpendicular bisector of the given line, pathWidth from the line.
 innerPerimeterPoint :: ℝ -> Contour -> Line -> Point
 innerPerimeterPoint pathWidth contour l
     | length oddIntersections > 0 = snd $ head oddIntersections
@@ -104,7 +106,7 @@ innerPerimeterPoint pathWidth contour l
       oddIntersections = filter (odd . fst) intersections
       nonzeroIntersections = filter ((/=0) . fst) intersections
 
--- Find an exterior point on the perpendicular bisector of the given line, pathWidth from the line.
+-- | Find an exterior point on the perpendicular bisector of the given line, pathWidth from the line.
 outerPerimeterPoint :: ℝ -> Contour -> Line -> Point
 outerPerimeterPoint pathWidth contour l
       | (snd $ head intersections) == innerPoint = snd $ last intersections
@@ -125,6 +127,33 @@ outerPerimeterPoint pathWidth contour l
           saneIntersection res = error $ "insane result of intersecting a line with it's bisector: " <> show res <> "\n"
       innerPoint = innerPerimeterPoint pathWidth contour l
 
+-- | Given a point and slope (on an xy plane), make a line segment, where the far end is guaranteed to be outside the contour.
+lineToOutsideContour :: Contour -> ℝ -> Slope -> Point -> Line
+lineToOutsideContour (Contour contourPoints) outsideDistance m p@(Point (_,_,z)) = head . makeLines . nub $ (roundPoint <$> points)
+    where
+      longestLength = sqrt $ dx*dx + dy*dy
+      halfLine@(Line p' s) = pointSlopeLength p m longestLength -- should have p' == p
+      line = lineFromEndpoints (endpoint halfLine) (addPoints p' (scalePoint (-1) s))
+      points = catMaybes $ saneIntersection . lineIntersection line <$> edges
+      saneIntersection :: Intersection -> Maybe Point
+      saneIntersection (IntersectsAt _ p2) = Just p2
+      saneIntersection NoIntersection = Nothing
+      saneIntersection Parallel = Nothing
+      saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
+      edges = lineFromEndpoints <$> [Point (xMin,yMin,z), Point (xMax,yMax,z)]
+                                <*> [Point (xMin,yMax,z), Point (xMax,yMin,z)]
+      xMinRaw = minimum $ xOf <$> contourPoints
+      yMinRaw = minimum $ yOf <$> contourPoints
+      xMaxRaw = maximum $ xOf <$> contourPoints
+      yMaxRaw = maximum $ yOf <$> contourPoints
+      (dx,dy) = (xMax-xMin, yMax-yMin)
+      xMin = xMinRaw - outsideDistance
+      yMin = yMinRaw - outsideDistance
+      xMax = xMaxRaw + outsideDistance
+      yMax = yMaxRaw + outsideDistance
+      xOf, yOf :: Point -> ℝ
+      xOf (Point (x,_,_)) = x
+      yOf (Point (_,y,_)) = y
 
 newtype ContourTree = ContourTree (Contour, [ContourTree])
   deriving (Show)
@@ -185,11 +214,12 @@ lineEntersContour (Line _ m) intersection contour@(Contour contourPoints) = line
         (angleOf lineFrom) - (angleOf lineToInteriorPoint) < (pi*0.5)    = if angleOf lineFrom > angleOf lineToInteriorPoint then Clockwise else CounterClockwise
       | (angleOf lineToInteriorPoint) - (angleOf lineFrom) > (pi*0.5)    = Clockwise
       | (angleOf lineFrom) - (angleOf lineToInteriorPoint) > (pi*0.5)    = CounterClockwise
+      | otherwise                                                        = error "impossible!"
     lineToInteriorPoint = lineFromEndpoints (intersectionPoint intersection) $ innerPerimeterPoint 0.00001 contour lineFrom
-    intersectionPoint (HitEndpointL2 point) = point
+    intersectionPoint (HitEndpointL2 pt) = pt
     intersectionPoint other = error $ "trying to find where a line enters a contour on something not a point of a contour where two lines intersect: " <> show other <> "\n" 
     -- lineTo has an endpoint of the intersection, lineFrom has a starting point of the intersection.
     (lineTo, lineFrom) = findLinesInContour intersection
     contourLines = makeLinesLooped contourPoints
-    findLinesInContour (HitEndpointL2 point) = head $ catMaybes $ zipWith (\l1@(Line _ _) l2@(Line p2 _) -> if p2 == point then Just (l1,l2) else Nothing) (init contourLines) (tail contourLines)
+    findLinesInContour (HitEndpointL2 pt) = head $ catMaybes $ zipWith (\l1@(Line _ _) l2@(Line p2 _) -> if p2 == pt then Just (l1,l2) else Nothing) (init contourLines) (tail contourLines)
     findLinesInContour other = error $ "trying to find where a line enters a contour on something not a point of a contour where two lines intersect: " <> show other <> "\n" 
