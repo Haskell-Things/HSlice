@@ -39,7 +39,7 @@ import Data.ByteString.UTF8 (fromString)
 
 import Data.String (String)
 
-import Data.Bool(Bool(True, False), (&&), otherwise, not)
+import Data.Bool(Bool(True, False), otherwise, not)
 
 import Data.List (length, zip, tail, head, zipWith, maximum, minimum, last, (++), concat, null)
 
@@ -59,7 +59,7 @@ import Control.Monad.State(runState)
 
 import Options.Applicative (fullDesc, progDesc, header, auto, info, helper, help, str, argument, long, short, option, metavar, execParser, Parser, optional, strOption, switch, hsubparser, command, many)
 
-import Control.Parallel.Strategies (using, rdeepseq, rseq, parListChunk, parBuffer)
+import Control.Parallel.Strategies (using, rdeepseq, rseq, parListChunk)
 
 import Graphics.Implicit.ExtOpenScad.Eval.Constant (addConstants)
 
@@ -68,7 +68,7 @@ import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString,
 
 import Graphics.Implicit.Definitions (ℝ, ℕ, Fastℕ(Fastℕ), fromFastℕ)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Point(Point), Line(Line), point, endpoint, flipLine, Facet, sides, Contour(Contour), LayerType(BaseOdd, BaseEven), shiftFacet, facetIntersects, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), facetLinesFromSTL, makeContourTree, ContourTree(ContourTree))
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Point(Point), Line(Line), point, flipLine, Facet, sides, Contour(Contour), LayerType(BaseOdd, BaseEven), shiftFacet, facetIntersects, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), facetLinesFromSTL, makeContourTree, ContourTree(ContourTree))
 
 import Graphics.Slicer.Machine.Infill (makeInfill, makeSupport)
 
@@ -195,43 +195,42 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
         <> renderChildOuterContours contour (innerContourOf contour)
         <> remainder contour childContours
         where
-          renderChildOuterContours src dest = if null childContours
-                                              then travelBetweenContours src dest
-                                              else (travelBetweenContours src $ head childContours) <> (drawOuterContour $ head childContours) <> drawChildContours <> (travelBetweenContours (last childContours) $ dest)
-          renderChildInnerContours src dest = if null childContours
-                                              then travelBetweenContours src dest
-                                              else (travelBetweenContours src $ outerContourOf $ head childContours)
-                                                   <> (drawInnerContour $ outerContourOf $ head childContours) <> drawChildOuterContours <> (travelBetweenContours (outerContourOf $ last childContours) $ dest)
-          contour = fromMaybe (error "failed to shrink contour") $ cleanContour $ shrinkContour (pathWidth/2) (insideContours ++ [outsideContour]) outsideContour
-          childContours = (fromMaybe (error "failed to expand contour") . cleanContour . expandContour (pathWidth/2) (insideContours ++ [outsideContour])) <$> insideContours
-          drawChildContours = (concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) (init childContours) (tail childContours))
-          drawChildOuterContours = (concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init $ outerContourOf <$> childContours) (tail $ outerContourOf <$> childContours))
-          drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth c
-          drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
-          drawInfill :: Contour -> [Contour] -> [GCode]
-          drawInfill c cs = GCMarkInfillStart : (gcodeForInfill lh ls $ infillLines c cs)
-          remainder :: Contour -> [Contour] -> [GCode]
+          renderChildOuterContours src dest
+            | null childContours = travelBetweenContours src dest
+            | otherwise          = (travelBetweenContours src $ head childContours) <> (drawOuterContour $ head childContours) <> drawChildContours <> (travelBetweenContours (last childContours) $ dest)
+          renderChildInnerContours src dest
+            | null childContours = travelBetweenContours src dest
+            | otherwise          = (travelBetweenContours src $ outerContourOf $ head childContours) <> (drawInnerContour $ outerContourOf $ head childContours) <> drawChildOuterContours
+                                   <> (travelBetweenContours (outerContourOf $ last childContours) $ dest)
           remainder c cs
             | outerWallBeforeInner == True = (travelFromContourToInfill (innerContourOf c) (infillLines c cs)) <> (drawInfill c cs)
             | otherwise = (travelFromContourToInfill c (infillLines (innerContourOf c) (outerContourOf <$> cs))) <> (drawInfill (innerContourOf c) (outerContourOf <$> cs))
-          -- FIXME: move this to a maybe.
+          contour = fromMaybe (error "failed to shrink contour") $ cleanContour $ shrinkContour (pathWidth/2) (insideContours ++ [outsideContour]) outsideContour
+          childContours = (fromMaybe (error "failed to expand contour") . cleanContour . expandContour (pathWidth/2) (insideContours ++ [outsideContour])) <$> insideContours
+          infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill (shrinkContour (pathWidth/2) (c:cs) c) (expandContour (pathWidth/2) (c:cs) <$> cs) (ls * (1/infill)) zHeightOfLayer $ getLayerType print layerNumber
+          drawChildContours = (concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) (init childContours) (tail childContours))
+          drawChildOuterContours = (concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init $ outerContourOf <$> childContours) (tail $ outerContourOf <$> childContours))
+          drawInfill :: Contour -> [Contour] -> [GCode]
+          drawInfill c cs = GCMarkInfillStart : (gcodeForInfill lh ls $ infillLines c cs)
+          drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth c
+          drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
+          -- FIXME: move these to a maybe.
           innerContourOf c = fromMaybe (Contour []) $ cleanContour $ shrinkContour (pathWidth*1.5) [c] c
           outerContourOf c = fromMaybe (Contour []) $ cleanContour $ expandContour (pathWidth*1.5) [c] c
-          infillLines :: Contour -> [Contour] -> [[Line]]
-          infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill (shrinkContour (pathWidth/2) (c:cs) c) (expandContour (pathWidth/2) [c] <$> cs) (ls / (infill/1)) zHeightOfLayer $ getLayerType print layerNumber
-    supportGCode, layerEnd :: [GCode]
-    supportGCode = [] -- if hasSupport then gcodeForContour lh pathWidth supportContour else []
-    layerEnd = if isLastLayer then [] else travelToLayerChange
-    layerStart = [GCMarkLayerStart layerNumber]
-    -- FIXME: not all support is support. what about supportInterface?
-    support = [] -- if null supportGCode then [] else GCMarkSupportStart : supportGCode
-    -- FIXME: make travel gcode from the previous contour's last position?
-    travelToLayerChange = [make2DTravelGCode (Point (0,0,0)) $ firstPoint $ firstOuterContour]
   -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
   layerStart <> (concat $ renderContourTree <$> allContours) <> support <> layerEnd 
     where
       allContours = makeContourTree layerContours
       firstOuterContour = (\(ContourTree (a,_)) -> a) $ head allContours
+      supportGCode, layerEnd :: [GCode]
+      supportGCode = [] -- if hasSupport then gcodeForContour lh pathWidth supportContour else []
+      layerEnd = if isLastLayer then [] else travelToLayerChange
+      layerStart = [GCMarkLayerStart layerNumber]
+      -- FIXME: make travel gcode from the previous contour's last position?
+      travelToLayerChange :: [GCode]
+      travelToLayerChange = [make2DTravelGCode (Point (0,0,0)) $ firstPoint $ firstOuterContour]
+      -- FIXME: not all support is support. what about supportInterface?
+      support = [] -- if null supportGCode then [] else GCMarkSupportStart : supportGCode
       -- FIXME: we need to totally redo support.
       {-
       supportContour :: Contour
@@ -241,7 +240,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
       -}
       firstPoint (Contour contourPoints) = if not (null contourPoints) then head contourPoints else error "tried to get the first point of an empty contour.\n"
       -- since we always print contours as a big loop, the first point IS the last point.
-      lastPoint (Contour contourPoints) = head contourPoints
+      lastPoint (Contour contourPoints) = if not (null contourPoints) then head contourPoints else error "tried to get the last point of an empty contour.\n"
       firstPointOfInfill :: [[Line]] -> Maybe Point
       firstPointOfInfill [] = Nothing
       firstPointOfInfill (x:_) = Just $ startOfLine $ head x
@@ -452,6 +451,7 @@ run rawArgs = do
               maybeFilamentDiameter (lookupVarIn "material_diameter" -> Just (ONum diameter)) = Just diameter
               maybeFilamentDiameter _ = Nothing
 
+              -- FIXME: interpret 'machine_shape', and implement eliptic beds.
               -- The bed of the printer. assumed to be some form of rectangle, with the build area coresponding to all of the space above it.
               getPrintBed var = RectBed ( fromMaybe 150 $ maybeX var
                                         , fromMaybe 150 $ maybeY var )
