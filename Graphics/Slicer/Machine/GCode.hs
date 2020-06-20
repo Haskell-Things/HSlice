@@ -22,7 +22,7 @@
 -- for NFData.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart, GCMarkSupportStart), cookExtrusions, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeFor2DContour, gcodeFor2DInfill, gcodeToText) where
+module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart, GCMarkSupportStart), cookExtrusions, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText) where
 
 import GHC.Generics (Generic)
 
@@ -154,16 +154,16 @@ gcodeToText GCMarkInfillStart = ";TYPE:FILL"
 -- Generate G-Code for a given contour.
 -- Assumes the printer is already at the first point.
 -- Also assumes contours that have points.
-gcodeFor2DContour :: ℝ -> ℝ -> Contour -> [GCode]
-gcodeFor2DContour lh pathWidth (Contour contourPoints)
+gcodeForContour :: ℝ -> ℝ -> Contour -> [GCode]
+gcodeForContour lh pathWidth (Contour contourPoints)
   | length contourPoints > 1  = zipWith (make2DExtrudeGCode lh pathWidth) (init contourPoints) (tail contourPoints)
   | length contourPoints == 1 = error $ "Given a contour with a single point in it:" <> show contourPoints <> "\n"
   | otherwise                 = []
 
 -- for each group of lines, generate gcode for the segments, with move commands between them.
-gcodeFor2DInfill :: ℝ -> ℝ -> [[Line]] -> [GCode]
-gcodeFor2DInfill _ _ [] = []
-gcodeFor2DInfill lh pathWidth lineGroups = concat $ renderLineGroup (head lineGroups) : (zipWith (\group1 group2 -> (moveBetweenLineGroups group1 group2) ++ (renderLineGroup group2)) (init lineGroups) (tail lineGroups))
+gcodeForInfill :: ℝ -> ℝ -> [[Line]] -> [GCode]
+gcodeForInfill _ _ [] = []
+gcodeForInfill lh pathWidth lineGroups = concat $ renderLineGroup (head lineGroups) : (zipWith (\group1 group2 -> (moveBetweenLineGroups group1 group2) ++ (renderLineGroup group2)) (init lineGroups) (tail lineGroups))
   where
     -- FIXME: this should be a single gcode. why are we getting empty line groups given to us?
     moveBetweenLineGroups :: [Line] -> [Line] -> [GCode]
