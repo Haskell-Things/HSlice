@@ -18,11 +18,11 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude (length, (>), ($), otherwise, (<$>), Int, Eq, (<>), show, error, (==), negate, (.), head, (<*>), sqrt, (*), (+), take, drop, cycle, (-))
+import Prelude (length, (>), ($), otherwise, (<$>), Int, Eq, (<>), show, error, (==), negate, (.), head, (<*>), sqrt, (*), (+), take, drop, cycle, (-), minimum, maximum, (&&), Bool(True, False))
 
 import Data.List (nub, null, zipWith3)
 
-import Data.Maybe (Maybe(Just, Nothing), fromMaybe, catMaybes)
+import Data.Maybe (Maybe(Just, Nothing), fromMaybe, catMaybes, isJust)
 
 import Control.Parallel.Strategies (withStrategy, parList, rpar)
 
@@ -30,7 +30,7 @@ import Control.Parallel (par, pseq)
 
 import Graphics.Slicer.Math.Definitions (Point(Point), Contour(Contour), distance, addPoints, scalePoint)
 
-import Graphics.Slicer.Math.Line (Line(Line), Slope, Intersection(IntersectsAt, NoIntersection, Parallel), makeLines, makeLinesLooped, lineIntersection, pointsFromLines, combineConsecutiveLines, lineSlope, flipLine, pointSlopeLength, combineLines, lineFromEndpoints, endpoint)
+import Graphics.Slicer.Math.Line (Line(Line), Slope, Intersection(IntersectsAt, HitEndpointL1, NoIntersection, Parallel), makeLines, makeLinesLooped, lineIntersection, pointsFromLines, combineConsecutiveLines, lineSlope, flipLine, pointSlopeLength, combineLines, lineFromEndpoints, endpoint)
 
 import Graphics.Slicer.Math.Contour (outerPerimeterPoint, innerPerimeterPoint)
 
@@ -63,16 +63,11 @@ cleanContour (Contour points)
 -------------------- Contour Modifiers ------------------------
 ---------------------------------------------------------------
 
--- FIXME: replace this with lineToOutsideContour.
--- | Given a point and slope (on an xy plane), make a line segment, where the far end is at the edge of the print bed.
--- FIXME: assumes the origin is at the corner.
--- FIXME: other bed types?
-lineToEdge :: BuildArea -> Slope -> Point -> Line
-lineToEdge (RectArea (bedX,bedY,_)) m p@(Point (_,_,c)) = head . makeLines . nub $ (roundPoint <$> points)
+-- | Given a point and slope (on an xy plane), make a line segment, where the far end is at the edge of the contour, guaranteed to be outside the contour.
+lineToOutsideContour :: Contour -> ℝ -> Slope -> Point -> Line
+lineToOutsideContour (Contour contourPoints) outsideDistance m p@(Point (_,_,z)) = head . makeLines . nub $ (roundPoint <$> points)
     where
-      edges = lineFromEndpoints <$> [Point (0,0,c), Point (bedX,bedY,c)]
-                                <*> [Point (0,bedY,c), Point (bedX,0,c)]
-      longestLength = sqrt $ bedX*bedX + bedY*bedY
+      longestLength = sqrt $ dx*dx + dy*dy
       halfLine@(Line p' s) = pointSlopeLength p m longestLength -- should have p' == p
       line = lineFromEndpoints (endpoint halfLine) (addPoints p' (scalePoint (-1) s))
       points = catMaybes $ saneIntersection . lineIntersection line <$> edges
@@ -80,8 +75,22 @@ lineToEdge (RectArea (bedX,bedY,_)) m p@(Point (_,_,c)) = head . makeLines . nub
       saneIntersection (IntersectsAt _ p2) = Just p2
       saneIntersection NoIntersection = Nothing
       saneIntersection Parallel = Nothing 
-      saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"    
-
+      saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
+      edges = lineFromEndpoints <$> [Point (xMin,yMin,z), Point (xMax,yMax,z)]
+                                <*> [Point (xMin,yMax,z), Point (xMax,yMin,z)]
+      xMinRaw = minimum $ xOf <$> contourPoints
+      yMinRaw = minimum $ yOf <$> contourPoints
+      xMaxRaw = maximum $ xOf <$> contourPoints
+      yMaxRaw = maximum $ yOf <$> contourPoints
+      (dx,dy) = (xMax-xMin, yMax-yMin)
+      xMin = xMinRaw - outsideDistance
+      yMin = yMinRaw - outsideDistance
+      xMax = xMaxRaw + outsideDistance
+      yMax = yMaxRaw + outsideDistance
+      xOf, yOf :: Point -> ℝ
+      xOf (Point (x,_,_)) = x
+      yOf (Point (_,y,_)) = y
+      
 -- like map, only with previous, current, and next item, and wrapping around so the first entry gets the last entry as previous, and vica versa.
 mapWithNeighbors :: (a -> a -> a -> b) -> [a] -> [b]
 mapWithNeighbors  f l =
@@ -99,12 +108,12 @@ data Direction =
   deriving (Eq)
 
 -- reduce a contour by a given amount.
-shrinkContour :: BuildArea -> ℝ -> [Contour] -> Contour -> Contour
-shrinkContour surface amount allContours contour = modifyContour surface amount allContours contour Inward
+shrinkContour :: ℝ -> [Contour] -> Contour -> Contour
+shrinkContour amount allContours contour = modifyContour amount allContours contour Inward
 
 -- increase a contour by a given amount.
-expandContour :: BuildArea -> ℝ -> [Contour] -> Contour -> Contour
-expandContour surface amount allContours contour = modifyContour surface amount allContours contour Outward
+expandContour :: ℝ -> [Contour] -> Contour -> Contour
+expandContour amount allContours contour = modifyContour amount allContours contour Outward
 
 -- FIXME: implement this.
 -- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.
@@ -114,42 +123,54 @@ findExtraContours :: Contour -> Contour -> [Contour]
 findExtraContours _ _ = []
 
 -- Add one contour inside or outside of a given contour, in a naieve fashion.
-modifyContour :: BuildArea -> ℝ -> [Contour] -> Contour -> Direction -> Contour
-modifyContour surface pathWidth allContours contour@(Contour contourPoints) direction = Contour $ pointsFromLines foundContour
+modifyContour :: ℝ -> [Contour] -> Contour -> Direction -> Contour
+modifyContour pathWidth allContours contour@(Contour contourPoints) direction = Contour $ pointsFromLines foundContour
   where
     -- FIXME: implement me. we need this so we can handle further interior contours, and only check against the contour they are inside of.
     foundContour
-      | (length contourPoints) > 2 = mapWithNeighbors (findLine allContours) $ (makeLinesLooped contourPoints)
+      | (length contourPoints) > 2 = catMaybes $ mapWithNeighbors (findLine allContours) $ (makeLinesLooped contourPoints)
       | otherwise = error $ "tried to modify a contour with too few points: "
       where
         -- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.
         -- Optimization: only check non-neighbor lines when the angles add up to a certain amount? looking for curling back. anything over ~180 degrees, relative to the slope of this line.
-        findLine :: [Contour] -> Line -> Line -> Line -> Line
-        findLine contours previousln ln@(Line _ m) nextln = flipLine midToStart `combineLines` midToEnd
+        findLine :: [Contour] -> Line -> Line -> Line -> Maybe Line
+        findLine contours previousln ln@(Line _ m) nextln = if isJust (lengthToIntersection ln nextln) && isJust (lengthToIntersection ln previousln)
+                                                            then Just $ flipLine midToStart `combineLines` midToEnd
+                                                            else Nothing
           where
             midToEnd, midToStart :: Line
-            midToEnd   = pointSlopeLength (perimeterPoint pathWidth contours ln) (lineSlope m) (lengthToIntersection ln nextln)
-            midToStart = pointSlopeLength (perimeterPoint pathWidth contours ln) (lineSlope m) (negate $ lengthToIntersection ln previousln)
+            midToEnd   = pointSlopeLength (perimeterPoint pathWidth contours ln) (lineSlope m) (fromMaybe (0) $ lengthToIntersection ln nextln)
+            midToStart = pointSlopeLength (perimeterPoint pathWidth contours ln) (lineSlope m) (negate $ fromMaybe (0) $ lengthToIntersection ln previousln)
         perimeterPoint :: ℝ -> [Contour] -> Line -> Point
         perimeterPoint pathWidth contours ln
           | direction == Inward  = innerPerimeterPoint pathWidth contour ln
           | direction == Outward = outerPerimeterPoint pathWidth contour ln
         -- get the length to where these lines intersect, assuming they are pathWidth away from the lines themselves.
-        lengthToIntersection :: Line -> Line -> ℝ
+        lengthToIntersection :: Line -> Line -> Maybe ℝ
         lengthToIntersection l1 l2
-          | lineSlope (roundPoint $ slopeOf newL1) == lineSlope (roundPoint $ slopeOf newL2) = distance (linePoint newL1) (linePoint newL2)
-          | otherwise = distance (perimeterPoint pathWidth allContours l1) $ fromMaybe (noIntersectionError) $ saneIntersection $ lineIntersection newL1 newL2
+          | lineSlope (roundPoint $ slopeOf newL1) == lineSlope (roundPoint $ slopeOf newL2) = Just $ distance (linePoint newL1) (linePoint newL2)
+          -- FIXME: if the distance is 0 or less, drop the line segment.
+          | otherwise = if isJust $ saneIntersection $ lineIntersection newL1 newL2
+                        then foundDistance
+                        else if missedIntersection $ lineIntersection newL1 newL2
+                             then Just 0.0001
+                             else Nothing
           where
+            foundDistance = if rawDistance > 0 then Just rawDistance else Nothing
+            rawDistance = distance (perimeterPoint pathWidth allContours l1) $ fromMaybe (perimeterPoint pathWidth allContours l1) $ saneIntersection $ lineIntersection newL1 newL2
+            missedIntersection :: Intersection -> Bool
+            missedIntersection NoIntersection = True
+            missedIntersection _ = False
             saneIntersection :: Intersection -> Maybe Point
             saneIntersection (IntersectsAt _ p2) = Just p2
+            -- FIXME: in this case, drop the line segment?
+            saneIntersection (HitEndpointL1 p1) = Nothing
             saneIntersection NoIntersection = Nothing
-            saneIntersection res = error $ "insane result: " <> show res <> "\n"    
+            saneIntersection res = error $ "insane result: " <> show res <> "\n" <> "no intersection on contour: \n" <> (show contour) <> "\n" <> show l1 <> " -> " <> show newL1 <> "\n" <> show l2 <> " -> " <> show newL2 <> "\n"
             linePoint (Line p _) = p
             slopeOf (Line _ m) = m
             newL1 = rawMidToEdge allContours l1
             newL2 = flipLine $ rawMidToEdge allContours l2
             -- line segments for a hypothetical line, without being shortened yet.
-            rawMidToEdge contours ln@(Line _ m) = lineToEdge surface (lineSlope m) (perimeterPoint pathWidth contours ln)
-            noIntersectionError :: Point
-            noIntersectionError = error $ "no intersection on contour: \n" <> (show contour) <> "\n" <> show l1 <> " -> " <> show newL1 <> "\n" <> show l2 <> " -> " <> show newL2 <> "\n"
+            rawMidToEdge contours ln@(Line _ m) = lineToOutsideContour contour (pathWidth * 2) (lineSlope m) (perimeterPoint pathWidth contours ln)
 
