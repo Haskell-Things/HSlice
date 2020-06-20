@@ -182,18 +182,22 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
         insidePositiveSpaces trees = concat $ (\(ContourTree (_,a)) -> a) <$> trees
     renderSurface :: Contour -> [Contour] -> [GCode]
     renderSurface outsideContour insideContours
-      | outerWallBeforeInner == True =
-        (travelToContour contour) <> (drawOuterContour contour)
-        <> renderChildOuterContours contour (innerContourOf contour)
-        <> (drawInnerContour $ innerContourOf contour)
-        <> renderChildInnerContours (innerContourOf contour) contour
-        <> remainder contour childContours
-      | otherwise =
-        (travelToContour $ innerContourOf contour) <> (drawInnerContour $ innerContourOf contour)
-        <> renderChildInnerContours (innerContourOf contour) contour
-        <> drawOuterContour contour
-        <> renderChildOuterContours contour (innerContourOf contour)
-        <> remainder contour childContours
+      | outerWallBeforeInner == True = concat [
+          travelToContour contour
+          , drawOuterContour contour
+          , renderChildOuterContours contour $ innerContourOf contour
+          , drawInnerContour $ innerContourOf contour
+          , renderChildInnerContours (innerContourOf contour) contour
+          , remainder contour childContours
+          ]
+      | otherwise = concat [
+          travelToContour $ innerContourOf contour
+          , drawInnerContour $ innerContourOf contour
+          , renderChildInnerContours (innerContourOf contour) contour
+          , drawOuterContour contour
+          , renderChildOuterContours contour $ innerContourOf contour
+          , remainder contour childContours
+          ]
         where
           renderChildOuterContours src dest
             | null childContours = travelBetweenContours src dest

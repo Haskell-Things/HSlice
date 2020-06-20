@@ -47,7 +47,7 @@ shiftFacet :: Point -> Facet -> Facet
 shiftFacet p = Facet . fmap (\l -> l { point = addPoints p (point l) }) . sides
 
 facetFromPoints :: [Point] -> Facet
-facetFromPoints pts@(p1:p2:p3:[]) = Facet $ (rawLineFromEndpoints p1 p2):(rawLineFromEndpoints p2 p3):(rawLineFromEndpoints p3 p1):[]
+facetFromPoints (p1:p2:p3:[]) = Facet $ (rawLineFromEndpoints p1 p2):(rawLineFromEndpoints p2 p3):(rawLineFromEndpoints p3 p1):[]
 facetFromPoints _ = error "tried to make a facet from something other than 3 points."
 
 -- determine where a facet intersects a plane at a given z value

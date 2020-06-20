@@ -38,8 +38,6 @@ import Graphics.Slicer.Math.Definitions (Point(Point))
 
 import Graphics.Slicer.Math.Facet (Facet, facetFromPoints)
 
-import Graphics.Slicer.Math.Line (makeLinesLooped)
-
 import Graphics.Slicer.Definitions (Fastℕ, fromFastℕ)
 
 ----------------------------------------------------------------
