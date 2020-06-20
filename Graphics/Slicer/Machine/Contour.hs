@@ -18,7 +18,7 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude (length, (>), ($), otherwise, (<$>), Int, Eq, (<>), show, error, (==), negate, (.), head, (<*>), sqrt, (*), (+), take, drop, cycle, (-), minimum, maximum, (&&), Bool(True, False))
+import Prelude (length, (>), ($), otherwise, (<$>), Int, Eq, (<>), show, error, (==), negate, (.), head, (<*>), sqrt, (*), (+), take, drop, cycle, (-), minimum, maximum, (&&), (/))
 
 import Data.List (nub, null, zipWith3)
 
@@ -30,11 +30,9 @@ import Control.Parallel (par, pseq)
 
 import Graphics.Slicer.Math.Definitions (Point(Point), Contour(Contour), distance, addPoints, scalePoint)
 
-import Graphics.Slicer.Math.Line (Line(Line), Slope, Intersection(IntersectsAt, HitEndpointL1, NoIntersection, Parallel), makeLines, makeLinesLooped, lineIntersection, pointsFromLines, combineConsecutiveLines, lineSlope, flipLine, pointSlopeLength, combineLines, lineFromEndpoints, endpoint)
+import Graphics.Slicer.Math.Line (Line(Line), Slope, Intersection(IntersectsAt, HitEndpointL1, NoIntersection, Parallel, Collinear), makeLines, makeLinesLooped, lineIntersection, pointsFromLines, combineConsecutiveLines, lineSlope, flipLine, pointSlopeLength, combineLines, lineFromEndpoints, endpoint)
 
 import Graphics.Slicer.Math.Contour (outerPerimeterPoint, innerPerimeterPoint)
-
-import Graphics.Slicer.Concepts.Definitions (BuildArea(RectArea))
 
 import Graphics.Slicer.Formats.GCode.Definitions (roundPoint)
 
@@ -74,7 +72,7 @@ lineToOutsideContour (Contour contourPoints) outsideDistance m p@(Point (_,_,z))
       saneIntersection :: Intersection -> Maybe Point
       saneIntersection (IntersectsAt _ p2) = Just p2
       saneIntersection NoIntersection = Nothing
-      saneIntersection Parallel = Nothing 
+      saneIntersection Parallel = Nothing
       saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
       edges = lineFromEndpoints <$> [Point (xMin,yMin,z), Point (xMax,yMax,z)]
                                 <*> [Point (xMin,yMax,z), Point (xMax,yMin,z)]
@@ -148,25 +146,17 @@ modifyContour pathWidth allContours contour@(Contour contourPoints) direction = 
         -- get the length to where these lines intersect, assuming they are pathWidth away from the lines themselves.
         lengthToIntersection :: Line -> Line -> Maybe ℝ
         lengthToIntersection l1 l2
-          | lineSlope (roundPoint $ slopeOf newL1) == lineSlope (roundPoint $ slopeOf newL2) = Just $ distance (linePoint newL1) (linePoint newL2)
-          -- FIXME: if the distance is 0 or less, drop the line segment.
-          | otherwise = if isJust $ saneIntersection $ lineIntersection newL1 newL2
-                        then foundDistance
-                        else if missedIntersection $ lineIntersection newL1 newL2
-                             then Just 0.0001
-                             else Nothing
+          | lineSlope (roundPoint $ slopeOf newL1) == lineSlope (roundPoint $ slopeOf newL2) = foundGapDistance
+          | otherwise = case lineIntersection newL1 newL2 of
+                          IntersectsAt _ p2 -> foundDistance p2
+                          HitEndpointL1 _   -> Nothing
+                          NoIntersection    -> foundGapDistance
+                          a                 -> error $ "insane result: " <> show a <>"\nno intersection on contour: \n" <> (show contour) <> "\n" <> show l1 <> " -> " <> show newL1 <> "\n" <> show l2 <> " -> " <> show newL2 <> "\n"
           where
-            foundDistance = if rawDistance > 0 then Just rawDistance else Nothing
-            rawDistance = distance (perimeterPoint pathWidth allContours l1) $ fromMaybe (perimeterPoint pathWidth allContours l1) $ saneIntersection $ lineIntersection newL1 newL2
-            missedIntersection :: Intersection -> Bool
-            missedIntersection NoIntersection = True
-            missedIntersection _ = False
-            saneIntersection :: Intersection -> Maybe Point
-            saneIntersection (IntersectsAt _ p2) = Just p2
-            -- FIXME: in this case, drop the line segment?
-            saneIntersection (HitEndpointL1 p1) = Nothing
-            saneIntersection NoIntersection = Nothing
-            saneIntersection res = error $ "insane result: " <> show res <> "\n" <> "no intersection on contour: \n" <> (show contour) <> "\n" <> show l1 <> " -> " <> show newL1 <> "\n" <> show l2 <> " -> " <> show newL2 <> "\n"
+            foundDistance p2 = if rawDistance p2 > 0 then Just (rawDistance p2) else Nothing
+            rawDistance p2 = distance (perimeterPoint pathWidth allContours l1) p2
+            foundGapDistance = if rawGapDistance > 0 then Just rawGapDistance else Nothing
+            rawGapDistance = distance (linePoint newL1) (endpoint newL2)
             linePoint (Line p _) = p
             slopeOf (Line _ m) = m
             newL1 = rawMidToEdge allContours l1
