@@ -27,7 +27,7 @@
 -- For matching our OpenScad variable types.
 {-# LANGUAGE ViewPatterns #-}
 
-import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse)
+import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse, fmap)
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -45,7 +45,7 @@ import Data.List (length, zip, tail, head, zipWith, maximum, minimum, last, (++)
 
 import Control.Monad ((>>=))
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe, fromJust)
 
 import Text.Show(show)
 
@@ -181,46 +181,60 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
         insidePositiveSpaces :: [ContourTree] -> [ContourTree]
         insidePositiveSpaces trees = concat $ (\(ContourTree (_,a)) -> a) <$> trees
     renderSurface :: Contour -> [Contour] -> [GCode]
-    renderSurface outsideContour insideContours
+    renderSurface outsideContourRaw insideContours
       | outerWallBeforeInner == True = concat [
-          travelToContour contour
-          , drawOuterContour contour
-          , renderChildOuterContours contour $ innerContourOf contour
-          , drawInnerContour $ innerContourOf contour
-          , renderChildInnerContours (innerContourOf contour) contour
-          , remainder contour childContours
+          travelToContour outsideContour
+          , drawOuterContour outsideContour
+          , renderChildOuterContours outsideContour outsideContourInnerWall
+          , drawInnerContour $ outsideContourInnerWall
+          , renderChildInnerContours outsideContourInnerWall outsideContour
+          , travelFromContourToInfill outsideContour $ infillLines outsideContourInnerWall childContoursInnerWalls
+          , drawInfill outsideContourInnerWall childContoursInnerWalls
           ]
       | otherwise = concat [
-          travelToContour $ innerContourOf contour
-          , drawInnerContour $ innerContourOf contour
-          , renderChildInnerContours (innerContourOf contour) contour
-          , drawOuterContour contour
-          , renderChildOuterContours contour $ innerContourOf contour
-          , remainder contour childContours
+          travelToContour $ outsideContourInnerWall
+          , drawInnerContour outsideContourInnerWall
+          , renderChildInnerContours outsideContourInnerWall outsideContour
+          , drawOuterContour outsideContour
+          , renderChildOuterContours outsideContour outsideContourInnerWall
+          , travelFromContourToInfill outsideContourInnerWall  $ infillLines outsideContourInnerWall childContoursInnerWalls
+          , drawInfill outsideContourInnerWall childContoursInnerWalls
           ]
         where
           renderChildOuterContours src dest
             | null childContours = travelBetweenContours src dest
-            | otherwise          = (travelBetweenContours src $ head childContours) <> (drawOuterContour $ head childContours) <> drawChildContours <> (travelBetweenContours (last childContours) $ dest)
+            | otherwise          = concat [
+                travelBetweenContours src $ head childContours
+                , drawOuterContour $ head childContours
+                , drawChildContours
+                , travelBetweenContours (last childContours) dest
+                ]
           renderChildInnerContours src dest
             | null childContours = travelBetweenContours src dest
-            | otherwise          = (travelBetweenContours src $ outerContourOf $ head childContours) <> (drawInnerContour $ outerContourOf $ head childContours) <> drawChildOuterContours
-                                   <> (travelBetweenContours (outerContourOf $ last childContours) $ dest)
-          remainder c cs
-            | outerWallBeforeInner == True = (travelFromContourToInfill (innerContourOf c) (infillLines c cs)) <> (drawInfill c cs)
-            | otherwise = (travelFromContourToInfill c (infillLines (innerContourOf c) (outerContourOf <$> cs))) <> (drawInfill (innerContourOf c) (outerContourOf <$> cs))
-          contour = fromMaybe (error "failed to shrink contour") $ cleanContour $ shrinkContour (pathWidth/2) (insideContours ++ [outsideContour]) outsideContour
-          childContours = (fromMaybe (error "failed to expand contour") . cleanContour . expandContour (pathWidth/2) (insideContours ++ [outsideContour])) <$> insideContours
-          infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill (shrinkContour (pathWidth/2) (c:cs) c) (expandContour (pathWidth/2) (c:cs) <$> cs) (ls * (1/infill)) zHeightOfLayer $ getLayerType print layerNumber
-          drawChildContours = (concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) (init childContours) (tail childContours))
-          drawChildOuterContours = (concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init $ outerContourOf <$> childContours) (tail $ outerContourOf <$> childContours))
+            | otherwise          = concat [
+                travelBetweenContours src $ head childContoursInnerWalls
+                , drawInnerContour $ head childContoursInnerWalls
+                , drawChildOuterContours
+                , travelBetweenContours (last childContoursInnerWalls) dest
+                ]
+
+          outsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth/2) (insideContours) outsideContourRaw
+          outsideContourInnerWall = innerContourOf insideContours outsideContour
+          -- FIXME: do not supply an inside contour as a child of itsself.
+          childContours = catMaybes $ (fmap cleanContour) $ catMaybes $ expandContour (pathWidth/2) (outsideContour:insideContours) <$> insideContours
+          childContoursInnerWalls = catMaybes $ (fmap cleanContour) $ catMaybes $ expandContour (pathWidth) (outsideContour:insideContours) <$> childContours
+          infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill (fromJust $ shrinkContour (pathWidth/2) (c:cs) c) (catMaybes $ expandContour (pathWidth/2) (c:cs) <$> cs) (ls * (1/infill)) zHeightOfLayer $ getLayerType print layerNumber
+          drawChildContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) (init childContours) (tail childContours)
+          drawChildOuterContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init $ childContoursInnerWalls) (tail $ childContoursInnerWalls)
           drawInfill :: Contour -> [Contour] -> [GCode]
           drawInfill c cs = GCMarkInfillStart : (gcodeForInfill lh ls $ infillLines c cs)
           drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth c
           drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
-          -- FIXME: move these to a maybe.
-          innerContourOf c = fromMaybe (Contour []) $ cleanContour $ shrinkContour (pathWidth*1.5) [c] c
-          outerContourOf c = fromMaybe (Contour []) $ cleanContour $ expandContour (pathWidth*1.5) [c] c
+          innerContourOf cs c =
+            case maybeInnerContourOf c cs of
+              Just a   -> a
+              Nothing  -> error $ "got empty contour when asking for smaller version of contour:\n" <> show c <> "\n"
+          maybeInnerContourOf c cs = shrinkContour (pathWidth*1.5) cs c
   -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
   layerStart <> (concat $ renderContourTree <$> allContours) <> support <> layerEnd 
     where
