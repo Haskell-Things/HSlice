@@ -21,7 +21,7 @@
 -- for adding Generic and NFData to Line.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, rawLineFromEndpoints, pointsFromLines, endpoint, midpoint, flipLine, pointSlopeLength, combineLines, canCombineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, makeLinesLooped, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), combineConsecutiveLines, Intersection (IntersectsAt, NoIntersection, Parallel, HitEndpointL1, HitEndpointL2), angleOf, SearchDirection(Clockwise,CounterClockwise), lineBetween) where
+module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineIntersection, lineFromEndpoints, rawLineFromEndpoints, pointsFromLines, endpoint, midpoint, flipLine, pointSlopeLength, combineLines, canCombineLines, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, makeLinesLooped, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), combineConsecutiveLines, Intersection (IntersectsAt, NoIntersection, Parallel, HitEndpointL1, HitEndpointL2, Collinear), angleOf, SearchDirection(Clockwise,CounterClockwise), lineBetween) where
 
 import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool(False), (/=), (++), last, init, (<$>), Show, error, negate, fst, snd, (.), null, zipWith, (<>), show, concat, (||), atan, pi)
 
@@ -34,6 +34,8 @@ import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions (ℝ)
+
+import Graphics.Slicer.Formats.GCode.Definitions (roundPoint, roundToFifth)
 
 import Graphics.Slicer.Math.Definitions (Point(Point), addPoints, scalePoint, distance, magnitude)
 
@@ -123,7 +125,7 @@ makeLines l
 makeLinesLooped :: [Point] -> [Line]
 makeLinesLooped l
   -- too short, bail.
-  | length l < 2 = []
+  | length l < 2 = error $ "tried to makeLinesLooped a list with " <> show (length l) <> " entries.\n" <> (concat $ show <$> l) <> "\n"
   -- already looped, use makeLines.
   | head l == last l = makeLines l
   -- ok, do the work and loop it.
@@ -223,8 +225,17 @@ combineLines (Line p _) l2 = lineFromEndpoints p (endpoint l2)
 -- Determine if two lines can be combined
 canCombineLines :: Line -> Line -> Bool
 canCombineLines l1@(Line _ s1) (Line p2 s2)
-  | lineSlope s1 /= lineSlope s2 = False
-  | otherwise = endpoint l1 == p2
+  | comparelineSlopes (lineSlope s1) (lineSlope s2) = roundPoint (endpoint l1) == roundPoint p2
+  | otherwise = False
+  where
+    comparelineSlopes s1 s2 =
+      case s1 of
+        (HasSlope _) ->
+          case s2 of
+            (HasSlope _) -> slopeOf s1 == slopeOf s2
+            _            -> False 
+        _    -> s1 == s2
+    slopeOf (HasSlope sl) = roundToFifth sl
 
 -- Construct a perpendicular bisector of a line (with the same length, assuming a constant z value)
 perpendicularBisector :: Line -> Line
