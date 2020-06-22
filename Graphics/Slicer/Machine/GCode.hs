@@ -22,15 +22,15 @@
 -- for NFData.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart, GCMarkSupportStart), cookExtrusions, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText) where
+module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart, GCMarkSupportStart), cookExtrusions, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText, gcodeToCode, gcodeToText') where
 
 import GHC.Generics (Generic)
 
-import Prelude (Eq, Int, ($), tail, init, zipWith, concat, head, last, (<>), show, error, (++), otherwise, (==), length, (>), (/=), fst, pi, (/), (*), pure, toRational, (.), fromRational, (<$>), seq, (+), div)
+import Prelude (id, map, Eq, Int, ($), tail, init, zipWith, concat, head, last, (<>), show, error, (++), otherwise, (==), length, (>), (/=), fst, pi, (/), (*), pure, toRational, (.), fromRational, (<$>), seq, (+), div)
 
 import Data.ByteString (ByteString)
 
-import Data.ByteString.Char8 (spanEnd)
+import Data.ByteString.Char8 (spanEnd, pack)
 
 import Control.Parallel.Strategies (using, rseq, parListChunk)
 
@@ -51,6 +51,9 @@ import Graphics.Slicer.Math.Slicer (accumulateValues)
 import Graphics.Slicer.Machine.StateM (StateM, getEPos, setEPos)
 
 import Graphics.Slicer.Mechanics.Definitions (Extruder, filamentWidth)
+
+import Data.GCode hiding (GCode)
+import Data.GCode.Generate
 
 default (ℕ, Fastℕ, ℝ)
 
@@ -201,3 +204,48 @@ meshStartGCode :: Text
 meshStartGCode = ";MESH:"
 -}
 
+iff cond fn = if cond then fn else id
+
+gcodeToCode :: GCode -> Code
+gcodeToCode (GCFeedRate f m) = (gcodeToCode m) & param F f
+gcodeToCode (GCMove2 (x1,y1) (x2,y2)) =
+      g
+  <#> 0
+    & iff (x1 /= x2) (x x2)
+    & iff (y1 /= y2) (y y2)
+
+gcodeToCode (GCMove3 (x1,y1,z1) (x2,y2,z2)) =
+      g
+  <#> 0
+    & iff (x1 /= x2) (x x2)
+    & iff (y1 /= y2) (y y2)
+    & iff (z1 /= z2) (z z2)
+gcodeToCode (GCExtrude2 (x1,y1) (x2,y2) e) =
+      g
+  <#> 1
+    & iff (x1 /= x2) (x x2)
+    & iff (y1 /= y2) (y y2)
+    & axis E e
+
+gcodeToCode (GCExtrude3 (x1,y1,z1) (x2,y2,z2) e) =
+      g
+  <#> 1
+    & iff (x1 /= x2) (x x2)
+    & iff (y1 /= y2) (y y2)
+    & iff (z1 /= z2) (z z2)
+    & axis E e
+
+gcodeToCode GCRawExtrude2 {} = error "Attempting to generate gcode for a 2D extrude command that has not yet been rendered."
+gcodeToCode GCRawExtrude3 {} = error "Attempting to generate gcode for a 3D extrude command that has not yet been rendered."
+-- The current layer count, where 1 == the bottom layer of the object being printed. rafts are represented as negative layers.
+gcodeToCode (GCMarkLayerStart layerNo) = Comment $ ";LAYER:" <> fromString (show (fromFastℕ layerNo :: Int))
+-- perimeters on the inside of the object. may contact the infill, or an outer paremeter, but will not be exposed on the outside of the object.
+gcodeToCode GCMarkInnerWallStart = Comment ";TYPE:WALL-INNER"
+-- a perimeter on the outside of the object. may contact the infill, or an inside paremeter.
+gcodeToCode GCMarkOuterWallStart = Comment ";TYPE:WALL-OUTER"
+-- Marker indicating the following gcode commands are part of the support, and do not touch the object or the build plate. think: the sparsely generated back-and-forth 
+gcodeToCode GCMarkSupportStart = Comment ";TYPE:SUPPORT"
+-- The interior of an object. should only contact inner parameters, skin, or outer paremeters.
+gcodeToCode GCMarkInfillStart = Comment ";TYPE:FILL"
+
+gcodeToText' = Data.ByteString.Char8.pack . ppGCode . map gcodeToCode

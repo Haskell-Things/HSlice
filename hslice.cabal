@@ -19,9 +19,11 @@ Library
                   data-ordlist,
                   deepseq,
                   double-conversion,
+                  gcodehs >= 0.1.2,
                   implicit,
                   mtl,
                   parallel,
+                  safe,
                   utf8-string
     Ghc-options:
                 -optc-O3
@@ -30,7 +32,7 @@ Library
                 -- for debugging.
                 -Wall
                 -Wextra
-                -Weverything
+--                -Weverything
 		-- for profiling.
     Exposed-Modules:
                     Graphics.Slicer

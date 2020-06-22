@@ -74,7 +74,7 @@ import Graphics.Slicer.Machine.Infill (makeInfill, makeSupport)
 
 import Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour)
 
-import Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart, GCMarkSupportStart), cookExtrusions, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText)
+import Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart, GCMarkSupportStart), cookExtrusions, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText, gcodeToText')
 
 default (ℕ, Fastℕ, ℝ)
 
@@ -446,11 +446,12 @@ run rawArgs = do
       allLayers = layers print facets
       object = zip allLayers [(0::Fastℕ)..]
       (gcodes, _) = runState (sliceObject printer print object) (MachineState (EPos 0))
-      gcodesAsText = [gcodeToText gcode | gcode <- gcodes] `using` parListChunk (div (length gcodes) (fromFastℕ threads)) rseq
+      --gcodesAsText = [gcodeToText' gcode | gcode <- gcodes] `using` parListChunk (div (length gcodes) (fromFastℕ threads)) rseq
+      gcodesAsText = gcodeToText' gcodes
       layerCount = length allLayers
       outFile = fromMaybe "out.gcode" $ outputFileOpt args
     --error $ show allLayers
-    writeFile outFile $ startingGCode settings <> (";LAYER_COUNT:" <> fromString (show layerCount) <> "\n") <> unlines gcodesAsText <> endingGCode settings
+    writeFile outFile $ startingGCode settings <> (";LAYER_COUNT:" <> fromString (show layerCount) <> "\n") <> gcodesAsText <> endingGCode settings
       where
         -- The Printer.
         -- FIXME: pull defaults for these values from a curaengine json config.
@@ -541,6 +542,7 @@ run rawArgs = do
                       <> "M107 ;fan off\n"
                       <> "M84 ;steppers off\n"
                       <> "G90 ;absolute positioning\n"
+                      <> "M3"
 
 -- | The entry point. Use the option parser then run the slicer.
 main :: IO ()
