@@ -14,15 +14,15 @@ Category:            Graphics
 
 Library
     Build-depends:
-                  base,
-                  bytestring,
-                  data-ordlist,
-                  deepseq,
-                  double-conversion,
-                  implicit,
-                  mtl,
-                  parallel,
-                  utf8-string
+                    base
+                  , bytestring
+                  , data-ordlist
+                  , deepseq
+                  , double-conversion
+                  , implicit
+                  , mtl
+                  , parallel
+                  , utf8-string
     Ghc-options:
                 -optc-O3
                 -- see GHC manual 8.2.1 section 6.5.1.
@@ -54,19 +54,19 @@ Executable extcuraengine
     Main-is: extcuraengine.hs
     Hs-source-dirs: programs
     Build-depends:
-                  base,
-                  bytestring,
-                  data-ordlist,
-                  deepseq,
-                  double-conversion,
-                  formatting,
-                  hslice,
-                  implicit,
-                  mtl,
-                  optparse-applicative,
-                  parallel,
-                  text,
-                  utf8-string
+                    base
+                  , bytestring
+                  , data-ordlist
+                  , deepseq
+                  , double-conversion
+                  , formatting
+                  , hslice
+                  , implicit
+                  , mtl
+                  , optparse-applicative
+                  , parallel
+                  , text
+                  , utf8-string
     Ghc-options:
                 -threaded
                 -rtsopts
