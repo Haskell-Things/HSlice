@@ -30,7 +30,6 @@ Library
                 -- for debugging.
                 -Wall
                 -Wextra
-                -Weverything
 		-- for profiling.
     Exposed-Modules:
                     Graphics.Slicer
@@ -77,7 +76,6 @@ Executable extcuraengine
                 -- for debugging.
                 -Wall
                 -Wextra
-                -Weverything
 		-- for profiling.
 --                -prof
 --                -fprof-auto
