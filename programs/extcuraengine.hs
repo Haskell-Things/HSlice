@@ -41,7 +41,8 @@ import Data.String (String)
 
 import Data.Bool(Bool(True, False), otherwise, not)
 
-import Data.List (length, zip, tail, head, zipWith, maximum, minimum, last, (++), concat, null)
+import Data.List (length, zip, tail, head, zipWith, last, (++), concat, null)
+import Safe (minimumNote, maximumNote)
 
 import Control.Monad ((>>=))
 
@@ -104,11 +105,11 @@ centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
       shiftedFacets = [shiftFacet centerPoint facet | facet <- facets] `using` parListChunk (div (length facets) (fromFastℕ threads)) rseq
       facets = facetLinesFromSTL threads stl
       (dx,dy,dz) = (bedX/2-x0, bedY/2-y0, -zMin)
-      xMin = minimum $ xOf.point <$> foldMap sides facets
-      yMin = minimum $ yOf.point <$> foldMap sides facets
-      zMin = minimum $ zOf.point <$> foldMap sides facets
-      xMax = maximum $ xOf.point <$> foldMap sides facets
-      yMax = maximum $ yOf.point <$> foldMap sides facets
+      xMin = minimumNote "centeredFacetsFromSTL xMin" $ xOf.point <$> foldMap sides facets
+      yMin = minimumNote "centeredFacetsFromSTL yMin" $ yOf.point <$> foldMap sides facets
+      zMin = minimumNote "centeredFacetsFromSTL zMin" $ zOf.point <$> foldMap sides facets
+      xMax = maximumNote "centeredFacetsFromSTL xMax" $ xOf.point <$> foldMap sides facets
+      yMax = maximumNote "centeredFacetsFromSTL yMax" $ yOf.point <$> foldMap sides facets
       (x0,y0) = ((xMax+xMin)/2-xMin, (yMax+yMin)/2-yMin)
       xOf, yOf, zOf :: Point -> ℝ
       xOf (Point (x,_,_)) = x
@@ -128,7 +129,7 @@ layers print fs = catMaybes <$> rawContours
     allIntersections zLayer = catMaybes $ facetIntersects zLayer <$> fs
     zs = [zOf $ point triPoints | triPoints <- foldMap sides fs ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
     zmax :: ℝ
-    zmax = maximum zs
+    zmax = maximumNote "layers zmax" zs
     lh = layerHeight print
     zOf :: Point -> ℝ
     zOf (Point (_,_,z)) = z

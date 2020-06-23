@@ -22,7 +22,8 @@
 
 module Graphics.Slicer.Machine.Infill (makeInfill, makeSupport) where
 
-import Prelude ((+), (<$>), ($), maximum, minimum, filter, (>), head, (.), flip, (*), sqrt, (-), (<>), show, error, otherwise, (&&), (==), length, (<), concat, not, null, (!!), fmap, (||))
+import Prelude ((+), (<$>), ($), head, filter, (>), (.), flip, (*), sqrt, (-), (<>), show, error, otherwise, (&&), (==), length, (<), concat, not, null, (!!), fmap, (||))
+import Safe (headNote, maximumNote, minimumNote)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe, fromMaybe)
 
@@ -90,10 +91,10 @@ coveringLinesNegative :: Contour -> ℝ -> ℝ -> [Line]
 coveringLinesNegative (Contour contourPoints) ls zHeight = flip Line s . f <$> [-xMin,-xMin+lsX..xMax]
     where s = Point (xMaxOutside,yMaxOutside,0)
           f v = Point (v,0,zHeight)
-          xMinRaw = minimum $ xOf <$> contourPoints
-          xMin = head $ filter (> xMinRaw) [0,ls..]
-          xMax = maximum $ xOf <$> contourPoints
-          yMax = maximum $ yOf <$> contourPoints
+          xMinRaw = minimumNote "convergingLinesNegative xMinRaw" $ xOf <$> contourPoints
+          xMin = headNote "convergingLinesNegative xMin" $ filter (> xMinRaw) [0,ls..]
+          xMax = maximumNote "convergingLinesNegative x" $ xOf <$> contourPoints
+          yMax = maximumNote "convergingLinesNegative y" $ yOf <$> contourPoints
           xMaxOutside = xMax + ls
           yMaxOutside = yMax + ls
           lsX = sqrt $ ls*ls+ls*ls
@@ -107,10 +108,10 @@ coveringLinesPositive :: Contour -> ℝ -> ℝ -> [Line]
 coveringLinesPositive (Contour contourPoints) ls zHeight = flip Line s . f <$> [0,lsY..yMax + xMax]
     where s =  Point (xMaxOutside + yMaxOutside,- xMaxOutside - yMaxOutside,0)
           f v = Point (0,v,zHeight)
-          yMinRaw = minimum $ yOf <$> contourPoints
-          yMin = head $ filter (> yMinRaw) [0,ls..]
-          yMax = maximum $ yOf <$> contourPoints
-          xMax = maximum $ xOf <$> contourPoints
+          yMinRaw = minimumNote "convergingLinesPositive yMinRaw" $ yOf <$> contourPoints
+          yMin = headNote "convergingLinesPositive yMin" $ filter (> yMinRaw) [0,ls..]
+          yMax = maximumNote "convergingLinesPositive y" $ yOf <$> contourPoints
+          xMax = maximumNote "convergingLinesPositive x" $ xOf <$> contourPoints
           xMaxOutside = xMax + ls
           yMaxOutside = yMax + ls
           lsY = sqrt $ ls*ls+ls*ls
@@ -124,10 +125,10 @@ coveringLinesVertical :: Contour -> ℝ -> ℝ -> [Line]
 coveringLinesVertical (Contour contourPoints) ls zHeight = flip Line s . f <$> [xMin,xMin+ls..xMax]
     where s =  Point (0,yMaxOutside,0)
           f v = Point (v,0,zHeight)
-          xMinRaw = minimum $ xOf <$> contourPoints
-          xMin = head $ filter (> xMinRaw) [0,ls..]
-          xMax = maximum $ xOf <$> contourPoints
-          yMax = maximum $ yOf <$> contourPoints
+          xMinRaw = minimumNote "convergingLinesVertical xMin" $ xOf <$> contourPoints
+          xMin = headNote "convergingLinesVertical xMin"$ filter (> xMinRaw) [0,ls..]
+          xMax = maximumNote "convergingLinesVertical x" $ xOf <$> contourPoints
+          yMax = maximumNote "convergingLinesVertical y" $ yOf <$> contourPoints
           yMaxOutside = yMax + ls
           xOf, yOf :: Point -> ℝ
           xOf (Point (x,_,_)) = x
@@ -139,10 +140,10 @@ coveringLinesHorizontal :: Contour -> ℝ -> ℝ -> [Line]
 coveringLinesHorizontal (Contour contourPoints) ls zHeight = flip Line s . f <$> [yMin,yMin+ls..yMax]
     where s =  Point (xMaxOutside,0,0)
           f v = Point (0,v,zHeight)
-          yMinRaw = minimum $ yOf <$> contourPoints
-          yMin = head $ filter (> yMinRaw) [0,ls..]
-          yMax = maximum $ yOf <$> contourPoints
-          xMax = maximum $ xOf <$> contourPoints
+          yMinRaw = minimumNote "convergingLinesHorizontal yMinRaw" $ yOf <$> contourPoints
+          yMin = headNote "convergingLinesHorizontal yMin" $ filter (> yMinRaw) [0,ls..]
+          yMax = maximumNote "convergingLinesHorizontal y" $ yOf <$> contourPoints
+          xMax = maximumNote "convergingLinesHorizontal x" $ xOf <$> contourPoints
           xMaxOutside = xMax + ls
           xOf, yOf :: Point -> ℝ
           xOf (Point (x,_,_)) = x
@@ -178,10 +179,10 @@ boundingBoxAll :: [Contour] -> Maybe BBox
 boundingBoxAll contours = if isEmptyBBox box then Nothing else Just box
     where
       box  = BBox (minX, minY) (maxX, maxY)
-      minX = minimum $ (\(BBox (x1,_) _) -> x1) <$> bBoxes
-      minY = minimum $ (\(BBox (_,y1) _) -> y1) <$> bBoxes
-      maxX = maximum $ (\(BBox _ (x2,_)) -> x2) <$> bBoxes
-      maxY = maximum $ (\(BBox _ (_,y2)) -> y2) <$> bBoxes
+      minX = minimumNote "boundingBoxAll" $ (\(BBox (x1,_) _) -> x1) <$> bBoxes
+      minY = minimumNote "boundingBoxAll" $ (\(BBox (_,y1) _) -> y1) <$> bBoxes
+      maxX = maximumNote "boundingBoxAll" $ (\(BBox _ (x2,_)) -> x2) <$> bBoxes
+      maxY = maximumNote "boundingBoxAll" $ (\(BBox _ (_,y2)) -> y2) <$> bBoxes
       bBoxes = mapMaybe boundingBox contours
 
 -- Get a 2D bounding box of a 2D contour.
@@ -190,10 +191,10 @@ boundingBox (Contour []) = Nothing
 boundingBox (Contour contourPoints) = if isEmptyBBox box then Nothing else Just box
   where
     box  = BBox (minX, minY) (maxX, maxY)
-    minX = minimum $ xOf <$> contourPoints
-    minY = minimum $ yOf <$> contourPoints
-    maxX = maximum $ xOf <$> contourPoints
-    maxY = maximum $ yOf <$> contourPoints
+    minX = minimumNote "boundingBox" $ xOf <$> contourPoints
+    minY = minimumNote "boundingBox" $ yOf <$> contourPoints
+    maxX = maximumNote "boundingBox" $ xOf <$> contourPoints
+    maxY = maximumNote "boundingBox" $ yOf <$> contourPoints
     xOf,yOf :: Point -> ℝ
     xOf (Point (x,_,_)) = x
     yOf (Point (_,y,_)) = y

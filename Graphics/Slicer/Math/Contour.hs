@@ -21,7 +21,8 @@
 
 module Graphics.Slicer.Math.Contour (getContours, makeContourTree, innerPerimeterPoint, outerPerimeterPoint, lineToOutsideContour, ContourTree(ContourTree), lineEntersContour) where
 
-import Prelude ((==), otherwise, (++), (||), (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, (*), Bool, (-), (<), pi, (&&), sqrt, (+), (<*>), minimum, maximum)
+import Prelude ((==), otherwise, (++), (||), (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, (*), Bool, (-), (<), pi, (&&), sqrt, (+), (<*>))
+import Safe (maximumNote, minimumNote, headNote, lastNote)
 
 import Data.List(find, delete, tail, last, head, init, zipWith, nub)
 
@@ -52,7 +53,7 @@ makeContours :: ([[Point]], [[Point]]) -> [[Point]]
 makeContours (contours, pairs)
   | null pairs = contours
   | otherwise = makeContours (contours ++ [next], ps)
-  where (next, ps) = findContour (head pairs, tail pairs)
+  where (next, ps) = findContour (headNote "makeContours" pairs, tail pairs)
 
 -- FIXME: square is double loop?
 -- NOTE: drop contours with less than 3 points.
@@ -72,7 +73,7 @@ getContours pointPairs = Contour <$> (filteredContourSets foundContourSets)
 
 -- | Given a line, generate a pair of lines from points on both sides of the given line's midpoint to the origin, on the same z plane as the given line.
 perimeterLinesToCheck :: ℝ -> Line -> (Line, Line)
-perimeterLinesToCheck pathWidth l@(Line p _) = (head linePair, last linePair)
+perimeterLinesToCheck pathWidth l@(Line p _) = (headNote "perimeterLinesToCheck" linePair, lastNote "perimeterLinesToCheck" linePair)
   where
     linePair = (`lineFromEndpoints` Point (0,0,zOf p)) . endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*pathWidth) <$> [-1,1]
     Line _ m = perpendicularBisector l
@@ -109,8 +110,8 @@ innerPerimeterPoint pathWidth contour l
 -- | Find an exterior point on the perpendicular bisector of the given line, pathWidth from the line.
 outerPerimeterPoint :: ℝ -> Contour -> Line -> Point
 outerPerimeterPoint pathWidth contour l
-      | (snd $ head intersections) == innerPoint = snd $ last intersections
-      | otherwise = snd $ head intersections
+      | (snd $ headNote "outerPerimeterPoint" intersections) == innerPoint = snd $ lastNote "outerPerimeterPoint" intersections
+      | otherwise = snd $ headNote "outerPerimeterPoint #2" intersections
     where
       linesToCheck = perimeterLinesToCheck pathWidth l
       bothLinesToCheck = fst linesToCheck : [snd linesToCheck]
@@ -129,7 +130,7 @@ outerPerimeterPoint pathWidth contour l
 
 -- | Given a point and slope (on an xy plane), make a line segment, where the far end is guaranteed to be outside the contour.
 lineToOutsideContour :: Contour -> ℝ -> Slope -> Point -> Line
-lineToOutsideContour (Contour contourPoints) outsideDistance m p@(Point (_,_,z)) = head . makeLines . nub $ (roundPoint <$> points)
+lineToOutsideContour (Contour contourPoints) outsideDistance m p@(Point (_,_,z)) = headNote "lineToOutsideContour" . makeLines . nub $ (roundPoint <$> points)
     where
       longestLength = sqrt $ dx*dx + dy*dy
       halfLine@(Line p' s) = pointSlopeLength p m longestLength -- should have p' == p
@@ -142,10 +143,10 @@ lineToOutsideContour (Contour contourPoints) outsideDistance m p@(Point (_,_,z))
       saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
       edges = lineFromEndpoints <$> [Point (xMin,yMin,z), Point (xMax,yMax,z)]
                                 <*> [Point (xMin,yMax,z), Point (xMax,yMin,z)]
-      xMinRaw = minimum $ xOf <$> contourPoints
-      yMinRaw = minimum $ yOf <$> contourPoints
-      xMaxRaw = maximum $ xOf <$> contourPoints
-      yMaxRaw = maximum $ yOf <$> contourPoints
+      xMinRaw = minimumNote "lineToOutsideContour x" $ xOf <$> contourPoints
+      yMinRaw = minimumNote "lineToOutsideContour y" $ yOf <$> contourPoints
+      xMaxRaw = maximumNote "lineToOutsideContour x" $ xOf <$> contourPoints
+      yMaxRaw = maximumNote "lineToOutsideContour y" $ yOf <$> contourPoints
       (dx,dy) = (xMax-xMin, yMax-yMin)
       xMin = xMinRaw - outsideDistance
       yMin = yMinRaw - outsideDistance
@@ -183,7 +184,7 @@ contourContainsContour parent child = if odd noIntersections then Just child els
     saneIntersection res = error $ "insane result determining whether a contour contains a contour: " <> show res <> "\n"
     innerPointOf contour = innerPerimeterPoint 0.0001 contour $ oneLineOf contour
       where
-        oneLineOf (Contour contourPoints) = head $ makeLines contourPoints
+        oneLineOf (Contour contourPoints) = headNote "contourContainsContour" $ makeLines contourPoints
 
 -- determine whether a contour is inside of another contour.
 contourContainedByContour :: Contour -> Contour -> Maybe Contour
@@ -200,7 +201,7 @@ contourContainedByContour child parent = if odd noIntersections then Just child 
     saneIntersection res = error $ "insane result determining whether a contour is contained by a contour: " <> show res <> "\n"    
     innerPointOf contour = innerPerimeterPoint 0.0001 contour $ oneLineOf contour
       where
-        oneLineOf (Contour contourPoints) = head $ makeLines contourPoints
+        oneLineOf (Contour contourPoints) = headNote "contourContainedByContour" $ makeLines contourPoints
 
 -- Does a given line, in the direction it is given, enter from outside of a contour to inside of a contour, through a given point?
 -- Used to check the corner case of corner cases.
@@ -221,5 +222,5 @@ lineEntersContour (Line _ m) intersection contour@(Contour contourPoints) = line
     -- lineTo has an endpoint of the intersection, lineFrom has a starting point of the intersection.
     (lineTo, lineFrom) = findLinesInContour intersection
     contourLines = makeLinesLooped contourPoints
-    findLinesInContour (HitEndpointL2 pt) = head $ catMaybes $ zipWith (\l1@(Line _ _) l2@(Line p2 _) -> if p2 == pt then Just (l1,l2) else Nothing) (init contourLines) (tail contourLines)
+    findLinesInContour (HitEndpointL2 pt) = headNote "lineEntersContour" $ catMaybes $ zipWith (\l1@(Line _ _) l2@(Line p2 _) -> if p2 == pt then Just (l1,l2) else Nothing) (init contourLines) (tail contourLines)
     findLinesInContour other = error $ "trying to find where a line enters a contour on something not a point of a contour where two lines intersect: " <> show other <> "\n" 

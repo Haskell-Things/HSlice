@@ -22,6 +22,7 @@ Library
                   implicit,
                   mtl,
                   parallel,
+                  safe,
                   utf8-string
     Ghc-options:
                 -optc-O3
@@ -67,6 +68,7 @@ Executable extcuraengine
                   optparse-applicative,
                   parallel,
                   text,
+                  safe,
                   utf8-string
     Ghc-options:
                 -threaded
