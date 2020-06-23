@@ -56,16 +56,11 @@ Executable extcuraengine
     Build-depends:
                     base
                   , bytestring
-                  , data-ordlist
-                  , deepseq
-                  , double-conversion
-                  , formatting
                   , hslice
                   , implicit
                   , mtl
                   , optparse-applicative
                   , parallel
-                  , text
                   , utf8-string
     Ghc-options:
                 -threaded
