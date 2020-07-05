@@ -22,25 +22,26 @@ module Graphics.Slicer.Math.Point (crossProduct, twoDCrossProduct, orderPoints) 
 
 import Prelude ((*), (-), ($), Ordering, (==), compare, otherwise)
 
-import Graphics.Slicer.Math.Definitions (Point(Point))
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), PlanePoint, xOf, yOf, zOf)
 
 import Graphics.Slicer.Definitions (ℝ)
 
 -- Basic Arithmatic
-crossProduct :: Point -> Point -> Point
-crossProduct (Point (x1,y1,z1)) (Point (x2,y2,z2)) = Point (y1*z2 - z1*y2 , z1*x2 - x1*z2, x1*y2 - y1*x2)
+crossProduct :: Point3 -> Point3 -> Point3
+crossProduct (Point3 (x1,y1,z1)) (Point3 (x2,y2,z2)) = Point3 (y1*z2 - z1*y2 , z1*x2 - x1*z2, x1*y2 - y1*x2)
 
-twoDCrossProduct :: Point -> Point -> ℝ
+twoDCrossProduct :: Point2 -> Point2 -> ℝ
 twoDCrossProduct p1 p2 = zOf $ crossProduct (zeroPoint p1) (zeroPoint p2)
   where
-    zeroPoint :: Point -> Point
-    zeroPoint (Point (x,y,_)) = Point (x,y,0)
-    zOf :: Point -> ℝ
-    zOf (Point (_,_,z)) = z
+    zeroPoint :: Point2 -> Point3
+    zeroPoint (Point2 (x,y)) = Point3 (x,y,0)
 
 -- Orders points by x and y (x first, then sorted by y for the same x-values)
-orderPoints :: Point -> Point -> Ordering
-orderPoints (Point (x1,y1,_)) (Point (x2,y2,_))
+orderPoints :: (PlanePoint p) => p -> p -> Ordering
+orderPoints p1 p2
   | x1 == x2 = compare y1 y2
   | otherwise = compare x1 x2
+  where
+    (x1,y1) = (xOf p1, yOf p1)
+    (x2,y2) = (xOf p2, yOf p2)
 

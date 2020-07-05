@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.Facet (Facet(Facet), sides, shiftFacet, facetIntersects, facetFromPoints) where
 
-import Prelude (Eq, (<$>), (.), ($), fmap, error)
+import Prelude (Eq, (<$>), (.), ($), fmap, error, show, (<>))
 
 import Data.List(nub)
 
@@ -35,30 +35,31 @@ import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions(ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point, addPoints)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), Point3(Point3), addPoints, flatten)
 
 import Graphics.Slicer.Math.Line (Line, point, pointAtZValue, rawLineFromEndpoints)
 
-newtype Facet = Facet { sides :: [Line] }
+newtype Facet = Facet { sides :: [(Point3, Point3)] }
   deriving (Eq, Generic, NFData)
 
 -- Shift a facet by the vector p
-shiftFacet :: Point -> Facet -> Facet
-shiftFacet p = Facet . fmap (\l -> l { point = addPoints p (point l) }) . sides
+shiftFacet :: Point3 -> Facet -> Facet
+shiftFacet p = Facet . fmap (\(start, stop) -> (addPoints p start, addPoints p stop)) . sides
 
-facetFromPoints :: [Point] -> Facet
-facetFromPoints (p1:p2:p3:[]) = Facet $ (rawLineFromEndpoints p1 p2):(rawLineFromEndpoints p2 p3):(rawLineFromEndpoints p3 p1):[]
+facetFromPoints :: [Point3] -> Facet
+facetFromPoints (p1:p2:p3:[]) = Facet $ (p1,p2):(p2,p3):(p3,p1):[]
 facetFromPoints _ = error "tried to make a facet from something other than 3 points."
 
 -- determine where a facet intersects a plane at a given z value
-facetIntersects :: ℝ -> Facet -> Maybe [Point]
+facetIntersects :: ℝ -> Facet -> Maybe (Point2,Point2)
 facetIntersects v f = trimIntersections $ nub $ catMaybes intersections
   where
     intersections = (`pointAtZValue` v) <$> sides f
     -- Get rid of the case where a facet intersects the plane at one point
-    trimIntersections :: [Point] -> Maybe [Point]
+    trimIntersections :: [Point2] -> Maybe (Point2,Point2)
     trimIntersections []      = Nothing
     trimIntersections [_]     = Nothing
-    trimIntersections l@(_:_) = Just l
-
+    trimIntersections (p1:p2:[]) = Just (p1,p2)
+    -- ignore triangles that are exactly aligned.
+    trimIntersections (p1:p2:p3:[]) = Nothing
 

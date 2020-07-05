@@ -38,7 +38,7 @@ module Graphics.Slicer (
 
 import Prelude ()
 
-import Graphics.Slicer.Math.Definitions as MD (Point(Point), LayerType(BaseOdd, BaseEven, Middle), Contour(Contour), distance, magnitude, addPoints, scalePoint)
+import Graphics.Slicer.Math.Definitions as MD (Point2(Point2),Point3(Point3), Contour(PointSequence), distance, magnitude, addPoints, scalePoint)
 
 import Graphics.Slicer.Math.Point as MP (crossProduct, twoDCrossProduct, orderPoints)
 
@@ -50,7 +50,7 @@ import Graphics.Slicer.Math.Contour as MC (getContours, makeContourTree, innerPe
 
 import Graphics.Slicer.Math.Slicer as MS (accumulateValues)
 
-import Graphics.Slicer.Formats.GCode.Definitions as FG (roundToFifth, roundPoint)
+import Graphics.Slicer.Formats.GCode.Definitions as FG (roundToFifth, roundPoint2)
 
 import Graphics.Slicer.Formats.STL.Definitions as FS (facetLinesFromSTL)
 

@@ -35,16 +35,16 @@ import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Formats.GCode.Definitions (roundPoint, roundToFifth)
+import Graphics.Slicer.Formats.GCode.Definitions (roundPoint2, roundPoint3, roundToFifth)
 
-import Graphics.Slicer.Math.Definitions (Point(Point), addPoints, scalePoint, distance, magnitude)
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), addPoints, scalePoint, distance, magnitude, zOf, flatten)
 
 import Graphics.Slicer.Math.Point (twoDCrossProduct)
 
 -- Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
 -- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
-data Line = Line { point :: Point, slope :: Point }
+data Line = Line { point :: Point2, slope :: Point2 }
   deriving (Generic, NFData, Show)
 
 -- a difference that makes no difference is no difference..
@@ -58,10 +58,10 @@ instance Eq Line where
 data Intersection =
   Collinear
   | Parallel
-  | IntersectsAt Point Point
+  | IntersectsAt Point2 Point2
   | NoIntersection
-  | HitEndpointL1 Point
-  | HitEndpointL2 Point
+  | HitEndpointL1 Point2
+  | HitEndpointL2 Point2
   | ShareEndpoint
   deriving (Show)
 
@@ -85,30 +85,30 @@ lineIntersection (Line p r) (Line q s)
         u = twoDCrossProduct (addPoints q (scalePoint (-1) p)) r / twoDCrossProduct r s
 
 -- Create a line given its endpoints
-lineFromEndpoints :: Point -> Point -> Line
+lineFromEndpoints :: Point2 -> Point2 -> Line
 lineFromEndpoints p1 p2
   | p1 == p2 = error $ "Trying to create a line from two identical points: " <> show p1 <> "\n"
   | otherwise = Line p1 (addPoints (scalePoint (-1) p1) p2)
 
 -- Create a line given its endpoints, without equivalence checking.
-rawLineFromEndpoints :: Point -> Point -> Line
+rawLineFromEndpoints :: Point2 -> Point2 -> Line
 rawLineFromEndpoints p1 p2 = Line p1 (addPoints (scalePoint (-1) p1) p2)
 
 -- Get the other endpoint
-endpoint :: Line -> Point
+endpoint :: Line -> Point2
 endpoint l = addPoints (point l) (slope l)
 
 -- take a list of lines, connected at their end points, and generate a list of the points.
-pointsFromLines :: [Line] -> [Point]
+pointsFromLines :: [Line] -> [Point2]
 pointsFromLines lines
   | null lines = error "no lines to make points of."
   | otherwise = (fst . pointsFromLine $ head lines) : (snd . pointsFromLine <$> lines)
   where
-    pointsFromLine :: Line -> (Point, Point)
+    pointsFromLine :: Line -> (Point2, Point2)
     pointsFromLine ln@(Line p _) = (p,endpoint ln)
 
 -- Midpoint of a line
-midpoint :: Line -> Point
+midpoint :: Line -> Point2
 midpoint (Line p s) = addPoints p (scalePoint 0.5 s)
 
 -- Express a line in terms of the other endpoint
@@ -116,13 +116,13 @@ flipLine :: Line -> Line
 flipLine l@(Line _ s) = Line (endpoint l) (scalePoint (-1) s)
 
 -- Given a list of points (in order), construct lines that go between them.
-makeLines :: [Point] -> [Line]
+makeLines :: [Point2] -> [Line]
 makeLines l
   | length l > 1 = zipWith lineFromEndpoints (init l) (tail l)
   | otherwise = error $ "tried to makeLines a list with " <> show (length l) <> " entries.\n" <> (concat $ show <$> l) <> "\n"
 
 -- Given a list of points (in order), construct lines that go between them. make sure to construct a line from the last point back to the first.
-makeLinesLooped :: [Point] -> [Line]
+makeLinesLooped :: [Point2] -> [Line]
 makeLinesLooped l
   -- too short, bail.
   | length l < 2 = error $ "tried to makeLinesLooped a list with " <> show (length l) <> " entries.\n" <> (concat $ show <$> l) <> "\n"
@@ -145,8 +145,8 @@ data Slope =
   deriving Eq
 
 -- the slope of a line, on the Z plane.
-lineSlope :: Point -> Slope
-lineSlope (Point (x,y,_))
+lineSlope :: Point2 -> Slope
+lineSlope (Point2 (x,y))
   | x == 0 && y == 0 = IsOrigin
   | x == 0 && y > 0 = OnYAxis Positive
   | x == 0 && y < 0 = OnYAxis Negative
@@ -157,14 +157,14 @@ lineSlope (Point (x,y,_))
       sl = y / x
 
 -- make a new line with the given origin point, slope, and distance, with both ends in the same Z plane.
-pointSlopeLength :: Point -> Slope -> ℝ -> Line
+pointSlopeLength :: Point2 -> Slope -> ℝ -> Line
 pointSlopeLength _  IsOrigin _ = error "trying to construct empty line?" -- Line p1 p1
-pointSlopeLength p1 (OnXAxis Positive) dist = Line p1 (Point (dist,0,0))
-pointSlopeLength p1 (OnXAxis Negative) dist = Line p1 (Point (-dist,0,0))
-pointSlopeLength p1 (OnYAxis Positive) dist = Line p1 (Point (0,dist,0))
-pointSlopeLength p1 (OnYAxis Negative) dist = Line p1 (Point (0,-dist,0))
-pointSlopeLength p1 (HasSlope sl) dist = Line p1 s
-  where s = scalePoint scale $ Point (1,yVal,0)
+pointSlopeLength p1@(Point2 _) (OnXAxis Positive) dist = Line p1 (Point2 (dist,0))
+pointSlopeLength p1@(Point2 _) (OnXAxis Negative) dist = Line p1 (Point2 (-dist,0))
+pointSlopeLength p1@(Point2 _) (OnYAxis Positive) dist = Line p1 (Point2 (0,dist))
+pointSlopeLength p1@(Point2 _) (OnYAxis Negative) dist = Line p1 (Point2 (0,-dist))
+pointSlopeLength p1@(Point2 _) (HasSlope sl) dist = Line p1 s
+  where s = scalePoint scale $ Point2 (1,yVal)
         yVal = sl
         scale = dist / sqrt (1 + yVal*yVal)
 
@@ -182,18 +182,19 @@ lineBetween l1 dir l2 l3 = error $ "impossible situation: " <> show l1 <> " " <>
 
 -- given a line, determine the angle it is at, in radians. 
 angleOf :: Line -> ℝ
-angleOf (Line _ m@(Point (x,y,_)))
+angleOf (Line _ m)
   | (lineSlope m) == IsOrigin = error "tried to get the angle of a point."
   | (lineSlope m) == (OnXAxis Positive) = 0
   | (lineSlope m) == (OnYAxis Positive) = pi/2
   | (lineSlope m) == (OnXAxis Negative) = pi
   | (lineSlope m) == (OnYAxis Negative) = pi*1.5
   | x>0 && y>0 = (atan $ slopeOf $ lineSlope m)
-  | x>0 && y<0 = (atan $ slopeOf $ lineSlope $ Point (-y, x, 0)) + pi/2
-  | x<0 && y<0 = (atan $ slopeOf $ lineSlope $ Point (-x, -y, 0)) + pi
-  | x<0 && y>0 = (atan $ slopeOf $ lineSlope $ Point (y, -x, 0)) + (pi*1.5)
+  | x>0 && y<0 = (atan $ slopeOf $ lineSlope $ Point2 (-y, x)) + pi/2
+  | x<0 && y<0 = (atan $ slopeOf $ lineSlope $ Point2 (-x, -y)) + pi
+  | x<0 && y>0 = (atan $ slopeOf $ lineSlope $ Point2 (y, -x)) + (pi*1.5)
   | otherwise = error "unknown condition"
   where
+    (x,y) = (\(Point2 p) -> p) $ m
     slopeOf (HasSlope sl) = sl
     slopeOf _             = error "can not happen."
 
@@ -225,29 +226,30 @@ combineLines (Line p _) l2 = lineFromEndpoints p (endpoint l2)
 -- Determine if two lines can be combined
 canCombineLines :: Line -> Line -> Bool
 canCombineLines l1@(Line _ s1) (Line p2 s2)
-  | comparelineSlopes (lineSlope s1) (lineSlope s2) = roundPoint (endpoint l1) == roundPoint p2
+  | compareSlopes (lineSlope s1) (lineSlope s2) = roundPoint2 (endpoint l1) == roundPoint2 p2
   | otherwise = False
   where
-    comparelineSlopes s1 s2 =
-      case s1 of
+    compareSlopes sl1 sl2 =
+      case sl1 of
         (HasSlope _) ->
-          case s2 of
-            (HasSlope _) -> slopeOf s1 == slopeOf s2
-            _            -> False 
-        _    -> s1 == s2
+          case sl2 of
+            (HasSlope _) -> slopeOf sl1 == slopeOf sl2
+            _            -> False
+        _    -> sl1 == sl2
     slopeOf (HasSlope sl) = roundToFifth sl
+    slopeOf _ = error "impossible"
 
 -- Construct a perpendicular bisector of a line (with the same length, assuming a constant z value)
 perpendicularBisector :: Line -> Line
 perpendicularBisector l@(Line p s)
-  | s == Point (0,0,0) = error $ "trying to bisect zero length line: " <> show l <> "\n"
+  | s == Point2 (0,0) = error $ "trying to bisect zero length line: " <> show l <> "\n"
   | otherwise = combineLines (flipLine (pointSlopeLength (midpoint l) m (negate ( distance p (endpoint l) / 2)))) (pointSlopeLength (midpoint l) m (distance p (endpoint l) / 2))
   where
     m = lineSlopeFlipped s
 
 -- the slope of a line rotated by 90 degrees on the Z plane.
-lineSlopeFlipped :: Point -> Slope
-lineSlopeFlipped (Point (x,y,_))
+lineSlopeFlipped :: Point2 -> Slope
+lineSlopeFlipped (Point2 (x,y))
   | x == 0 && y == 0 = IsOrigin
   | x == 0 && y > 0 = OnXAxis Positive
   | x == 0 && y < 0 = OnXAxis Negative
@@ -260,14 +262,13 @@ lineSlopeFlipped (Point (x,y,_))
 -- Z value present in that line. The latter should be okay because the properties
 -- of our meshes mean that the two endpoints of our line should be captured by
 -- the other two segments of a triangle.
-pointAtZValue :: Line -> ℝ -> Maybe Point
-pointAtZValue (Line p m) v
-  | 0 <= t && t <= 1 = Just $ addPoints p (scalePoint t m)
+pointAtZValue :: (Point3,Point3) -> ℝ -> Maybe Point2
+pointAtZValue (startPoint,stopPoint) v
+  | zOf startPoint == zOf stopPoint = Nothing
+  | 0 <= t && t <= 1 = Just $ flatten $ addPoints startPoint (scalePoint t stopPoint)
   | otherwise = Nothing
   where
-    t = (v - zOf p) / zOf m
-    zOf :: Point ->  ℝ
-    zOf (Point (_,_,z)) = z
+    t = (v - zOf startPoint) / zOf stopPoint
 
 -- shorten line by an amount in millimeters on each end
 shortenLineBy :: ℝ -> Line -> Line

@@ -27,7 +27,7 @@
 -- For matching our OpenScad variable types.
 {-# LANGUAGE ViewPatterns #-}
 
-import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse, fmap)
+import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse, fmap, fst)
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -41,7 +41,7 @@ import Data.String (String)
 
 import Data.Bool(Bool(True, False), otherwise, not)
 
-import Data.List (length, zip, tail, head, zipWith, maximum, minimum, last, (++), concat, null)
+import Data.List (length, zip, tail, head, zipWith, maximum, minimum, last, concat, null)
 
 import Control.Monad ((>>=))
 
@@ -66,11 +66,13 @@ import Graphics.Implicit.ExtOpenScad.Eval.Constant (addConstants)
 -- The definition of the symbol type, so we can access variables, and see settings.
 import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString, OBool), lookupVarIn)
 
-import Graphics.Implicit.Definitions (ℝ, ℕ, Fastℕ(Fastℕ), fromFastℕ)
+import Graphics.Implicit.Definitions (ℝ, ℕ, Fastℕ(Fastℕ), fromFastℕ, fromFastℕtoℝ)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Point(Point), Line(Line), point, flipLine, Facet, sides, Contour(Contour), LayerType(BaseOdd, BaseEven), shiftFacet, facetIntersects, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), facetLinesFromSTL, makeContourTree, ContourTree(ContourTree))
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Line(Line), point, flipLine, Facet, sides, Contour(PointSequence), shiftFacet, facetIntersects, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), facetLinesFromSTL, makeContourTree, ContourTree(ContourTree))
 
-import Graphics.Slicer.Machine.Infill (makeInfill, makeSupport)
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yOf, zOf)
+
+import Graphics.Slicer.Machine.Infill (makeInfill, makeSupport, LayerType(BaseOdd, BaseEven))
 
 import Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour)
 
@@ -100,38 +102,33 @@ https://github.com/Zip-o-mat/Slic3r/tree/nonplanar
 centeredFacetsFromSTL :: BuildArea -> ByteString -> [Facet]
 centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
     where
-      centerPoint = Point (dx,dy,dz)
+      centerPoint = Point3 (dx,dy,dz)
       shiftedFacets = [shiftFacet centerPoint facet | facet <- facets] `using` parListChunk (div (length facets) (fromFastℕ threads)) rseq
       facets = facetLinesFromSTL threads stl
       (dx,dy,dz) = (bedX/2-x0, bedY/2-y0, -zMin)
-      xMin = minimum $ xOf.point <$> foldMap sides facets
-      yMin = minimum $ yOf.point <$> foldMap sides facets
-      zMin = minimum $ zOf.point <$> foldMap sides facets
-      xMax = maximum $ xOf.point <$> foldMap sides facets
-      yMax = maximum $ yOf.point <$> foldMap sides facets
+      xMin = minimum $ xOf.fst <$> foldMap sides facets
+      yMin = minimum $ yOf.fst <$> foldMap sides facets
+      zMin = minimum $ zOf.fst <$> foldMap sides facets
+      xMax = maximum $ xOf.fst <$> foldMap sides facets
+      yMax = maximum $ yOf.fst <$> foldMap sides facets
       (x0,y0) = ((xMax+xMin)/2-xMin, (yMax+yMin)/2-yMin)
-      xOf, yOf, zOf :: Point -> ℝ
-      xOf (Point (x,_,_)) = x
-      yOf (Point (_,y,_)) = y
-      zOf (Point (_,_,z)) = z
 
 -----------------------------------------------------------------------
 --------------------------- LAYERS ------------------------------------
 -----------------------------------------------------------------------
 
--- Create contours from a list of facets
+-- | Create contours from a list of facets.
+-- Note that instead of cutting at the top of the layer, we slice in the middle.
 layers :: Print -> [Facet] -> [[Contour]]
-layers print fs = catMaybes <$> rawContours
+layers print fs = catMaybes <$> (error $ "raw contours: " <> show rawContours <> "\n")
   where
-    rawContours = [cleanContour <$> (getContours $ allIntersections currentLayer) | currentLayer <- [lh,lh*2..zmax] ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
-    allIntersections :: ℝ -> [[Point]]
+    rawContours = [cleanContour <$> (getContours $ allIntersections (currentLayer-(lh/2))) | currentLayer <- [lh,lh*2..zmax] ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
+    allIntersections :: ℝ -> [(Point2,Point2)]
     allIntersections zLayer = catMaybes $ facetIntersects zLayer <$> fs
-    zs = [zOf $ point triPoints | triPoints <- foldMap sides fs ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
+    zs = [zOf . fst <$> triPoints | triPoints <- sides <$> fs ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
     zmax :: ℝ
-    zmax = maximum zs
+    zmax = maximum $ concat zs
     lh = layerHeight print
-    zOf :: Point -> ℝ
-    zOf (Point (_,_,z)) = z
 
 -- get the layer type for infill on this layer.
 -- FIXME: handle top and bottom surfaces.
@@ -157,22 +154,23 @@ mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [1::Fastℕ,2
 -------------------------------------------------------------
 ----------------------- ENTRY POINT -------------------------
 -------------------------------------------------------------
+-- FIXME: handle rafts here.
 sliceObject :: Printer ->  Print ->  [([Contour], Fastℕ)] -> StateM [GCode]
 sliceObject printer@(Printer _ _ extruder) print allLayers =
-  cookExtrusions extruder (concat $ layers) threads
+  cookExtrusions extruder (concat $ slicedLayers) threads
   where
-    layers = [sliceLayer printer print (layer == last allLayers) layer | layer <- allLayers] `using` parListChunk (div (length allLayers) (fromFastℕ threads)) rdeepseq
+    slicedLayers = [sliceLayer printer print (layer == last allLayers) layer | layer <- allLayers] `using` parListChunk (div (length allLayers) (fromFastℕ threads)) rdeepseq
 
 sliceLayer ::  Printer ->  Print -> Bool -> ([Contour], Fastℕ) -> [GCode]
 sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSupport ls outerWallBeforeInner infillSpeed) isLastLayer (layerContours, layerNumber) = do
   let
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToContour :: Contour -> [GCode]
-    travelToContour contour = [make3DTravelGCode (Point (0,0,0)) $ firstPoint contour]
+    travelToContour contour = [make3DTravelGCode (Point3 (0,0,0)) (raise $ firstPoint contour)]
     travelBetweenContours :: Contour -> Contour -> [GCode]
-    travelBetweenContours sourceContour destContour = [make2DTravelGCode (lastPoint sourceContour) $ firstPoint destContour]
+    travelBetweenContours source dest = [make2DTravelGCode (lastPoint source) $ firstPoint dest]
     travelFromContourToInfill :: Contour -> [[Line]] -> [GCode]
-    travelFromContourToInfill source dest = if firstPointOfInfill dest /= Nothing then [addFeedRate infillSpeed $ make2DTravelGCode (lastPoint source) $ fromMaybe (Point (0,0,0)) $ firstPointOfInfill dest] else []
+    travelFromContourToInfill source lines = if firstPointOfInfill lines /= Nothing then [addFeedRate infillSpeed $ make2DTravelGCode (lastPoint source) $ fromMaybe (Point2 (0,0)) $ firstPointOfInfill lines] else []
     renderContourTree :: ContourTree -> [GCode]
     renderContourTree (ContourTree (thisContour, subContours)) = (renderSurface thisContour (interiorContours subContours)) <> (concat $ renderContourTree <$> (insidePositiveSpaces subContours))
       where
@@ -210,7 +208,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
                 , travelBetweenContours (last childContours) dest
                 ]
           renderChildInnerContours src dest
-            | null childContours = travelBetweenContours src dest
+            | null childContoursInnerWalls = travelBetweenContours src dest
             | otherwise          = concat [
                 travelBetweenContours src $ head childContoursInnerWalls
                 , drawInnerContour $ head childContoursInnerWalls
@@ -223,13 +221,13 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           -- FIXME: do not supply an inside contour as a child of itsself.
           childContours = catMaybes $ (fmap cleanContour) $ catMaybes $ expandContour (pathWidth/2) (outsideContour:insideContours) <$> insideContours
           childContoursInnerWalls = catMaybes $ (fmap cleanContour) $ catMaybes $ expandContour (pathWidth) (outsideContour:insideContours) <$> childContours
-          infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill (fromJust $ shrinkContour (pathWidth/2) (c:cs) c) (catMaybes $ expandContour (pathWidth/2) (c:cs) <$> cs) (ls * (1/infill)) zHeightOfLayer $ getLayerType print layerNumber
-          drawChildContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) (init childContours) (tail childContours)
-          drawChildOuterContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init $ childContoursInnerWalls) (tail $ childContoursInnerWalls)
-          drawInfill :: Contour -> [Contour] -> [GCode]
-          drawInfill c cs = GCMarkInfillStart : (gcodeForInfill lh ls $ infillLines c cs)
+          infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill (fromJust $ shrinkContour (pathWidth/2) (c:cs) c) (catMaybes $ expandContour (pathWidth/2) (c:cs) <$> cs) (ls * (1/infill)) $ getLayerType print layerNumber
           drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth c
           drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
+          drawChildOuterContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init $ childContoursInnerWalls) (tail $ childContoursInnerWalls)
+          drawChildContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) (init childContours) (tail childContours)
+          drawInfill c cs = GCMarkInfillStart : (gcodeForInfill lh ls $ infillLines c cs)
+          -- FIXME: fix the calling system to handle this failing, instead of adding this filter.
           innerContourOf cs c =
             case maybeInnerContourOf c cs of
               Just a   -> a
@@ -239,15 +237,18 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
   layerStart <> (concat $ renderContourTree <$> allContours) <> support <> layerEnd 
     where
       allContours = makeContourTree layerContours
-      firstOuterContour = (\(ContourTree (a,_)) -> a) $ head allContours
+      firstOuterContour
+        | null allContours = error $ "no contours on layer?\n" <> show (layerContours) <> "\n"
+        | otherwise = (\(ContourTree (a,_)) -> a) $ head allContours
       supportGCode, layerEnd :: [GCode]
       supportGCode = [] -- if hasSupport then gcodeForContour lh pathWidth supportContour else []
       layerEnd = if isLastLayer then [] else travelToLayerChange
       layerStart = [GCMarkLayerStart layerNumber]
       -- FIXME: make travel gcode from the previous contour's last position?
       travelToLayerChange :: [GCode]
-      travelToLayerChange = [make2DTravelGCode (Point (0,0,0)) $ firstPoint $ firstOuterContour]
+      travelToLayerChange = [make2DTravelGCode (Point2 (0,0)) $ firstPoint $ firstOuterContour]
       -- FIXME: not all support is support. what about supportInterface?
+      support :: [GCode]
       support = [] -- if null supportGCode then [] else GCMarkSupportStart : supportGCode
       -- FIXME: we need to totally redo support.
       {-
@@ -256,19 +257,17 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
                         $ mapEveryOther flipLine
                         $ makeSupport (head outerContours) outerContours layerThickness pathWidth zHeightOfLayer
       -}
-      firstPoint (Contour contourPoints) = if not (null contourPoints) then head contourPoints else error "tried to get the first point of an empty contour.\n"
+      firstPoint (PointSequence contourPoints) = if not (null contourPoints) then head contourPoints else error "tried to get the first point of an empty contour.\n"
       -- since we always print contours as a big loop, the first point IS the last point.
-      lastPoint (Contour contourPoints) = if not (null contourPoints) then head contourPoints else error "tried to get the last point of an empty contour.\n"
-      firstPointOfInfill :: [[Line]] -> Maybe Point
+      lastPoint (PointSequence contourPoints) = if not (null contourPoints) then head contourPoints else error "tried to get the last point of an empty contour.\n"
+      firstPointOfInfill :: [[Line]] -> Maybe Point2
       firstPointOfInfill [] = Nothing
       firstPointOfInfill (x:_) = Just $ startOfLine $ head x
         where
           startOfLine (Line p _) = p
       pathWidth = nozzleDiameter extruder
-      zHeightOfLayer = zOfContour $ head layerContours
-      zOfContour (Contour contourPoints) = zOf $ head contourPoints
-      zOf :: Point -> ℝ
-      zOf (Point (_,_,z)) = z
+      raise (Point2 (x,y)) = Point3 (x, y, zHeightOfLayer)
+      zHeightOfLayer = lh * (1 + fromFastℕtoℝ layerNumber)
 
 ----------------------------------------------------------
 ------------------------ OPTIONS -------------------------

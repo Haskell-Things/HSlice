@@ -34,7 +34,7 @@ import Data.ByteString.Char8(lines, words, unpack, breakSubstring, break, null, 
 
 import Control.Parallel.Strategies (using, rdeepseq, parBuffer)
 
-import Graphics.Slicer.Math.Definitions (Point(Point))
+import Graphics.Slicer.Math.Definitions (Point3(Point3))
 
 import Graphics.Slicer.Math.Facet (Facet, facetFromPoints)
 
@@ -60,12 +60,12 @@ facetsFromSTL l = if null l then [] else f : facetsFromSTL (drop 1 remainder)
           (_ , remainder) = break (=='\n') r
 
 -- Read a point when it's given a string of the form "vertex x y z"
-readPoint :: ByteString -> Maybe Point
+readPoint :: ByteString -> Maybe Point3
 readPoint s = readVertex $ words s
   where
-    readVertex :: [ByteString] -> Maybe Point
+    readVertex :: [ByteString] -> Maybe Point3
     readVertex [vertex,xv,yv,zv]
-      | vertex == "vertex" = Just (Point (read $ unpack xv,read $ unpack yv,read $ unpack zv))
+      | vertex == "vertex" = Just (Point3 (read $ unpack xv,read $ unpack yv,read $ unpack zv))
       | otherwise = Nothing
     readVertex _ = Nothing
 
