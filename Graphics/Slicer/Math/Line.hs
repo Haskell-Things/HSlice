@@ -264,11 +264,15 @@ lineSlopeFlipped (Point2 (x,y))
 -- the other two segments of a triangle.
 pointAtZValue :: (Point3,Point3) -> ℝ -> Maybe Point2
 pointAtZValue (startPoint,stopPoint) v
+  -- don't bother returning a line that is axially aligned.
   | zOf startPoint == zOf stopPoint = Nothing
-  | 0 <= t && t <= 1 = Just $ flatten $ addPoints startPoint (scalePoint t stopPoint)
+  | 0 <= t && t <= 1 = Just $ flatten $ addPoints lowPoint (scalePoint t highPoint)
   | otherwise = Nothing
   where
-    t = (v - zOf startPoint) / zOf stopPoint
+    t = (v - zOf lowPoint) / zOf highPoint
+    (lowPoint,highPoint) = if zOf startPoint < zOf stopPoint
+                           then (startPoint,stopPoint)
+                           else (stopPoint,startPoint)
 
 -- shorten line by an amount in millimeters on each end
 shortenLineBy :: ℝ -> Line -> Line

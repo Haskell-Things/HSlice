@@ -21,11 +21,11 @@
 
 module Graphics.Slicer.Math.Contour (getContours, makeContourTree, innerPerimeterPoint, outerPerimeterPoint, lineToOutsideContour, ContourTree(ContourTree), lineEntersContour) where
 
-import Prelude ((==), otherwise, (++), (||), (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, (*), Bool, (-), (<), pi, (&&), sqrt, (+), (<*>), minimum, maximum, concat)
+import Prelude ((==), otherwise, (++), (||), (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, (*), Bool(False), (-), (<), pi, (&&), sqrt, (+), (<*>), minimum, maximum, concat, Eq, Show, init, not)
 
-import Data.List(find, delete, tail, last, head, init, zipWith, nub)
+import Data.List(find, delete, tail, last, head, init, zipWith, nub, partition, reverse)
 
-import Data.Maybe(fromJust, isNothing, Maybe(Just,Nothing), catMaybes, mapMaybe)
+import Data.Maybe(fromJust, isNothing, Maybe(Just,Nothing), catMaybes, mapMaybe, fromMaybe)
 
 import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point3(Point3), Point2(Point2), scalePoint, addPoints, xOf, yOf, zOf)
 
@@ -36,6 +36,58 @@ import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, lineIntersectio
 import Graphics.Implicit.Definitions (ℝ)
 
 -- A contour is a closed loop of lines on a layer.
+
+
+-- Unapologetically ripped from ImplicitCAD.
+-- FIXME: merge this back into ImplicitCAD.
+getLoops :: (Show a, Eq a) => [[a]] -> [[[a]]]
+getLoops a = getLoops' a []
+
+-- We will be actually doing the loop extraction with
+-- getLoops'
+
+-- getLoops' has a first argument of the segments as before,
+-- but a *second argument* which is the loop presently being
+-- built.
+
+-- so we begin with the "building loop" being empty.
+getLoops' :: (Show a, Eq a) => [[a]] -> [[a]] -> [[[a]]]
+
+-- | If there aren't any segments, and the "building loop" is empty, produce no loops.
+getLoops' [] [] = []
+
+-- | If the building loop is empty, stick the first segment we have onto it to give us something to build on.
+getLoops' (x:xs) [] = getLoops' xs [x]
+
+-- | A loop is finished if its start and end are the same.
+-- Return it and start searching for another loop.
+getLoops' segs workingLoop
+  | head (head workingLoop) == last (last workingLoop) = workingLoop : getLoops' segs []
+
+-- Finally, we search for pieces that can continue the working loop,
+-- and stick one on if we find it.
+-- Otherwise... something is really screwed up.
+getLoops' segs workingLoop =
+  let
+    presEnd :: [[a]] -> a
+    presEnd = last . last
+    connectsBackwards (_:x:[]) = x == presEnd workingLoop
+    connectsBackwards [] = False
+    connects (x:_) = x == presEnd workingLoop
+    -- Handle the empty case.
+    connects [] = False
+    -- divide our set into sequences that connect, and sequences that don't.
+    (possibleConts, nonConts) = partition connects segs
+    (possibleBackConts, nonBackConts) = partition connectsBackwards segs
+    (next, unused) = if not $ null possibleConts
+                     then (head possibleConts, tail possibleConts <> nonConts)
+                     else if not $ null possibleBackConts
+                          then (reverse $ head possibleBackConts, tail possibleBackConts <> nonBackConts)
+                          else error $ "unclosed loop in paths given: \nWorking: " <> show workingLoop <> "\nRemainder:" <> show nonConts <> "\n"
+  in
+    if null next
+    then workingLoop : getLoops' segs []
+    else getLoops' unused (workingLoop <> [next])
 
 -- Extract a single contour from a list of points
 findContour :: ([Point2], [[Point2]]) -> ([Point2], [[Point2]])
@@ -58,17 +110,18 @@ makeContours (contours, pairs)
 -- NOTE: drop contours with less than 3 points.
 -- Turn pairs of points into lists of connected points
 getContours :: [(Point2,Point2)] -> [Contour]
-getContours pointPairs = PointSequence <$> (filteredContourSets foundContourSets)
+getContours pointPairs = PointSequence . nub . concat . filterContourSets <$> foundContourSets
   where
-    filteredContourSets :: [[Point2]] -> [[Point2]]
-    filteredContourSets pointset = catMaybes $ contourLongEnough <$> pointset
+    filterContourSets :: [[Point2]] -> [[Point2]]
+    filterContourSets pointSet = fromMaybe [] $ contourLongEnough pointSet
       where
-        contourLongEnough :: [Point2] -> Maybe [Point2]
+        contourLongEnough :: [[Point2]] -> Maybe [[Point2]]
         contourLongEnough pts
-          | length pts > 3 = Just pts
+          | length pts > 2 = Just pts
           | otherwise = Nothing
-    foundContourSets :: [[Point2]]
-    foundContourSets = makeContours . (,) [] $ (\(a,b) -> a:b:[]) <$> pointPairs
+    foundContourSets :: [[[Point2]]]
+--    foundContourSets = makeContours . (,) [] $ nub $ concat $ (\(a,b) -> a:b:[]) <$> pointPairs
+    foundContourSets = getLoops $ (\(a,b) -> a:b:[]) <$> pointPairs
 
 -- | Given a line, generate a pair of lines from points on both sides of the given line's midpoint to the origin, on the same z plane as the given line.
 perimeterLinesToCheck :: ℝ -> Line -> (Line, Line)

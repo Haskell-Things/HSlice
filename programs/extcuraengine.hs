@@ -120,7 +120,7 @@ centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
 -- | Create contours from a list of facets.
 -- Note that instead of cutting at the top of the layer, we slice in the middle.
 layers :: Print -> [Facet] -> [[Contour]]
-layers print fs = catMaybes <$> (error $ "raw contours: " <> show rawContours <> "\n")
+layers print fs = catMaybes <$> rawContours
   where
     rawContours = [cleanContour <$> (getContours $ allIntersections (currentLayer-(lh/2))) | currentLayer <- [lh,lh*2..zmax] ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
     allIntersections :: ℝ -> [(Point2,Point2)]

@@ -23,11 +23,11 @@
 
 module Graphics.Slicer.Math.Facet (Facet(Facet), sides, shiftFacet, facetIntersects, facetFromPoints) where
 
-import Prelude (Eq, (<$>), (.), ($), fmap, error, show, (<>))
+import Prelude (Eq, (<$>), (.), ($), fmap, error, show, (<>), (==), length, head, (&&))
 
 import Data.List(nub)
 
-import Data.Maybe(catMaybes, Maybe(Just, Nothing))
+import Data.Maybe(catMaybes, Maybe(Just, Nothing), fromMaybe)
 
 import GHC.Generics (Generic)
 
@@ -35,7 +35,7 @@ import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions(ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), Point3(Point3), addPoints, flatten)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), Point3(Point3), addPoints, flatten, zOf)
 
 import Graphics.Slicer.Math.Line (Line, point, pointAtZValue, rawLineFromEndpoints)
 
@@ -52,8 +52,14 @@ facetFromPoints _ = error "tried to make a facet from something other than 3 poi
 
 -- determine where a facet intersects a plane at a given z value
 facetIntersects :: ℝ -> Facet -> Maybe (Point2,Point2)
-facetIntersects v f = trimIntersections $ nub $ catMaybes intersections
+facetIntersects v f = if length matchingEdge == 1
+                      then Just $ head matchingEdge
+                      else trimIntersections $ nub $ catMaybes intersections
   where
+    matchingEdge = catMaybes $ edgeOnPlane <$> sides f
+    edgeOnPlane (start,stop) = if zOf start == zOf stop && zOf start == v
+                               then Just (flatten start, flatten stop)
+                               else Nothing
     intersections = (`pointAtZValue` v) <$> sides f
     -- Get rid of the case where a facet intersects the plane at one point
     trimIntersections :: [Point2] -> Maybe (Point2,Point2)
