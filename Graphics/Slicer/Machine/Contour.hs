@@ -28,13 +28,11 @@ import Control.Parallel.Strategies (withStrategy, parList, rpar)
 
 import Control.Parallel (par, pseq)
 
-import Graphics.Slicer.Math.Definitions (Point2, Contour(PointSequence), distance)
+import Graphics.Slicer.Math.Definitions (Point2, Contour(PointSequence), distance, roundPoint2)
 
-import Graphics.Slicer.Math.Line (Line(Line), Intersection(IntersectsAt, HitEndpointL1, NoIntersection, Collinear), makeLinesLooped, lineIntersection, pointsFromLines, combineConsecutiveLines, lineSlope, flipLine, pointSlopeLength, combineLines, endpoint, lineFromEndpoints)
+import Graphics.Slicer.Math.Line (Line(Line), Intersection(IntersectsAt, HitEndpointL1, NoIntersection, Collinear, Parallel), makeLinesLooped, lineIntersection, pointsFromLines, combineConsecutiveLines, lineSlope, flipLine, pointSlopeLength, combineLines, endpoint, lineFromEndpoints)
 
 import Graphics.Slicer.Math.Contour (outerPerimeterPoint, innerPerimeterPoint, lineToOutsideContour)
-
-import Graphics.Slicer.Formats.GCode.Definitions (roundPoint2)
 
 import Graphics.Slicer.Definitions(ℝ)
 
@@ -154,6 +152,7 @@ modifyContour pathWidth allContours contour@(PointSequence contourPoints) direct
                           IntersectsAt _ p2 -> foundDistance p2
                           HitEndpointL1 _   -> Just 0
                           NoIntersection    -> Nothing
+                          Parallel          -> Nothing
                           Collinear         -> Just $ (lineLength l1 / 2)
                           a                 -> error $ "insane result: " <> show a <>"\nno intersection on contour:\n" <> (show contour) <> "\n" <> show l1 <> " -> " <> show (rayToEnd l1) <> "\n" <> show l2 <> " -> " <> show (rayToStart l2) <> "\n"
           where

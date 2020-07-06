@@ -29,7 +29,7 @@ import Data.Maybe(fromJust, isNothing, Maybe(Just,Nothing), catMaybes, mapMaybe,
 
 import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point3(Point3), Point2(Point2), scalePoint, addPoints, xOf, yOf, zOf)
 
-import Graphics.Slicer.Formats.GCode.Definitions (roundPoint2)
+--import Graphics.Slicer.Formats.GCode.Definitions (roundPoint2)
 
 import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, lineIntersection, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, Intersection(NoIntersection, IntersectsAt, Parallel, HitEndpointL1, HitEndpointL2), angleOf, flipLine, lineBetween, SearchDirection (Clockwise, CounterClockwise), Slope)
 
@@ -110,15 +110,15 @@ makeContours (contours, pairs)
 -- NOTE: drop contours with less than 3 points.
 -- Turn pairs of points into lists of connected points
 getContours :: [(Point2,Point2)] -> [Contour]
-getContours pointPairs = PointSequence . nub . concat . filterContourSets <$> foundContourSets
+getContours pointPairs = PointSequence . contourAsPoints . contourAsPointPairs <$> foundContours
   where
-    filterContourSets :: [[Point2]] -> [[Point2]]
-    filterContourSets pointSet = fromMaybe [] $ contourLongEnough pointSet
-      where
-        contourLongEnough :: [[Point2]] -> Maybe [[Point2]]
-        contourLongEnough pts
-          | length pts > 2 = Just pts
-          | otherwise = Nothing
+    contourAsPoints contour = (fst <$> contour)
+    contourAsPointPairs pointPairs = (\(a:b:[]) -> (a,b)) <$> pointPairs
+    foundContours = catMaybes $ contourLongEnough <$> foundContourSets
+    contourLongEnough :: [[Point2]] -> Maybe [[Point2]]
+    contourLongEnough pts
+      | length pts > 2 = Just pts
+      | otherwise = Nothing
     foundContourSets :: [[[Point2]]]
 --    foundContourSets = makeContours . (,) [] $ nub $ concat $ (\(a,b) -> a:b:[]) <$> pointPairs
     foundContourSets = getLoops $ (\(a,b) -> a:b:[]) <$> pointPairs
@@ -152,7 +152,7 @@ innerPerimeterPoint pathWidth contour l
           saneIntersection :: Intersection -> Maybe Point2
           saneIntersection (IntersectsAt _ p2) = Just p2
           saneIntersection NoIntersection = Nothing
-          saneIntersection Parallel = Nothing
+          saneIntersection Parallel = Nothing 
           saneIntersection (HitEndpointL1 p2) = Just p2
           saneIntersection (HitEndpointL2 p2) = Just p2
           saneIntersection res = error $ "insane result of intersecting a line (" <> show l1 <> ") with it's bisector: " <> show ls <> "\n" <> show res <> "\n"
@@ -177,12 +177,13 @@ outerPerimeterPoint pathWidth contour l
           saneIntersection :: Intersection -> Maybe Point2
           saneIntersection (IntersectsAt _ p2) = Just p2
           saneIntersection NoIntersection = Nothing
+          saneIntersection Parallel = Nothing 
           saneIntersection res = error $ "insane result of intersecting a line with it's bisector: " <> show res <> "\n"
       innerPoint = innerPerimeterPoint pathWidth contour l
 
 -- | Given a point and slope (on an xy plane), make a line segment, where the far end is guaranteed to be outside the contour.
 lineToOutsideContour :: Contour -> ℝ -> Slope -> Point2 -> Line
-lineToOutsideContour (PointSequence contourPoints) outsideDistance m p = head . makeLines . nub $ (roundPoint2 <$> points)
+lineToOutsideContour (PointSequence contourPoints) outsideDistance m p = head $ makeLines $ points
     where
       longestLength = sqrt $ dx*dx + dy*dy
       halfLine@(Line p' s) = pointSlopeLength p m longestLength -- should have p' == p
@@ -249,7 +250,7 @@ contourContainedByContour child parent = if odd noIntersections then Just child 
     saneIntersection (HitEndpointL2 p2) = Just p2
     saneIntersection Parallel = Nothing 
     saneIntersection NoIntersection = Nothing
-    saneIntersection res = error $ "insane result determining whether a contour is contained by a contour: " <> show res <> "\n"    
+    saneIntersection res = error $ "insane result determining whether a contour is contained by a contour: " <> show res <> "\n"
     innerPointOf contour = innerPerimeterPoint 0.0001 contour $ oneLineOf contour
       where
         oneLineOf (PointSequence contourPoints) = head $ makeLines contourPoints

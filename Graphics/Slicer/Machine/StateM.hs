@@ -27,7 +27,7 @@ import Data.Functor.Identity (Identity)
 
 import Control.Monad.State (StateT, get, put)
 
-import Graphics.Slicer.Formats.GCode.Definitions (roundToFifth)
+import Graphics.Slicer.Math.Definitions (roundToFifth)
 
 -- The always increasing amount of filament extruded during this print.
 newtype EPos = EPos Rational

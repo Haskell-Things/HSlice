@@ -35,9 +35,7 @@ import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Formats.GCode.Definitions (roundPoint2, roundPoint3, roundToFifth)
-
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), addPoints, scalePoint, distance, magnitude, zOf, flatten)
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), addPoints, scalePoint, distance, magnitude, zOf, flatten, roundToFifth, (~=))
 
 import Graphics.Slicer.Math.Point (twoDCrossProduct)
 
@@ -226,17 +224,17 @@ combineLines (Line p _) l2 = lineFromEndpoints p (endpoint l2)
 -- Determine if two lines can be combined
 canCombineLines :: Line -> Line -> Bool
 canCombineLines l1@(Line _ s1) (Line p2 s2)
-  | compareSlopes (lineSlope s1) (lineSlope s2) = roundPoint2 (endpoint l1) == roundPoint2 p2
+  | compareSlopes (lineSlope s1) (lineSlope s2) = endpoint l1 ~= p2
   | otherwise = False
   where
     compareSlopes sl1 sl2 =
       case sl1 of
         (HasSlope _) ->
           case sl2 of
-            (HasSlope _) -> slopeOf sl1 == slopeOf sl2
+            (HasSlope _) -> (roundToFifth $ slopeOf sl1) == (roundToFifth $ slopeOf sl2)
             _            -> False
         _    -> sl1 == sl2
-    slopeOf (HasSlope sl) = roundToFifth sl
+    slopeOf (HasSlope sl) = sl
     slopeOf _ = error "impossible"
 
 -- Construct a perpendicular bisector of a line (with the same length, assuming a constant z value)
@@ -259,17 +257,18 @@ lineSlopeFlipped (Point2 (x,y))
 
 -- Find the point on a line for a given Z value. Note that this evaluates to Nothing
 -- in the case that there is no point with that Z value, or if that is the only
--- Z value present in that line. The latter should be okay because the properties
--- of our meshes mean that the two endpoints of our line should be captured by
--- the other two segments of a triangle.
+-- Z value present in that line. A different function is used to find plane aligned
+-- lines.
 pointAtZValue :: (Point3,Point3) -> ℝ -> Maybe Point2
 pointAtZValue (startPoint,stopPoint) v
   -- don't bother returning a line that is axially aligned.
   | zOf startPoint == zOf stopPoint = Nothing
-  | 0 <= t && t <= 1 = Just $ flatten $ addPoints lowPoint (scalePoint t highPoint)
+  | 0 <= t && t <= 1 = Just $ flatten $ addPoints lineStart (scalePoint t lineEnd)
   | otherwise = Nothing
   where
-    t = (v - zOf lowPoint) / zOf highPoint
+    t = (v - zOf lineStart) / zOf lineEnd
+    
+    (lineStart,lineEnd) = (\(start@(Point3 (x1,y1,z1)), (Point3 (x2,y2,z2))) -> (start,Point3 (x2-x1, y2-y1, z2-z1))) (lowPoint,highPoint)
     (lowPoint,highPoint) = if zOf startPoint < zOf stopPoint
                            then (startPoint,stopPoint)
                            else (stopPoint,startPoint)
