@@ -42,7 +42,7 @@ import Control.DeepSeq (NFData(rnf))
 
 import Graphics.Slicer.Definitions(ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ)
 
-import Graphics.Slicer.Math.Definitions (Point(Point), Contour(Contour), distance)
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour(PointSequence), SpacePoint, PlanePoint, distance, xOf, yOf, zOf)
 
 import Graphics.Slicer.Math.Line (Line(Line), endpoint)
 
@@ -107,18 +107,21 @@ cookExtrusions extruder gcodes threads = do
     filamentDia = filamentWidth extruder
 
 -- travel to a point without extruding
-make2DTravelGCode :: Point -> Point -> GCode
-make2DTravelGCode (Point (x1,y1,_)) (Point (x2,y2,_)) = GCMove2 (x1,y1) (x2,y2)
+make2DTravelGCode :: Point2 -> Point2 -> GCode
+make2DTravelGCode p1@(Point2 (x1,y1)) p2@(Point2 (x2,y2)) = GCMove2 (x1,y1) (x2,y2)
 
-make3DTravelGCode :: Point -> Point -> GCode
-make3DTravelGCode (Point (x1,y1,z1)) (Point (x2,y2,z2)) = GCMove3 (x1,y1,z1) (x2,y2,z2)
+make3DTravelGCode :: Point3 -> Point3 -> GCode
+make3DTravelGCode (Point3 p1) (Point3 p2) = GCMove3 p1 p2
 
 -- GCode to travel to a point while extruding.
 -- FIXME: assumes pathwidth == nozzle diameter, which is clearly wrong...
-make2DExtrudeGCode :: ℝ -> ℝ -> Point -> Point -> GCode
-make2DExtrudeGCode pathThickness pathWidth p1@(Point (x1,y1,_)) p2@(Point (x2,y2,_)) = GCRawExtrude2 (x1, y1) (x2, y2) (RawExtrude pathLength pathWidth pathThickness)
+make2DExtrudeGCode :: ℝ -> ℝ -> Point2 -> Point2 -> GCode
+make2DExtrudeGCode pathThickness pathWidth p1 p2 = GCRawExtrude2 (x1, y1) (x2, y2) (RawExtrude pathLength pathWidth pathThickness)
   where
-   pathLength = distance p1 p2
+    pathLength = distance p1 p2
+    (x1,y1) = flatten p1
+    (x2,y2) = flatten p2
+    flatten (Point2 (xp, yp)) = (xp, yp)
 
 -- Add a feedrate to a gcode.
 addFeedRate :: ℝ -> GCode -> GCode
@@ -155,7 +158,7 @@ gcodeToText GCMarkInfillStart = ";TYPE:FILL"
 -- Assumes the printer is already at the first point.
 -- Also assumes contours that have points.
 gcodeForContour :: ℝ -> ℝ -> Contour -> [GCode]
-gcodeForContour lh pathWidth (Contour contourPoints)
+gcodeForContour lh pathWidth (PointSequence contourPoints)
   | length contourPoints > 1  = zipWith (make2DExtrudeGCode lh pathWidth) (init contourPoints) (tail contourPoints)
   | length contourPoints == 1 = error $ "Given a contour with a single point in it:" <> show contourPoints <> "\n"
   | otherwise                 = []

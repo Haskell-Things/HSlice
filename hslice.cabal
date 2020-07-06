@@ -33,12 +33,12 @@ Library
                 -Wunused-packages
     Exposed-Modules:
                     Graphics.Slicer
+                    Graphics.Slicer.Math.Definitions
                     Graphics.Slicer.Machine.StateM
                     Graphics.Slicer.Machine.Infill
                     Graphics.Slicer.Machine.Contour
                     Graphics.Slicer.Machine.GCode
     Other-Modules:
-                  Graphics.Slicer.Math.Definitions
                   Graphics.Slicer.Math.Point
                   Graphics.Slicer.Math.Line
                   Graphics.Slicer.Math.Facet
