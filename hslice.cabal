@@ -14,15 +14,15 @@ Category:            Graphics
 
 Library
     Build-depends:
-                  base,
-                  bytestring,
-                  data-ordlist,
-                  deepseq,
-                  double-conversion,
-                  implicit,
-                  mtl,
-                  parallel,
-                  utf8-string
+                    base
+                  , bytestring
+                  , data-ordlist
+                  , deepseq
+                  , double-conversion
+                  , implicit
+                  , mtl
+                  , parallel
+                  , utf8-string
     Ghc-options:
                 -optc-O3
                 -- see GHC manual 8.2.1 section 6.5.1.
@@ -30,8 +30,7 @@ Library
                 -- for debugging.
                 -Wall
                 -Wextra
-                -Weverything
-		-- for profiling.
+                -Wunused-packages
     Exposed-Modules:
                     Graphics.Slicer
                     Graphics.Slicer.Math.Definitions
@@ -50,24 +49,19 @@ Library
                   Graphics.Slicer.Mechanics.Definitions
                   Graphics.Slicer.Concepts.Definitions
                   Graphics.Slicer.Definitions
-                  
+
 Executable extcuraengine
     Main-is: extcuraengine.hs
     Hs-source-dirs: programs
     Build-depends:
-                  base,
-                  bytestring,
-                  data-ordlist,
-                  deepseq,
-                  double-conversion,
-                  formatting,
-                  hslice,
-                  implicit,
-                  mtl,
-                  optparse-applicative,
-                  parallel,
-                  text,
-                  utf8-string
+                    base
+                  , bytestring
+                  , hslice
+                  , implicit
+                  , mtl
+                  , optparse-applicative
+                  , parallel
+                  , utf8-string
     Ghc-options:
                 -threaded
                 -rtsopts
@@ -77,8 +71,8 @@ Executable extcuraengine
                 -- for debugging.
                 -Wall
                 -Wextra
-                -Weverything
-		-- for profiling.
+                -Wunused-packages
+                -- for profiling.
 --                -prof
 --                -fprof-auto
 
