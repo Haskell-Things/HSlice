@@ -30,7 +30,7 @@ Library
                 -- for debugging.
                 -Wall
                 -Wextra
-                -Wunused-packages
+--                -Wunused-packages
     Exposed-Modules:
                     Graphics.Slicer
                     Graphics.Slicer.Math.Definitions
@@ -71,7 +71,7 @@ Executable extcuraengine
                 -- for debugging.
                 -Wall
                 -Wextra
-                -Wunused-packages
+--                -Wunused-packages
                 -- for profiling.
 --                -prof
 --                -fprof-auto

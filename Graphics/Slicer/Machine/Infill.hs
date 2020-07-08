@@ -32,7 +32,7 @@ import Data.List (sortBy)
 
 import Graphics.Slicer.Definitions (ℝ,ℝ2)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour(PointSequence), distance, xOf, yOf)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), distance, xOf, yOf)
 
 import Graphics.Slicer.Math.Point (orderPoints)
 
@@ -148,11 +148,10 @@ makeSupport :: Contour
             -> [Contour]
             -> ℝ
             -> ℝ
-            -> ℝ
             -> [Line]
-makeSupport contour childContours lh ls zHeight = fmap (shortenLineBy $ 2 * lh)
-                                                  $ concat $ catMaybes $ infillLineInside contour (addBBox childContours zHeight)
-                                                  <$> coveringLinesVertical contour ls
+makeSupport contour childContours lh ls = fmap (shortenLineBy $ 2 * lh)
+                                          $ concat $ catMaybes $ infillLineInside contour (addBBox childContours)
+                                          <$> coveringLinesVertical contour ls
 
 -- A bounding box. a box around a contour.
 data BBox = BBox ℝ2 ℝ2
@@ -184,9 +183,9 @@ boundingBox (PointSequence contourPoints) = if isEmptyBBox box then Nothing else
     maxY = maximum $ yOf <$> contourPoints
 
 -- add a 2D bounding box to a list of contours, as the first contour in the list.
--- FIXME: assumes 2D contour.
-addBBox :: [Contour] -> ℝ -> [Contour]
-addBBox contours z0 = PointSequence [Point2 (x1,y1), Point2 (x2,y1), Point2 (x2,y2), Point2 (x1,y2), Point2 (x1,y1)] : contours
+-- FIXME: what is this for?
+addBBox :: [Contour] -> [Contour]
+addBBox contours = PointSequence [Point2 (x1,y1), Point2 (x2,y1), Point2 (x2,y2), Point2 (x1,y2), Point2 (x1,y1)] : contours
     where
       bbox = fromMaybe (BBox (1,1) (-1,-1)) $ boundingBoxAll contours
       (BBox (x1, y1) (x2, y2)) = incBBox bbox 1

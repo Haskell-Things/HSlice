@@ -42,7 +42,7 @@ import Control.DeepSeq (NFData(rnf))
 
 import Graphics.Slicer.Definitions(ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour(PointSequence), SpacePoint, PlanePoint, distance, xOf, yOf, zOf)
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour(PointSequence), distance)
 
 import Graphics.Slicer.Math.Line (Line(Line), endpoint)
 
@@ -108,7 +108,7 @@ cookExtrusions extruder gcodes threads = do
 
 -- travel to a point without extruding
 make2DTravelGCode :: Point2 -> Point2 -> GCode
-make2DTravelGCode p1@(Point2 (x1,y1)) p2@(Point2 (x2,y2)) = GCMove2 (x1,y1) (x2,y2)
+make2DTravelGCode (Point2 (x1,y1)) (Point2 (x2,y2)) = GCMove2 (x1,y1) (x2,y2)
 
 make3DTravelGCode :: Point3 -> Point3 -> GCode
 make3DTravelGCode (Point3 p1) (Point3 p2) = GCMove3 p1 p2
