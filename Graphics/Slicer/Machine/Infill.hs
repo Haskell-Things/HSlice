@@ -60,12 +60,12 @@ infillLineInside contour childContours line
   | otherwise = Nothing -- error $ "did not find an intersection with a contour for: \n" <> show line <> "\n"
     where
       allLines :: [Line]
-      allLines = if null allPoints then [] else makeLines $ allPoints
+      allLines = if null allPoints then [] else makeLines allPoints
       allPoints = filterTooShort $ sortBy orderPoints $ concat $ getLineIntersections line <$> contour:childContours
       filterTooShort :: [Point2] -> [Point2]
       filterTooShort [] = []
       filterTooShort [a] = [a]
-      filterTooShort (a:b:xs) = if distance a b < 0.01 then filterTooShort xs else a:(filterTooShort (b:xs))
+      filterTooShort (a:b:xs) = if distance a b < 0.01 then filterTooShort xs else a:filterTooShort (b:xs)
       getLineIntersections :: Line -> Contour -> [Point2]
       getLineIntersections myline c = catMaybes $ saneIntersections $ cookIntersections $ lineIntersection myline <$> linesOfContour c
         where

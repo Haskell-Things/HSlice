@@ -49,7 +49,7 @@ cleanContour (PointSequence points)
     cleanPoints :: [Point2] -> [Point2]
     cleanPoints pts
       | null pts = []
-      | length pointsRemaining > 2 = pointsFromLines $ combineConsecutiveLines $ lines
+      | length pointsRemaining > 2 = pointsFromLines $ combineConsecutiveLines lines
       | otherwise = [] 
         where
           lines = makeLinesLooped pointsRemaining
@@ -96,7 +96,7 @@ modifyContour pathWidth allContours contour@(PointSequence contourPoints) direct
   where
     -- FIXME: implement me. we need this so we can handle further interior contours, and only check against the contour they are inside of.
     foundContour
-      | (length contourPoints) > 2 = catMaybes $ mapWithNeighbors (findLine allContours) $ (makeLinesLooped contourPoints)
+      | length contourPoints > 2 = catMaybes $ mapWithNeighbors (findLine allContours) $ makeLinesLooped contourPoints
       | otherwise = error $ "tried to modify a contour with too few points: " <> show (length contourPoints) <> "\n"
       where
         -- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.
@@ -107,7 +107,7 @@ modifyContour pathWidth allContours contour@(PointSequence contourPoints) direct
           | isJustPositive (lengthToIntersection ln previousln)
             && isJustPositive (lengthToIntersection ln nextln)   = Just $ flipLine midToStart `combineLines` midToEnd
           | isJustZero (lengthToIntersection ln previousln)
-            && isJustPositive (lengthToIntersection ln nextln)   = Just $ midToEnd
+            && isJustPositive (lengthToIntersection ln nextln)   = Just midToEnd
           | isJustPositive (lengthToIntersection ln previousln)
             && isJustZero (lengthToIntersection ln nextln)       = Just $ flipLine midToStart
           | isJustZero (lengthToIntersection ln previousln)
@@ -134,7 +134,7 @@ modifyContour pathWidth allContours contour@(PointSequence contourPoints) direct
             midToEnd   = pointSlopeLength (perimeterPoint ln) (lineSlope m) (fromJust $ lengthToIntersection ln nextln)
             midToStart = pointSlopeLength (perimeterPoint ln) (lineSlope m) (negate $ fromJust $ lengthToIntersection ln previousln)
             isJustZero, isJustPositive :: Maybe ℝ -> Bool
-            isJustZero a = isJust a && fromJust a == 0
+            isJustZero a = a == Just 0
             isJustPositive a = isJust a && fromJust a > 0
         lineLength ln@(Line p _) = distance p $ endpoint ln
         perimeterPoint :: Line -> Point2
@@ -147,14 +147,13 @@ modifyContour pathWidth allContours contour@(PointSequence contourPoints) direct
         rawMidToEdge c ln@(Line _ m) = lineToOutsideContour c (pathWidth * 2) (lineSlope m) (perimeterPoint ln)
         -- get the length to where these lines intersect, assuming they are pathWidth away from the lines themselves.
         lengthToIntersection :: Line -> Line -> Maybe ℝ
-        lengthToIntersection l1 l2
-          | otherwise = case lineIntersection (rayToEnd l1) (rayToStart l2) of
+        lengthToIntersection l1 l2 = case lineIntersection (rayToEnd l1) (rayToStart l2) of
                           IntersectsAt _ p2 -> foundDistance p2
                           HitEndpointL1 _   -> Just 0
                           NoIntersection    -> Nothing
                           Parallel          -> Nothing
-                          Collinear         -> Just $ (lineLength l1 / 2)
-                          a                 -> error $ "insane result: " <> show a <>"\nno intersection on contour:\n" <> (show contour) <> "\n" <> show l1 <> " -> " <> show (rayToEnd l1) <> "\n" <> show l2 <> " -> " <> show (rayToStart l2) <> "\n"
+                          Collinear         -> Just $ lineLength l1 / 2
+                          a                 -> error $ "insane result: " <> show a <>"\nno intersection on contour:\n" <> show contour <> "\n" <> show l1 <> " -> " <> show (rayToEnd l1) <> "\n" <> show l2 <> " -> " <> show (rayToStart l2) <> "\n"
           where
             foundDistance p2 = if rawDistance p2 > 0 then Just (rawDistance p2) else Nothing
             rawDistance p2 = distance (perimeterPoint l1) p2

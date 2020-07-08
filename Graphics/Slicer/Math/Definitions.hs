@@ -24,7 +24,7 @@
 
 module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointSequence), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, magnitude, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2) where
 
-import Prelude (Eq, (++), Monoid(mempty, mappend), Semigroup((<>)), Show, (==), (*), sqrt, (+), (<), ($), Bool, fromIntegral, round, (/))
+import Prelude (Eq, (++), Monoid(mempty, mappend), Semigroup((<>)), Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/))
 
 import GHC.Generics (Generic)
 
@@ -61,14 +61,14 @@ instance LinAlg Point3 where
   distance p1 p2 = magnitude $ addPoints p1 (scalePoint (-1) p2)
   addPoints (Point3 (x1,y1,z1)) (Point3 (x2,y2,z2)) = Point3 (x1+x2 ,y1+y2 ,z1+z2)
   scalePoint val (Point3 (a,b,c)) = Point3 (val*a ,val*b ,val*c)
-  (~=) p1 p2 = (roundPoint3 p1) == (roundPoint3 p2)
+  (~=) p1 p2 = roundPoint3 p1 == roundPoint3 p2
 
 instance LinAlg Point2 where
-  magnitude (Point2 (x1,y1)) = sqrt $ x1 * x1 + y1 * y1 
+  magnitude (Point2 (x1,y1)) = sqrt (x1 * x1 + y1 * y1) 
   distance p1 p2 = magnitude $ addPoints p1 (scalePoint (-1) p2)
   addPoints (Point2 (x1,y1)) (Point2 (x2,y2)) = Point2 (x1+x2, y1+y2)
   scalePoint val (Point2 (a,b)) = Point2 (val*a ,val*b)
-  (~=) p1 p2 = (roundPoint2 p1) == (roundPoint2 p2)
+  (~=) p1 p2 = roundPoint2 p1 == roundPoint2 p2
 
 class PlanePoint p where
   xOf :: p -> ℝ
@@ -94,7 +94,7 @@ instance SpacePoint Point3 where
   flatten (Point3 (x,y,_)) = Point2 (x,y)
 
 -- a list of points around a (2d) shape.
-data Contour =
+newtype Contour =
   PointSequence [Point2]
   deriving (Eq, Generic, NFData, Show)
 
@@ -110,5 +110,7 @@ roundToFifth :: ℝ -> ℝ
 roundToFifth a = fromIntegral (round (100000 * a) :: Fastℕ) / 100000
 
 -- round a point
+roundPoint3 :: Point3 -> Point3
 roundPoint3 (Point3 (x1,y1,z1)) = Point3 (roundToFifth x1, roundToFifth y1, roundToFifth z1)
+roundPoint2 :: Point2 -> Point2
 roundPoint2 (Point2 (x1,y1)) = Point2 (roundToFifth x1, roundToFifth y1)

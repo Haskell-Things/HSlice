@@ -48,7 +48,7 @@ data Line = Line { point :: Point2, slope :: Point2 }
 -- a difference that makes no difference is no difference..
 -- FIXME: magic numbers.
 instance Eq Line where
-  (==) (Line p1 m1) (Line p2 m2) = (distance p1 p2) + (distance m1 m2) < 0.00001
+  (==) (Line p1 m1) (Line p2 m2) = (distance p1 p2 + distance m1 m2) < 0.00001
 
 -- FIXME: how does this handle endpoints?
 
@@ -117,17 +117,17 @@ flipLine l@(Line _ s) = Line (endpoint l) (scalePoint (-1) s)
 makeLines :: [Point2] -> [Line]
 makeLines l
   | length l > 1 = zipWith lineFromEndpoints (init l) (tail l)
-  | otherwise = error $ "tried to makeLines a list with " <> show (length l) <> " entries.\n" <> (concat $ show <$> l) <> "\n"
+  | otherwise = error $ "tried to makeLines a list with " <> show (length l) <> " entries.\n" <> concat (show <$> l) <> "\n"
 
 -- Given a list of points (in order), construct lines that go between them. make sure to construct a line from the last point back to the first.
 makeLinesLooped :: [Point2] -> [Line]
 makeLinesLooped l
   -- too short, bail.
-  | length l < 2 = error $ "tried to makeLinesLooped a list with " <> show (length l) <> " entries.\n" <> (concat $ show <$> l) <> "\n"
+  | length l < 2 = error $ "tried to makeLinesLooped a list with " <> show (length l) <> " entries.\n" <> concat (show <$> l) <> "\n"
   -- already looped, use makeLines.
   | head l == last l = makeLines l
   -- ok, do the work and loop it.
-  | otherwise = zipWith lineFromEndpoints l ((tail l) ++ l)
+  | otherwise = zipWith lineFromEndpoints l (tail l ++ l)
 
 data Direction =
     Positive
@@ -150,18 +150,18 @@ lineSlope (Point2 (x,y))
   | x == 0 && y < 0 = OnYAxis Negative
   | x > 0 && y == 0 = OnXAxis Positive
   | x < 0 && y == 0 = OnXAxis Negative
-  | otherwise = HasSlope $ sl
+  | otherwise = HasSlope sl
     where
       sl = y / x
 
 -- make a new line with the given origin point, slope, and distance, with both ends in the same Z plane.
 pointSlopeLength :: Point2 -> Slope -> ℝ -> Line
 pointSlopeLength _  IsOrigin _ = error "trying to construct empty line?" -- Line p1 p1
-pointSlopeLength p1@(Point2 _) (OnXAxis Positive) dist = Line p1 (Point2 (dist,0))
-pointSlopeLength p1@(Point2 _) (OnXAxis Negative) dist = Line p1 (Point2 (-dist,0))
-pointSlopeLength p1@(Point2 _) (OnYAxis Positive) dist = Line p1 (Point2 (0,dist))
-pointSlopeLength p1@(Point2 _) (OnYAxis Negative) dist = Line p1 (Point2 (0,-dist))
-pointSlopeLength p1@(Point2 _) (HasSlope sl) dist = Line p1 s
+pointSlopeLength p1 (OnXAxis Positive) dist = Line p1 (Point2 (dist,0))
+pointSlopeLength p1 (OnXAxis Negative) dist = Line p1 (Point2 (-dist,0))
+pointSlopeLength p1 (OnYAxis Positive) dist = Line p1 (Point2 (0,dist))
+pointSlopeLength p1 (OnYAxis Negative) dist = Line p1 (Point2 (0,-dist))
+pointSlopeLength p1 (HasSlope sl) dist = Line p1 s
   where s = scalePoint scale $ Point2 (1,yVal)
         yVal = sl
         scale = dist / sqrt (1 + yVal*yVal)
@@ -170,29 +170,29 @@ data SearchDirection = Clockwise | CounterClockwise
   deriving Show
 -- given two lines with the same origin, start at the first one, and search in the given direction for the second one. if we hit it before we run into the third line (from the same origin), return true.
 lineBetween :: Line -> SearchDirection -> Line -> Line -> Bool
-lineBetween l1 (CounterClockwise) l2 l3
-  | (angleOf l3) > (angleOf l1) = (angleOf l3) > (angleOf l2) && (angleOf l2) > (angleOf l1)
-  | (angleOf l3) < (angleOf l1) = (angleOf l3) > (angleOf l2) || (angleOf l2) > (angleOf l1)
-lineBetween l1 (Clockwise) l2 l3
-  | (angleOf l3) < (angleOf l1) = (angleOf l3) > (angleOf l2) && (angleOf l2) > (angleOf l1)
-  | (angleOf l3) > (angleOf l1) = (angleOf l3) > (angleOf l2) || (angleOf l2) > (angleOf l1)
+lineBetween l1 CounterClockwise l2 l3
+  | angleOf l3 > angleOf l1 = angleOf l3 > angleOf l2 && angleOf l2 > angleOf l1
+  | angleOf l3 < angleOf l1 = angleOf l3 > angleOf l2 || angleOf l2 > angleOf l1
+lineBetween l1 Clockwise l2 l3
+  | angleOf l3 < angleOf l1 = angleOf l3 > angleOf l2 && angleOf l2 > angleOf l1
+  | angleOf l3 > angleOf l1 = angleOf l3 > angleOf l2 || angleOf l2 > angleOf l1
 lineBetween l1 dir l2 l3 = error $ "impossible situation: " <> show l1 <> " " <> show l2 <> " " <> show l3 <> " " <> show dir <> "\n"
 
 -- given a line, determine the angle it is at, in radians. 
 angleOf :: Line -> ℝ
 angleOf (Line _ m)
-  | (lineSlope m) == IsOrigin = error "tried to get the angle of a point."
-  | (lineSlope m) == (OnXAxis Positive) = 0
-  | (lineSlope m) == (OnYAxis Positive) = pi/2
-  | (lineSlope m) == (OnXAxis Negative) = pi
-  | (lineSlope m) == (OnYAxis Negative) = pi*1.5
-  | x>0 && y>0 = (atan $ slopeOf $ lineSlope m)
-  | x>0 && y<0 = (atan $ slopeOf $ lineSlope $ Point2 (-y, x)) + pi/2
-  | x<0 && y<0 = (atan $ slopeOf $ lineSlope $ Point2 (-x, -y)) + pi
-  | x<0 && y>0 = (atan $ slopeOf $ lineSlope $ Point2 (y, -x)) + (pi*1.5)
+  | lineSlope m == IsOrigin = error "tried to get the angle of a point."
+  | lineSlope m == OnXAxis Positive = 0
+  | lineSlope m == OnYAxis Positive = pi/2
+  | lineSlope m == OnXAxis Negative = pi
+  | lineSlope m == OnYAxis Negative = pi*1.5
+  | x>0 && y>0 = atan (slopeOf $ lineSlope m)
+  | x>0 && y<0 = atan (slopeOf $ lineSlope $ Point2 (-y, x)) + pi/2
+  | x<0 && y<0 = atan (slopeOf $ lineSlope $ Point2 (-x, -y)) + pi
+  | x<0 && y>0 = atan (slopeOf $ lineSlope $ Point2 (y, -x)) + (pi*1.5)
   | otherwise = error "unknown condition"
   where
-    (x,y) = (\(Point2 p) -> p) $ m
+    (x,y) = (\(Point2 p) -> p) m
     slopeOf (HasSlope sl) = sl
     slopeOf _             = error "can not happen."
 
@@ -231,7 +231,7 @@ canCombineLines l1@(Line _ s1) (Line p2 s2)
       case sl1 of
         (HasSlope _) ->
           case sl2 of
-            (HasSlope _) -> (roundToFifth $ slopeOf sl1) == (roundToFifth $ slopeOf sl2)
+            (HasSlope _) -> roundToFifth (slopeOf sl1) == roundToFifth (slopeOf sl2)
             _            -> False
         _    -> sl1 == sl2
     slopeOf (HasSlope sl) = sl
@@ -267,9 +267,8 @@ pointAtZValue (startPoint,stopPoint) v
   | otherwise = Nothing
   where
     t = (v - zOf lineStart) / zOf lineEnd
-    
-    (lineStart,lineEnd) = (\(start@(Point3 (x1,y1,z1)), (Point3 (x2,y2,z2))) -> (start,Point3 (x2-x1, y2-y1, z2-z1))) (lowPoint,highPoint)
-    (lowPoint,highPoint) = if zOf startPoint < zOf stopPoint
+    lineEnd = (\ (Point3 (x1,y1,z1)) (Point3 (x2,y2,z2)) -> Point3 (x2-x1, y2-y1, z2-z1)) lineStart endPoint
+    (lineStart,endPoint) = if zOf startPoint < zOf stopPoint
                            then (startPoint,stopPoint)
                            else (stopPoint,startPoint)
 

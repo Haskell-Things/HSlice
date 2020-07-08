@@ -166,7 +166,7 @@ gcodeForContour lh pathWidth (PointSequence contourPoints)
 -- for each group of lines, generate gcode for the segments, with move commands between them.
 gcodeForInfill :: ℝ -> ℝ -> [[Line]] -> [GCode]
 gcodeForInfill _ _ [] = []
-gcodeForInfill lh pathWidth lineGroups = concat $ renderLineGroup (head lineGroups) : (zipWith (\group1 group2 -> (moveBetweenLineGroups group1 group2) ++ (renderLineGroup group2)) (init lineGroups) (tail lineGroups))
+gcodeForInfill lh pathWidth lineGroups = concat $ renderLineGroup (head lineGroups) : zipWith (\group1 group2 -> moveBetweenLineGroups group1 group2 ++ renderLineGroup group2) (init lineGroups) (tail lineGroups)
   where
     -- FIXME: this should be a single gcode. why are we getting empty line groups given to us?
     moveBetweenLineGroups :: [Line] -> [Line] -> [GCode]
@@ -175,7 +175,7 @@ gcodeForInfill lh pathWidth lineGroups = concat $ renderLineGroup (head lineGrou
     moveBetweenLineGroups g1 g2 = [moveBetween (last g1) (head g2)]
     renderLineGroup :: [Line] -> [GCode]
     renderLineGroup [] = []
-    renderLineGroup group = renderSegment (head group) : (concat $ zipWith (\ l1 l2 -> moveBetween l1 l2 : [renderSegment l2]) (init group) (tail group))
+    renderLineGroup group = renderSegment (head group) : concat (zipWith (\ l1 l2 -> moveBetween l1 l2 : [renderSegment l2]) (init group) (tail group))
     moveBetween :: Line -> Line -> GCode
     moveBetween l1 (Line startPointl2 _) = make2DTravelGCode (endpoint l1) startPointl2
     renderSegment :: Line -> GCode

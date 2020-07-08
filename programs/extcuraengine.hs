@@ -27,7 +27,7 @@
 -- For matching our OpenScad variable types.
 {-# LANGUAGE ViewPatterns #-}
 
-import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse, fmap, fst)
+import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse, fst)
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -45,7 +45,7 @@ import Data.List (length, zip, tail, head, zipWith, maximum, minimum, last, conc
 
 import Control.Monad ((>>=))
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe, fromJust)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe, fromJust, mapMaybe)
 
 import Text.Show(show)
 
@@ -68,7 +68,7 @@ import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString,
 
 import Graphics.Implicit.Definitions (ℝ, ℕ, Fastℕ(Fastℕ), fromFastℕ, fromFastℕtoℝ)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Line(Line), point, flipLine, Facet, sides, Contour(PointSequence), shiftFacet, facetIntersects, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), facetLinesFromSTL, makeContourTree, ContourTree(ContourTree))
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Line(Line), flipLine, Facet, sides, Contour(PointSequence), shiftFacet, facetIntersects, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), facetLinesFromSTL, makeContourTree, ContourTree(ContourTree))
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yOf, zOf)
 
@@ -122,7 +122,7 @@ centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
 layers :: Print -> [Facet] -> [[Contour]]
 layers print fs = catMaybes <$> rawContours
   where
-    rawContours = [cleanContour <$> (getContours $ allIntersections (currentLayer-(lh/2))) | currentLayer <- [lh,lh*2..zmax] ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
+    rawContours = [cleanContour <$> getContours (allIntersections (currentLayer-(lh/2))) | currentLayer <- [lh,lh*2..zmax] ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
     allIntersections :: ℝ -> [(Point2,Point2)]
     allIntersections zLayer = catMaybes $ facetIntersects zLayer <$> fs
     zs = [zOf . fst <$> triPoints | triPoints <- sides <$> fs ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
@@ -157,7 +157,7 @@ mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [1::Fastℕ,2
 -- FIXME: handle rafts here.
 sliceObject :: Printer ->  Print ->  [([Contour], Fastℕ)] -> StateM [GCode]
 sliceObject printer@(Printer _ _ extruder) print allLayers =
-  cookExtrusions extruder (concat $ slicedLayers) threads
+  cookExtrusions extruder (concat slicedLayers) threads
   where
     slicedLayers = [sliceLayer printer print (layer == last allLayers) layer | layer <- allLayers] `using` parListChunk (div (length allLayers) (fromFastℕ threads)) rdeepseq
 
@@ -172,7 +172,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
     travelFromContourToInfill :: Contour -> [[Line]] -> [GCode]
     travelFromContourToInfill source lines = if firstPointOfInfill lines /= Nothing then [addFeedRate infillSpeed $ make2DTravelGCode (lastPoint source) $ fromMaybe (Point2 (0,0)) $ firstPointOfInfill lines] else []
     renderContourTree :: ContourTree -> [GCode]
-    renderContourTree (ContourTree (thisContour, subContours)) = (renderSurface thisContour (interiorContours subContours)) <> (concat $ renderContourTree <$> (insidePositiveSpaces subContours))
+    renderContourTree (ContourTree (thisContour, subContours)) = renderSurface thisContour (interiorContours subContours) <> concat (renderContourTree <$> insidePositiveSpaces subContours)
       where
         interiorContours :: [ContourTree] -> [Contour]
         interiorContours trees = (\(ContourTree (a,_)) -> a) <$> trees
@@ -181,16 +181,16 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
     renderSurface :: Contour -> [Contour] -> [GCode]
     renderSurface outsideContourRaw insideContours
       | outerWallBeforeInner == True = concat [
-          travelToContour outsideContour
+            travelToContour outsideContour
           , drawOuterContour outsideContour
           , renderChildOuterContours outsideContour outsideContourInnerWall
-          , drawInnerContour $ outsideContourInnerWall
+          , drawInnerContour outsideContourInnerWall
           , renderChildInnerContours outsideContourInnerWall outsideContour
           , travelFromContourToInfill outsideContour $ infillLines outsideContourInnerWall childContoursInnerWalls
           , drawInfill outsideContourInnerWall childContoursInnerWalls
           ]
       | otherwise = concat [
-          travelToContour $ outsideContourInnerWall
+            travelToContour outsideContourInnerWall
           , drawInnerContour outsideContourInnerWall
           , renderChildInnerContours outsideContourInnerWall outsideContour
           , drawOuterContour outsideContour
@@ -216,17 +216,17 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
                 , travelBetweenContours (last childContoursInnerWalls) dest
                 ]
 
-          outsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth/2) (insideContours) outsideContourRaw
+          outsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth/2) insideContours outsideContourRaw
           outsideContourInnerWall = innerContourOf insideContours outsideContour
           -- FIXME: do not supply an inside contour as a child of itsself.
-          childContours = catMaybes $ (fmap cleanContour) $ catMaybes $ expandContour (pathWidth/2) (outsideContour:insideContours) <$> insideContours
-          childContoursInnerWalls = catMaybes $ (fmap cleanContour) $ catMaybes $ expandContour (pathWidth) (outsideContour:insideContours) <$> childContours
+          childContours = mapMaybe cleanContour $ catMaybes $ expandContour (pathWidth/2) (outsideContour:insideContours) <$> insideContours
+          childContoursInnerWalls = mapMaybe cleanContour $ catMaybes $ expandContour pathWidth (outsideContour:insideContours) <$> childContours
           infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill (fromJust $ shrinkContour (pathWidth/2) (c:cs) c) (catMaybes $ expandContour (pathWidth/2) (c:cs) <$> cs) (ls * (1/infill)) $ getLayerType print layerNumber
           drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth c
           drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
-          drawChildOuterContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init $ childContoursInnerWalls) (tail $ childContoursInnerWalls)
+          drawChildOuterContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init childContoursInnerWalls) (tail childContoursInnerWalls)
           drawChildContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) (init childContours) (tail childContours)
-          drawInfill c cs = GCMarkInfillStart : (gcodeForInfill lh ls $ infillLines c cs)
+          drawInfill c cs = GCMarkInfillStart : gcodeForInfill lh ls (infillLines c cs)
           -- FIXME: fix the calling system to handle this failing, instead of adding this filter.
           innerContourOf cs c =
             case maybeInnerContourOf c cs of
@@ -234,11 +234,11 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
               Nothing  -> error $ "got empty contour when asking for smaller version of contour:\n" <> show c <> "\n"
           maybeInnerContourOf c cs = shrinkContour (pathWidth*1.5) cs c
   -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
-  layerStart <> (concat $ renderContourTree <$> allContours) <> support <> layerEnd 
+  layerStart <> concat (renderContourTree <$> allContours) <> support <> layerEnd 
     where
       allContours = makeContourTree layerContours
       firstOuterContour
-        | null allContours = error $ "no contours on layer?\n" <> show (layerContours) <> "\n"
+        | null allContours = error $ "no contours on layer?\n" <> show layerContours <> "\n"
         | otherwise = (\(ContourTree (a,_)) -> a) $ head allContours
       supportGCode, layerEnd :: [GCode]
       supportGCode = [] -- if hasSupport then gcodeForContour lh pathWidth supportContour else []
@@ -246,7 +246,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
       layerStart = [GCMarkLayerStart layerNumber]
       -- FIXME: make travel gcode from the previous contour's last position?
       travelToLayerChange :: [GCode]
-      travelToLayerChange = [make2DTravelGCode (Point2 (0,0)) $ firstPoint $ firstOuterContour]
+      travelToLayerChange = [make2DTravelGCode (Point2 (0,0)) $ firstPoint firstOuterContour]
       -- FIXME: not all support is support. what about supportInterface?
       support :: [GCode]
       support = [] -- if null supportGCode then [] else GCMarkSupportStart : supportGCode

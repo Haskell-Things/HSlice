@@ -23,11 +23,13 @@
 
 module Graphics.Slicer.Math.Facet (Facet(Facet), sides, shiftFacet, facetIntersects, facetFromPoints) where
 
-import Prelude (Eq, (<$>), (.), ($), fmap, error, show, (<>), (==), length, head, (&&))
+import Prelude (Eq, (<$>), ($), error, (==), length, head, (&&))
 
 import Data.List(nub)
 
-import Data.Maybe(catMaybes, Maybe(Just, Nothing), fromMaybe)
+import Data.Maybe(catMaybes, Maybe(Just, Nothing))
+
+import Data.Bifunctor (bimap)
 
 import GHC.Generics (Generic)
 
@@ -35,19 +37,20 @@ import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions(ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), Point3(Point3), addPoints, flatten, zOf)
+import Graphics.Slicer.Math.Definitions (Point2, Point3, addPoints, flatten, zOf)
 
-import Graphics.Slicer.Math.Line (Line, point, pointAtZValue, rawLineFromEndpoints)
+import Graphics.Slicer.Math.Line (pointAtZValue)
 
 newtype Facet = Facet { sides :: [(Point3, Point3)] }
   deriving (Eq, Generic, NFData)
 
 -- Shift a facet by the vector p
 shiftFacet :: Point3 -> Facet -> Facet
-shiftFacet p = Facet . fmap (\(start, stop) -> (addPoints p start, addPoints p stop)) . sides
+shiftFacet p f = Facet $ bimap (addPoints p) (addPoints p) <$> sides f
+-- fmap (\(start, stop) -> (addPoints p start, addPoints p stop)) . sides
 
 facetFromPoints :: [Point3] -> Facet
-facetFromPoints (p1:p2:p3:[]) = Facet $ (p1,p2):(p2,p3):(p3,p1):[]
+facetFromPoints [p1,p2,p3] = Facet [(p1,p2),(p2,p3),(p3,p1)]
 facetFromPoints _ = error "tried to make a facet from something other than 3 points."
 
 -- determine where a facet intersects a plane at a given z value
@@ -57,6 +60,7 @@ facetIntersects v f = if length matchingEdge == 1
                       else trimIntersections $ nub $ catMaybes intersections
   where
     matchingEdge = catMaybes $ edgeOnPlane <$> sides f
+    edgeOnPlane :: (Point3,Point3) -> Maybe (Point2,Point2)
     edgeOnPlane (start,stop) = if zOf start == zOf stop && zOf start == v
                                then Just (flatten start, flatten stop)
                                else Nothing
@@ -65,7 +69,7 @@ facetIntersects v f = if length matchingEdge == 1
     trimIntersections :: [Point2] -> Maybe (Point2,Point2)
     trimIntersections []      = Nothing
     trimIntersections [_]     = Nothing
-    trimIntersections (p1:p2:[]) = Just (p1,p2)
+    trimIntersections [p1,p2] = Just (p1,p2)
     -- ignore triangles that are exactly aligned.
-    trimIntersections (p1:p2:p3:[]) = Nothing
-
+    trimIntersections [_,_,_] = Nothing
+    trimIntersections _ = error "unpossible!"
