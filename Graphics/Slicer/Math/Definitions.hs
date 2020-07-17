@@ -24,7 +24,7 @@
 
 module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointSequence), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, magnitude, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2) where
 
-import Prelude (Eq, (++), Monoid(mempty, mappend), Semigroup((<>)), Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/))
+import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/))
 
 import GHC.Generics (Generic)
 
