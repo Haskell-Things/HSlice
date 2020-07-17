@@ -106,8 +106,8 @@ coveringLinesPositive :: Contour -> ℝ -> [Line]
 coveringLinesPositive (PointSequence contourPoints) ls = flip Line s . f <$> [0,lsY..yMax + xMax]
     where s =  Point2 (xMaxOutside + yMaxOutside,- xMaxOutside - yMaxOutside)
           f v = Point2 (0,v)
-          yMax = maximum $ yOf <$> contourPoints
           xMax = maximum $ xOf <$> contourPoints
+          yMax = maximum $ yOf <$> contourPoints
           xMaxOutside = xMax + ls
           yMaxOutside = yMax + ls
           lsY = sqrt $ ls*ls+ls*ls
@@ -132,8 +132,8 @@ coveringLinesHorizontal (PointSequence contourPoints) ls = flip Line s . f <$> [
           f v = Point2 (0,v)
           yMinRaw = minimum $ yOf <$> contourPoints
           yMin = head $ filter (> yMinRaw) [0,ls..]
-          yMax = maximum $ yOf <$> contourPoints
           xMax = maximum $ xOf <$> contourPoints
+          yMax = maximum $ yOf <$> contourPoints
           xMaxOutside = xMax + ls
 
 

@@ -226,28 +226,14 @@ contourContainsContour parent child = if odd noIntersections then Just child els
     saneIntersection (HitEndpointL2 p2) = Just p2
     saneIntersection Parallel = Nothing 
     saneIntersection NoIntersection = Nothing
-    saneIntersection res = error $ "insane result determining whether a contour contains a contour: " <> show res <> "\n"
+    saneIntersection res = error $ "insane result determining whether contour: " <> show parent <> "\n contains a contour: " <> show child <> "\nResult: " <> show res <> "\n"
     innerPointOf contour = innerPerimeterPoint 0.0001 contour $ oneLineOf contour
       where
         oneLineOf (PointSequence contourPoints) = head $ makeLines contourPoints
 
 -- | determine whether a contour is contained by another contour.
 contourContainedByContour :: Contour -> Contour -> Maybe Contour
-contourContainedByContour child parent = if odd noIntersections then Just child else Nothing
-  where
-    noIntersections = length $ getContourLineIntersections parent $ lineToEdge $ innerPointOf child
-    lineToEdge p = lineFromEndpoints p (Point2 (0,0))
-    getContourLineIntersections :: Contour -> Line -> [Point2]
-    getContourLineIntersections (PointSequence contourPoints) line = catMaybes $ saneIntersection . lineIntersection line <$> makeLinesLooped contourPoints
-    saneIntersection :: Intersection -> Maybe Point2
-    saneIntersection (IntersectsAt _ p2) = Just p2
-    saneIntersection (HitEndpointL2 p2) = Just p2
-    saneIntersection Parallel = Nothing 
-    saneIntersection NoIntersection = Nothing
-    saneIntersection res = error $ "insane result determining whether a contour is contained by a contour: " <> show res <> "\n"
-    innerPointOf contour = innerPerimeterPoint 0.0001 contour $ oneLineOf contour
-      where
-        oneLineOf (PointSequence contourPoints) = head $ makeLines contourPoints
+contourContainedByContour child parent = contourContainsContour parent child
 
 -- | Does a given line, in the direction it is given, enter from outside of a contour to inside of a contour, through a given point?
 -- | Used to check the corner case of corner cases.

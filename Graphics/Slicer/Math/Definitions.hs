@@ -39,12 +39,7 @@ newtype Point3 = Point3 ℝ3
 newtype Point2 = Point2 ℝ2
   deriving (Eq, Generic, NFData, Show)
 
--- A single Point in 2D projective space.
--- 2D coresponds to a Clifford algebra of 2,0,1.
-newtype PPoint2 = PPoint2 ℝ3
-  deriving (Generic, NFData, Show)
-
--- | A typeclass containing our basic point algebra functions.
+-- | A typeclass containing our basic linear algebra functions.
 class LinAlg p where
   magnitude  :: p -> ℝ
   -- Distance between two points. needed for the equivilence instance of line, and to determine amount of extrusion.
@@ -76,15 +71,15 @@ class PlanePoint p where
   yOf :: p -> ℝ
 
 -- | functions for getting a point's position on a 2D plane. If the point is 3d, assume the plane is aligned with the xy basis axes.
+instance PlanePoint Point3 where
+  xOf (Point3 (x,_,_)) = x
+  yOf (Point3 (_,y,_)) = y
+
 instance PlanePoint Point2 where
   xOf (Point2 (x,_))   = x
   {-# INLINABLE xOf #-}
   yOf (Point2 (_,y))   = y
   {-# INLINABLE yOf #-}
-
-instance PlanePoint Point3 where
-  xOf (Point3 (x,_,_)) = x
-  yOf (Point3 (_,y,_)) = y
 
 class SpacePoint p where
   zOf :: p -> ℝ
@@ -98,13 +93,6 @@ instance SpacePoint Point3 where
 newtype Contour =
   PointSequence [Point2]
   deriving (Eq, Generic, NFData, Show)
-
-instance Semigroup Contour where
-  (<>) (PointSequence a) (PointSequence b) = PointSequence (a ++ b)
-
-instance Monoid Contour where
-  mempty = PointSequence []
-  mappend = (<>)
 
 -- round a value
 roundToFifth :: ℝ -> ℝ
