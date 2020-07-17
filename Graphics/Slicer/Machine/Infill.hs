@@ -143,7 +143,8 @@ coveringLinesHorizontal (PointSequence contourPoints) ls = flip Line s . f <$> [
 
 -- Generate support
 -- FIXME: hard coded infill amount.
--- FIXME: should be one string.
+-- FIXME: should be one string of plastic in most cases.
+-- FIXME: support needs a complete rewrite.
 makeSupport :: Contour
             -> [Contour]
             -> ℝ
@@ -156,7 +157,7 @@ makeSupport contour childContours lh ls = fmap (shortenLineBy $ 2 * lh)
 -- A bounding box. a box around a contour.
 data BBox = BBox ℝ2 ℝ2
 
--- Check if a bounding box is empty.
+-- | Check if a bounding box is empty.
 isEmptyBBox :: BBox -> Bool
 isEmptyBBox (BBox (x1,y1) (x2,y2)) = x1 == x2 || y1 == y2
 
@@ -171,7 +172,7 @@ boundingBoxAll contours = if isEmptyBBox box then Nothing else Just box
       maxY = maximum $ (\(BBox _ (_,y2)) -> y2) <$> bBoxes
       bBoxes = mapMaybe boundingBox contours
 
--- Get a 2D bounding box of a 2D contour.
+-- Get a bounding box of a contour.
 boundingBox :: Contour -> Maybe BBox
 boundingBox (PointSequence []) = Nothing
 boundingBox (PointSequence contourPoints) = if isEmptyBBox box then Nothing else Just box
@@ -182,7 +183,7 @@ boundingBox (PointSequence contourPoints) = if isEmptyBBox box then Nothing else
     maxX = maximum $ xOf <$> contourPoints
     maxY = maximum $ yOf <$> contourPoints
 
--- add a 2D bounding box to a list of contours, as the first contour in the list.
+-- add a bounding box to a list of contours, as the first contour in the list.
 -- FIXME: what is this for?
 addBBox :: [Contour] -> [Contour]
 addBBox contours = PointSequence [Point2 (x1,y1), Point2 (x2,y1), Point2 (x2,y2), Point2 (x1,y2), Point2 (x1,y1)] : contours

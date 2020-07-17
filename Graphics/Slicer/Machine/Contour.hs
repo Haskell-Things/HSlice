@@ -40,7 +40,7 @@ import Graphics.Slicer.Definitions(ℝ)
 -------------------- Contour Optimizer ------------------------
 ---------------------------------------------------------------
 
--- Contour optimizer. Merges small line fragments into larger ones.
+-- | Contour optimizer. Merges line segments that are colinear.
 cleanContour :: Contour -> Maybe Contour
 cleanContour (PointSequence points)
   | length (cleanPoints points) > 2 = Just $ PointSequence $ cleanPoints points
@@ -59,7 +59,7 @@ cleanContour (PointSequence points)
 -------------------- Contour Modifiers ------------------------
 ---------------------------------------------------------------
 
--- like map, only with previous, current, and next item, and wrapping around so the first entry gets the last entry as previous, and vica versa.
+-- | like map, only with previous, current, and next item, and wrapping around so the first entry gets the last entry as previous, and vica versa.
 mapWithNeighbors :: (a -> a -> a -> b) -> [a] -> [b]
 mapWithNeighbors  f l =
     let
@@ -75,11 +75,11 @@ data Direction =
   | Outward
   deriving (Eq)
 
--- reduce a contour by a given amount.
+-- | Generate a new contour that is a given amount smaller than the given contour.
 shrinkContour :: ℝ -> [Contour] -> Contour -> Maybe Contour
 shrinkContour amount allContours contour = fst $ modifyContour amount allContours contour Inward
 
--- increase a contour by a given amount.
+-- | Generate a new contour that is a given amount larger than the given contour.
 expandContour :: ℝ -> [Contour] -> Contour -> Maybe Contour
 expandContour amount allContours contour = fst $ modifyContour amount allContours contour Outward
 
@@ -90,7 +90,7 @@ expandContour amount allContours contour = fst $ modifyContour amount allContour
 findExtraContours :: Contour -> Contour -> [Contour]
 findExtraContours _ _ = []
 
--- Add one contour inside or outside of a given contour, in a naieve fashion.
+-- | Generate a new contour that is a given amount larger/smaller than the given contour, in a naieve fashion.
 modifyContour :: ℝ -> [Contour] -> Contour -> Direction -> (Maybe Contour,[Contour])
 modifyContour pathWidth allContours contour@(PointSequence contourPoints) direction = if null foundContour then (Nothing, []) else (Just $ PointSequence $ pointsFromLines foundContour,[])
   where

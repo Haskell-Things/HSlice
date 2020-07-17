@@ -58,6 +58,7 @@ default (ℕ, Fastℕ, ℝ)
 --------------------- GCode Generation ------------------
 ---------------------------------------------------------
 
+-- | A single gcode statement.
 data GCode =
     GCMove2 { _startPoint2 :: ℝ2, _stopPoint2 :: ℝ2 }
   | GCMove3 { _startPoint3 :: ℝ3, _stopPoint3 :: ℝ3 }
@@ -73,13 +74,15 @@ data GCode =
   | GCMarkInfillStart
   deriving (Eq, Generic, NFData)
 
+-- FIXME: move this to the proper place in ImplicitCAD.
 instance NFData Fastℕ where
   rnf a = seq a ()
 
+-- | The dimensions of a section of material to be extruded.
 data RawExtrude = RawExtrude { _pathLength :: ℝ, _pathWidth :: ℝ, _pathHeight :: ℝ }
   deriving (Eq, Generic, NFData)
 
--- Calculate the extrusion values for all of the GCodes that extrude.
+-- | Calculate the extrusion values for all of the GCodes that extrude.
 cookExtrusions :: Extruder -> [GCode] -> Fastℕ -> StateM [GCode]
 cookExtrusions extruder gcodes threads = do
   currentPos <- fromRational <$> getEPos
@@ -106,15 +109,16 @@ cookExtrusions extruder gcodes threads = do
     calculateExtrusion _ = 0
     filamentDia = filamentWidth extruder
 
--- travel to a point without extruding
+
+-- | Construct a GCode to travel to a point without extruding (2D)
 make2DTravelGCode :: Point2 -> Point2 -> GCode
 make2DTravelGCode (Point2 (x1,y1)) (Point2 (x2,y2)) = GCMove2 (x1,y1) (x2,y2)
 
+-- | Construct a GCode to travel to a point without extruding (3D)
 make3DTravelGCode :: Point3 -> Point3 -> GCode
 make3DTravelGCode (Point3 p1) (Point3 p2) = GCMove3 p1 p2
 
--- GCode to travel to a point while extruding.
--- FIXME: assumes pathwidth == nozzle diameter, which is clearly wrong...
+-- | Construct a GCode to travel to a point while extruding.
 make2DExtrudeGCode :: ℝ -> ℝ -> Point2 -> Point2 -> GCode
 make2DExtrudeGCode pathThickness pathWidth p1 p2 = GCRawExtrude2 (x1, y1) (x2, y2) (RawExtrude pathLength pathWidth pathThickness)
   where
@@ -123,17 +127,17 @@ make2DExtrudeGCode pathThickness pathWidth p1 p2 = GCRawExtrude2 (x1, y1) (x2, y
     (x2,y2) = flatten p2
     flatten (Point2 (xp, yp)) = (xp, yp)
 
--- Add a feedrate to a gcode.
+-- | Add a feedrate to a piece of gcode.
 addFeedRate :: ℝ -> GCode -> GCode
 addFeedRate = GCFeedRate
 
--- render a value to ByteString, in the number of characters that are suitable to use in a gcode file. drops trailing zeroes, and the decimal, if there is no fractional component.
+-- | Render a value to ByteString, in the precision that is suitable to use in a gcode file. drops trailing zeroes, and the decimal, if there is no fractional component.
 posIze :: ℝ -> ByteString
 posIze pos
   | pos == 0 = "0"
   | otherwise = fst $ spanEnd (== '.') $ fst $ spanEnd (== '0') $ toFixed 5 pos
 
--- render a gcode into a piece of text.
+-- | Render a GCode into a piece of text, ready to print. Only handles 'cooked' gcode, that has had extrusion values calculated.
 gcodeToText :: GCode -> ByteString
 gcodeToText (GCFeedRate f (GCMove2 (x1,y1) (x2,y2))) = "G0 F" <> posIze f <> " " <> (if x1 /= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 /= y2 then "Y" <> posIze y2 <> " " else "")
 gcodeToText (GCFeedRate f wtf) = error "applying feedrate " <> posIze f <> " to something other than a GCmove2: " <> gcodeToText wtf
@@ -154,16 +158,15 @@ gcodeToText GCMarkSupportStart = ";TYPE:SUPPORT"
 -- The interior of an object. should only contact inner parameters, skin, or outer paremeters.
 gcodeToText GCMarkInfillStart = ";TYPE:FILL"
 
--- Generate G-Code for a given contour.
--- Assumes the printer is already at the first point.
--- Also assumes contours that have points.
+-- | Generate GCode for a given contour.
+-- Assumes the printer is already at the first point of the contour.
 gcodeForContour :: ℝ -> ℝ -> Contour -> [GCode]
 gcodeForContour lh pathWidth (PointSequence contourPoints)
   | length contourPoints > 1  = zipWith (make2DExtrudeGCode lh pathWidth) (init contourPoints) (tail contourPoints)
   | length contourPoints == 1 = error $ "Given a contour with a single point in it:" <> show contourPoints <> "\n"
   | otherwise                 = []
 
--- for each group of lines, generate gcode for the segments, with move commands between them.
+-- | For each group of lines, generate gcode for the segments, with move commands between them.
 gcodeForInfill :: ℝ -> ℝ -> [[Line]] -> [GCode]
 gcodeForInfill _ _ [] = []
 gcodeForInfill lh pathWidth lineGroups = concat $ renderLineGroup (head lineGroups) : zipWith (\group1 group2 -> moveBetweenLineGroups group1 group2 ++ renderLineGroup group2) (init lineGroups) (tail lineGroups)

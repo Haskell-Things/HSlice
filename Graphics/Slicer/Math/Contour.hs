@@ -35,22 +35,32 @@ import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, lineIntersectio
 
 import Graphics.Implicit.Definitions (ℝ)
 
--- A contour is a closed loop of lines on a layer.
-
-
 -- Unapologetically ripped from ImplicitCAD.
--- FIXME: merge this back into ImplicitCAD.
+-- Added the ability to look at segments backwards.
+
+-- | The goal of getLoops is to extract loops from a list of segments.
+--   The input is a list of segments.
+--   The output a list of loops, where each loop is a list of
+--   segments, which each piece representing a "side".
+
+-- For example:
+-- Given points [[1,2],[5,1],[3,4,5], ... ]
+-- notice that there is a loop 1,2,3,4,5... <repeat>
+-- But we give the output [ [ [1,2], [3,4,5], [5,1] ], ... ]
+-- so that we have the loop, and also knowledge of how
+-- the list is built (the "sides" of it).
+
 getLoops :: (Show a, Eq a) => [[a]] -> [[[a]]]
 getLoops a = getLoops' a []
 
 -- We will be actually doing the loop extraction with
 -- getLoops'
 
--- getLoops' has a first argument of the segments as before,
--- but a *second argument* which is the loop presently being
--- built.
+-- | getLoops' has a first argument of the segments as before,
+--   but a second argument which is the loop presently being
+--   constructed.
 
--- so we begin with the "building loop" being empty.
+-- | so we begin with the "building loop" being empty.
 getLoops' :: (Show a, Eq a) => [[a]] -> [[a]] -> [[[a]]]
 
 -- | If there aren't any segments, and the "building loop" is empty, produce no loops.
@@ -64,8 +74,8 @@ getLoops' (x:xs) [] = getLoops' xs [x]
 getLoops' segs workingLoop
   | head (head workingLoop) == last (last workingLoop) = workingLoop : getLoops' segs []
 
--- Finally, we search for pieces that can continue the working loop,
--- and stick one on if we find it.
+-- | Finally, we search for pieces that can continue the working loop,
+-- | and stick one on if we find it.
 -- Otherwise... something is really screwed up.
 getLoops' segs workingLoop =
   let
@@ -188,9 +198,11 @@ lineToOutsideContour (PointSequence contourPoints) outsideDistance m p = head $ 
       xMax = xMaxRaw + outsideDistance
       yMax = yMaxRaw + outsideDistance
 
+-- | a contour tree. A contour, which contains a list of contours that are cut out of the first contour, each of them contaiting a list of contours of positive space.. recursively.
 newtype ContourTree = ContourTree (Contour, [ContourTree])
   deriving (Show)
 
+-- | Contstruct a set of contour trees. that is to say, a set of contours, containing a set of contours that is negative space, containing a set of contours that is positive space..
 makeContourTree :: [Contour] -> [ContourTree]
 makeContourTree []        = []
 makeContourTree [contour] = [ContourTree (contour, [])]
@@ -199,7 +211,7 @@ makeContourTree contours  = [ContourTree (foundContour, makeContourTree $ contou
     contoursWithAncestor cs c = mapMaybe (contourContainsContour c) $ filter (/=c) cs
     contoursWithoutParents cs = catMaybes $ [if null $ mapMaybe (contourContainedByContour contourToCheck) (filter (/=contourToCheck) cs) then Just contourToCheck else Nothing | contourToCheck <- cs ]
 
--- determine whether a contour is inside of another contour.
+-- | determine whether a contour is contained inside of another contour.
 contourContainsContour :: Contour -> Contour -> Maybe Contour
 contourContainsContour parent child = if odd noIntersections then Just child else Nothing
   where
@@ -219,7 +231,7 @@ contourContainsContour parent child = if odd noIntersections then Just child els
       where
         oneLineOf (PointSequence contourPoints) = head $ makeLines contourPoints
 
--- determine whether a contour is inside of another contour.
+-- | determine whether a contour is contained by another contour.
 contourContainedByContour :: Contour -> Contour -> Maybe Contour
 contourContainedByContour child parent = if odd noIntersections then Just child else Nothing
   where
@@ -237,8 +249,8 @@ contourContainedByContour child parent = if odd noIntersections then Just child 
       where
         oneLineOf (PointSequence contourPoints) = head $ makeLines contourPoints
 
--- Does a given line, in the direction it is given, enter from outside of a contour to inside of a contour, through a given point?
--- Used to check the corner case of corner cases.
+-- | Does a given line, in the direction it is given, enter from outside of a contour to inside of a contour, through a given point?
+-- | Used to check the corner case of corner cases.
 lineEntersContour :: Line -> Intersection -> Contour -> Bool
 lineEntersContour (Line _ m) intersection contour@(PointSequence contourPoints) = lineBetween lineFrom searchDirection continuation lineToInverted
   where

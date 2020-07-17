@@ -55,7 +55,8 @@ class LinAlg p where
   scalePoint :: ℝ -> p -> p
   -- Are these points the same point, after rounding for printing?
   (~=)       :: p -> p -> Bool
-  
+
+-- | perform linear algebra on 3D points.
 instance LinAlg Point3 where
   magnitude (Point3 (x1,y1,z1)) = sqrt $ x1 * x1 + y1 * y1 + z1 * z1
   distance p1 p2 = magnitude $ addPoints p1 (scalePoint (-1) p2)
