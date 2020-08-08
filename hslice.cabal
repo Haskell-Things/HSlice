@@ -34,6 +34,7 @@ Library
     Exposed-Modules:
                     Graphics.Slicer
                     Graphics.Slicer.Math.Definitions
+                    Graphics.Slicer.Math.PGA
                     Graphics.Slicer.Machine.StateM
                     Graphics.Slicer.Machine.Infill
                     Graphics.Slicer.Machine.Contour
