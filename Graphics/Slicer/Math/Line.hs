@@ -82,7 +82,7 @@ lineIntersection (Line p r) (Line q s)
   where t = twoDCrossProduct (addPoints q (scalePoint (-1) p)) s / twoDCrossProduct r s
         u = twoDCrossProduct (addPoints q (scalePoint (-1) p)) r / twoDCrossProduct r s
 
--- Create a line given its endpoints
+-- | Create a line given it's endpoints.
 lineFromEndpoints :: Point2 -> Point2 -> Line
 lineFromEndpoints p1 p2
   | p1 == p2 = error $ "Trying to create a line from two identical points: " <> show p1 <> "\n"
