@@ -50,11 +50,11 @@ data GNum =
 
 -- A value in geometric algebra
 data GVal = GVal { _real :: ℝ, _basis :: [GNum] }
-  deriving (Eq, Generic, NFData, Show)
+  deriving (Eq, Generic, NFData, Show, Ord)
 
 -- A vector in geometric algebra.
 newtype GVec = GVec [GVal]
-  deriving (Eq, Generic, NFData, Show)
+  deriving (Eq, Generic, NFData, Show, Ord)
 
 -- add two geometric values together.
 addValPair :: GVal -> GVal -> [GVal]
@@ -91,9 +91,21 @@ mulScalarVec s (GVec vals) = GVec $ map (mulVal s) vals
   where
     mulVal s1 v@(GVal r i) = GVal (s1*r) i
 
+-- FIXME: implement this:
+-- magnitudeVec :: GVec -> GVec -> ℝ
+
 -- Generate the dot product of a vector pair.
+-- actually a wrapper to expose the fact that gvec1 `dotVecPair` gvec2 == gvec2 `dotVecPair` gvec1.
 dotVecPair :: GVec -> GVec -> ℝ
-dotVecPair (GVec vals1) (GVec vals2) = foldl (+) 0 $ map (mulMatchingBasis vals1) vals2
+dotVecPair a b
+  | a > b     = dotVecPair' a b
+-- FIXME: two equal vectors == magnitude of the vector, squared.
+--  | a = b     =
+  | otherwise = dotVecPair' b a
+
+-- Generate the dot product of a vector pair.
+dotVecPair' :: GVec -> GVec -> ℝ
+dotVecPair' (GVec vals1) (GVec vals2) = foldl (+) 0 $ map (mulMatchingBasis vals1) vals2
   where
     mulMatchingBasis vals val@(GVal _ i)
       | notGreater val vals == []               = 0
@@ -136,9 +148,11 @@ wedgeVecPair vec1 vec2 = GVec $ foldl addVals [(head results)] (tail results)
     iOf (GVal _ i) = i
     rOf (GVal r _) = r
 
+-- the dot product is the inner product in geometric algebra terms.
 innerProduct :: GVec -> GVec -> ℝ
 innerProduct = dotVecPair
 
+-- Our outer product always generates a (bi)vector, where the basis vector order is derived from the Ord of GNum of the basis vectors.
 outerProduct' :: GVec -> GVec -> GVec
 outerProduct' = wedgeVecPair
 
