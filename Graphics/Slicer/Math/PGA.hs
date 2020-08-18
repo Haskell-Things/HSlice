@@ -21,9 +21,9 @@
 -- for adding Generic and NFData to Point.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero, G0), GVal, GVec, addVals, addVecs, mulScalarVec, innerProduct, outerProduct') where
+module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero, G0), GVal, GVec, addValPair, addVals, addVecs, mulScalarVec, innerProduct, outerProduct, geometricProduct, projectContour) where
 
-import Prelude (Eq, Show, Ord, error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, flip, not, (>), (*), concatMap, length, (-), (&&), (<$>), minimum, maximum, (/), null, odd, (<=), fst, snd)
+import Prelude (Eq, Show, Ord, error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd)
 
 import GHC.Generics (Generic)
 
@@ -33,7 +33,7 @@ import Data.List.Ordered(sort, insertSet)
 
 import Graphics.Slicer.Definitions (ℝ, Fastℕ)
 
-import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence), xOf, yOf)
+import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence))
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -68,39 +68,40 @@ isVec vec =
     allBasisVectors (GVec vals) = concatMap (\v -> iOf v) vals
 -}
 
--- add two geometric values together.
+-- | add two geometric values together.
 addValPair :: GVal -> GVal -> [GVal]
 addValPair v1@(GVal r1 i1) v2@(GVal r2 i2)
   | i1 == i2  = [GVal (r1+r2) i1]
   | otherwise = sort [v1,v2]
 
--- Add a value to a list of values. assumes the list of values is in order by imaginary component, so we can find items with matching imaginary components easily.
+-- | Add a geometric value to a list of geometric values. assumes the list of values is in order by basis vector, so we can find items with matching basis vectors easily.
 addVals :: [GVal] -> GVal -> [GVal]
 addVals dst src
-  | not $ null $ sameBasis src dst = insertSet (GVal (foldl (+) (rOf src) (map rOf $ sameBasis src dst)) $ iOf src) $ diffBasis src dst
+  | not $ null $ sameBasis src dst = insertSet (GVal (foldl (+) (rOf src) (rOf <$> sameBasis src dst)) $ iOf src) $ diffBasis src dst
   | otherwise                      = insertSet src dst
   where
     sameBasis :: GVal -> [GVal] -> [GVal]
-    sameBasis val vals = filter (\(GVal r i) -> i == iOf val) vals
+    sameBasis val vals = filter (\(GVal _ i) -> i == iOf val) vals
     diffBasis :: GVal -> [GVal] -> [GVal]
-    diffBasis val vals = filter (\(GVal r i) -> i /= iOf val) vals
+    diffBasis val vals = filter (\(GVal _ i) -> i /= iOf val) vals
     iOf (GVal _ i) = i
     rOf (GVal r _) = r
 
+-- | Add two vectors together.
 addVecs :: GVec -> GVec -> GVec
 addVecs (GVec vals1) (GVec vals2) = GVec $ foldl addVals vals1 vals2 
 
--- multiply a vector. given in this order for maximum readability.
+-- | multiply a vector by a scalar. arguments are given in this order for maximum readability.
 mulScalarVec :: ℝ -> GVec -> GVec
-mulScalarVec s (GVec vals) = GVec $ map (mulVal s) vals
+mulScalarVec s (GVec vals) = GVec $ (mulVal s) <$> vals
   where
     mulVal s1 (GVal r i) = GVal (s1*r) i
 
 -- FIXME: implement this:
 -- magnitudeVec :: GVec -> GVec -> ℝ
 
--- Generate the dot product of a vector pair.
--- actually a wrapper to expose the fact that gvec1 `dotVecPair` gvec2 == gvec2 `dotVecPair` gvec1.
+-- | Calculate the dot product of a vector pair.
+-- actually a wrapper to make use of the fact that gvec1 `dotVecPair` gvec2 == gvec2 `dotVecPair` gvec1.
 dotVecPair :: GVec -> GVec -> ℝ
 dotVecPair a b
   | a > b     = dotVecPair' a b
@@ -110,13 +111,13 @@ dotVecPair a b
 
 -- Generate the dot product of a vector pair.
 dotVecPair' :: GVec -> GVec -> ℝ
-dotVecPair' (GVec vals1) (GVec vals2) = foldl (+) 0 $ map (mulMatchingBasis vals1) vals2
+dotVecPair' (GVec vals1) (GVec vals2) = foldl (+) 0 $ (mulMatchingBasis vals1) <$> vals2
   where
     mulMatchingBasis vals val
-      | not $ null $ sameBasis val vals = foldl (*) (rOf val) (map rOf $ sameBasis val vals)
+      | not $ null $ sameBasis val vals = foldl (*) (rOf val) (rOf <$> sameBasis val vals)
       | otherwise                       = 0
     sameBasis :: GVal -> [GVal] -> [GVal]
-    sameBasis val vals = filter (\(GVal r i) -> i == iOf val) vals
+    sameBasis val vals = filter (\(GVal _ i) -> i == iOf val) vals
     iOf (GVal _ i) = i
     rOf (GVal r _) = r
 
@@ -131,7 +132,7 @@ wedgeVecPair vec1 vec2 = GVec $ foldl addVals [(head results)] (tail results)
     allBasisVectors (GVec vals) = concatMap (\v -> iOf v) vals
     -- Add in missing basis vectors to ensure the given vector has a value in each of the given basis vectors.
     addMissing :: GVec -> [GNum] -> GVec
-    addMissing (GVec vals) nums = GVec $ map (emptyIfMissing nums) vals
+    addMissing (GVec vals) nums = GVec $ (emptyIfMissing nums) <$> vals
     emptyIfMissing :: [GNum] -> GVal -> GVal
     emptyIfMissing bvecs val@(GVal _ i) = if filter (\v -> [v] == i) bvecs == []
                                          then GVal 0 i
@@ -141,15 +142,15 @@ wedgeVecPair vec1 vec2 = GVec $ foldl addVals [(head results)] (tail results)
     wedgeVecPair' (GVec v1) (GVec v2) = filterZeroes $ concatMap (crossWedgeDiff v1) $ filterZeroes v2
       where
         crossWedgeDiff :: [GVal] -> GVal -> [GVal]
-        crossWedgeDiff vals (GVal r1 i1) = filterZeroes $ map ( \v2@(GVal r2 i2) -> sortBasis $ GVal (r1*r2) (i2++i1) ) $ filter (\v2 -> not $ iOf v2 == i1) vals
+        crossWedgeDiff vals (GVal r1 i1) = filterZeroes $ ( \(GVal r2 i2) -> sortBasis $ GVal (r1*r2) (i2++i1) ) <$> filter (\(GVal _ i2) -> not $ i2 == i1) vals
         filterZeroes = filter (\v -> not $ rOf v == 0)
     iOf (GVal _ i) = i
     rOf (GVal r _) = r
 
--- for a multi-basis vectorwhere each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
+-- for a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
 -- really a mutant form of quicksort.
 sortBasis :: GVal -> GVal
-sortBasis val@(GVal r i) = if odd flipR then GVal (-r) newI else GVal r newI
+sortBasis (GVal r i) = if odd flipR then GVal (-r) newI else GVal r newI
   where
     newI :: [GNum]
     (flipR, newI) = sortBasis' (0,i)
@@ -168,9 +169,15 @@ sortBasis' (_,x:xs) = if lowerBasis == (0,[]) then ((sumFlips higherBasis), x:(n
 innerProduct :: GVec -> GVec -> ℝ
 innerProduct = dotVecPair
 
--- Our outer product always generates a (bi)vector, where the basis vector order is derived from the Ord of GNum of the basis vectors.
-outerProduct' :: GVec -> GVec -> GVec
-outerProduct' = wedgeVecPair
+-- the outer product always generates a (bi)vector, where the basis vector order is derived from the Ord of GNum of the basis vectors.
+outerProduct :: GVec -> GVec -> GVec
+outerProduct = wedgeVecPair
+
+data GProduct = GProduct ℝ GVec
+  deriving (Eq, Generic, NFData, Show, Ord)
+
+geometricProduct :: GVec -> GVec -> GProduct 
+geometricProduct v1 v2 = GProduct (innerProduct v1 v2) (outerProduct v1 v2)
 
 -- | A single Point in 2D geometric space.
 newtype GPoint2 = GPoint2 GVec
@@ -198,8 +205,8 @@ toOriginPoint (Point2 (x,y)) = GPoint3 $ GVec $ [ GVal x $ [GEMinus 1], GVal y $
 
 
 -- | Create a 2D projective point from a linear point.
-toProjectivePoint :: GPoint2 -> GPoint3 -> PPoint2
-toProjectivePoint p1 p2 = PPoint2 p1 p2 
+toProjectivePoint :: GPoint3 -> GPoint2 -> PPoint2
+toProjectivePoint p1 p2 = PPoint2 p2 p1 
 
 -- Calculate the Point where two lines meet.
 meetLines :: PLine2 -> PLine2 -> PPoint2
@@ -225,17 +232,11 @@ data PContour =
   deriving (Eq, Generic, NFData, Show)
 
 -- | Create a projective contour, from a linear (point based) contour.
---projectContour :: Contour -> PContour
-projectContour (PointSequence points) = map ((flip toProjectivePoint) pOrigin) $ map toGeometricPoint points
+-- Use the same center point for all layers to make use of haskell's laziness.
+--projectContour :: Contour -> Point2 -> PContour
+projectContour (PointSequence points) centerPoint = (toProjectivePoint $ toOriginPoint centerPoint) <$> map toGeometricPoint points
   where
     plineFromPoints p1@(Point2 (x1,y1)) p2@(Point2 (x2,y2)) = error "not yet implemented." -- joinPoints (goemetricPoint 
-    pOrigin = toOriginPoint $ Point2 (xMin+((xMax-xMin)/2), yMin+((yMax-yMin)/2)) 
-      where
-        xMin = minimum $ xOf <$> points
-        xMax = maximum $ xOf <$> points
-        yMin = minimum $ yOf <$> points
-        yMax = maximum $ yOf <$> points
-
 
 -- | Create a line given it's endpoints.
 plineFromEndpoints :: PPoint2 -> PPoint2 -> PLine2
