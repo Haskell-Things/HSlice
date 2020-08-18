@@ -173,9 +173,11 @@ innerProduct = dotVecPair
 outerProduct :: GVec -> GVec -> GVec
 outerProduct = wedgeVecPair
 
+-- | The geometric product. A real plus a bivector.
 data GProduct = GProduct ℝ GVec
   deriving (Eq, Generic, NFData, Show, Ord)
 
+-- | Calculate the geometric product of two vectors.
 geometricProduct :: GVec -> GVec -> GProduct 
 geometricProduct v1 v2 = GProduct (innerProduct v1 v2) (outerProduct v1 v2)
 
@@ -204,23 +206,23 @@ toOriginPoint :: Point2 -> GPoint3
 toOriginPoint (Point2 (x,y)) = GPoint3 $ GVec $ [ GVal x $ [GEMinus 1], GVal y $ [GEPlus 1], GVal 1 $ [GEZero 1]]
 
 
--- | Create a 2D projective point from a linear point.
+-- | Create a 2D projective point from a 2D geometric point, and a 3D geometric origin point.
 toProjectivePoint :: GPoint3 -> GPoint2 -> PPoint2
-toProjectivePoint p1 p2 = PPoint2 p2 p1 
+toProjectivePoint p1 p2 = PPoint2 p2 p1
 
--- Calculate the Point where two lines meet.
+-- | Calculate the Point where two lines meet.
 meetLines :: PLine2 -> PLine2 -> PPoint2
 meetLines = error "not yet implemented"
 
--- Calculate the line on which the two points reside.
+-- | Calculate the line on which the two points reside.
 joinPoints :: PPoint2 -> PPoint2 -> PLine2
 joinPoints p1 p2 = dualPoint $ meetLines (dualPoint p1) (dualPoint p2)
 
--- Convert from a PLine to it's associated projective point.
+-- | Convert from a PLine to it's associated projective point.
 dualLine :: PLine2 -> PPoint2
 dualLine (PLine2 inPlane origin) = PPoint2 inPlane origin
 
--- Convert from a PPoint2 to it's associated projective Line.
+-- | Convert from a PPoint2 to it's associated projective Line.
 dualPoint :: PPoint2 -> PLine2
 dualPoint (PPoint2 inPlane origin) = PLine2 inPlane origin
 
