@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero, G0), GVal, GVec, addValPair, addVals, addVecs, mulScalarVec, innerProduct, outerProduct, geometricProduct, projectContour) where
 
-import Prelude (Eq, Show, Ord, error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd)
+import Prelude (Eq, Show, Ord(compare), Ordering(EQ), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd)
 
 import GHC.Generics (Generic)
 
@@ -52,7 +52,12 @@ data GNum =
 
 -- A value in geometric algebra
 data GVal = GVal { _real :: ℝ, _basis :: [GNum] }
-  deriving (Eq, Generic, NFData, Show, Ord)
+  deriving (Eq, Generic, NFData, Show)
+
+instance Ord GVal where
+  val1@(GVal r1 i1) `compare` val2@(GVal r2 i2)
+    | compare i1 i2 == EQ = compare r1 r2
+    | otherwise           = compare i1 i2
 
 -- A (multi)vector in geometric algebra.
 newtype GVec = GVec [GVal]
