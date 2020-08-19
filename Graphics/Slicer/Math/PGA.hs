@@ -31,6 +31,8 @@ import Control.DeepSeq (NFData(rnf))
 
 import Data.List.Ordered(sort, insertSet)
 
+import Data.Maybe (Maybe(Just, Nothing))
+
 import Graphics.Slicer.Definitions (ℝ, Fastℕ)
 
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence))
@@ -127,8 +129,10 @@ dotVecPair' (GVec vals1) (GVec vals2) = foldl (+) 0 $ (mulMatchingBasis vals1) <
     rOf (GVal r _) = r
 
 -- generate the wedge product of a vector pair.
-wedgeVecPair :: GVec -> GVec -> GVec
-wedgeVecPair vec1 vec2 = GVec $ foldl addVals [(head results)] (tail results) 
+wedgeVecPair :: GVec -> GVec -> Maybe GVec
+wedgeVecPair vec1 vec2 = if null results
+                         then Nothing
+                         else Just $ GVec $ foldl addVals [(head results)] (tail results) 
   where
     results = wedgeVecPair' (addMissing vec1 combined) (addMissing vec2 combined)
     combined :: [GNum]
@@ -139,7 +143,7 @@ wedgeVecPair vec1 vec2 = GVec $ foldl addVals [(head results)] (tail results)
     addMissing :: GVec -> [GNum] -> GVec
     addMissing (GVec vals) nums = GVec $ (emptyIfMissing nums) <$> vals
     emptyIfMissing :: [GNum] -> GVal -> GVal
-    emptyIfMissing bvecs val@(GVal _ i) = if filter (\v -> [v] == i) bvecs == []
+    emptyIfMissing bvecs val@(GVal _ i) = if null $ filter (\v -> [v] == i) bvecs
                                          then GVal 0 i
                                          else val
     -- now that we have an equal number of basis vectors, cycle through one list, and generate a pair with the second list when the two basis vectors are not the same.
@@ -175,11 +179,11 @@ innerProduct :: GVec -> GVec -> ℝ
 innerProduct = dotVecPair
 
 -- the outer product always generates a (bi)vector, where the basis vector order is derived from the Ord of GNum of the basis vectors.
-outerProduct :: GVec -> GVec -> GVec
+outerProduct :: GVec -> GVec -> Maybe GVec
 outerProduct = wedgeVecPair
 
 -- | The geometric product. A real plus a bivector.
-data GProduct = GProduct ℝ GVec
+data GProduct = GProduct ℝ (Maybe GVec)
   deriving (Eq, Generic, NFData, Show, Ord)
 
 -- | Calculate the geometric product of two vectors.
