@@ -42,7 +42,7 @@ LIBBUILD=$(shell find ${LIBDIR} -name '*.hi')
 LIBTARGET=${BUILDROOT}/build/${LIBDIR}/Hslice.o
 
 EXECBUILDDIRS=$(EXTCURAENGINEDIR)
-EXECTARGETS=$(EXTCURAENGINEBIN)
+EXECTARGETS=$(EXTCURAENGINEBIN) $(TESTSUITE)
 TARGETS=$(EXECTARGETS) $(LIBTARGET)
 
 # Mark the below fake targets as unreal, so make will not get choked up if a file with one of these names is created.
@@ -112,8 +112,8 @@ $(LIBTARGET): $(LIBFILES)
 	cabal v2-build ${PROFILING} hslice
 
 # The parser test suite, since it's source is stored in a different location than the other binaries we build:
-#${TESTBUILDROOT}/test-implicit/build/test-implicit/test-implicit: Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)
-#	cabal new-build test-implicit
+${TESTBUILDROOT}/test-hslice/build/test-hslice/test-hslice: Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)
+	cabal new-build test-hslice
 
 # Build a binary target with cabal.
 ${EXEBUILDROOT}/%: programs/$$(word 1,$$(subst /, ,%)).hs Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)

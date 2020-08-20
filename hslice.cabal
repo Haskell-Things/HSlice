@@ -1,6 +1,6 @@
 Name:                hslice
 Version:             0.0.1
-Cabal-version:       >= 1.8
+Cabal-version:       >= 1.10
 Tested-with:         GHC >= 8.6
 Build-type:          Simple
 Synopsis:            A GCode generator, that accepts STL files.
@@ -54,6 +54,7 @@ Library
 Executable extcuraengine
     Main-is: extcuraengine.hs
     Hs-source-dirs: programs
+    Default-Language: Haskell2010
     Build-depends:
                     base
                   , bytestring
@@ -76,6 +77,33 @@ Executable extcuraengine
                 -- for profiling.
 --                -prof
 --                -fprof-auto
+
+Test-suite test-hslice
+    Type: exitcode-stdio-1.0
+    default-extensions: NoImplicitPrelude
+    Default-Language: Haskell2010
+    Build-depends:
+                    base
+                  , hspec
+                  , hslice
+    Main-is: Main.hs
+    Hs-source-dirs: tests
+    Ghc-options:
+                -optc-O3
+                -Wall
+                -Wcompat
+                -Wmonomorphism-restriction
+                -Wmissing-signatures
+                -Wmissing-export-lists
+                -Wmissing-import-lists
+                -Wmissing-home-modules
+                -Widentities
+                -Wimplicit-prelude
+                -Wredundant-constraints
+                -Wall-missed-specialisations
+    Other-Modules:
+                   Math.Util
+                   Math.PGA
 
 Source-repository head
     Type:            git
