@@ -1,6 +1,5 @@
 {-
- - Copyright 2016 Noah Halford and Catherine Moresco
- - Copyright 2019 Julia Longtin
+ - Copyright 2020 Julia Longtin
  -
  - This program is free software: you can redistribute it and/or modify
  - it under the terms of the GNU Affero General Public License as published by
@@ -21,7 +20,7 @@
 -- for adding Generic and NFData to Point.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero, G0), GVal, GVec, addValPair, addVals, addVecs, mulScalarVec, innerProduct, outerProduct, geometricProduct, projectContour) where
+module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec, addValPair, addVals, addVecs, mulScalarVec, innerProduct, outerProduct, geometricProduct, projectContour) where
 
 import Prelude (Eq, Show, Ord(compare), Ordering(EQ), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd)
 
@@ -31,7 +30,7 @@ import Control.DeepSeq (NFData(rnf))
 
 import Data.List.Ordered(sort, insertSet)
 
-import Data.Maybe (Maybe(Just, Nothing))
+import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
 
 import Graphics.Slicer.Definitions (ℝ, Fastℕ)
 
@@ -49,7 +48,6 @@ data GNum =
     GEMinus Fastℕ -- squared equal to -1 -- associated with rotation
   | GEZero  Fastℕ -- squared equal to  0 -- associated with translations
   | GEPlus  Fastℕ -- squared equal to +1 -- associated with space/time or hyperbolic rotations
-  | G0      -- no imaginary component present
   deriving (Eq, Generic, NFData, Show, Ord)
 
 -- A value in geometric algebra
@@ -155,6 +153,10 @@ wedgeVecPair vec1 vec2 = if null results
         filterZeroes = filter (\v -> not $ rOf v == 0)
     iOf (GVal _ i) = i
     rOf (GVal r _) = r
+
+-- | A wedge operator. not as smart as wedgeVecPair, does not return a Maybe.
+(∧) :: GVec -> GVec -> GVec
+(∧) vec1 vec2 = fromMaybe (GVec []) $ wedgeVecPair vec1 vec2
 
 -- for a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
 -- really a mutant form of quicksort.
