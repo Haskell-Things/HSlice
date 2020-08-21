@@ -29,29 +29,36 @@ import Test.Hspec (describe, Spec, it)
 import Graphics.Slicer (ℝ)
 
 -- A value.
-import Graphics.Slicer.Math.PGA (GNum(GEMinus, GEZero, GEPlus), GVal(GVal), addValPair, subValPair, addVal, subVal)
+import Graphics.Slicer.Math.PGA (GNum(GEMinus, GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair)
 
 -- Our utility library, for making these tests easier to read.
-import Math.Util ((-->))
+import Math.Util ((-->), (=->))
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
 
 geomAlgSpec :: Spec
-geomAlgSpec =
+geomAlgSpec = do
   describe "GVals" $ do
-  it "adds two values with a common basis vector" $
-    addValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 1]) --> [GVal 2 [GEPlus 1]]
-  it "adds two values with different basis vectors" $
-    addValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 2]) --> [GVal 1 [GEPlus 1], GVal 1 [GEPlus 2]]
-  it "subtracts two values with a common basis vector" $
-    subValPair (GVal 2 [GEPlus 1]) (GVal 1 [GEPlus 1]) --> [GVal 1 [GEPlus 1]]
-  it "subtracts two values with different basis vectors" $
-    subValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 2]) --> [GVal 1 [GEPlus 1], GVal (-1) [GEPlus 2]]
-  it "subtracts two identical values with a common basis vector and gets nothing" $
-    subValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 1]) --> []
-  it "adds a value to a list of values" $
-    addVal [GVal 1 [GEPlus 1], GVal 1 [GEPlus 2]]  (GVal 1 [GEPlus 3]) --> [GVal 1 [GEPlus 1], GVal 1 [GEPlus 2], GVal 1 [GEPlus 3]]
-  it "subtracts a value from a list of values" $
-    subVal [GVal 2 [GEPlus 1], GVal 1 [GEPlus 2]]  (GVal 1 [GEPlus 1]) --> [GVal 1 [GEPlus 1], GVal 1 [GEPlus 2]]
-                        
+    it "adds two values with a common basis vector" $
+      addValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 1]) --> [GVal 2 [GEPlus 1]]
+    it "adds two values with different basis vectors" $
+      addValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 2]) --> [GVal 1 [GEPlus 1], GVal 1 [GEPlus 2]]
+    it "subtracts two values with a common basis vector" $
+      subValPair (GVal 2 [GEPlus 1]) (GVal 1 [GEPlus 1]) --> [GVal 1 [GEPlus 1]]
+    it "subtracts two values with different basis vectors" $
+      subValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 2]) --> [GVal 1 [GEPlus 1], GVal (-1) [GEPlus 2]]
+    it "subtracts two identical values with a common basis vector and gets nothing" $
+      subValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 1]) --> []
+    it "adds a value to a list of values" $
+      addVal [GVal 1 [GEPlus 1], GVal 1 [GEPlus 2]] (GVal 1 [GEPlus 3]) --> [GVal 1 [GEPlus 1], GVal 1 [GEPlus 2], GVal 1 [GEPlus 3]]
+    it "subtracts a value from a list of values" $
+      subVal [GVal 2 [GEPlus 1], GVal 1 [GEPlus 2]] (GVal 1 [GEPlus 1]) --> [GVal 1 [GEPlus 1], GVal 1 [GEPlus 2]]
+    it "subtracts a value from a list of values, eliminating an entry with a like basis vector" $
+      subVal [GVal 1 [GEPlus 1], GVal 1 [GEPlus 2]] (GVal 1 [GEPlus 1]) --> [GVal 1 [GEPlus 2]]
+  describe "GVecs" $ do
+    it "adds two (multi)vectors" $
+      addVecPair (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 1]]) =-> (GVec [GVal 2 [GEPlus 1]])
+    it "subtracts a (multi)vector from another (multi)vector" $
+      subVecPair (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 1]]) =-> (GVec [])
+
