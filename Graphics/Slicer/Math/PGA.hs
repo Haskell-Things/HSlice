@@ -20,7 +20,7 @@
 -- for adding Generic and NFData to Point.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec, (∧), addValPair, subValPair, addVal, subVal, addVecs, mulScalarVec, innerProduct, outerProduct, geometricProduct, projectContour) where
+module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, innerProduct, outerProduct, geometricProduct, projectContour) where
 
 import Prelude (Eq, Show, Ord(compare), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), any)
 
@@ -107,8 +107,12 @@ subVal :: [GVal] -> GVal -> [GVal]
 subVal dst (GVal r i) = addVal dst $ GVal (-r) i
 
 -- | Add two vectors together.
-addVecs :: GVec -> GVec -> GVec
-addVecs (GVec vals1) (GVec vals2) = GVec $ foldl addVal vals1 vals2
+addVecPair :: GVec -> GVec -> GVec
+addVecPair (GVec vals1) (GVec vals2) = GVec $ foldl addVal vals1 vals2
+
+-- | subtract one vector from the other.
+subVecPair :: GVec -> GVec -> GVec
+subVecPair (GVec vals1) (GVec vals2) = GVec $ foldl subVal vals1 vals2
 
 -- | multiply a vector by a scalar. arguments are given in this order for maximum readability.
 mulScalarVec :: ℝ -> GVec -> GVec
