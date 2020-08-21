@@ -23,16 +23,15 @@ module Math.Util
          ) where
 
 -- be explicit about where we get things from.
-import Prelude (String, Bool(False))
+import Prelude ()
 
 -- A value.
 import Graphics.Slicer.Math.PGA (GVal)
 
 import Test.Hspec (Expectation, shouldBe)
 
--- An operator for expressions for "the left side should evaluate to the right side."
+-- an operator for expressions for "result of the left side should evaluate to the right side."
 infixr 1 -->
 (-->) :: [GVal] -> [GVal] -> Expectation
 (-->) res exp =
   res `shouldBe` exp
-
