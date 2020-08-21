@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec, addValPair, addVals, addVecs, mulScalarVec, innerProduct, outerProduct, geometricProduct, projectContour) where
 
-import Prelude (Eq, Show, Ord(compare), Ordering(EQ), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd)
+import Prelude (Eq, Show, Ord(compare), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&))
 
 import GHC.Generics (Generic)
 
@@ -56,8 +56,8 @@ data GVal = GVal { _real :: ℝ, _basis :: [GNum] }
 
 instance Ord GVal where
   val1@(GVal r1 i1) `compare` val2@(GVal r2 i2)
-    | compare i1 i2 == EQ = compare r1 r2
-    | otherwise           = compare i1 i2
+    | i1 == i2  = compare r1 r2
+    | otherwise = compare i1 i2
 
 -- A (multi)vector in geometric algebra.
 newtype GVec = GVec [GVal]
@@ -76,8 +76,14 @@ isVec vec =
 -- | add two geometric values together.
 addValPair :: GVal -> GVal -> [GVal]
 addValPair v1@(GVal r1 i1) v2@(GVal r2 i2)
-  | i1 == i2  = [GVal (r1+r2) i1]
-  | otherwise = sort [v1,v2]
+  | i1 == i2 && r1 == (-r2) = []
+  | i1 == i2                = [GVal (r1+r2) i1]
+  | otherwise               = sort [v1,v2]
+
+subValPair :: GVal -> GVal -> [GVal]
+subValPair v1@(GVal r1 i1) v2@(GVal r2 i2)
+  | i1 == i2 && r1 == r2 = []
+  | otherwise            = addValPair v1 $ GVal (-r2) i2
 
 -- | Add a geometric value to a list of geometric values. assumes the list of values is in order by basis vector, so we can find items with matching basis vectors easily.
 addVals :: [GVal] -> GVal -> [GVal]
@@ -98,7 +104,7 @@ addVecs (GVec vals1) (GVec vals2) = GVec $ foldl addVals vals1 vals2
 
 -- | multiply a vector by a scalar. arguments are given in this order for maximum readability.
 mulScalarVec :: ℝ -> GVec -> GVec
-mulScalarVec s (GVec vals) = GVec $ (mulVal s) <$> vals
+mulScalarVec s (GVec vals) = GVec $ mulVal s <$> vals
   where
     mulVal s1 (GVal r i) = GVal (s1*r) i
 
@@ -116,7 +122,7 @@ dotVecPair a b
 
 -- Generate the dot product of a vector pair.
 dotVecPair' :: GVec -> GVec -> ℝ
-dotVecPair' (GVec vals1) (GVec vals2) = foldl (+) 0 $ (mulMatchingBasis vals1) <$> vals2
+dotVecPair' (GVec vals1) (GVec vals2) = sum $ (mulMatchingBasis vals1) <$> vals2
   where
     mulMatchingBasis vals val
       | not $ null $ sameBasis val vals = foldl (*) (rOf val) (rOf <$> sameBasis val vals)
@@ -210,11 +216,11 @@ data PLine2 = PLine2 { _lineInPlane :: GPoint2, _lineOrigin :: GPoint3 }
 
 -- | Create a 2D geometric point from a linear point.
 toGeometricPoint :: Point2 -> GPoint2
-toGeometricPoint (Point2 (x,y)) = GPoint2 $ GVec $ [ GVal x $ [GEMinus 1], GVal y $ [GEPlus 1] ]
+toGeometricPoint (Point2 (x,y)) = GPoint2 $ GVec [ GVal x [GEMinus 1], GVal y [GEPlus 1] ]
 
 -- | Create the origin point used when performing projective geometry.
 toOriginPoint :: Point2 -> GPoint3
-toOriginPoint (Point2 (x,y)) = GPoint3 $ GVec $ [ GVal x $ [GEMinus 1], GVal y $ [GEPlus 1], GVal 1 $ [GEZero 1]]
+toOriginPoint (Point2 (x,y)) = GPoint3 $ GVec [ GVal x [GEMinus 1], GVal y [GEPlus 1], GVal 1 [GEZero 1]]
 
 
 -- | Create a 2D projective point from a 2D geometric point, and a 3D geometric origin point.
