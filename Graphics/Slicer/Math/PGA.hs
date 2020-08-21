@@ -20,9 +20,9 @@
 -- for adding Generic and NFData to Point.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec, addValPair, addVals, addVecs, mulScalarVec, innerProduct, outerProduct, geometricProduct, projectContour) where
+module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec, (∧), addValPair, subValPair, addVal, subVal, addVecs, mulScalarVec, innerProduct, outerProduct, geometricProduct, projectContour) where
 
-import Prelude (Eq, Show, Ord(compare), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&))
+import Prelude (Eq, Show, Ord(compare), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), any)
 
 import GHC.Generics (Generic)
 
@@ -55,7 +55,7 @@ data GVal = GVal { _real :: ℝ, _basis :: [GNum] }
   deriving (Eq, Generic, NFData, Show)
 
 instance Ord GVal where
-  val1@(GVal r1 i1) `compare` val2@(GVal r2 i2)
+  (GVal r1 i1) `compare` (GVal r2 i2)
     | i1 == i2  = compare r1 r2
     | otherwise = compare i1 i2
 
@@ -81,14 +81,17 @@ addValPair v1@(GVal r1 i1) v2@(GVal r2 i2)
   | otherwise               = sort [v1,v2]
 
 subValPair :: GVal -> GVal -> [GVal]
-subValPair v1@(GVal r1 i1) v2@(GVal r2 i2)
+subValPair v1@(GVal r1 i1) (GVal r2 i2)
   | i1 == i2 && r1 == r2 = []
   | otherwise            = addValPair v1 $ GVal (-r2) i2
 
--- | Add a geometric value to a list of geometric values. assumes the list of values is in order by basis vector, so we can find items with matching basis vectors easily.
-addVals :: [GVal] -> GVal -> [GVal]
-addVals dst src
-  | not $ null $ sameBasis src dst = insertSet (GVal (foldl (+) (rOf src) (rOf <$> sameBasis src dst)) $ iOf src) $ diffBasis src dst
+-- | Add a geometric value to a list of geometric values.
+--   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
+addVal :: [GVal] -> GVal -> [GVal]
+addVal dst src@(GVal r1 _)
+  | not $ null $ sameBasis src dst = if sum (rOf <$> sameBasis src dst) == (-r1)
+                                     then diffBasis src dst
+                                     else insertSet (GVal (r1 + sum (rOf <$> sameBasis src dst)) $ iOf src) $ diffBasis src dst
   | otherwise                      = insertSet src dst
   where
     sameBasis :: GVal -> [GVal] -> [GVal]
@@ -98,9 +101,14 @@ addVals dst src
     iOf (GVal _ i) = i
     rOf (GVal r _) = r
 
+-- | subtract a geometric value from a list of geometric values.
+--   assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
+subVal :: [GVal] -> GVal -> [GVal]
+subVal dst (GVal r i) = addVal dst $ GVal (-r) i
+
 -- | Add two vectors together.
 addVecs :: GVec -> GVec -> GVec
-addVecs (GVec vals1) (GVec vals2) = GVec $ foldl addVals vals1 vals2 
+addVecs (GVec vals1) (GVec vals2) = GVec $ foldl addVal vals1 vals2
 
 -- | multiply a vector by a scalar. arguments are given in this order for maximum readability.
 mulScalarVec :: ℝ -> GVec -> GVec
@@ -122,7 +130,7 @@ dotVecPair a b
 
 -- Generate the dot product of a vector pair.
 dotVecPair' :: GVec -> GVec -> ℝ
-dotVecPair' (GVec vals1) (GVec vals2) = sum $ (mulMatchingBasis vals1) <$> vals2
+dotVecPair' (GVec vals1) (GVec vals2) = sum $ mulMatchingBasis vals1 <$> vals2
   where
     mulMatchingBasis vals val
       | not $ null $ sameBasis val vals = foldl (*) (rOf val) (rOf <$> sameBasis val vals)
@@ -136,18 +144,18 @@ dotVecPair' (GVec vals1) (GVec vals2) = sum $ (mulMatchingBasis vals1) <$> vals2
 wedgeVecPair :: GVec -> GVec -> Maybe GVec
 wedgeVecPair vec1 vec2 = if null results
                          then Nothing
-                         else Just $ GVec $ foldl addVals [(head results)] (tail results) 
+                         else Just $ GVec $ foldl addVal [head results] $ tail results
   where
     results = wedgeVecPair' (addMissing vec1 combined) (addMissing vec2 combined)
     combined :: [GNum]
-    combined = sort $ (allBasisVectors vec1) ++ (allBasisVectors vec2)
+    combined = sort $ allBasisVectors vec1 ++ allBasisVectors vec2
     allBasisVectors :: GVec -> [GNum]
-    allBasisVectors (GVec vals) = concatMap (\v -> iOf v) vals
+    allBasisVectors (GVec vals) = concatMap iOf vals
     -- Add in missing basis vectors to ensure the given vector has a value in each of the given basis vectors.
     addMissing :: GVec -> [GNum] -> GVec
-    addMissing (GVec vals) nums = GVec $ (emptyIfMissing nums) <$> vals
+    addMissing (GVec vals) nums = GVec $ emptyIfMissing nums <$> vals
     emptyIfMissing :: [GNum] -> GVal -> GVal
-    emptyIfMissing bvecs val@(GVal _ i) = if null $ filter (\v -> [v] == i) bvecs
+    emptyIfMissing bvecs val@(GVal _ i) = if not (any (\v -> [v] == i) bvecs)
                                          then GVal 0 i
                                          else val
     -- now that we have an equal number of basis vectors, cycle through one list, and generate a pair with the second list when the two basis vectors are not the same.
@@ -155,8 +163,8 @@ wedgeVecPair vec1 vec2 = if null results
     wedgeVecPair' (GVec v1) (GVec v2) = filterZeroes $ concatMap (crossWedgeDiff v1) $ filterZeroes v2
       where
         crossWedgeDiff :: [GVal] -> GVal -> [GVal]
-        crossWedgeDiff vals (GVal r1 i1) = filterZeroes $ ( \(GVal r2 i2) -> sortBasis $ GVal (r1*r2) (i2++i1) ) <$> filter (\(GVal _ i2) -> not $ i2 == i1) vals
-        filterZeroes = filter (\v -> not $ rOf v == 0)
+        crossWedgeDiff vals (GVal r1 i1) = filterZeroes $ ( \(GVal r2 i2) -> sortBasis $ GVal (r1*r2) (i2++i1) ) <$> filter (\(GVal _ i2) -> i2 /= i1) vals
+        filterZeroes = filter (\v -> rOf v /= 0)
     iOf (GVal _ i) = i
     rOf (GVal r _) = r
 
@@ -174,7 +182,7 @@ sortBasis (GVal r i) = if odd flipR then GVal (-r) newI else GVal r newI
 sortBasis' :: (Fastℕ, [GNum]) -> (Fastℕ, [GNum])
 sortBasis' (_,[])     = (0,[])
 sortBasis' (_,[a])    = (0,[a])
-sortBasis' (_,x:xs) = if lowerBasis == (0,[]) then ((sumFlips higherBasis), x:(newBasis higherBasis))  else (sumFlips lowerBasis + 1 + sumFlips higherBasis, (newBasis lowerBasis ++ [x] ++ newBasis higherBasis))
+sortBasis' (_,x:xs) = if lowerBasis == (0,[]) then (sumFlips higherBasis, x:newBasis higherBasis)  else (sumFlips lowerBasis + 1 + sumFlips higherBasis, newBasis lowerBasis ++ [x] ++ newBasis higherBasis)
   where
     lowerBasis  = sortBasis' (0,[ a | a <- xs, a<=x ])
     higherBasis = sortBasis' (0,[ a | a <- xs, a>x  ])

@@ -29,7 +29,7 @@ import Test.Hspec (describe, Spec, it)
 import Graphics.Slicer (ℝ)
 
 -- A value.
-import Graphics.Slicer.Math.PGA (GNum(GEMinus, GEZero, GEPlus), GVal(GVal), addValPair)
+import Graphics.Slicer.Math.PGA (GNum(GEMinus, GEZero, GEPlus), GVal(GVal), addValPair, subValPair, addVal, subVal)
 
 -- Our utility library, for making these tests easier to read.
 import Math.Util ((-->))
@@ -44,5 +44,14 @@ geomAlgSpec =
     addValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 1]) --> [GVal 2 [GEPlus 1]]
   it "adds two values with different basis vectors" $
     addValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 2]) --> [GVal 1 [GEPlus 1], GVal 1 [GEPlus 2]]
-
+  it "subtracts two values with a common basis vector" $
+    subValPair (GVal 2 [GEPlus 1]) (GVal 1 [GEPlus 1]) --> [GVal 1 [GEPlus 1]]
+  it "subtracts two values with different basis vectors" $
+    subValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 2]) --> [GVal 1 [GEPlus 1], GVal (-1) [GEPlus 2]]
+  it "subtracts two identical values with a common basis vector and gets nothing" $
+    subValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 1]) --> []
+  it "adds a value to a list of values" $
+    addVal [GVal 1 [GEPlus 1], GVal 1 [GEPlus 2]]  (GVal 1 [GEPlus 3]) --> [GVal 1 [GEPlus 1], GVal 1 [GEPlus 2], GVal 1 [GEPlus 3]]
+  it "subtracts a value from a list of values" $
+    subVal [GVal 2 [GEPlus 1], GVal 1 [GEPlus 2]]  (GVal 1 [GEPlus 1]) --> [GVal 1 [GEPlus 1], GVal 1 [GEPlus 2]]
                         
