@@ -20,11 +20,10 @@
 -- Utilities
 module Math.Util
          ( (-->)
-         , (=->)
          ) where
 
 -- be explicit about where we get things from.
-import Prelude ()
+import Prelude (Eq, Show)
 
 -- A value.
 import Graphics.Slicer.Math.PGA (GVal, GVec)
@@ -33,14 +32,8 @@ import Test.Hspec (Expectation, shouldBe)
 
 -- operators for expressions for "result of the left side should evaluate to the right side."
 
--- Expectation operator for comparing lists of GVals.
 infixr 1 -->
-(-->) :: [GVal] -> [GVal] -> Expectation
+-- Expectation operator for comparing values.
+(-->) :: (Eq a,Show a) => a -> a -> Expectation
 (-->) res exp =
-  res `shouldBe` exp
-
--- Expectation operator for comparing GVecs.
-infixr 1 =->
-(=->) :: GVec -> GVec -> Expectation
-(=->) res exp =
   res `shouldBe` exp
