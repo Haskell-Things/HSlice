@@ -20,18 +20,18 @@
 module Math.PGA (geomAlgSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($))
+import Prelude (($), fst, (.))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it)
 
-import Data.Maybe(Maybe(Nothing))
+import Data.Maybe(Maybe(Nothing), fromJust, fromMaybe)
 
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
 -- A value.
-import Graphics.Slicer.Math.PGA (GNum(GEMinus, GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct)
+import Graphics.Slicer.Math.PGA (GNum(GEMinus, GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze)
 
 -- Our utility library, for making these tests easier to read.
 import Math.Util ((-->))
@@ -68,12 +68,12 @@ geomAlgSpec = do
     it "divides a (multi)vector by a scalar" $
       divVecScalar (GVec [GVal 2 [GEPlus 1]]) 2 --> GVec [GVal 1 [GEPlus 1]]
     it "the dot product of two orthoginal basis vectors is zero" $
-      innerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 2]]) --> 0
+      (fst . scalarIze . (fromMaybe (GVec [])) $ innerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 2]])) --> 0
     it "the dot product of two vectors is comutative (a⋅b == b⋅a)" $
       innerProduct (GVec $ addValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 2])) (GVec $ addValPair (GVal 2 [GEPlus 2]) (GVal 2 [GEPlus 2])) -->
       innerProduct (GVec $ addValPair (GVal 2 [GEPlus 1]) (GVal 2 [GEPlus 2])) (GVec $ addValPair (GVal 1 [GEPlus 2]) (GVal 1 [GEPlus 2]))
     it "the dot product of a vector with itsself is it's magnitude squared" $
-      innerProduct (GVec [GVal 2 [GEPlus 1]]) (GVec [GVal 2 [GEPlus 1]]) --> 4
+      (fst . scalarIze . fromJust $ innerProduct (GVec [GVal 2 [GEPlus 1]]) (GVec [GVal 2 [GEPlus 1]])) --> 4
     it "the wedge product of two identical vectors is Nothing" $
       outerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 1]]) --> Nothing
     it "the wedge product of two vectors is anti-comutative (u∧v == -v∧u)" $

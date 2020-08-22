@@ -20,9 +20,9 @@
 -- for adding Generic and NFData to Point.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, geometricProduct, projectContour) where
+module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, geometricProduct, scalarIze, projectContour) where
 
-import Prelude (Eq, Show, Ord(compare), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), any, (/))
+import Prelude (Eq, Show, Ord(compare), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), any, (/), Bool(True))
 
 import GHC.Generics (Generic)
 
@@ -132,23 +132,28 @@ divVecScalar (GVec vals) s = GVec $ divVal s <$> vals
 
 -- | Calculate the dot product of a vector pair.
 -- actually a wrapper to make use of the fact that gvec1 `dotVecPair` gvec2 == gvec2 `dotVecPair` gvec1.
-dotVecPair :: GVec -> GVec -> ℝ
+dotVecPair :: GVec -> GVec -> Maybe GVec
 dotVecPair a b
-  | a > b     = dotVecPair' a b
+  | a > b     = antiWedgeVecPair a b
 -- FIXME: two equal vectors == magnitude of the vector, squared.
 --  | a = b     =
-  | otherwise = dotVecPair' b a
+  | otherwise = antiWedgeVecPair b a
 
--- Generate the dot product of a vector pair.
-dotVecPair' :: GVec -> GVec -> ℝ
-dotVecPair' (GVec vals1) (GVec vals2) = sum $ mulMatchingBasis vals1 <$> vals2
+-- generate the dot product of a vector pair.
+antiWedgeVecPair :: GVec -> GVec -> Maybe GVec
+antiWedgeVecPair vec1 vec2 = if null results
+                         then Nothing
+                         else Just $ GVec $ foldl addVal [head results] $ tail results
   where
-    mulMatchingBasis vals val
-      | not $ null $ sameBasis val vals = foldl (*) (rOf val) (rOf <$> sameBasis val vals)
-      | otherwise                       = 0
-    sameBasis :: GVal -> [GVal] -> [GVal]
-    sameBasis val vals = filter (\(GVal _ i) -> i == iOf val) vals
-    iOf (GVal _ i) = i
+    results = antiWedgeVecPair' vec1 vec2
+    -- cycle through one list, and generate a pair with the second list when the two basis vectors are the same.
+    antiWedgeVecPair' :: GVec -> GVec -> [GVal]
+    antiWedgeVecPair' (GVec v1) (GVec v2) = concatMap (crossWedgeSame v1) $ filterZeroes v2
+      where
+        crossWedgeSame :: [GVal] -> GVal -> [GVal]
+        crossWedgeSame vals (GVal r1 i1) = invert $ filterZeroes $ ( \(GVal r2 i2) -> sortBasis $ GVal (r1*r2) (i2++i1) ) <$> filter (\(GVal _ i2) -> i2 == i1) vals
+        filterZeroes = filter (\v -> rOf v /= 0)
+        invert xs = map (\(GVal r i) -> GVal (-r) i) xs 
     rOf (GVal r _) = r
 
 -- generate the wedge product of a vector pair.
@@ -179,14 +184,6 @@ wedgeVecPair vec1 vec2 = if null results
     iOf (GVal _ i) = i
     rOf (GVal r _) = r
 
--- | A wedge operator. not as smart as wedgeVecPair, does not return a Maybe.
-(∧) :: GVec -> GVec -> GVec
-(∧) vec1 vec2 = fromMaybe (GVec []) $ wedgeVecPair vec1 vec2
-
--- | A dot operator.
-(⋅) :: GVec -> GVec -> ℝ
-(⋅) = dotVecPair
-
 -- for a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
 -- really a mutant form of quicksort.
 sortBasis :: GVal -> GVal
@@ -206,15 +203,36 @@ sortBasis' (_,x:xs) = if lowerBasis == (0,[]) then (sumFlips higherBasis, x:newB
     newBasis flips = snd flips
 
 -- the dot product is the inner product in geometric algebra terms.
-innerProduct :: GVec -> GVec -> ℝ
+innerProduct :: GVec -> GVec -> Maybe GVec
 innerProduct = dotVecPair
 
 -- the outer product always generates a (bi)vector, where the basis vector order is derived from the Ord of GNum of the basis vectors.
 outerProduct :: GVec -> GVec -> Maybe GVec
 outerProduct = wedgeVecPair
 
+-- | A wedge operator. not as smart as wedgeVecPair, does not return a Maybe.
+(∧) :: GVec -> GVec -> GVec
+(∧) vec1 vec2 = fromMaybe (GVec []) $ wedgeVecPair vec1 vec2
+
+-- | A dot operator.
+(⋅) :: GVec -> GVec -> GVec
+(⋅) vec1 vec2 = fromMaybe (GVec []) $ dotVecPair vec1 vec2
+
+scalarIze :: GVec -> (ℝ, GVec)
+scalarIze (GVec gVals) = (scalarPart, GVec $ vectorPart)
+  where
+    scalarPart = sum $ realValue <$> gVals
+    realValue (GVal v [(GEPlus a), (GEPlus b)]) = if a == b then v else 0
+    realValue (GVal v [(GEMinus a), (GEMinus b)]) = if a == b then (-v) else 0
+    realValue _ = 0
+    vectorPart = filter (noRealValue) gVals
+    noRealValue (GVal v [(GEMinus a), (GEMinus b)]) = a /= b
+    noRealValue (GVal v [(GEZero a), (GEZero b)]) = a /= b
+    noRealValue (GVal v [(GEPlus a), (GEPlus b)]) = a /= b
+    noRealValue _ = True
+  
 -- | The geometric product. A real plus a bivector.
-data GProduct = GProduct ℝ (Maybe GVec)
+data GProduct = GProduct (Maybe GVec) (Maybe GVec)
   deriving (Eq, Generic, NFData, Show, Ord)
 
 -- | Calculate the geometric product of two vectors.
@@ -239,11 +257,11 @@ data PLine2 = PLine2 { _lineInPlane :: GPoint2, _lineOrigin :: GPoint3 }
 
 -- | Create a 2D geometric point from a linear point.
 toGeometricPoint :: Point2 -> GPoint2
-toGeometricPoint (Point2 (x,y)) = GPoint2 $ GVec [ GVal x [GEMinus 1], GVal y [GEPlus 1] ]
+toGeometricPoint (Point2 (x,y)) = GPoint2 $ GVec [ GVal x [GEPlus 1], GVal y [GEPlus 2] ]
 
 -- | Create the origin point used when performing projective geometry.
 toOriginPoint :: Point2 -> GPoint3
-toOriginPoint (Point2 (x,y)) = GPoint3 $ GVec [ GVal x [GEMinus 1], GVal y [GEPlus 1], GVal 1 [GEZero 1]]
+toOriginPoint (Point2 (x,y)) = GPoint3 $ GVec [ GVal x [GEPlus 1], GVal y [GEPlus 2], GVal 1 [GEZero 1]]
 
 
 -- | Create a 2D projective point from a 2D geometric point, and a 3D geometric origin point.
@@ -252,11 +270,13 @@ toProjectivePoint p1 p2 = PPoint2 p2 p1
 
 -- | Calculate the Point where two lines meet.
 meetLines :: PLine2 -> PLine2 -> PPoint2
-meetLines = error "not yet implemented"
+meetLines l1@(PLine2 (GPoint2 v1) o1) l2@(PLine2 (GPoint2 v2) o2)
+  | o1 == o2 = PPoint2 (GPoint2 $ v1 ∧ v2) o1
+  | otherwise = error "normalizing origin points not yet implemented."
 
 -- | Calculate the line on which the two points reside.
-joinPoints :: PPoint2 -> PPoint2 -> PLine2
-joinPoints p1 p2 = dualPoint $ meetLines (dualPoint p1) (dualPoint p2)
+--joinPoints :: PPoint2 -> PPoint2 -> PLine2
+--joinPoints p1 p2 = dualPoint $ meetLines (dualPoint p1) (dualPoint p2)
 
 -- | Convert from a PLine to it's associated projective point.
 dualLine :: PLine2 -> PPoint2
