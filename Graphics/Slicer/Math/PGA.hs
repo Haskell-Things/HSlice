@@ -20,9 +20,9 @@
 -- for adding Generic and NFData to Point.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, innerProduct, outerProduct, geometricProduct, projectContour) where
+module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, geometricProduct, projectContour) where
 
-import Prelude (Eq, Show, Ord(compare), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), any)
+import Prelude (Eq, Show, Ord(compare), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), any, (/))
 
 import GHC.Generics (Generic)
 
@@ -120,6 +120,12 @@ mulScalarVec :: ℝ -> GVec -> GVec
 mulScalarVec s (GVec vals) = GVec $ mulVal s <$> vals
   where
     mulVal s1 (GVal r i) = GVal (s1*r) i
+
+-- | divide a vector by a scalar. arguments are given in this order for maximum readability.
+divVecScalar :: GVec -> ℝ -> GVec
+divVecScalar (GVec vals) s = GVec $ divVal s <$> vals
+  where
+    divVal s1 (GVal r i) = GVal (s1/r) i
 
 -- FIXME: implement this:
 -- magnitudeVec :: GVec -> GVec -> ℝ
