@@ -61,5 +61,5 @@ geomAlgSpec = do
       addVecPair (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 1]]) =-> GVec [GVal 2 [GEPlus 1]]
     it "subtracts a (multi)vector from another (multi)vector" $
       subVecPair (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 1]]) =-> GVec []
-    it "multiplies a (multi)vector by a scalar"
+    it "multiplies a (multi)vector by a scalar" $
       mulScalarVec 2 (GVec [GVal 1 [GEPlus 1]]) =-> GVec [GVal 2 [GEPlus 1]]
