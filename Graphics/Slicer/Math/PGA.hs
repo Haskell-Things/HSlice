@@ -171,7 +171,7 @@ wedgeVecPair vec1 vec2 = if null results
                                          else val
     -- now that we have an equal number of basis vectors, cycle through one list, and generate a pair with the second list when the two basis vectors are not the same.
     wedgeVecPair' :: GVec -> GVec -> [GVal]
-    wedgeVecPair' (GVec v1) (GVec v2) = filterZeroes $ concatMap (crossWedgeDiff v1) $ filterZeroes v2
+    wedgeVecPair' (GVec v1) (GVec v2) = concatMap (crossWedgeDiff v1) $ filterZeroes v2
       where
         crossWedgeDiff :: [GVal] -> GVal -> [GVal]
         crossWedgeDiff vals (GVal r1 i1) = filterZeroes $ ( \(GVal r2 i2) -> sortBasis $ GVal (r1*r2) (i2++i1) ) <$> filter (\(GVal _ i2) -> i2 /= i1) vals
@@ -182,6 +182,10 @@ wedgeVecPair vec1 vec2 = if null results
 -- | A wedge operator. not as smart as wedgeVecPair, does not return a Maybe.
 (∧) :: GVec -> GVec -> GVec
 (∧) vec1 vec2 = fromMaybe (GVec []) $ wedgeVecPair vec1 vec2
+
+-- | A dot operator.
+(⋅) :: GVec -> GVec -> ℝ
+(⋅) = dotVecPair
 
 -- for a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
 -- really a mutant form of quicksort.
