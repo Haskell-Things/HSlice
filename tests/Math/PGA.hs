@@ -29,7 +29,7 @@ import Test.Hspec (describe, Spec, it)
 import Graphics.Slicer (ℝ)
 
 -- A value.
-import Graphics.Slicer.Math.PGA (GNum(GEMinus, GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair)
+import Graphics.Slicer.Math.PGA (GNum(GEMinus, GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec)
 
 -- Our utility library, for making these tests easier to read.
 import Math.Util ((-->), (=->))
@@ -58,7 +58,8 @@ geomAlgSpec = do
       subVal [GVal 1 [GEPlus 1], GVal 1 [GEPlus 2]] (GVal 1 [GEPlus 1]) --> [GVal 1 [GEPlus 2]]
   describe "GVecs" $ do
     it "adds two (multi)vectors" $
-      addVecPair (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 1]]) =-> (GVec [GVal 2 [GEPlus 1]])
+      addVecPair (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 1]]) =-> GVec [GVal 2 [GEPlus 1]]
     it "subtracts a (multi)vector from another (multi)vector" $
-      subVecPair (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 1]]) =-> (GVec [])
-
+      subVecPair (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 1]]) =-> GVec []
+    it "multiplies a (multi)vector by a scalar"
+      mulScalarVec 2 (GVec [GVal 1 [GEPlus 1]]) =-> GVec [GVal 2 [GEPlus 1]]
