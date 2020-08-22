@@ -67,7 +67,15 @@ geomAlgSpec = do
       mulScalarVec 2 (GVec [GVal 1 [GEPlus 1]]) --> GVec [GVal 2 [GEPlus 1]]
     it "divides a (multi)vector by a scalar" $
       divVecScalar (GVec [GVal 2 [GEPlus 1]]) 2 --> GVec [GVal 1 [GEPlus 1]]
-    it "the dot product of two basis vectors is zero" $
+    it "the dot product of two orthoginal basis vectors is zero" $
       innerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 2]]) --> 0
+    it "the dot product of two vectors is comutative (a⋅b == b⋅a)" $
+      innerProduct (GVec $ addValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 2])) (GVec $ addValPair (GVal 2 [GEPlus 2]) (GVal 2 [GEPlus 2])) -->
+      innerProduct (GVec $ addValPair (GVal 2 [GEPlus 1]) (GVal 2 [GEPlus 2])) (GVec $ addValPair (GVal 1 [GEPlus 2]) (GVal 1 [GEPlus 2]))
+    it "the dot product of a vector with itsself is it's magnitude squared" $
+      innerProduct (GVec [GVal 2 [GEPlus 1]]) (GVec [GVal 2 [GEPlus 1]]) --> 4
     it "the wedge product of two identical vectors is Nothing" $
       outerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 1]]) --> Nothing
+    it "the wedge product of two vectors is anti-comutative (u∧v == -v∧u)" $
+      outerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 2]]) -->
+      outerProduct (GVec [GVal (-1) [GEPlus 2]]) (GVec [GVal (1) [GEPlus 1]])
