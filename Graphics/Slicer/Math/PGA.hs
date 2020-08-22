@@ -80,6 +80,7 @@ addValPair v1@(GVal r1 i1) v2@(GVal r2 i2)
   | i1 == i2                = [GVal (r1+r2) i1]
   | otherwise               = sort [v1,v2]
 
+-- | subtract a geometric value from another geometric vaalue.
 subValPair :: GVal -> GVal -> [GVal]
 subValPair v1@(GVal r1 i1) (GVal r2 i2)
   | i1 == i2 && r1 == r2 = []
