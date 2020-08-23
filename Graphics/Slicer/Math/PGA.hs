@@ -20,7 +20,7 @@
 -- for adding Generic and NFData to Point.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, geometricProduct, scalarIze, projectContour) where
+module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), (⋅), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, geometricProduct, scalarIze, projectContour) where
 
 import Prelude (Eq, Show, Ord(compare), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), any, (/), Bool(True, False))
 
@@ -135,21 +135,21 @@ divVecScalar (GVec vals) s = GVec $ divVal s <$> vals
 -- actually a wrapper to make use of the fact that gvec1 `dotVecPair` gvec2 == gvec2 `dotVecPair` gvec1.
 dotVecPair :: GVec -> GVec -> Maybe GVec
 dotVecPair a b
-  | a > b     = antiWedgeVecPair a b
+  | a > b     = dotVecPair' a b
 -- FIXME: two equal vectors == magnitude of the vector, squared.
 --  | a = b     =
-  | otherwise = antiWedgeVecPair b a
+  | otherwise = dotVecPair' b a
 
 -- generate the dot product of a vector pair.
-antiWedgeVecPair :: GVec -> GVec -> Maybe GVec
-antiWedgeVecPair vec1 vec2 = if null results
+dotVecPair' :: GVec -> GVec -> Maybe GVec
+dotVecPair' vec1 vec2 = if null results
                          then Nothing
                          else Just $ GVec $ foldl addVal [head results] $ tail results
   where
-    results = antiWedgeVecPair' vec1 vec2
+    results = dotVecPair'' vec1 vec2
     -- cycle through one list, and generate a pair with the second list when the two basis vectors are the same.
-    antiWedgeVecPair' :: GVec -> GVec -> [GVal]
-    antiWedgeVecPair' (GVec v1) (GVec v2) = concatMap (multiplyLike v1) v2
+    dotVecPair'' :: GVec -> GVec -> [GVal]
+    dotVecPair'' (GVec v1) (GVec v2) = concatMap (multiplyLike v1) v2
       where
         multiplyLike :: [GVal] -> GVal -> [GVal]
         multiplyLike vals (GVal r1 i1) = invert $ filterZeroes $ ( \(GVal r2 i2) -> sortBasis $ GVal (r1*r2) (i2++i1) ) <$> filter (\(GVal _ i2) -> i2 == i1) vals
@@ -224,33 +224,36 @@ scalarIze :: GVec -> (ℝ, GVec)
 scalarIze (GVec gVals) = (scalarPart (stripPairs <$> gVals), GVec $ vectorPart (stripPairs <$> gVals))
   where
     scalarPart vals = sum $ realValue <$> vals
-    realValue (GVal v [G0]) = v
+    realValue (GVal r [G0]) = r
     realValue _ = 0
     vectorPart vals = filter (noRealValue) vals
-    noRealValue (GVal v [G0]) = False
+    noRealValue (GVal _ [G0]) = False
     noRealValue _ = True
 
--- | in many situations, we can end up with vectors that have multiple occurances of tthe same basis vector. strip these out, negating as appropriate.
+-- | in many situations, we can end up with vectors that have multiple occurances of the same basis vector. strip these out, negating the real part as appropriate.
 stripPairs :: GVal -> GVal
 stripPairs gVal = withoutPairs gVal
   where
     withoutPairs :: GVal -> GVal
-    withoutPairs val@(GVal v ((GEPlus a):(GEPlus b):xs))
-      | a == b && (not $ null xs) = withoutPairs $ GVal v xs
-      | a == b && null xs         = GVal v [G0]
-      | a /= b && (not $ null xs) = prependI (GEPlus a) $ withoutPairs $ GVal v (GEPlus b:xs)
-      | a /= b && null xs         = val
-    withoutPairs val@(GVal v ((GEMinus a):(GEMinus b):xs))
-      | a == b && (not $ null xs) = withoutPairs $ GVal (-v) xs
-      | a == b && null xs         = GVal (-v) [G0]
-      | a /= b && (not $ null xs) = prependI (GEMinus a) $ withoutPairs $ GVal v (GEMinus b:xs)
-      | a /= b && null xs         = val
-    withoutPairs val@(GVal v ((GEZero a):(GEZero b):xs))
-      | a == b                    = GVal 0 [G0]
-      | a /= b && (not $ null xs) = prependI (GEZero a) $ withoutPairs $ GVal v (GEMinus b:xs)
-      | a /= b && null xs         = val
+    withoutPairs val@(GVal _ [])  = val
+    withoutPairs val@(GVal _ [_])  = val
+    withoutPairs val@(GVal r ((GEPlus a):(GEPlus b):xs))
+      | a == b && (not $ null xs)  = withoutPairs $ GVal r xs
+      | a == b && null xs          = GVal r [G0]
+      | a /= b && (not $ null xs)  = prependI (GEPlus a) $ withoutPairs $ GVal r (GEPlus b:xs)
+      | a /= b && null xs          = val
+    withoutPairs val@(GVal r ((GEMinus a):(GEMinus b):xs))
+      | a == b && (not $ null xs)  = withoutPairs $ GVal (-r) xs
+      | a == b && null xs          = GVal (-r) [G0]
+      | a /= b && (not $ null xs)  = prependI (GEMinus a) $ withoutPairs $ GVal r (GEMinus b:xs)
+      | a /= b && null xs          = val
+    withoutPairs val@(GVal r ((GEZero a):(GEZero b):xs))
+      | a == b                     = GVal 0 [G0]
+      | a /= b && (not $ null xs)  = prependI (GEZero a) $ withoutPairs $ GVal r (GEZero b:xs)
+      | a /= b && null xs          = val
+    withoutPairs (GVal r (a:b:xs)) = prependI (a) $ withoutPairs $ GVal r (b:xs)
     prependI :: GNum -> GVal -> GVal
-    prependI num (GVal v nums) = GVal v (num:nums)
+    prependI num (GVal r nums) = GVal r (num:nums)
 
 -- | The geometric product. A real plus a bivector.
 data GProduct = GProduct (Maybe GVec) (Maybe GVec)
