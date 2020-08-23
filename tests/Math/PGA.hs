@@ -74,6 +74,8 @@ geomAlgSpec = do
       innerProduct (GVec $ addValPair (GVal 2 [GEPlus 1]) (GVal 2 [GEPlus 2])) (GVec $ addValPair (GVal 1 [GEPlus 2]) (GVal 1 [GEPlus 2]))
     it "the dot product of a vector with itsself is it's magnitude squared" $
       (fst . scalarIze . fromJust $ innerProduct (GVec [GVal 2 [GEPlus 1]]) (GVec [GVal 2 [GEPlus 1]])) --> 4
+    it "the dot product of a bivector with itsself is the negative of magnitude squared" $
+      (fst . scalarIze . fromJust $ innerProduct (GVec [GVal 2 [GEPlus 1, GEPlus 2]]) (GVec [GVal 2 [GEPlus 1, GEPlus 2]])) --> -4
     it "the wedge product of two identical vectors is Nothing" $
       outerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 1]]) --> Nothing
     it "the wedge product of two vectors is anti-comutative (u∧v == -v∧u)" $
