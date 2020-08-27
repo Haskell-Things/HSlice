@@ -30,8 +30,11 @@ import Data.Maybe(Maybe(Nothing), fromJust, fromMaybe)
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
--- A value.
-import Graphics.Slicer.Math.PGA (GNum(GEMinus, GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze)
+-- A euclidian point.
+import Graphics.Slicer.Math.Definitions(Point2(Point2))
+
+-- Our Projective Geometric Algebra library.
+import Graphics.Slicer.Math.PGA (GNum(GEMinus, GEZero, GEPlus), GVal(GVal), GVec(GVec), PPoint2(PPoint2), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze, eToPPoint2)
 
 -- Our utility library, for making these tests easier to read.
 import Math.Util ((-->))
@@ -81,3 +84,9 @@ geomAlgSpec = do
     it "the wedge product of two vectors is anti-comutative (u∧v == -v∧u)" $
       outerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 2]]) -->
       outerProduct (GVec [GVal (-1) [GEPlus 2]]) (GVec [GVal (1) [GEPlus 1]])
+  describe "Euclidian Points" $ do
+    it "the dot product of any two euclidian points is -1" $
+      (fst . scalarIze . fromJust $ innerProduct (rawPPoint2 (1,1)) (rawPPoint2 (-1,-1))) --> -1
+--    it "the outer product of two lines is equal to  divVecScalar (subVecPair (l1r • l2r) (l2r • l1r)) 2"
+  where
+    rawPPoint2 (x,y) = (\(PPoint2 v) -> v) $ eToPPoint2 (Point2 (x,y))
