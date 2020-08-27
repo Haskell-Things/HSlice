@@ -20,9 +20,9 @@
 -- for adding Generic and NFData to Point.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), (⋅), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, geometricProduct, scalarIze, projectContour) where
+module Graphics.Slicer.Math.PGA(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), PPoint2(PPoint2), (∧), (⋅), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, geometricProduct, scalarIze, eToPPoint2) where
 
-import Prelude (Eq, Show, Ord(compare), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), any, (/), Bool(True, False))
+import Prelude (Eq, Show, Ord(compare), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), any, (/), Bool(True, False), (-))
 
 import GHC.Generics (Generic)
 
@@ -126,7 +126,7 @@ mulScalarVec s (GVec vals) = GVec $ mulVal s <$> vals
 divVecScalar :: GVec -> ℝ -> GVec
 divVecScalar (GVec vals) s = GVec $ divVal s <$> vals
   where
-    divVal s1 (GVal r i) = GVal (s1/r) i
+    divVal s1 (GVal r i) = GVal (r/s1) i
 
 -- FIXME: implement this:
 -- magnitudeVec :: GVec -> GVec -> ℝ
@@ -220,6 +220,9 @@ outerProduct = wedgeVecPair
 (⋅) :: GVec -> GVec -> GVec
 (⋅) vec1 vec2 = fromMaybe (GVec []) $ dotVecPair vec1 vec2
 
+(•) :: GVec -> GVec -> GVec
+(•) vec1 vec2 = addVecPair (vec1 ⋅ vec2) (vec1 ∧ vec2)
+
 scalarIze :: GVec -> (ℝ, GVec)
 scalarIze (GVec gVals) = (scalarPart (stripPairs <$> gVals), GVec $ vectorPart (stripPairs <$> gVals))
   where
@@ -263,52 +266,53 @@ data GProduct = GProduct (Maybe GVec) (Maybe GVec)
 geometricProduct :: GVec -> GVec -> GProduct 
 geometricProduct v1 v2 = GProduct (innerProduct v1 v2) (outerProduct v1 v2)
 
--- | A single Point in 2D geometric space.
-newtype GPoint2 = GPoint2 GVec
-  deriving (Eq, Generic, NFData, Show)
-
--- | A single Point in 3D geometric space.
-newtype GPoint3 = GPoint3 GVec
-  deriving (Eq, Generic, NFData, Show)
-
 -- | A projective point in 2D space.
-data PPoint2 = PPoint2 { _pointInPlane :: GPoint2, _pointOrigin :: GPoint3 }
+data PPoint2 = PPoint2 { _pointInPlane :: GVec}
   deriving (Eq, Generic, NFData, Show)
 
 -- | A projective line in 2D space.
-data PLine2 = PLine2 { _lineInPlane :: GPoint2, _lineOrigin :: GPoint3 }
+data PLine2 = PLine2 { _lineInPlane :: GVec}
   deriving (Eq, Generic, NFData, Show)
 
--- | Create a 2D geometric point from a linear point.
-toGeometricPoint :: Point2 -> GPoint2
-toGeometricPoint (Point2 (x,y)) = GPoint2 $ GVec [ GVal x [GEPlus 1], GVal y [GEPlus 2] ]
+-- | Create a 2D projective point from a 2D euclidian point.
+eToPPoint2 :: Point2 -> PPoint2
+eToPPoint2 (Point2 (x,y)) = PPoint2  $ GVec [ GVal (-x) [GEZero 1, GEPlus 2], GVal y [GEZero 1, GEPlus 1], GVal 1 [GEPlus 1, GEPlus 2] ]
 
--- | Create the origin point used when performing projective geometry.
-toOriginPoint :: Point2 -> GPoint3
-toOriginPoint (Point2 (x,y)) = GPoint3 $ GVec [ GVal x [GEPlus 1], GVal y [GEPlus 2], GVal 1 [GEZero 1]]
+-- | Create a line given it's endpoints.
+endpointsToPLine2 :: Point2 -> Point2 -> PLine2
+endpointsToPLine2 (Point2 (x1,y1)) (Point2 (x2,y2)) = PLine2 $ GVec [ GVal c [GEZero 1], GVal a [GEPlus 1], GVal b [GEPlus 2] ]
+  where
+    a=y2-y1
+    b=x1-x2
+    c=y1*x2-x1*y2
+
+-- | Convert from a PLine to it's associated projective point.
+dualLine :: PLine2 -> PPoint2
+dualLine (PLine2 inPlane) = PPoint2 inPlane
+
+-- | Convert from a PPoint2 to it's associated projective Line.
+
+dualPoint :: PPoint2 -> PPoint2
+dualPoint (PPoint2 inPlane) = PPoint2 $ inPlane ∧ (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]])
+
+meet2Point2 :: PPoint2 -> PPoint2 -> PLine2
+meet2Point2 (PPoint2 v1) (PPoint2 v2) = PLine2 $ v1 ∧ v2
 
 
--- | Create a 2D projective point from a 2D geometric point, and a 3D geometric origin point.
-toProjectivePoint :: GPoint3 -> GPoint2 -> PPoint2
-toProjectivePoint p1 p2 = PPoint2 p2 p1
+meet2Line2 :: PLine2 -> PLine2 -> PPoint2
+meet2Line2 = error $ "not yet implemented."
 
 -- | Calculate the Point where two lines meet.
+{-
 meetLines :: PLine2 -> PLine2 -> PPoint2
 meetLines l1@(PLine2 (GPoint2 v1) o1) l2@(PLine2 (GPoint2 v2) o2)
   | o1 == o2 = PPoint2 (GPoint2 $ v1 ∧ v2) o1
   | otherwise = error "normalizing origin points not yet implemented."
+-}
 
 -- | Calculate the line on which the two points reside.
 --joinPoints :: PPoint2 -> PPoint2 -> PLine2
 --joinPoints p1 p2 = dualPoint $ meetLines (dualPoint p1) (dualPoint p2)
-
--- | Convert from a PLine to it's associated projective point.
-dualLine :: PLine2 -> PPoint2
-dualLine (PLine2 inPlane origin) = PPoint2 inPlane origin
-
--- | Convert from a PPoint2 to it's associated projective Line.
-dualPoint :: PPoint2 -> PLine2
-dualPoint (PPoint2 inPlane origin) = PLine2 inPlane origin
 
 -- | A contour in 2D projective space. 
 data PContour =
@@ -320,11 +324,8 @@ data PContour =
 -- | Create a projective contour, from a linear (point based) contour.
 -- Use the same center point for all layers to make use of haskell's laziness.
 --projectContour :: Contour -> Point2 -> PContour
-projectContour (PointSequence points) centerPoint = (toProjectivePoint $ toOriginPoint centerPoint) <$> map toGeometricPoint points
+{-projectContour (PointSequence points) centerPoint = (toProjectivePoint $ toOriginPoint centerPoint) <$> map toGeometricPoint points
   where
     plineFromPoints p1@(Point2 (x1,y1)) p2@(Point2 (x2,y2)) = error "not yet implemented." -- joinPoints (goemetricPoint 
-
--- | Create a line given it's endpoints.
-plineFromEndpoints :: PPoint2 -> PPoint2 -> PLine2
-plineFromEndpoints = error "not yet implemented"
+-}
 
