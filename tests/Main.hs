@@ -26,9 +26,11 @@ import Test.Hspec(hspec, describe)
 
 
 -- the execution test for warnings.
-import Math.PGA(geomAlgSpec)
+import Math.PGA(geomAlgSpec, proj2DGeomAlgSpec)
 
 main :: IO ()
 main = hspec $ do
     -- run tests against the Geometric Algebra engine.
   describe "geometric algebra calculations" geomAlgSpec
+    -- run tests against the 2D Projective Geometric Algebra engine.
+  describe "2D projectitve geometric algebra calculations" proj2DGeomAlgSpec

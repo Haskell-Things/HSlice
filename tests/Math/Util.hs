@@ -25,9 +25,6 @@ module Math.Util
 -- be explicit about where we get things from.
 import Prelude (Eq, Show)
 
--- A value.
-import Graphics.Slicer.Math.PGA (GVal, GVec)
-
 import Test.Hspec (Expectation, shouldBe)
 
 -- operators for expressions for "result of the left side should evaluate to the right side."
