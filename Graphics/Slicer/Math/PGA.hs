@@ -20,7 +20,7 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), eToPPoint2, cannonicalizePPoint2, eToPLine2) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, cannonicalizePPoint2, eToPLine2) where
 
 import Prelude (Eq, Show, error, (==), ($), filter, (*), (-))
 

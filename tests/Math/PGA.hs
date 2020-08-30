@@ -34,10 +34,10 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Definitions(Point2(Point2))
 
 -- Our Geometric Algebra library.
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEMinus, GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEMinus, GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze, (•))
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), eToPPoint2)
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, cannonicalizePPoint2, eToPLine2)
 
 -- Our utility library, for making these tests easier to read.
 import Math.Util ((-->))
@@ -93,6 +93,9 @@ proj2DGeomAlgSpec = do
   describe "Euclidian Points" $ do
     it "the dot product of any two projective points is -1" $
       (fst . scalarIze . fromJust $ innerProduct (rawPPoint2 (1,1)) (rawPPoint2 (-1,-1))) --> -1
+    it "the intersection of a line along the X axis, and a line along the Y axis is the origin point" $
+      (cannonicalizePPoint2 $ PPoint2 $ ((\(PLine2 a) -> a) $ eToPLine2 (Point2 (-1,0)) (Point2 (1,0))) • ((\(PLine2 a) -> a) $ eToPLine2 (Point2 (0,-1)) (Point2 (0,1)))) -->
+      (PPoint2 $ GVec [GVal 1.0 [GEPlus 1,GEPlus 2]])
 --    it "the outer product of two lines is equal to  divVecScalar (subVecPair (l1r • l2r) (l2r • l1r)) 2"
   where
     rawPPoint2 (x,y) = (\(PPoint2 v) -> v) $ eToPPoint2 (Point2 (x,y))
