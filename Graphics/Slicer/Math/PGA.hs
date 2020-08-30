@@ -20,19 +20,15 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), eToPPoint2) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), eToPPoint2, cannonicalizePPoint2, eToPLine2) where
 
-import Prelude (Eq, Show, Ord(compare), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), any, (/), Bool(True, False), (-))
+import Prelude (Eq, Show, error, (==), ($), filter, (*), (-))
 
 import GHC.Generics (Generic)
 
-import Control.DeepSeq (NFData(rnf))
+import Control.DeepSeq (NFData)
 
-import Data.List.Ordered(sort, insertSet)
-
-import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
-
-import Graphics.Slicer.Definitions (ℝ, Fastℕ)
+import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence))
 
@@ -52,9 +48,18 @@ data PLine2 = PLine2 { _lineInPlane :: GVec}
 eToPPoint2 :: Point2 -> PPoint2
 eToPPoint2 (Point2 (x,y)) = PPoint2  $ GVec [ GVal (-x) [GEZero 1, GEPlus 2], GVal y [GEZero 1, GEPlus 1], GVal 1 [GEPlus 1, GEPlus 2] ]
 
--- | Create a line given it's euclidian endpoints.
-endpointsToPLine2 :: Point2 -> Point2 -> PLine2
-endpointsToPLine2 (Point2 (x1,y1)) (Point2 (x2,y2)) = PLine2 $ GVec [ GVal c [GEZero 1], GVal a [GEPlus 1], GVal b [GEPlus 2] ]
+cannonicalizePPoint2 :: PPoint2 -> PPoint2
+cannonicalizePPoint2 (PPoint2 vec@(GVec vals)) = PPoint2 $ divVecScalar vec $ valOf $ getVals [GEPlus 1, GEPlus 2] vals
+  where
+    getVals num vs = filter (\(GVal _ n) -> n == num) vs
+    valOf :: [GVal] -> ℝ
+    valOf [] = 1
+    valOf [(GVal v _)] = v
+    valOf (x:_) = valOf [x]
+
+-- | Create a 2D projective line from a pair of euclidian endpoints.
+eToPLine2 :: Point2 -> Point2 -> PLine2
+eToPLine2 (Point2 (x1,y1)) (Point2 (x2,y2)) = PLine2 $ GVec [ GVal c [GEZero 1], GVal a [GEPlus 1], GVal b [GEPlus 2] ]
   where
     a=y2-y1
     b=x1-x2
