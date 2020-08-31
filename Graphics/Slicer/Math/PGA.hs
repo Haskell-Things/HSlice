@@ -22,15 +22,19 @@
 
 module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, cannonicalizePPoint2, eToPLine2) where
 
-import Prelude (Eq, Show, error, (==), ($), filter, (*), (-))
+import Prelude (Eq, Show, error, (==), ($), filter, (*), (-), fst, Bool, snd)
 
 import GHC.Generics (Generic)
 
 import Control.DeepSeq (NFData)
 
+import Data.Maybe (Maybe(Just, Nothing))
+
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence))
+import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence), addPoints)
+
+import Graphics.Slicer.Math.Line(Line(Line))
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), (⋅), (•), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze)
 
@@ -46,16 +50,36 @@ data PLine2 = PLine2 { _lineInPlane :: GVec}
 
 -- | Create a 2D projective point from a 2D euclidian point.
 eToPPoint2 :: Point2 -> PPoint2
-eToPPoint2 (Point2 (x,y)) = PPoint2  $ GVec [ GVal (-x) [GEZero 1, GEPlus 2], GVal y [GEZero 1, GEPlus 1], GVal 1 [GEPlus 1, GEPlus 2] ]
+eToPPoint2 (Point2 (x,y)) = PPoint2 $ GVec [ GVal (-x) [GEZero 1, GEPlus 2], GVal y [GEZero 1, GEPlus 1], GVal 1 [GEPlus 1, GEPlus 2] ]
+
+-- Extract a value from a vector.
+getVals num vs = filter (\(GVal _ n) -> n == num) vs
+
+-- | Create a 2D Euclidian point from a 2D Projective point.
+ppointToPoint2 :: PPoint2 -> Maybe Point2
+ppointToPoint2 (PPoint2 (GVec vals)) = if infinitePoint
+                                      then Nothing
+                                      else Just $ Point2 (xVal, yVal)
+  where
+    xVal = (*(-1)) $ valOf $ getVals [GEZero 1, GEPlus 2] $ vals
+    yVal = valOf $ getVals [GEZero 1, GEPlus 1] $ vals
+    infinitePoint = 0 == (fst $ scalarIze $ GVec $ getVals [GEPlus 1, GEPlus 2] vals )
+    valOf :: [GVal] -> ℝ
+    valOf [] = 0
+    valOf [(GVal v _)] = v
+    valOf (x:_) = error $ "found multiple values."
+
+onSameLine :: Line -> Line -> Bool
+onSameLine l1@(Line p1 s1) l2@(Line p2 s2) = (snd $ scalarIze $ (\(PPoint2 v) -> v) $ PPoint2 $ ((\(PLine2 a) -> a) $ eToPLine2 (p1) (addPoints p1 s1)) • ((\(PLine2 a) -> a) $ eToPLine2 (p2) (addPoints p2 s2))) == GVec []
+
 
 cannonicalizePPoint2 :: PPoint2 -> PPoint2
 cannonicalizePPoint2 (PPoint2 vec@(GVec vals)) = PPoint2 $ divVecScalar vec $ valOf $ getVals [GEPlus 1, GEPlus 2] vals
   where
-    getVals num vs = filter (\(GVal _ n) -> n == num) vs
     valOf :: [GVal] -> ℝ
     valOf [] = 1
     valOf [(GVal v _)] = v
-    valOf (x:_) = valOf [x]
+    valOf (x:_) = error $ "found multiple values."
 
 -- | Create a 2D projective line from a pair of euclidian endpoints.
 eToPLine2 :: Point2 -> Point2 -> PLine2
