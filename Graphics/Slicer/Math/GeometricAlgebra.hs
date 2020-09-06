@@ -145,10 +145,8 @@ dotVecPair' vec1 vec2 = if null results
     dotVecPair'' (GVec v1) (GVec v2) = concatMap (multiplyLike v1) v2
       where
         multiplyLike :: [GVal] -> GVal -> [GVal]
-        multiplyLike vals (GVal r1 i1) = invert $ filterZeroes $ ( \(GVal r2 i2) -> sortBasis $ GVal (r1*r2) (i2++i1) ) <$> filter (\(GVal _ i2) -> i2 == i1) vals
-        filterZeroes = filter (\v -> rOf v /= 0)
-        invert xs = map (\(GVal r i) -> GVal (-r) i) xs 
-    rOf (GVal r _) = r
+        multiplyLike vals (GVal r1 i1) = ( \(GVal r2 i2) -> sortBasis $ GVal (r1*r2) (i1++i2) ) <$> filter (\(GVal _ i2) -> i2 == i1) vals
+
 -- generate the wedge product of a vector pair.
 wedgeVecPair :: GVec -> GVec -> GVec
 wedgeVecPair vec1 vec2 = if null results
@@ -158,17 +156,15 @@ wedgeVecPair vec1 vec2 = if null results
     results = wedgeVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list when the two basis vectors are not the same.
     wedgeVecPair' :: GVec -> GVec -> [GVal]
-    wedgeVecPair' (GVec v1) (GVec v2) = concatMap (crossWedgeDiff v1) $ filterZeroes v2
+    wedgeVecPair' (GVec v1) (GVec v2) = concatMap (wedgeUnlike v1) v2
       where
-        crossWedgeDiff :: [GVal] -> GVal -> [GVal]
-        crossWedgeDiff vals (GVal r1 i1) = filterZeroes $ ( \(GVal r2 i2) -> sortBasis $ GVal (r1*r2) (i2++i1) ) <$> filter (\(GVal _ i2) -> i2 /= i1) vals
-        filterZeroes = filter (\v -> rOf v /= 0)
-    rOf (GVal r _) = r
+        wedgeUnlike :: [GVal] -> GVal -> [GVal]
+        wedgeUnlike vals (GVal r1 i1) = ( \(GVal r2 i2) -> sortBasis $ GVal (r1*r2) (i1++i2) ) <$> filter (\(GVal _ i2) -> i2 /= i1) vals
 
 -- for a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
 -- really a mutant form of quicksort.
 sortBasis :: GVal -> GVal
-sortBasis (GVal r i) = if odd flipR then GVal (-r) newI else GVal r newI
+sortBasis (GVal r i) = if odd flipR then GVal r newI else GVal (-r) newI
   where
     newI :: [GNum]
     (flipR, newI) = sortBasis' (0,i)
@@ -217,11 +213,9 @@ innerProduct = dotVecPair
 outerProduct :: GVec -> GVec -> GVec
 outerProduct = wedgeVecPair
 
-{-
 -- | Calculate the geometric product of two vectors.
 geometricProduct :: GVec -> GVec -> GVec
 geometricProduct v1 v2 = addVecPair (innerProduct v1 v2) (outerProduct v1 v2)
--}
 
 -- | A wedge operator. 
 (∧) :: GVec -> GVec -> GVec
@@ -245,4 +239,3 @@ scalarIze (GVec gVals) = (scalarPart (stripPairs <$> gVals), GVec $ vectorPart (
     vectorPart vals = filter (noRealValue) vals
     noRealValue (GVal _ [G0]) = False
     noRealValue _ = True
-
