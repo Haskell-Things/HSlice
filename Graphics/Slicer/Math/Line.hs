@@ -21,9 +21,7 @@
 -- for adding Generic and NFData to Line.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Line (Line(Line), point, slope, lineFromEndpoints, rawLineFromEndpoints, pointsFromLines, endpoint, midpoint, flipLine, pointSlopeLength, perpendicularBisector, pointAtZValue, shortenLineBy, makeLines, makeLinesLooped, lineSlope, Direction(Positive, Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope), Intersection (IntersectsAt, NoIntersection, Parallel, HitEndpointL1, HitEndpointL2, Collinear), angleOf, SearchDirection(Clockwise,CounterClockwise), lineBetween, combineLines) where
-
---
+module Graphics.Slicer.Math.Line (Line(Line), Intersection(Collinear, Parallel, HitEndpointL1, HitEndpointL2, IntersectsAt, NoIntersection), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, pointAtZValue, angleOf, flipLine, lineBetween, SearchDirection (Clockwise, CounterClockwise), pointsFromLines, combineLines, shortenLineBy, slope, Direction(Positive,Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope)) where
 
 import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool, (++), last, init, (<$>), Show, error, negate, fst, snd, (.), null, zipWith, (<>), show, concat, (||), atan, pi)
 
@@ -54,7 +52,7 @@ instance Eq Line where
 data Intersection =
   Collinear
   | Parallel
-  | IntersectsAt Point2 Point2
+  | IntersectsAt Point2
   | NoIntersection
   | HitEndpointL1 Point2
   | HitEndpointL2 Point2

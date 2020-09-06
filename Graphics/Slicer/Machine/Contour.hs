@@ -117,18 +117,18 @@ modifyContour pathWidth allContours contour@(PointSequence contourPoints) direct
           | isJust (lengthToIntersection ln previousln)          =
             case lineIntersection (rayToEnd ln) (rayToStart nextln) of
               NoIntersection -> case lineIntersection (rayToStart ln) (rayToStart nextln) of
-                           IntersectsAt _ p2 -> if distance (perimeterPoint ln) p2 < lineLength midToStart
-                                                then Just $ lineFromEndpoints p2 (endpoint midToStart)
-                                                else Nothing
-                           _                 -> Nothing
+                           IntersectsAt p2 -> if distance (perimeterPoint ln) p2 < lineLength midToStart
+                                              then Just $ lineFromEndpoints p2 (endpoint midToStart)
+                                              else Nothing
+                           _               -> Nothing
               _              -> Nothing
           | isJust (lengthToIntersection ln nextln)              =
             case lineIntersection (rayToStart ln) (rayToEnd previousln) of
               NoIntersection -> case lineIntersection (rayToEnd ln) (rayToEnd previousln) of
-                           IntersectsAt _ p2 -> if distance (perimeterPoint ln) p2 < lineLength midToEnd
-                                                then Just $ lineFromEndpoints p2 (endpoint midToEnd)
-                                                else Nothing
-                           _                 -> Nothing
+                           IntersectsAt p2 -> if distance (perimeterPoint ln) p2 < lineLength midToEnd
+                                              then Just $ lineFromEndpoints p2 (endpoint midToEnd)
+                                              else Nothing
+                           _               -> Nothing
               _              -> Nothing
           | otherwise = Nothing
           where
@@ -150,7 +150,7 @@ modifyContour pathWidth allContours contour@(PointSequence contourPoints) direct
         -- get the length to where these lines intersect, assuming they are pathWidth away from the lines themselves.
         lengthToIntersection :: Line -> Line -> Maybe ℝ
         lengthToIntersection l1 l2 = case lineIntersection (rayToEnd l1) (rayToStart l2) of
-                          IntersectsAt _ p2 -> foundDistance p2
+                          IntersectsAt p2 -> foundDistance p2
                           HitEndpointL1 _   -> Just 0
                           NoIntersection    -> Nothing
                           Parallel          -> Nothing
