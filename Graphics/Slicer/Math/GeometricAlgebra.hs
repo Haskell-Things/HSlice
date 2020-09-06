@@ -126,9 +126,6 @@ divVecScalar (GVec vals) s = GVec $ divVal s <$> vals
   where
     divVal s1 (GVal r i) = GVal (r/s1) i
 
--- FIXME: implement this:
--- magnitudeVec :: GVec -> GVec -> ℝ
-
 -- | Calculate the dot product of a vector pair.
 -- actually a wrapper to make use of the fact that gvec1 `dotVecPair` gvec2 == gvec2 `dotVecPair` gvec1.
 dotVecPair :: GVec -> GVec -> GVec
@@ -159,7 +156,7 @@ wedgeVecPair vec1 vec2 = if null results
                          else GVec $ foldl addVal [head results] $ tail results
   where
     results = wedgeVecPair' vec1 vec2
-    -- now that we have an equal number of basis vectors, cycle through one list, and generate a pair with the second list when the two basis vectors are not the same.
+    -- cycle through one list of vectors, and generate a pair with the second list when the two basis vectors are not the same.
     wedgeVecPair' :: GVec -> GVec -> [GVal]
     wedgeVecPair' (GVec v1) (GVec v2) = concatMap (crossWedgeDiff v1) $ filterZeroes v2
       where
