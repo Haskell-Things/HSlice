@@ -20,17 +20,15 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), (⋅), (•), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze) where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), (⋅), (•), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze) where
 
-import Prelude (Eq, Show, Ord(compare), error, seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), any, (/), Bool(True, False), (-))
+import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), any, (/), Bool(True, False))
 
 import GHC.Generics (Generic)
 
 import Control.DeepSeq (NFData(rnf))
 
 import Data.List.Ordered(sort, insertSet)
-
-import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
 
 import Graphics.Slicer.Definitions (ℝ, Fastℕ)
 
@@ -75,6 +73,9 @@ isVec vec =
 -- | add two geometric values together.
 addValPair :: GVal -> GVal -> [GVal]
 addValPair v1@(GVal r1 i1) v2@(GVal r2 i2)
+  | r1 == 0 && r2 == 0      = []
+  | r1 == 0                 = [v2]
+  | r2 == 0                 = [v1]
   | i1 == i2 && r1 == (-r2) = []
   | i1 == i2                = [GVal (r1+r2) i1]
   | otherwise               = sort [v1,v2]
@@ -89,6 +90,7 @@ subValPair v1@(GVal r1 i1) (GVal r2 i2)
 --   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
 addVal :: [GVal] -> GVal -> [GVal]
 addVal dst src@(GVal r1 _)
+  | r1 == 0 = dst
   | not $ null $ sameBasis src dst = if sum (rOf <$> sameBasis src dst) == (-r1)
                                      then diffBasis src dst
                                      else insertSet (GVal (r1 + sum (rOf <$> sameBasis src dst)) $ iOf src) $ diffBasis src dst
@@ -131,18 +133,16 @@ divVecScalar (GVec vals) s = GVec $ divVal s <$> vals
 
 -- | Calculate the dot product of a vector pair.
 -- actually a wrapper to make use of the fact that gvec1 `dotVecPair` gvec2 == gvec2 `dotVecPair` gvec1.
-dotVecPair :: GVec -> GVec -> Maybe GVec
+dotVecPair :: GVec -> GVec -> GVec
 dotVecPair a b
   | a > b     = dotVecPair' a b
--- FIXME: two equal vectors == magnitude of the vector, squared.
---  | a = b     =
   | otherwise = dotVecPair' b a
 
 -- generate the dot product of a vector pair.
-dotVecPair' :: GVec -> GVec -> Maybe GVec
+dotVecPair' :: GVec -> GVec -> GVec
 dotVecPair' vec1 vec2 = if null results
-                         then Nothing
-                         else Just $ GVec $ foldl addVal [head results] $ tail results
+                         then GVec [GVal 0 [G0]]
+                         else GVec $ foldl addVal [head results] $ tail results
   where
     results = dotVecPair'' vec1 vec2
     -- cycle through one list, and generate a pair with the second list when the two basis vectors are the same.
@@ -156,10 +156,10 @@ dotVecPair' vec1 vec2 = if null results
     rOf (GVal r _) = r
 
 -- generate the wedge product of a vector pair.
-wedgeVecPair :: GVec -> GVec -> Maybe GVec
+wedgeVecPair :: GVec -> GVec -> GVec
 wedgeVecPair vec1 vec2 = if null results
-                         then Nothing
-                         else Just $ GVec $ foldl addVal [head results] $ tail results
+                         then GVec [GVal 0 [G0]]
+                         else GVec $ foldl addVal [head results] $ tail results
   where
     results = wedgeVecPair' (addMissing vec1 combined) (addMissing vec2 combined)
     combined :: [GNum]
@@ -228,26 +228,26 @@ stripPairs gVal = withoutPairs gVal
     prependI num (GVal r nums) = GVal r (num:nums)
 
 -- the dot product is the inner product in geometric algebra terms.
-innerProduct :: GVec -> GVec -> Maybe GVec
+innerProduct :: GVec -> GVec -> GVec
 innerProduct = dotVecPair
 
 -- the outer product always generates a (bi)vector, where the basis vector order is derived from the Ord of GNum of the basis vectors.
-outerProduct :: GVec -> GVec -> Maybe GVec
+outerProduct :: GVec -> GVec -> GVec
 outerProduct = wedgeVecPair
 
 {-
 -- | Calculate the geometric product of two vectors.
-geometricProduct :: Maybe GVec -> GVec -> GVec
+geometricProduct :: GVec -> GVec -> GVec
 geometricProduct v1 v2 = addVecPair (innerProduct v1 v2) (outerProduct v1 v2)
 -}
 
--- | A wedge operator. not as smart as wedgeVecPair, does not return a Maybe.
+-- | A wedge operator. 
 (∧) :: GVec -> GVec -> GVec
-(∧) vec1 vec2 = fromMaybe (GVec []) $ wedgeVecPair vec1 vec2
+(∧) vec1 vec2 = wedgeVecPair vec1 vec2
 
 -- | A dot operator. gets the dot product of the two arguments
 (⋅) :: GVec -> GVec -> GVec
-(⋅) vec1 vec2 = fromMaybe (GVec []) $ dotVecPair vec1 vec2
+(⋅) vec1 vec2 = dotVecPair vec1 vec2
 
 -- | A big dot operator. Gets the geometric product of the two arguments.
 (•) :: GVec -> GVec -> GVec

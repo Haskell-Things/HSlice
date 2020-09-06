@@ -30,7 +30,9 @@ import Control.Parallel (par, pseq)
 
 import Graphics.Slicer.Math.Definitions (Point2, Contour(PointSequence), distance, roundPoint2)
 
-import Graphics.Slicer.Math.Line (Line(Line), Intersection(IntersectsAt, HitEndpointL1, NoIntersection, Collinear, Parallel), makeLinesLooped, lineIntersection, pointsFromLines, combineConsecutiveLines, lineSlope, flipLine, pointSlopeLength, combineLines, endpoint, lineFromEndpoints)
+import Graphics.Slicer.Math.Line (Line(Line), Intersection(IntersectsAt, HitEndpointL1, NoIntersection, Collinear, Parallel), makeLinesLooped,  pointsFromLines, lineSlope, flipLine, pointSlopeLength, combineLines, endpoint, lineFromEndpoints)
+
+import Graphics.Slicer.Math.PGA (combineConsecutiveLines, lineIntersection)
 
 import Graphics.Slicer.Math.Contour (outerPerimeterPoint, innerPerimeterPoint, lineToOutsideContour)
 

@@ -36,7 +36,9 @@ import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence),
 
 import Graphics.Slicer.Math.Point (orderPoints)
 
-import Graphics.Slicer.Math.Line (Line(Line), Intersection(HitEndpointL2, IntersectsAt, NoIntersection, Parallel), makeLines, makeLinesLooped, lineIntersection, shortenLineBy)
+import Graphics.Slicer.Math.Line (Line(Line), Intersection(HitEndpointL2, IntersectsAt, NoIntersection, Parallel), makeLines, makeLinesLooped, shortenLineBy)
+
+import Graphics.Slicer.Math.PGA (lineIntersection)
 
 import Graphics.Slicer.Math.Contour (lineEntersContour)
 

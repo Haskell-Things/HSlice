@@ -31,7 +31,9 @@ import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2),
 
 --import Graphics.Slicer.Formats.GCode.Definitions (roundPoint2)
 
-import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, lineIntersection, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, Intersection(NoIntersection, IntersectsAt, Parallel, HitEndpointL1, HitEndpointL2), angleOf, flipLine, lineBetween, SearchDirection (Clockwise, CounterClockwise), Slope)
+import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, Intersection(NoIntersection, IntersectsAt, Parallel, HitEndpointL1, HitEndpointL2), angleOf, flipLine, lineBetween, SearchDirection (Clockwise, CounterClockwise), Slope)
+
+import Graphics.Slicer.Math.PGA (lineIntersection)
 
 import Graphics.Implicit.Definitions (ℝ)
 
