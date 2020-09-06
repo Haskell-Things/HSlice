@@ -81,7 +81,7 @@ infillLineInside contour childContours line
           saneIntersections :: [Intersection] -> [Maybe Point2]
           saneIntersections xs = saneIntersection <$> xs
           saneIntersection :: Intersection -> Maybe Point2
-          saneIntersection (IntersectsAt _ p2) = Just p2
+          saneIntersection (IntersectsAt p2) = Just p2
           saneIntersection i@(HitEndpointL2 p2) = if lineEntersContour myline i c then Just p2 else Nothing
           saneIntersection NoIntersection = Nothing
           saneIntersection Parallel = Nothing

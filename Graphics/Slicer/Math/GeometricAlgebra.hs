@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), (⋅), (•), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze) where
 
-import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), any, (/), Bool(True, False))
+import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), map, (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), (/), Bool(True, False))
 
 import GHC.Generics (Generic)
 
@@ -31,8 +31,6 @@ import Control.DeepSeq (NFData(rnf))
 import Data.List.Ordered(sort, insertSet)
 
 import Graphics.Slicer.Definitions (ℝ, Fastℕ)
-
-import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence))
 
 -- FIXME: move this to the proper place in ImplicitCAD.
 instance NFData Fastℕ where
@@ -141,7 +139,7 @@ dotVecPair a b
 -- generate the dot product of a vector pair.
 dotVecPair' :: GVec -> GVec -> GVec
 dotVecPair' vec1 vec2 = if null results
-                         then GVec [GVal 0 [G0]]
+                         then GVec []
                          else GVec $ foldl addVal [head results] $ tail results
   where
     results = dotVecPair'' vec1 vec2
@@ -154,25 +152,13 @@ dotVecPair' vec1 vec2 = if null results
         filterZeroes = filter (\v -> rOf v /= 0)
         invert xs = map (\(GVal r i) -> GVal (-r) i) xs 
     rOf (GVal r _) = r
-
 -- generate the wedge product of a vector pair.
 wedgeVecPair :: GVec -> GVec -> GVec
 wedgeVecPair vec1 vec2 = if null results
-                         then GVec [GVal 0 [G0]]
+                         then GVec []
                          else GVec $ foldl addVal [head results] $ tail results
   where
-    results = wedgeVecPair' (addMissing vec1 combined) (addMissing vec2 combined)
-    combined :: [GNum]
-    combined = sort $ allBasisVectors vec1 ++ allBasisVectors vec2
-    allBasisVectors :: GVec -> [GNum]
-    allBasisVectors (GVec vals) = concatMap iOf vals
-    -- Add in missing basis vectors to ensure the given vector has a value in each of the given basis vectors.
-    addMissing :: GVec -> [GNum] -> GVec
-    addMissing (GVec vals) nums = GVec $ emptyIfMissing nums <$> vals
-    emptyIfMissing :: [GNum] -> GVal -> GVal
-    emptyIfMissing bvecs val@(GVal _ i) = if not (any (\v -> [v] == i) bvecs)
-                                         then GVal 0 i
-                                         else val
+    results = wedgeVecPair' vec1 vec2
     -- now that we have an equal number of basis vectors, cycle through one list, and generate a pair with the second list when the two basis vectors are not the same.
     wedgeVecPair' :: GVec -> GVec -> [GVal]
     wedgeVecPair' (GVec v1) (GVec v2) = concatMap (crossWedgeDiff v1) $ filterZeroes v2
@@ -180,7 +166,6 @@ wedgeVecPair vec1 vec2 = if null results
         crossWedgeDiff :: [GVal] -> GVal -> [GVal]
         crossWedgeDiff vals (GVal r1 i1) = filterZeroes $ ( \(GVal r2 i2) -> sortBasis $ GVal (r1*r2) (i2++i1) ) <$> filter (\(GVal _ i2) -> i2 /= i1) vals
         filterZeroes = filter (\v -> rOf v /= 0)
-    iOf (GVal _ i) = i
     rOf (GVal r _) = r
 
 -- for a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.

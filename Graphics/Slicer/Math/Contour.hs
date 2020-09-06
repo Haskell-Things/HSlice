@@ -144,7 +144,7 @@ innerPerimeterPoint pathWidth contour l
       saneIntersections l1 ls = catMaybes $ saneIntersection . lineIntersection l1 <$> ls
         where
           saneIntersection :: Intersection -> Maybe Point2
-          saneIntersection (IntersectsAt _ p2) = Just p2
+          saneIntersection (IntersectsAt p2) = Just p2
           saneIntersection NoIntersection = Nothing
           saneIntersection Parallel = Nothing 
           saneIntersection (HitEndpointL1 p2) = Just p2
@@ -169,7 +169,7 @@ outerPerimeterPoint pathWidth contour l
       saneIntersections l1 ls = catMaybes $ saneIntersection . lineIntersection l1 <$> ls
         where
           saneIntersection :: Intersection -> Maybe Point2
-          saneIntersection (IntersectsAt _ p2) = Just p2
+          saneIntersection (IntersectsAt p2) = Just p2
           saneIntersection NoIntersection = Nothing
           saneIntersection Parallel = Nothing 
           saneIntersection res = error $ "insane result of intersecting a line with it's bisector: " <> show res <> "\n"
@@ -184,7 +184,7 @@ lineToOutsideContour (PointSequence contourPoints) outsideDistance m p = head $ 
       line = lineFromEndpoints (endpoint halfLine) (addPoints p' (scalePoint (-1) s))
       points = catMaybes $ saneIntersection . lineIntersection line <$> edges p
       saneIntersection :: Intersection -> Maybe Point2
-      saneIntersection (IntersectsAt _ p2) = Just p2
+      saneIntersection (IntersectsAt p2) = Just p2
       saneIntersection NoIntersection = Nothing
       saneIntersection Parallel = Nothing
       saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
@@ -224,7 +224,7 @@ contourContainsContour parent child = if odd noIntersections then Just child els
       | null contourPoints = []
       | otherwise = catMaybes $ saneIntersection . lineIntersection line <$> makeLinesLooped contourPoints
     saneIntersection :: Intersection -> Maybe Point2
-    saneIntersection (IntersectsAt _ p2) = Just p2
+    saneIntersection (IntersectsAt p2) = Just p2
     saneIntersection (HitEndpointL2 p2) = Just p2
     saneIntersection Parallel = Nothing 
     saneIntersection NoIntersection = Nothing

@@ -32,7 +32,7 @@ import Graphics.Slicer (ℝ,Line(Line))
 import Graphics.Slicer.Math.Definitions(Point2(Point2))
 
 -- Our Geometric Algebra library.
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze, (•), (∧))
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze, (•), (∧))
 
 -- Our 2D Projective Geometric Algebra library.
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2)
@@ -84,8 +84,8 @@ geomAlgSpec = do
     it "divides a (multi)vector by a scalar" $
       divVecScalar (GVec [GVal 2 [GEPlus 1]]) 2 --> GVec [GVal 1 [GEPlus 1]]
     -- 1e1|1e2 = 0
-    it "the dot product of two orthoginal basis vectors is zero" $
-      innerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 2]]) --> GVec [GVal 0 [G0]]
+    it "the dot product of two orthoginal basis vectors is nothing" $
+      innerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 2]]) --> GVec []
     it "the dot product of two vectors is comutative (a⋅b == b⋅a)" $
       innerProduct (GVec $ addValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 2])) (GVec $ addValPair (GVal 2 [GEPlus 2]) (GVal 2 [GEPlus 2])) -->
       innerProduct (GVec $ addValPair (GVal 2 [GEPlus 1]) (GVal 2 [GEPlus 2])) (GVec $ addValPair (GVal 1 [GEPlus 2]) (GVal 1 [GEPlus 2]))
@@ -96,8 +96,8 @@ geomAlgSpec = do
     it "the dot product of a bivector with itsself is the negative of magnitude squared" $
       scalarIze (innerProduct (GVec [GVal 2 [GEPlus 1, GEPlus 2]]) (GVec [GVal 2 [GEPlus 1, GEPlus 2]])) --> (-4, GVec [])
     -- 1e1^1e1 = 0
-    it "the wedge product of two identical vectors is zero" $
-      outerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 1]]) --> GVec [GVal 0 [G0]]
+    it "the wedge product of two identical vectors is nothing" $
+      outerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 1]]) --> GVec []
     it "the wedge product of two vectors is anti-comutative (u∧v == -v∧u)" $
       outerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 2]]) -->
       outerProduct (GVec [GVal (-1) [GEPlus 2]]) (GVec [GVal 1 [GEPlus 1]])
