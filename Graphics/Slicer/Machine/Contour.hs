@@ -30,9 +30,9 @@ import Control.Parallel (par, pseq)
 
 import Graphics.Slicer.Math.Definitions (Point2, Contour(PointSequence), distance, roundPoint2)
 
-import Graphics.Slicer.Math.Line (Line(Line), Intersection(IntersectsAt, HitEndpointL1, NoIntersection, Collinear, Parallel), makeLinesLooped,  pointsFromLines, lineSlope, flipLine, pointSlopeLength, combineLines, endpoint, lineFromEndpoints)
+import Graphics.Slicer.Math.Line (Line(Line), Intersection(IntersectsAt, NoIntersection, Collinear, Parallel), makeLinesLooped,  pointsFromLines, lineSlope, flipLine, pointSlopeLength, combineLines, endpoint, lineFromEndpoints)
 
-import Graphics.Slicer.Math.PGA (combineConsecutiveLines, lineIntersection)
+import Graphics.Slicer.Math.PGA (combineConsecutiveLines, lineIntersectsAt)
 
 import Graphics.Slicer.Math.Contour (outerPerimeterPoint, innerPerimeterPoint, lineToOutsideContour)
 
@@ -115,16 +115,16 @@ modifyContour pathWidth allContours contour@(PointSequence contourPoints) direct
           | isJustZero (lengthToIntersection ln previousln)
             && isJustZero (lengthToIntersection ln nextln)       = Nothing
           | isJust (lengthToIntersection ln previousln)          =
-            case lineIntersection (rayToEnd ln) (rayToStart nextln) of
-              NoIntersection -> case lineIntersection (rayToStart ln) (rayToStart nextln) of
+            case lineIntersectsAt (rayToEnd ln) (rayToStart nextln) of
+              NoIntersection -> case lineIntersectsAt (rayToStart ln) (rayToStart nextln) of
                            IntersectsAt p2 -> if distance (perimeterPoint ln) p2 < lineLength midToStart
                                               then Just $ lineFromEndpoints p2 (endpoint midToStart)
                                               else Nothing
                            _               -> Nothing
               _              -> Nothing
           | isJust (lengthToIntersection ln nextln)              =
-            case lineIntersection (rayToStart ln) (rayToEnd previousln) of
-              NoIntersection -> case lineIntersection (rayToEnd ln) (rayToEnd previousln) of
+            case lineIntersectsAt (rayToStart ln) (rayToEnd previousln) of
+              NoIntersection -> case lineIntersectsAt (rayToEnd ln) (rayToEnd previousln) of
                            IntersectsAt p2 -> if distance (perimeterPoint ln) p2 < lineLength midToEnd
                                               then Just $ lineFromEndpoints p2 (endpoint midToEnd)
                                               else Nothing
@@ -147,12 +147,10 @@ modifyContour pathWidth allContours contour@(PointSequence contourPoints) direct
         rayToEnd ln = rawMidToEdge contour ln
         rayToStart ln = flipLine $ rawMidToEdge contour ln
         rawMidToEdge c ln@(Line _ m) = lineToOutsideContour c (pathWidth * 2) (lineSlope m) (perimeterPoint ln)
-        -- get the length to where these lines intersect, assuming they are pathWidth away from the lines themselves.
+        -- get the length to where these lines intersect, assuming they are each pathWidth away from the lines themselves.
         lengthToIntersection :: Line -> Line -> Maybe ℝ
-        lengthToIntersection l1 l2 = case lineIntersection (rayToEnd l1) (rayToStart l2) of
+        lengthToIntersection l1 l2 = case lineIntersectsAt (rayToEnd l1) (rayToStart l2) of
                           IntersectsAt p2 -> foundDistance p2
-                          HitEndpointL1 _   -> Just 0
-                          NoIntersection    -> Nothing
                           Parallel          -> Nothing
                           Collinear         -> Just $ lineLength l1 / 2
                           a                 -> error $ "insane result: " <> show a <>"\nno intersection on contour:\n" <> show contour <> "\n" <> show l1 <> " -> " <> show (rayToEnd l1) <> "\n" <> show l2 <> " -> " <> show (rayToStart l2) <> "\n"
