@@ -20,7 +20,7 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLines, lineIntersection, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLines, lineIntersection, lineIntersectsAt, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2) where
 
 import Prelude (Eq, Show, error, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), foldl, sqrt)
 
@@ -36,19 +36,29 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence), addPoints)
 
-import Graphics.Slicer.Math.Line(Line(Line), Intersection(Collinear, Parallel, HitEndpointL1, HitEndpointL2, IntersectsAt, NoIntersection))
+import Graphics.Slicer.Math.Line(Line(Line), Intersection(Collinear, Parallel, HitEndpointL2, IntersectsAt, NoIntersection))
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), (⋅), (•), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
+
+-- Don't check for corner cases, junt get the intersection point if it exists.
+
+-- for when you don't care about segments, but lines.
+lineIntersectsAt :: Line -> Line -> Intersection
+lineIntersectsAt l1 l2
+  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec []) = Collinear
+  | (lineToVec l1) ∧ (lineToVec l2)           == GVec []           = Parallel
+  | otherwise                                                      = IntersectsAt intersection
+  where
+    intersection = intersectionPoint l1 l2
+    lineToVec (Line _ (Point2 (x,y))) = GVec $ foldl addVal [] [ GVal x [GEZero 1] , GVal y [GEPlus 1] ] 
 
 -- | Check if/where two lines intersect.
 lineIntersection :: Line -> Line -> Intersection
 lineIntersection l1@(Line p1 s1) l2@(Line p2 s2)
   | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec []) = Collinear
   | (lineToVec l1) ∧ (lineToVec l2)           == GVec []           = Parallel
-  | onSegment l1 (intersection) && onSegment l2 intersection && intersection == p1 = HitEndpointL1 intersection
-  | onSegment l1 (intersection) && onSegment l2 intersection && intersection == addPoints p1 s1 = HitEndpointL1 intersection
   | onSegment l1 (intersection) && onSegment l2 intersection && intersection == p2 = HitEndpointL2 intersection
   | onSegment l1 (intersection) && onSegment l2 intersection && intersection == addPoints p2 s2 = HitEndpointL2 intersection
   | onSegment l1 (intersection) && onSegment l2 intersection = IntersectsAt intersection
