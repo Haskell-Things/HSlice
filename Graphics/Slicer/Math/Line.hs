@@ -21,7 +21,7 @@
 -- for adding Generic and NFData to Line.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Line (Line(Line), Intersection(Collinear, Parallel, HitEndpointL2, IntersectsAt, NoIntersection), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, pointAtZValue, angleOf, flipLine, lineBetween, SearchDirection (Clockwise, CounterClockwise), pointsFromLines, combineLines, shortenLineBy, slope, Direction(Positive,Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope)) where
+module Graphics.Slicer.Math.Line (Line(Line), Intersection(Collinear, Parallel, HitEndpointL2, IntersectsAt, NoIntersection), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, pointAtZValue, flipLine, SearchDirection (Clockwise, CounterClockwise), pointsFromLines, combineLines, shortenLineBy, slope, Direction(Positive,Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope)) where
 
 import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool, (++), last, init, (<$>), Show, error, negate, fst, snd, (.), null, zipWith, (<>), show, concat, (||), atan, pi)
 
@@ -143,33 +143,6 @@ pointSlopeLength p1 (HasSlope sl) dist = Line p1 s
 
 data SearchDirection = Clockwise | CounterClockwise
   deriving Show
--- given two lines with the same origin, start at the first one, and search in the given direction for the second one. if we hit it before we run into the third line (from the same origin), return true.
-lineBetween :: Line -> SearchDirection -> Line -> Line -> Bool
-lineBetween l1 CounterClockwise l2 l3
-  | angleOf l3 > angleOf l1 = angleOf l3 > angleOf l2 && angleOf l2 > angleOf l1
-  | angleOf l3 < angleOf l1 = angleOf l3 > angleOf l2 || angleOf l2 > angleOf l1
-lineBetween l1 Clockwise l2 l3
-  | angleOf l3 < angleOf l1 = angleOf l3 > angleOf l2 && angleOf l2 > angleOf l1
-  | angleOf l3 > angleOf l1 = angleOf l3 > angleOf l2 || angleOf l2 > angleOf l1
-lineBetween l1 dir l2 l3 = error $ "impossible situation: " <> show l1 <> " " <> show l2 <> " " <> show l3 <> " " <> show dir <> "\n"
-
--- given a line, determine the angle it is at, in radians. 
-angleOf :: Line -> ℝ
-angleOf (Line _ m)
-  | lineSlope m == IsOrigin = error "tried to get the angle of a point."
-  | lineSlope m == OnXAxis Positive = 0
-  | lineSlope m == OnYAxis Positive = pi/2
-  | lineSlope m == OnXAxis Negative = pi
-  | lineSlope m == OnYAxis Negative = pi*1.5
-  | x>0 && y>0 = atan (slopeOf $ lineSlope m)
-  | x>0 && y<0 = atan (slopeOf $ lineSlope $ Point2 (-y, x)) + pi/2
-  | x<0 && y<0 = atan (slopeOf $ lineSlope $ Point2 (-x, -y)) + pi
-  | x<0 && y>0 = atan (slopeOf $ lineSlope $ Point2 (y, -x)) + (pi*1.5)
-  | otherwise = error "unknown condition"
-  where
-    (x,y) = (\(Point2 p) -> p) m
-    slopeOf (HasSlope sl) = sl
-    slopeOf _             = error "can not happen."
 
 -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
 -- if p2 == p3 and the lines are parallel.
