@@ -26,7 +26,7 @@ module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWal
 
 import GHC.Generics (Generic)
 
-import Prelude (Eq, Int, ($), tail, init, zipWith, concat, head, last, (<>), show, error, (++), otherwise, (==), length, (>), (/=), fst, pi, (/), (*), pure, toRational, (.), fromRational, (<$>), seq, (+), div)
+import Prelude (Eq, Int, ($), tail, init, zipWith, concat, head, last, (<>), show, error, (++), otherwise, (==), length, (>), (/=), fst, pi, (/), (*), pure, toRational, (.), fromRational, (<$>), seq, (+), div, Bool)
 
 import Data.ByteString (ByteString)
 
@@ -42,7 +42,7 @@ import Control.DeepSeq (NFData(rnf))
 
 import Graphics.Slicer.Definitions(ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour(PointSequence), distance)
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour(PointSequence), distance, roundToFifth)
 
 import Graphics.Slicer.Math.Line (Line(Line), endpoint)
 
@@ -134,14 +134,17 @@ posIze pos
   | pos == 0 = "0"
   | otherwise = fst $ spanEnd (== '.') $ fst $ spanEnd (== '0') $ toFixed 5 pos
 
+(~/=) :: ℝ -> ℝ -> Bool
+(~/=) a b = (roundToFifth a) /= (roundToFifth b)
+
 -- | Render a GCode into a piece of text, ready to print. Only handles 'cooked' gcode, that has had extrusion values calculated.
 gcodeToText :: GCode -> ByteString
-gcodeToText (GCFeedRate f (GCMove2 (x1,y1) (x2,y2))) = "G0 F" <> posIze f <> " " <> (if x1 /= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 /= y2 then "Y" <> posIze y2 <> " " else "")
+gcodeToText (GCFeedRate f (GCMove2 (x1,y1) (x2,y2))) = "G0 F" <> posIze f <> " " <> (if x1 ~/= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 ~/= y2 then "Y" <> posIze y2 <> " " else "")
 gcodeToText (GCFeedRate f wtf) = error "applying feedrate " <> posIze f <> " to something other than a GCmove2: " <> gcodeToText wtf
-gcodeToText (GCMove2 (x1,y1) (x2,y2)) = "G0 " <> (if x1 /= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 /= y2 then "Y" <> posIze y2 <> " " else "")
-gcodeToText (GCMove3 (x1,y1,z1) (x2,y2,z2)) = "G0 " <> (if x1 /= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 /= y2 then "Y" <> posIze y2 <> " " else "") <> (if z1 /= z2 then "Z" <> posIze z2 else "")
-gcodeToText (GCExtrude2 (x1,y1) (x2,y2) e) = "G1 " <> (if x1 /= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 /= y2 then "Y" <> posIze y2 <> " " else "") <> "E" <> posIze e
-gcodeToText (GCExtrude3 (x1,y1,z1) (x2,y2,z2) e) = "G1 " <> (if x1 /= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 /= y2 then "Y" <> posIze y2 <> " " else "") <> (if z1 /= z2 then "Z" <> posIze z2 <> " " else "") <> "E" <> posIze e
+gcodeToText (GCMove2 (x1,y1) (x2,y2)) = "G0 " <> (if x1 ~/= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 ~/= y2 then "Y" <> posIze y2 <> " " else "")
+gcodeToText (GCMove3 (x1,y1,z1) (x2,y2,z2)) = "G0 " <> (if x1 ~/= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 ~/= y2 then "Y" <> posIze y2 <> " " else "") <> (if z1 ~/= z2 then "Z" <> posIze z2 else "")
+gcodeToText (GCExtrude2 (x1,y1) (x2,y2) e) = "G1 " <> (if x1 ~/= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 ~/= y2 then "Y" <> posIze y2 <> " " else "") <> "E" <> posIze e
+gcodeToText (GCExtrude3 (x1,y1,z1) (x2,y2,z2) e) = "G1 " <> (if x1 ~/= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 ~/= y2 then "Y" <> posIze y2 <> " " else "") <> (if z1 ~/= z2 then "Z" <> posIze z2 <> " " else "") <> "E" <> posIze e
 gcodeToText GCRawExtrude2 {} = error "Attempting to generate gcode for a 2D extrude command that has not yet been cooked."
 gcodeToText GCRawExtrude3 {} = error "Attempting to generate gcode for a 3D extrude command that has not yet been cooked."
 -- The current layer count, where 1 == the bottom layer of the object being printed. rafts are represented as negative layers.
