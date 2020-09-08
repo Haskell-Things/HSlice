@@ -29,11 +29,9 @@ import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
 
 import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2), scalePoint, addPoints, xOf, yOf)
 
---import Graphics.Slicer.Formats.GCode.Definitions (roundPoint2)
+import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, Intersection(NoIntersection, IntersectsAt, Parallel, HitEndpointL2, Collinear), flipLine, SearchDirection (Clockwise, CounterClockwise), Slope)
 
-import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, Intersection(NoIntersection, IntersectsAt, Parallel, HitEndpointL2, Collinear), angleOf, flipLine, lineBetween, SearchDirection (Clockwise, CounterClockwise), Slope)
-
-import Graphics.Slicer.Math.PGA (lineIntersection, lineIntersectsAt)
+import Graphics.Slicer.Math.PGA (lineIntersection, lineIntersectsAt, lineBetween)
 
 import Graphics.Implicit.Definitions (ℝ)
 
@@ -162,8 +160,8 @@ innerPerimeterPoint pathWidth contour l@(Line p _)
 
 -- | Find an exterior point on the perpendicular bisector of the given line, pathWidth from the line.
 outerPerimeterPoint :: ℝ -> Contour -> Line -> Point2
-outerPerimeterPoint pathWidth contour l
-      | fst intersections == innerPoint = snd intersections
+outerPerimeterPoint pathWidth contour l@(Line _ s)
+      | innerPoint == fst intersections = snd intersections
       | otherwise = fst intersections
     where
       intersections = ( point $ fst linesToCheck, point $ snd linesToCheck)
@@ -238,16 +236,9 @@ contourContainedByContour child parent = contourContainsContour parent child
 -- | Does a given line, in the direction it is given, enter from outside of a contour to inside of a contour, through a given point?
 -- | Used to check the corner case of corner cases.
 lineEntersContour :: Line -> Intersection -> Contour -> Bool
-lineEntersContour (Line _ m) intersection contour@(PointSequence contourPoints) = lineBetween lineFrom searchDirection continuation lineToInverted
+lineEntersContour (Line _ m) intersection contour@(PointSequence contourPoints) = (lineBetween lineFrom Clockwise continuation lineTo) == (lineBetween lineFrom Clockwise lineToInteriorPoint lineTo)
   where
-    lineToInverted = flipLine lineTo
     continuation = Line (intersectionPoint intersection) m
-    searchDirection
-      | angleOf lineToInteriorPoint - angleOf lineFrom < (pi*0.5) &&
-        angleOf lineFrom - angleOf lineToInteriorPoint < (pi*0.5)    = if angleOf lineFrom > angleOf lineToInteriorPoint then Clockwise else CounterClockwise
-      | angleOf lineToInteriorPoint - angleOf lineFrom > (pi*0.5)    = Clockwise
-      | angleOf lineFrom - angleOf lineToInteriorPoint > (pi*0.5)    = CounterClockwise
-      | otherwise                                                    = error "impossible!"
     lineToInteriorPoint = lineFromEndpoints (intersectionPoint intersection) $ innerPerimeterPoint 0.00001 contour lineFrom
     intersectionPoint (HitEndpointL2 pt) = pt
     intersectionPoint other = error $ "trying to find where a line enters a contour on something not a point of a contour where two lines intersect: " <> show other <> "\n" 
