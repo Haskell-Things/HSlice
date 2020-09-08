@@ -82,7 +82,8 @@ infillLineInside contour childContours line
           saneIntersections xs = saneIntersection <$> xs
           saneIntersection :: Intersection -> Maybe Point2
           saneIntersection (IntersectsAt p2) = Just p2
-          saneIntersection i@(HitEndpointL2 p2) = if lineEntersContour myline i c then Just p2 else Nothing
+-- FIXME: since this is an interior line, we need to check whether we hit the contaiting contour, or a contained contour.
+--          saneIntersection i@(HitEndpointL2 p2) = if not $ lineEntersContour myline i c then Just p2 else Nothing
           saneIntersection NoIntersection = Nothing
           saneIntersection Parallel = Nothing
           saneIntersection res = error $ "insane result when infilling contour:\n" <> show res <> "\n" <> show c <> "\n"
