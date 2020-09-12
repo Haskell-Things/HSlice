@@ -17,10 +17,10 @@
 
 -- Shamelessly stolen from ImplicitCAD.
 
-module Math.PGA (geomAlgSpec, proj2DGeomAlgSpec) where
+module Math.PGA (linearAlgSpec, geomAlgSpec, proj2DGeomAlgSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($))
+import Prelude (($), Bool(True,False), init, last, (<$>), (++), head)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it)
@@ -29,7 +29,7 @@ import Test.Hspec (describe, Spec, it)
 import Graphics.Slicer (ℝ,Line(Line))
 
 -- A euclidian point.
-import Graphics.Slicer.Math.Definitions(Point2(Point2))
+import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence))
 
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze, (•), (∧))
@@ -37,11 +37,58 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus), GVal(GVal), 
 -- Our 2D Projective Geometric Algebra library.
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2)
 
+import Graphics.Slicer.Math.Line (endpoint, makeLinesLooped)
+
+-- Our Contour library.
+import Graphics.Slicer.Math.Contour (innerPerimeterPoint, contourContainsContour, getContours)
+
+-- Our Infill library.
+import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
+
 -- Our utility library, for making these tests easier to read.
 import Math.Util ((-->))
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
+
+linearAlgSpec :: Spec
+linearAlgSpec = do
+  describe "Contours" $ do
+    it "contours made from a list of lines retain their order" $
+      head (getContours cl1) --> c1
+    it "contours converted from points to lines then back to points give the first list." $
+      makePoints (makeLinesLooped cp1) --> cp1
+    it "inner points coresponding to two lines in a unit square contour overlap, when we look for them half a unit away from the lines" $
+      innerPerimeterPoint 0.5 c1 c1l1 --> innerPerimeterPoint 0.5 c1 c1l2
+    it "inner points coresponding to the other two lines in a unit square contour overlap, when we look for them half a unit away from the lines" $
+      innerPerimeterPoint 0.5 c1 c1l3 --> innerPerimeterPoint 0.5 c1 c1l4
+    it "both of the last groups agree" $
+      innerPerimeterPoint 0.5 c1 c1l1 --> innerPerimeterPoint 0.5 c1 c1l4
+    it "a bigger contour containing a smaller contour is detected by contourContainsContour" $
+      contourContainsContour c1 c2 --> True
+    it "a smaller contour contained in a bigger contour is not detected by contourContainsContour" $
+      contourContainsContour c2 c1 --> False
+    it "two contours that do not contain one another are not detected by contourContainsContour" $
+      contourContainsContour c1 c3 --> False
+  describe "Infill" $ do
+    it "infills exactly one line inside of a box big enough for only one line (Horizontal)" $
+      makeInfill c1 [] 0.5 Horiz --> [[Line (Point2 (0,0.5)) (Point2 (1,0))]]
+    it "infills exactly one line inside of a box big enough for only one line (Vertical)" $
+      makeInfill c1 [] 0.5 Vert --> [[Line (Point2 (0.5,0)) (Point2 (0,1))]]
+  where
+    c1l1 = Line (Point2 (0,0)) (Point2 (0,1))
+    c1l2 = Line (Point2 (0,1)) (Point2 (1,0))
+    c1l3 = Line (Point2 (1,1)) (Point2 (0,-1))
+    c1l4 = Line (Point2 (1,0)) (Point2 (-1,0))
+    cp1 = [Point2 (0,0), Point2 (0,1), Point2 (1,1), Point2 (1,0)]
+    cl1 = [(Point2 (0,0), Point2 (0,1)), (Point2 (0,1), Point2 (1,1)), (Point2 (1,1), Point2 (1,0)), (Point2 (1,0), Point2 (0,0))]
+    c1 = PointSequence cp1
+    c2 = PointSequence [Point2 (0.25,0.25), Point2 (0.25,0.75), Point2 (0.75,0.75), Point2 (0.75,0.25)]
+    c3 = PointSequence [Point2 (2,0), Point2 (2,1), Point2 (3,1), Point2 (3,0)]
+    makePoints ls = [last (endpointsOf ls)] ++ init (endpointsOf ls)
+    endpointsOf :: [Line] -> [Point2]
+    endpointsOf ls = endpoint <$> ls
+
 
 geomAlgSpec :: Spec
 geomAlgSpec = do

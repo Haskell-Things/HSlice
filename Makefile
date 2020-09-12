@@ -113,7 +113,7 @@ $(LIBTARGET): $(LIBFILES)
 
 # The parser test suite, since it's source is stored in a different location than the other binaries we build:
 ${TESTBUILDROOT}/test-hslice/build/test-hslice/test-hslice: Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)
-	cabal new-build test-hslice
+	cabal v2-build test-hslice
 
 # Build a binary target with cabal.
 ${EXEBUILDROOT}/%: programs/$$(word 1,$$(subst /, ,%)).hs Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)
@@ -122,16 +122,18 @@ ${EXEBUILDROOT}/%: programs/$$(word 1,$$(subst /, ,%)).hs Setup ${BUILDROOT}/set
 
 # Build a benchmark target with cabal.
 #${BENCHBUILDROOT}/%: programs/$$(word 1,$$(subst /, ,%)).hs Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)
-#	cabal new-build $(word 1,$(subst /, ,$*))
+#	cabal v2-build $(word 1,$(subst /, ,$*))
+
+dist-newstyle/cache/config: hslice.cabal
+	cabal v2-update
 
 # Prepare to build.
-${BUILDROOT}/setup-config: hslice.cabal
-	cabal new-update
-	cabal new-install --only-dependencies --upgrade-dependencies $(PROFILING)
-	cabal new-configure --enable-tests --enable-benchmarks $(PROFILING)
+dist-newstyle/cache/plan.json: hslice.cabal
+	cabal v2-install --only-dependencies --upgrade-dependencies --overwrite-policy=always $(PROFILING)
+	cabal v2-configure --enable-tests --enable-benchmarks $(PROFILING)
 
 # The setup command, used to perform administrative tasks (haddock, upload to hackage, clean, etc...).
-Setup: Setup.*hs ${BUILDROOT}/setup-config $(LIBTARGET)
+Setup: Setup.*hs dist-newstyle/cache/config dist-newstyle/cache/plan.json $(LIBTARGET)
 	$(GHC) -O2 -Wall --make Setup -package Cabal
 	touch Setup
 

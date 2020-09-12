@@ -33,18 +33,18 @@ Library
 --                -Wunused-packages
     Exposed-Modules:
                     Graphics.Slicer
+                    Graphics.Slicer.Math.Contour
                     Graphics.Slicer.Math.Definitions
-                    Graphics.Slicer.Math.PGA
                     Graphics.Slicer.Math.GeometricAlgebra
+                    Graphics.Slicer.Math.PGA
                     Graphics.Slicer.Machine.StateM
                     Graphics.Slicer.Machine.Infill
                     Graphics.Slicer.Machine.Contour
                     Graphics.Slicer.Machine.GCode
+                    Graphics.Slicer.Math.Line
     Other-Modules:
                   Graphics.Slicer.Math.Point
-                  Graphics.Slicer.Math.Line
                   Graphics.Slicer.Math.Facet
-                  Graphics.Slicer.Math.Contour
                   Graphics.Slicer.Math.Slicer
                   Graphics.Slicer.Formats.STL.Definitions
                   Graphics.Slicer.Formats.GCode.Definitions

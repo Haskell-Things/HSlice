@@ -59,8 +59,8 @@ lineIntersection :: Line -> Line -> Intersection
 lineIntersection l1@(Line p1 s1) l2@(Line p2 s2)
   | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec []) = Collinear
   | (lineToVec l1) ∧ (lineToVec l2)           == GVec []           = Parallel
-  | onSegment l1 intersection && onSegment l2 intersection && intersection == p2 = HitEndpointL2 intersection
-  | onSegment l1 intersection && onSegment l2 intersection && intersection == addPoints p2 s2 = HitEndpointL2 intersection
+  | onSegment l1 intersection && onSegment l2 intersection && intersection == p2 = HitEndpointL2 l1 l2 intersection
+  | onSegment l1 intersection && onSegment l2 intersection && intersection == addPoints p2 s2 = HitEndpointL2 l1 l2 intersection
   | onSegment l1 intersection && onSegment l2 intersection = IntersectsAt intersection
   | otherwise = NoIntersection
   where

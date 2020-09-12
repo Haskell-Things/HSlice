@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.Line (Line(Line), Intersection(Collinear, Parallel, HitEndpointL2, IntersectsAt, NoIntersection), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, pointAtZValue, flipLine, SearchDirection (Clockwise, CounterClockwise), pointsFromLines, combineLines, shortenLineBy, slope, Direction(Positive,Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope)) where
 
-import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, Bool, (++), last, init, (<$>), Show, error, negate, fst, snd, (.), null, zipWith, (<>), show, concat, (||), atan, pi)
+import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (/=), (==), Eq, length, head, tail, Bool, (++), last, init, (<$>), Show, error, negate, fst, snd, (.), null, zipWith, (<>), show, concat, (||), atan, pi)
 
 import Data.Maybe (Maybe(Just, Nothing))
 
@@ -33,18 +33,17 @@ import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), addPoints, scalePoint, distance, magnitude, zOf, flatten)
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), addPoints, scalePoint, distance, magnitude, zOf, flatten, roundToFifth)
 
 -- Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
 -- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
 data Line = Line { point :: Point2, slope :: Point2 }
-  deriving (Generic, NFData, Show)
+  deriving (Generic, NFData, Show, Eq)
+
 
 -- a difference that makes no difference is no difference..
--- FIXME: magic numbers.
-instance Eq Line where
-  (==) (Line p1 m1) (Line p2 m2) = (distance p1 p2 + distance m1 m2) < 0.00001
+(~=) (Line p1 m1) (Line p2 m2) = roundToFifth (distance p1 p2 + distance m1 m2) > 0 
 
 -- FIXME: how does this handle endpoints?
 
@@ -54,7 +53,7 @@ data Intersection =
   | Parallel
   | IntersectsAt Point2
   | NoIntersection
-  | HitEndpointL2 Point2
+  | HitEndpointL2 Line Line Point2
   deriving (Show)
 
 -- | Create a line given it's endpoints.
@@ -147,14 +146,18 @@ data SearchDirection = Clockwise | CounterClockwise
 -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
 -- if p2 == p3 and the lines are parallel.
 combineLines :: Line -> Line -> Line
-combineLines (Line p _) l2 = lineFromEndpoints p (endpoint l2)
+combineLines l1@(Line p _) l2
+  | p /= (endpoint l2) = lineFromEndpoints p (endpoint l2)
+  | otherwise = l1
 
 -- Construct a perpendicular bisector of a line (with the same length, assuming a constant z value)
 perpendicularBisector :: Line -> Line
 perpendicularBisector l@(Line p s)
   | s == Point2 (0,0) = error $ "trying to bisect zero length line: " <> show l <> "\n"
-  | otherwise = combineLines (flipLine (pointSlopeLength (midpoint l) m (negate ( distance p (endpoint l) / 2)))) (pointSlopeLength (midpoint l) m (distance p (endpoint l) / 2))
+  | distanceFromMiddle /= 0 = combineLines (flipLine (pointSlopeLength (midpoint l) m (negate ( distance p (endpoint l) / 2)))) $ pointSlopeLength (midpoint l) m (distance p (endpoint l) / 2)
+  | otherwise = error $ "attempting to bisect a zero length line?"
   where
+    distanceFromMiddle = distance p (endpoint l) /2
     m = lineSlopeFlipped s
 
 -- the slope of a line rotated by 90 degrees on the Z plane.

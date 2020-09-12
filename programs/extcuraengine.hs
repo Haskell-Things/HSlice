@@ -72,7 +72,7 @@ import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Line(Li
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yOf, zOf)
 
-import Graphics.Slicer.Machine.Infill (makeInfill, makeSupport, LayerType(BaseOdd, BaseEven))
+import Graphics.Slicer.Machine.Infill (makeInfill, makeSupport, InfillType(Diag1, Diag2))
 
 import Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour)
 
@@ -130,13 +130,13 @@ layers print fs = catMaybes <$> rawContours
     zmax = maximum $ concat zs
     lh = layerHeight print
 
--- get the layer type for infill on this layer.
+-- get the type for infill on this layer.
 -- FIXME: handle top and bottom surfaces.
-getLayerType :: Print -> Fastℕ -> LayerType
+getLayerType :: Print -> Fastℕ -> InfillType
 getLayerType print fromStart
 --  | (fromStart <= topBottomLayers || (fromStart+1) <= topBottomLayers) &&
-  | fromStart `mod` 2 == 0 = BaseEven
-  | otherwise = BaseOdd
+  | fromStart `mod` 2 == 0 = Diag1
+  | otherwise = Diag2
   where
     topBottomLayers :: Fastℕ
     topBottomLayers = round $ surfaceThickness print / layerHeight print
