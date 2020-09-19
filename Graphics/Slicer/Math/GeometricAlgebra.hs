@@ -203,6 +203,7 @@ stripPairs gVal = withoutPairs gVal
       | a /= b && null xs          = val
     withoutPairs (GVal r (a:b:xs)) = prependI (a) $ withoutPairs $ GVal r (b:xs)
     prependI :: GNum -> GVal -> GVal
+    prependI num (GVal r [G0]) = GVal r [num]
     prependI num (GVal r nums) = GVal r (num:nums)
 
 -- the dot product is the inner product in geometric algebra terms.
