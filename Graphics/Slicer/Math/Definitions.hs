@@ -24,7 +24,7 @@
 
 module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointSequence), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, magnitude, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2) where
 
-import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/))
+import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise)
 
 import GHC.Generics (Generic)
 
@@ -69,6 +69,16 @@ instance LinAlg Point2 where
 class PlanePoint p where
   xOf :: p -> ℝ
   yOf :: p -> ℝ
+
+instance Ord Point2 where
+  -- Orders points by x and y (x first, then sorted by y for the same x-values)
+  compare p1 p2
+    | x1 == x2 = compare y1 y2
+    | otherwise = compare x1 x2
+    where
+      (x1,y1) = (xOf p1, yOf p1)
+      (x2,y2) = (xOf p2, yOf p2)
+
 
 -- | functions for getting a point's position on a 2D plane. If the point is 3d, assume the plane is aligned with the xy basis axes.
 instance PlanePoint Point3 where
