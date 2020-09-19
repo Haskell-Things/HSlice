@@ -33,7 +33,7 @@ import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), addPoints, scalePoint, distance, magnitude, zOf, flatten, roundToFifth)
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), addPoints, scalePoint, distance, magnitude, zOf, flatten, roundToFifth, (~=))
 
 -- Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
@@ -41,9 +41,10 @@ import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), addPoin
 data Line = Line { point :: Point2, slope :: Point2 }
   deriving (Generic, NFData, Show, Eq)
 
-
+{-
 -- a difference that makes no difference is no difference..
 (~=) (Line p1 m1) (Line p2 m2) = roundToFifth (distance p1 p2 + distance m1 m2) > 0 
+-}
 
 -- FIXME: how does this handle endpoints?
 
@@ -74,10 +75,11 @@ endpoint (Line p s) = addPoints p s
 pointsFromLines :: [Line] -> [Point2]
 pointsFromLines lines
   | null lines = error "no lines to make points of."
-  | otherwise = (fst . pointsFromLine $ head lines) : (snd . pointsFromLine <$> lines)
+  | otherwise = makePoints lines
   where
-    pointsFromLine :: Line -> (Point2, Point2)
-    pointsFromLine ln@(Line p _) = (p,endpoint ln)
+    makePoints ls = [last (endpointsOf ls)] ++ init (endpointsOf ls)
+    endpointsOf :: [Line] -> [Point2]
+    endpointsOf ls = endpoint <$> ls
 
 -- Midpoint of a line
 midpoint :: Line -> Point2
@@ -99,7 +101,7 @@ makeLinesLooped l
   -- too short, bail.
   | length l < 2 = error $ "tried to makeLinesLooped a list with " <> show (length l) <> " entries.\n" <> concat (show <$> l) <> "\n"
   -- already looped, use makeLines.
-  | head l == last l = makeLines l
+  | head l ~= last l = makeLines l
   -- ok, do the work and loop it.
   | otherwise = zipWith lineFromEndpoints l (tail l ++ l)
 
