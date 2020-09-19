@@ -19,11 +19,11 @@
 
 {- The purpose of this file is to hold information about contoured surfaces. -}
 
-module Graphics.Slicer.Math.Contour (getContours, makeContourTree, innerPerimeterPoint, outerPerimeterPoint, lineToOutsideContour, ContourTree(ContourTree), lineEntersContour, contourContainsContour) where
+module Graphics.Slicer.Math.Contour (getContours, makeContourTree, innerPerimeterPoint, outerPerimeterPoint, lineToOutsideContour, ContourTree(ContourTree), lineEntersContour, contourContainsContour, followingLine, preceedingLine) where
 
-import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, (*), Bool(False), (-), sqrt, (+), (<*>), minimum, maximum, Eq, Show, init, not, even)
+import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, (*), Bool(False), (-), sqrt, (+), (<*>), minimum, maximum, Eq, Show, init, not, even, compare)
 
-import Data.List(tail, last, head, zipWith, partition, reverse)
+import Data.List(tail, last, head, zipWith, partition, reverse, sortBy)
 
 import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
 
@@ -113,9 +113,14 @@ getContours pointPairs = PointSequence . contourAsPoints . contourAsPointPairs <
       | length pts > 2 = Just pts
       | otherwise = error $ "fragment insufficient to be a contour found: " <> show pts <> "/n"
     foundContourSets :: [[[Point2]]]
-    foundContourSets = getLoops $ (\(a,b) -> [a,b]) <$> pointPairs
+    foundContourSets = getLoops $ (\(a,b) -> [a,b]) <$> sortPairs pointPairs
+      where
+        -- Sort the list to begin with, so that differently ordered input lists give the same output.
+        sortPairs :: [(Point2,Point2)] -> [(Point2,Point2)]
+        sortPairs pairs = sortBy (\a b -> compare (fst a) (fst b)) pairs
 
 -- | Find a point on the interior of the given contour, on the perpendicular bisector of the given line, pathWidth from the line.
+-- FIXME: only actually perform this calculation for the first line in the contour.
 innerPerimeterPoint :: ℝ -> Contour -> Line -> Point2
 innerPerimeterPoint pathWidth contour l@(Line p _)
     | even numIntersections  = sameSide
@@ -169,7 +174,6 @@ outerPerimeterPoint pathWidth contour l
           Line _ m = perpendicularBisector l
           farPoint :: Point2 -> Point2
           farPoint (Point2 _) = Point2 (-1,-1)
-
 
 -- | Given a point and slope, make a line segment, where the far end is guaranteed to be outside the contour.
 lineToOutsideContour :: Contour -> ℝ -> Slope -> Point2 -> Line
@@ -253,11 +257,21 @@ lineEntersContour (Line _ m) intersection contour@(PointSequence contourPoints) 
       |           p == pt = (preceedingLine contourLines l2,l2)
       | endpoint l2 == pt = (l2,followingLine contourLines l2)
     findLinesInContour other = error $ "trying to find where a line enters a contour on something not a point of a contour where two lines intersect: " <> show other <> "\n" 
-    followingLine :: [Line] -> Line -> Line
-    followingLine [] _ = error "empty contour?"
-    followingLine [_] _ = error "reached end of contour, and did not find supplied line."
-    followingLine (a:b:xs) l = if a == l then b else followingLine (b:xs) l
-    preceedingLine :: [Line] -> Line -> Line
-    preceedingLine [] _ = error "empty contour?"
-    preceedingLine [_] _ = error "reached end of contour, and did not find supplied line."
-    preceedingLine (a:b:xs) l = if b == l then a else preceedingLine (b:xs) l
+
+-- Search the given sequential list of lines (assumedly generated from a contour), and return the line after this one.
+followingLine :: [Line] -> Line -> Line
+followingLine x l = followingLineLooped x x l
+  where
+    followingLineLooped :: [Line] -> [Line] -> Line -> Line
+    followingLineLooped _ [] l = error $ "reached end of contour, and did not find supplied line: " <> show l <> "\n"
+    followingLineLooped [a] (b:_) l = if a == l then b else followingLineLooped [a] [] l
+    followingLineLooped (a:b:xs) set l = if a == l then b else followingLineLooped (b:xs) set l
+
+-- Search the given sequential list of lines (assumedly generated from a contour), and return the line before this one.
+preceedingLine :: [Line] -> Line -> Line
+preceedingLine x l = preceedingLineLooped x x l
+  where
+    preceedingLineLooped :: [Line] -> [Line] -> Line -> Line
+    preceedingLineLooped _ [] l = error $ "reached end of contour, and did not find supplied line: " <> show l <> "\n"
+    preceedingLineLooped [a] (b:_) l = if b == l then a else preceedingLineLooped [a] [] l
+    preceedingLineLooped (a:b:xs) set l = if b == l then a else preceedingLineLooped (b:xs) set l
