@@ -21,9 +21,9 @@
 
 module Graphics.Slicer.Math.Contour (getContours, makeContourTree, innerPerimeterPoint, outerPerimeterPoint, lineToOutsideContour, ContourTree(ContourTree), lineEntersContour, contourContainsContour, followingLine, preceedingLine) where
 
-import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, (*), Bool(False), (-), sqrt, (+), (<*>), minimum, maximum, Eq, Show, init, not, even, compare)
+import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, (*), Bool(False), (-), sqrt, (+), (<*>), minimum, maximum, Eq, Show, not, even, compare)
 
-import Data.List(tail, last, head, zipWith, partition, reverse, sortBy)
+import Data.List(tail, last, head, partition, reverse, sortBy)
 
 import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
 
@@ -31,7 +31,7 @@ import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2),
 
 import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, Intersection(NoIntersection, IntersectsAt, Parallel, HitEndpointL2, Collinear), flipLine, SearchDirection (Clockwise), Slope)
 
-import Graphics.Slicer.Math.PGA (lineIntersection, lineIntersectsAt, lineBetween)
+import Graphics.Slicer.Math.PGA (lineIntersection, lineBetween)
 
 import Graphics.Implicit.Definitions (ℝ)
 
@@ -111,7 +111,7 @@ getContours pointPairs = PointSequence . contourAsPoints . contourAsPointPairs <
     contourLongEnough :: [[Point2]] -> Maybe [[Point2]]
     contourLongEnough pts
       | length pts > 2 = Just pts
-      | otherwise = error $ "fragment insufficient to be a contour found: " <> show pts <> "/n"
+      | otherwise = error $ "fragment insufficient to be a contour found: " <> show pts <> "\n"
     foundContourSets :: [[[Point2]]]
     foundContourSets = getLoops $ (\(a,b) -> [a,b]) <$> sortPairs pointPairs
       where
@@ -168,10 +168,10 @@ outerPerimeterPoint pathWidth contour l
       innerPoint = innerPerimeterPoint pathWidth contour l
       -- | Given a line, generate a pair of lines from points on both sides of the given line's midpoint to the origin, on the same z plane as the given line.
       perimeterLinesToCheck :: ℝ -> Line -> (Line, Line)
-      perimeterLinesToCheck pathWidth l@(Line p _) = (head linePair, last linePair)
+      perimeterLinesToCheck pw l1@(Line p _) = (head linePair, last linePair)
         where
-          linePair = (`lineFromEndpoints` farPoint p) . endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*pathWidth) <$> [-1,1]
-          Line _ m = perpendicularBisector l
+          linePair = (`lineFromEndpoints` farPoint p) . endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*pw) <$> [-1,1]
+          Line _ m = perpendicularBisector l1
           farPoint :: Point2 -> Point2
           farPoint (Point2 _) = Point2 (-1,-1)
 
@@ -263,15 +263,17 @@ followingLine :: [Line] -> Line -> Line
 followingLine x l = followingLineLooped x x l
   where
     followingLineLooped :: [Line] -> [Line] -> Line -> Line
-    followingLineLooped _ [] l = error $ "reached end of contour, and did not find supplied line: " <> show l <> "\n"
-    followingLineLooped [a] (b:_) l = if a == l then b else followingLineLooped [a] [] l
-    followingLineLooped (a:b:xs) set l = if a == l then b else followingLineLooped (b:xs) set l
+    followingLineLooped [] _ l1 = error $ "reached beginning of contour, and did not find supplied line: " <> show l1 <> "\n"
+    followingLineLooped _ [] l1 = error $ "reached end of contour, and did not find supplied line: " <> show l1 <> "\n"
+    followingLineLooped [a] (b:_) l1 = if a == l1 then b else followingLineLooped [a] [] l1
+    followingLineLooped (a:b:xs) set l1 = if a == l1 then b else followingLineLooped (b:xs) set l1
 
 -- Search the given sequential list of lines (assumedly generated from a contour), and return the line before this one.
 preceedingLine :: [Line] -> Line -> Line
 preceedingLine x l = preceedingLineLooped x x l
   where
     preceedingLineLooped :: [Line] -> [Line] -> Line -> Line
-    preceedingLineLooped _ [] l = error $ "reached end of contour, and did not find supplied line: " <> show l <> "\n"
-    preceedingLineLooped [a] (b:_) l = if b == l then a else preceedingLineLooped [a] [] l
-    preceedingLineLooped (a:b:xs) set l = if b == l then a else preceedingLineLooped (b:xs) set l
+    preceedingLineLooped [] _ l1 = error $ "reached beginning of contour, and did not find supplied line: " <> show l1 <> "\n"
+    preceedingLineLooped _ [] l1 = error $ "reached end of contour, and did not find supplied line: " <> show l1 <> "\n"
+    preceedingLineLooped [a] (b:_) l1 = if b == l1 then a else preceedingLineLooped [a] [] l1
+    preceedingLineLooped (a:b:xs) set l1 = if b == l1 then a else preceedingLineLooped (b:xs) set l1
