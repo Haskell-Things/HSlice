@@ -72,7 +72,7 @@ import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Line(Li
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yOf, zOf)
 
-import Graphics.Slicer.Machine.Infill (makeInfill, makeSupport, InfillType(Diag1, Diag2))
+import Graphics.Slicer.Machine.Infill (makeInfill, makeSupport, InfillType(Diag1, Diag2, Horiz, Vert))
 
 import Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour)
 
@@ -149,7 +149,7 @@ getLayerType print fromStart
 mapEveryOther :: (a -> a) -> [a] -> [a]
 mapEveryOther _ [] = []
 mapEveryOther f [a] = [f a]
-mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [1::Fastℕ,2..]
+mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [0::Fastℕ,1..]
 
 -------------------------------------------------------------
 ----------------------- ENTRY POINT -------------------------
