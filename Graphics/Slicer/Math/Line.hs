@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.Line (Line(Line), Intersection(Collinear, Parallel, HitEndpointL2, IntersectsAt, NoIntersection), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, pointAtZValue, flipLine, SearchDirection (Clockwise, CounterClockwise), pointsFromLines, combineLines, shortenLineBy, slope, Direction(Positive,Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope)) where
 
-import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (/=), (==), Eq, length, head, tail, Bool, (++), last, init, (<$>), Show, error, negate, fst, snd, (.), null, zipWith, (<>), show, concat, (||), atan, pi)
+import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (/=), (==), Eq, length, head, tail, (++), last, init, (<$>), Show, error, negate, null, zipWith, (<>), show, concat)
 
 import Data.Maybe (Maybe(Just, Nothing))
 
@@ -33,18 +33,13 @@ import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), addPoints, scalePoint, distance, magnitude, zOf, flatten, roundToFifth, (~=))
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), addPoints, scalePoint, distance, magnitude, zOf, flatten, (~=))
 
 -- Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
 -- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
 data Line = Line { point :: Point2, slope :: Point2 }
   deriving (Generic, NFData, Show, Eq)
-
-{-
--- a difference that makes no difference is no difference..
-(~=) (Line p1 m1) (Line p2 m2) = roundToFifth (distance p1 p2 + distance m1 m2) > 0 
--}
 
 -- FIXME: how does this handle endpoints?
 
