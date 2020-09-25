@@ -22,25 +22,23 @@
 
 module Graphics.Slicer.Machine.Infill (makeInfill, makeSupport, InfillType(Diag1, Diag2, Vert, Horiz)) where
 
-import Prelude ((+), (<$>), ($), maximum, minimum, filter, (>), head, (.), flip, (*), sqrt, (-), (<>), show, error, otherwise, (&&), (==), length, concat, not, null, (!!), fmap, (||))
+import Prelude ((+), (<$>), ($), maximum, minimum, filter, (>), head, (.), flip, (*), sqrt, (-), (<>), show, error, otherwise, (&&), (==), length, concat, not, null, (!!), fmap, (||), odd)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe, fromMaybe)
 
 import Data.Bool (Bool(True, False))
 
-import Data.List (sortBy)
+import Data.List (sortBy, sort)
 
 import Graphics.Slicer.Definitions (ℝ,ℝ2)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), distance, xOf, yOf, roundToFifth)
 
-import Graphics.Slicer.Math.Point (orderPoints)
-
 import Graphics.Slicer.Math.Line (Line(Line), Intersection(HitEndpointL2, IntersectsAt, NoIntersection, Parallel, Collinear), SearchDirection(Clockwise), makeLines, makeLinesLooped, shortenLineBy, endpoint, lineFromEndpoints, flipLine)
 
 import Graphics.Slicer.Math.PGA (lineIntersection, lineBetween)
 
-import Graphics.Slicer.Math.Contour (lineEntersContour, innerPerimeterPoint)
+import Graphics.Slicer.Math.Contour (lineEntersContour, innerPerimeterPoint, followingLine, preceedingLine)
 
 -- | what direction to put down infill lines.
 data InfillType = Diag1 | Diag2 | Vert | Horiz
@@ -60,14 +58,16 @@ makeInfill contour insideContours ls layerType = catMaybes $ infillLineInside co
 -- May return multiple lines, or empty set.
 infillLineInside :: Contour -> [Contour] -> Line -> Maybe [Line]
 infillLineInside contour childContours line
---  | not (null allLines) && length allLines > 1 = error $ show contour <> "\n" <> show childContours <> "\n" <> show line <> concat (show <$> [(allLines !!) <$> [0,2..length allLines - 1]] )
---  | not (null allLines) = [head allLine]
+--  | contour == contour  = error $ "dumping infill inputs:" <> show contour <> "\n" <> show childContours <> "\n" <> show line <> "\n"
   | not (null allLines) = Just $ (allLines !!) <$> [0,2..length allLines - 1]
-  | otherwise = Nothing -- error $ "did not find an intersection with a contour for: \n" <> show line <> "\n"
+  | otherwise = Nothing
     where
       allLines :: [Line]
-      allLines = if null allPoints then [] else makeLines allPoints
-      allPoints = filterTooShort . sortBy orderPoints . concat $ getLineIntersections line <$> contour:childContours
+      allLines
+        | null allPoints         = []
+        | odd $ length allPoints = error $ "found odd number of points:\n" <> show allPoints <> "\noverlaying line:\n" <> show line <> "\nonto contour:\n" <> show contour <> "\n" <> show childContours <> "\n"
+        | otherwise              = makeLines allPoints
+      allPoints = filterTooShort . sort . concat $ getLineIntersections line <$> contour:childContours
       filterTooShort :: [Point2] -> [Point2]
       filterTooShort [] = []
       filterTooShort [a] = [a]
@@ -85,7 +85,7 @@ infillLineInside contour childContours line
               hitsEndpoint (HitEndpointL2 _ _ _) = True
               hitsEndpoint _ = False
           saneIntersections :: [Intersection] -> [Point2]
-          saneIntersections xs = catMaybes $ saneIntersection <$> xs
+          saneIntersections xs = mapMaybe saneIntersection xs
           saneIntersection :: Intersection -> Maybe Point2
           saneIntersection (IntersectsAt p2) = Just p2
           saneIntersection i@(HitEndpointL2 l1@(Line _ m1) l2@(Line p1 _) p2)
@@ -106,16 +106,7 @@ infillLineInside contour childContours line
           saneIntersection Collinear = Nothing
           isCollinear (Collinear) = True
           isCollinear _ = False
-          linesOfContour (PointSequence contourPoints) = makeLinesLooped contourPoints
-          followingLine [] _ = error "empty contour?"
-          followingLine [a] _ = error "reached end of contour, and did not find supplied line."
-          followingLine (a:b:xs) l = if a == l then b else followingLine (b:xs) l
-          preceedingLine :: [Line] -> Line -> Line
-          preceedingLine x l = preceedingLineLooped x x l
-          preceedingLineLooped :: [Line] -> [Line] -> Line -> Line
-          preceedingLineLooped _ [] _ = error $ "reached end of contour, and did not find supplied line:"
-          preceedingLineLooped [a] (b:xs) l = if b == l then a else preceedingLineLooped [a] [] l
-          preceedingLineLooped (a:b:xs) set l = if b == l then a else preceedingLineLooped (b:xs) set l
+          linesOfContour (PointSequence contourPoints) = makeLinesLooped $ (\(Point2 (x,y)) -> Point2 (roundToFifth x, roundToFifth y)) <$> contourPoints
 
 -- Generate lines over entire print area, where each one is aligned with a -1 slope.
 -- FIXME: other ways to only generate covering lines over the outer contour?
@@ -124,7 +115,7 @@ coveringLinesNegative (PointSequence contourPoints) ls = flip Line s . f <$> [-x
     where s = Point2 (xMaxOutside,yMaxOutside)
           f v = Point2 (v,0)
           xMinRaw = minimum $ xOf <$> contourPoints
-          xMin = head $ filter (> xMinRaw) [0,ls..]
+          xMin = head $ filter (> xMinRaw) [-ls, 0..]
           xMax = maximum $ xOf <$> contourPoints
           yMax = maximum $ yOf <$> contourPoints
           xMaxOutside = xMax + ls
@@ -146,26 +137,24 @@ coveringLinesPositive (PointSequence contourPoints) ls = flip Line s . f <$> [0,
 -- Generate lines over entire contour, where each one is aligned with the Y axis.
 -- FIXME: assumes we're in positive space.
 coveringLinesVertical :: Contour -> ℝ -> [Line]
-coveringLinesVertical (PointSequence contourPoints) ls = flip Line s . f <$> [xMin,xMin+ls..xMax]
-    where s =  Point2 (0,yMaxOutside)
-          f v = Point2 (v,0)
+coveringLinesVertical (PointSequence contourPoints) ls = flip Line s . f <$> [xMin-ls,xMin..xMax]
+    where s =  Point2 (0,yMax+ls)
+          f v = Point2 (v,-ls)
           xMinRaw = minimum $ xOf <$> contourPoints
-          xMin = head $ filter (> xMinRaw) [0,ls..]
+          xMin = head $ filter (> xMinRaw) [-ls, 0..]
           xMax = maximum $ xOf <$> contourPoints
           yMax = maximum $ yOf <$> contourPoints
-          yMaxOutside = yMax + ls
 
 -- Generate lines over entire contour, where each one is aligned with the X axis.
 -- FIXME: assumes we're in positive space.
 coveringLinesHorizontal :: Contour -> ℝ -> [Line]
-coveringLinesHorizontal (PointSequence contourPoints) ls = flip Line s . f <$> [yMin,yMin+ls..yMax]
-    where s =  Point2 (xMaxOutside,0)
-          f v = Point2 (0,v)
+coveringLinesHorizontal (PointSequence contourPoints) ls = flip Line s . f <$> [yMin-ls,yMin..yMax]
+    where s =  Point2 (xMax+ls,0)
+          f v = Point2 (-ls,v)
           yMinRaw = minimum $ yOf <$> contourPoints
-          yMin = head $ filter (> yMinRaw) [0,ls..]
+          yMin = head $ filter (> yMinRaw) [-ls, 0..]
           xMax = maximum $ xOf <$> contourPoints
           yMax = maximum $ yOf <$> contourPoints
-          xMaxOutside = xMax + ls
 
 
 -----------------------------------------------------------------------
