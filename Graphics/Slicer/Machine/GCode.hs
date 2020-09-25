@@ -162,7 +162,7 @@ gcodeToText GCMarkInfillStart = ";TYPE:FILL"
 -- Assumes the printer is already at the first point of the contour.
 gcodeForContour :: ℝ -> ℝ -> Contour -> [GCode]
 gcodeForContour lh pathWidth (PointSequence contourPoints)
-  | length contourPoints > 1  = zipWith (make2DExtrudeGCode lh pathWidth) (init contourPoints) (tail contourPoints)
+  | length contourPoints > 1  = (zipWith (make2DExtrudeGCode lh pathWidth) (init contourPoints) (tail contourPoints)) ++ [make2DExtrudeGCode lh pathWidth (last contourPoints) (head contourPoints)]
   | length contourPoints == 1 = error $ "Given a contour with a single point in it:" <> show contourPoints <> "\n"
   | otherwise                 = []
 
