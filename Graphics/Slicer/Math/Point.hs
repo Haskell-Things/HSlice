@@ -18,11 +18,11 @@
 
 {- The purpose of this file is to hold point based arithmatic. -}
 
-module Graphics.Slicer.Math.Point (crossProduct, twoDCrossProduct, orderPoints) where
+module Graphics.Slicer.Math.Point (crossProduct, twoDCrossProduct) where
 
-import Prelude ((*), (-), ($), Ordering, (==), compare, otherwise)
+import Prelude ((*), (-), ($))
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), PlanePoint, xOf, yOf, zOf)
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), zOf)
 
 import Graphics.Slicer.Definitions (ℝ)
 
@@ -35,13 +35,4 @@ twoDCrossProduct p1 p2 = zOf $ crossProduct (zeroPoint p1) (zeroPoint p2)
   where
     zeroPoint :: Point2 -> Point3
     zeroPoint (Point2 (x,y)) = Point3 (x,y,0)
-
--- Orders points by x and y (x first, then sorted by y for the same x-values)
-orderPoints :: (PlanePoint p) => p -> p -> Ordering
-orderPoints p1 p2
-  | x1 == x2 = compare y1 y2
-  | otherwise = compare x1 x2
-  where
-    (x1,y1) = (xOf p1, yOf p1)
-    (x2,y2) = (xOf p2, yOf p2)
 
