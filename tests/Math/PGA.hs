@@ -20,16 +20,18 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, proj2DGeomAlgSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True,False), init, last, (<$>), (++), head)
+import Prelude (($), Bool(True,False), (<$>), length)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it)
+
+import Data.Maybe (fromJust)
 
 -- The numeric type in HSlice, and the type for a euclidian line segment.
 import Graphics.Slicer (ℝ,Line(Line))
 
 -- A euclidian point.
-import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence))
+import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence), roundPoint2)
 
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze, (•), (∧))
@@ -37,10 +39,11 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus), GVal(GVal), 
 -- Our 2D Projective Geometric Algebra library.
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2)
 
-import Graphics.Slicer.Math.Line (endpoint, makeLinesLooped)
+import Graphics.Slicer.Math.Line (makeLinesLooped, pointsFromLines)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (innerPerimeterPoint, contourContainsContour, getContours)
+import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
 
 -- Our Infill library.
 import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
@@ -54,10 +57,12 @@ default (ℝ)
 linearAlgSpec :: Spec
 linearAlgSpec = do
   describe "Contours" $ do
-    it "contours made from a list of lines retain their order" $
-      head (getContours cl1) --> c1
-    it "contours converted from points to lines then back to points give the first list." $
-      makePoints (makeLinesLooped cp1) --> cp1
+    it "contours made from a list of point pairs retain their order" $
+      getContours cl1 --> [c1]
+    it "contours made from an out of order list of point pairs is put into order" $
+      getContours oocl1 --> [c1]
+    it "contours converted from points to lines then back to points give the input list" $
+      pointsFromLines (makeLinesLooped cp1) --> cp1
     it "inner points coresponding to two lines in a unit square contour overlap, when we look for them half a unit away from the lines" $
       innerPerimeterPoint 0.5 c1 c1l1 --> innerPerimeterPoint 0.5 c1 c1l2
     it "inner points coresponding to the other two lines in a unit square contour overlap, when we look for them half a unit away from the lines" $
@@ -70,6 +75,14 @@ linearAlgSpec = do
       contourContainsContour c2 c1 --> False
     it "two contours that do not contain one another are not detected by contourContainsContour" $
       contourContainsContour c1 c3 --> False
+    it "a contour shrunk has the same amount of points as the input contour" $
+      (length $ pointsOfContour $ fromJust $ shrinkContour 0.1 [c1] c1) --> (length $ pointsOfContour $ c1)
+    it "a contour shrunk by zero is the same as the input contour" $
+      (fromJust $ shrinkContour 0 [c1] c1) --> c1
+    it "a contour expanded has the same amount of points as the input contour" $
+      (length $ pointsOfContour $ fromJust $ expandContour 0.1 [c1] c1) --> (length $ pointsOfContour $ c1)
+    it "a contour shrunk and expanded is about equal to where it started" $
+      (roundPoint2 <$> (pointsOfContour $ fromJust $ (\c -> expandContour 0.1 [c] c) $ fromJust $ shrinkContour 0.1 [c1] c1)) --> (roundPoint2 <$> pointsOfContour c1)
   describe "Infill" $ do
     it "infills exactly one line inside of a box big enough for only one line (Horizontal)" $
       makeInfill c1 [] 0.5 Horiz --> [[Line (Point2 (0,0.5)) (Point2 (1,0))]]
@@ -81,14 +94,12 @@ linearAlgSpec = do
     c1l3 = Line (Point2 (1,1)) (Point2 (0,-1))
     c1l4 = Line (Point2 (1,0)) (Point2 (-1,0))
     cp1 = [Point2 (0,0), Point2 (0,1), Point2 (1,1), Point2 (1,0)]
+    oocl1 = [(Point2 (1,0), Point2 (0,0)), (Point2 (0,1), Point2 (1,1)), (Point2 (0,0), Point2 (0,1)), (Point2 (1,1), Point2 (1,0))]
     cl1 = [(Point2 (0,0), Point2 (0,1)), (Point2 (0,1), Point2 (1,1)), (Point2 (1,1), Point2 (1,0)), (Point2 (1,0), Point2 (0,0))]
     c1 = PointSequence cp1
     c2 = PointSequence [Point2 (0.25,0.25), Point2 (0.25,0.75), Point2 (0.75,0.75), Point2 (0.75,0.25)]
     c3 = PointSequence [Point2 (2,0), Point2 (2,1), Point2 (3,1), Point2 (3,0)]
-    makePoints ls = [last (endpointsOf ls)] ++ init (endpointsOf ls)
-    endpointsOf :: [Line] -> [Point2]
-    endpointsOf ls = endpoint <$> ls
-
+    pointsOfContour (PointSequence contourPoints) = contourPoints
 
 geomAlgSpec :: Spec
 geomAlgSpec = do

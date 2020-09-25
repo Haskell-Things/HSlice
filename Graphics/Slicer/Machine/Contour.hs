@@ -18,23 +18,23 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude (length, (>), ($), otherwise, (<$>), Int, Eq, (<>), show, error, (==), negate, (.), (*), (+), take, drop, cycle, (-), (&&), fst, (<), (/), Bool)
+import Prelude (length, (>), ($), otherwise, Int, Eq, (<>), show, error, (==), (.), (+), take, drop, cycle, (-), (&&), fst, Bool(True, False), last, init, (++), (<), Show)
 
-import Data.List (nub, null, zipWith3)
+import Data.List (null, zipWith3, foldl)
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, isJust, fromJust)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes)
 
 import Control.Parallel.Strategies (withStrategy, parList, rpar)
 
 import Control.Parallel (par, pseq)
 
-import Graphics.Slicer.Math.Definitions (Point2, Contour(PointSequence), distance, roundPoint2)
+import Graphics.Slicer.Math.Definitions (Point2, Contour(PointSequence), addPoints)
 
-import Graphics.Slicer.Math.Line (Line(Line), Intersection(IntersectsAt, NoIntersection, Collinear, Parallel), makeLinesLooped,  pointsFromLines, lineSlope, flipLine, pointSlopeLength, combineLines, endpoint, lineFromEndpoints)
+import Graphics.Slicer.Math.Line (Line(Line), Intersection(IntersectsAt, Collinear, Parallel), makeLinesLooped,  pointsFromLines, lineFromEndpoints)
 
-import Graphics.Slicer.Math.PGA (combineConsecutiveLines, lineIntersectsAt)
+import Graphics.Slicer.Math.PGA (PLine2(PLine2), combineConsecutiveLines, plinesIntersectAt, translatePerp, eToPLine2)
 
-import Graphics.Slicer.Math.Contour (outerPerimeterPoint, innerPerimeterPoint, lineToOutsideContour)
+import Graphics.Slicer.Math.GeometricAlgebra((⋅), scalarIze)
 
 import Graphics.Slicer.Definitions(ℝ)
 
@@ -46,16 +46,13 @@ import Graphics.Slicer.Definitions(ℝ)
 cleanContour :: Contour -> Maybe Contour
 cleanContour (PointSequence points)
   | length (cleanPoints points) > 2 = Just $ PointSequence $ cleanPoints points
-  | otherwise = Nothing -- error $ "asked to clean a contour with " <> show (length points) <> "points: " <> show points <> "\n"
+  | otherwise = error $ "asked to clean a contour with " <> show (length points) <> "points: " <> show points <> "\n"
   where
     cleanPoints :: [Point2] -> [Point2]
     cleanPoints pts
       | null pts = []
-      | length pointsRemaining > 2 = pointsFromLines $ combineConsecutiveLines lines
+      | length pts > 2 = pointsFromLines $ combineConsecutiveLines $ makeLinesLooped pts
       | otherwise = [] 
-        where
-          lines = makeLinesLooped pointsRemaining
-          pointsRemaining = nub $ roundPoint2 <$> pts
 
 ---------------------------------------------------------------
 -------------------- Contour Modifiers ------------------------
@@ -75,7 +72,7 @@ mapWithNeighbors  f l =
 data Direction =
     Inward
   | Outward
-  deriving (Eq)
+  deriving (Eq, Show)
 
 -- | Generate a new contour that is a given amount smaller than the given contour.
 shrinkContour :: ℝ -> [Contour] -> Contour -> Maybe Contour
@@ -94,66 +91,63 @@ findExtraContours _ _ = []
 
 -- | Generate a new contour that is a given amount larger/smaller than the given contour, in a naieve fashion.
 modifyContour :: ℝ -> [Contour] -> Contour -> Direction -> (Maybe Contour,[Contour])
-modifyContour pathWidth allContours contour@(PointSequence contourPoints) direction = if null foundContour then (Nothing, []) else (Just $ PointSequence $ pointsFromLines foundContour,[])
+modifyContour pathWidth allContours (PointSequence contourPoints) direction = if null foundContour then (Nothing, []) else (Just $ PointSequence $ pointsFromLines foundContour,[])
   where
-    -- FIXME: implement me. we need this so we can handle further interior contours, and only check against the contour they are inside of.
+    -- FIXME: implement me. we need this to can handle further interior contours, and only check against the contour they are inside of.
     foundContour
-      | length contourPoints > 2 = catMaybes $ mapWithNeighbors (findLine allContours) $ makeLinesLooped contourPoints
+      | length contourPoints > 2 = catMaybes maybeLines
       | otherwise = error $ "tried to modify a contour with too few points: " <> show (length contourPoints) <> "\n"
       where
         -- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.
-        -- Optimization: only check non-neighbor lines when the angles add up to a certain amount? looking for curling back. anything over ~180 degrees, relative to the slope of this line.
-        findLine :: [Contour] -> Line -> Line -> Line -> Maybe Line
-        findLine contours previousln ln@(Line _ m) nextln
+        maybeLines = mapWithNeighbors findLine $ removeDegenerates $ makeLinesLooped contourPoints
+        -- Remove sequential parallel lines, colinear sequential lines, and lines that are too close to parallel.
+        removeDegenerates :: [Line] -> [Line]
+        removeDegenerates lns = removeDegenerateEnds $ foldl concatDegenerates [] lns
+          where
+            concatDegenerates xs x
+              | null xs = [x]
+              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust (x)) = (init xs) ++ [combineLines (last xs) x]
+              | otherwise = xs ++ [x]
+            removeDegenerateEnds :: [Line] -> [Line]
+            removeDegenerateEnds  []      = []
+            removeDegenerateEnds  [l1]    = [l1]
+            removeDegenerateEnds  (l1:ls)
+              | length ls > 1 = if isDegenerate (inwardAdjust (last ls)) (inwardAdjust l1) then init ls ++ [combineLines (last ls) l1] else l1:ls
+              | otherwise = l1:ls
+            -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
+            -- if p2 == p3 and the lines are really close to parallel
+            combineLines :: Line -> Line -> Line
+            combineLines (Line p _) (Line p1 s1) = lineFromEndpoints p (addPoints p1 s1)
+            isDegenerate pl1@(PLine2 gvec1) pl2@(PLine2 gvec2)
+              | (fst . scalarIze $ gvec1 ⋅ gvec2) < (-0.9999) = True
+              | (fst . scalarIze $ gvec1 ⋅ gvec2) > (0.9999) = True
+              | otherwise = case plinesIntersectAt pl1 pl2 of
+                              Parallel  -> True
+                              Collinear -> True
+                              _         -> False
+        inwardAdjust l1 = translatePerp (eToPLine2 l1) (if direction == Inward then pathWidth else (-pathWidth))
+        findLine :: Line -> Line -> Line -> Maybe Line
+        findLine previousln ln nextln
           -- The ideal case.
-          | isJustPositive (lengthToIntersection ln previousln)
-            && isJustPositive (lengthToIntersection ln nextln)   = Just $ flipLine midToStart `combineLines` midToEnd
-          | isJustZero (lengthToIntersection ln previousln)
-            && isJustPositive (lengthToIntersection ln nextln)   = Just midToEnd
-          | isJustPositive (lengthToIntersection ln previousln)
-            && isJustZero (lengthToIntersection ln nextln)       = Just $ flipLine midToStart
-          | isJustZero (lengthToIntersection ln previousln)
-            && isJustZero (lengthToIntersection ln nextln)       = Nothing
-          | isJust (lengthToIntersection ln previousln)          =
-            case lineIntersectsAt (rayToEnd ln) (rayToStart nextln) of
-              NoIntersection -> case lineIntersectsAt (rayToStart ln) (rayToStart nextln) of
-                           IntersectsAt p2 -> if distance (perimeterPoint ln) p2 < lineLength midToStart
-                                              then Just $ lineFromEndpoints p2 (endpoint midToStart)
-                                              else Nothing
-                           _               -> Nothing
-              _              -> Nothing
-          | isJust (lengthToIntersection ln nextln)              =
-            case lineIntersectsAt (rayToStart ln) (rayToEnd previousln) of
-              NoIntersection -> case lineIntersectsAt (rayToEnd ln) (rayToEnd previousln) of
-                           IntersectsAt p2 -> if distance (perimeterPoint ln) p2 < lineLength midToEnd
-                                              then Just $ lineFromEndpoints p2 (endpoint midToEnd)
-                                              else Nothing
-                           _               -> Nothing
-              _              -> Nothing
-          | otherwise = Nothing
+          | isIntersection previousln ln &&
+            isIntersection ln nextln        = Just $ lineFromEndpoints (intersectionPoint (inwardAdjust previousln) (inwardAdjust ln)) (intersectionPoint (inwardAdjust ln) (inwardAdjust nextln))
+          | otherwise = error $ "no intersection?\n" <> (show $ isIntersection previousln ln) <> "\n" <> (show $ isIntersection ln nextln) <> "\n" <> show previousln <> "\n" <> show ln <> "\n" <> show nextln <> "\n"
           where
-            midToEnd, midToStart :: Line
-            midToEnd   = pointSlopeLength (perimeterPoint ln) (lineSlope m) (fromJust $ lengthToIntersection ln nextln)
-            midToStart = pointSlopeLength (perimeterPoint ln) (lineSlope m) (negate $ fromJust $ lengthToIntersection ln previousln)
-            isJustZero, isJustPositive :: Maybe ℝ -> Bool
-            isJustZero a = a == Just 0
-            isJustPositive a = isJust a && fromJust a > 0
-        lineLength ln@(Line p _) = distance p $ endpoint ln
-        perimeterPoint :: Line -> Point2
-        perimeterPoint ln
-          | direction == Inward = innerPerimeterPoint pathWidth contour ln
-          | otherwise           = outerPerimeterPoint pathWidth contour ln
-        -- line segments for a hypothetical line, without being shortened yet.
-        rayToEnd ln = rawMidToEdge contour ln
-        rayToStart ln = flipLine $ rawMidToEdge contour ln
-        rawMidToEdge c ln@(Line _ m) = lineToOutsideContour c (pathWidth * 2) (lineSlope m) (perimeterPoint ln)
-        -- get the length to where these lines intersect, assuming they are each pathWidth away from the lines themselves.
-        lengthToIntersection :: Line -> Line -> Maybe ℝ
-        lengthToIntersection l1 l2 = case lineIntersectsAt (rayToEnd l1) (rayToStart l2) of
-                          IntersectsAt p2 -> foundDistance p2
-                          Parallel          -> Nothing
-                          Collinear         -> Just $ lineLength l1 / 2
-                          a                 -> error $ "insane result: " <> show a <>"\nno intersection on contour:\n" <> show contour <> "\n" <> show l1 <> " -> " <> show (rayToEnd l1) <> "\n" <> show l2 <> " -> " <> show (rayToStart l2) <> "\n"
-          where
-            foundDistance p2 = if rawDistance p2 > 0 then Just (rawDistance p2) else Nothing
-            rawDistance p2 = distance (perimeterPoint l1) p2
+            isIntersection l1 l2 = case plinesIntersectAt (inwardAdjust l1) (inwardAdjust l2) of
+                                     IntersectsAt _ -> True
+                                     _              -> False
+            intersectionPoint pl1 pl2 = case plinesIntersectAt pl1 pl2 of
+                                          IntersectsAt p2 -> p2
+                                          a               -> error $ "impossible result!\nresult: " <> show a <> "\npline 1: " <> show pl1
+                                                             <> "\npline 2: " <> show pl2
+                                                             <> "\nEvaluating line intersections between:\nFirst: " <> show previousln
+                                                             <> "\nSecond: " <> show ln
+                                                             <> "\nThird: " <> show nextln <> "\n"<> show (inwardAdjust previousln)
+                                                             <> "\n" <> show (eToPLine2 previousln)
+                                                             <> "\n"<> show (inwardAdjust ln)
+                                                             <> "\n" <> show (eToPLine2 ln)
+                                                             <> "\n"<> show (inwardAdjust nextln)
+                                                             <> "\n" <> show (eToPLine2 nextln)
+                                                             <> "\n" <> show direction
+                                                             <> "\n" <> show contourPoints
+                                                             <> "\n"

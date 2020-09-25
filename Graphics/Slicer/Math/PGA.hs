@@ -20,9 +20,9 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLines, lineIntersection, lineIntersectsAt, lineBetween, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLines, lineIntersection, lineIntersectsAt, plinesIntersectAt, lineBetween, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2) where
 
-import Prelude (Eq, Show, error, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (<), (>), (<=), (+), foldl, sqrt, fst, (.))
+import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (<), (>), (<=), (+), foldl, sqrt, fst, (.), head, null)
 
 import GHC.Generics (Generic)
 
@@ -30,46 +30,52 @@ import Control.DeepSeq (NFData)
 
 import Data.List.Ordered (foldt)
 
-import Data.Maybe (Maybe(Just, Nothing), isJust)
+import Data.Maybe (Maybe(Just, Nothing))
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence), addPoints)
+import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
 
 import Graphics.Slicer.Math.Line(Line(Line), Intersection(Collinear, Parallel, HitEndpointL2, IntersectsAt, NoIntersection), SearchDirection(Clockwise, CounterClockwise))
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), (⋅), (•), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), (⋅), addVal, addVecPair, divVecScalar, scalarIze)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
 -- Don't check for corner cases, junt get the intersection point if it exists.
 
--- for when you don't care about segments, but lines.
+-- Wrapper
 lineIntersectsAt :: Line -> Line -> Intersection
-lineIntersectsAt l1 l2
-  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec []) = Collinear
-  | (lineToVec l1) ∧ (lineToVec l2)           == GVec []           = Parallel
-  | otherwise                                                      = IntersectsAt intersection
-  where
-    intersection = intersectionPoint l1 l2
-    lineToVec (Line _ (Point2 (x,y))) = GVec $ foldl addVal [] [ GVal x [GEZero 1] , GVal y [GEPlus 1] ] 
+lineIntersectsAt l1 l2 = plinesIntersectAt (eToPLine2 l1) (eToPLine2 l2)
 
--- | Check if/where two lines intersect.
+-- for when you don't care about segments, but lines.
+plinesIntersectAt :: PLine2 -> PLine2 -> Intersection
+plinesIntersectAt pl1 pl2
+  | meet2PLine2 pl1 pl2              == PPoint2 (GVec []) = Collinear
+  | (fst.scalarIze) ((rawPLine pl1)⋅(rawPLine pl2)) ==  1 = Parallel
+  | (fst.scalarIze) ((rawPLine pl1)⋅(rawPLine pl2)) == -1 = Parallel
+  | otherwise                                             = IntersectsAt intersection
+  where
+    rawPLine (PLine2 a) = a
+    intersection = intersectPLines pl1 pl2
+
+-- | Check if/where two line segments intersect.
 lineIntersection :: Line -> Line -> Intersection
-lineIntersection l1@(Line p1 s1) l2@(Line p2 s2)
-  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec []) = Collinear
-  | (lineToVec l1) ∧ (lineToVec l2)           == GVec []           = Parallel
+lineIntersection l1 l2@(Line p2 s2)
+  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])              = Collinear
+  | (fst.scalarIze) ((rawPLine (eToPLine2 l1))⋅(rawPLine (eToPLine2 l2))) == 1  = Parallel
+  | (fst.scalarIze) ((rawPLine (eToPLine2 l1))⋅(rawPLine (eToPLine2 l2))) == -1 = Parallel
   | onSegment l1 intersection && onSegment l2 intersection && intersection == p2 = HitEndpointL2 l1 l2 intersection
   | onSegment l1 intersection && onSegment l2 intersection && intersection == addPoints p2 s2 = HitEndpointL2 l1 l2 intersection
   | onSegment l1 intersection && onSegment l2 intersection = IntersectsAt intersection
   | otherwise = NoIntersection
   where
+    rawPLine (PLine2 a) = a
     intersection = intersectionPoint l1 l2
-    lineToVec (Line _ (Point2 (x,y))) = GVec $ foldl addVal [] [ GVal x [GEZero 1] , GVal y [GEPlus 1] ] 
 
 lineBetween :: Line -> SearchDirection -> Line -> Line -> Bool
 lineBetween l1 CounterClockwise l2 l3 = (fst . scalarIze $ ((\(PLine2 a) -> a) $ eToPLine2 l1) ⋅ ((\(PLine2 a) -> a) $ eToPLine2 l2)) < (fst . scalarIze $ ((\(PLine2 a) -> a) $ eToPLine2 l1) ⋅ ((\(PLine2 a) -> a) $ eToPLine2 l3))
-lineBetween l1 Clockwise l2 l3 = (fst . scalarIze $ ((\(PLine2 a) -> a) $ eToPLine2 l2) ⋅ ((\(PLine2 a) -> a) $ eToPLine2 l1)) < (fst . scalarIze $ ((\(PLine2 a) -> a) $ eToPLine2 l3) ⋅ ((\(PLine2 a) -> a) $ eToPLine2 l1))
+lineBetween l1 Clockwise l2 l3        = (fst . scalarIze $ ((\(PLine2 a) -> a) $ eToPLine2 l2) ⋅ ((\(PLine2 a) -> a) $ eToPLine2 l1)) < (fst . scalarIze $ ((\(PLine2 a) -> a) $ eToPLine2 l3) ⋅ ((\(PLine2 a) -> a) $ eToPLine2 l1))
 
 -- | Combine consecutive lines. expects lines with their end points connecting, EG, a contour generated by makeContours.
 combineConsecutiveLines :: [Line] -> [Line]
@@ -112,14 +118,19 @@ onSegment (Line p s) i =
   where
     segmentLength = sqNormOfPLine2 (join2PPoint2 (eToPPoint2 p) (eToPPoint2 (addPoints p s)))
 
+-- Find the point where two Line segments (might) intersect.
 intersectionPoint :: Line -> Line -> Point2
-intersectionPoint l1 l2 = Point2 $ ((-1) * (valOf $ getVals [GEZero 1, GEPlus 2] pPoint), valOf $ getVals [GEZero 1, GEPlus 1] pPoint)
+intersectionPoint l1 l2 = intersectPLines (eToPLine2 l1) (eToPLine2 l2)
+
+-- Find out where two lines intersect
+intersectPLines :: PLine2 -> PLine2 -> Point2
+intersectPLines pl1 pl2 = Point2 $ ((-1) * (valOf 0 $ getVals [GEZero 1, GEPlus 2] pPoint), valOf 0 $ getVals [GEZero 1, GEPlus 1] pPoint)
   where
-    pPoint = (\(PPoint2 (GVec vals)) -> vals) $ canonicalizePPoint2 $ meet2PLine2 (eToPLine2 l1) (eToPLine2 l2)
-    valOf :: [GVal] -> ℝ
-    valOf [] = 0
-    valOf [GVal v _] = v
-    valOf (_:_) = error $ "found multiple values."
+    pPoint = (\(PPoint2 (GVec vals)) -> vals) $ intersectionOf pl1 pl2
+
+-- Find out where two lines intersect
+intersectionOf :: PLine2 -> PLine2 -> PPoint2
+intersectionOf pl1 pl2 = canonicalizePPoint2 $ meet2PLine2 pl1 pl2
 
 -- | A projective point in 2D space.
 newtype PPoint2 = PPoint2 GVec
@@ -138,15 +149,27 @@ join :: GVec -> GVec -> GVec
 join v1 v2 = v1 ∨ v2
 
 -- | a typed join function. join two points, returning a line.
+join2PPoint2 :: PPoint2 -> PPoint2 -> PLine2
 join2PPoint2 (PPoint2 v1) (PPoint2 v2) = PLine2 $ join v1 v2
 
--- | A typed meet function. two lines meeet at a point.
+-- | A typed meet function. two lines meet at a point.
 meet2PLine2 :: PLine2 -> PLine2 -> PPoint2
 meet2PLine2 (PLine2 v1) (PLine2 v2) = PPoint2 $ v1 ∧ v2
+
+-- | A type stripping meet finction.
+meet2PPoint2 :: PPoint2 -> PPoint2 -> GVec
+meet2PPoint2 (PPoint2 v1) (PPoint2 v2) = v1 ∧ v2
 
 -- | Create a 2D projective point from a 2D euclidian point.
 eToPPoint2 :: Point2 -> PPoint2
 eToPPoint2 (Point2 (x,y)) = PPoint2 $ GVec $ foldl addVal [GVal 1 [GEPlus 1, GEPlus 2]] [ GVal (-x) [GEZero 1, GEPlus 2], GVal y [GEZero 1, GEPlus 1] ]
+
+idealPPoint2 :: PPoint2 -> PPoint2
+idealPPoint2 (PPoint2 (GVec vals)) = PPoint2 $ GVec $ foldl addVal []
+                                     [
+                                       (GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] vals) [GEZero 1, GEPlus 1])
+                                     , (GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] vals) [GEZero 1, GEPlus 2])
+                                     ]
 
 -- | Create a 2D Euclidian point from a 2D Projective point.
 ppointToPoint2 :: PPoint2 -> Maybe Point2
@@ -154,13 +177,9 @@ ppointToPoint2 (PPoint2 (GVec vals)) = if infinitePoint
                                       then Nothing
                                       else Just $ Point2 (xVal, yVal)
   where
-    xVal = (-1) * (valOf $ getVals [GEZero 1, GEPlus 2] $ vals)
-    yVal = valOf $ getVals [GEZero 1, GEPlus 1] $ vals
-    infinitePoint = 0 == valOf (getVals [GEPlus 1, GEPlus 2] vals )
-    valOf :: [GVal] -> ℝ
-    valOf [] = 0
-    valOf [GVal v _] = v
-    valOf (_:_) = error $ "found multiple values."
+    xVal = (-1) * (valOf 0 $ getVals [GEZero 1, GEPlus 2] $ vals)
+    yVal = valOf 0 $ getVals [GEZero 1, GEPlus 1] $ vals
+    infinitePoint = 0 == valOf 0 (getVals [GEPlus 1, GEPlus 2] vals)
 
 -- | Create a 2D projective line from a pair of euclidian endpoints.
 eToPLine2 :: Line -> PLine2
@@ -175,84 +194,93 @@ eToPLine2 (Line (Point2 (x1,y1)) (Point2 (x,y))) = PLine2 $ GVec $ foldl addVal 
 -- | Convert from a PPoint2 to it's associated PLine.
 dualPPoint2 :: PPoint2 -> GVec
 dualPPoint2 (PPoint2 vec) = dual2DGVec vec
+
 -- | Convert from a PLine to it's associated projective point.
 dualPLine2 :: PLine2 -> GVec
 dualPLine2 (PLine2 vec) = dual2DGVec vec
+
+reverse :: GVec -> GVec
+reverse uncooked = GVec $ foldl addVal []
+                   [
+                     (GVal                  realVal [G0])
+                   , (GVal (       (valOf 0 $ getVals [GEZero 1] vals)) [GEZero 1])
+                   , (GVal (       (valOf 0 $ getVals [GEPlus 1] vals)) [GEPlus 1])
+                   , (GVal (       (valOf 0 $ getVals [GEPlus 2] vals)) [GEPlus 2])
+                   , (GVal ((-1) * (valOf 0 $ getVals [GEZero 1, GEPlus 1] vals)) [GEZero 1, GEPlus 1])
+                   , (GVal ((-1) * (valOf 0 $ getVals [GEZero 1, GEPlus 2] vals)) [GEZero 1, GEPlus 2])
+                   , (GVal ((-1) * (valOf 0 $ getVals [GEPlus 1, GEPlus 2] vals)) [GEPlus 1, GEPlus 2])
+                   , (GVal ((-1) * (valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals)) [GEZero 1, GEPlus 1, GEPlus 2])
+                   ]
+  where
+    (realVal, (GVec vals)) = scalarIze uncooked
 
 dual2DGVec :: GVec -> GVec
 dual2DGVec uncooked = GVec $ foldl addVal []
                      [
                        (GVal                  realVal [GEZero 1, GEPlus 1, GEPlus 2])
-                     , (GVal (        valOf $ getVals [GEZero 1] vals)  [GEPlus 1, GEPlus 2])
-                     , (GVal ((-1) * (valOf $ getVals [GEPlus 1] vals)) [GEZero 1, GEPlus 2])
-                     , (GVal (        valOf $ getVals [GEPlus 2] vals)  [GEZero 1, GEPlus 1])
-                     , (GVal (        valOf $ getVals [GEZero 1, GEPlus 1] vals)  [GEPlus 2])
-                     , (GVal ((-1) * (valOf $ getVals [GEZero 1, GEPlus 2] vals)) [GEPlus 1])
-                     , (GVal (        valOf $ getVals [GEPlus 1, GEPlus 2] vals)  [GEZero 1])
-                     , (GVal (        valOf $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals) [G0])
+                     , (GVal (        valOf 0 $ getVals [GEZero 1] vals)  [GEPlus 1, GEPlus 2])
+                     , (GVal ((-1) * (valOf 0 $ getVals [GEPlus 1] vals)) [GEZero 1, GEPlus 2])
+                     , (GVal (        valOf 0 $ getVals [GEPlus 2] vals)  [GEZero 1, GEPlus 1])
+                     , (GVal (        valOf 0 $ getVals [GEZero 1, GEPlus 1] vals)  [GEPlus 2])
+                     , (GVal ((-1) * (valOf 0 $ getVals [GEZero 1, GEPlus 2] vals)) [GEPlus 1])
+                     , (GVal (        valOf 0 $ getVals [GEPlus 1, GEPlus 2] vals)  [GEZero 1])
+                     , (GVal (        valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals) [G0])
                      ]
   where
     (realVal, (GVec vals)) = scalarIze uncooked
-    valOf :: [GVal] -> ℝ
-    valOf [] = 0
-    valOf [GVal v _] = v
-    valOf (_:_) = error $ "found multiple values. Impossible."
 
 -- | Extract a value from a vector.
-getVals :: [GNum] -> [GVal] -> [GVal]
-getVals num vs = filter (\(GVal _ n) -> n == num) vs
-
-canonicalizePPoint2 :: PPoint2 -> PPoint2
-canonicalizePPoint2 (PPoint2 vec@(GVec vals)) = PPoint2 $ divVecScalar vec $ valOf $ getVals [GEPlus 1, GEPlus 2] vals
+-- FIXME: throw a failure when we get more than one match.
+getVals :: [GNum] -> [GVal] -> Maybe GVal
+getVals num vs = if null matches then Nothing else Just $ head matches
   where
-    valOf :: [GVal] -> ℝ
-    valOf [] = 1
-    valOf [GVal v _] = v
-    valOf (_:_) = error $ "found multiple values."
+    matches = filter (\(GVal _ n) -> n == num) vs
+
+-- return the value of a vector, OR a given value, if the vector requested is not found.
+valOf :: ℝ -> Maybe GVal -> ℝ 
+valOf r Nothing = r
+valOf _ (Just (GVal v _)) = v
+
+-- Normalization of euclidian points is really just cannonicalization.
+canonicalizePPoint2 :: PPoint2 -> PPoint2
+canonicalizePPoint2 (PPoint2 vec@(GVec vals)) = PPoint2 $ divVecScalar vec $ valOf 1 $ getVals [GEPlus 1, GEPlus 2] vals
+
 
 -- The idealized norm of a euclidian projective point.
 idealNormPPoint2 :: PPoint2 -> ℝ
 idealNormPPoint2 (PPoint2 (GVec vals)) = sqrt (x*x+y*y)
   where
-    x = (-1) * (valOf $ getVals [ GEZero 1, GEPlus 2] vals)
-    y = valOf $ getVals [ GEZero 1, GEPlus 1] vals
-    valOf :: [GVal] -> ℝ
-    valOf [] = 0
-    valOf [GVal v _] = v
-    valOf (_:_) = error $ "found multiple values. Impossible."
+    x = (-1) * (valOf 0 $ getVals [ GEZero 1, GEPlus 2] vals)
+    y = valOf 0 $ getVals [ GEZero 1, GEPlus 1] vals
+
+-- Normalize a PLine2. 
+normalizePLine2 :: PLine2 -> PLine2
+normalizePLine2 pl@(PLine2 vec) = PLine2 $ divVecScalar vec $ normOfPLine2 pl 
 
 normOfPLine2 :: PLine2 -> ℝ
 normOfPLine2 (PLine2 (GVec vals)) = sqrt (a*a+b*b)
   where
-    a = valOf $ getVals [GEPlus 1] vals
-    b = valOf $ getVals [GEPlus 2] vals
-    valOf :: [GVal] -> ℝ
-    valOf [] = 0
-    valOf [GVal v _] = v
-    valOf (_:_) = error $ "found multiple values. Impossible."
+    a = valOf 0 $ getVals [GEPlus 1] vals
+    b = valOf 0 $ getVals [GEPlus 2] vals
 
 sqNormOfPLine2 :: PLine2 -> ℝ
 sqNormOfPLine2 (PLine2 (GVec vals)) = a*a+b*b
   where
-    a = valOf $ getVals [GEPlus 1] vals
-    b = valOf $ getVals [GEPlus 2] vals
-    valOf :: [GVal] -> ℝ
-    valOf [] = 0
-    valOf [GVal v _] = v
-    valOf (_:_) = error $ "found multiple values. Impossible."
+    a = valOf 0 $ getVals [GEPlus 1] vals
+    b = valOf 0 $ getVals [GEPlus 2] vals
 
--- | A contour in 2D projective space. 
-data PContour =
-  -- For a PLineSequence, the edges of the object are the lines, in order, with the right side of the line pointing toward 'inner' space.
-  -- For a PLine parallel with the X axis, we will have to manually test inward/outwardness.
-  PLineSequence [PLine2] 
-  deriving (Eq, Generic, NFData, Show)
+-- FIXME: implement this.
+flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl addVal []
+                                  [
+                                    (GVal ((-1) * (valOf 0 $ getVals [GEZero 1] vals)) [GEZero 1])
+                                  , (GVal ((-1) * (valOf 0 $ getVals [GEPlus 1] vals)) [GEPlus 1])
+                                  , (GVal ((-1) * (valOf 0 $ getVals [GEPlus 2] vals)) [GEPlus 2])
+                                  ]
 
--- | Create a projective contour, from a linear (point based) contour.
--- Use the same center point for all layers to make use of haskell's laziness.
---projectContour :: Contour -> Point2 -> PContour
-{-projectContour (PointSequence points) centerPoint = (toProjectivePoint $ toOriginPoint centerPoint) <$> map toGeometricPoint points
+-- | Translate a line a given amound along it's perpendicular bisector.
+-- If this line was generated from euclidian / projective points, pass them in, to ensure accuracy.
+translatePerp :: PLine2 -> ℝ -> PLine2
+translatePerp pl1 d = PLine2 $ addVecPair m ((\(PLine2 a) -> a) $ normalizePLine2 pl1) 
   where
-    plineFromPoints p1@(Point2 (x1,y1)) p2@(Point2 (x2,y2)) = error "not yet implemented." -- joinPoints (goemetricPoint 
--}
+    m = GVec [GVal d [GEZero 1]]
 
