@@ -76,13 +76,13 @@ linearAlgSpec = do
     it "two contours that do not contain one another are not detected by contourContainsContour" $
       contourContainsContour c1 c3 --> False
     it "a contour shrunk has the same amount of points as the input contour" $
-      (length $ pointsOfContour $ fromJust $ shrinkContour 0.1 [c1] c1) --> (length $ pointsOfContour $ c1)
+      length ( pointsOfContour $ fromJust $ shrinkContour 0.1 [c1] c1) --> length (pointsOfContour c1)
     it "a contour shrunk by zero is the same as the input contour" $
-      (fromJust $ shrinkContour 0 [c1] c1) --> c1
+      fromJust (shrinkContour 0 [c1] c1) --> c1
     it "a contour expanded has the same amount of points as the input contour" $
-      (length $ pointsOfContour $ fromJust $ expandContour 0.1 [c1] c1) --> (length $ pointsOfContour $ c1)
+      length (pointsOfContour $ fromJust $ expandContour 0.1 [c1] c1) --> length (pointsOfContour c1)
     it "a contour shrunk and expanded is about equal to where it started" $
-      (roundPoint2 <$> (pointsOfContour $ fromJust $ (\c -> expandContour 0.1 [c] c) $ fromJust $ shrinkContour 0.1 [c1] c1)) --> (roundPoint2 <$> pointsOfContour c1)
+      (roundPoint2 <$> pointsOfContour (fromJust $ (\c -> expandContour 0.1 [c] c) $ fromJust $ shrinkContour 0.1 [c1] c1)) --> roundPoint2 <$> pointsOfContour c1
   describe "Infill" $ do
     it "infills exactly one line inside of a box big enough for only one line (Horizontal)" $
       makeInfill c1 [] 0.5 Horiz --> [[Line (Point2 (0,0.5)) (Point2 (1,0))]]
