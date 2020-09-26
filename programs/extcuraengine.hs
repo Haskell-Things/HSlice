@@ -310,8 +310,7 @@ extCuraEngineOpts = hsubparser $
    
 
 connectParser :: Parser ExtCuraEngineRootOpts
-connectParser = ExtCuraEngineRootOpts <$>
-  pure "connect"
+connectParser = pure (ExtCuraEngineRootOpts "connect")
   <*> optional (
   option auto
     (    long "connect"
@@ -351,8 +350,7 @@ connectParser = ExtCuraEngineRootOpts <$>
   )
 
 sliceParser :: Parser ExtCuraEngineRootOpts
-sliceParser = ExtCuraEngineRootOpts <$>
-  pure "slice"
+sliceParser = pure (ExtCuraEngineRootOpts "slice")
   <*>
   pure Nothing
   <*> optional (
