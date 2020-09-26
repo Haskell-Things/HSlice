@@ -200,34 +200,34 @@ dualPLine2 :: PLine2 -> GVec
 dualPLine2 (PLine2 vec) = dual2DGVec vec
 
 reverse :: GVec -> GVec
-reverse uncooked = GVec $ foldl addVal []
-                   [
-                     (GVal                  realVal [G0])
-                   , (GVal (       (valOf 0 $ getVals [GEZero 1] vals)) [GEZero 1])
-                   , (GVal (       (valOf 0 $ getVals [GEPlus 1] vals)) [GEPlus 1])
-                   , (GVal (       (valOf 0 $ getVals [GEPlus 2] vals)) [GEPlus 2])
-                   , (GVal ((-1) * (valOf 0 $ getVals [GEZero 1, GEPlus 1] vals)) [GEZero 1, GEPlus 1])
-                   , (GVal ((-1) * (valOf 0 $ getVals [GEZero 1, GEPlus 2] vals)) [GEZero 1, GEPlus 2])
-                   , (GVal ((-1) * (valOf 0 $ getVals [GEPlus 1, GEPlus 2] vals)) [GEPlus 1, GEPlus 2])
-                   , (GVal ((-1) * (valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals)) [GEZero 1, GEPlus 1, GEPlus 2])
-                   ]
+reverse vec = GVec $ foldl addVal []
+              [
+                (GVal                  realVal [G0])
+              , (GVal (       (valOf 0 $ getVals [GEZero 1] vals)) [GEZero 1])
+              , (GVal (       (valOf 0 $ getVals [GEPlus 1] vals)) [GEPlus 1])
+              , (GVal (       (valOf 0 $ getVals [GEPlus 2] vals)) [GEPlus 2])
+              , (GVal ((-1) * (valOf 0 $ getVals [GEZero 1, GEPlus 1] vals)) [GEZero 1, GEPlus 1])
+              , (GVal ((-1) * (valOf 0 $ getVals [GEZero 1, GEPlus 2] vals)) [GEZero 1, GEPlus 2])
+              , (GVal ((-1) * (valOf 0 $ getVals [GEPlus 1, GEPlus 2] vals)) [GEPlus 1, GEPlus 2])
+              , (GVal ((-1) * (valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals)) [GEZero 1, GEPlus 1, GEPlus 2])
+              ]
   where
-    (realVal, (GVec vals)) = scalarIze uncooked
+    (realVal, (GVec vals)) = scalarIze vec
 
 dual2DGVec :: GVec -> GVec
-dual2DGVec uncooked = GVec $ foldl addVal []
-                     [
-                       (GVal                  realVal [GEZero 1, GEPlus 1, GEPlus 2])
-                     , (GVal (        valOf 0 $ getVals [GEZero 1] vals)  [GEPlus 1, GEPlus 2])
-                     , (GVal ((-1) * (valOf 0 $ getVals [GEPlus 1] vals)) [GEZero 1, GEPlus 2])
-                     , (GVal (        valOf 0 $ getVals [GEPlus 2] vals)  [GEZero 1, GEPlus 1])
-                     , (GVal (        valOf 0 $ getVals [GEZero 1, GEPlus 1] vals)  [GEPlus 2])
-                     , (GVal ((-1) * (valOf 0 $ getVals [GEZero 1, GEPlus 2] vals)) [GEPlus 1])
-                     , (GVal (        valOf 0 $ getVals [GEPlus 1, GEPlus 2] vals)  [GEZero 1])
-                     , (GVal (        valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals) [G0])
-                     ]
+dual2DGVec vec = GVec $ foldl addVal []
+                 [
+                   (GVal                  realVal [GEZero 1, GEPlus 1, GEPlus 2])
+                 , (GVal (        valOf 0 $ getVals [GEZero 1] vals)  [GEPlus 1, GEPlus 2])
+                 , (GVal ((-1) * (valOf 0 $ getVals [GEPlus 1] vals)) [GEZero 1, GEPlus 2])
+                 , (GVal (        valOf 0 $ getVals [GEPlus 2] vals)  [GEZero 1, GEPlus 1])
+                 , (GVal (        valOf 0 $ getVals [GEZero 1, GEPlus 1] vals)  [GEPlus 2])
+                 , (GVal ((-1) * (valOf 0 $ getVals [GEZero 1, GEPlus 2] vals)) [GEPlus 1])
+                 , (GVal (        valOf 0 $ getVals [GEPlus 1, GEPlus 2] vals)  [GEZero 1])
+                 , (GVal (        valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals) [G0])
+                 ]
   where
-    (realVal, (GVec vals)) = scalarIze uncooked
+    (realVal, (GVec vals)) = scalarIze vec
 
 -- | Extract a value from a vector.
 -- FIXME: throw a failure when we get more than one match.
@@ -269,7 +269,7 @@ sqNormOfPLine2 (PLine2 (GVec vals)) = a*a+b*b
     a = valOf 0 $ getVals [GEPlus 1] vals
     b = valOf 0 $ getVals [GEPlus 2] vals
 
--- FIXME: implement this.
+-- reverse a line. same line, but the other direction.
 flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl addVal []
                                   [
                                     (GVal ((-1) * (valOf 0 $ getVals [GEZero 1] vals)) [GEZero 1])
@@ -278,7 +278,6 @@ flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl addVal []
                                   ]
 
 -- | Translate a line a given amound along it's perpendicular bisector.
--- If this line was generated from euclidian / projective points, pass them in, to ensure accuracy.
 translatePerp :: PLine2 -> ℝ -> PLine2
 translatePerp pl1 d = PLine2 $ addVecPair m ((\(PLine2 a) -> a) $ normalizePLine2 pl1) 
   where
