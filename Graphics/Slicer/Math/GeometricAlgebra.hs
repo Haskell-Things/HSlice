@@ -15,7 +15,7 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- The purpose of this file is to hold out geometric algebra library. -}
+{- The purpose of this file is to hold our geometric algebra library. -}
 
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
@@ -188,20 +188,20 @@ stripPairs gVal = withoutPairs gVal
     withoutPairs val@(GVal _ [])  = val
     withoutPairs val@(GVal _ [_])  = val
     withoutPairs val@(GVal r ((GEPlus a):(GEPlus b):xs))
-      | a == b && (not $ null xs)  = withoutPairs $ GVal r xs
-      | a == b && null xs          = GVal r [G0]
-      | a /= b && (not $ null xs)  = prependI (GEPlus a) $ withoutPairs $ GVal r (GEPlus b:xs)
-      | a /= b && null xs          = val
+      | a == b && not (null xs)  = withoutPairs $ GVal r xs
+      | a == b && null xs        = GVal r [G0]
+      | a /= b && not (null xs)  = prependI (GEPlus a) $ withoutPairs $ GVal r (GEPlus b:xs)
+      | a /= b && null xs        = val
     withoutPairs val@(GVal r ((GEMinus a):(GEMinus b):xs))
-      | a == b && (not $ null xs)  = withoutPairs $ GVal (-r) xs
-      | a == b && null xs          = GVal (-r) [G0]
-      | a /= b && (not $ null xs)  = prependI (GEMinus a) $ withoutPairs $ GVal r (GEMinus b:xs)
-      | a /= b && null xs          = val
+      | a == b && not (null xs)  = withoutPairs $ GVal (-r) xs
+      | a == b && null xs        = GVal (-r) [G0]
+      | a /= b && not (null xs)  = prependI (GEMinus a) $ withoutPairs $ GVal r (GEMinus b:xs)
+      | a /= b && null xs        = val
     withoutPairs val@(GVal r ((GEZero a):(GEZero b):xs))
-      | a == b                     = GVal 0 [G0]
-      | a /= b && (not $ null xs)  = prependI (GEZero a) $ withoutPairs $ GVal r (GEZero b:xs)
-      | a /= b && null xs          = val
-    withoutPairs (GVal r (a:b:xs)) = prependI (a) $ withoutPairs $ GVal r (b:xs)
+      | a == b                   = GVal 0 [G0]
+      | a /= b && not (null xs)  = prependI (GEZero a) $ withoutPairs $ GVal r (GEZero b:xs)
+      | a /= b && null xs        = val
+    withoutPairs (GVal r (a:b:xs)) = prependI a $ withoutPairs $ GVal r (b:xs)
     prependI :: GNum -> GVal -> GVal
     prependI num (GVal r [G0]) = GVal r [num]
     prependI num (GVal r nums) = GVal r (num:nums)
