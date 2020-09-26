@@ -23,6 +23,8 @@ module Graphics.Slicer.Math.Contour (getContours, makeContourTree, innerPerimete
 
 import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, (*), Bool(False), (-), sqrt, (+), (<*>), minimum, maximum, Eq, Show, not, even, compare)
 
+import Data.Bifunctor (bimap)
+
 import Data.List(tail, last, head, partition, reverse, sortBy)
 
 import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
@@ -36,7 +38,7 @@ import Graphics.Slicer.Math.PGA (lineIntersection, SearchDirection (Clockwise), 
 import Graphics.Implicit.Definitions (ℝ)
 
 -- Unapologetically ripped from ImplicitCAD.
--- Added the ability to look at segments backwards.
+-- Added the ability to look at line segments backwards.
 
 -- | The goal of getLoops is to extract loops from a list of segments.
 --   The input is a list of segments.
@@ -157,13 +159,13 @@ innerPerimeterPoint pathWidth contour l@(Line p _)
     --          saneIntersection (HitEndpointL2 p2) = Just p2
               saneIntersection res = error $ "insane result of intersecting a line (" <> show l1 <> ") with it's bisector: " <> show l2 <> "\nwhen finding an inner perimeter point on contour " <> show ls <> "\n" <> show res <> "\n"
 
--- | Find an exterior point on the perpendicular bisector of the given line, pathWidth from the line.
+-- | Find an exterior point on the perpendicular bisector of the given line segment the given distance from the given line segment.
 outerPerimeterPoint :: ℝ -> Contour -> Line -> Point2
 outerPerimeterPoint pathWidth contour l
       | innerPoint == fst intersections = snd intersections
       | otherwise = fst intersections
     where
-      intersections = ( point $ fst linesToCheck, point $ snd linesToCheck)
+      intersections = bimap point point linesToCheck
       linesToCheck = perimeterLinesToCheck pathWidth l
       innerPoint = innerPerimeterPoint pathWidth contour l
       -- | Given a line, generate a pair of lines from points on both sides of the given line's midpoint to the origin, on the same z plane as the given line.
@@ -244,7 +246,7 @@ contourContainedByContour child parent = contourContainsContour parent child
 -- | Does a given line, in the direction it is given, enter from outside of a contour to inside of a contour, through a given point?
 -- | Used to check the corner case of corner cases.
 lineEntersContour :: Line -> Intersection -> Contour -> Bool
-lineEntersContour (Line _ m) intersection contour@(PointSequence contourPoints) = (lineBetween lineFrom Clockwise continuation lineTo) == (lineBetween lineFrom Clockwise lineToInteriorPoint lineTo)
+lineEntersContour (Line _ m) intersection contour@(PointSequence contourPoints) = lineBetween lineFrom Clockwise continuation lineTo == lineBetween lineFrom Clockwise lineToInteriorPoint lineTo
   where
     continuation = Line (intersectionPoint intersection) m
     lineToInteriorPoint = lineFromEndpoints (intersectionPoint intersection) $ innerPerimeterPoint 0.00001 contour lineFrom
