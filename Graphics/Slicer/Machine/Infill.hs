@@ -34,9 +34,9 @@ import Graphics.Slicer.Definitions (ℝ,ℝ2)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), distance, xOf, yOf, roundToFifth)
 
-import Graphics.Slicer.Math.Line (Line(Line), Intersection(HitEndpointL2, IntersectsAt, NoIntersection, Parallel, Collinear), makeLines, makeLinesLooped, shortenLineBy, endpoint, lineFromEndpoints, flipLine)
+import Graphics.Slicer.Math.Line (Line(Line), makeLines, makeLinesLooped, shortenLineBy, endpoint, lineFromEndpoints, flipLine)
 
-import Graphics.Slicer.Math.PGA (lineIntersection, SearchDirection(Clockwise), lineBetween)
+import Graphics.Slicer.Math.PGA (Intersection(HitEndpointL2, IntersectsAt, NoIntersection, Parallel, Collinear), lineIntersection, SearchDirection(Clockwise), lineBetween)
 
 import Graphics.Slicer.Math.Contour (lineEntersContour, innerPerimeterPoint, followingLine, preceedingLine)
 

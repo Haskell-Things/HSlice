@@ -20,7 +20,7 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLines, lineIntersection, lineIntersectsAt, plinesIntersectAt, SearchDirection (Clockwise, CounterClockwise), lineBetween, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLines, Intersection(Collinear, Parallel, HitEndpointL2, IntersectsAt, NoIntersection), lineIntersection, lineIntersectsAt, plinesIntersectAt, SearchDirection (Clockwise, CounterClockwise), lineBetween, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2) where
 
 import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (<), (>), (<=), (+), foldl, sqrt, fst, (.), head, null, negate)
 
@@ -36,13 +36,22 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
 
-import Graphics.Slicer.Math.Line(Line(Line), Intersection(Collinear, Parallel, HitEndpointL2, IntersectsAt, NoIntersection))
+import Graphics.Slicer.Math.Line(Line(Line))
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), (⋅), addVal, addVecPair, divVecScalar, scalarIze)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
 -- Don't check for corner cases, junt get the intersection point if it exists.
+
+-- The result of a line intersection in 2 dimensions.
+data Intersection =
+  Collinear
+  | Parallel
+  | IntersectsAt Point2
+  | NoIntersection
+  | HitEndpointL2 Line Line Point2
+  deriving (Show)
 
 -- Wrapper
 lineIntersectsAt :: Line -> Line -> Intersection

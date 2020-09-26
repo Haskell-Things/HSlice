@@ -21,7 +21,7 @@
 -- for adding Generic and NFData to Line.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Line (Line(Line), Intersection(Collinear, Parallel, HitEndpointL2, IntersectsAt, NoIntersection), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, pointAtZValue, flipLine, pointsFromLines, combineLines, shortenLineBy, slope, Direction(Positive,Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope)) where
+module Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, pointAtZValue, flipLine, pointsFromLines, combineLines, shortenLineBy, slope, Direction(Positive,Negative), Slope(IsOrigin, OnXAxis, OnYAxis, HasSlope)) where
 
 import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (/=), (==), Eq, length, head, tail, (++), last, init, (<$>), Show, error, negate, null, zipWith, (<>), show, concat)
 
@@ -40,17 +40,6 @@ import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), addPoin
 -- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
 data Line = Line { point :: Point2, slope :: Point2 }
   deriving (Generic, NFData, Show, Eq)
-
--- FIXME: how does this handle endpoints?
-
--- The result of a line intersection in 2 dimensions.
-data Intersection =
-  Collinear
-  | Parallel
-  | IntersectsAt Point2
-  | NoIntersection
-  | HitEndpointL2 Line Line Point2
-  deriving (Show)
 
 -- | Create a line given it's endpoints.
 lineFromEndpoints :: Point2 -> Point2 -> Line
@@ -144,7 +133,7 @@ combineLines l1@(Line p _) l2
   | p /= endpoint l2 = lineFromEndpoints p $ endpoint l2
   | otherwise = l1
 
--- Construct a perpendicular bisector of a line (with the same length, assuming a constant z value)
+-- Construct a perpendicular bisector of a line with the same length as the input line.
 perpendicularBisector :: Line -> Line
 perpendicularBisector l@(Line p s)
   | s == Point2 (0,0) = error $ "trying to bisect zero length line: " <> show l <> "\n"
