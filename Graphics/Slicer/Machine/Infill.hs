@@ -134,7 +134,7 @@ coveringLinesPositive (PointSequence contourPoints) ls = flip Line s . f <$> [0,
           yMaxOutside = yMax + ls
           lsY = sqrt $ ls*ls+ls*ls
 
--- Generate lines over entire contour, where each one is aligned with the Y axis.
+-- Generate lines covering the  entire contour, where each line is aligned with the Y axis.
 -- FIXME: assumes we're in positive space.
 coveringLinesVertical :: Contour -> ℝ -> [Line]
 coveringLinesVertical (PointSequence contourPoints) ls = flip Line s . f <$> [xMin-ls,xMin..xMax]
@@ -145,7 +145,7 @@ coveringLinesVertical (PointSequence contourPoints) ls = flip Line s . f <$> [xM
           xMax = maximum $ xOf <$> contourPoints
           yMax = maximum $ yOf <$> contourPoints
 
--- Generate lines over entire contour, where each one is aligned with the X axis.
+-- Generate lines covering the entire contour, where each line is aligned with the X axis.
 -- FIXME: assumes we're in positive space.
 coveringLinesHorizontal :: Contour -> ℝ -> [Line]
 coveringLinesHorizontal (PointSequence contourPoints) ls = flip Line s . f <$> [yMin-ls,yMin..yMax]
