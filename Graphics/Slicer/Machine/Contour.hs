@@ -75,30 +75,26 @@ data Direction =
   deriving (Eq, Show)
 
 -- | Generate a new contour that is a given amount smaller than the given contour.
+-- FIXME: what about other contours inside of this contour, or walling off of a section, creating two contours?
 shrinkContour :: ℝ -> [Contour] -> Contour -> Maybe Contour
-shrinkContour amount allContours contour = fst $ modifyContour amount allContours contour Inward
+shrinkContour amount _ contour = fst $ modifyContour amount contour Inward
 
 -- | Generate a new contour that is a given amount larger than the given contour.
+-- FIXME: what about other contours outside of this contour, or walling off of a section, creating two contours?
 expandContour :: ℝ -> [Contour] -> Contour -> Maybe Contour
-expandContour amount allContours contour = fst $ modifyContour amount allContours contour Outward
+expandContour amount _ contour = fst $ modifyContour amount contour Outward
 
--- FIXME: implement this.
--- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.
--- FIXME: draw a line before, and after the intersection. the line after is the first line of the new contour, the line before is still this contour.
--- Optimization: only check non-neighbor lines when the angles add up to a certain amount? looking for curling back. anything over ~180 degrees, relative to the slope of this line.
-findExtraContours :: Contour -> Contour -> [Contour]
-findExtraContours _ _ = []
-
--- | Generate a new contour that is a given amount larger/smaller than the given contour, in a naieve fashion.
-modifyContour :: ℝ -> [Contour] -> Contour -> Direction -> (Maybe Contour,[Contour])
-modifyContour pathWidth allContours (PointSequence contourPoints) direction = if null foundContour then (Nothing, []) else (Just $ PointSequence $ pointsFromLines foundContour,[])
+-- | Generate a new contour that is a given amount larger/smaller than the given contour.
+modifyContour :: ℝ -> Contour -> Direction -> (Maybe Contour,[Contour])
+modifyContour pathWidth (PointSequence contourPoints) direction = if null foundContour then (Nothing, []) else (Just $ PointSequence $ pointsFromLines foundContour,[])
   where
-    -- FIXME: implement me. we need this to can handle further interior contours, and only check against the contour they are inside of.
+    -- FIXME: implement me. we need this to handle further interior contours, and only check against the contour they are inside of.
     foundContour
       | length contourPoints > 2 = catMaybes maybeLines
       | otherwise = error $ "tried to modify a contour with too few points: " <> show (length contourPoints) <> "\n"
       where
         -- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.
+        -- FIXME: draw a line before, and after the intersection. return two lines?
         maybeLines = mapWithNeighbors findLine $ removeDegenerates $ makeLinesLooped contourPoints
         -- Remove sequential parallel lines, colinear sequential lines, and lines that are too close to parallel.
         removeDegenerates :: [Line] -> [Line]
