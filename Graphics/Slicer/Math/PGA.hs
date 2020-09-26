@@ -20,7 +20,7 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLines, lineIntersection, lineIntersectsAt, plinesIntersectAt, lineBetween, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLines, lineIntersection, lineIntersectsAt, plinesIntersectAt, SearchDirection (Clockwise, CounterClockwise), lineBetween, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2) where
 
 import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (<), (>), (<=), (+), foldl, sqrt, fst, (.), head, null, negate)
 
@@ -36,7 +36,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
 
-import Graphics.Slicer.Math.Line(Line(Line), Intersection(Collinear, Parallel, HitEndpointL2, IntersectsAt, NoIntersection), SearchDirection(Clockwise, CounterClockwise))
+import Graphics.Slicer.Math.Line(Line(Line), Intersection(Collinear, Parallel, HitEndpointL2, IntersectsAt, NoIntersection))
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), (⋅), addVal, addVecPair, divVecScalar, scalarIze)
 
@@ -73,6 +73,10 @@ lineIntersection l1 l2@(Line p2 s2)
     rawPLine (PLine2 a) = a
     intersection = intersectionPoint l1 l2
 
+data SearchDirection = Clockwise | CounterClockwise
+  deriving (Eq, Show)
+
+-- Find out if, in a set of three lines through the same point, one line is in the space between two other lines.
 lineBetween :: Line -> SearchDirection -> Line -> Line -> Bool
 lineBetween l1 searchDir l2 l3
   | searchDir == CounterClockwise =   (fst . scalarIze $ rawPLine (eToPLine2 l1) ⋅ rawPLine (eToPLine2 l2))

@@ -29,9 +29,9 @@ import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
 
 import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2), scalePoint, addPoints, xOf, yOf)
 
-import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, Intersection(NoIntersection, IntersectsAt, Parallel, HitEndpointL2, Collinear), flipLine, SearchDirection (Clockwise), Slope)
+import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, Intersection(NoIntersection, IntersectsAt, Parallel, HitEndpointL2, Collinear), flipLine, Slope)
 
-import Graphics.Slicer.Math.PGA (lineIntersection, lineBetween)
+import Graphics.Slicer.Math.PGA (lineIntersection, SearchDirection (Clockwise), lineBetween)
 
 import Graphics.Implicit.Definitions (ℝ)
 
