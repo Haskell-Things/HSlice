@@ -72,7 +72,7 @@ import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Line(Li
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yOf, zOf)
 
-import Graphics.Slicer.Machine.Infill (makeInfill, makeSupport, InfillType(Diag1, Diag2, Horiz, Vert))
+import Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Horiz, Vert))
 
 import Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour)
 

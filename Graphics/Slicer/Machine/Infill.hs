@@ -20,25 +20,25 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-module Graphics.Slicer.Machine.Infill (makeInfill, makeSupport, InfillType(Diag1, Diag2, Vert, Horiz)) where
+module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineInside, coveringLinesVertical) where
 
-import Prelude ((+), (<$>), ($), maximum, minimum, filter, (>), head, (.), flip, (*), sqrt, (-), (<>), show, error, otherwise, (&&), (==), length, concat, not, null, (!!), fmap, (||), odd)
+import Prelude ((+), (<$>), ($), maximum, minimum, filter, (>), head, (.), flip, (*), sqrt, (-), (<>), show, error, otherwise, (&&), (==), length, concat, not, null, (!!), odd)
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe, fromMaybe)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe)
 
 import Data.Bool (Bool(True, False))
 
-import Data.List (sortBy, sort)
+import Data.List (sort)
 
-import Graphics.Slicer.Definitions (ℝ,ℝ2)
+import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), distance, xOf, yOf, roundToFifth)
 
-import Graphics.Slicer.Math.Line (Line(Line), makeLines, makeLinesLooped, shortenLineBy, endpoint, lineFromEndpoints, flipLine)
+import Graphics.Slicer.Math.Line (Line(Line), makeLines, makeLinesLooped, endpoint, flipLine)
 
 import Graphics.Slicer.Math.PGA (Intersection(HitEndpointL2, IntersectsAt, NoIntersection, Parallel, Collinear), lineIntersection, SearchDirection(Clockwise), lineBetween)
 
-import Graphics.Slicer.Math.Contour (lineEntersContour, innerPerimeterPoint, followingLine, preceedingLine)
+import Graphics.Slicer.Math.Contour (lineEntersContour, followingLine, preceedingLine)
 
 -- | what direction to put down infill lines.
 data InfillType = Diag1 | Diag2 | Vert | Horiz
@@ -155,62 +155,5 @@ coveringLinesHorizontal (PointSequence contourPoints) ls = flip Line s . f <$> [
           yMin = head $ filter (> yMinRaw) [-ls, 0..]
           xMax = maximum $ xOf <$> contourPoints
           yMax = maximum $ yOf <$> contourPoints
-
-
------------------------------------------------------------------------
------------------------------ SUPPORT ---------------------------------
------------------------------------------------------------------------
-
--- Generate support
--- FIXME: hard coded infill amount.
--- FIXME: should be one string of plastic in most cases.
--- FIXME: support needs a complete rewrite.
-makeSupport :: Contour
-            -> [Contour]
-            -> ℝ
-            -> ℝ
-            -> [Line]
-makeSupport contour childContours lh ls = fmap (shortenLineBy $ 2 * lh)
-                                          $ concat $ catMaybes $ infillLineInside contour (addBBox childContours)
-                                          <$> coveringLinesVertical contour ls
-
--- A bounding box. a box around a contour.
-data BBox = BBox ℝ2 ℝ2
-
--- | Check if a bounding box is empty.
-isEmptyBBox :: BBox -> Bool
-isEmptyBBox (BBox (x1,y1) (x2,y2)) = x1 == x2 || y1 == y2
-
--- Get a bounding box of all contours.
-boundingBoxAll :: [Contour] -> Maybe BBox
-boundingBoxAll contours = if isEmptyBBox box then Nothing else Just box
-    where
-      box  = BBox (minX, minY) (maxX, maxY)
-      minX = minimum $ (\(BBox (x1,_) _) -> x1) <$> bBoxes
-      minY = minimum $ (\(BBox (_,y1) _) -> y1) <$> bBoxes
-      maxX = maximum $ (\(BBox _ (x2,_)) -> x2) <$> bBoxes
-      maxY = maximum $ (\(BBox _ (_,y2)) -> y2) <$> bBoxes
-      bBoxes = mapMaybe boundingBox contours
-
--- Get a bounding box of a contour.
-boundingBox :: Contour -> Maybe BBox
-boundingBox (PointSequence []) = error "boundingBox given an empty contour?"
-boundingBox (PointSequence contourPoints) = if isEmptyBBox box then Nothing else Just box
-  where
-    box  = BBox (minX, minY) (maxX, maxY)
-    minX = minimum $ xOf <$> contourPoints
-    minY = minimum $ yOf <$> contourPoints
-    maxX = maximum $ xOf <$> contourPoints
-    maxY = maximum $ yOf <$> contourPoints
-
--- add a bounding box to a list of contours, as the first contour in the list.
--- FIXME: what is this for?
-addBBox :: [Contour] -> [Contour]
-addBBox contours = PointSequence [Point2 (x1,y1), Point2 (x2,y1), Point2 (x2,y2), Point2 (x1,y2), Point2 (x1,y1)] : contours
-    where
-      bbox = fromMaybe (BBox (1,1) (-1,-1)) $ boundingBoxAll contours
-      (BBox (x1, y1) (x2, y2)) = incBBox bbox 1
-      -- Put a fixed amount around the 2d bounding box.
-      incBBox (BBox (nx1,ny1) (nx2,ny2)) amount = BBox (nx1+amount, ny1+amount) (nx2-amount, ny2-amount)
 
 

@@ -44,6 +44,7 @@ Library
                     Graphics.Slicer.Math.Line
     Other-Modules:
                   Graphics.Slicer.Math.Point
+                  Graphics.Slicer.Machine.Support
                   Graphics.Slicer.Math.Facet
                   Graphics.Slicer.Math.Slicer
                   Graphics.Slicer.Formats.STL.Definitions

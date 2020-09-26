@@ -21,7 +21,7 @@
 -- for adding Generic and NFData to Line.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, flipLine, Slope, pointAtZValue, shortenLineBy, pointsFromLines) where
+module Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, makeLinesLooped, makeLines, midpoint, endpoint, pointSlopeLength, lineSlope, perpendicularBisector, flipLine, Slope, pointAtZValue, pointsFromLines) where
 
 import Prelude ((/), (<), (>), (*), ($), sqrt, (+), (-), otherwise, (&&), (<=), (/=), (==), Eq, length, head, tail, (++), last, init, (<$>), Show, error, negate, null, zipWith, (<>), show, concat)
 
@@ -33,12 +33,12 @@ import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), addPoints, scalePoint, distance, magnitude, zOf, flatten, (~=))
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), addPoints, scalePoint, distance, zOf, flatten, (~=))
 
 -- Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
 -- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
-data Line = Line { point :: Point2, slope :: Point2 }
+data Line = Line { point :: Point2, _slope :: Point2 }
   deriving (Generic, NFData, Show, Eq)
 
 -- | Create a line segment given it's endpoints.
@@ -125,13 +125,6 @@ pointSlopeLength p1 (HasSlope sl) dist = Line p1 s
         yVal = sl
         scale = dist / sqrt (1 + yVal*yVal)
 
--- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
--- if p2 == p3 and the lines are parallel.
-combineLines :: Line -> Line -> Line
-combineLines l1@(Line p _) l2
-  | p /= endpoint l2 = lineFromEndpoints p $ endpoint l2
-  | otherwise = l1
-
 -- Construct a perpendicular bisector of a line segment with the same length as the input line segment.
 perpendicularBisector :: Line -> Line
 perpendicularBisector l@(Line p s)
@@ -144,8 +137,8 @@ perpendicularBisector l@(Line p s)
     -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
     -- if p2 == p3 and the lines are parallel.
     combineLines :: Line -> Line -> Line
-    combineLines l1@(Line p _) l2
-      | p /= endpoint l2 = lineFromEndpoints p $ endpoint l2
+    combineLines l1@(Line p1 _) l2
+      | p1 /= endpoint l2 = lineFromEndpoints p1 $ endpoint l2
       | otherwise = l1
 
 
@@ -175,10 +168,3 @@ pointAtZValue (startPoint,stopPoint) v
                            then (startPoint,stopPoint)
                            else (stopPoint,startPoint)
 
--- shorten a line segment by a given amount in millimeters on each end
-shortenLineBy :: ℝ -> Line -> Line
-shortenLineBy amt line = Line newStart newSlope
-  where pct = amt / magnitude (slope line)
-        newStart = addPoints (point line) $ scalePoint pct (slope line)
-        newSlope = scalePoint (1 - 2 * pct) (slope line)
-                                                    

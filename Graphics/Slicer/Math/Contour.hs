@@ -31,7 +31,7 @@ import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
 
 import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2), scalePoint, addPoints, xOf, yOf)
 
-import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, makeLinesLooped, makeLines, point, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, flipLine, Slope)
+import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, makeLinesLooped, makeLines, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, flipLine, Slope)
 
 import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, IntersectsAt, Parallel, HitEndpointL2, Collinear), lineIntersection, SearchDirection (Clockwise), lineBetween)
 
@@ -165,7 +165,8 @@ outerPerimeterPoint pathWidth contour l
       | innerPoint == fst intersections = snd intersections
       | otherwise = fst intersections
     where
-      intersections = bimap point point linesToCheck
+      intersections = bimap pointOf pointOf linesToCheck
+      pointOf (Line p _) = p
       linesToCheck = perimeterLinesToCheck pathWidth l
       innerPoint = innerPerimeterPoint pathWidth contour l
       -- | Given a line, generate a pair of lines from points on both sides of the given line's midpoint to the origin, on the same z plane as the given line.
