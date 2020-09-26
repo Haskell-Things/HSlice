@@ -72,7 +72,7 @@ pointsFromLines lines
   | null lines = error "no lines to make points of."
   | otherwise = makePoints lines
   where
-    makePoints ls = [last (endpointsOf ls)] ++ init (endpointsOf ls)
+    makePoints ls = last (endpointsOf ls) : init (endpointsOf ls)
     endpointsOf :: [Line] -> [Point2]
     endpointsOf ls = endpoint <$> ls
 
@@ -138,13 +138,13 @@ pointSlopeLength p1 (HasSlope sl) dist = Line p1 s
         scale = dist / sqrt (1 + yVal*yVal)
 
 data SearchDirection = Clockwise | CounterClockwise
-  deriving Show
+  deriving (Eq, Show)
 
 -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
 -- if p2 == p3 and the lines are parallel.
 combineLines :: Line -> Line -> Line
 combineLines l1@(Line p _) l2
-  | p /= (endpoint l2) = lineFromEndpoints p (endpoint l2)
+  | p /= endpoint l2 = lineFromEndpoints p $ endpoint l2
   | otherwise = l1
 
 -- Construct a perpendicular bisector of a line (with the same length, assuming a constant z value)
@@ -152,7 +152,7 @@ perpendicularBisector :: Line -> Line
 perpendicularBisector l@(Line p s)
   | s == Point2 (0,0) = error $ "trying to bisect zero length line: " <> show l <> "\n"
   | distanceFromMiddle /= 0 = combineLines (flipLine (pointSlopeLength (midpoint l) m (negate ( distance p (endpoint l) / 2)))) $ pointSlopeLength (midpoint l) m (distance p (endpoint l) / 2)
-  | otherwise = error $ "attempting to bisect a zero length line?"
+  | otherwise = error $ "attempting to bisect a zero length line?\n" <> show l <> "\n"
   where
     distanceFromMiddle = distance p (endpoint l) /2
     m = lineSlopeFlipped s
