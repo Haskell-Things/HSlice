@@ -220,8 +220,10 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           outsideContourInnerWall = innerContourOf insideContours outsideContour
           childContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContours
             where
-              res c = expandContour (pathWidth/2) (outsideContour:(filter (\a -> a /= c) insideContours)) $ c
-          childContoursInnerWalls = mapMaybe cleanContour $ catMaybes $ expandContour (pathWidth*1.5) (outsideContour:insideContours) <$> childContours
+              res c = expandContour (pathWidth/2) (outsideContour:(filter (\a -> a /= c) insideContours)) c
+          childContoursInnerWalls = mapMaybe cleanContour $ catMaybes $ res <$> childContours
+            where
+              res c = expandContour (pathWidth*1.5) (outsideContour:(filter (\a -> a /= c) insideContours)) c
           infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill (fromJust $ shrinkContour (pathWidth/2) (c:cs) c) (catMaybes $ expandContour (pathWidth/2) (c:cs) <$> cs) (ls * (1/infill)) $ getLayerType print layerNumber
           drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth c
           drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
