@@ -25,7 +25,7 @@ module Graphics.Slicer.Math.Facet (Facet(Facet), sides, shiftFacet, facetInterse
 
 import Prelude (Eq, (<$>), ($), error, (==), length, head, (&&))
 
-import Data.List(nub)
+import Data.List.Extra(nubOrd)
 
 import Data.Maybe(catMaybes, Maybe(Just, Nothing))
 
@@ -57,7 +57,7 @@ facetFromPoints _ = error "tried to make a facet from something other than 3 poi
 facetIntersects :: ℝ -> Facet -> Maybe (Point2,Point2)
 facetIntersects v f = if length matchingEdge == 1
                       then Just $ head matchingEdge
-                      else trimIntersections $ nub $ catMaybes intersections
+                      else trimIntersections $ nubOrd $ catMaybes intersections
   where
     matchingEdge = catMaybes $ edgeOnPlane <$> sides f
     edgeOnPlane :: (Point3,Point3) -> Maybe (Point2,Point2)

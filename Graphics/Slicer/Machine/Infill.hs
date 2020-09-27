@@ -28,7 +28,7 @@ import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe)
 
 import Data.Bool (Bool(True, False))
 
-import Data.List (sort, nub)
+import Data.List.Extra (nubSort)
 
 import Graphics.Slicer.Definitions (ℝ)
 
@@ -36,7 +36,7 @@ import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence),
 
 import Graphics.Slicer.Math.Line (Line(Line), makeLines, makeLinesLooped, flipLine)
 
-import Graphics.Slicer.Math.PGA (Intersection(HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection, Parallel, Collinear, LColinear), lineIntersection, SearchDirection(Clockwise), lineBetween)
+import Graphics.Slicer.Math.PGA (Intersection(HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection, Parallel, AntiParallel, Collinear, LColinear), lineIntersection, SearchDirection(Clockwise), lineBetween)
 
 import Graphics.Slicer.Math.Contour (followingLine, preceedingLine)
 
@@ -68,7 +68,7 @@ infillLineInside contour childContours line
         | odd $ length allPoints = error $ "found odd number of points:\n" <> show allPoints <> "\noverlaying line:\n" <> show line <> "\nonto contour:\n" <> show contour <> "\n" <> show childContours <> "\n"
         | otherwise              = makeLines allPoints
         where
-          allPoints = filterTooShort . sort . nub . concat $ getLineIntersections line <$> contour:childContours
+          allPoints = filterTooShort . nubSort . concat $ getLineIntersections line <$> contour:childContours
           filterTooShort :: [Point2] -> [Point2]
           filterTooShort [] = []
           filterTooShort [a] = [a]
@@ -102,8 +102,6 @@ infillLineInside contour childContours line
                       infillFrom = Line p2 $ slopeOf l1
                       infillTo = Line p2 $ slopeOf $ flipLine l1
                       lineFrom = followingLine (linesOfContour c) l2
-                  saneIntersection NoIntersection = Nothing
-                  saneIntersection Parallel = Nothing
                   -- FIXME: is this wrong?
                   saneIntersection (LColinear l1 l2@(Line p2 _)) = if (lineBetween infillFrom Clockwise lineTo infillTo) == (lineBetween infillFrom Clockwise lineFrom infillTo) then Nothing else Just p2
                     where
@@ -111,6 +109,9 @@ infillLineInside contour childContours line
                       infillTo = Line p2 $ slopeOf $ flipLine l1
                       lineFrom = followingLine (linesOfContour c) l2
                       lineTo = Line p2 $ slopeOf $ preceedingLine (linesOfContour c) l2
+                  saneIntersection NoIntersection = Nothing
+                  saneIntersection Parallel = Nothing
+                  saneIntersection AntiParallel = Nothing
                   saneIntersection Collinear = error "not possible?"
                   slopeOf (Line _ m) = m
 

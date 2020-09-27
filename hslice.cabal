@@ -19,6 +19,7 @@ Library
                   , data-ordlist
                   , deepseq
                   , double-conversion
+                  , extra
                   , implicit
                   , mtl
                   , parallel
