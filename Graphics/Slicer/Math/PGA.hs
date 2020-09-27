@@ -20,7 +20,7 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLines, Intersection(Collinear, LColinear, Parallel, HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection), lineIntersection, lineIntersectsAt, plinesIntersectAt, SearchDirection (Clockwise, CounterClockwise), lineBetween, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLines, Intersection(Collinear, LColinear, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection), lineIntersection, lineIntersectsAt, plinesIntersectAt, SearchDirection (Clockwise, CounterClockwise), lineBetween, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2) where
 
 import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (<), (>), (<=), (+), foldl, sqrt, fst, (.), head, null, negate)
 
@@ -49,6 +49,7 @@ data Intersection =
   Collinear
   | LColinear Line Line
   | Parallel
+  | AntiParallel
   | IntersectsAt Point2
   | NoIntersection
   | HitStartPointL2 Line Line Point2
@@ -66,7 +67,7 @@ plinesIntersectAt :: PLine2 -> PLine2 -> Intersection
 plinesIntersectAt pl1 pl2
   | meet2PLine2 pl1 pl2              == PPoint2 (GVec []) = Collinear
   | (fst . scalarIze $ rawPLine pl1 ⋅ rawPLine pl2) ==  1 = Parallel
-  | (fst . scalarIze $ rawPLine pl1 ⋅ rawPLine pl2) == -1 = Parallel
+  | (fst . scalarIze $ rawPLine pl1 ⋅ rawPLine pl2) == -1 = AntiParallel
   | otherwise                                             = IntersectsAt intersection
   where
     rawPLine (PLine2 a) = a
@@ -75,12 +76,12 @@ plinesIntersectAt pl1 pl2
 -- | Check if/where two line segments intersect.
 lineIntersection :: Line -> Line -> Intersection
 lineIntersection l1 l2@(Line p2 s2)
-  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])              = LColinear l1 l2
-  | (fst . scalarIze $ rawPLine (eToPLine2 l1) ⋅ rawPLine (eToPLine2 l2)) ==  1 = Parallel
-  | (fst . scalarIze $ rawPLine (eToPLine2 l1) ⋅ rawPLine (eToPLine2 l2)) == -1 = Parallel
   | onSegment l1 intersection && onSegment l2 intersection && intersection == p2 = HitStartPointL2 l1 l2 intersection
   | onSegment l1 intersection && onSegment l2 intersection && intersection == addPoints p2 s2 = HitEndPointL2 l1 l2 intersection
   | onSegment l1 intersection && onSegment l2 intersection = IntersectsAt intersection
+  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])              = LColinear l1 l2
+  | (fst . scalarIze $ rawPLine (eToPLine2 l1) ⋅ rawPLine (eToPLine2 l2)) ==  1 = Parallel
+  | (fst . scalarIze $ rawPLine (eToPLine2 l1) ⋅ rawPLine (eToPLine2 l2)) == -1 = Parallel
   | otherwise = NoIntersection
   where
     rawPLine (PLine2 a) = a
