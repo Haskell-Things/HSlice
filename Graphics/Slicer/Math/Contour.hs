@@ -33,7 +33,7 @@ import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2),
 
 import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, makeLinesLooped, makeLines, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, flipLine, Slope)
 
-import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, IntersectsAt, Parallel, HitEndpointL2, Collinear), lineIntersection, SearchDirection (Clockwise), lineBetween)
+import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, IntersectsAt, Parallel, HitStartPointL2, HitEndPointL2, Collinear, LColinear), lineIntersection, SearchDirection (Clockwise), lineBetween)
 
 import Graphics.Implicit.Definitions (ℝ)
 
@@ -113,7 +113,8 @@ getContours pointPairs = PointSequence . contourAsPoints . contourAsPointPairs <
     contourLongEnough :: [[Point2]] -> Maybe [[Point2]]
     contourLongEnough pts
       | length pts > 2 = Just pts
-      | otherwise = error $ "fragment insufficient to be a contour found: " <> show pts <> "\n"
+      -- NOTE: returning nothing here, even though this is an error condition, and a sign that the input file has two triangles that intersect. should not happen.
+      | otherwise = Nothing -- error $ "fragment insufficient to be a contour found: " <> show pts <> "\n"
     foundContourSets :: [[[Point2]]]
     foundContourSets = getLoops $ (\(a,b) -> [a,b]) <$> sortPairs pointPairs
       where
@@ -155,8 +156,10 @@ innerPerimeterPoint pathWidth contour l@(Line p _)
               saneIntersection NoIntersection = Nothing
               saneIntersection Parallel = Nothing
     -- FIXME: fix these cases.
-    --          saneIntersection Collinear = Nothing 
-    --          saneIntersection (HitEndpointL2 p2) = Just p2
+    --          saneIntersection Collinear = Nothing
+    --          saneIntersection LColinear _ _ = Nothing
+    --          saneIntersection (HitStartPointL2 p2) = Just p2
+    --          saneIntersection (HitEndPointL2 p2) = Just p2
               saneIntersection res = error $ "insane result of intersecting a line (" <> show l1 <> ") with it's bisector: " <> show l2 <> "\nwhen finding an inner perimeter point on contour " <> show ls <> "\n" <> show res <> "\n"
 
 -- | Find an exterior point on the perpendicular bisector of the given line segment the given distance from the given line segment.
@@ -191,8 +194,10 @@ lineToOutsideContour (PointSequence contourPoints) outsideDistance m p = head $ 
       saneIntersection NoIntersection = Nothing
       saneIntersection Parallel = Nothing
 -- FIXME: fix these cases.
---       saneIntersection Collinear = Nothing 
---        saneIntersection (HitEndpointL2 p2) = Just p2
+--        saneIntersection Collinear = Nothing
+--        saneIntersection LColinear _ _ = Nothing
+--        saneIntersection (HitStartPointL2 p2) = Just p2
+--        saneIntersection (HitEndPointL2 p2) = Just p2
       saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
       edges (Point2 _) = lineFromEndpoints <$> [Point2 (xMin,yMin), Point2 (xMax,yMax)]
                                            <*> [Point2 (xMin,yMax), Point2 (xMax,yMin)]
@@ -234,7 +239,8 @@ contourContainsContour parent child = odd noIntersections
     saneIntersection (IntersectsAt p2) = Just p2
     saneIntersection NoIntersection = Nothing
     saneIntersection Parallel = Nothing
-    saneIntersection Collinear = Nothing 
+    saneIntersection Collinear = Nothing
+    saneIntersection (LColinear _ _) = Nothing
     saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
     innerPointOf contour = innerPerimeterPoint 0.00001 contour $ oneLineOf contour
       where
@@ -244,21 +250,21 @@ contourContainsContour parent child = odd noIntersections
 contourContainedByContour :: Contour -> Contour -> Bool
 contourContainedByContour child parent = contourContainsContour parent child
 
--- | Does a given line, in the direction it is given, enter from outside of a contour to inside of a contour, through a given point?
+-- | Does a given line, in the direction it is given, enter from outside of a contour to inside of a contour, or from inside of a contour to the outside of a contour through a given point?
 -- | Used to check the corner case of corner cases.
 lineEntersContour :: Line -> Intersection -> Contour -> Bool
 lineEntersContour (Line _ m) intersection contour@(PointSequence contourPoints) = lineBetween lineFrom Clockwise continuation lineTo == lineBetween lineFrom Clockwise lineToInteriorPoint lineTo
   where
     continuation = Line (intersectionPoint intersection) m
     lineToInteriorPoint = lineFromEndpoints (intersectionPoint intersection) $ innerPerimeterPoint 0.00001 contour lineFrom
-    intersectionPoint (HitEndpointL2 _ _ pt) = pt
+    intersectionPoint (HitStartPointL2 _ _ pt) = pt
+    intersectionPoint (HitEndPointL2 _ _ pt) = pt
     intersectionPoint other = error $ "trying to find where a line enters a contour on something not a point of a contour where two lines intersect: " <> show other <> "\n" 
     -- lineTo has an endpoint of the intersection, lineFrom has a starting point of the intersection.
     (lineTo, lineFrom) = findLinesInContour intersection
     contourLines = makeLinesLooped contourPoints
-    findLinesInContour (HitEndpointL2 _ l2@(Line p _) pt)
-      |           p == pt = (preceedingLine contourLines l2,l2)
-      | endpoint l2 == pt = (l2,followingLine contourLines l2)
+    findLinesInContour (HitStartPointL2 _ l2 _) = (l2,followingLine contourLines l2)
+    findLinesInContour (HitEndPointL2 _ l2 _)   = (preceedingLine contourLines l2,l2)
     findLinesInContour other = error $ "trying to find where a line enters a contour on something not a point of a contour where two lines intersect: " <> show other <> "\n" 
 
 -- Search the given sequential list of lines (assumedly generated from a contour), and return the line after this one.
