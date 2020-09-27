@@ -42,7 +42,7 @@ import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, e
 import Graphics.Slicer.Math.Line (makeLinesLooped, pointsFromLines)
 
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (innerPerimeterPoint, contourContainsContour, getContours)
+import Graphics.Slicer.Math.Contour (contourContainsContour, getContours)
 import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
 
 -- Our Infill library.
@@ -63,12 +63,6 @@ linearAlgSpec = do
       getContours oocl1 --> [c1]
     it "contours converted from points to lines then back to points give the input list" $
       pointsFromLines (makeLinesLooped cp1) --> cp1
-    it "inner points coresponding to two lines in a unit square contour overlap, when we look for them half a unit away from the lines" $
-      innerPerimeterPoint 0.5 c1 c1l1 --> innerPerimeterPoint 0.5 c1 c1l2
-    it "inner points coresponding to the other two lines in a unit square contour overlap, when we look for them half a unit away from the lines" $
-      innerPerimeterPoint 0.5 c1 c1l3 --> innerPerimeterPoint 0.5 c1 c1l4
-    it "both of the last groups agree" $
-      innerPerimeterPoint 0.5 c1 c1l1 --> innerPerimeterPoint 0.5 c1 c1l4
     it "a bigger contour containing a smaller contour is detected by contourContainsContour" $
       contourContainsContour c1 c2 --> True
     it "a smaller contour contained in a bigger contour is not detected by contourContainsContour" $
@@ -89,10 +83,6 @@ linearAlgSpec = do
     it "infills exactly one line inside of a box big enough for only one line (Vertical)" $
       makeInfill c1 [] 0.5 Vert --> [[Line (Point2 (0.5,0)) (Point2 (0,1))]]
   where
-    c1l1 = Line (Point2 (0,0)) (Point2 (0,1))
-    c1l2 = Line (Point2 (0,1)) (Point2 (1,0))
-    c1l3 = Line (Point2 (1,1)) (Point2 (0,-1))
-    c1l4 = Line (Point2 (1,0)) (Point2 (-1,0))
     cp1 = [Point2 (0,0), Point2 (0,1), Point2 (1,1), Point2 (1,0)]
     oocl1 = [(Point2 (1,0), Point2 (0,0)), (Point2 (0,1), Point2 (1,1)), (Point2 (0,0), Point2 (0,1)), (Point2 (1,1), Point2 (1,0))]
     cl1 = [(Point2 (0,0), Point2 (0,1)), (Point2 (0,1), Point2 (1,1)), (Point2 (1,1), Point2 (1,0)), (Point2 (1,0), Point2 (0,0))]

@@ -19,7 +19,7 @@
 
 {- The purpose of this file is to hold information about contoured surfaces. -}
 
-module Graphics.Slicer.Math.Contour (getContours, makeContourTree, innerPerimeterPoint, outerPerimeterPoint, lineToOutsideContour, ContourTree(ContourTree), lineEntersContour, contourContainsContour, followingLine, preceedingLine) where
+module Graphics.Slicer.Math.Contour (followingLine, preceedingLine, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour) where
 
 import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, (*), Bool(False), (-), sqrt, (+), (<*>), minimum, maximum, Eq, Show, not, even, compare)
 
@@ -102,6 +102,7 @@ getLoops' segs workingLoop =
     else getLoops' unused (workingLoop <> [next])
 
 -- | Turn pairs of points into lists of points in sequence.
+-- FIXME: flip contours the 'right' way.
 getContours :: [(Point2,Point2)] -> [Contour]
 getContours pointPairs = PointSequence . contourAsPoints . contourAsPointPairs <$> foundContours
   where
@@ -162,55 +163,6 @@ innerPerimeterPoint pathWidth contour l@(Line p _)
     --          saneIntersection (HitEndPointL2 p2) = Just p2
               saneIntersection res = error $ "insane result of intersecting a line (" <> show l1 <> ") with it's bisector: " <> show l2 <> "\nwhen finding an inner perimeter point on contour " <> show ls <> "\n" <> show res <> "\n"
 
--- | Find an exterior point on the perpendicular bisector of the given line segment the given distance from the given line segment.
-outerPerimeterPoint :: ℝ -> Contour -> Line -> Point2
-outerPerimeterPoint pathWidth contour l
-      | innerPoint == fst intersections = snd intersections
-      | otherwise = fst intersections
-    where
-      intersections = bimap pointOf pointOf linesToCheck
-      pointOf (Line p _) = p
-      linesToCheck = perimeterLinesToCheck pathWidth l
-      innerPoint = innerPerimeterPoint pathWidth contour l
-      -- | Given a line, generate a pair of lines from points on both sides of the given line's midpoint to the origin, on the same z plane as the given line.
-      perimeterLinesToCheck :: ℝ -> Line -> (Line, Line)
-      perimeterLinesToCheck pw l1@(Line p _) = (head linePair, last linePair)
-        where
-          linePair = (`lineFromEndpoints` farPoint p) . endpoint . pointSlopeLength (midpoint l) (lineSlope m) . (*pw) <$> [-1,1]
-          Line _ m = perpendicularBisector l1
-          farPoint :: Point2 -> Point2
-          farPoint (Point2 _) = Point2 (-1,-1)
-
--- | Given a point and slope, make a line segment, where the far end is guaranteed to be outside the contour.
-lineToOutsideContour :: Contour -> ℝ -> Slope -> Point2 -> Line
-lineToOutsideContour (PointSequence contourPoints) outsideDistance m p = head $ makeLines points
-    where
-      longestLength = sqrt $ dx*dx + dy*dy
-      halfLine@(Line p' s) = pointSlopeLength p m longestLength -- should have p' == p
-      line = lineFromEndpoints (endpoint halfLine) (addPoints p' (scalePoint (-1) s))
-      points = mapMaybe (saneIntersection . lineIntersection line) $ edges p
-      saneIntersection :: Intersection -> Maybe Point2
-      saneIntersection (IntersectsAt p2) = Just p2
-      saneIntersection NoIntersection = Nothing
-      saneIntersection Parallel = Nothing
--- FIXME: fix these cases.
---        saneIntersection Collinear = Nothing
---        saneIntersection LColinear _ _ = Nothing
---        saneIntersection (HitStartPointL2 p2) = Just p2
---        saneIntersection (HitEndPointL2 p2) = Just p2
-      saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
-      edges (Point2 _) = lineFromEndpoints <$> [Point2 (xMin,yMin), Point2 (xMax,yMax)]
-                                           <*> [Point2 (xMin,yMax), Point2 (xMax,yMin)]
-      xMinRaw = minimum $ xOf <$> contourPoints
-      yMinRaw = minimum $ yOf <$> contourPoints
-      xMaxRaw = maximum $ xOf <$> contourPoints
-      yMaxRaw = maximum $ yOf <$> contourPoints
-      (dx,dy) = (xMax-xMin, yMax-yMin)
-      xMin = xMinRaw - outsideDistance
-      yMin = yMinRaw - outsideDistance
-      xMax = xMaxRaw + outsideDistance
-      yMax = yMaxRaw + outsideDistance
-
 -- | a contour tree. A contour, which contains a list of contours that are cut out of the first contour, each of them contaiting a list of contours of positive space.. recursively.
 newtype ContourTree = ContourTree (Contour, [ContourTree])
   deriving (Show)
@@ -249,23 +201,6 @@ contourContainsContour parent child = odd noIntersections
 -- | determine whether a contour is contained by another contour.
 contourContainedByContour :: Contour -> Contour -> Bool
 contourContainedByContour child parent = contourContainsContour parent child
-
--- | Does a given line, in the direction it is given, enter from outside of a contour to inside of a contour, or from inside of a contour to the outside of a contour through a given point?
--- | Used to check the corner case of corner cases.
-lineEntersContour :: Line -> Intersection -> Contour -> Bool
-lineEntersContour (Line _ m) intersection contour@(PointSequence contourPoints) = lineBetween lineFrom Clockwise continuation lineTo == lineBetween lineFrom Clockwise lineToInteriorPoint lineTo
-  where
-    continuation = Line (intersectionPoint intersection) m
-    lineToInteriorPoint = lineFromEndpoints (intersectionPoint intersection) $ innerPerimeterPoint 0.00001 contour lineFrom
-    intersectionPoint (HitStartPointL2 _ _ pt) = pt
-    intersectionPoint (HitEndPointL2 _ _ pt) = pt
-    intersectionPoint other = error $ "trying to find where a line enters a contour on something not a point of a contour where two lines intersect: " <> show other <> "\n" 
-    -- lineTo has an endpoint of the intersection, lineFrom has a starting point of the intersection.
-    (lineTo, lineFrom) = findLinesInContour intersection
-    contourLines = makeLinesLooped contourPoints
-    findLinesInContour (HitStartPointL2 _ l2 _) = (l2,followingLine contourLines l2)
-    findLinesInContour (HitEndPointL2 _ l2 _)   = (preceedingLine contourLines l2,l2)
-    findLinesInContour other = error $ "trying to find where a line enters a contour on something not a point of a contour where two lines intersect: " <> show other <> "\n" 
 
 -- Search the given sequential list of lines (assumedly generated from a contour), and return the line after this one.
 followingLine :: [Line] -> Line -> Line

@@ -45,7 +45,7 @@ import Graphics.Slicer.Math.Line as ML (Line(Line), lineFromEndpoints, midpoint,
 
 import Graphics.Slicer.Math.Facet as MF (Facet(Facet), sides, shiftFacet, facetIntersects)
 
-import Graphics.Slicer.Math.Contour as MC (getContours, makeContourTree, innerPerimeterPoint, outerPerimeterPoint, ContourTree(ContourTree), lineEntersContour)
+import Graphics.Slicer.Math.Contour as MC (getContours, makeContourTree, ContourTree(ContourTree))
 
 import Graphics.Slicer.Math.Slicer as MS (accumulateValues)
 
