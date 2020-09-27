@@ -220,7 +220,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           outsideContourInnerWall = innerContourOf insideContours outsideContour
           -- FIXME: do not supply an inside contour as a child of itsself.
           childContours = mapMaybe cleanContour $ catMaybes $ expandContour (pathWidth/2) (outsideContour:insideContours) <$> insideContours
-          childContoursInnerWalls = mapMaybe cleanContour $ catMaybes $ expandContour pathWidth (outsideContour:insideContours) <$> childContours
+          childContoursInnerWalls = mapMaybe cleanContour $ catMaybes $ expandContour (pathWidth*1.5) (outsideContour:insideContours) <$> childContours
           infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill (fromJust $ shrinkContour (pathWidth/2) (c:cs) c) (catMaybes $ expandContour (pathWidth/2) (c:cs) <$> cs) (ls * (1/infill)) $ getLayerType print layerNumber
           drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth c
           drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
