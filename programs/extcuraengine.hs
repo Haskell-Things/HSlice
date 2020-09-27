@@ -27,7 +27,7 @@
 -- For matching our OpenScad variable types.
 {-# LANGUAGE ViewPatterns #-}
 
-import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse, fst)
+import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse, fst, filter)
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -218,8 +218,9 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
 
           outsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth/2) insideContours outsideContourRaw
           outsideContourInnerWall = innerContourOf insideContours outsideContour
-          -- FIXME: do not supply an inside contour as a child of itsself.
-          childContours = mapMaybe cleanContour $ catMaybes $ expandContour (pathWidth/2) (outsideContour:insideContours) <$> insideContours
+          childContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContours
+            where
+              res c = expandContour (pathWidth/2) (outsideContour:(filter (\a -> a /= c) insideContours)) $ c
           childContoursInnerWalls = mapMaybe cleanContour $ catMaybes $ expandContour (pathWidth*1.5) (outsideContour:insideContours) <$> childContours
           infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill (fromJust $ shrinkContour (pathWidth/2) (c:cs) c) (catMaybes $ expandContour (pathWidth/2) (c:cs) <$> cs) (ls * (1/infill)) $ getLayerType print layerNumber
           drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth c
