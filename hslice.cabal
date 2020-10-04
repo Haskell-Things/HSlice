@@ -81,6 +81,33 @@ Executable extcuraengine
 --                -prof
 --                -fprof-auto
 
+Executable extadmesh
+    Main-is: extadmesh.hs
+    Hs-source-dirs: programs
+    Default-Language: Haskell2010
+    Build-depends:
+                    base
+                  , bytestring
+                  , hslice
+                  , implicit
+                  , mtl
+                  , optparse-applicative
+                  , parallel
+                  , utf8-string
+    Ghc-options:
+                -threaded
+                -rtsopts
+                -optc-O3
+                -- see GHC manual 8.2.1 section 6.5.1.
+                -feager-blackholing
+                -- for debugging.
+                -Wall
+                -Wextra
+--                -Wunused-packages
+                -- for profiling.
+--                -prof
+--                -fprof-auto
+
 Test-suite test-hslice
     Type: exitcode-stdio-1.0
     default-extensions: NoImplicitPrelude

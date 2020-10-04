@@ -20,6 +20,10 @@ exedir = ${EXEBUILDROOT}/$(1)
 EXTCURAENGINE=extcuraengine
 EXTCURAENGINEDIR=$(call exedir,${EXTCURAENGINE})
 EXTCURAENGINEBIN=$(call exebin,${EXTCURAENGINE})
+# The location of the created extadmesh binary, for running shell based test cases.
+EXTADMESH=extadmesh
+EXTADMESHDIR=$(call exedir,${EXTADMESH})
+EXTADMESHBIN=$(call exebin,${EXTADMESH})
 # The location of the created test binary, for running haskell test cases.
 TESTSUITE=${TESTBUILDROOT}/test-hslice/build/test-hslice/test-hslice
 
@@ -41,8 +45,8 @@ LIBFILES=$(shell find ${LIBDIR} -name '*.hs')
 LIBBUILD=$(shell find ${LIBDIR} -name '*.hi')
 LIBTARGET=${BUILDROOT}/build/${LIBDIR}/Hslice.o
 
-EXECBUILDDIRS=$(EXTCURAENGINEDIR)
-EXECTARGETS=$(EXTCURAENGINEBIN) $(TESTSUITE)
+EXECBUILDDIRS=$(EXTCURAENGINEDIR) $(EXTADMESHDIR)
+EXECTARGETS=$(EXTCURAENGINEBIN) $(EXTADMESHBIN) $(TESTSUITE)
 TARGETS=$(EXECTARGETS) $(LIBTARGET)
 
 # Mark the below fake targets as unreal, so make will not get choked up if a file with one of these names is created.
