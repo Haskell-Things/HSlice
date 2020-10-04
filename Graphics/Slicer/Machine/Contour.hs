@@ -98,8 +98,11 @@ modifyContour pathWidth (PointSequence contourPoints) direction = if null foundC
         maybeLines = mapWithNeighbors findLine $ removeDegenerates $ makeLinesLooped contourPoints
         -- Remove sequential parallel lines, colinear sequential lines, and lines that are too close to parallel.
         removeDegenerates :: [Line] -> [Line]
-        removeDegenerates lns = removeDegenerateEnds $ foldl concatDegenerates [] lns
+        removeDegenerates lns
+          | length res == length lns = res
+          | otherwise                = removeDegenerates res
           where
+            res = removeDegenerateEnds $ foldl concatDegenerates [] lns
             concatDegenerates xs x
               | null xs = [x]
               | isDegenerate (inwardAdjust (last xs)) (inwardAdjust (x)) = (init xs) ++ [combineLines (last xs) x]
