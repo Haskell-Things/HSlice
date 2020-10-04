@@ -62,11 +62,7 @@ default (ℕ, Fastℕ, ℝ)
 
 ------------------------ STEAL ME ---------------------------
 {-
-https://crypto.stanford.edu/~blynn/haskell/
-https://hackaday.com/2020/05/17/look-ma-no-support-for-my-floating-holes/
-https://homes.cs.washington.edu/~ztatlock/pubs/reincarnate-nandi-icfp18.pdf
-https://github.com/uwplse/reincarnate-aec
-https://github.com/Zip-o-mat/Slic3r/tree/nonplanar
+http://www.varlog.com/admesh-htm/ADMeshThesis.zip
 -}
 
 ----------------------------------------------------------
@@ -121,9 +117,8 @@ run rawArgs = do
 main :: IO ()
 main = execParser opts >>= run
     where
-      opts= info (helper <*> extAdMeshOpts)
-            ( fullDesc
-              <> progDesc "HSlice: STL Lint Checker."
-              <> header "extadmesh - Extended AdMesh"
-            )
-
+      opts = info (helper <*> extAdMeshOpts)
+             ( fullDesc
+               <> progDesc "HSlice: STL Lint Checker."
+               <> header "extadmesh - Extended AdMesh"
+             )
