@@ -110,7 +110,7 @@ run rawArgs = do
     facets <- readFile inFile
     let
       outFile = fromMaybe "out.stl" $ outputFileOpt args
-      stlOut = buildAsciiSTL 1 (facetsFromSTL 1 facets)
+      stlOut = buildAsciiSTL (facetsFromSTL 1 facets)
     writeFile outFile $ toLazyByteString stlOut
 
 -- | The entry point. Use the option parser then run the slicer.
