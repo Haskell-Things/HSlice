@@ -387,7 +387,7 @@ sliceParser = pure (ExtCuraEngineRootOpts "slice")
   strOption
     (    short 'o'
       <> long "output"
-      <> metavar "OUTPUT"
+      <> metavar "OUTPUTFILE"
       <> help "Output file name"
       )
     )
@@ -548,9 +548,8 @@ run rawArgs = do
 main :: IO ()
 main = execParser opts >>= run
     where
-      opts= info (helper <*> extCuraEngineOpts)
-            ( fullDesc
-              <> progDesc "HSlice: STL to GCode slicer."
-              <> header "extcuraengine - Extended CuraEngine"
-            )
-
+      opts = info (helper <*> extCuraEngineOpts)
+             ( fullDesc
+               <> progDesc "HSlice: 3D FDM path planner (slicer)."
+               <> header "extcuraengine - Extended CuraEngine"
+             )
