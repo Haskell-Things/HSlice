@@ -282,10 +282,7 @@ normalizePLine2 :: PLine2 -> PLine2
 normalizePLine2 pl@(PLine2 vec) = PLine2 $ divVecScalar vec $ normOfPLine2 pl 
 
 normOfPLine2 :: PLine2 -> ℝ
-normOfPLine2 (PLine2 (GVec vals)) = sqrt (a*a+b*b)
-  where
-    a = valOf 0 $ getVals [GEPlus 1] vals
-    b = valOf 0 $ getVals [GEPlus 2] vals
+normOfPLine2 pline = sqrt $ sqNormOfPLine2 pline
 
 sqNormOfPLine2 :: PLine2 -> ℝ
 sqNormOfPLine2 (PLine2 (GVec vals)) = a*a+b*b
