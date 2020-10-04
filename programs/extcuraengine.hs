@@ -68,7 +68,9 @@ import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString,
 
 import Graphics.Implicit.Definitions (ℝ, ℕ, Fastℕ(Fastℕ), fromFastℕ, fromFastℕtoℝ)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Line(Line), flipLine, Facet, sides, Contour(PointSequence), shiftFacet, facetIntersects, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), facetLinesFromSTL, makeContourTree, ContourTree(ContourTree))
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Line(Line), flipLine, Facet, sides, Contour(PointSequence), shiftFacet, facetIntersects, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), makeContourTree, ContourTree(ContourTree))
+
+import Graphics.Slicer.Formats.STL.Definitions (facetsFromSTL)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yOf, zOf)
 
@@ -104,7 +106,7 @@ centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
     where
       centerPoint = Point3 (dx,dy,dz)
       shiftedFacets = [shiftFacet centerPoint facet | facet <- facets] `using` parListChunk (div (length facets) (fromFastℕ threads)) rseq
-      facets = facetLinesFromSTL threads stl
+      (_,facets,_) = facetsFromSTL threads stl
       (dx,dy,dz) = (bedX/2-x0, bedY/2-y0, -zMin)
       xMin = minimum $ xOf.fst <$> foldMap sides facets
       yMin = minimum $ yOf.fst <$> foldMap sides facets

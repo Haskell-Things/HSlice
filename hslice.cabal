@@ -34,6 +34,7 @@ Library
 --                -Wunused-packages
     Exposed-Modules:
                     Graphics.Slicer
+                    Graphics.Slicer.Formats.STL.Definitions
                     Graphics.Slicer.Math.Contour
                     Graphics.Slicer.Math.Definitions
                     Graphics.Slicer.Math.GeometricAlgebra
@@ -48,7 +49,6 @@ Library
                   Graphics.Slicer.Machine.Support
                   Graphics.Slicer.Math.Facet
                   Graphics.Slicer.Math.Slicer
-                  Graphics.Slicer.Formats.STL.Definitions
                   Graphics.Slicer.Formats.GCode.Definitions
                   Graphics.Slicer.Mechanics.Definitions
                   Graphics.Slicer.Concepts.Definitions

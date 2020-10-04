@@ -28,7 +28,6 @@ module Graphics.Slicer (
   module MF,
   module MC,
   module MS,
-  module FS,
   module MeD,
   module D,
   module CD,
@@ -48,8 +47,6 @@ import Graphics.Slicer.Math.Facet as MF (Facet(Facet), sides, shiftFacet, facetI
 import Graphics.Slicer.Math.Contour as MC (getContours, makeContourTree, ContourTree(ContourTree))
 
 import Graphics.Slicer.Math.Slicer as MS (accumulateValues)
-
-import Graphics.Slicer.Formats.STL.Definitions as FS (facetLinesFromSTL)
 
 import Graphics.Slicer.Mechanics.Definitions as MeD (Extruder(Extruder), Bed(RectBed), filamentWidth, nozzleDiameter)
 
