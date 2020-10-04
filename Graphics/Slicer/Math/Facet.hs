@@ -21,7 +21,7 @@
 -- for adding Generic and NFData to Facet.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Facet (Facet(Facet), sides, shiftFacet, facetIntersects) where
+module Graphics.Slicer.Math.Facet (Facet(Facet), sidesOf, shiftFacet, facetIntersects) where
 
 import Prelude (Eq, (<$>), ($), error, (==), length, head, (&&))
 
@@ -41,13 +41,19 @@ import Graphics.Slicer.Math.Definitions (Point2, Point3, addPoints, flatten, zOf
 
 import Graphics.Slicer.Math.Line (pointAtZValue)
 
-data Facet = Facet { sides :: [(Point3, Point3)] , normal :: Point3}
+data Facet = Facet {sides :: ((Point3, Point3),(Point3, Point3),(Point3, Point3)), normal :: Point3}
   deriving (Eq, Generic, NFData)
 
 -- Shift a facet by the vector p
 shiftFacet :: Point3 -> Facet -> Facet
-shiftFacet p f = Facet ( bimap (addPoints p) (addPoints p) <$> sides f) $ normal f
--- fmap (\(start, stop) -> (addPoints p start, addPoints p stop)) . sides
+shiftFacet p (Facet (s1,s2,s3) n1) = Facet ((bimap (addPoints p) (addPoints p) $ s1),
+                                            (bimap (addPoints p) (addPoints p) $ s2),
+                                            (bimap (addPoints p) (addPoints p) $ s3)
+                                           ) n1
+
+-- allow us to use mapping functions against the tuple of sides.
+sidesOf :: Facet -> [(Point3,Point3)]
+sidesOf (Facet (a,b,c) _) = [a,b,c]
 
 -- determine where a facet intersects a plane at a given z value
 facetIntersects :: ℝ -> Facet -> Maybe (Point2,Point2)
@@ -55,12 +61,12 @@ facetIntersects v f = if length matchingEdge == 1
                       then Just $ head matchingEdge
                       else trimIntersections $ nubOrd $ catMaybes intersections
   where
-    matchingEdge = catMaybes $ edgeOnPlane <$> sides f
+    matchingEdge = catMaybes $ edgeOnPlane <$> (sidesOf f)
     edgeOnPlane :: (Point3,Point3) -> Maybe (Point2,Point2)
     edgeOnPlane (start,stop) = if zOf start == zOf stop && zOf start == v
                                then Just (flatten start, flatten stop)
                                else Nothing
-    intersections = (`pointAtZValue` v) <$> sides f
+    intersections = (`pointAtZValue` v) <$> (sidesOf f)
     -- Get rid of the case where a facet intersects the plane at one point
     trimIntersections :: [Point2] -> Maybe (Point2,Point2)
     trimIntersections []      = Nothing

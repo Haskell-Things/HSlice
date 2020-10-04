@@ -80,7 +80,7 @@ readFacet f = do
           foundPoints = fromJust.fst <$> filter (\(a,_) -> isJust a) pointsAndNormals
           foundNormals = fromJust.snd <$> filter (\(_,b) -> isJust b) pointsAndNormals
           facetFromPointsAndNormal :: [Point3] -> Point3 -> Facet
-          facetFromPointsAndNormal [p1,p2,p3] n = Facet [(p1,p2),(p2,p3),(p3,p1)] n
+          facetFromPointsAndNormal [p1,p2,p3] n = Facet ((p1,p2),(p2,p3),(p3,p1)) n
           facetFromPointsAndNormal _ _ = error "tried to make a facet from something other than 3 points."
         if length foundPoints == 3 && length foundNormals == 1 then facetFromPointsAndNormal foundPoints (head foundNormals) else error $ "wrong number of points/normals found: " <> show (length foundPoints) <> "\n" <> show f <> "\n" <> show foundPoints <> "\n"
 
@@ -112,8 +112,7 @@ buildAsciiSTL (header, facets, footer) = byteString header <> "\n" <> mconcat (w
 
 -- | Generate a single facet.
 writeFacet :: Facet -> Builder
-writeFacet (Facet [(p1,_),(p2,_),(p3,_)] n1) = stringUtf8 "facet " <> writeNormal n1 <> "outer loop\n" <> writeVertex p1 <> writeVertex p2 <> writeVertex p3 <> "endloop\nendfacet\n"
-writeFacet _ = error "insane facet"
+writeFacet (Facet ((p1,_),(p2,_),(p3,_)) n1) = stringUtf8 "facet " <> writeNormal n1 <> "outer loop\n" <> writeVertex p1 <> writeVertex p2 <> writeVertex p3 <> "endloop\nendfacet\n"
 
 -- | Generate the normal for a facet. Note that the caller is assumed to have already placed "facet " on the line of text being generated.
 writeNormal :: Point3 -> Builder

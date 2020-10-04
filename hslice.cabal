@@ -37,6 +37,7 @@ Library
                     Graphics.Slicer.Formats.STL.Definitions
                     Graphics.Slicer.Math.Contour
                     Graphics.Slicer.Math.Definitions
+                    Graphics.Slicer.Math.Facet
                     Graphics.Slicer.Math.GeometricAlgebra
                     Graphics.Slicer.Math.PGA
                     Graphics.Slicer.Machine.StateM
@@ -47,7 +48,6 @@ Library
     Other-Modules:
                   Graphics.Slicer.Math.Point
                   Graphics.Slicer.Machine.Support
-                  Graphics.Slicer.Math.Facet
                   Graphics.Slicer.Math.Slicer
                   Graphics.Slicer.Formats.GCode.Definitions
                   Graphics.Slicer.Mechanics.Definitions

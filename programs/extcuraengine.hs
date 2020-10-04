@@ -68,11 +68,13 @@ import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString,
 
 import Graphics.Implicit.Definitions (ℝ, ℕ, Fastℕ(Fastℕ), fromFastℕ, fromFastℕtoℝ)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Line(Line), flipLine, Facet, sides, Contour(PointSequence), shiftFacet, facetIntersects, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), makeContourTree, ContourTree(ContourTree))
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Line(Line), flipLine, Contour(PointSequence), getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), makeContourTree, ContourTree(ContourTree))
 
 import Graphics.Slicer.Formats.STL.Definitions (facetsFromSTL)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yOf, zOf)
+
+import Graphics.Slicer.Math.Facet (Facet(Facet), sidesOf, shiftFacet, facetIntersects)
 
 import Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Horiz, Vert))
 
@@ -108,11 +110,13 @@ centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
       shiftedFacets = [shiftFacet centerPoint facet | facet <- facets] `using` parListChunk (div (length facets) (fromFastℕ threads)) rseq
       (_,facets,_) = facetsFromSTL threads stl
       (dx,dy,dz) = (bedX/2-x0, bedY/2-y0, -zMin)
-      xMin = minimum $ xOf.fst <$> foldMap sides facets
-      yMin = minimum $ yOf.fst <$> foldMap sides facets
-      zMin = minimum $ zOf.fst <$> foldMap sides facets
-      xMax = maximum $ xOf.fst <$> foldMap sides facets
-      yMax = maximum $ yOf.fst <$> foldMap sides facets
+      xMin = minimum $ xOf.fst <$> foldMap sidesOf facets
+      yMin = minimum $ yOf.fst <$> foldMap sidesOf facets
+      zMin = minimum $ zOf.fst <$> foldMap sidesOf facets
+      xMax = maximum $ xOf.fst <$> foldMap sidesOf facets
+      yMax = maximum $ yOf.fst <$> foldMap sidesOf facets
+      sidesOf :: Facet -> [(Point3,Point3)]
+      sidesOf (Facet (a,b,c) _) = [a,b,c]
       (x0,y0) = ((xMax+xMin)/2-xMin, (yMax+yMin)/2-yMin)
 
 -----------------------------------------------------------------------
@@ -127,7 +131,9 @@ layers print fs = catMaybes <$> rawContours
     rawContours = [cleanContour <$> getContours (allIntersections (currentLayer-(lh/2))) | currentLayer <- [lh,lh*2..zmax] ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
     allIntersections :: ℝ -> [(Point2,Point2)]
     allIntersections zLayer = catMaybes $ facetIntersects zLayer <$> fs
-    zs = [zOf . fst <$> triPoints | triPoints <- sides <$> fs ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
+    zs = [zOf . fst <$> triPoints | triPoints <- sidesOf <$> fs ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
+    sidesOf :: Facet -> [(Point3,Point3)]
+    sidesOf (Facet (a,b,c) _) = [a,b,c]
     zmax :: ℝ
     zmax = maximum $ concat zs
     lh = layerHeight print
