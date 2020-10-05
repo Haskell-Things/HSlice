@@ -187,14 +187,14 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
         insidePositiveSpaces :: [ContourTree] -> [ContourTree]
         insidePositiveSpaces trees = concat $ (\(ContourTree (_,a)) -> a) <$> trees
     renderSurface :: Contour -> [Contour] -> [GCode]
-    renderSurface outsideContourRaw insideContours
+    renderSurface outsideContourRaw insideContoursRaw
       | outerWallBeforeInner == True = concat [
             travelToContour outsideContour
           , drawOuterContour outsideContour
           , renderChildOuterContours outsideContour outsideContourInnerWall
           , drawInnerContour outsideContourInnerWall
           , renderChildInnerContours outsideContourInnerWall outsideContour
-          , travelFromContourToInfill outsideContour $ infillLines outsideContourInnerWall childContoursInnerWalls
+          , travelFromContourToInfill outsideContour $ infillLines
           , drawInfill outsideContourInnerWall childContoursInnerWalls
           ]
       | otherwise = concat [
@@ -203,7 +203,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           , renderChildInnerContours outsideContourInnerWall outsideContour
           , drawOuterContour outsideContour
           , renderChildOuterContours outsideContour outsideContourInnerWall
-          , travelFromContourToInfill outsideContourInnerWall  $ infillLines outsideContourInnerWall childContoursInnerWalls
+          , travelFromContourToInfill outsideContourInnerWall $ infillLines
           , drawInfill outsideContourInnerWall childContoursInnerWalls
           ]
         where
@@ -223,27 +223,25 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
                 , drawChildOuterContours
                 , travelBetweenContours (last childContoursInnerWalls) dest
                 ]
-
-          outsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth/2) insideContours outsideContourRaw
-          outsideContourInnerWall = innerContourOf insideContours outsideContour
-          childContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContours
+          outsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*0.5) insideContoursRaw outsideContourRaw
+          outsideContourInnerWall = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2) insideContoursRaw outsideContourRaw
+          childContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
             where
-              res c = expandContour (pathWidth/2) (outsideContour:(filter (\a -> a /= c) insideContours)) c
-          childContoursInnerWalls = mapMaybe cleanContour $ catMaybes $ res <$> childContours
+              res c = expandContour (pathWidth*0.5) (outsideContourRaw:(filter (\a -> a /= c) insideContoursRaw)) c
+          childContoursInnerWalls = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
             where
-              res c = expandContour (pathWidth*1.5) (outsideContour:(filter (\a -> a /= c) insideContours)) c
-          infillLines c cs = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill (fromJust $ shrinkContour (pathWidth/2) (c:cs) c) (catMaybes $ expandContour (pathWidth/2) (c:cs) <$> cs) (ls * (1/infill)) $ getLayerType print layerNumber
+              res c = expandContour (pathWidth*2) (outsideContourRaw:(filter (\a -> a /= c) insideContoursRaw)) c
+          infillLines = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill infillOutsideContour infillChildContours (ls * (1/infill)) $ getLayerType print layerNumber
+            where
+              infillOutsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2.5) insideContoursRaw outsideContourRaw
+              infillChildContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
+                where
+                  res c = expandContour (pathWidth*2.5) (outsideContourRaw:(filter (\a -> a /= c) insideContoursRaw)) c
           drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth c
           drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
           drawChildOuterContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init childContoursInnerWalls) (tail childContoursInnerWalls)
           drawChildContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) (init childContours) (tail childContours)
-          drawInfill c cs = GCMarkInfillStart : gcodeForInfill lh ls (infillLines c cs)
-          -- FIXME: fix the calling system to handle this failing, instead of adding this filter.
-          innerContourOf cs c =
-            case maybeInnerContourOf c cs of
-              Just a   -> a
-              Nothing  -> error $ "got empty contour when asking for smaller version of contour:\n" <> show c <> "\n"
-          maybeInnerContourOf c cs = shrinkContour (pathWidth*1.5) cs c
+          drawInfill c cs = GCMarkInfillStart : (gcodeForInfill lh ls $ infillLines)
   -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
   layerStart <> concat (renderContourTree <$> allContours) <> support <> layerEnd 
     where
