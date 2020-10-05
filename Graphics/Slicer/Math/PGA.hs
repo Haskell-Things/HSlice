@@ -20,7 +20,7 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLines, Intersection(Collinear, LColinear, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection), lineIntersection, lineIntersectsAt, plinesIntersectAt, SearchDirection (Clockwise, CounterClockwise), lineBetween, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLines, Intersection(Collinear, LColinear, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection), lineIntersection, lineIntersectsAt, plinesIntersectAt, SearchDirection (Clockwise, CounterClockwise), lineBetween, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, angleBetween) where
 
 import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (<), (>), (<=), (+), foldl, sqrt, fst, (.), head, null, negate)
 
@@ -301,8 +301,12 @@ flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl addVal []
 
 -- | Translate a line a given amound along it's perpendicular bisector.
 translatePerp :: PLine2 -> ℝ -> PLine2
-translatePerp pl1 d = PLine2 $ addVecPair m (rawPLine $ normalizePLine2 pl1) 
+translatePerp pl1 d = PLine2 $ addVecPair m (rawPLine $ pl1)
   where
-    m = GVec [GVal d [GEZero 1]]
+    m = GVec [GVal (d*normOfPLine2 pl1) [GEZero 1]]
     rawPLine (PLine2 a) = a
 
+angleBetween :: PLine2 -> PLine2 -> ℝ
+angleBetween pl1 pl2 = res (normalizePLine2 pl1) (normalizePLine2 pl2)
+  where
+    res (PLine2 gvec1) (PLine2 gvec2) = (fst . scalarIze $ gvec1 ⋅ gvec2)

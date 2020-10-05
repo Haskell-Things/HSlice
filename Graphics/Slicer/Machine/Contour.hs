@@ -28,11 +28,11 @@ import Control.Parallel.Strategies (withStrategy, parList, rpar)
 
 import Control.Parallel (par, pseq)
 
-import Graphics.Slicer.Math.Definitions (Point2, Contour(PointSequence), addPoints)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), addPoints)
 
 import Graphics.Slicer.Math.Line (Line(Line), makeLinesLooped, pointsFromLines, lineFromEndpoints)
 
-import Graphics.Slicer.Math.PGA (PLine2(PLine2), combineConsecutiveLines, Intersection(IntersectsAt, Collinear, Parallel), plinesIntersectAt, translatePerp, eToPLine2)
+import Graphics.Slicer.Math.PGA (PLine2(PLine2), combineConsecutiveLines, Intersection(IntersectsAt, Collinear, Parallel), plinesIntersectAt, translatePerp, eToPLine2, angleBetween)
 
 import Graphics.Slicer.Math.GeometricAlgebra((⋅), scalarIze)
 
@@ -117,9 +117,9 @@ modifyContour pathWidth (PointSequence contourPoints) direction = if null foundC
             -- if p2 == p3 and the lines are really close to parallel
             combineLines :: Line -> Line -> Line
             combineLines (Line p _) (Line p1 s1) = lineFromEndpoints p (addPoints p1 s1)
-            isDegenerate pl1@(PLine2 gvec1) pl2@(PLine2 gvec2)
-              | (fst . scalarIze $ gvec1 ⋅ gvec2) < (-0.9999) = True
-              | (fst . scalarIze $ gvec1 ⋅ gvec2) > (0.9999) = True
+            isDegenerate pl1 pl2
+              | angleBetween pl1 pl2 < (-0.99) = True
+              | angleBetween pl1 pl2 > (0.99) = True
               | otherwise = case plinesIntersectAt pl1 pl2 of
                               Parallel  -> True
                               Collinear -> True
