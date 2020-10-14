@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.Facet (Facet(Facet), sidesOf, shiftFacet, facetIntersects) where
 
-import Prelude (Eq, (<$>), ($), error, (==), length, head, (&&))
+import Prelude (Eq, (<$>), ($), error, (==), length, head, (&&), Show)
 
 import Data.List.Extra(nubOrd)
 
@@ -41,14 +41,14 @@ import Graphics.Slicer.Math.Definitions (Point2, Point3, addPoints, flatten, zOf
 
 import Graphics.Slicer.Math.Line (pointAtZValue)
 
-data Facet = Facet {sides :: ((Point3, Point3),(Point3, Point3),(Point3, Point3)), normal :: Point3}
-  deriving (Eq, Generic, NFData)
+data Facet = Facet {_sides :: ((Point3, Point3),(Point3, Point3),(Point3, Point3)), _normal :: Point3}
+  deriving (Eq, Generic, NFData, Show)
 
 -- Shift a facet by the vector p
 shiftFacet :: Point3 -> Facet -> Facet
-shiftFacet p (Facet (s1,s2,s3) n1) = Facet ((bimap (addPoints p) (addPoints p) $ s1),
-                                            (bimap (addPoints p) (addPoints p) $ s2),
-                                            (bimap (addPoints p) (addPoints p) $ s3)
+shiftFacet p (Facet (s1,s2,s3) n1) = Facet ((bimap (addPoints p) (addPoints p) s1),
+                                            (bimap (addPoints p) (addPoints p) s2),
+                                            (bimap (addPoints p) (addPoints p) s3)
                                            ) n1
 
 -- allow us to use mapping functions against the tuple of sides.

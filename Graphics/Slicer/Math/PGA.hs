@@ -20,9 +20,9 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLines, Intersection(Collinear, LColinear, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection), lineIntersection, lineIntersectsAt, plinesIntersectAt, SearchDirection (Clockwise, CounterClockwise), lineBetween, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, angleBetween) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLines, Intersection(Collinear, LColinear, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection), lineIntersection, lineIntersectsAt, plinesIntersectAt, SearchDirection (Clockwise, CounterClockwise), lineBetween, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, angleBetween, pointOnPerp) where
 
-import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (<), (>), (<=), (+), foldl, sqrt, fst, (.), head, null, negate)
+import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (<), (>), (<=), (+), foldl, sqrt, fst, (.), head, null, negate, snd, (/), error, show, (<>))
 
 import GHC.Generics (Generic)
 
@@ -30,7 +30,7 @@ import Control.DeepSeq (NFData)
 
 import Data.List.Ordered (foldt)
 
-import Data.Maybe (Maybe(Just, Nothing))
+import Data.Maybe (Maybe(Just, Nothing), fromJust)
 
 import Graphics.Slicer.Definitions (ℝ)
 
@@ -38,7 +38,7 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
 
 import Graphics.Slicer.Math.Line(Line(Line))
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), (⋅), addVal, addVecPair, divVecScalar, scalarIze)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (•), (⋅), (⎤), addVal, addVecPair, divVecScalar, scalarPart, vectorPart, mulScalarVec)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -65,10 +65,10 @@ lineIntersectsAt l1 l2 = case plinesIntersectAt (eToPLine2 l1) (eToPLine2 l2) of
 -- | Entry point when you know that the two PLine2s intersect.
 plinesIntersectAt :: PLine2 -> PLine2 -> Intersection
 plinesIntersectAt pl1 pl2
-  | meet2PLine2 pl1 pl2              == PPoint2 (GVec []) = Collinear
-  | (fst . scalarIze $ rawPLine pl1 ⋅ rawPLine pl2) ==  1 = Parallel
-  | (fst . scalarIze $ rawPLine pl1 ⋅ rawPLine pl2) == -1 = AntiParallel
-  | otherwise                                             = IntersectsAt intersection
+  | meet2PLine2 pl1 pl2         == PPoint2 (GVec []) = Collinear
+  | (scalarPart $ rawPLine pl1 ⎣ rawPLine pl2) ==  1 = Parallel
+  | (scalarPart $ rawPLine pl1 ⎣ rawPLine pl2) == -1 = AntiParallel
+  | otherwise                                        = IntersectsAt intersection
   where
     rawPLine (PLine2 a) = a
     intersection = intersectPLines pl1 pl2
@@ -79,9 +79,9 @@ lineIntersection l1 l2@(Line p2 s2)
   | onSegment l1 intersection && onSegment l2 intersection && intersection == p2 = HitStartPointL2 l1 l2 intersection
   | onSegment l1 intersection && onSegment l2 intersection && intersection == addPoints p2 s2 = HitEndPointL2 l1 l2 intersection
   | onSegment l1 intersection && onSegment l2 intersection = IntersectsAt intersection
-  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])              = LColinear l1 l2
-  | (fst . scalarIze $ rawPLine (eToPLine2 l1) ⋅ rawPLine (eToPLine2 l2)) ==  1 = Parallel
-  | (fst . scalarIze $ rawPLine (eToPLine2 l1) ⋅ rawPLine (eToPLine2 l2)) == -1 = Parallel
+  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])         = LColinear l1 l2
+  | (scalarPart $ rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l2)) ==  1 = Parallel
+  | (scalarPart $ rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l2)) == -1 = Parallel
   | otherwise = NoIntersection
   where
     rawPLine (PLine2 a) = a
@@ -93,10 +93,10 @@ data SearchDirection = Clockwise | CounterClockwise
 -- Find out if, in a set of three lines through the same point, one line is in the space between two other lines.
 lineBetween :: Line -> SearchDirection -> Line -> Line -> Bool
 lineBetween l1 searchDir l2 l3
-  | searchDir == CounterClockwise =   (fst . scalarIze $ rawPLine (eToPLine2 l1) ⋅ rawPLine (eToPLine2 l2))
-                                    < (fst . scalarIze $ rawPLine (eToPLine2 l1) ⋅ rawPLine (eToPLine2 l3))
-  | otherwise                     =   (fst . scalarIze $ rawPLine (eToPLine2 l2) ⋅ rawPLine (eToPLine2 l1))
-                                    < (fst . scalarIze $ rawPLine (eToPLine2 l3) ⋅ rawPLine (eToPLine2 l1))
+  | searchDir == CounterClockwise =   (scalarPart $ rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l2))
+                                    < (scalarPart $ rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l3))
+  | otherwise                     =   (scalarPart $ rawPLine (eToPLine2 l2) ⎣ rawPLine (eToPLine2 l1))
+                                    < (scalarPart $ rawPLine (eToPLine2 l3) ⎣ rawPLine (eToPLine2 l1))
   where
     rawPLine (PLine2 a) = a
 
@@ -166,7 +166,7 @@ newtype PLine2 = PLine2 GVec
 
 -- our join operator, which is the meet operator operating in the dual space.
 (∨) :: GVec -> GVec -> GVec
-(∨) a b = dual2DGVec $ dual2DGVec a ∧ dual2DGVec b
+(∨) a b = dual2DGVec $ dual2DGVec a ⎤ dual2DGVec b
 
 -- | our join function.
 join :: GVec -> GVec -> GVec
@@ -178,11 +178,11 @@ join2PPoint2 (PPoint2 v1) (PPoint2 v2) = PLine2 $ join v1 v2
 
 -- | A typed meet function. two lines meet at a point.
 meet2PLine2 :: PLine2 -> PLine2 -> PPoint2
-meet2PLine2 (PLine2 v1) (PLine2 v2) = PPoint2 $ v1 ∧ v2
+meet2PLine2 (PLine2 v1) (PLine2 v2) = PPoint2 $ v1 ⎤ v2
 
 -- | A type stripping meet finction.
 meet2PPoint2 :: PPoint2 -> PPoint2 -> GVec
-meet2PPoint2 (PPoint2 v1) (PPoint2 v2) = v1 ∧ v2
+meet2PPoint2 (PPoint2 v1) (PPoint2 v2) = v1 ⎤ v2
 
 -- | Create a 2D projective point from a 2D euclidian point.
 eToPPoint2 :: Point2 -> PPoint2
@@ -236,7 +236,8 @@ reverse vec = GVec $ foldl addVal []
               , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals) [GEZero 1, GEPlus 1, GEPlus 2]
               ]
   where
-    (realVal, GVec vals) = scalarIze vec
+    realVal     = scalarPart vec
+    (GVec vals) = vectorPart vec
 
 dual2DGVec :: GVec -> GVec
 dual2DGVec vec = GVec $ foldl addVal []
@@ -251,7 +252,8 @@ dual2DGVec vec = GVec $ foldl addVal []
                  , GVal (         valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals) [G0]
                  ]
   where
-    (realVal, GVec vals) = scalarIze vec
+    realVal     = scalarPart vec
+    (GVec vals) = vectorPart vec
 
 -- | Extract a value from a vector.
 -- FIXME: throw a failure when we get more than one match.
@@ -306,7 +308,23 @@ translatePerp pl1 d = PLine2 $ addVecPair m (rawPLine $ pl1)
     m = GVec [GVal (d*normOfPLine2 pl1) [GEZero 1]]
     rawPLine (PLine2 a) = a
 
+-- I, in this geometric algebra system.
+gaI :: GVec
+gaI = GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]
+
+-- | find a point a given distance along a line perpendicularly bisecting this line at a given point.
+pointOnPerp :: Line -> Point2 -> ℝ -> Point2
+pointOnPerp line point d = --fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPoint2 $ (motor•pvec)•(reverse motor)
+    error $ "\nlvec: " <> show lvec <> "\npvec: " <> show pvec <> "\nperpLine: " <> show perpLine <> "\nmotor•pvec(raw): " <> show (motor•pvec) <> "\nmotor(raw): " <> show (motor) <> "\nreverse motor(raw): " <> show (reverse motor)<> "\n" <>
+          "final(raw): " <> show ((motor•pvec)•(reverse motor)) <> "\n"
+  where
+    (PLine2 lvec) = normalizePLine2 $ eToPLine2 line
+    (PPoint2 pvec) = canonicalizePPoint2 $ eToPPoint2 point
+    perpLine = lvec ⋅ pvec
+    motor = addVecPair (GVec [GVal 1 [G0]]) (mulScalarVec (d/2) (perpLine • gaI))
+
 angleBetween :: PLine2 -> PLine2 -> ℝ
 angleBetween pl1 pl2 = res (normalizePLine2 pl1) (normalizePLine2 pl2)
   where
-    res (PLine2 gvec1) (PLine2 gvec2) = (fst . scalarIze $ gvec1 ⋅ gvec2)
+    res (PLine2 gvec1) (PLine2 gvec2) = (scalarPart $ gvec1 ⎣ gvec2)
+

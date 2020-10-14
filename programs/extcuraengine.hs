@@ -45,7 +45,7 @@ import Data.List (length, zip, tail, head, zipWith, maximum, minimum, last, conc
 
 import Control.Monad ((>>=))
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe, fromJust, mapMaybe)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe, mapMaybe)
 
 import Text.Show(show)
 
@@ -70,11 +70,11 @@ import Graphics.Implicit.Definitions (ℝ, ℕ, Fastℕ(Fastℕ), fromFastℕ, f
 
 import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Line(Line), flipLine, Contour(PointSequence), getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), makeContourTree, ContourTree(ContourTree))
 
-import Graphics.Slicer.Formats.STL.Definitions (facetsFromSTL)
+import Graphics.Slicer.Formats.STL.Definitions (trianglesFromSTL)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yOf, zOf)
 
-import Graphics.Slicer.Math.Facet (Facet(Facet), sidesOf, shiftFacet, facetIntersects)
+import Graphics.Slicer.Math.Tri (Tri, sidesOf, shiftTri, triIntersects)
 
 import Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Horiz, Vert))
 
@@ -101,22 +101,20 @@ https://github.com/Zip-o-mat/Slic3r/tree/nonplanar
 -------------------- Point and Line Arithmetic ----------------------------
 ---------------------------------------------------------------------------
 
--- Center facets relative to the center of the build area.
+-- Center triangles relative to the center of the build area.
 -- FIXME: assumes the origin is at the front left corner.
-centeredFacetsFromSTL :: BuildArea -> ByteString -> [Facet]
-centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
+centeredTrisFromSTL :: BuildArea -> ByteString -> [Tri]
+centeredTrisFromSTL (RectArea (bedX,bedY,_)) stl = shiftedTris
     where
       centerPoint = Point3 (dx,dy,dz)
-      shiftedFacets = [shiftFacet centerPoint facet | facet <- facets] `using` parListChunk (div (length facets) (fromFastℕ threads)) rseq
-      (_,facets,_) = facetsFromSTL threads stl
+      shiftedTris = [shiftTri centerPoint tri | tri <- tris] `using` parListChunk (div (length tris) (fromFastℕ threads)) rseq
+      tris = trianglesFromSTL threads stl
       (dx,dy,dz) = (bedX/2-x0, bedY/2-y0, -zMin)
-      xMin = minimum $ xOf.fst <$> foldMap sidesOf facets
-      yMin = minimum $ yOf.fst <$> foldMap sidesOf facets
-      zMin = minimum $ zOf.fst <$> foldMap sidesOf facets
-      xMax = maximum $ xOf.fst <$> foldMap sidesOf facets
-      yMax = maximum $ yOf.fst <$> foldMap sidesOf facets
-      sidesOf :: Facet -> [(Point3,Point3)]
-      sidesOf (Facet (a,b,c) _) = [a,b,c]
+      xMin = minimum $ xOf.fst <$> foldMap sidesOf tris
+      yMin = minimum $ yOf.fst <$> foldMap sidesOf tris
+      zMin = minimum $ zOf.fst <$> foldMap sidesOf tris
+      xMax = maximum $ xOf.fst <$> foldMap sidesOf tris
+      yMax = maximum $ yOf.fst <$> foldMap sidesOf tris
       (x0,y0) = ((xMax+xMin)/2-xMin, (yMax+yMin)/2-yMin)
 
 -----------------------------------------------------------------------
@@ -125,15 +123,13 @@ centeredFacetsFromSTL (RectArea (bedX,bedY,_)) stl = shiftedFacets
 
 -- | Create contours from a list of facets.
 -- Note that instead of cutting at the top of the layer, we slice in the middle.
-layers :: Print -> [Facet] -> [[Contour]]
+layers :: Print -> [Tri] -> [[Contour]]
 layers print fs = catMaybes <$> rawContours
   where
     rawContours = [cleanContour <$> getContours (allIntersections (currentLayer-(lh/2))) | currentLayer <- [lh,lh*2..zmax] ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
     allIntersections :: ℝ -> [(Point2,Point2)]
-    allIntersections zLayer = catMaybes $ facetIntersects zLayer <$> fs
+    allIntersections zLayer = catMaybes $ triIntersects zLayer <$> fs
     zs = [zOf . fst <$> triPoints | triPoints <- sidesOf <$> fs ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
-    sidesOf :: Facet -> [(Point3,Point3)]
-    sidesOf (Facet (a,b,c) _) = [a,b,c]
     zmax :: ℝ
     zmax = maximum $ concat zs
     lh = layerHeight print
@@ -195,7 +191,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           , drawInnerContour outsideContourInnerWall
           , renderChildInnerContours outsideContourInnerWall outsideContour
           , travelFromContourToInfill outsideContour $ infillLines
-          , drawInfill outsideContourInnerWall childContoursInnerWalls
+          , drawInfill
           ]
       | otherwise = concat [
             travelToContour outsideContourInnerWall
@@ -204,7 +200,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           , drawOuterContour outsideContour
           , renderChildOuterContours outsideContour outsideContourInnerWall
           , travelFromContourToInfill outsideContourInnerWall $ infillLines
-          , drawInfill outsideContourInnerWall childContoursInnerWalls
+          , drawInfill
           ]
         where
           renderChildOuterContours src dest
@@ -241,7 +237,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
           drawChildOuterContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init childContoursInnerWalls) (tail childContoursInnerWalls)
           drawChildContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) (init childContours) (tail childContours)
-          drawInfill c cs = GCMarkInfillStart : (gcodeForInfill lh ls $ infillLines)
+          drawInfill = GCMarkInfillStart : (gcodeForInfill lh ls $ infillLines)
   -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
   layerStart <> concat (renderContourTree <$> allContours) <> support <> layerEnd 
     where
@@ -447,9 +443,9 @@ run rawArgs = do
       printer   = printerFromSettings settings
       buildarea = buildArea printer
       print = printFromSettings settings
-      facets = centeredFacetsFromSTL buildarea stl
+      triangles = centeredTrisFromSTL buildarea stl
       allLayers :: [[Contour]]
-      allLayers = layers print facets
+      allLayers = layers print triangles
       object = zip allLayers [(0::Fastℕ)..]
       (gcodes, _) = runState (sliceObject printer print object) (MachineState (EPos 0))
       gcodesAsText = [gcodeToText gcode | gcode <- gcodes] `using` parListChunk (div (length gcodes) (fromFastℕ threads)) rseq

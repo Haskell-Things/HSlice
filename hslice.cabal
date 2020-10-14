@@ -35,9 +35,12 @@ Library
     Exposed-Modules:
                     Graphics.Slicer
                     Graphics.Slicer.Formats.STL.Definitions
+                    Graphics.Slicer.Formats.STL.Facets
+                    Graphics.Slicer.Math.CheckFacets
                     Graphics.Slicer.Math.Contour
                     Graphics.Slicer.Math.Definitions
                     Graphics.Slicer.Math.Facet
+                    Graphics.Slicer.Math.Tri
                     Graphics.Slicer.Math.GeometricAlgebra
                     Graphics.Slicer.Math.PGA
                     Graphics.Slicer.Machine.StateM

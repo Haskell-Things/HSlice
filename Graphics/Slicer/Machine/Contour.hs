@@ -18,7 +18,7 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude (length, (>), ($), otherwise, Int, Eq, (<>), show, error, (==), (.), (+), take, drop, cycle, (-), (&&), fst, Bool(True, False), last, init, (++), (<), Show)
+import Prelude (length, (>), ($), otherwise, Int, Eq, (<>), show, error, (==), (.), (+), take, drop, cycle, (-), (&&), fst, Bool(True, False), last, init, (++), (<), Show, (||))
 
 import Data.List (null, zipWith3, foldl)
 
@@ -32,9 +32,7 @@ import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence),
 
 import Graphics.Slicer.Math.Line (Line(Line), makeLinesLooped, pointsFromLines, lineFromEndpoints)
 
-import Graphics.Slicer.Math.PGA (PLine2(PLine2), combineConsecutiveLines, Intersection(IntersectsAt, Collinear, Parallel), plinesIntersectAt, translatePerp, eToPLine2, angleBetween)
-
-import Graphics.Slicer.Math.GeometricAlgebra((⋅), scalarIze)
+import Graphics.Slicer.Math.PGA (combineConsecutiveLines, Intersection(IntersectsAt, Collinear, Parallel), plinesIntersectAt, translatePerp, eToPLine2, angleBetween)
 
 import Graphics.Slicer.Definitions(ℝ)
 
@@ -105,7 +103,7 @@ modifyContour pathWidth (PointSequence contourPoints) direction = if null foundC
             res = removeDegenerateEnds $ foldl concatDegenerates [] lns
             concatDegenerates xs x
               | null xs = [x]
-              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust (x)) = (init xs) ++ [combineLines (last xs) x]
+              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = (init xs) ++ [combineLines (last xs) x]
               | otherwise = xs ++ [x]
             removeDegenerateEnds :: [Line] -> [Line]
             removeDegenerateEnds  []      = []
@@ -118,8 +116,8 @@ modifyContour pathWidth (PointSequence contourPoints) direction = if null foundC
             combineLines :: Line -> Line -> Line
             combineLines (Line p _) (Line p1 s1) = lineFromEndpoints p (addPoints p1 s1)
             isDegenerate pl1 pl2
-              | angleBetween pl1 pl2 < (-0.99) = True
-              | angleBetween pl1 pl2 > (0.99) = True
+              | angleBetween pl1 pl2 < (-0.999) = True
+              | angleBetween pl1 pl2 > (0.999) = True
               | otherwise = case plinesIntersectAt pl1 pl2 of
                               Parallel  -> True
                               Collinear -> True
@@ -136,7 +134,27 @@ modifyContour pathWidth (PointSequence contourPoints) direction = if null foundC
                                      IntersectsAt _ -> True
                                      _              -> False
             intersectionPoint pl1 pl2 = case plinesIntersectAt pl1 pl2 of
-                                          IntersectsAt p2 -> p2
+                                          IntersectsAt p2@(Point2 (x,y)) -> if x<0 || y<0
+                                                                           then
+                                                                             error $ "outside field!\nresult: " <> show p2 <> "\npline 1: " <> show pl1
+                                                                             <> "\npline 2: " <> show pl2
+                                                                             <> "\nEvaluating line intersections between:\nFirst: " <> show previousln
+                                                                             <> "\nSecond: " <> show ln
+                                                                             <> "\nThird: " <> show nextln
+                                                                             <> "\n" <> show (eToPLine2 previousln)
+                                                                             <> "\n"<> show (inwardAdjust previousln)
+                                                                             <> "\n" <> show (angleBetween (eToPLine2 previousln) (eToPLine2 ln))
+                                                                             <> "\n" <> show (angleBetween (inwardAdjust previousln) (inwardAdjust ln))
+                                                                             <> "\n" <> show (eToPLine2 ln)
+                                                                             <> "\n"<> show (inwardAdjust ln)
+                                                                             <> "\n" <> show (angleBetween (eToPLine2 ln) (eToPLine2 nextln))
+                                                                             <> "\n" <> show (angleBetween (inwardAdjust ln) (inwardAdjust nextln))
+                                                                             <> "\n" <> show (eToPLine2 nextln)
+                                                                             <> "\n"<> show (inwardAdjust nextln)
+                                                                             <> "\n" <> show direction
+                                                                             <> "\n" <> show contourPoints
+                                                                             <> "\n"
+                                                                           else p2
                                           a               -> error $ "impossible result!\nresult: " <> show a <> "\npline 1: " <> show pl1
                                                              <> "\npline 2: " <> show pl2
                                                              <> "\nEvaluating line intersections between:\nFirst: " <> show previousln

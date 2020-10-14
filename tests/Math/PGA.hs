@@ -34,10 +34,10 @@ import Graphics.Slicer (ℝ,Line(Line))
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence), roundPoint2)
 
 -- Our Geometric Algebra library.
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, scalarIze, (•), (∧))
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅))
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2)
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp)
 
 import Graphics.Slicer.Math.Line (makeLinesLooped, pointsFromLines)
 
@@ -70,22 +70,28 @@ linearAlgSpec = do
     it "two contours that do not contain one another are not detected by contourContainsContour" $
       contourContainsContour c1 c3 --> False
     it "a contour shrunk has the same amount of points as the input contour" $
-      length ( pointsOfContour $ fromJust $ shrinkContour 0.1 [c1] c1) --> length (pointsOfContour c1)
+      length ( pointsOfContour $ fromJust $ shrinkContour 0.1 [] c1) --> length (pointsOfContour c1)
     it "a contour shrunk by zero is the same as the input contour" $
-      fromJust (shrinkContour 0 [c1] c1) --> c1
+      fromJust (shrinkContour 0 [] c1) --> c1
     it "a contour expanded has the same amount of points as the input contour" $
-      length (pointsOfContour $ fromJust $ expandContour 0.1 [c1] c1) --> length (pointsOfContour c1)
+      length (pointsOfContour $ fromJust $ expandContour 0.1 [] c1) --> length (pointsOfContour c1)
     it "a contour shrunk and expanded is about equal to where it started" $
-      (roundPoint2 <$> pointsOfContour (fromJust $ (\c -> expandContour 0.1 [c] c) $ fromJust $ shrinkContour 0.1 [c1] c1)) --> roundPoint2 <$> pointsOfContour c1
+      (roundPoint2 <$> pointsOfContour (fromJust $ (\c -> expandContour 0.1 [] c) $ fromJust $ shrinkContour 0.1 [] c1)) --> roundPoint2 <$> pointsOfContour c1
   describe "Infill" $ do
     it "infills exactly one line inside of a box big enough for only one line (Horizontal)" $
       makeInfill c1 [] 0.5 Horiz --> [[Line (Point2 (0,0.5)) (Point2 (1,0))]]
     it "infills exactly one line inside of a box big enough for only one line (Vertical)" $
       makeInfill c1 [] 0.5 Vert --> [[Line (Point2 (0.5,0)) (Point2 (0,1))]]
+  describe "Translation" $ do
+    it "a translated line translated back is the same line" $
+      translatePerp (translatePerp (eToPLine2 l1) 1) (-1) --> eToPLine2 l1
+    it "a projection on the perpendicular bisector of an axis aligned line is on the other axis" $
+      pointOnPerp (Line (Point2 (1,1)) (Point2 (0,1))) (Point2 (1,1)) 1 --> (Point2 (2,1))
   where
     cp1 = [Point2 (0,0), Point2 (0,1), Point2 (1,1), Point2 (1,0)]
     oocl1 = [(Point2 (1,0), Point2 (0,0)), (Point2 (0,1), Point2 (1,1)), (Point2 (0,0), Point2 (0,1)), (Point2 (1,1), Point2 (1,0))]
     cl1 = [(Point2 (0,0), Point2 (0,1)), (Point2 (0,1), Point2 (1,1)), (Point2 (1,1), Point2 (1,0)), (Point2 (1,0), Point2 (0,0))]
+    l1 = Line (Point2 (1,1)) (Point2 (2,2))
     c1 = PointSequence cp1
     c2 = PointSequence [Point2 (0.25,0.25), Point2 (0.25,0.75), Point2 (0.75,0.75), Point2 (0.75,0.25)]
     c3 = PointSequence [Point2 (2,0), Point2 (2,1), Point2 (3,1), Point2 (3,0)]
@@ -133,40 +139,40 @@ geomAlgSpec = do
       divVecScalar (GVec [GVal 2 [GEPlus 1]]) 2 --> GVec [GVal 1 [GEPlus 1]]
     -- 1e1|1e2 = 0
     it "the dot product of two orthoginal basis vectors is nothing" $
-      innerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 2]]) --> GVec []
+      (GVec [GVal 1 [GEPlus 1]]) ⋅ (GVec [GVal 1 [GEPlus 2]]) --> GVec []
     it "the dot product of two vectors is comutative (a⋅b == b⋅a)" $
-      innerProduct (GVec $ addValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 2])) (GVec $ addValPair (GVal 2 [GEPlus 2]) (GVal 2 [GEPlus 2])) -->
-      innerProduct (GVec $ addValPair (GVal 2 [GEPlus 1]) (GVal 2 [GEPlus 2])) (GVec $ addValPair (GVal 1 [GEPlus 2]) (GVal 1 [GEPlus 2]))
+      (GVec $ addValPair (GVal 1 [GEPlus 1]) (GVal 1 [GEPlus 2])) ⋅ (GVec $ addValPair (GVal 2 [GEPlus 2]) (GVal 2 [GEPlus 2])) -->
+      (GVec $ addValPair (GVal 2 [GEPlus 1]) (GVal 2 [GEPlus 2])) ⋅ (GVec $ addValPair (GVal 1 [GEPlus 2]) (GVal 1 [GEPlus 2]))
     -- 2e1|2e1 = 4
     it "the dot product of a vector with itsself is it's magnitude squared" $
-      scalarIze (innerProduct (GVec [GVal 2 [GEPlus 1]]) (GVec [GVal 2 [GEPlus 1]])) --> (4, GVec [])
+      scalarPart ((GVec [GVal 2 [GEPlus 1]]) ⋅ (GVec [GVal 2 [GEPlus 1]])) --> 4
     -- (2e1^1e2)|(2e1^1e2) = -4
     it "the dot product of a bivector with itsself is the negative of magnitude squared" $
-      scalarIze (innerProduct (GVec [GVal 2 [GEPlus 1, GEPlus 2]]) (GVec [GVal 2 [GEPlus 1, GEPlus 2]])) --> (-4, GVec [])
+      scalarPart ((GVec [GVal 2 [GEPlus 1, GEPlus 2]]) ⋅ (GVec [GVal 2 [GEPlus 1, GEPlus 2]])) --> (-4)
     -- 1e1^1e1 = 0
     it "the wedge product of two identical vectors is nothing" $
-      outerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 1]]) --> GVec []
+      vectorPart ((GVec [GVal 1 [GEPlus 1]]) ∧ (GVec [GVal 1 [GEPlus 1]])) --> GVec []
     it "the wedge product of two vectors is anti-comutative (u∧v == -v∧u)" $
-      outerProduct (GVec [GVal 1 [GEPlus 1]]) (GVec [GVal 1 [GEPlus 2]]) -->
-      outerProduct (GVec [GVal (-1) [GEPlus 2]]) (GVec [GVal 1 [GEPlus 1]])
+      (GVec [GVal 1 [GEPlus 1]]) ∧ (GVec [GVal 1 [GEPlus 2]]) -->
+      (GVec [GVal (-1) [GEPlus 2]]) ∧ (GVec [GVal 1 [GEPlus 1]])
 
 proj2DGeomAlgSpec :: Spec
 proj2DGeomAlgSpec = do
   describe "Points" $ do
     -- ((1e0^1e1)+(-1e0^1e2)+(1e1+1e2))|((-1e0^1e1)+(1e0^1e2)+(1e1+1e2)) = -1
     it "the dot product of any two projective points is -1" $
-      scalarIze (innerProduct (rawPPoint2 (1,1)) (rawPPoint2 (-1,-1))) --> (-1, GVec [])
+      scalarPart ((rawPPoint2 (1,1)) ⋅ (rawPPoint2 (-1,-1))) --> (-1)
   describe "Lines" $ do
     -- (-2e2)*2e1 = 4e12
-    it "the intersection of a line along the X axis, and a line along the Y axis is the origin point" $
+    it "the intersection of a line along the X axis and a line along the Y axis is the origin point" $
       (\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (-1,0)) (Point2 (2,0)))) ∧ (\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (0,-1)) (Point2 (0,2)))) --> GVec [GVal 4 [GEPlus 1, GEPlus 2]]
     -- (-2e0+1e1)^(2e0-1e2) = -1e01+2e02-e12
     it "the intersection of a line two points above the X axis, and a line two points to the right of the Y axis is at (2,2) in the upper right quadrant" $
-      (\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (2,0)) (Point2 (0,1)))) ∧ (\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (0,2)) (Point2 (1,0)))) -->
+      vectorPart ((\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (2,0)) (Point2 (0,1)))) ∧ (\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (0,2)) (Point2 (1,0))))) -->
       GVec [GVal (-2) [GEZero 1, GEPlus 1], GVal 2 [GEZero 1, GEPlus 2], GVal (-1) [GEPlus 1, GEPlus 2]]
     -- (2e0+1e1-1e2)*(2e0+1e1-1e2) = 2
     it "the geometric product of two overlapping lines is only a Scalar" $
-      scalarIze ((\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (-1,1)) (Point2 (1,1)))) • (\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (-1,1)) (Point2 (1,1))))) --> (2.0, GVec [])
+      scalarPart ((\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (-1,1)) (Point2 (1,1)))) • (\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (-1,1)) (Point2 (1,1))))) --> 2.0
     it "A line constructed from a line segment is equal to one constructed from joining two points" $
       eToPLine2 (Line (Point2 (0,0)) (Point2 (1,1))) --> join2PPoint2 (eToPPoint2 (Point2 (1,1))) (eToPPoint2 (Point2 (0,0)))
   where

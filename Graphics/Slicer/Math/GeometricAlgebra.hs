@@ -20,9 +20,9 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (∧), (⋅), (•), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, innerProduct, outerProduct, geometricProduct, scalarIze) where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart) where
 
-import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), (/), Bool(True, False))
+import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), (/), Bool(True, False), last, init, (.))
 
 import GHC.Generics (Generic)
 
@@ -126,40 +126,67 @@ divVecScalar (GVec vals) s = GVec $ divVal s <$> vals
   where
     divVal s1 (GVal r i) = GVal (r/s1) i
 
--- | Calculate the dot product of a vector pair.
--- actually a wrapper to make use of the fact that gvec1 `dotVecPair` gvec2 == gvec2 `dotVecPair` gvec1.
-dotVecPair :: GVec -> GVec -> GVec
-dotVecPair a b
-  | a > b     = dotVecPair' a b
-  | otherwise = dotVecPair' b a
+-- | Calculate the like product of a vector pair.
+-- actually a wrapper to make use of the fact that gvec1 `likeVecPair` gvec2 == gvec2 `likeVecPair` gvec1.
+likeVecPair :: GVec -> GVec -> GVec
+likeVecPair a b
+  | a > b     = likeVecPair' a b
+  | otherwise = likeVecPair' b a
 
--- generate the dot product of a vector pair.
-dotVecPair' :: GVec -> GVec -> GVec
-dotVecPair' vec1 vec2 = if null results
+-- generate the like product of a vector pair.
+likeVecPair' :: GVec -> GVec -> GVec
+likeVecPair' vec1 vec2 = if null results
                          then GVec []
                          else GVec $ foldl addVal [head results] $ tail results
   where
-    results = dotVecPair'' vec1 vec2
+    results = likeVecPair'' vec1 vec2
     -- cycle through one list, and generate a pair with the second list when the two basis vectors are the same.
-    dotVecPair'' :: GVec -> GVec -> [GVal]
-    dotVecPair'' (GVec v1) (GVec v2) = concatMap (multiplyLike v1) v2
+    likeVecPair'' :: GVec -> GVec -> [GVal]
+    likeVecPair'' (GVec v1) (GVec v2) = concatMap (multiplyLike v1) v2
       where
         multiplyLike :: [GVal] -> GVal -> [GVal]
-        multiplyLike vals (GVal r1 i1) = ( \(GVal r2 i2) -> sortBasis $ GVal (r1*r2) (i1++i2) ) <$> filter (\(GVal _ i2) -> i2 == i1) vals
+        multiplyLike vals val@(GVal _ i1) = mulLikePair val <$> filter (\(GVal _ i2) -> i2 == i1) vals
+          where
+            mulLikePair (GVal r1 i) (GVal r2 _)
+              | i == [G0] = GVal (r1*r2) [G0]
+              | otherwise  = sortBasis $ GVal (r1*r2) (i ++ i)
 
--- generate the wedge product of a vector pair.
-wedgeVecPair :: GVec -> GVec -> GVec
-wedgeVecPair vec1 vec2 = if null results
+-- generate the unlike product of a vector pair.
+unlikeVecPair :: GVec -> GVec -> GVec
+unlikeVecPair vec1 vec2 = if null results
                          then GVec []
                          else GVec $ foldl addVal [head results] $ tail results
   where
-    results = wedgeVecPair' vec1 vec2
+    results = unlikeVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list when the two basis vectors are not the same.
-    wedgeVecPair' :: GVec -> GVec -> [GVal]
-    wedgeVecPair' (GVec v1) (GVec v2) = concatMap (wedgeUnlike v1) v2
+    unlikeVecPair' :: GVec -> GVec -> [GVal]
+    unlikeVecPair' (GVec v1) (GVec v2) = concatMap (multiplyUnlike v1) v2
       where
-        wedgeUnlike :: [GVal] -> GVal -> [GVal]
-        wedgeUnlike vals (GVal r1 i1) = ( \(GVal r2 i2) -> sortBasis $ GVal (r1*r2) (i1++i2) ) <$> filter (\(GVal _ i2) -> i2 /= i1) vals
+        multiplyUnlike :: [GVal] -> GVal -> [GVal]
+        multiplyUnlike vals val@(GVal _ i) = mulUnlikePair val <$> filter (\(GVal _ i2) -> i2 /= i) vals
+          where
+            mulUnlikePair (GVal r1 i1) (GVal r2 i2) = sortBasis $ GVal (r1*r2) ((filterG0 i1) ++ (filterG0 i2))
+              where
+                filterG0 xs = filter (\a -> a /= G0) xs
+
+-- generate the geometric product of a vector pair.
+mulVecPair :: GVec -> GVec -> GVec
+mulVecPair vec1 vec2 = if null results
+                         then GVec []
+                         else GVec $ foldl addVal [head results] $ tail results
+  where
+    results = mulVecPair' vec1 vec2
+    -- cycle through one list of vectors, and generate a pair with the second list.
+    mulVecPair' :: GVec -> GVec -> [GVal]
+    mulVecPair' (GVec v1) (GVec v2) = concatMap (mulvals v1) v2
+      where
+        mulvals :: [GVal] -> GVal -> [GVal]
+        mulvals vals val = mulValPair val <$> vals
+        mulValPair (GVal r1 i1) (GVal r2 i2)
+          | i1 == [G0] && i2 == [G0] = GVal (r1*r2) [G0]
+          | otherwise                = sortBasis $ GVal (r1*r2) ((filterG0 i1) ++ (filterG0 i2))
+          where
+            filterG0 xs = filter (\a -> a /= G0) xs
 
 -- for a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
 -- really a mutant form of quicksort.
@@ -206,37 +233,44 @@ stripPairs gVal = withoutPairs gVal
     prependI num (GVal r [G0]) = GVal r [num]
     prependI num (GVal r nums) = GVal r (num:nums)
 
--- the dot product is the inner product in geometric algebra terms.
-innerProduct :: GVec -> GVec -> GVec
-innerProduct = dotVecPair
+-- our "like" operator. unicode point u+23a3
+(⎣) :: GVec -> GVec -> GVec
+(⎣) vec1 vec2 = likeVecPair vec1 vec2
 
--- the outer product always generates a (bi)vector, where the basis vector order is derived from the Ord of GNum of the basis vectors.
-outerProduct :: GVec -> GVec -> GVec
-outerProduct = wedgeVecPair
+-- our "unlike" operator. unicode point u+23a4
+(⎤) :: GVec -> GVec -> GVec
+(⎤) vec1 vec2 = unlikeVecPair vec1 vec2
 
--- | Calculate the geometric product of two vectors.
-geometricProduct :: GVec -> GVec -> GVec
-geometricProduct v1 v2 = addVecPair (innerProduct v1 v2) (outerProduct v1 v2)
-
--- | A wedge operator. 
+-- | A wedge operator. gets the wedge product of the two arguments
 (∧) :: GVec -> GVec -> GVec
-(∧) vec1 vec2 = wedgeVecPair vec1 vec2
+(∧) vec1 vec2 = gwedge vec1 vec2
+  where
+    gwedge :: GVec -> GVec -> GVec
+    gwedge a b = mulScalarVec (0.5) (subVecPair (a•b) (b•a))
 
 -- | A dot operator. gets the dot product of the two arguments
 (⋅) :: GVec -> GVec -> GVec
-(⋅) vec1 vec2 = dotVecPair vec1 vec2
-
--- | A big dot operator. Gets the geometric product of the two arguments.
-(•) :: GVec -> GVec -> GVec
-(•) vec1 vec2 = addVecPair (vec1 ⋅ vec2) (vec1 ∧ vec2)
-
--- | attempt to extract a scalar value from the vector form of a dot product.
-scalarIze :: GVec -> (ℝ, GVec)
-scalarIze (GVec gVals) = (scalarPart (stripPairs <$> gVals), GVec $ vectorPart (stripPairs <$> gVals))
+(⋅) vec1 vec2 = gdot vec1 vec2
   where
-    scalarPart vals = sum $ realValue <$> vals
+    gdot :: GVec -> GVec -> GVec
+    gdot a b = mulScalarVec (0.5) (addVecPair (a•b) (b•a))
+
+-- | A geometric product operator. Gets the geometric product of the two arguments.
+(•) :: GVec -> GVec -> GVec
+(•) vec1 vec2 = GVec $ foldl addVal [] $ stripPairs <$> ((\(GVec a) -> a) $ mulVecPair vec1 vec2)
+
+-- simplify a GVec, and return any scalar component.
+scalarPart :: GVec -> ℝ
+scalarPart (GVec gVals) = sum $ realValue <$> vals
+  where
+    vals = stripPairs <$> gVals
     realValue (GVal r [G0]) = r
     realValue _ = 0
-    vectorPart vals = filter (noRealValue) vals
+
+-- simplify a GVec, and return any component that is not a scalar.
+vectorPart :: GVec -> GVec
+vectorPart (GVec gVals) = GVec $ foldl addVal [] $ filter (noRealValue) vals
+  where
+    vals = stripPairs <$> gVals
     noRealValue (GVal _ [G0]) = False
     noRealValue _ = True

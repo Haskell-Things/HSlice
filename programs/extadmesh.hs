@@ -56,7 +56,7 @@ import Options.Applicative (fullDesc, progDesc, header, info, helper, help, long
 -- The definition of the symbol type, so we can access variables, and see settings.
 import Graphics.Implicit.Definitions (ℝ, ℕ, Fastℕ)
 
-import Graphics.Slicer.Formats.STL.Definitions (facetsFromSTL, buildAsciiSTL)
+import Graphics.Slicer.Formats.STL.Facets (facetsFromSTL, buildAsciiSTL)
 
 default (ℕ, Fastℕ, ℝ)
 

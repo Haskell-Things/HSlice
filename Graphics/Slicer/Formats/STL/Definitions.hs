@@ -27,123 +27,30 @@
 
 {- https://www.utgjiu.ro/rev_mec/mecanica/pdf/2010-01/13_Catalin%20Iancu.pdf -}
 
-module Graphics.Slicer.Formats.STL.Definitions (facetsFromSTL, buildAsciiSTL) where
+module Graphics.Slicer.Formats.STL.Definitions (trianglesFromSTL) where
 
-import Prelude (($), (==), read, error, length, otherwise, (<$>), (<>), show, isNaN, isInfinite, (<), (||), isNegativeZero, (-), mconcat, (&&), filter, head, fst, snd, (.))
+import Prelude (($), (==), read, error, length, (<$>), (<>), show)
 
 import Control.Parallel.Strategies (using, rdeepseq, parBuffer)
 
-import Data.Maybe (Maybe(Just, Nothing), isJust, fromJust)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes)
 
 import Data.ByteString(ByteString)
 
-import Data.ByteString.Builder(Builder, stringUtf8, charUtf8, intDec, byteString)
-
 import Data.ByteString.Char8(lines, words, unpack, breakSubstring, break, null, drop)
-
-import Numeric (floatToDigits)
-
-import GHC.Base (Int(I#), Char(C#), chr#, ord#, (+#))
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3))
 
-import Graphics.Slicer.Math.Facet (Facet(Facet))
+import Graphics.Slicer.Math.Tri (Tri(Tri))
 
-import Graphics.Slicer.Definitions (ℝ, Fastℕ, fromFastℕ, fromℝtoFloat)
+import Graphics.Slicer.Definitions (Fastℕ, fromFastℕ)
 
 ----------------------------------------------------------------
 ----------- Functions to deal with ASCII STL reading -----------
 ----------------------------------------------------------------
 
-{- FIXME: ensure we account for https://github.com/openscad/openscad/issues/2651 -}
-
--- produce a list of Facets from the input STL file.
-facetsFromSTL :: Fastℕ -> ByteString -> (ByteString, [Facet], ByteString)
-facetsFromSTL threads stl = (header, [readFacet f | f <- rawFacetsFromSTL strippedStl] `using` parBuffer (fromFastℕ threads) rdeepseq, footer)
-  where
-    -- strip the first line header off of the stl file.
-    (header, headStrippedStl) = break (== '\n') stl
-    -- and the last line terminator off of the stl file.
-    (strippedStl, footer) = breakSubstring "endsolid" headStrippedStl
-
--- Separate STL file into facets
-rawFacetsFromSTL :: ByteString -> [ByteString]
-rawFacetsFromSTL l = if null l then [] else f : rawFacetsFromSTL (drop 1 remainder)
-    where (f, r) = breakSubstring "endfacet" l
-          (_ , remainder) = break (=='\n') r
-
-      -- Read a list of three coordinates (as strings separated by spaces) and generate a facet.
-readFacet :: ByteString -> Facet
-readFacet f = do
-        let
-          pointsAndNormals = readVertexOrNormal <$> lines f
-          foundPoints = fromJust.fst <$> filter (\(a,_) -> isJust a) pointsAndNormals
-          foundNormals = fromJust.snd <$> filter (\(_,b) -> isJust b) pointsAndNormals
-          facetFromPointsAndNormal :: [Point3] -> Point3 -> Facet
-          facetFromPointsAndNormal [p1,p2,p3] n = Facet ((p1,p2),(p2,p3),(p3,p1)) n
-          facetFromPointsAndNormal _ _ = error "tried to make a facet from something other than 3 points."
-        if length foundPoints == 3 && length foundNormals == 1 then facetFromPointsAndNormal foundPoints (head foundNormals) else error $ "wrong number of points/normals found: " <> show (length foundPoints) <> "\n" <> show f <> "\n" <> show foundPoints <> "\n"
-
--- | Read a point when it's given as a string of the form "vertex x y z"
---   or a normal when it's given as a string of the form "facet normal x y z".
---   Skip "outer loop" and "endloop".
-readVertexOrNormal :: ByteString -> (Maybe Point3, Maybe Point3)
-readVertexOrNormal s = readVertexOrNormal' $ words s
-  where
-    readVertexOrNormal' :: [ByteString] -> (Maybe Point3, Maybe Point3)
-    readVertexOrNormal' [facet, normal, xv, yv, zv]
-      | facet == "facet" && normal == "normal" = (Nothing, Just (Point3 (read $ unpack xv, read $ unpack yv, read $ unpack zv)))
-    readVertexOrNormal' [vertex,xv,yv,zv]
-      | vertex == "vertex" = (Just (Point3 (read $ unpack xv,read $ unpack yv,read $ unpack zv)), Nothing)
-    readVertexOrNormal' [outer, loop]
-      | outer == "outer" && loop == "loop" = (Nothing, Nothing)
-    readVertexOrNormal' [endloop]
-      | endloop == "endloop" = (Nothing, Nothing)
-    readVertexOrNormal' [] = (Nothing, Nothing)
-    readVertexOrNormal' a = error $ "unexpected input in STL file: " <> show a <> "\n"
-
-----------------------------------------------------------------
------------ Functions to deal with ASCII STL writing -----------
-----------------------------------------------------------------
-
--- | Generate an ASCII STL, as a Builder.
-buildAsciiSTL :: (ByteString, [Facet], ByteString) -> Builder
-buildAsciiSTL (header, facets, footer) = byteString header <> "\n" <> mconcat (writeFacet <$> facets) <> byteString footer
-
--- | Generate a single facet.
-writeFacet :: Facet -> Builder
-writeFacet (Facet ((p1,_),(p2,_),(p3,_)) n1) = stringUtf8 "facet " <> writeNormal n1 <> "outer loop\n" <> writeVertex p1 <> writeVertex p2 <> writeVertex p3 <> "endloop\nendfacet\n"
-
--- | Generate the normal for a facet. Note that the caller is assumed to have already placed "facet " on the line of text being generated.
-writeNormal :: Point3 -> Builder
-writeNormal (Point3 (x,y,z)) = "normal " <> formatFloat x <> " " <> formatFloat y <> " " <> formatFloat z <> "\n"
-
--- | Generate a vertex of a facet.
-writeVertex :: Point3 -> Builder
-writeVertex (Point3 (x,y,z)) = "vertex " <> formatFloat x <> " " <> formatFloat y <> " " <> formatFloat z <> "\n"
-
--- | Generate a formatted float for placement in an STL file.
--- Inspired from code in cassava, and the scientific library.
-formatFloat :: ℝ -> Builder
-formatFloat rawVal
-   | isNaN val                     = error $ "NaN" <> "\n"
-   | isInfinite val                = error $ if val < 0 then "-Infinity" else "Infinity" <> "\n"
-   | val < 0 || isNegativeZero val = charUtf8 '-' <> format (floatToDigits 10 (-val))
-   | otherwise                     = format (floatToDigits 10 val)
-  where
-    val = fromℝtoFloat rawVal
-    format (digits, exponent) =
-      let
-        digitString = i2d <$> digits
-        eVal = intDec (exponent-1)
-        i2d (I# i#) = C# (chr# (ord# '0'# +# i# ))
-      in
-        case digitString of
-          ['0']        -> stringUtf8 "0.0e0"
-          [whole]      -> charUtf8 whole <> stringUtf8 ".0e" <> eVal
-          (whole:frac) -> charUtf8 whole <> charUtf8 '.' <> (mconcat $ charUtf8 <$> frac) <> charUtf8 'e' <> eVal
-          []           -> error "empty digit string?"
-
+-- FIXME: ensure we account for https://github.com/openscad/openscad/issues/2651
+-- FIXME: handle upper case files.
 
 -- FIXME: support binary STL reading / writing.
 {- from the OpenSCAD folks:
@@ -151,3 +58,40 @@ formatFloat rawVal
 15:52 < InPhase> juri_: For example, I followed the "assumed to be little-endian, although this is not stated in documentation", enforcing that with a conversion in the event OpenSCAD is used on a big-endian system.
 15:53 < InPhase> Such a constraint seems essential or else it cannot function as a document exchange format.
 -}
+
+-- produce a list of Tris from the input STL file.
+trianglesFromSTL :: Fastℕ -> ByteString -> [Tri]
+trianglesFromSTL threads stl = [readTri f | f <- rawTrisFromSTL strippedStl] `using` parBuffer (fromFastℕ threads) rdeepseq
+  where
+    -- strip the first line header off of the stl file.
+    (_, headStrippedStl) = break (== '\n') stl
+    -- and the last line terminator off of the stl file.
+    (strippedStl, _) = breakSubstring "endsolid" headStrippedStl
+
+-- Separate STL file into triangles
+rawTrisFromSTL :: ByteString -> [ByteString]
+rawTrisFromSTL l = if null l then [] else f : rawTrisFromSTL (drop 1 remainder)
+    where (f, r) = breakSubstring "endfacet" l
+          (_ , remainder) = break (=='\n') r
+
+-- | Read a point when it's given as a string of the form "vertex x y z".
+--   Skip any other line.
+readVertex :: ByteString -> Maybe Point3
+readVertex s = readVertex' $ words s
+  where
+    readVertex' :: [ByteString] -> Maybe Point3
+    readVertex' [vertex,xv,yv,zv]
+      | vertex == "vertex" = Just $ Point3 (read $ unpack xv,read $ unpack yv,read $ unpack zv)
+    readVertex' _ = Nothing
+
+-- Read a list of three vertexes and generate a triangle from them.
+readTri :: ByteString -> Tri
+readTri f = do
+        let
+          points = readVertex <$> lines f
+          foundPoints = catMaybes $ points
+          triFromPoints :: [Point3] -> Tri
+          triFromPoints [p1,p2,p3] = Tri ((p1,p2),(p2,p3),(p3,p1))
+          triFromPoints _ = error "tried to make a tri from something other than 3 points."
+        if length foundPoints == 3 then triFromPoints foundPoints else error $ "wrong number of points found: " <> show (length foundPoints) <> "\n" <> show f <> "\n" <> show foundPoints <> "\n"
+
