@@ -20,9 +20,9 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart) where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, gUnlike, gLike, sortBasis) where
 
-import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), (/), Bool(True, False), last, init, (.))
+import Prelude (Eq, Show, Ord(compare), seq, (<), (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), (/), Bool(True, False), last, init, (.))
 
 import GHC.Generics (Generic)
 
@@ -165,9 +165,9 @@ unlikeVecPair vec1 vec2 = if null results
         multiplyUnlike :: [GVal] -> GVal -> [GVal]
         multiplyUnlike vals val@(GVal _ i) = mulUnlikePair val <$> filter (\(GVal _ i2) -> i2 /= i) vals
           where
-            mulUnlikePair (GVal r1 i1) (GVal r2 i2) = sortBasis $ GVal (r1*r2) ((filterG0 i1) ++ (filterG0 i2))
+            mulUnlikePair (GVal r1 i1) (GVal r2 i2) = sortBasis $ GVal (r1*r2) (filterG0 i1 ++ filterG0 i2)
               where
-                filterG0 xs = filter (\a -> a /= G0) xs
+                filterG0 xs = filter (/= G0) xs
 
 -- generate the geometric product of a vector pair.
 mulVecPair :: GVec -> GVec -> GVec
@@ -177,39 +177,46 @@ mulVecPair vec1 vec2 = if null results
   where
     results = mulVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list.
-    mulVecPair' :: GVec -> GVec -> [GVal]
-    mulVecPair' (GVec v1) (GVec v2) = concatMap (mulvals v1) v2
+
+mulVecPair' :: GVec -> GVec -> [GVal]
+mulVecPair' (GVec v1) (GVec v2) = concatMap (mulvals v2) v1
+  where
+    mulvals :: [GVal] -> GVal -> [GVal]
+    mulvals vals val = mulValPair val <$> vals
+    mulValPair (GVal r1 i1) (GVal r2 i2)
+      | i1 == [G0] && i2 == [G0] = GVal (r1*r2) [G0]
+      | otherwise                = sortBasis $ GVal (r1*r2) (filterG0 i1 ++ filterG0 i2)
       where
-        mulvals :: [GVal] -> GVal -> [GVal]
-        mulvals vals val = mulValPair val <$> vals
-        mulValPair (GVal r1 i1) (GVal r2 i2)
-          | i1 == [G0] && i2 == [G0] = GVal (r1*r2) [G0]
-          | otherwise                = sortBasis $ GVal (r1*r2) ((filterG0 i1) ++ (filterG0 i2))
-          where
-            filterG0 xs = filter (\a -> a /= G0) xs
+        filterG0 xs = filter (/= G0) xs
 
 -- for a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
--- really a mutant form of quicksort.
 sortBasis :: GVal -> GVal
-sortBasis (GVal r i) = if odd flipR then GVal r newI else GVal (-r) newI
+sortBasis (GVal r i) = if flipVal then GVal (-r) newBasis else GVal r newBasis
   where
-    newI :: [GNum]
-    (flipR, newI) = sortBasis' (0,i)
-sortBasis' :: (Fastℕ, [GNum]) -> (Fastℕ, [GNum])
-sortBasis' (_,[])     = (0,[])
-sortBasis' (_,[a])    = (0,[a])
-sortBasis' (_,x:xs) = if lowerBasis == (0,[]) then (sumFlips higherBasis, x:newBasis higherBasis)  else (sumFlips lowerBasis + 1 + sumFlips higherBasis, newBasis lowerBasis ++ [x] ++ newBasis higherBasis)
-  where
-    lowerBasis  = sortBasis' (0,[ a | a <- xs, a<=x ])
---    equalBasis  = sortBasis' (0,[ a | a <- xs, a=x ])
-    higherBasis = sortBasis' (0,[ a | a <- xs, a>x ])
-    sumFlips :: (Fastℕ, [GNum]) -> Fastℕ
-    sumFlips flips = fst flips
-    newBasis flips = snd flips
+    newBasis :: [GNum]
+    (flipVal, newBasis) = sortBasis' i
+    -- sort a set of wedged basis vectors. must return an ideal result, along with wehther the associated real value should be flipped or not.
+    sortBasis'  :: [GNum] -> (Bool, [GNum])
+    sortBasis' basis = if basisOf (sortBasis'' basis) == basisOf (sortBasis'' $ basisOf $ sortBasis'' basis)
+                       then sortBasis'' basis
+                       else (newFlip, newBasis)
+      where
+        newFlip =  flipOf $ sortBasis' $ basisOf $ sortBasis'' basis
+        newBasis = basisOf $ sortBasis' $ basisOf $ sortBasis'' basis
+        flipOf flip  = fst flip
+        basisOf flip = snd flip
+        -- sort a set of wedged basis vectors. may not provide an ideal result, but should return a better result, along with whether the associated real value should be flipped or not.
+        sortBasis'' :: [GNum] -> (Bool, [GNum])
+        sortBasis'' []       = (False,[])
+        sortBasis'' [a]      = (False,[a])
+        sortBasis'' [a,b]    = if a > b then (True, b:[a]) else (False, a:[b])
+        sortBasis'' (a:b:xs) = if a > b
+                               then (not $ flipOf $ sortBasis'' (a:xs), b: basisOf (sortBasis'' (a:xs)))
+                               else (      flipOf $ sortBasis'' (b:xs), a: basisOf (sortBasis'' (b:xs)))
 
 -- | in many situations, we can end up with vectors that have multiple occurances of the same basis vector. strip these out, negating the real part as appropriate.
 stripPairs :: GVal -> GVal
-stripPairs gVal = withoutPairs gVal
+stripPairs = withoutPairs
   where
     withoutPairs :: GVal -> GVal
     withoutPairs val@(GVal _ [])  = val
@@ -235,29 +242,37 @@ stripPairs gVal = withoutPairs gVal
 
 -- our "like" operator. unicode point u+23a3
 (⎣) :: GVec -> GVec -> GVec
-(⎣) vec1 vec2 = likeVecPair vec1 vec2
+(⎣) = likeVecPair
 
 -- our "unlike" operator. unicode point u+23a4
 (⎤) :: GVec -> GVec -> GVec
-(⎤) vec1 vec2 = unlikeVecPair vec1 vec2
+(⎤) = unlikeVecPair
 
 -- | A wedge operator. gets the wedge product of the two arguments
 (∧) :: GVec -> GVec -> GVec
-(∧) vec1 vec2 = gwedge vec1 vec2
+(∧) = gWedge
   where
-    gwedge :: GVec -> GVec -> GVec
-    gwedge a b = mulScalarVec (0.5) (subVecPair (a•b) (b•a))
+    gWedge :: GVec -> GVec -> GVec
+    gWedge a b = mulScalarVec 0.5 (subVecPair (a•b) (b•a))
 
 -- | A dot operator. gets the dot product of the two arguments
 (⋅) :: GVec -> GVec -> GVec
-(⋅) vec1 vec2 = gdot vec1 vec2
+(⋅) = gDot
   where
-    gdot :: GVec -> GVec -> GVec
-    gdot a b = mulScalarVec (0.5) (addVecPair (a•b) (b•a))
+    gDot :: GVec -> GVec -> GVec
+    gDot a b = mulScalarVec 0.5 (addVecPair (a•b) (b•a))
+
+-- A version of our unlike operator, with all of the simplification and cleaning.
+gUnlike :: GVec -> GVec -> GVec
+gUnlike v1 v2 = GVec $ foldl addVal [] $ stripPairs.sortBasis <$> (\(GVec a) -> a) (v1 ⎤ v2)
+
+-- A version of our like operator, with all of the simplification and cleaning.
+gLike :: GVec -> GVec -> GVec
+gLike v1 v2 = GVec $ foldl addVal [] $ stripPairs.sortBasis <$> (\(GVec a) -> a) (v1 ⎣ v2)
 
 -- | A geometric product operator. Gets the geometric product of the two arguments.
 (•) :: GVec -> GVec -> GVec
-(•) vec1 vec2 = GVec $ foldl addVal [] $ stripPairs <$> ((\(GVec a) -> a) $ mulVecPair vec1 vec2)
+(•) vec1 vec2 = GVec $ foldl addVal [] $ stripPairs <$> (\(GVec a) -> a) (mulVecPair vec1 vec2)
 
 -- simplify a GVec, and return any scalar component.
 scalarPart :: GVec -> ℝ
@@ -269,7 +284,7 @@ scalarPart (GVec gVals) = sum $ realValue <$> vals
 
 -- simplify a GVec, and return any component that is not a scalar.
 vectorPart :: GVec -> GVec
-vectorPart (GVec gVals) = GVec $ foldl addVal [] $ filter (noRealValue) vals
+vectorPart (GVec gVals) = GVec $ foldl addVal [] $ filter noRealValue vals
   where
     vals = stripPairs <$> gVals
     noRealValue (GVal _ [G0]) = False

@@ -21,7 +21,7 @@
 
 module Graphics.Slicer.Math.Contour (followingLine, preceedingLine, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour) where
 
-import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(False), Eq, Show, not, even, compare, Ordering(EQ), (<>))
+import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(False), Eq, Show, not, compare, (<>))
 
 import Data.List(tail, last, head, partition, reverse, sortBy)
 
@@ -29,9 +29,9 @@ import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
 
 import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2))
 
-import Graphics.Slicer.Math.Line (Line(Line), lineFromEndpoints, makeLinesLooped, makeLines, endpoint, pointSlopeLength, midpoint, lineSlope, perpendicularBisector, flipLine)
+import Graphics.Slicer.Math.Line (Line, lineFromEndpoints, makeLinesLooped, makeLines, endpoint, midpoint)
 
-import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, IntersectsAt, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, Collinear, LColinear), lineIntersection, SearchDirection(Clockwise, CounterClockwise), lineBetween, pointOnPerp)
+import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, IntersectsAt, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, Collinear, LColinear), lineIntersection, lineIsLeft, pointOnPerp)
 
 import Graphics.Implicit.Definitions (ℝ)
 
@@ -119,12 +119,12 @@ getContours pointPairs = maybeFlipContour <$> foundContours
       where
         -- Sort the list to begin with, so that differently ordered input lists give the same output.
         sortPairs :: [(Point2,Point2)] -> [(Point2,Point2)]
-        sortPairs pairs = sortBy (\a b -> if (compare (fst a) (fst b)) == EQ then compare (snd a) (snd b) else compare (fst a) (fst b)) pairs
+        sortPairs pairs = sortBy (\a b -> if fst a == fst b then compare (snd a) (snd b) else compare (fst a) (fst b)) pairs
     -- make sure a contour is wound the right way, so that the inside of the contour is on the right side of a line segment.
     maybeFlipContour :: Contour -> Contour
-    maybeFlipContour c@(PointSequence contourPoints)
-      | insideIsRight c $ firstLineOf c = c
-      | otherwise = error $ show (firstLineOf c) <> "\n" <> show (insideIsRight c (firstLineOf c))-- PointSequence $ reverse contourPoints
+    maybeFlipContour contour@(PointSequence contourPoints)
+      | insideIsRight contour $ firstLineOf contour = PointSequence $ reverse contourPoints
+      | otherwise = contour
       where
         firstLineOf (PointSequence ps) = head $ makeLines ps
 
@@ -160,7 +160,7 @@ contourContainsContour parent child = odd noIntersections
     saneIntersection Collinear = Nothing
     saneIntersection (LColinear _ _) = Nothing
     saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
-    innerPointOf contour = innerPerimeterPoint 0.00001 contour $ oneLineOf contour
+    innerPointOf contour = innerContourPoint 0.00001 contour $ oneLineOf contour
       where
         oneLineOf (PointSequence contourPoints) = head $ makeLines contourPoints
 
@@ -170,7 +170,7 @@ contourContainedByContour child parent = contourContainsContour parent child
 
 -- Search the given sequential list of lines (assumedly generated from a contour), and return the line after this one.
 followingLine :: [Line] -> Line -> Line
-followingLine x l = followingLineLooped x x l
+followingLine x = followingLineLooped x x
   where
     followingLineLooped :: [Line] -> [Line] -> Line -> Line
     followingLineLooped [] _ l1 = error $ "reached beginning of contour, and did not find supplied line: " <> show l1 <> "\n"
@@ -180,7 +180,7 @@ followingLine x l = followingLineLooped x x l
 
 -- Search the given sequential list of lines (assumedly generated from a contour), and return the line before this one.
 preceedingLine :: [Line] -> Line -> Line
-preceedingLine x l = preceedingLineLooped x x l
+preceedingLine x = preceedingLineLooped x x
   where
     preceedingLineLooped :: [Line] -> [Line] -> Line -> Line
     preceedingLineLooped [] _ l1 = error $ "reached beginning of contour, and did not find supplied line: " <> show l1 <> "\n"
@@ -190,22 +190,23 @@ preceedingLine x l = preceedingLineLooped x x l
 
 -- | Check if the right hand side of this line in toward the inside of the contour it is a part of.
 insideIsRight :: Contour -> Line -> Bool
-insideIsRight contour line@(Line p _) = lineBetween (fst lineHalvesRaw) CounterClockwise lineToInside (snd lineHalvesRaw)
+insideIsRight contour line = lineIsLeft lineSecondHalf lineToInside == Just False
+  --error $ show (lineSecondHalf) <> "\n" <> show lineToInside <> "\n" <> show (innerContourPoint 0.1 contour line) <> "\n" <> show (lineIsLeft lineSecondHalf lineToInside) <> "\n" 
   where
-    lineHalvesRaw = (lineFromEndpoints (midpoint line) p, lineFromEndpoints (midpoint line) (endpoint line))
-    lineToInside = lineFromEndpoints (midpoint line) $ innerPerimeterPoint 0.00001 contour line
+    lineSecondHalf = lineFromEndpoints (midpoint line) (endpoint line)
+    lineToInside = lineFromEndpoints (midpoint line) $ innerContourPoint 0.00001 contour line
 
 -- | Find a point on the interior of the given contour, on the perpendicular bisector of the given line, a given distance from the line.
 -- FIXME: assumes we are in positive space.
-innerPerimeterPoint :: ℝ -> Contour -> Line -> Point2
-innerPerimeterPoint distance contour l
+innerContourPoint :: ℝ -> Contour -> Line -> Point2
+innerContourPoint distance contour l
     | odd numIntersections = perpPoint
     | otherwise            = otherPerpPoint
   where
       originPoint = Point2 (-1,-1)
-      perpPoint      = pointOnPerp (l) (midpoint l) distance
-      otherPerpPoint = pointOnPerp (l) (midpoint l) (-distance)
-      numIntersections = length $ intersections originPoint contour $ pointOnPerp (l) (midpoint l) 0.0000001
+      perpPoint      = pointOnPerp l (midpoint l) distance
+      otherPerpPoint = pointOnPerp l (midpoint l) (-distance)
+      numIntersections = length $ intersections originPoint contour $ pointOnPerp l (midpoint l) 0.00001
 
 -- | return the intersections with a given contour when traveling a straight line from srcPoint to dstPoint.
 intersections :: Point2 -> Contour -> Point2 -> [Point2]
@@ -231,5 +232,5 @@ intersections dstPoint contour srcPoint = saneIntersections l0 $ contourLines co
     --          saneIntersection LColinear _ _ = Nothing
     --          saneIntersection (HitStartPointL2 p2) = Just p2
     --          saneIntersection (HitEndPointL2 p2) = Just p2
-            saneIntersection res = error $ "insane result of intersecting a line (" <> show l1 <> ") with it's bisector: " <> show l2 <> "\nwhen finding an inner perimeter point on contour " <> show ls <> "\n" <> show res <> "\n"
+            saneIntersection res = error $ "insane result of intersecting a line (" <> show l1 <> ") with it's bisector: " <> show l2 <> "\nwhen finding an inner contour point on contour " <> show ls <> "\n" <> show res <> "\n"
 

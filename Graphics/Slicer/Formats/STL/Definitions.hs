@@ -22,9 +22,6 @@
 -- Allow us to use string literals for ByteStrings
 {-# LANGUAGE OverloadedStrings #-}
 
--- For our implementation of i2d.
-{-# LANGUAGE MagicHash #-}
-
 {- https://www.utgjiu.ro/rev_mec/mecanica/pdf/2010-01/13_Catalin%20Iancu.pdf -}
 
 module Graphics.Slicer.Formats.STL.Definitions (trianglesFromSTL) where
@@ -89,7 +86,7 @@ readTri :: ByteString -> Tri
 readTri f = do
         let
           points = readVertex <$> lines f
-          foundPoints = catMaybes $ points
+          foundPoints = catMaybes points
           triFromPoints :: [Point3] -> Tri
           triFromPoints [p1,p2,p3] = Tri ((p1,p2),(p2,p3),(p3,p1))
           triFromPoints _ = error "tried to make a tri from something other than 3 points."

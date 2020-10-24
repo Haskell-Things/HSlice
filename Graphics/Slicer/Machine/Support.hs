@@ -42,7 +42,7 @@ import Graphics.Slicer.Math.Line (Line(Line))
 shortenLineBy :: ℝ -> Line -> Line
 shortenLineBy amt (Line p m) = Line newStart newSlope
   where pct = amt / magnitude m
-        newStart = addPoints (p) $ scalePoint pct m
+        newStart = addPoints p $ scalePoint pct m
         newSlope = scalePoint (1 - 2 * pct) m
 
 -- Generate support

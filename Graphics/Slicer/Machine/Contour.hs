@@ -103,7 +103,7 @@ modifyContour pathWidth (PointSequence contourPoints) direction = if null foundC
             res = removeDegenerateEnds $ foldl concatDegenerates [] lns
             concatDegenerates xs x
               | null xs = [x]
-              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = (init xs) ++ [combineLines (last xs) x]
+              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = init xs ++ [combineLines (last xs) x]
               | otherwise = xs ++ [x]
             removeDegenerateEnds :: [Line] -> [Line]
             removeDegenerateEnds  []      = []
@@ -117,7 +117,7 @@ modifyContour pathWidth (PointSequence contourPoints) direction = if null foundC
             combineLines (Line p _) (Line p1 s1) = lineFromEndpoints p (addPoints p1 s1)
             isDegenerate pl1 pl2
               | angleBetween pl1 pl2 < (-0.999) = True
-              | angleBetween pl1 pl2 > (0.999) = True
+              | angleBetween pl1 pl2 >   0.999  = True
               | otherwise = case plinesIntersectAt pl1 pl2 of
                               Parallel  -> True
                               Collinear -> True
@@ -128,7 +128,7 @@ modifyContour pathWidth (PointSequence contourPoints) direction = if null foundC
           -- The ideal case.
           | isIntersection previousln ln &&
             isIntersection ln nextln        = Just $ lineFromEndpoints (intersectionPoint (inwardAdjust previousln) (inwardAdjust ln)) (intersectionPoint (inwardAdjust ln) (inwardAdjust nextln))
-          | otherwise = error $ "no intersection?\n" <> (show $ isIntersection previousln ln) <> "\n" <> (show $ isIntersection ln nextln) <> "\n" <> show previousln <> "\n" <> show ln <> "\n" <> show nextln <> "\n"
+          | otherwise = error $ "no intersection?\n" <> show (isIntersection previousln ln) <> "\n" <> show (isIntersection ln nextln) <> "\n" <> show previousln <> "\n" <> show ln <> "\n" <> show nextln <> "\n"
           where
             isIntersection l1 l2 = case plinesIntersectAt (inwardAdjust l1) (inwardAdjust l2) of
                                      IntersectsAt _ -> True

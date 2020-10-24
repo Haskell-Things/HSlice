@@ -68,13 +68,15 @@ import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString,
 
 import Graphics.Implicit.Definitions (ℝ, ℕ, Fastℕ(Fastℕ), fromFastℕ, fromFastℕtoℝ)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Line(Line), flipLine, Contour(PointSequence), getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), makeContourTree, ContourTree(ContourTree))
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Line(Line), Contour(PointSequence), getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), makeContourTree, ContourTree(ContourTree))
 
 import Graphics.Slicer.Formats.STL.Definitions (trianglesFromSTL)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yOf, zOf)
 
 import Graphics.Slicer.Math.Tri (Tri, sidesOf, shiftTri, triIntersects)
+
+import Graphics.Slicer.Math.Line (flipLine)
 
 import Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Horiz, Vert))
 
@@ -190,7 +192,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           , renderChildOuterContours outsideContour outsideContourInnerWall
           , drawInnerContour outsideContourInnerWall
           , renderChildInnerContours outsideContourInnerWall outsideContour
-          , travelFromContourToInfill outsideContour $ infillLines
+          , travelFromContourToInfill outsideContour infillLines
           , drawInfill
           ]
       | otherwise = concat [
@@ -199,7 +201,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           , renderChildInnerContours outsideContourInnerWall outsideContour
           , drawOuterContour outsideContour
           , renderChildOuterContours outsideContour outsideContourInnerWall
-          , travelFromContourToInfill outsideContourInnerWall $ infillLines
+          , travelFromContourToInfill outsideContourInnerWall infillLines
           , drawInfill
           ]
         where
@@ -223,21 +225,21 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           outsideContourInnerWall = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2) insideContoursRaw outsideContourRaw
           childContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
             where
-              res c = expandContour (pathWidth*0.5) (outsideContourRaw:(filter (\a -> a /= c) insideContoursRaw)) c
+              res c = expandContour (pathWidth*0.5) (outsideContourRaw:filter (/= c) insideContoursRaw) c
           childContoursInnerWalls = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
             where
-              res c = expandContour (pathWidth*2) (outsideContourRaw:(filter (\a -> a /= c) insideContoursRaw)) c
+              res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
           infillLines = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill infillOutsideContour infillChildContours (ls * (1/infill)) $ getLayerType print layerNumber
             where
               infillOutsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2.5) insideContoursRaw outsideContourRaw
               infillChildContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
                 where
-                  res c = expandContour (pathWidth*2.5) (outsideContourRaw:(filter (\a -> a /= c) insideContoursRaw)) c
+                  res c = expandContour (pathWidth*2.5) (outsideContourRaw:filter (/= c) insideContoursRaw) c
           drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth c
           drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
           drawChildOuterContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init childContoursInnerWalls) (tail childContoursInnerWalls)
           drawChildContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) (init childContours) (tail childContours)
-          drawInfill = GCMarkInfillStart : (gcodeForInfill lh ls $ infillLines)
+          drawInfill = GCMarkInfillStart : gcodeForInfill lh ls infillLines
   -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
   layerStart <> concat (renderContourTree <$> allContours) <> support <> layerEnd 
     where

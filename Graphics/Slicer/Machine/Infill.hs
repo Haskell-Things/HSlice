@@ -22,11 +22,11 @@
 
 module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineInside, coveringLinesVertical) where
 
-import Prelude ((+), (<$>), ($), maximum, minimum, filter, (>), head, (.), flip, (*), sqrt, (-), (<>), show, error, otherwise, (&&), (==), length, concat, not, null, (!!), odd)
+import Prelude ((+), (<$>), ($), maximum, minimum, filter, (>), head, (.), flip, (*), sqrt, (-), (<>), show, error, otherwise, (==), length, concat, not, null, (!!), odd)
+
+import Data.List.Ordered (sort)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe)
-
-import Data.Bool (Bool(True, False))
 
 import Data.List.Extra (nubSort)
 
@@ -34,9 +34,9 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), distance, xOf, yOf, roundToFifth)
 
-import Graphics.Slicer.Math.Line (Line(Line), makeLines, makeLinesLooped, flipLine)
+import Graphics.Slicer.Math.Line (Line(Line), makeLines, makeLinesLooped, endpoint)
 
-import Graphics.Slicer.Math.PGA (Intersection(HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection, Parallel, AntiParallel, Collinear, LColinear), lineIntersection, SearchDirection(Clockwise), lineBetween)
+import Graphics.Slicer.Math.PGA (Intersection(HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection, Parallel, AntiParallel, Collinear, LColinear), lineIntersection, lineIsLeft)
 
 import Graphics.Slicer.Math.Contour (followingLine, preceedingLine)
 
@@ -55,7 +55,6 @@ makeInfill contour insideContours ls layerType = catMaybes $ infillLineInside co
       infillCover Diag2 = coveringLinesPositive contour ls
 
 -- Get the segments of an infill line that are inside of a contour, skipping space occluded by any of the child contours.
--- May return multiple lines, or empty set.
 infillLineInside :: Contour -> [Contour] -> Line -> Maybe [Line]
 infillLineInside contour childContours line
 --  | contour == contour  = error $ "dumping infill inputs:" <> show contour <> "\n" <> show childContours <> "\n" <> show line <> "\n"
@@ -68,52 +67,37 @@ infillLineInside contour childContours line
         | odd $ length allPoints = error $ "found odd number of points:\n" <> show allPoints <> "\noverlaying line:\n" <> show line <> "\nonto contour:\n" <> show contour <> "\n" <> show childContours <> "\n"
         | otherwise              = makeLines allPoints
         where
-          allPoints = filterTooShort . nubSort . concat $ getLineIntersections line <$> contour:childContours
+          allPoints = filterTooShort . sort . concat $ getLineIntersections line <$> contour:childContours
           filterTooShort :: [Point2] -> [Point2]
           filterTooShort [] = []
           filterTooShort [a] = [a]
           filterTooShort (a:b:xs) = if roundToFifth (distance a b) == 0 then filterTooShort xs else a:filterTooShort (b:xs)
           getLineIntersections :: Line -> Contour -> [Point2]
-          getLineIntersections myline c = saneIntersections . cookIntersections $ lineIntersection myline <$> linesOfContour c
+          getLineIntersections myline c = saneIntersections $ lineIntersection myline <$> linesOfContour c
             where
               linesOfContour (PointSequence contourPoints) = makeLinesLooped $ (\(Point2 (x,y)) -> Point2 (roundToFifth x, roundToFifth y)) <$> contourPoints
-              -- Handle cases where infill hits a corner
-              cookIntersections :: [Intersection] -> [Intersection]
-              cookIntersections res
-              -- Glancing blow. we can safely ignore.
-                | length res == 1 && hitsEndpoint (head res) = []
-                | otherwise = res
-                where
-                  hitsEndpoint (HitStartPointL2 _ _ _) = True
-                  hitsEndpoint (HitEndPointL2 _ _ _) = True
-                  hitsEndpoint _ = False
               saneIntersections :: [Intersection] -> [Point2]
-              saneIntersections xs = mapMaybe saneIntersection xs
+              saneIntersections xs = concat $ mapMaybe saneIntersection xs
                 where
-                  saneIntersection :: Intersection -> Maybe Point2
-                  saneIntersection (IntersectsAt p2) = Just p2
-                  saneIntersection (HitStartPointL2 l1 l2 p2) = if (lineBetween infillFrom Clockwise lineTo infillTo) == (lineBetween infillFrom Clockwise l2 infillTo) then Nothing else Just p2
+                  saneIntersection :: Intersection -> Maybe [Point2]
+                  -- FIXME: we should 'stitch out' colinear segments, not just ignore them.
+                  saneIntersection (LColinear _ _) = Nothing
+--                  saneIntersection (LColinear l1 l2@(Line p2 _)) = if lineIsLeft l1 lineTo == lineIsLeft l1 lineFrom then Just [p2, endpoint l2] else Nothing
+--                    where
+--                      lineTo   = preceedingLine (linesOfContour c) l2
+--                      lineFrom = followingLine  (linesOfContour c) l2
+                  saneIntersection (HitStartPointL2 l1 l2 p2) = if lineIsLeft l1 lineTo == lineIsLeft l1 l2 then Just [p2] else Nothing
                     where
-                      infillFrom = Line p2 $ slopeOf l1
-                      infillTo = Line p2 $ slopeOf $ flipLine l1
-                      lineTo = Line p2 $ slopeOf $ preceedingLine (linesOfContour c) l2
-                  saneIntersection (HitEndPointL2 l1 l2 p2) = if (lineBetween infillFrom Clockwise l2 infillTo) == (lineBetween infillFrom Clockwise lineFrom infillTo) then Nothing else Just p2
-                    where
-                      infillFrom = Line p2 $ slopeOf l1
-                      infillTo = Line p2 $ slopeOf $ flipLine l1
-                      lineFrom = followingLine (linesOfContour c) l2
-                  -- FIXME: is this wrong?
-                  saneIntersection (LColinear l1 l2@(Line p2 _)) = if (lineBetween infillFrom Clockwise lineTo infillTo) == (lineBetween infillFrom Clockwise lineFrom infillTo) then Nothing else Just p2
-                    where
-                      infillFrom = Line p2 $ slopeOf l1
-                      infillTo = Line p2 $ slopeOf $ flipLine l1
-                      lineFrom = followingLine (linesOfContour c) l2
-                      lineTo = Line p2 $ slopeOf $ preceedingLine (linesOfContour c) l2
+                      lineTo   = preceedingLine (linesOfContour c) l2
+                  saneIntersection (HitEndPointL2 _ _ _) = Nothing
+--                  saneIntersection (HitEndPointL2 l1 l2 p2) = if lineIsLeft l1 l2 == lineIsLeft l1 lineFrom then Just [p2] else Nothing
+--                    where
+--                      lineFrom = followingLine  (linesOfContour c) l2
+                  saneIntersection (IntersectsAt p2) = Just [p2]
                   saneIntersection NoIntersection = Nothing
                   saneIntersection Parallel = Nothing
                   saneIntersection AntiParallel = Nothing
                   saneIntersection Collinear = error "not possible?"
-                  slopeOf (Line _ m) = m
 
 -- Generate lines over entire print area, where each one is aligned with a -1 slope.
 -- FIXME: other ways to only generate covering lines over the outer contour?

@@ -135,7 +135,7 @@ posIze pos
   | otherwise = fst $ spanEnd (== '.') $ fst $ spanEnd (== '0') $ toFixed 5 pos
 
 (~/=) :: ℝ -> ℝ -> Bool
-(~/=) a b = (roundToFifth a) /= (roundToFifth b)
+(~/=) a b = roundToFifth a /= roundToFifth b
 
 -- | Render a GCode into a piece of text, ready to print. Only handles 'cooked' gcode, that has had extrusion values calculated.
 gcodeToText :: GCode -> ByteString
@@ -162,7 +162,7 @@ gcodeToText GCMarkInfillStart = ";TYPE:FILL"
 -- Assumes the printer is already at the first point of the contour.
 gcodeForContour :: ℝ -> ℝ -> Contour -> [GCode]
 gcodeForContour lh pathWidth (PointSequence contourPoints)
-  | length contourPoints > 1  = (zipWith (make2DExtrudeGCode lh pathWidth) (init contourPoints) (tail contourPoints)) ++ [make2DExtrudeGCode lh pathWidth (last contourPoints) (head contourPoints)]
+  | length contourPoints > 1  = zipWith (make2DExtrudeGCode lh pathWidth) (init contourPoints) (tail contourPoints) ++ [make2DExtrudeGCode lh pathWidth (last contourPoints) (head contourPoints)]
   | length contourPoints == 1 = error $ "Given a contour with a single point in it:" <> show contourPoints <> "\n"
   | otherwise                 = []
 

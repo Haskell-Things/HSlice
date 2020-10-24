@@ -28,9 +28,6 @@ http://www.varlog.com/admesh-htm/ADMeshThesis.zip
 -- To treat literal strings as Text
 {-# LANGUAGE OverloadedStrings #-}
 
--- For matching our OpenScad variable types.
-{-# LANGUAGE ViewPatterns #-}
-
 import Prelude ((<>))
 
 import Control.Applicative ((<*>), (<$>))
