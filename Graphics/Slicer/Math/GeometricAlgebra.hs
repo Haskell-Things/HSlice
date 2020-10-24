@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, gUnlike, gLike, sortBasis) where
 
-import Prelude (Eq, Show, Ord(compare), seq, (<), (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, odd, (<=), fst, snd, sum, (&&), (/), Bool(True, False), last, init, (.))
+import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), (.))
 
 import GHC.Generics (Generic)
 
@@ -191,20 +191,18 @@ mulVecPair' (GVec v1) (GVec v2) = concatMap (mulvals v2) v1
 
 -- for a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
 sortBasis :: GVal -> GVal
-sortBasis (GVal r i) = if flipVal then GVal (-r) newBasis else GVal r newBasis
+sortBasis (GVal r i) = if flip then GVal (-r) basis else GVal r basis
   where
-    newBasis :: [GNum]
-    (flipVal, newBasis) = sortBasis' i
+    (flip, basis) = sortBasis' i
     -- sort a set of wedged basis vectors. must return an ideal result, along with wehther the associated real value should be flipped or not.
     sortBasis'  :: [GNum] -> (Bool, [GNum])
-    sortBasis' basis = if basisOf (sortBasis'' basis) == basisOf (sortBasis'' $ basisOf $ sortBasis'' basis)
-                       then sortBasis'' basis
+    sortBasis' thisBasis = if basisOf (sortBasis'' thisBasis) == basisOf (sortBasis'' $ basisOf $ sortBasis'' thisBasis)
+                       then sortBasis'' thisBasis
                        else (newFlip, newBasis)
       where
-        newFlip =  flipOf $ sortBasis' $ basisOf $ sortBasis'' basis
-        newBasis = basisOf $ sortBasis' $ basisOf $ sortBasis'' basis
-        flipOf flip  = fst flip
-        basisOf flip = snd flip
+        (newFlip, newBasis) = sortBasis' $ basisOf $ sortBasis'' thisBasis
+        flipOf = fst
+        basisOf = snd
         -- sort a set of wedged basis vectors. may not provide an ideal result, but should return a better result, along with whether the associated real value should be flipped or not.
         sortBasis'' :: [GNum] -> (Bool, [GNum])
         sortBasis'' []       = (False,[])

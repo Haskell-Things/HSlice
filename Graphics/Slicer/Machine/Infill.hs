@@ -28,17 +28,15 @@ import Data.List.Ordered (sort)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe)
 
-import Data.List.Extra (nubSort)
-
 import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), distance, xOf, yOf, roundToFifth)
 
-import Graphics.Slicer.Math.Line (Line(Line), makeLines, makeLinesLooped, endpoint)
+import Graphics.Slicer.Math.Line (Line(Line), makeLines, makeLinesLooped)
 
 import Graphics.Slicer.Math.PGA (Intersection(HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection, Parallel, AntiParallel, Collinear, LColinear), lineIntersection, lineIsLeft)
 
-import Graphics.Slicer.Math.Contour (followingLine, preceedingLine)
+import Graphics.Slicer.Math.Contour (preceedingLine)
 
 -- | what direction to put down infill lines.
 data InfillType = Diag1 | Diag2 | Vert | Horiz
