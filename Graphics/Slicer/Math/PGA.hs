@@ -335,8 +335,8 @@ pointOnPerp line point d = fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPo
     (PLine2 lvec) = forcePLine2Basis $ normalizePLine2 $ eToPLine2 line
     (PPoint2 pvec) = forcePPoint2Basis $ canonicalizePPoint2 $ eToPPoint2 point
     -- FIXME: the dot product should be doing this. -- lvec ⋅ pvec
-    (PLine2 perpLine) = forcePLine2Basis $ PLine2 $ vectorPart $ lvec ⎤ pvec 
-    motor = forceBasis [[G0], [GEZero 1, GEPlus 1], [GEZero 1, GEPlus 2]] $ addVecPair (mulScalarVec (d/2) $ perpLine • gaI) (GVec [GVal 1 [G0]]) 
+    (PLine2 perpLine) = forcePLine2Basis $ PLine2 $ vectorPart $ lvec ⎤ pvec
+    motor = forceBasis [[G0], [GEPlus 1, GEPlus 2], [GEZero 1, GEPlus 1], [GEZero 1, GEPlus 2]] $ addVecPair (mulScalarVec (d/2) $ perpLine • gaI) (GVec [GVal 1 [G0]])
     -- I, in this geometric algebra system.
     gaI :: GVec
     gaI = GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]

@@ -88,7 +88,8 @@ linearAlgSpec = do
     it "a projection on the perpendicular bisector of an axis aligned line is on the other axis" $
       pointOnPerp (Line (Point2 (1,1)) (Point2 (0,1))) (Point2 (1,1)) 1 --> Point2 (2,1)
   where
-    cp1 = [Point2 (0,0), Point2 (0,1), Point2 (1,1), Point2 (1,0)]
+    -- FIXME: reversing this breaks the infill tests?
+    cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
     oocl1 = [(Point2 (1,0), Point2 (0,0)), (Point2 (0,1), Point2 (1,1)), (Point2 (0,0), Point2 (0,1)), (Point2 (1,1), Point2 (1,0))]
     cl1 = [(Point2 (0,0), Point2 (0,1)), (Point2 (0,1), Point2 (1,1)), (Point2 (1,1), Point2 (1,0)), (Point2 (1,0), Point2 (0,0))]
     l1 = Line (Point2 (1,1)) (Point2 (2,2))

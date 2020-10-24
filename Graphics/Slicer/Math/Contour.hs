@@ -21,7 +21,7 @@
 
 module Graphics.Slicer.Math.Contour (followingLine, preceedingLine, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour) where
 
-import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(False), Eq, Show, not, compare, (<>))
+import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, (<>))
 
 import Data.List(tail, last, head, partition, reverse, sortBy)
 
@@ -120,11 +120,11 @@ getContours pointPairs = maybeFlipContour <$> foundContours
         -- Sort the list to begin with, so that differently ordered input lists give the same output.
         sortPairs :: [(Point2,Point2)] -> [(Point2,Point2)]
         sortPairs pairs = sortBy (\a b -> if fst a == fst b then compare (snd a) (snd b) else compare (fst a) (fst b)) pairs
-    -- make sure a contour is wound the right way, so that the inside of the contour is on the right side of a line segment.
+    -- make sure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
     maybeFlipContour :: Contour -> Contour
     maybeFlipContour contour@(PointSequence contourPoints)
-      | insideIsRight contour $ firstLineOf contour = PointSequence $ reverse contourPoints
-      | otherwise = contour
+      | insideIsLeft contour $ firstLineOf contour = contour
+      | otherwise = PointSequence $ reverse contourPoints
       where
         firstLineOf (PointSequence ps) = head $ makeLines ps
 
@@ -188,9 +188,9 @@ preceedingLine x = preceedingLineLooped x x
     preceedingLineLooped [a] (b:_) l1 = if b == l1 then a else preceedingLineLooped [a] [] l1
     preceedingLineLooped (a:b:xs) set l1 = if b == l1 then a else preceedingLineLooped (b:xs) set l1
 
--- | Check if the right hand side of this line in toward the inside of the contour it is a part of.
-insideIsRight :: Contour -> Line -> Bool
-insideIsRight contour line = lineIsLeft lineSecondHalf lineToInside == Just False
+-- | Check if the left hand side of this line in toward the inside of the contour it is a part of.
+insideIsLeft :: Contour -> Line -> Bool
+insideIsLeft contour line = lineIsLeft lineSecondHalf lineToInside == Just True
   --error $ show (lineSecondHalf) <> "\n" <> show lineToInside <> "\n" <> show (innerContourPoint 0.1 contour line) <> "\n" <> show (lineIsLeft lineSecondHalf lineToInside) <> "\n" 
   where
     lineSecondHalf = lineFromEndpoints (midpoint line) (endpoint line)
