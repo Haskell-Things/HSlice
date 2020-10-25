@@ -27,6 +27,8 @@ import Data.List(tail, last, head, partition, reverse, sortBy)
 
 import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
 
+import Data.Either (fromRight)
+
 import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2))
 
 import Graphics.Slicer.Math.Line (Line, lineFromEndpoints, makeLinesLooped, makeLines, endpoint, midpoint)
@@ -147,7 +149,7 @@ contourContainsContour :: Contour -> Contour -> Bool
 contourContainsContour parent child = odd noIntersections
   where
     noIntersections = length $ getContourLineIntersections parent $ lineToEdge $ innerPointOf child
-    lineToEdge p = lineFromEndpoints p (Point2 (-1,-1))
+    lineToEdge p = fromRight (error "cannot construct lineToEdge") $ lineFromEndpoints p (Point2 (-1,-1))
     getContourLineIntersections :: Contour -> Line -> [Point2]
     getContourLineIntersections (PointSequence contourPoints) line
       | null contourPoints = []
@@ -193,8 +195,8 @@ insideIsLeft :: Contour -> Line -> Bool
 insideIsLeft contour line = lineIsLeft lineSecondHalf lineToInside == Just True
   --error $ show (lineSecondHalf) <> "\n" <> show lineToInside <> "\n" <> show (innerContourPoint 0.1 contour line) <> "\n" <> show (lineIsLeft lineSecondHalf lineToInside) <> "\n" 
   where
-    lineSecondHalf = lineFromEndpoints (midpoint line) (endpoint line)
-    lineToInside = lineFromEndpoints (midpoint line) $ innerContourPoint 0.00001 contour line
+    lineSecondHalf = fromRight (error "cannot construct SecondHalf") $ lineFromEndpoints (midpoint line) (endpoint line)
+    lineToInside = fromRight (error "cannot construct lineToInside") $ lineFromEndpoints (midpoint line) $ innerContourPoint 0.00001 contour line
 
 -- | Find a point on the interior of the given contour, on the perpendicular bisector of the given line, a given distance from the line.
 -- FIXME: assumes we are in positive space.
@@ -213,7 +215,7 @@ intersections :: Point2 -> Contour -> Point2 -> [Point2]
 intersections dstPoint contour srcPoint = saneIntersections l0 $ contourLines contour
   where
     -- The line we are checking for intersections along.
-    l0 = lineFromEndpoints srcPoint dstPoint
+    l0 = fromRight (error "cannot construct target line") $ lineFromEndpoints srcPoint dstPoint
     contourLines (PointSequence c) = makeLinesLooped c
     -- a filter for results that make sense.
     saneIntersections :: Line -> [Line] -> [Point2]

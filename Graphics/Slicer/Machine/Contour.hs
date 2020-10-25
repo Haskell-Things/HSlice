@@ -24,6 +24,8 @@ import Data.List (null, zipWith3, foldl)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes)
 
+import Data.Either (fromRight)
+
 import Control.Parallel.Strategies (withStrategy, parList, rpar)
 
 import Control.Parallel (par, pseq)
@@ -49,7 +51,7 @@ cleanContour (PointSequence points)
     cleanPoints :: [Point2] -> [Point2]
     cleanPoints pts
       | null pts = []
-      | length pts > 2 = pointsFromLines $ combineConsecutiveLines $ makeLinesLooped pts
+      | length pts > 2 = fromRight (error "no lines left") $ pointsFromLines $ combineConsecutiveLines $ makeLinesLooped pts
       | otherwise = [] 
 
 ---------------------------------------------------------------
@@ -84,7 +86,7 @@ expandContour amount _ contour = fst $ modifyContour amount contour Outward
 
 -- | Generate a new contour that is a given amount larger/smaller than the given contour.
 modifyContour :: ℝ -> Contour -> Direction -> (Maybe Contour,[Contour])
-modifyContour pathWidth (PointSequence contourPoints) direction = if null foundContour then (Nothing, []) else (Just $ PointSequence $ pointsFromLines foundContour,[])
+modifyContour pathWidth (PointSequence contourPoints) direction = if null foundContour then (Nothing, []) else (Just $ PointSequence $ fromRight (error "found contour is empty") $ pointsFromLines foundContour,[])
   where
     -- FIXME: implement me. we need this to handle further interior contours, and only check against the contour they are inside of.
     foundContour
@@ -114,7 +116,7 @@ modifyContour pathWidth (PointSequence contourPoints) direction = if null foundC
             -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
             -- if p2 == p3 and the lines are really close to parallel
             combineLines :: Line -> Line -> Line
-            combineLines (Line p _) (Line p1 s1) = lineFromEndpoints p (addPoints p1 s1)
+            combineLines (Line p _) (Line p1 s1) = fromRight (error "cannot combine lines") $ lineFromEndpoints p (addPoints p1 s1)
             isDegenerate pl1 pl2
               | angleBetween pl1 pl2 < (-0.999) = True
               | angleBetween pl1 pl2 >   0.999  = True
@@ -127,7 +129,7 @@ modifyContour pathWidth (PointSequence contourPoints) direction = if null foundC
         findLine previousln ln nextln
           -- The ideal case.
           | isIntersection previousln ln &&
-            isIntersection ln nextln        = Just $ lineFromEndpoints (intersectionPoint (inwardAdjust previousln) (inwardAdjust ln)) (intersectionPoint (inwardAdjust ln) (inwardAdjust nextln))
+            isIntersection ln nextln        = Just $ fromRight ( error "failed to construct intersection") $ lineFromEndpoints (intersectionPoint (inwardAdjust previousln) (inwardAdjust ln)) (intersectionPoint (inwardAdjust ln) (inwardAdjust nextln))
           | otherwise = error $ "no intersection?\n" <> show (isIntersection previousln ln) <> "\n" <> show (isIntersection ln nextln) <> "\n" <> show previousln <> "\n" <> show ln <> "\n" <> show nextln <> "\n"
           where
             isIntersection l1 l2 = case plinesIntersectAt (inwardAdjust l1) (inwardAdjust l2) of

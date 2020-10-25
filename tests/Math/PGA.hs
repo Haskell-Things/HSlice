@@ -20,10 +20,12 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, proj2DGeomAlgSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True,False), (<$>), length)
+import Prelude (($), Bool(True,False), (<$>), length, Either(Right))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it)
+
+import Data.Either (fromRight)
 
 import Data.Maybe (fromJust)
 
@@ -62,7 +64,7 @@ linearAlgSpec = do
     it "contours made from an out of order list of point pairs is put into order" $
       getContours oocl1 --> [c1]
     it "contours converted from points to lines then back to points give the input list" $
-      pointsFromLines (makeLinesLooped cp1) --> cp1
+      pointsFromLines (makeLinesLooped cp1) --> Right cp1
     it "a bigger contour containing a smaller contour is detected by contourContainsContour" $
       contourContainsContour c1 c2 --> True
     it "a smaller contour contained in a bigger contour is not detected by contourContainsContour" $
