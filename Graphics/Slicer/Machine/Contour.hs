@@ -22,7 +22,7 @@ import Prelude (length, (>), ($), otherwise, Int, Eq, (<>), show, error, (==), (
 
 import Data.List (null, zipWith3, foldl)
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, maybeToList)
 
 import Data.Either (fromRight)
 
@@ -32,7 +32,7 @@ import Control.Parallel (par, pseq)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), addPoints)
 
-import Graphics.Slicer.Math.Line (Line(Line), makeLinesLooped, pointsFromLines, lineFromEndpoints)
+import Graphics.Slicer.Math.Line (Line(Line), makeLinesLooped, pointsFromLines, lineFromEndpoints, endpoint)
 
 import Graphics.Slicer.Math.PGA (combineConsecutiveLines, Intersection(IntersectsAt, Collinear, Parallel), plinesIntersectAt, translatePerp, eToPLine2, angleBetween)
 
@@ -105,18 +105,20 @@ modifyContour pathWidth (PointSequence contourPoints) direction = if null foundC
             res = removeDegenerateEnds $ foldl concatDegenerates [] lns
             concatDegenerates xs x
               | null xs = [x]
-              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = init xs ++ [combineLines (last xs) x]
+              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = init xs ++ (maybeToList $ combineLines (last xs) x)
               | otherwise = xs ++ [x]
             removeDegenerateEnds :: [Line] -> [Line]
             removeDegenerateEnds  []      = []
             removeDegenerateEnds  [l1]    = [l1]
             removeDegenerateEnds  (l1:ls)
-              | length ls > 1 = if isDegenerate (inwardAdjust (last ls)) (inwardAdjust l1) then init ls ++ [combineLines (last ls) l1] else l1:ls
+              | length ls > 1 = if isDegenerate (inwardAdjust (last ls)) (inwardAdjust l1) then init ls ++ (maybeToList $ combineLines (last ls) l1) else l1:ls
               | otherwise = l1:ls
             -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
             -- if p2 == p3 and the lines are really close to parallel
-            combineLines :: Line -> Line -> Line
-            combineLines (Line p _) (Line p1 s1) = fromRight (error "cannot combine lines") $ lineFromEndpoints p (addPoints p1 s1)
+            combineLines :: Line -> Line -> Maybe Line
+            combineLines l1@(Line p _) l2@(Line p1 s1) = if endpoint l2 == p -- If line 2 ends where line 1 begins:
+                                                         then Nothing -- handle a contour that loops back on itsself.
+                                                         else Just $ fromRight (error $ "cannot combine lines: " <> show l1 <> "\n" <> show l2 <> "\n") $ lineFromEndpoints p (addPoints p1 s1)
             isDegenerate pl1 pl2
               | angleBetween pl1 pl2 < (-0.999) = True
               | angleBetween pl1 pl2 >   0.999  = True
