@@ -1,17 +1,18 @@
 # HSlice
 
-A slicer and G-code generator for RepRap firmwares, in Haskell.
+A slicer / G-code generator for RepRap firmwares written in Haskell, using Projective Geometric Algebra.
 
-### to compile
+### To compile:
 Run `make` from the root directory of this repository.
 
-### to run 
-Run `./slicer filename` with options:
-* `-i infill` Infill percentage as an integer (default is 20)
+### To run:
+Run `./extcuraengine` with options:
+
+* `-l infile` Name of the ASCII STL file to read (default is `in.stl`)
 * `-o outfile` Name of file to output to (default is `out.gcode`)
-* `-p perimeter` Number of perimeter layers (default is 2)
-* `-s` Print with support
-* `-t thickness` Layer thickness in mm (default is 0.2)
+
+All other settings are supplied in KEY=VALUE form, using the keys that CURA defines in it's JSON file. for instance:
+* -s machine_width=200 -s machine_depth=200 -s machine_height=100 -s machine_nozzle_size=0.35 -s material_diameter=2.85 -s outer_inset_first=False -s infill_sparse_density=100
 
 ## FAQ 
 #### *Wait but...why?*
@@ -20,7 +21,7 @@ Haskell all of the things.
 
 #### *No but like...why Haskell?*
 
-Functional programming is beautiful.
+Functional programming is beautiful, and gets us closer to perfection.
 
 #### *What sick, twisted masochists did this?*
 
