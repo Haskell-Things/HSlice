@@ -76,7 +76,7 @@ linearAlgSpec = do
     it "a contour expanded has the same amount of points as the input contour" $
       length (pointsOfContour $ fromJust $ expandContour 0.1 [] c1) --> length (pointsOfContour c1)
     it "a contour shrunk and expanded is about equal to where it started" $
-      (roundPoint2 <$> pointsOfContour (fromJust $ expandContour 0.1 [] $ fromJust $ shrinkContour 0.1 [] c1)) --> roundPoint2 <$> pointsOfContour c1
+      (roundPoint2 <$> pointsOfContour (fromJust $ expandContour 0.1 [] $ fromJust $ shrinkContour 0.1 [] c2)) --> roundPoint2 <$> pointsOfContour c2
   describe "Infill" $ do
     it "infills exactly one line inside of a box big enough for only one line (Horizontal)" $
       makeInfill c1 [] 0.5 Horiz --> [[Line (Point2 (0,0.5)) (Point2 (1,0))]]
@@ -94,8 +94,8 @@ linearAlgSpec = do
     cl1 = [(Point2 (0,0), Point2 (0,1)), (Point2 (0,1), Point2 (1,1)), (Point2 (1,1), Point2 (1,0)), (Point2 (1,0), Point2 (0,0))]
     l1 = Line (Point2 (1,1)) (Point2 (2,2))
     c1 = PointSequence cp1
-    c2 = PointSequence [Point2 (0.25,0.25), Point2 (0.25,0.75), Point2 (0.75,0.75), Point2 (0.75,0.25)]
-    c3 = PointSequence [Point2 (2,0), Point2 (2,1), Point2 (3,1), Point2 (3,0)]
+    c2 = PointSequence [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
+    c3 = PointSequence [Point2 (3,0), Point2 (3,1), Point2 (2,1), Point2 (2,0)]
     pointsOfContour (PointSequence contourPoints) = contourPoints
 
 geomAlgSpec :: Spec
