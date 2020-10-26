@@ -60,14 +60,14 @@ cleanContour (PointSequence points)
 
 -- | like map, only with previous, current, and next item, and wrapping around so the first entry gets the last entry as previous, and vica versa.
 mapWithNeighbors :: (a -> a -> a -> b) -> [a] -> [b]
-mapWithNeighbors  f l =
-    let
-      rotateList :: Int -> [a] -> [a]
-      rotateList n list = take (length list + 1) . drop n $ cycle list
-      x = rotateList (length l - 1) l
-      z = rotateList 1 l
-    in
-      withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
+mapWithNeighbors  f l
+  | null l = []
+  | otherwise = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
+  where
+    rotateList :: Int -> [a] -> [a]
+    rotateList n list = take (length list + 1) . drop n $ cycle list
+    x = rotateList (length l - 1) l
+    z = rotateList 1 l
 
 data Direction =
     Inward
@@ -86,7 +86,10 @@ expandContour amount _ contour = fst $ modifyContour amount contour Outward
 
 -- | Generate a new contour that is a given amount larger/smaller than the given contour.
 modifyContour :: ℝ -> Contour -> Direction -> (Maybe Contour,[Contour])
-modifyContour pathWidth (PointSequence contourPoints) direction = if null foundContour then (Nothing, []) else (Just $ PointSequence $ fromRight (error "found contour is empty") $ pointsFromLines foundContour,[])
+modifyContour pathWidth (PointSequence contourPoints) direction
+  | null contourPoints = error "tried to modify an empty contour."
+  | null foundContour  = (Nothing, [])
+  | otherwise          = (Just $ PointSequence $ fromRight (error "found contour is empty") $ pointsFromLines foundContour,[])
   where
     -- FIXME: implement me. we need this to handle further interior contours, and only check against the contour they are inside of.
     foundContour
