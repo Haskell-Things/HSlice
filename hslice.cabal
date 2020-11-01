@@ -71,14 +71,14 @@ Executable extcuraengine
                   , parallel
                   , utf8-string
     Ghc-options:
-                -threaded
-                -rtsopts
                 -optc-O3
                 -- see GHC manual 8.2.1 section 6.5.1.
                 -feager-blackholing
                 -- for debugging.
                 -Wall
                 -Wextra
+                -threaded
+                -rtsopts "-with-rtsopts -N -qg -t"
 --                -Wunused-packages
                 -- for profiling.
 --                -prof
@@ -99,7 +99,7 @@ Executable extadmesh
                   , utf8-string
     Ghc-options:
                 -threaded
-                -rtsopts
+                -rtsopts "-with-rtsopts -N -qg -t"
                 -optc-O3
                 -- see GHC manual 8.2.1 section 6.5.1.
                 -feager-blackholing
@@ -122,6 +122,8 @@ Test-suite test-hslice
     Main-is: Main.hs
     Hs-source-dirs: tests
     Ghc-options:
+                -threaded
+                -rtsopts "-with-rtsopts -N -qg -t"
                 -optc-O3
                 -Wall
                 -Wcompat
