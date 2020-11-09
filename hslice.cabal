@@ -1,18 +1,40 @@
+Cabal-version:       2.2
 Name:                hslice
 Version:             0.0.1
-Cabal-version:       >= 1.10
 Tested-with:         GHC >= 8.6
 Build-type:          Simple
 Synopsis:            A GCode generator, that accepts STL files.
 Description:         A slicer in haskell. Use it to slice 3D prints.
-License:             AGPL-3
+License:             AGPL-3.0-only
 License-file:        LICENSE
 Author:              Julia Longtin <julial@turinglace.com>
 Maintainer:          Julia Longtin <julial@turinglace.com>
 Homepage:            http://implicitcad.org/
 Category:            Graphics
 
+Common stuff
+    Default-Language: Haskell2010
+    Ghc-options:
+                -threaded
+                -rtsopts "-with-rtsopts -N -qg -t"
+                -optc-O3
+                -- see GHC manual 8.2.1 section 6.5.1.
+                -feager-blackholing
+                -Wall
+                -Wextra
+                -Wcompat
+                -Wmonomorphism-restriction
+                -Wmissing-signatures
+                -Wmissing-export-lists
+                -Wmissing-import-lists
+                -Wmissing-home-modules
+                -Widentities
+                -Wimplicit-prelude
+                -Wredundant-constraints
+                -Wall-missed-specialisations
+
 Library
+    Import: stuff
     Build-depends:
                     base
                   , bytestring
@@ -24,14 +46,6 @@ Library
                   , mtl
                   , parallel
                   , utf8-string
-    Ghc-options:
-                -optc-O3
-                -- see GHC manual 8.2.1 section 6.5.1.
-                -feager-blackholing
-                -- for debugging.
-                -Wall
-                -Wextra
---                -Wunused-packages
     Exposed-Modules:
                     Graphics.Slicer
                     Graphics.Slicer.Formats.STL.Definitions
@@ -58,9 +72,9 @@ Library
                   Graphics.Slicer.Definitions
 
 Executable extcuraengine
+    Import: stuff
     Main-is: extcuraengine.hs
     Hs-source-dirs: programs
-    Default-Language: Haskell2010
     Build-depends:
                     base
                   , bytestring
@@ -70,24 +84,11 @@ Executable extcuraengine
                   , optparse-applicative
                   , parallel
                   , utf8-string
-    Ghc-options:
-                -optc-O3
-                -- see GHC manual 8.2.1 section 6.5.1.
-                -feager-blackholing
-                -- for debugging.
-                -Wall
-                -Wextra
-                -threaded
-                -rtsopts "-with-rtsopts -N -qg -t"
---                -Wunused-packages
-                -- for profiling.
---                -prof
---                -fprof-auto
 
 Executable extadmesh
+    Import: stuff
     Main-is: extadmesh.hs
     Hs-source-dirs: programs
-    Default-Language: Haskell2010
     Build-depends:
                     base
                   , bytestring
@@ -97,45 +98,17 @@ Executable extadmesh
                   , optparse-applicative
                   , parallel
                   , utf8-string
-    Ghc-options:
-                -threaded
-                -rtsopts "-with-rtsopts -N -qg -t"
-                -optc-O3
-                -- see GHC manual 8.2.1 section 6.5.1.
-                -feager-blackholing
-                -- for debugging.
-                -Wall
-                -Wextra
---                -Wunused-packages
-                -- for profiling.
---                -prof
---                -fprof-auto
 
 Test-suite test-hslice
+    Import: stuff
     Type: exitcode-stdio-1.0
     default-extensions: NoImplicitPrelude
-    Default-Language: Haskell2010
     Build-depends:
                     base
                   , hspec
                   , hslice
     Main-is: Main.hs
     Hs-source-dirs: tests
-    Ghc-options:
-                -threaded
-                -rtsopts "-with-rtsopts -N -qg -t"
-                -optc-O3
-                -Wall
-                -Wcompat
-                -Wmonomorphism-restriction
-                -Wmissing-signatures
-                -Wmissing-export-lists
-                -Wmissing-import-lists
-                -Wmissing-home-modules
-                -Widentities
-                -Wimplicit-prelude
-                -Wredundant-constraints
-                -Wall-missed-specialisations
     Other-Modules:
                    Math.Util
                    Math.PGA
