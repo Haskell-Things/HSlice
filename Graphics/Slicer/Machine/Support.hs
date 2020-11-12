@@ -24,7 +24,7 @@
 
 module Graphics.Slicer.Machine.Support (makeSupport) where
 
-import Prelude (fmap, (||), Bool, (-), (+), ($), (<$>), maximum, minimum, error, (==), (/), (*))
+import Prelude (fmap, (||), Bool, (-), (+), ($), (<$>), maximum, minimum, error, (==), (/), (*), sqrt)
 
 import Data.List (concat)
 
@@ -32,7 +32,7 @@ import Data.Maybe (Maybe(Just, Nothing), fromMaybe, mapMaybe, catMaybes)
 
 import Graphics.Slicer.Definitions (ℝ,ℝ2)
 
-import Graphics.Slicer.Math.Definitions (magnitude, Contour(PointSequence), Point2(Point2), xOf, yOf, addPoints, scalePoint)
+import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2), xOf, yOf, addPoints, scalePoint)
 
 import Graphics.Slicer.Machine.Infill (infillLineInside, coveringLinesVertical)
 
@@ -44,6 +44,7 @@ shortenLineBy amt (Line p m) = Line newStart newSlope
   where pct = amt / magnitude m
         newStart = addPoints p $ scalePoint pct m
         newSlope = scalePoint (1 - 2 * pct) m
+        magnitude (Point2 (x1,y1)) = sqrt (x1 * x1 + y1 * y1)
 
 -- Generate support
 -- FIXME: hard coded infill amount.

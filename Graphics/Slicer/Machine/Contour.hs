@@ -18,19 +18,15 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude (length, (>), ($), otherwise, Int, Eq, (<>), show, error, (==), (.), (+), take, drop, cycle, (-), (&&), fst, Bool(True, False), last, init, (++), (<), Show, (||))
+import Prelude (length, (>), ($), otherwise, Eq, (<>), show, error, (==), (&&), fst, Bool(True, False), last, init, (++), (<), Show, (||))
 
-import Data.List (null, zipWith3, foldl)
+import Data.List (null, foldl)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, maybeToList)
 
 import Data.Either (fromRight)
 
-import Control.Parallel.Strategies (withStrategy, parList, rpar)
-
-import Control.Parallel (par, pseq)
-
-import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), addPoints)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), addPoints, mapWithNeighbors)
 
 import Graphics.Slicer.Math.Line (Line(Line), makeLinesLooped, pointsFromLines, lineFromEndpoints, endpoint)
 
@@ -57,17 +53,6 @@ cleanContour (PointSequence points)
 ---------------------------------------------------------------
 -------------------- Contour Modifiers ------------------------
 ---------------------------------------------------------------
-
--- | like map, only with previous, current, and next item, and wrapping around so the first entry gets the last entry as previous, and vica versa.
-mapWithNeighbors :: (a -> a -> a -> b) -> [a] -> [b]
-mapWithNeighbors  f l
-  | null l = []
-  | otherwise = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
-  where
-    rotateList :: Int -> [a] -> [a]
-    rotateList n list = take (length list + 1) . drop n $ cycle list
-    x = rotateList (length l - 1) l
-    z = rotateList 1 l
 
 data Direction =
     Inward
@@ -108,13 +93,13 @@ modifyContour pathWidth (PointSequence contourPoints) direction
             res = removeDegenerateEnds $ foldl concatDegenerates [] lns
             concatDegenerates xs x
               | null xs = [x]
-              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = init xs ++ (maybeToList $ combineLines (last xs) x)
+              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = init xs ++ maybeToList (combineLines (last xs) x)
               | otherwise = xs ++ [x]
             removeDegenerateEnds :: [Line] -> [Line]
             removeDegenerateEnds  []      = []
             removeDegenerateEnds  [l1]    = [l1]
             removeDegenerateEnds  (l1:ls)
-              | length ls > 1 = if isDegenerate (inwardAdjust (last ls)) (inwardAdjust l1) then init ls ++ (maybeToList $ combineLines (last ls) l1) else l1:ls
+              | length ls > 1 = if isDegenerate (inwardAdjust (last ls)) (inwardAdjust l1) then init ls ++ maybeToList (combineLines (last ls) l1) else l1:ls
               | otherwise = l1:ls
             -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
             -- if p2 == p3 and the lines are really close to parallel

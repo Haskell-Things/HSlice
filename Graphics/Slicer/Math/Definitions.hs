@@ -22,13 +22,17 @@
 -- for adding Generic and NFData to Point.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds #-}
 
-module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointSequence), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, magnitude, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2) where
+module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointSequence), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors) where
 
-import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise)
-
-import GHC.Generics (Generic)
+import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, Int, error, null, zipWith3, take, length, drop, cycle, (.), (-))
 
 import Control.DeepSeq (NFData)
+
+import Control.Parallel.Strategies (withStrategy, parList, rpar)
+
+import Control.Parallel (par, pseq)
+
+import GHC.Generics (Generic)
 
 import Graphics.Slicer.Definitions (ℝ, ℝ2, ℝ3, Fastℕ)
 
@@ -41,7 +45,6 @@ newtype Point2 = Point2 ℝ2
 
 -- | A typeclass containing our basic linear algebra functions.
 class LinAlg p where
-  magnitude  :: p -> ℝ
   -- Distance between two points. needed for the equivilence instance of line, and to determine amount of extrusion.
   distance   :: p -> p -> ℝ
   -- Add the coordinates of two points
@@ -53,15 +56,18 @@ class LinAlg p where
 
 -- | perform linear algebra on 3D points.
 instance LinAlg Point3 where
-  magnitude (Point3 (x1,y1,z1)) = sqrt $ x1 * x1 + y1 * y1 + z1 * z1
   distance p1 p2 = magnitude $ addPoints p1 (scalePoint (-1) p2)
+    where
+      magnitude (Point3 (x1,y1,z1)) = sqrt (x1 * x1 + y1 * y1 + z1 * z1)
   addPoints (Point3 (x1,y1,z1)) (Point3 (x2,y2,z2)) = Point3 (x1+x2 ,y1+y2 ,z1+z2)
   scalePoint val (Point3 (a,b,c)) = Point3 (val*a ,val*b ,val*c)
   (~=) p1 p2 = roundPoint3 p1 == roundPoint3 p2
 
+-- | perform linear algebra on 2D points.
 instance LinAlg Point2 where
-  magnitude (Point2 (x1,y1)) = sqrt (x1 * x1 + y1 * y1) 
   distance p1 p2 = magnitude $ addPoints p1 (scalePoint (-1) p2)
+    where
+      magnitude (Point2 (x1,y1)) = sqrt (x1 * x1 + y1 * y1)
   addPoints (Point2 (x1,y1)) (Point2 (x2,y2)) = Point2 (x1+x2, y1+y2)
   scalePoint val (Point2 (a,b)) = Point2 (val*a ,val*b)
   (~=) p1 p2 = roundPoint2 p1 == roundPoint2 p2
@@ -99,17 +105,28 @@ instance SpacePoint Point3 where
   zOf (Point3 (_,_,z)) = z
   flatten (Point3 (x,y,_)) = Point2 (x,y)
 
--- a list of points around a (2d) shape.
-newtype Contour =
-  PointSequence [Point2]
+-- | a list of points around a (2d) shape.
+newtype Contour = PointSequence [Point2]
   deriving (Eq, Generic, NFData, Show)
 
--- round a value
+-- | round a value
 roundToFifth :: ℝ -> ℝ
 roundToFifth a = fromIntegral (round (100000 * a) :: Fastℕ) / 100000
 
--- round a point
+-- | round a point
 roundPoint3 :: Point3 -> Point3
 roundPoint3 (Point3 (x1,y1,z1)) = Point3 (roundToFifth x1, roundToFifth y1, roundToFifth z1)
 roundPoint2 :: Point2 -> Point2
 roundPoint2 (Point2 (x1,y1)) = Point2 (roundToFifth x1, roundToFifth y1)
+
+-- | like map, only with previous, current, and next item, and wrapping around so the first entry gets the last entry as previous, and vica versa.
+mapWithNeighbors :: (a -> a -> a -> b) -> [a] -> [b]
+mapWithNeighbors  f l
+  | null l = []
+  | otherwise = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
+  where
+    rotateList :: Int -> [a] -> [a]
+    rotateList n list = take (length list + 1) . drop n $ cycle list
+    x = rotateList (length l - 1) l
+    z = rotateList 1 l
+
