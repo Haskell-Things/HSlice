@@ -27,7 +27,7 @@
 -- For matching our OpenScad variable types.
 {-# LANGUAGE ViewPatterns #-}
 
-import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse, fst, filter)
+import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse, fst, filter, (<=))
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -136,16 +136,17 @@ layers print fs = catMaybes <$> rawContours
     zmax = maximum $ concat zs
     lh = layerHeight print
 
--- get the type for infill on this layer.
--- FIXME: handle top and bottom surfaces.
-getLayerType :: Print -> Fastℕ -> InfillType
-getLayerType print fromStart
---  | (fromStart <= topBottomLayers || (fromStart+1) <= topBottomLayers) &&
-  | fromStart `mod` 2 == 0 = Diag1
-  | otherwise = Diag2
-  where
-    topBottomLayers :: Fastℕ
-    topBottomLayers = round $ surfaceThickness print / layerHeight print
+-- | Get the appropriate InfillType to use when generating infill for the given layer.
+-- FIXME: handle the tops and bottoms of surfaces
+-- FIXME: handle and the top N layers of the object?
+getInfillType :: Print -> Fastℕ -> InfillType
+getInfillType print layerNo
+  | layerNo <= surfaceLayers = if layerNo `mod` 2 == 0 then Horiz else Vert
+  | layerNo `mod` 2 == 0 = Diag1
+  | otherwise            = Diag2
+ where
+   surfaceLayers :: Fastℕ
+   surfaceLayers = round $ topBottomThickness print / layerHeight print
 
 ----------------------------------------------------------------------
 ---------------------------- MISC ------------------------------------
@@ -229,7 +230,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           childContoursInnerWalls = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
             where
               res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
-          infillLines = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill infillOutsideContour infillChildContours (ls * (1/infill)) $ getLayerType print layerNumber
+          infillLines = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill infillOutsideContour infillChildContours (ls * (1/infill)) $ getInfillType print layerNumber
             where
               infillOutsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2.5) insideContoursRaw outsideContourRaw
               infillChildContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
@@ -365,7 +366,7 @@ sliceParser = pure (ExtCuraEngineRootOpts "slice")
     (    short 'j'
       <> long "json"
       <> metavar "JSONFILE"
-      <> help "A file defining your printer's parameters (in CURA json format 2.0)"
+      <> help "A file defining your printer's parameters (in CURA json format 2.0). Ignored"
     )
   )
   <*> switch
@@ -420,17 +421,17 @@ data Printer = Printer
   , _extruder :: Extruder
   }
 
--- The parameters of the print that is being requested.
+-- | The parameters of the print that is being requested.
 data Print = Print
   {
     _perimeters              :: Fastℕ
-  , _infillAmount             :: ℝ -- as an amount from 0 (none) to 1 (full density).
+  , _infillAmount            :: ℝ    -- ^ An amount of infill from 0 (none) to 1 (full density).
   , layerHeight              :: ℝ
-  , surfaceThickness         :: ℝ
+  , topBottomThickness       :: ℝ    -- ^ The thickness of top and bottom surfaces.
   , _withSupport             :: Bool
-  , _lineSpacing              :: ℝ -- In Millimeters.
-  , _outer_wall_before_inner :: Bool -- print outer wall before inside wall.
-  , _infill_speed            :: ℝ -- In millimeters per second
+  , _lineSpacing             :: ℝ    -- ^ In Millimeters.
+  , _outer_wall_before_inner :: Bool -- ^ print outer wall before inside wall.
+  , _infill_speed            :: ℝ    -- ^ In millimeters per second
   }
 
 run :: ExtCuraEngineRootOpts -> IO ()
