@@ -27,7 +27,7 @@ import Prelude ((/), (<), (>), ($), (-), otherwise, (&&), (<=), (==), Eq, length
 
 import Data.List (nub)
 
-import Data.Maybe (Maybe(Just, Nothing), fromJust)
+import Data.Maybe (Maybe(Just, Nothing))
 
 import GHC.Generics (Generic)
 
@@ -60,7 +60,7 @@ endpoint (Line p s) = addPoints p s
 -- | Take a list of line segments, connected at their end points, and generate a list of the points in order.
 pointsFromLines :: [Line] -> Either LineError [Point2]
 pointsFromLines lines
-  | null lines = Left $ EmptyList
+  | null lines = Left EmptyList
   | otherwise = Right $ makePoints lines
   where
     makePoints ls = last (endpointsOf ls) : init (endpointsOf ls)
@@ -82,7 +82,7 @@ makeLines l
   | length l > 1 = res
   | otherwise = error $ "tried to makeLines a list with " <> show (length l) <> " entries.\n" <> concat (show <$> l) <> "\n"
   where
-    res = zipWith (consLine) (init l) (tail l)
+    res = zipWith consLine (init l) (tail l)
     consLine p1 p2 = errorIfLeft $ lineFromEndpoints p1 p2
     errorIfLeft :: Either LineError Line -> Line
     errorIfLeft ln = case ln of

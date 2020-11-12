@@ -46,9 +46,9 @@ newtype Tri = Tri((Point3, Point3),(Point3, Point3),(Point3, Point3))
 
 -- Shift a tri by the vector p
 shiftTri :: Point3 -> Tri -> Tri
-shiftTri p (Tri (s1,s2,s3)) = Tri ((bimap (addPoints p) (addPoints p) s1),
-                                   (bimap (addPoints p) (addPoints p) s2),
-                                   (bimap (addPoints p) (addPoints p) s3)
+shiftTri p (Tri (s1,s2,s3)) = Tri (bimap (addPoints p) (addPoints p) s1,
+                                   bimap (addPoints p) (addPoints p) s2,
+                                   bimap (addPoints p) (addPoints p) s3
                                   )
 
 -- allow us to use mapping functions against the tuple of sides.
@@ -61,12 +61,12 @@ triIntersects v f = if length matchingEdge == 1
                       then Just $ head matchingEdge
                       else trimIntersections $ nubOrd $ catMaybes intersections
   where
-    matchingEdge = catMaybes $ edgeOnPlane <$> (sidesOf f)
+    matchingEdge = catMaybes $ edgeOnPlane <$> sidesOf f
     edgeOnPlane :: (Point3,Point3) -> Maybe (Point2,Point2)
     edgeOnPlane (start,stop) = if zOf start == zOf stop && zOf start == v
                                then Just (flatten start, flatten stop)
                                else Nothing
-    intersections = (`pointAtZValue` v) <$> (sidesOf f)
+    intersections = (`pointAtZValue` v) <$> sidesOf f
     -- Get rid of the case where a tri intersects the plane at one point
     trimIntersections :: [Point2] -> Maybe (Point2,Point2)
     trimIntersections []      = Nothing

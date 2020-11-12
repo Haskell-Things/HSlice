@@ -140,6 +140,6 @@ formatFloat rawVal
         case digitString of
           ['0']        -> stringUtf8 "0.0e0"
           [whole]      -> charUtf8 whole <> stringUtf8 ".0e" <> eVal
-          (whole:frac) -> charUtf8 whole <> charUtf8 '.' <> (mconcat $ charUtf8 <$> frac) <> charUtf8 'e' <> eVal
+          (whole:frac) -> charUtf8 whole <> charUtf8 '.' <> mconcat (charUtf8 <$> frac) <> charUtf8 'e' <> eVal
           []           -> error "empty digit string?"
 

@@ -87,7 +87,7 @@ infillLineInside contour childContours line
                   saneIntersection (HitStartPointL2 l1 l2 p2) = if lineIsLeft l1 lineTo == lineIsLeft l1 l2 then Just [p2] else Nothing
                     where
                       lineTo   = preceedingLine (linesOfContour c) l2
-                  saneIntersection (HitEndPointL2 _ _ _) = Nothing
+                  saneIntersection (HitEndPointL2 {}) = Nothing
 --                  saneIntersection (HitEndPointL2 l1 l2 p2) = if lineIsLeft l1 l2 == lineIsLeft l1 lineFrom then Just [p2] else Nothing
 --                    where
 --                      lineFrom = followingLine  (linesOfContour c) l2
