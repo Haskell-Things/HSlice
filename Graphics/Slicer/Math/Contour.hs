@@ -17,11 +17,9 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- The purpose of this file is to hold information about contoured surfaces. -}
+module Graphics.Slicer.Math.Contour (followingLineSeg, preceedingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour) where
 
-module Graphics.Slicer.Math.Contour (followingLine, preceedingLine, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour) where
-
-import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, (<>))
+import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, (<>), (<), (/), floor)
 
 import Data.List(tail, last, head, partition, reverse, sortBy)
 
@@ -29,13 +27,13 @@ import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
 
 import Data.Either (fromRight)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2))
+import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2), mapWithNeighbors)
 
-import Graphics.Slicer.Math.Line (Line, lineFromEndpoints, makeLinesLooped, makeLines, endpoint, midpoint)
+import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, makeLineSegsLooped, makeLineSegs, endpoint, midpoint)
 
-import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, IntersectsAt, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, Collinear, LColinear), lineIntersection, lineIsLeft, pointOnPerp)
+import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, IntersectsAt, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, Collinear, LColinear), lineIntersection, lineIsLeft, pointOnPerp, distancePPointToPLine, eToPPoint2, PLine2, plinesIntersectIn, PIntersection(Colinear,IntersectsIn,PParallel,PAntiParallel), eToPLine2)
 
-import Graphics.Implicit.Definitions (ℝ)
+import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -125,12 +123,12 @@ getContours pointPairs = maybeFlipContour <$> foundContours
     -- make sure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
     maybeFlipContour :: Contour -> Contour
     maybeFlipContour contour@(PointSequence contourPoints)
-      | insideIsLeft contour $ firstLineOf contour = contour
+      | insideIsLeft contour $ firstLineSegOf contour = contour
       | otherwise = PointSequence $ reverse contourPoints
       where
-        firstLineOf (PointSequence ps) = head $ makeLines ps
+        firstLineSegOf (PointSequence ps) = head $ makeLineSegs ps
 
--- | a contour tree. A contour, which contains a list of contours that are cut out of the first contour, each of them contaiting a list of contours of positive space.. recursively.
+-- | A contour tree. A contour, which contains a list of contours that are cut out of the first contour, each of them contaiting a list of contours of positive space.. ad infinatum.
 newtype ContourTree = ContourTree (Contour, [ContourTree])
   deriving (Show)
 
@@ -143,17 +141,17 @@ makeContourTree contours  = [ContourTree (foundContour, makeContourTree $ contou
     contoursWithAncestor cs c = mapMaybe (\cx -> if contourContainsContour c cx then Just cx else Nothing) $ filter (/=c) cs
     contoursWithoutParents cs = catMaybes $ [ if null $ mapMaybe (\cx -> if contourContainedByContour contourToCheck cx then Just cx else Nothing) (filter (/=contourToCheck) cs) then Just contourToCheck else Nothing | contourToCheck <- cs ]
 
--- | determine whether a contour is contained inside of another contour.
+-- | Determine whether a contour is contained inside of another contour.
 -- FIXME: magic numbers.
 contourContainsContour :: Contour -> Contour -> Bool
 contourContainsContour parent child = odd noIntersections
   where
-    noIntersections = length $ getContourLineIntersections parent $ lineToEdge $ innerPointOf child
-    lineToEdge p = fromRight (error "cannot construct lineToEdge") $ lineFromEndpoints p (Point2 (-1,-1))
-    getContourLineIntersections :: Contour -> Line -> [Point2]
-    getContourLineIntersections (PointSequence contourPoints) line
+    noIntersections = length $ getContourLineSegIntersections parent $ lineSegToEdge $ innerPointOf child
+    lineSegToEdge p = fromRight (error "cannot construct lineToEdge") $ lineSegFromEndpoints p (Point2 (-1,-1))
+    getContourLineSegIntersections :: Contour -> LineSeg -> [Point2]
+    getContourLineSegIntersections (PointSequence contourPoints) line
       | null contourPoints = []
-      | otherwise = mapMaybe (saneIntersection . lineIntersection line) $ makeLinesLooped contourPoints
+      | otherwise = mapMaybe (saneIntersection . lineIntersection line) $ makeLineSegsLooped contourPoints
     saneIntersection :: Intersection -> Maybe Point2
     saneIntersection (IntersectsAt p2) = Just p2
     saneIntersection NoIntersection = Nothing
@@ -162,45 +160,45 @@ contourContainsContour parent child = odd noIntersections
     saneIntersection Collinear = Nothing
     saneIntersection (LColinear _ _) = Nothing
     saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
-    innerPointOf contour = innerContourPoint 0.00001 contour $ oneLineOf contour
+    innerPointOf contour = innerContourPoint 0.00001 contour $ oneLineSegOf contour
       where
-        oneLineOf (PointSequence contourPoints) = head $ makeLines contourPoints
+        oneLineSegOf (PointSequence contourPoints) = head $ makeLineSegs contourPoints
 
 -- | determine whether a contour is contained by another contour.
 contourContainedByContour :: Contour -> Contour -> Bool
 contourContainedByContour child parent = contourContainsContour parent child
 
 -- Search the given sequential list of lines (assumedly generated from a contour), and return the line after this one.
-followingLine :: [Line] -> Line -> Line
-followingLine x = followingLineLooped x x
+followingLineSeg :: [LineSeg] -> LineSeg -> LineSeg
+followingLineSeg x = followingLineSegLooped x x
   where
-    followingLineLooped :: [Line] -> [Line] -> Line -> Line
-    followingLineLooped [] _ l1 = error $ "reached beginning of contour, and did not find supplied line: " <> show l1 <> "\n"
-    followingLineLooped _ [] l1 = error $ "reached end of contour, and did not find supplied line: " <> show l1 <> "\n"
-    followingLineLooped [a] (b:_) l1 = if a == l1 then b else followingLineLooped [a] [] l1
-    followingLineLooped (a:b:xs) set l1 = if a == l1 then b else followingLineLooped (b:xs) set l1
+    followingLineSegLooped :: [LineSeg] -> [LineSeg] -> LineSeg -> LineSeg
+    followingLineSegLooped [] _ l1 = error $ "reached beginning of contour, and did not find supplied line: " <> show l1 <> "\n"
+    followingLineSegLooped _ [] l1 = error $ "reached end of contour, and did not find supplied line: " <> show l1 <> "\n"
+    followingLineSegLooped [a] (b:_) l1 = if a == l1 then b else followingLineSegLooped [a] [] l1
+    followingLineSegLooped (a:b:xs) set l1 = if a == l1 then b else followingLineSegLooped (b:xs) set l1
 
 -- Search the given sequential list of lines (assumedly generated from a contour), and return the line before this one.
-preceedingLine :: [Line] -> Line -> Line
-preceedingLine x = preceedingLineLooped x x
+preceedingLineSeg :: [LineSeg] -> LineSeg -> LineSeg
+preceedingLineSeg x = preceedingLineSegLooped x x
   where
-    preceedingLineLooped :: [Line] -> [Line] -> Line -> Line
-    preceedingLineLooped [] _ l1 = error $ "reached beginning of contour, and did not find supplied line: " <> show l1 <> "\n"
-    preceedingLineLooped _ [] l1 = error $ "reached end of contour, and did not find supplied line: " <> show l1 <> "\n"
-    preceedingLineLooped [a] (b:_) l1 = if b == l1 then a else preceedingLineLooped [a] [] l1
-    preceedingLineLooped (a:b:xs) set l1 = if b == l1 then a else preceedingLineLooped (b:xs) set l1
+    preceedingLineSegLooped :: [LineSeg] -> [LineSeg] -> LineSeg -> LineSeg
+    preceedingLineSegLooped [] _ l1 = error $ "reached beginning of contour, and did not find supplied line: " <> show l1 <> "\n"
+    preceedingLineSegLooped _ [] l1 = error $ "reached end of contour, and did not find supplied line: " <> show l1 <> "\n"
+    preceedingLineSegLooped [a] (b:_) l1 = if b == l1 then a else preceedingLineSegLooped [a] [] l1
+    preceedingLineSegLooped (a:b:xs) set l1 = if b == l1 then a else preceedingLineSegLooped (b:xs) set l1
 
 -- | Check if the left hand side of this line in toward the inside of the contour it is a part of.
-insideIsLeft :: Contour -> Line -> Bool
-insideIsLeft contour line = lineIsLeft lineSecondHalf lineToInside == Just True
+insideIsLeft :: Contour -> LineSeg -> Bool
+insideIsLeft contour lineSegment = lineIsLeft lineSecondHalf lineToInside == Just True
   --error $ show (lineSecondHalf) <> "\n" <> show lineToInside <> "\n" <> show (innerContourPoint 0.1 contour line) <> "\n" <> show (lineIsLeft lineSecondHalf lineToInside) <> "\n" 
   where
-    lineSecondHalf = fromRight (error "cannot construct SecondHalf") $ lineFromEndpoints (midpoint line) (endpoint line)
-    lineToInside = fromRight (error "cannot construct lineToInside") $ lineFromEndpoints (midpoint line) $ innerContourPoint 0.00001 contour line
+    lineSecondHalf = fromRight (error "cannot construct SecondHalf") $ lineSegFromEndpoints (midpoint lineSegment) (endpoint lineSegment)
+    lineToInside = fromRight (error "cannot construct lineToInside") $ lineSegFromEndpoints (midpoint lineSegment) $ innerContourPoint 0.00001 contour lineSegment
 
 -- | Find a point on the interior of the given contour, on the perpendicular bisector of the given line, a given distance from the line.
 -- FIXME: assumes we are in positive space.
-innerContourPoint :: ℝ -> Contour -> Line -> Point2
+innerContourPoint :: ℝ -> Contour -> LineSeg -> Point2
 innerContourPoint distance contour l
     | odd numIntersections = perpPoint
     | otherwise            = otherPerpPoint
@@ -212,16 +210,16 @@ innerContourPoint distance contour l
 
 -- | return the intersections with a given contour when traveling a straight line from srcPoint to dstPoint.
 intersections :: Point2 -> Contour -> Point2 -> [Point2]
-intersections dstPoint contour srcPoint = saneIntersections l0 $ contourLines contour
+intersections dstPoint contour srcPoint = saneIntersections l0 $ contourLineSegs contour
   where
     -- The line we are checking for intersections along.
-    l0 = fromRight (error "cannot construct target line") $ lineFromEndpoints srcPoint dstPoint
-    contourLines (PointSequence c) = makeLinesLooped c
+    l0 = fromRight (error "cannot construct target line") $ lineSegFromEndpoints srcPoint dstPoint
+    contourLineSegs (PointSequence c) = makeLineSegsLooped c
     -- a filter for results that make sense.
-    saneIntersections :: Line -> [Line] -> [Point2]
+    saneIntersections :: LineSeg -> [LineSeg] -> [Point2]
     saneIntersections l1 ls = mapMaybe saneIntersectionOf ls
       where
-        saneIntersectionOf :: Line -> Maybe Point2
+        saneIntersectionOf :: LineSeg -> Maybe Point2
         saneIntersectionOf l2 = saneIntersection (lineIntersection l1 l2)
           where
             saneIntersection :: Intersection -> Maybe Point2
@@ -229,7 +227,7 @@ intersections dstPoint contour srcPoint = saneIntersections l0 $ contourLines co
             saneIntersection NoIntersection = Nothing
             saneIntersection Parallel = Nothing
             saneIntersection AntiParallel = Nothing
-    -- FIXME: fix these cases. steal the code from infillLineInside.
+    -- FIXME: fix these cases. steal the code / algorithms from infillLineSegInside.
     --          saneIntersection Collinear = Nothing
     --          saneIntersection LColinear _ _ = Nothing
     --          saneIntersection (HitStartPointL2 p2) = Just p2

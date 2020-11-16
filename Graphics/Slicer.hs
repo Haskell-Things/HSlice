@@ -24,7 +24,6 @@
 module Graphics.Slicer (
   module MD,
   module MP,
-  module ML,
   module MC,
   module MS,
   module MeD,
@@ -38,8 +37,6 @@ import Prelude ()
 import Graphics.Slicer.Math.Definitions as MD (Point2(Point2),Point3(Point3), Contour(PointSequence), distance, addPoints, scalePoint, roundPoint2)
 
 import Graphics.Slicer.Math.Point as MP (crossProduct, twoDCrossProduct)
-
-import Graphics.Slicer.Math.Line as ML (Line(Line), lineFromEndpoints, midpoint, endpoint, pointAtZValue, makeLines, makeLinesLooped, pointsFromLines)
 
 import Graphics.Slicer.Math.Contour as MC (getContours, makeContourTree, ContourTree(ContourTree))
 

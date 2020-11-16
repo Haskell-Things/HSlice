@@ -44,7 +44,7 @@ import Graphics.Slicer.Definitions(ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour(PointSequence), distance, roundToFifth)
 
-import Graphics.Slicer.Math.Line (Line(Line), endpoint)
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
 
 import Graphics.Slicer.Math.Slicer (accumulateValues)
 
@@ -167,22 +167,22 @@ gcodeForContour lh pathWidth (PointSequence contourPoints)
   | otherwise                 = []
 
 -- | For each group of lines, generate gcode for the segments, with move commands between them.
-gcodeForInfill :: ℝ -> ℝ -> [[Line]] -> [GCode]
+gcodeForInfill :: ℝ -> ℝ -> [[LineSeg]] -> [GCode]
 gcodeForInfill _ _ [] = []
-gcodeForInfill lh pathWidth lineGroups = concat $ renderLineGroup (head lineGroups) : zipWith (\group1 group2 -> moveBetweenLineGroups group1 group2 ++ renderLineGroup group2) (init lineGroups) (tail lineGroups)
+gcodeForInfill lh pathWidth lineGroups = concat $ renderLineSegGroup (head lineGroups) : zipWith (\group1 group2 -> moveBetweenLineSegGroups group1 group2 ++ renderLineSegGroup group2) (init lineGroups) (tail lineGroups)
   where
     -- FIXME: this should be a single gcode. why are we getting empty line groups given to us?
-    moveBetweenLineGroups :: [Line] -> [Line] -> [GCode]
-    moveBetweenLineGroups [] g2 = error $ "given empty line group?\n" <> show g2 <> "\n"
-    moveBetweenLineGroups g1 [] = error $ "line group empty when finding line group following " <> show g1 <> "\n"
-    moveBetweenLineGroups g1 g2 = [moveBetween (last g1) (head g2)]
-    renderLineGroup :: [Line] -> [GCode]
-    renderLineGroup [] = []
-    renderLineGroup group = renderSegment (head group) : concat (zipWith (\ l1 l2 -> moveBetween l1 l2 : [renderSegment l2]) (init group) (tail group))
-    moveBetween :: Line -> Line -> GCode
-    moveBetween l1 (Line startPointl2 _) = make2DTravelGCode (endpoint l1) startPointl2
-    renderSegment :: Line -> GCode
-    renderSegment ln@(Line startPoint _) = make2DExtrudeGCode lh pathWidth startPoint $ endpoint ln
+    moveBetweenLineSegGroups :: [LineSeg] -> [LineSeg] -> [GCode]
+    moveBetweenLineSegGroups [] g2 = error $ "given empty line group?\n" <> show g2 <> "\n"
+    moveBetweenLineSegGroups g1 [] = error $ "line group empty when finding line group following " <> show g1 <> "\n"
+    moveBetweenLineSegGroups g1 g2 = [moveBetween (last g1) (head g2)]
+    renderLineSegGroup :: [LineSeg] -> [GCode]
+    renderLineSegGroup [] = []
+    renderLineSegGroup group = renderSegment (head group) : concat (zipWith (\ l1 l2 -> moveBetween l1 l2 : [renderSegment l2]) (init group) (tail group))
+    moveBetween :: LineSeg -> LineSeg -> GCode
+    moveBetween l1 (LineSeg startPointl2 _) = make2DTravelGCode (endpoint l1) startPointl2
+    renderSegment :: LineSeg -> GCode
+    renderSegment ln@(LineSeg startPoint _) = make2DExtrudeGCode lh pathWidth startPoint $ endpoint ln
 
 ----------------------------------------------------
 ------------------ FIXED STRINGS -------------------

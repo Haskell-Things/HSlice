@@ -28,9 +28,9 @@ import Data.Either (fromRight)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), addPoints, mapWithNeighbors)
 
-import Graphics.Slicer.Math.Line (Line(Line), makeLinesLooped, pointsFromLines, lineFromEndpoints, endpoint)
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg), makeLineSegsLooped, pointsFromLineSegs, lineSegFromEndpoints, endpoint)
 
-import Graphics.Slicer.Math.PGA (combineConsecutiveLines, Intersection(IntersectsAt, Collinear, Parallel), plinesIntersectAt, translatePerp, eToPLine2, angleBetween)
+import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, Intersection(IntersectsAt, Collinear, Parallel), plinesIntersectAt, translatePerp, eToPLine2, angleBetween)
 
 import Graphics.Slicer.Definitions(ℝ)
 
@@ -47,7 +47,7 @@ cleanContour (PointSequence points)
     cleanPoints :: [Point2] -> [Point2]
     cleanPoints pts
       | null pts = []
-      | length pts > 2 = fromRight (error "no lines left") $ pointsFromLines $ combineConsecutiveLines $ makeLinesLooped pts
+      | length pts > 2 = fromRight (error "no lines left") $ pointsFromLineSegs $ combineConsecutiveLineSegs $ makeLineSegsLooped pts
       | otherwise = [] 
 
 ---------------------------------------------------------------
@@ -74,18 +74,18 @@ modifyContour :: ℝ -> Contour -> Direction -> (Maybe Contour,[Contour])
 modifyContour pathWidth (PointSequence contourPoints) direction
   | null contourPoints = error "tried to modify an empty contour."
   | null foundContour  = (Nothing, [])
-  | otherwise          = (Just $ PointSequence $ fromRight (error "found contour is empty") $ pointsFromLines foundContour,[])
+  | otherwise          = (Just $ PointSequence $ fromRight (error "found contour is empty") $ pointsFromLineSegs foundContour,[])
   where
     -- FIXME: implement me. we need this to handle further interior contours, and only check against the contour they are inside of.
     foundContour
-      | length contourPoints > 2 = catMaybes maybeLines
+      | length contourPoints > 2 = catMaybes maybeLineSegs
       | otherwise = error $ "tried to modify a contour with too few points: " <> show (length contourPoints) <> "\n"
       where
         -- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.
         -- FIXME: draw a line before, and after the intersection. return two lines?
-        maybeLines = mapWithNeighbors findLine $ removeDegenerates $ makeLinesLooped contourPoints
+        maybeLineSegs = mapWithNeighbors findLineSeg $ removeDegenerates $ makeLineSegsLooped contourPoints
         -- Remove sequential parallel lines, colinear sequential lines, and lines that are too close to parallel.
-        removeDegenerates :: [Line] -> [Line]
+        removeDegenerates :: [LineSeg] -> [LineSeg]
         removeDegenerates lns
           | length res == length lns = res
           | otherwise                = removeDegenerates res
@@ -93,20 +93,20 @@ modifyContour pathWidth (PointSequence contourPoints) direction
             res = removeDegenerateEnds $ foldl concatDegenerates [] lns
             concatDegenerates xs x
               | null xs = [x]
-              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = init xs ++ maybeToList (combineLines (last xs) x)
+              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = init xs ++ maybeToList (combineLineSegs (last xs) x)
               | otherwise = xs ++ [x]
-            removeDegenerateEnds :: [Line] -> [Line]
+            removeDegenerateEnds :: [LineSeg] -> [LineSeg]
             removeDegenerateEnds  []      = []
             removeDegenerateEnds  [l1]    = [l1]
             removeDegenerateEnds  (l1:ls)
-              | length ls > 1 = if isDegenerate (inwardAdjust (last ls)) (inwardAdjust l1) then init ls ++ maybeToList (combineLines (last ls) l1) else l1:ls
+              | length ls > 1 = if isDegenerate (inwardAdjust (last ls)) (inwardAdjust l1) then init ls ++ maybeToList (combineLineSegs (last ls) l1) else l1:ls
               | otherwise = l1:ls
             -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
             -- if p2 == p3 and the lines are really close to parallel
-            combineLines :: Line -> Line -> Maybe Line
-            combineLines l1@(Line p _) l2@(Line p1 s1) = if endpoint l2 == p -- If line 2 ends where line 1 begins:
+            combineLineSegs :: LineSeg -> LineSeg -> Maybe LineSeg
+            combineLineSegs l1@(LineSeg p _) l2@(LineSeg p1 s1) = if endpoint l2 == p -- If line 2 ends where line 1 begins:
                                                          then Nothing -- handle a contour that loops back on itsself.
-                                                         else Just $ fromRight (error $ "cannot combine lines: " <> show l1 <> "\n" <> show l2 <> "\n") $ lineFromEndpoints p (addPoints p1 s1)
+                                                         else Just $ fromRight (error $ "cannot combine lines: " <> show l1 <> "\n" <> show l2 <> "\n") $ lineSegFromEndpoints p (addPoints p1 s1)
             isDegenerate pl1 pl2
               | angleBetween pl1 pl2 < (-0.999) = True
               | angleBetween pl1 pl2 >   0.999  = True
@@ -115,11 +115,11 @@ modifyContour pathWidth (PointSequence contourPoints) direction
                               Collinear -> True
                               _         -> False
         inwardAdjust l1 = translatePerp (eToPLine2 l1) (if direction == Inward then pathWidth else (-pathWidth))
-        findLine :: Line -> Line -> Line -> Maybe Line
-        findLine previousln ln nextln
+        findLineSeg :: LineSeg -> LineSeg -> LineSeg -> Maybe LineSeg
+        findLineSeg previousln ln nextln
           -- The ideal case.
           | isIntersection previousln ln &&
-            isIntersection ln nextln        = Just $ fromRight ( error "failed to construct intersection") $ lineFromEndpoints (intersectionPoint (inwardAdjust previousln) (inwardAdjust ln)) (intersectionPoint (inwardAdjust ln) (inwardAdjust nextln))
+            isIntersection ln nextln        = Just $ fromRight ( error "failed to construct intersection") $ lineSegFromEndpoints (intersectionPoint (inwardAdjust previousln) (inwardAdjust ln)) (intersectionPoint (inwardAdjust ln) (inwardAdjust nextln))
           | otherwise = error $ "no intersection?\n" <> show (isIntersection previousln ln) <> "\n" <> show (isIntersection ln nextln) <> "\n" <> show previousln <> "\n" <> show ln <> "\n" <> show nextln <> "\n"
           where
             isIntersection l1 l2 = case plinesIntersectAt (inwardAdjust l1) (inwardAdjust l2) of

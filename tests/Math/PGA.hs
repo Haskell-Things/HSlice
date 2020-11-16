@@ -25,12 +25,10 @@ import Prelude (($), Bool(True,False), (<$>), length, Either(Right))
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it)
 
-import Data.Either (fromRight)
-
 import Data.Maybe (fromJust)
 
--- The numeric type in HSlice, and the type for a euclidian line segment.
-import Graphics.Slicer (ℝ,Line(Line))
+-- The numeric type in HSlice.
+import Graphics.Slicer (ℝ)
 
 -- A euclidian point.
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence), roundPoint2)
@@ -41,7 +39,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus), GVal(GVal), 
 -- Our 2D Projective Geometric Algebra library.
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp)
 
-import Graphics.Slicer.Math.Line (makeLinesLooped, pointsFromLines)
+import Graphics.Slicer.Math.Line (makeLineSegsLooped, pointsFromLineSegs, LineSeg(LineSeg))
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours)
@@ -64,7 +62,7 @@ linearAlgSpec = do
     it "contours made from an out of order list of point pairs is put into order" $
       getContours oocl1 --> [c1]
     it "contours converted from points to lines then back to points give the input list" $
-      pointsFromLines (makeLinesLooped cp1) --> Right cp1
+      pointsFromLineSegs (makeLineSegsLooped cp1) --> Right cp1
     it "a bigger contour containing a smaller contour is detected by contourContainsContour" $
       contourContainsContour c1 c2 --> True
     it "a smaller contour contained in a bigger contour is not detected by contourContainsContour" $
@@ -81,20 +79,20 @@ linearAlgSpec = do
       (roundPoint2 <$> pointsOfContour (fromJust $ expandContour 0.1 [] $ fromJust $ shrinkContour 0.1 [] c2)) --> roundPoint2 <$> pointsOfContour c2
   describe "Infill" $ do
     it "infills exactly one line inside of a box big enough for only one line (Horizontal)" $
-      makeInfill c1 [] 0.5 Horiz --> [[Line (Point2 (0,0.5)) (Point2 (1,0))]]
+      makeInfill c1 [] 0.5 Horiz --> [[LineSeg (Point2 (0,0.5)) (Point2 (1,0))]]
     it "infills exactly one line inside of a box big enough for only one line (Vertical)" $
-      makeInfill c1 [] 0.5 Vert --> [[Line (Point2 (0.5,0)) (Point2 (0,1))]]
+      makeInfill c1 [] 0.5 Vert --> [[LineSeg (Point2 (0.5,0)) (Point2 (0,1))]]
   describe "Translation" $ do
     it "a translated line translated back is the same line" $
       translatePerp (translatePerp (eToPLine2 l1) 1) (-1) --> eToPLine2 l1
     it "a projection on the perpendicular bisector of an axis aligned line is on the other axis" $
-      pointOnPerp (Line (Point2 (1,1)) (Point2 (0,1))) (Point2 (1,1)) 1 --> Point2 (2,1)
+      pointOnPerp (LineSeg (Point2 (1,1)) (Point2 (0,1))) (Point2 (1,1)) 1 --> Point2 (2,1)
   where
     -- FIXME: reversing this breaks the infill tests?
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
     oocl1 = [(Point2 (1,0), Point2 (0,0)), (Point2 (0,1), Point2 (1,1)), (Point2 (0,0), Point2 (0,1)), (Point2 (1,1), Point2 (1,0))]
     cl1 = [(Point2 (0,0), Point2 (0,1)), (Point2 (0,1), Point2 (1,1)), (Point2 (1,1), Point2 (1,0)), (Point2 (1,0), Point2 (0,0))]
-    l1 = Line (Point2 (1,1)) (Point2 (2,2))
+    l1 = LineSeg (Point2 (1,1)) (Point2 (2,2))
     c1 = PointSequence cp1
     c2 = PointSequence [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
     c3 = PointSequence [Point2 (3,0), Point2 (3,1), Point2 (2,1), Point2 (2,0)]
@@ -168,15 +166,15 @@ proj2DGeomAlgSpec = do
   describe "Lines" $ do
     -- (-2e2)*2e1 = 4e12
     it "the intersection of a line along the X axis and a line along the Y axis is the origin point" $
-      (\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (-1,0)) (Point2 (2,0)))) ∧ (\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (0,-1)) (Point2 (0,2)))) --> GVec [GVal 4 [GEPlus 1, GEPlus 2]]
+      (\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (-1,0)) (Point2 (2,0)))) ∧ (\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (0,-1)) (Point2 (0,2)))) --> GVec [GVal 4 [GEPlus 1, GEPlus 2]]
     -- (-2e0+1e1)^(2e0-1e2) = -1e01+2e02-e12
     it "the intersection of a line two points above the X axis, and a line two points to the right of the Y axis is at (2,2) in the upper right quadrant" $
-      vectorPart ((\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (2,0)) (Point2 (0,1)))) ∧ (\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (0,2)) (Point2 (1,0))))) -->
+      vectorPart ((\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (2,0)) (Point2 (0,1)))) ∧ (\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (0,2)) (Point2 (1,0))))) -->
       GVec [GVal (-2) [GEZero 1, GEPlus 1], GVal 2 [GEZero 1, GEPlus 2], GVal (-1) [GEPlus 1, GEPlus 2]]
     -- (2e0+1e1-1e2)*(2e0+1e1-1e2) = 2
     it "the geometric product of two overlapping lines is only a Scalar" $
-      scalarPart ((\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (-1,1)) (Point2 (1,1)))) • (\(PLine2 a) -> a) (eToPLine2 (Line (Point2 (-1,1)) (Point2 (1,1))))) --> 2.0
+      scalarPart ((\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (-1,1)) (Point2 (1,1)))) • (\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (-1,1)) (Point2 (1,1))))) --> 2.0
     it "A line constructed from a line segment is equal to one constructed from joining two points" $
-      eToPLine2 (Line (Point2 (0,0)) (Point2 (1,1))) --> join2PPoint2 (eToPPoint2 (Point2 (0,0))) (eToPPoint2 (Point2 (1,1)))
+      eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,1))) --> join2PPoint2 (eToPPoint2 (Point2 (0,0))) (eToPPoint2 (Point2 (1,1)))
   where
     rawPPoint2 (x,y) = (\(PPoint2 v) -> v) $ eToPPoint2 (Point2 (x,y))

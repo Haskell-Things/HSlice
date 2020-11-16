@@ -68,7 +68,7 @@ import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString,
 
 import Graphics.Implicit.Definitions (ℝ, ℕ, Fastℕ(Fastℕ), fromFastℕ, fromFastℕtoℝ)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Line(Line), Contour(PointSequence), getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), makeContourTree, ContourTree(ContourTree))
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Contour(PointSequence), getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), makeContourTree, ContourTree(ContourTree))
 
 import Graphics.Slicer.Formats.STL.Definitions (trianglesFromSTL)
 
@@ -76,7 +76,7 @@ import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yO
 
 import Graphics.Slicer.Math.Tri (Tri, sidesOf, shiftTri, triIntersects)
 
-import Graphics.Slicer.Math.Line (flipLine)
+import Graphics.Slicer.Math.Line (flipLineSeg, LineSeg(LineSeg))
 
 import Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Horiz, Vert))
 
@@ -176,7 +176,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
     travelToContour contour = [make3DTravelGCode (Point3 (0,0,0)) (raise $ firstPoint contour)]
     travelBetweenContours :: Contour -> Contour -> [GCode]
     travelBetweenContours source dest = [make2DTravelGCode (lastPoint source) $ firstPoint dest]
-    travelFromContourToInfill :: Contour -> [[Line]] -> [GCode]
+    travelFromContourToInfill :: Contour -> [[LineSeg]] -> [GCode]
     travelFromContourToInfill source lines = if firstPointOfInfill lines /= Nothing then [addFeedRate infillSpeed $ make2DTravelGCode (lastPoint source) $ fromMaybe (Point2 (0,0)) $ firstPointOfInfill lines] else []
     renderContourTree :: ContourTree -> [GCode]
     renderContourTree (ContourTree (thisContour, subContours)) = renderSurface thisContour (interiorContours subContours) <> concat (renderContourTree <$> insidePositiveSpaces subContours)
@@ -193,7 +193,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           , renderChildOuterContours outsideContour outsideContourInnerWall
           , drawInnerContour outsideContourInnerWall
           , renderChildInnerContours outsideContourInnerWall outsideContour
-          , travelFromContourToInfill outsideContour infillLines
+          , travelFromContourToInfill outsideContour infillLineSegs
           , drawInfill
           ]
       | otherwise = concat [
@@ -202,7 +202,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           , renderChildInnerContours outsideContourInnerWall outsideContour
           , drawOuterContour outsideContour
           , renderChildOuterContours outsideContour outsideContourInnerWall
-          , travelFromContourToInfill outsideContourInnerWall infillLines
+          , travelFromContourToInfill outsideContourInnerWall infillLineSegs
           , drawInfill
           ]
         where
@@ -230,7 +230,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           childContoursInnerWalls = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
             where
               res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
-          infillLines = mapEveryOther (\l -> reverse $ flipLine <$> l) $ makeInfill infillOutsideContour infillChildContours (ls * (1/infill)) $ getInfillType print layerNumber
+          infillLineSegs = mapEveryOther (\l -> reverse $ flipLineSeg <$> l) $ makeInfill infillOutsideContour infillChildContours (ls * (1/infill)) $ getInfillType print layerNumber
             where
               infillOutsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2.5) insideContoursRaw outsideContourRaw
               infillChildContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
@@ -240,7 +240,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
           drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
           drawChildOuterContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init childContoursInnerWalls) (tail childContoursInnerWalls)
           drawChildContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) (init childContours) (tail childContours)
-          drawInfill = GCMarkInfillStart : gcodeForInfill lh ls infillLines
+          drawInfill = GCMarkInfillStart : gcodeForInfill lh ls infillLineSegs
   -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
   layerStart <> concat (renderContourTree <$> allContours) <> support <> layerEnd 
     where
@@ -262,17 +262,17 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
       {-
       supportContour :: Contour
       supportContour = foldMap (\l -> Contour [point l, endpoint l])
-                        $ mapEveryOther flipLine
+                        $ mapEveryOther flipLineSeg
                         $ makeSupport (head outerContours) outerContours layerThickness pathWidth zHeightOfLayer
       -}
       firstPoint (PointSequence contourPoints) = if not (null contourPoints) then head contourPoints else error "tried to get the first point of an empty contour.\n"
       -- since we always print contours as a big loop, the first point IS the last point.
       lastPoint (PointSequence contourPoints) = if not (null contourPoints) then head contourPoints else error "tried to get the last point of an empty contour.\n"
-      firstPointOfInfill :: [[Line]] -> Maybe Point2
+      firstPointOfInfill :: [[LineSeg]] -> Maybe Point2
       firstPointOfInfill [] = Nothing
-      firstPointOfInfill (x:_) = Just $ startOfLine $ head x
+      firstPointOfInfill (x:_) = Just $ startOfLineSeg $ head x
         where
-          startOfLine (Line p _) = p
+          startOfLineSeg (LineSeg p _) = p
       pathWidth = nozzleDiameter extruder
       raise (Point2 (x,y)) = Point3 (x, y, zHeightOfLayer)
       zHeightOfLayer = lh * (1 + fromFastℕtoℝ layerNumber)

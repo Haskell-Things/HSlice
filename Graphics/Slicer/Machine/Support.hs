@@ -34,13 +34,13 @@ import Graphics.Slicer.Definitions (ℝ,ℝ2)
 
 import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2), xOf, yOf, addPoints, scalePoint)
 
-import Graphics.Slicer.Machine.Infill (infillLineInside, coveringLinesVertical)
+import Graphics.Slicer.Machine.Infill (infillLineSegInside, coveringLineSegsVertical)
 
-import Graphics.Slicer.Math.Line (Line(Line))
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
 
 -- | shorten a line segment by a given amount in millimeters on each end
-shortenLineBy :: ℝ -> Line -> Line
-shortenLineBy amt (Line p m) = Line newStart newSlope
+shortenLineBy :: ℝ -> LineSeg -> LineSeg
+shortenLineBy amt (LineSeg p m) = LineSeg newStart newSlope
   where pct = amt / magnitude m
         newStart = addPoints p $ scalePoint pct m
         newSlope = scalePoint (1 - 2 * pct) m
@@ -54,10 +54,10 @@ makeSupport :: Contour
             -> [Contour]
             -> ℝ
             -> ℝ
-            -> [Line]
+            -> [LineSeg]
 makeSupport contour childContours lh ls = fmap (shortenLineBy $ 2 * lh)
-                                          $ concat $ catMaybes $ infillLineInside contour (addBBox childContours)
-                                          <$> coveringLinesVertical contour ls
+                                          $ concat $ catMaybes $ infillLineSegInside contour (addBBox childContours)
+                                          <$> coveringLineSegsVertical contour ls
 
 -- A bounding box. a box around a contour.
 data BBox = BBox ℝ2 ℝ2
