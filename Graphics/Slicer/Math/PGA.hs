@@ -20,7 +20,7 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(Collinear, LColinear, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection), lineIntersection, lineIntersectsAt, plinesIntersectAt, PIntersection (Colinear, PParallel, PAntiParallel, IntersectsIn), plinesIntersectIn, dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(Colinear, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection), lineIntersection, lineIntersectsAt, plinesIntersectIn, PIntersection (PColinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine) where
 
 import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), foldl, sqrt, head, null, negate, (/), error)
 
@@ -46,8 +46,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVa
 
 -- The Linear result of a line intersection in 2 dimensions.
 data Intersection =
-  Collinear
-  | LColinear LineSeg LineSeg
+  Colinear LineSeg LineSeg
   | Parallel
   | AntiParallel
   | IntersectsAt Point2
@@ -58,15 +57,16 @@ data Intersection =
 
 -- The Projective result of a line intersection in 2 dimensions.
 data PIntersection =
-  Colinear
+  PColinear
   | PParallel
   | PAntiParallel
   | IntersectsIn PPoint2
   deriving (Show)
 
+-- | Entry point when you know that the two PLine2s intersect.
 plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
 plinesIntersectIn pl1 pl2
-  | meet2PLine2 pl1 pl2       == PPoint2 (GVec []) = Colinear
+  | meet2PLine2 pl1 pl2       == PPoint2 (GVec []) = PColinear
   | scalarPart (rawPLine pl1 ⎣ rawPLine pl2) ==  1 = PParallel
   | scalarPart (rawPLine pl1 ⎣ rawPLine pl2) == -1 = PAntiParallel
   | otherwise                                      = IntersectsIn $ intersectionOf pl1 pl2
@@ -75,25 +75,16 @@ plinesIntersectIn pl1 pl2
 
 -- Wrapper, for line segment using code
 lineIntersectsAt :: LineSeg -> LineSeg -> Intersection
-lineIntersectsAt l1 l2 = case plinesIntersectAt (eToPLine2 l1) (eToPLine2 l2) of
-                           Collinear -> LColinear l1 l2
-                           a         -> a
-
--- | Entry point when you know that the two PLine2s intersect.
-plinesIntersectAt :: PLine2 -> PLine2 -> Intersection
-plinesIntersectAt pl1 pl2
-  | meet2PLine2 pl1 pl2       == PPoint2 (GVec []) = Collinear
-  | scalarPart (rawPLine pl1 ⎣ rawPLine pl2) ==  1 = Parallel
-  | scalarPart (rawPLine pl1 ⎣ rawPLine pl2) == -1 = AntiParallel
-  | otherwise                                      = IntersectsAt intersection
-  where
-    rawPLine (PLine2 a) = a
-    intersection = intersectPLines pl1 pl2
+lineIntersectsAt l1 l2 = case plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) of
+                           PColinear      -> Colinear l1 l2
+                           PParallel      -> Parallel
+                           PAntiParallel  -> AntiParallel
+                           IntersectsIn a -> IntersectsAt $ pToEPoint2 a
 
 -- | Check if/where two line segments intersect.
 lineIntersection :: LineSeg -> LineSeg -> Intersection
 lineIntersection l1 l2@(LineSeg p2 s2)
-  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])         = LColinear l1 l2
+  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])         = Colinear l1 l2
   | onSegment l1 intersection && onSegment l2 intersection && intersection == p2 = HitStartPointL2 l1 l2 intersection
   | onSegment l1 intersection && onSegment l2 intersection && intersection == addPoints p2 s2 = HitEndPointL2 l1 l2 intersection
   | onSegment l1 intersection && onSegment l2 intersection = IntersectsAt intersection
@@ -171,10 +162,9 @@ intersectionPoint l1 l2 = intersectPLines (eToPLine2 l1) (eToPLine2 l2)
 
 -- Find out where two lines intersect, returning a linear point.
 intersectPLines :: PLine2 -> PLine2 -> Point2
-intersectPLines pl1 pl2 = Point2 (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] pPoint
-                                 ,         valOf 0 $ getVals [GEZero 1, GEPlus 1] pPoint)
+intersectPLines pl1 pl2 = pToEPoint2 res
   where
-    pPoint = (\(PPoint2 (GVec vals)) -> vals) $ intersectionOf pl1 pl2
+    res = intersectionOf pl1 pl2
 
 -- Find out where two lines intersect, returning a projective point.
 intersectionOf :: PLine2 -> PLine2 -> PPoint2
@@ -217,6 +207,12 @@ meet2PPoint2 pp1 pp2 = pv1 ⎤ pv2
 -- | Create a 2D projective point from a 2D euclidian point.
 eToPPoint2 :: Point2 -> PPoint2
 eToPPoint2 (Point2 (x,y)) = PPoint2 $ GVec $ foldl addVal [GVal 1 [GEPlus 1, GEPlus 2]] [ GVal (-x) [GEZero 1, GEPlus 2], GVal y [GEZero 1, GEPlus 1] ]
+
+-- | Create a 2D euclidian point from a 2D projective point.
+pToEPoint2 :: PPoint2 -> Point2
+pToEPoint2 (PPoint2 (GVec pPoint)) = Point2 (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] pPoint
+                                            ,         valOf 0 $ getVals [GEZero 1, GEPlus 1] pPoint)
+
 
 idealPPoint2 :: PPoint2 -> PPoint2
 idealPPoint2 (PPoint2 (GVec vals)) = PPoint2 $ GVec $ foldl addVal []

@@ -31,7 +31,7 @@ import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2),
 
 import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, makeLineSegsLooped, makeLineSegs, endpoint, midpoint)
 
-import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, IntersectsAt, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, Collinear, LColinear), lineIntersection, lineIsLeft, pointOnPerp, distancePPointToPLine, eToPPoint2, PLine2, plinesIntersectIn, PIntersection(Colinear,IntersectsIn,PParallel,PAntiParallel), eToPLine2)
+import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, IntersectsAt, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, Colinear), lineIntersection, lineIsLeft, pointOnPerp, distancePPointToPLine, eToPPoint2, PLine2, plinesIntersectIn, PIntersection(PColinear,IntersectsIn,PParallel,PAntiParallel), eToPLine2)
 
 import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 
@@ -157,8 +157,7 @@ contourContainsContour parent child = odd noIntersections
     saneIntersection NoIntersection = Nothing
     saneIntersection Parallel = Nothing
     saneIntersection AntiParallel = Nothing
-    saneIntersection Collinear = Nothing
-    saneIntersection (LColinear _ _) = Nothing
+    saneIntersection (Colinear _ _) = Nothing
     saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
     innerPointOf contour = innerContourPoint 0.00001 contour $ oneLineSegOf contour
       where
@@ -234,3 +233,36 @@ intersections dstPoint contour srcPoint = saneIntersections l0 $ contourLineSegs
     --          saneIntersection (HitEndPointL2 p2) = Just p2
             saneIntersection res = error $ "insane result of intersecting a line (" <> show l1 <> ") with it's bisector: " <> show l2 <> "\nwhen finding an inner contour point on contour " <> show ls <> "\n" <> show res <> "\n"
 
+-- | A face.
+--   A portion of a contour, with a real side, and arcs (line segments between nodes) dividing it from other faces.
+--   Faces have no holes, and their arcs and nodes (lines and points) are from a straight skeleton of a contour.
+data Face = Face { _realSide :: LineSeg, _arcs :: [PLine2] }
+  deriving (Show, Eq)
+
+-- | construct a set of faces, using a straight skeleton to divide up the area of a contour.
+makeFaces :: Contour -> [Contour] -> [Face]
+makeFaces = error "undefined!"
+  where
+    motorcycles :: Contour -> [(Point2, PLine2)]
+    motorcycles (PointSequence c) = error "undefined!"
+
+-- Place lines on a face.
+addLineSegs :: Face -> Fastℕ -> ℝ -> ([LineSeg], Maybe Face)
+addLineSegs face@(Face realSide arcs) count lineWidth
+  | length arcs == 2 = triangleFace face count lineWidth
+  | otherwise        = error "undefined!"
+    where
+      -- | handle faces that are triangular. easy case.
+      triangleFace :: Face -> Fastℕ -> ℝ -> ([LineSeg], Maybe Face)
+      triangleFace f@(Face realSide (a1:a2:[])) n lw = (foundLineSegs, remainder)
+        where
+          foundLineSegs = error "undefined" -- [ lineFromEndpoints start fin | (a,b) <- (
+          remainder  = error "undefined"
+          linesToRender = if linesUntilEnd < n then linesUntilEnd else n
+          linesUntilEnd = floor $ (distancePPointToPLine (intersectionOf a1 a2) (eToPLine2 realSide)) / lw
+          intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
+            where
+              saneIntersection PColinear            = error "impossible!"
+              saneIntersection PParallel            = error "impossible!"
+              saneIntersection PAntiParallel        = error "impossible!"
+              saneIntersection (IntersectsIn point) = point

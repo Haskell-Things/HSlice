@@ -34,7 +34,7 @@ import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence),
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), makeLineSegs, makeLineSegsLooped)
 
-import Graphics.Slicer.Math.PGA (Intersection(HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection, Parallel, AntiParallel, Collinear, LColinear), lineIntersection, lineIsLeft)
+import Graphics.Slicer.Math.PGA (Intersection(HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection, Parallel, AntiParallel, Colinear), lineIntersection, lineIsLeft)
 
 import Graphics.Slicer.Math.Contour (preceedingLineSeg)
 
@@ -79,7 +79,7 @@ infillLineSegInside contour childContours line
                 where
                   saneIntersection :: Intersection -> Maybe [Point2]
                   -- FIXME: we should 'stitch out' colinear segments, not just ignore them.
-                  saneIntersection (LColinear _ _) = Nothing
+                  saneIntersection (Colinear _ _) = Nothing
 --                  saneIntersection (LColinear l1 l2@(Line p2 _)) = if lineIsLeft l1 lineTo == lineIsLeft l1 lineFrom then Just [p2, endpoint l2] else Nothing
 --                    where
 --                      lineTo   = preceedingLine (linesOfContour c) l2
@@ -95,7 +95,6 @@ infillLineSegInside contour childContours line
                   saneIntersection NoIntersection = Nothing
                   saneIntersection Parallel = Nothing
                   saneIntersection AntiParallel = Nothing
-                  saneIntersection Collinear = error "not possible?"
 
 -- Generate lines over entire print area, where each one is aligned with a -1 slope.
 -- FIXME: other ways to only generate covering lines over the outer contour?

@@ -30,7 +30,7 @@ import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence),
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), makeLineSegsLooped, pointsFromLineSegs, lineSegFromEndpoints, endpoint)
 
-import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, Intersection(IntersectsAt, Collinear, Parallel), plinesIntersectAt, translatePerp, eToPLine2, angleBetween)
+import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn, PColinear, PParallel), plinesIntersectIn, translatePerp, eToPLine2, pToEPoint2, angleBetween)
 
 import Graphics.Slicer.Definitions(ℝ)
 
@@ -110,9 +110,9 @@ modifyContour pathWidth (PointSequence contourPoints) direction
             isDegenerate pl1 pl2
               | angleBetween pl1 pl2 < (-0.999) = True
               | angleBetween pl1 pl2 >   0.999  = True
-              | otherwise = case plinesIntersectAt pl1 pl2 of
-                              Parallel  -> True
-                              Collinear -> True
+              | otherwise = case plinesIntersectIn pl1 pl2 of
+                              PParallel -> True
+                              PColinear -> True
                               _         -> False
         inwardAdjust l1 = translatePerp (eToPLine2 l1) (if direction == Inward then pathWidth else (-pathWidth))
         findLineSeg :: LineSeg -> LineSeg -> LineSeg -> Maybe LineSeg
@@ -122,31 +122,33 @@ modifyContour pathWidth (PointSequence contourPoints) direction
             isIntersection ln nextln        = Just $ fromRight ( error "failed to construct intersection") $ lineSegFromEndpoints (intersectionPoint (inwardAdjust previousln) (inwardAdjust ln)) (intersectionPoint (inwardAdjust ln) (inwardAdjust nextln))
           | otherwise = error $ "no intersection?\n" <> show (isIntersection previousln ln) <> "\n" <> show (isIntersection ln nextln) <> "\n" <> show previousln <> "\n" <> show ln <> "\n" <> show nextln <> "\n"
           where
-            isIntersection l1 l2 = case plinesIntersectAt (inwardAdjust l1) (inwardAdjust l2) of
-                                     IntersectsAt _ -> True
+            isIntersection l1 l2 = case plinesIntersectIn (inwardAdjust l1) (inwardAdjust l2) of
+                                     IntersectsIn _ -> True
                                      _              -> False
-            intersectionPoint pl1 pl2 = case plinesIntersectAt pl1 pl2 of
-                                          IntersectsAt p2@(Point2 (x,y)) -> if x<0 || y<0
-                                                                           then
-                                                                             error $ "outside field!\nresult: " <> show p2 <> "\npline 1: " <> show pl1
-                                                                             <> "\npline 2: " <> show pl2
-                                                                             <> "\nEvaluating line intersections between:\nFirst: " <> show previousln
-                                                                             <> "\nSecond: " <> show ln
-                                                                             <> "\nThird: " <> show nextln
-                                                                             <> "\n" <> show (eToPLine2 previousln)
-                                                                             <> "\n"<> show (inwardAdjust previousln)
-                                                                             <> "\n" <> show (angleBetween (eToPLine2 previousln) (eToPLine2 ln))
-                                                                             <> "\n" <> show (angleBetween (inwardAdjust previousln) (inwardAdjust ln))
-                                                                             <> "\n" <> show (eToPLine2 ln)
-                                                                             <> "\n"<> show (inwardAdjust ln)
-                                                                             <> "\n" <> show (angleBetween (eToPLine2 ln) (eToPLine2 nextln))
-                                                                             <> "\n" <> show (angleBetween (inwardAdjust ln) (inwardAdjust nextln))
-                                                                             <> "\n" <> show (eToPLine2 nextln)
-                                                                             <> "\n"<> show (inwardAdjust nextln)
-                                                                             <> "\n" <> show direction
-                                                                             <> "\n" <> show contourPoints
-                                                                             <> "\n"
-                                                                           else p2
+            intersectionPoint pl1 pl2 = case plinesIntersectIn pl1 pl2 of
+                                          IntersectsIn p2 -> let (x,y) = ((\(Point2 a) -> a) $ pToEPoint2 p2)
+                                                             in
+                                                               if x<0 || y<0
+                                                               then
+                                                                 error $ "outside field!\nresult: " <> show p2 <> "\npline 1: " <> show pl1
+                                                                 <> "\npline 2: " <> show pl2
+                                                                 <> "\nEvaluating line intersections between:\nFirst: " <> show previousln
+                                                                 <> "\nSecond: " <> show ln
+                                                                 <> "\nThird: " <> show nextln
+                                                                 <> "\n" <> show (eToPLine2 previousln)
+                                                                 <> "\n"<> show (inwardAdjust previousln)
+                                                                 <> "\n" <> show (angleBetween (eToPLine2 previousln) (eToPLine2 ln))
+                                                                 <> "\n" <> show (angleBetween (inwardAdjust previousln) (inwardAdjust ln))
+                                                                 <> "\n" <> show (eToPLine2 ln)
+                                                                 <> "\n"<> show (inwardAdjust ln)
+                                                                 <> "\n" <> show (angleBetween (eToPLine2 ln) (eToPLine2 nextln))
+                                                                 <> "\n" <> show (angleBetween (inwardAdjust ln) (inwardAdjust nextln))
+                                                                 <> "\n" <> show (eToPLine2 nextln)
+                                                                 <> "\n"<> show (inwardAdjust nextln)
+                                                                 <> "\n" <> show direction
+                                                                 <> "\n" <> show contourPoints
+                                                                 <> "\n"
+                                                               else pToEPoint2 p2
                                           a               -> error $ "impossible result!\nresult: " <> show a <> "\npline 1: " <> show pl1
                                                              <> "\npline 2: " <> show pl2
                                                              <> "\nEvaluating line intersections between:\nFirst: " <> show previousln
