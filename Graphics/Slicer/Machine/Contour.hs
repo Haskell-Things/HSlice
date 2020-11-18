@@ -136,15 +136,15 @@ modifyContour pathWidth (PointSequence contourPoints) direction
                                                                  <> "\nSecond: " <> show ln
                                                                  <> "\nThird: " <> show nextln
                                                                  <> "\n" <> show (eToPLine2 previousln)
-                                                                 <> "\n"<> show (inwardAdjust previousln)
+                                                                 <> "\n" <> show (inwardAdjust previousln)
                                                                  <> "\n" <> show (angleBetween (eToPLine2 previousln) (eToPLine2 ln))
                                                                  <> "\n" <> show (angleBetween (inwardAdjust previousln) (inwardAdjust ln))
                                                                  <> "\n" <> show (eToPLine2 ln)
-                                                                 <> "\n"<> show (inwardAdjust ln)
+                                                                 <> "\n" <> show (inwardAdjust ln)
                                                                  <> "\n" <> show (angleBetween (eToPLine2 ln) (eToPLine2 nextln))
                                                                  <> "\n" <> show (angleBetween (inwardAdjust ln) (inwardAdjust nextln))
                                                                  <> "\n" <> show (eToPLine2 nextln)
-                                                                 <> "\n"<> show (inwardAdjust nextln)
+                                                                 <> "\n" <> show (inwardAdjust nextln)
                                                                  <> "\n" <> show direction
                                                                  <> "\n" <> show contourPoints
                                                                  <> "\n"
@@ -155,9 +155,9 @@ modifyContour pathWidth (PointSequence contourPoints) direction
                                                              <> "\nSecond: " <> show ln
                                                              <> "\nThird: " <> show nextln <> "\n"<> show (inwardAdjust previousln)
                                                              <> "\n" <> show (eToPLine2 previousln)
-                                                             <> "\n"<> show (inwardAdjust ln)
+                                                             <> "\n" <> show (inwardAdjust ln)
                                                              <> "\n" <> show (eToPLine2 ln)
-                                                             <> "\n"<> show (inwardAdjust nextln)
+                                                             <> "\n" <> show (inwardAdjust nextln)
                                                              <> "\n" <> show (eToPLine2 nextln)
                                                              <> "\n" <> show direction
                                                              <> "\n" <> show contourPoints
