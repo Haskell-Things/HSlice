@@ -40,6 +40,7 @@ Library
                     Graphics.Slicer.Math.Contour
                     Graphics.Slicer.Math.Definitions
                     Graphics.Slicer.Math.Facet
+                    Graphics.Slicer.Math.Face
                     Graphics.Slicer.Math.Tri
                     Graphics.Slicer.Math.GeometricAlgebra
                     Graphics.Slicer.Math.PGA
