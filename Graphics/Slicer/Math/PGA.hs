@@ -44,7 +44,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVa
 
 -- Don't check for corner cases, junt get the intersection point if it exists.
 
--- The Linear result of a line intersection in 2 dimensions.
+-- The Linear result of a line segment intersection in 2 dimensions.
 data Intersection =
   Colinear LineSeg LineSeg
   | Parallel
@@ -317,12 +317,11 @@ canonicalizePPoint2 (PPoint2 vec@(GVec vals)) = PPoint2 $ divVecScalar vec $ val
 
 -- The idealized norm of a euclidian projective point.
 idealNormPPoint2 :: PPoint2 -> ℝ
-idealNormPPoint2 (PPoint2 (GVec vals)) = sqrt (x*x+y*y)
+idealNormPPoint2 ppoint = sqrt (x*x+y*y)
   where
-    x = negate $ valOf 0 $ getVals [ GEZero 1, GEPlus 2] vals
-    y =          valOf 0 $ getVals [ GEZero 1, GEPlus 1] vals
+    (x,y) = (\(Point2 a) -> a) $ pToEPoint2 ppoint
 
--- Normalize a PLine2. 
+-- Normalize a PLine2.
 normalizePLine2 :: PLine2 -> PLine2
 normalizePLine2 pl@(PLine2 vec) = PLine2 $ divVecScalar vec $ normOfPLine2 pl 
 
