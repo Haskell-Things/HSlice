@@ -21,7 +21,7 @@
 -- for adding Generic and NFData to LineSeg.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, makeLineSegsLooped, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg) where
+module Graphics.Slicer.Math.Line (LineSeg(LineSeg), LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegsLooped, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg) where
 
 import Prelude ((/), (<), (>), ($), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, (++), last, init, (<$>), Show, error, null, zipWith, (<>), show, concat, Either(Left, Right))
 
