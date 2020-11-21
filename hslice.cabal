@@ -5,15 +5,16 @@ Tested-with:         GHC >= 8.6
 Build-type:          Simple
 Synopsis:            A GCode generator, that accepts STL files.
 Description:         A slicer in haskell. Use it to slice 3D prints.
-License:             AGPL-3.0-only
+License:             AGPL-3.0-or-later
 License-file:        LICENSE
 Author:              Julia Longtin <julial@turinglace.com>
 Maintainer:          Julia Longtin <julial@turinglace.com>
 Homepage:            http://implicitcad.org/
 Category:            Graphics
 
-Common stuff
+Common binstuff
     Default-Language: Haskell2010
+    Default-extensions: NoImplicitPrelude
     Ghc-options:
                 -threaded
                 -rtsopts "-with-rtsopts -N -qg -t"
@@ -33,8 +34,28 @@ Common stuff
                 -Wredundant-constraints
                 -Wall-missed-specialisations
 
+Common libstuff
+    Default-Language: Haskell2010
+    Default-extensions: NoImplicitPrelude
+    Ghc-options:
+                -optc-O3
+                -- see GHC manual 8.2.1 section 6.5.1.
+                -feager-blackholing
+                -Wall
+                -Wextra
+                -Wcompat
+                -Wmonomorphism-restriction
+                -Wmissing-signatures
+                -Wmissing-export-lists
+                -Wmissing-import-lists
+                -Wmissing-home-modules
+                -Widentities
+                -Wimplicit-prelude
+                -Wredundant-constraints
+                -Wall-missed-specialisations
+
 Library
-    Import: stuff
+    Import: libstuff
     Build-depends:
                     base
                   , bytestring
@@ -73,7 +94,7 @@ Library
                   Graphics.Slicer.Definitions
 
 Executable extcuraengine
-    Import: stuff
+    Import: binstuff
     Main-is: extcuraengine.hs
     Hs-source-dirs: programs
     Build-depends:
@@ -87,7 +108,7 @@ Executable extcuraengine
                   , utf8-string
 
 Executable extadmesh
-    Import: stuff
+    Import: binstuff
     Main-is: extadmesh.hs
     Hs-source-dirs: programs
     Build-depends:
@@ -101,15 +122,14 @@ Executable extadmesh
                   , utf8-string
 
 Test-suite test-hslice
-    Import: stuff
-    Type: exitcode-stdio-1.0
-    default-extensions: NoImplicitPrelude
+    Import: binstuff
+    Main-is: Main.hs
+    Hs-source-dirs: tests
     Build-depends:
                     base
                   , hspec
                   , hslice
-    Main-is: Main.hs
-    Hs-source-dirs: tests
+    Type: exitcode-stdio-1.0
     Other-Modules:
                    Math.Util
                    Math.PGA
