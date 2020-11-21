@@ -5,7 +5,7 @@ Tested-with:         GHC >= 8.6
 Build-type:          Simple
 Synopsis:            A GCode generator, that accepts STL files.
 Description:         A slicer in haskell. Use it to slice 3D prints.
-License:             AGPL-3.0-or-later
+License:             AGPL-3.0-only
 License-file:        LICENSE
 Author:              Julia Longtin <julial@turinglace.com>
 Maintainer:          Julia Longtin <julial@turinglace.com>
