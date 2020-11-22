@@ -319,7 +319,7 @@ canonicalizePPoint2 (PPoint2 vec@(GVec vals)) = PPoint2 $ divVecScalar vec $ val
 idealNormPPoint2 :: PPoint2 -> ℝ
 idealNormPPoint2 ppoint = sqrt (x*x+y*y)
   where
-    (x,y) = (\(Point2 a) -> a) $ pToEPoint2 ppoint
+    (Point2 (x,y)) = pToEPoint2 ppoint
 
 -- Normalize a PLine2.
 normalizePLine2 :: PLine2 -> PLine2
@@ -366,4 +366,7 @@ pointOnPerp line point d = fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPo
 
 
 distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
-distancePPointToPLine = error "not defined"
+distancePPointToPLine point line = error $ "Undefined!"
+  where
+    (PLine2 lvec) = forcePLine2Basis $ normalizePLine2 $ eToPLine2 line
+    (PPoint2 pvec) = forcePPoint2Basis $ canonicalizePPoint2 $ eToPPoint2 point

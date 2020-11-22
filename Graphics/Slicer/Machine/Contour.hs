@@ -126,7 +126,7 @@ modifyContour pathWidth (PointSequence contourPoints) direction
                                      IntersectsIn _ -> True
                                      _              -> False
             intersectionPoint pl1 pl2 = case plinesIntersectIn pl1 pl2 of
-                                          IntersectsIn p2 -> let (x,y) = ((\(Point2 a) -> a) $ pToEPoint2 p2)
+                                          IntersectsIn p2 -> let (Point2 (x,y)) = pToEPoint2 p2
                                                              in
                                                                if x<0 || y<0
                                                                then
