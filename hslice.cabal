@@ -1,14 +1,14 @@
 Cabal-version:       2.2
 Name:                hslice
 Version:             0.0.1
-Tested-with:         GHC >= 8.6
+Tested-with:         GHC >= 8.8
 Build-type:          Simple
 Synopsis:            A GCode generator, that accepts STL files.
 Description:         A slicer in haskell. Use it to slice 3D prints.
 License:             AGPL-3.0-or-later
 License-file:        LICENSE
-Author:              Julia Longtin <julial@turinglace.com>
-Maintainer:          Julia Longtin <julial@turinglace.com>
+Author:              Julia Longtin <julia.longtin@gmail.com>
+Maintainer:          Julia Longtin <julia.longtin@gmail.com>
 Homepage:            http://implicitcad.org/
 Category:            Graphics
 
