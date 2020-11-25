@@ -38,7 +38,7 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
 
 import Graphics.Slicer.Math.Line(LineSeg(LineSeg))
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (•), {- (⋅), (∧),-} addVal, addVecPair, divVecScalar, scalarPart, vectorPart, mulScalarVec)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (•), (⋅), {- (∧),-} addVal, addVecPair, divVecScalar, scalarPart, vectorPart, mulScalarVec)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -357,8 +357,7 @@ pointOnPerp line point d = fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPo
   where
     (PLine2 lvec) = forcePLine2Basis $ normalizePLine2 $ eToPLine2 line
     (PPoint2 pvec) = forcePPoint2Basis $ canonicalizePPoint2 $ eToPPoint2 point
-    -- FIXME: the dot product should be doing this. -- lvec ⋅ pvec
-    (PLine2 perpLine) = forcePLine2Basis $ PLine2 $ vectorPart $ lvec ⎤ pvec
+    (PLine2 perpLine) = forcePLine2Basis $ PLine2 $ lvec ⋅ pvec
     motor = forceBasis [[G0], [GEPlus 1, GEPlus 2], [GEZero 1, GEPlus 1], [GEZero 1, GEPlus 2]] $ addVecPair (mulScalarVec (d/2) $ perpLine • gaI) (GVec [GVal 1 [G0]])
     -- I, in this geometric algebra system.
     gaI :: GVec
@@ -368,5 +367,7 @@ pointOnPerp line point d = fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPo
 distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
 distancePPointToPLine point line = error $ "Undefined!"
   where
-    (PLine2 lvec) = forcePLine2Basis $ normalizePLine2 $ eToPLine2 line
-    (PPoint2 pvec) = forcePPoint2Basis $ canonicalizePPoint2 $ eToPPoint2 point
+    (PLine2 lvec)       = forcePLine2Basis $ normalizePLine2 $ line
+    (PPoint2 pvec)      = forcePPoint2Basis $ canonicalizePPoint2 $ point
+    (PLine2 perpLine)   = forcePLine2Basis $ PLine2 $ vectorPart $ lvec ⎤ pvec
+    (PPoint2 linePoint) = meet2PLine2 (PLine2 perpLine) line

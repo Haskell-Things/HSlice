@@ -20,9 +20,9 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, gUnlike, gLike, sortBasis) where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, gUnlike, gLike, sortBasis) where
 
-import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), (.))
+import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), (.), error, flip)
 
 import GHC.Generics (Generic)
 
@@ -57,16 +57,6 @@ instance Ord GVal where
 -- A (multi)vector in geometric algebra.
 newtype GVec = GVec [GVal]
   deriving (Eq, Generic, NFData, Show, Ord)
-
-{-
-isVec :: GVec -> Bool
-isVec vec =
-  where
-    combined :: [GNum]
-    combined = sort $ (allBasisVectors vec1) ++ (allBasisVectors vec2)
-    allBasisVectors :: GVec -> [GNum]
-    allBasisVectors (GVec vals) = concatMap (\v -> iOf v) vals
--}
 
 -- | add two geometric values together.
 addValPair :: GVal -> GVal -> [GVal]
@@ -133,7 +123,7 @@ likeVecPair a b
   | a > b     = likeVecPair' a b
   | otherwise = likeVecPair' b a
 
--- generate the like product of a vector pair.
+-- | generate the like product of a vector pair.
 likeVecPair' :: GVec -> GVec -> GVec
 likeVecPair' vec1 vec2 = if null results
                          then GVec []
@@ -151,7 +141,7 @@ likeVecPair' vec1 vec2 = if null results
               | i == [G0] = GVal (r1*r2) [G0]
               | otherwise  = sortBasis $ GVal (r1*r2) (i ++ i)
 
--- generate the unlike product of a vector pair.
+-- | generate the unlike product of a vector pair.
 unlikeVecPair :: GVec -> GVec -> GVec
 unlikeVecPair vec1 vec2 = if null results
                          then GVec []
@@ -169,7 +159,33 @@ unlikeVecPair vec1 vec2 = if null results
               where
                 filterG0 xs = filter (/= G0) xs
 
--- generate the geometric product of a vector pair.
+-- | generate the reductive product of a vector pair.
+reduceVecPair :: GVec -> GVec -> GVec
+reduceVecPair vec1 vec2 = if null results
+                           then GVec []
+                           else GVec $ foldl addVal [head results] $ tail results
+  where
+    results = reduceVecPair' vec1 vec2
+    -- cycle through one list of vectors, and generate a pair with the second list when the two basis vectors are not th.
+    reduceVecPair' :: GVec -> GVec -> [GVal]
+    reduceVecPair' (GVec v1) (GVec v2) = concatMap (multiplyReducing v1) v2
+    multiplyReducing :: [GVal] -> GVal -> [GVal]
+    multiplyReducing vals val@(GVal _ i) = (flip mulReducingPair) val <$> (filter (\(GVal _ i2) -> i2 `contains` i) $ filter (\(GVal _ i2) -> i2 /= i) vals)
+    contains :: [GNum] -> [GNum] -> Bool
+    contains []       _    = error "empty [GNum]"
+    contains (a:[])   nums = (not $ null $ filter (\v -> v == a) nums)
+    contains (a:b:xs) nums = if (not $ null $ filter (\v -> v == a) nums)
+                             then contains (b:xs) nums
+                             else False
+    mulReducingPair (GVal r1 i1) (GVal r2 i2) = GVal (r1*r2) (filterG0 $ removeNums i1 i2)
+      where
+        removeNums :: [GNum] -> [GNum] -> [GNum]
+        removeNums []       _    = error "empty [GNum]"
+        removeNums (a:[])   nums = filter (\v -> v /= a) nums
+        removeNums (a:b:xs) nums = filter (\v -> v /= a) $ removeNums (b:xs) nums
+        filterG0 xs = filter (/= G0) xs
+
+-- | generate the geometric product of a vector pair.
 mulVecPair :: GVec -> GVec -> GVec
 mulVecPair vec1 vec2 = if null results
                          then GVec []
@@ -177,17 +193,16 @@ mulVecPair vec1 vec2 = if null results
   where
     results = mulVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list.
-
-mulVecPair' :: GVec -> GVec -> [GVal]
-mulVecPair' (GVec v1) (GVec v2) = concatMap (mulvals v2) v1
-  where
-    mulvals :: [GVal] -> GVal -> [GVal]
-    mulvals vals val = mulValPair val <$> vals
-    mulValPair (GVal r1 i1) (GVal r2 i2)
-      | i1 == [G0] && i2 == [G0] = GVal (r1*r2) [G0]
-      | otherwise                = sortBasis $ GVal (r1*r2) (filterG0 i1 ++ filterG0 i2)
+    mulVecPair' :: GVec -> GVec -> [GVal]
+    mulVecPair' (GVec v1) (GVec v2) = concatMap (mulvals v2) v1
       where
-        filterG0 xs = filter (/= G0) xs
+        mulvals :: [GVal] -> GVal -> [GVal]
+        mulvals vals val = mulValPair val <$> vals
+        mulValPair (GVal r1 i1) (GVal r2 i2)
+          | i1 == [G0] && i2 == [G0] = GVal (r1*r2) [G0]
+          | otherwise                = sortBasis $ GVal (r1*r2) (filterG0 i1 ++ filterG0 i2)
+          where
+            filterG0 xs = filter (/= G0) xs
 
 -- for a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
 sortBasis :: GVal -> GVal
@@ -255,10 +270,10 @@ stripPairs = withoutPairs
 
 -- | A dot operator. gets the dot product of the two arguments
 (⋅) :: GVec -> GVec -> GVec
-(⋅) = gDot
+(⋅) = fDot
   where
-    gDot :: GVec -> GVec -> GVec
-    gDot a b = mulScalarVec 0.5 (addVecPair (a•b) (b•a))
+    fDot :: GVec -> GVec -> GVec
+    fDot a b = addVecPair (reduceVecPair a b) (likeVecPair a b)
 
 -- A version of our unlike operator, with all of the simplification and cleaning.
 gUnlike :: GVec -> GVec -> GVec
