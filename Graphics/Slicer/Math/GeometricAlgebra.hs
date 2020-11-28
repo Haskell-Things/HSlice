@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, gUnlike, gLike, sortBasis) where
 
-import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), (.), error, flip)
+import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), (.), error, flip, (||))
 
 import GHC.Generics (Generic)
 
@@ -166,24 +166,33 @@ reduceVecPair vec1 vec2 = if null results
                            else GVec $ foldl addVal [head results] $ tail results
   where
     results = reduceVecPair' vec1 vec2
-    -- cycle through one list of vectors, and generate a pair with the second list when the two basis vectors are not th.
+    -- cycle through one list of vectors, and generate a pair with the second list.
     reduceVecPair' :: GVec -> GVec -> [GVal]
     reduceVecPair' (GVec v1) (GVec v2) = concatMap (multiplyReducing v1) v2
-    multiplyReducing :: [GVal] -> GVal -> [GVal]
-    multiplyReducing vals val@(GVal _ i) = (flip mulReducingPair) val <$> (filter (\(GVal _ i2) -> i2 `contains` i) $ filter (\(GVal _ i2) -> i2 /= i) vals)
-    contains :: [GNum] -> [GNum] -> Bool
-    contains []       _    = error "empty [GNum]"
-    contains (a:[])   nums = (not $ null $ filter (\v -> v == a) nums)
-    contains (a:b:xs) nums = if (not $ null $ filter (\v -> v == a) nums)
-                             then contains (b:xs) nums
-                             else False
-    mulReducingPair (GVal r1 i1) (GVal r2 i2) = GVal (r1*r2) (filterG0 $ removeNums i1 i2)
       where
-        removeNums :: [GNum] -> [GNum] -> [GNum]
-        removeNums []       _    = error "empty [GNum]"
-        removeNums (a:[])   nums = filter (\v -> v /= a) nums
-        removeNums (a:b:xs) nums = filter (\v -> v /= a) $ removeNums (b:xs) nums
-        filterG0 xs = filter (/= G0) xs
+        multiplyReducing :: [GVal] -> GVal -> [GVal]
+        multiplyReducing vals val@(GVal _ i) = (flip mulReducingPair) val <$> (filter (\(GVal _ i2) -> i2 `common` i) $ filter (\(GVal _ i2) -> i2 `hasDifferentZeros` i) $ filter (\(GVal _ i2) -> i2 /= i) vals)
+          where
+            hasDifferentZeros :: [GNum] -> [GNum] -> Bool
+            hasDifferentZeros [] _ = error "empty [GNum]"
+            hasDifferentZeros (a:[]) nums = containsZero nums a
+            hasDifferentZeros nums1 nums2 = null $ filter (\v -> v == False) $ containsZero nums2 <$> filter (isGEZero) nums1
+            isGEZero :: GNum -> Bool
+            isGEZero (GEZero _) = True
+            isGEZero _          = False
+            containsZero :: [GNum] -> GNum -> Bool
+            containsZero gnums zero = not $ isGEZero zero && (not $ null $ filter (\v -> v == zero) gnums)
+            common :: [GNum] -> [GNum] -> Bool
+            common a b = contains a b || contains b a
+            contains :: [GNum] -> [GNum] -> Bool
+            contains []       _    = error "empty [GNum]"
+            contains (a:[])   nums = (not $ null $ filter (\v -> v == a) nums)
+            contains (a:b:xs) nums = if (not $ null $ filter (\v -> v == a) nums)
+                                     then contains (b:xs) nums
+                                     else False
+            mulReducingPair (GVal r1 i1) (GVal r2 i2) = sortBasis $ GVal (r1*r2) (filterG0 i1 ++ filterG0 i2)
+              where
+                filterG0 xs = filter (/= G0) xs
 
 -- | generate the geometric product of a vector pair.
 mulVecPair :: GVec -> GVec -> GVec
@@ -206,14 +215,14 @@ mulVecPair vec1 vec2 = if null results
 
 -- for a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
 sortBasis :: GVal -> GVal
-sortBasis (GVal r i) = if flip then GVal (-r) basis else GVal r basis
+sortBasis (GVal r i) = if shouldFlip then GVal (-r) basis else GVal r basis
   where
-    (flip, basis) = sortBasis' i
+    (shouldFlip, basis) = sortBasis' i
     -- sort a set of wedged basis vectors. must return an ideal result, along with wehther the associated real value should be flipped or not.
     sortBasis'  :: [GNum] -> (Bool, [GNum])
     sortBasis' thisBasis = if basisOf (sortBasis'' thisBasis) == basisOf (sortBasis'' $ basisOf $ sortBasis'' thisBasis)
-                       then sortBasis'' thisBasis
-                       else (newFlip, newBasis)
+                           then sortBasis'' thisBasis
+                           else (newFlip, newBasis)
       where
         (newFlip, newBasis) = sortBasis' $ basisOf $ sortBasis'' thisBasis
         flipOf = fst
@@ -263,17 +272,11 @@ stripPairs = withoutPairs
 
 -- | A wedge operator. gets the wedge product of the two arguments
 (∧) :: GVec -> GVec -> GVec
-(∧) = gWedge
-  where
-    gWedge :: GVec -> GVec -> GVec
-    gWedge a b = mulScalarVec 0.5 (subVecPair (a•b) (b•a))
+(∧) v1 v2 = GVec $ foldl addVal [] $ stripPairs <$> (\(GVec a) -> a) (subVecPair (reduceVecPair v1 v2) (unlikeVecPair v1 v2))
 
 -- | A dot operator. gets the dot product of the two arguments
 (⋅) :: GVec -> GVec -> GVec
-(⋅) = fDot
-  where
-    fDot :: GVec -> GVec -> GVec
-    fDot a b = addVecPair (reduceVecPair a b) (likeVecPair a b)
+(⋅) v1 v2 = GVec $ foldl addVal [] $ stripPairs <$> (\(GVec a) -> a) (addVecPair (reduceVecPair v1 v2) (likeVecPair v1 v2))
 
 -- A version of our unlike operator, with all of the simplification and cleaning.
 gUnlike :: GVec -> GVec -> GVec
