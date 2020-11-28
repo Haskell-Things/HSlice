@@ -360,9 +360,9 @@ pointOnPerp line point d =
 --error $ "result: " <> show (fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPoint2 $ (motor•pvec)•reverse motor) <> "\nLine: " <> show lvec <> "\nPoint: " <> show pvec <> "\nPerpLine: " <> show perpLine <> "\nperpLine2: " <> show perpLine2 <> "\nmotor: " <> show motor <> "\n"
   fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPoint2 $ (motor•pvec)•reverse motor
   where
-    (PLine2 lvec) = normalizePLine2 $ eToPLine2 line
+    (PLine2 lvec)  = normalizePLine2 $ eToPLine2 line
     (PPoint2 pvec) = canonicalizePPoint2 $ eToPPoint2 point
-    (PLine2 perpLine) = normalizePLine2 $ PLine2 $ vectorPart $ lvec ⋅ pvec
+    perpLine       = lvec ⋅ pvec
     motor = addVecPair (perpLine • gaI) (GVec [GVal 1 [G0]])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
     gaI = GVec [GVal (d/2) [GEZero 1, GEPlus 1, GEPlus 2]]
