@@ -126,7 +126,7 @@ modifyContour pathWidth (PointSequence contourPoints) direction
                                      IntersectsIn _ -> True
                                      _              -> False
             intersectionPoint pl1 pl2 = case plinesIntersectIn pl1 pl2 of
-                                          IntersectsIn p2 -> let (Point2 (x,y)) = pToEPoint2 p2
+                                          IntersectsIn p2 -> {- let (Point2 (x,y)) = pToEPoint2 p2
                                                              in
                                                                if x<0 || y<0
                                                                then
@@ -148,7 +148,7 @@ modifyContour pathWidth (PointSequence contourPoints) direction
                                                                  <> "\n" <> show direction
                                                                  <> "\n" <> show contourPoints
                                                                  <> "\n"
-                                                               else pToEPoint2 p2
+                                                               else  -} pToEPoint2 p2
                                           a               -> error $ "impossible result!\nresult: " <> show a <> "\npline 1: " <> show pl1
                                                              <> "\npline 2: " <> show pl2
                                                              <> "\nEvaluating line intersections between:\nFirst: " <> show previousln
