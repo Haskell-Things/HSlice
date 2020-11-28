@@ -362,8 +362,7 @@ pointOnPerp line point d =
   where
     (PLine2 lvec) = normalizePLine2 $ eToPLine2 line
     (PPoint2 pvec) = canonicalizePPoint2 $ eToPPoint2 point
-    -- FIXME: should be lvec ⋅ pvec! this is unneecessarilly flipping it's result?
-    (PLine2 perpLine) = normalizePLine2 $ PLine2 $ vectorPart $ pvec ⋅ lvec
+    (PLine2 perpLine) = normalizePLine2 $ PLine2 $ vectorPart $ lvec ⋅ pvec
     motor = addVecPair (perpLine • gaI) (GVec [GVal 1 [G0]])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
     gaI = GVec [GVal (d/2) [GEZero 1, GEPlus 1, GEPlus 2]]
