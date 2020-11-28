@@ -88,7 +88,7 @@ linearAlgSpec = do
     it "a projection on the perpendicular bisector of an axis aligned line is on the other axis (1 of 2)" $
       pointOnPerp (LineSeg (Point2 (0,0)) (Point2 (0,1))) (Point2 (0,0)) 1 --> Point2 (-1,0)
     it "a projection on the perpendicular bisector of an axis aligned line is on the other axis (2 of 2)" $
-      pointOnPerp (LineSeg (Point2 (0,0)) (Point2 (1,0))) (Point2 (0,0)) 2 --> Point2 (0,-2)
+      pointOnPerp (LineSeg (Point2 (0,0)) (Point2 (1,0))) (Point2 (0,0)) 1 --> Point2 (0,-1)
     it "the distance between a point at (1,1) and a line on the X axis is 1" $
       distancePPointToPLine (eToPPoint2 $ Point2 (1,1)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> 1
     it "the distance between a point at (2,2) and a line on the Y axis is 2" $
