@@ -148,7 +148,7 @@ combineConsecutiveLineSegs lines
         sameLineSeg = meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])
         sameMiddlePoint = p2 == addPoints p1 s1
 
--- | given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
+-- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 onSegment :: LineSeg -> Point2 -> Bool
 onSegment (LineSeg p s) i =
   sqNormOfPLine2 (join2PPoint2 (eToPPoint2 p) (eToPPoint2 i)) <= segmentLength &&
@@ -180,7 +180,9 @@ newtype PLine2 = PLine2 GVec
 
 -- our join operator, which is the meet operator operating in the dual space.
 (∨) :: GVec -> GVec -> GVec
-(∨) a b = dual2DGVec $ dual2DGVec a ⎤ dual2DGVec b
+(∨) a b = dual2DGVec $ GVec $ foldl addVal [] res
+  where
+    (GVec res) = dual2DGVec a ⎤  dual2DGVec b
 
 -- | our join function.
 join :: GVec -> GVec -> GVec
@@ -192,15 +194,17 @@ join2PPoint2 (PPoint2 v1) (PPoint2 v2) = PLine2 $ join v1 v2
 
 -- | A typed meet function. two lines meet at a point.
 meet2PLine2 :: PLine2 -> PLine2 -> PPoint2
-meet2PLine2 pl1 pl2 = PPoint2 $ pv1 ⎤ pv2
+meet2PLine2 pl1 pl2 = PPoint2 $ GVec $ foldl addVal [] res
   where
+    (GVec res) = pv1 ⎤ pv2
     (PLine2 pv1) = forcePLine2Basis pl1
     (PLine2 pv2) = forcePLine2Basis pl2
 
 -- | A type stripping meet finction.
 meet2PPoint2 :: PPoint2 -> PPoint2 -> GVec
-meet2PPoint2 pp1 pp2 = pv1 ⎤ pv2
+meet2PPoint2 pp1 pp2 = GVec $ foldl addVal [] res
   where
+    (GVec res) = pv1 ⎤ pv2
     (PPoint2 pv1) = forcePPoint2Basis pp1
     (PPoint2 pv2) = forcePPoint2Basis pp2
 
@@ -323,7 +327,7 @@ idealNormPPoint2 ppoint = sqrt (x*x+y*y)
 
 -- Normalize a PLine2.
 normalizePLine2 :: PLine2 -> PLine2
-normalizePLine2 pl@(PLine2 vec) = PLine2 $ divVecScalar vec $ normOfPLine2 pl 
+normalizePLine2 pl@(PLine2 vec) = PLine2 $ divVecScalar vec $ normOfPLine2 pl
 
 normOfPLine2 :: PLine2 -> ℝ
 normOfPLine2 pline = sqrt $ sqNormOfPLine2 pline
