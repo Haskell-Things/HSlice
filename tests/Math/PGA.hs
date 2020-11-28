@@ -86,9 +86,9 @@ linearAlgSpec = do
     it "a translated line translated back is the same line" $
       translatePerp (translatePerp (eToPLine2 l1) 1) (-1) --> eToPLine2 l1
     it "a projection on the perpendicular bisector of an axis aligned line is on the other axis (1 of 2)" $
-      pointOnPerp (LineSeg (Point2 (0,0)) (Point2 (0,-1))) (Point2 (1,1)) 1 --> Point2 (0,1)
+      pointOnPerp (LineSeg (Point2 (0,0)) (Point2 (0,1))) (Point2 (0,0)) 1 --> Point2 (1,0)
     it "a projection on the perpendicular bisector of an axis aligned line is on the other axis (2 of 2)" $
-      pointOnPerp (LineSeg (Point2 (0,0)) (Point2 (-2,0))) (Point2 (2,2)) 2 --> Point2 (2,0)
+      pointOnPerp (LineSeg (Point2 (0,0)) (Point2 (1,0))) (Point2 (0,0)) 2 --> Point2 (0,2)
     it "the distance between a point at (1,1) and a line on the X axis is 1" $
       distancePPointToPLine (eToPPoint2 $ Point2 (1,1)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> 1
     it "the distance between a point at (2,2) and a line on the Y axis is 2" $
