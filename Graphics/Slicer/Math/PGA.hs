@@ -356,17 +356,19 @@ translatePerp pl1 d = PLine2 $ addVecPair m $ rawPLine pl1
 
 -- | find a point a given distance along a line perpendicularly bisecting this line at a given point.
 pointOnPerp :: LineSeg -> Point2 -> ℝ -> Point2
-pointOnPerp line point d = fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPoint2 $ (motor•pvec)•reverse motor
+pointOnPerp line point d =
+--error $ "result: " <> show (fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPoint2 $ (motor•pvec)•reverse motor) <> "\nLine: " <> show lvec <> "\nPoint: " <> show pvec <> "\nPerpLine: " <> show perpLine <> "\nperpLine2: " <> show perpLine2 <> "\nmotor: " <> show motor <> "\n"
+  fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPoint2 $ (motor•pvec)•reverse motor
   where
-    (PLine2 lvec) = forcePLine2Basis $ normalizePLine2 $ eToPLine2 line
-    (PPoint2 pvec) = forcePPoint2Basis $ canonicalizePPoint2 $ eToPPoint2 point
-    (PLine2 perpLine) = forcePLine2Basis $ PLine2 $ lvec ⋅ pvec
-    motor = forceBasis [[G0], [GEPlus 1, GEPlus 2], [GEZero 1, GEPlus 1], [GEZero 1, GEPlus 2]] $ addVecPair (mulScalarVec (d/2) $ perpLine • gaI) (GVec [GVal 1 [G0]])
-    -- I, in this geometric algebra system.
-    gaI :: GVec
-    gaI = GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]
+    (PLine2 lvec) = normalizePLine2 $ eToPLine2 line
+    (PPoint2 pvec) = canonicalizePPoint2 $ eToPPoint2 point
+    -- FIXME: should be lvec ⋅ pvec! this is unneecessarilly flipping it's result?
+    (PLine2 perpLine) = normalizePLine2 $ PLine2 $ vectorPart $ pvec ⋅ lvec
+    motor = addVecPair (perpLine • gaI) (GVec [GVal 1 [G0]])
+    -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
+    gaI = GVec [GVal (d/2) [GEZero 1, GEPlus 1, GEPlus 2]]
 
-
+-- | find the distance between a point and a line.
 distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
 distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
 --error $ "result: " <> show (normOfPLine2 $ newLine) <> "\nLine: " <> show lvec <> "\nPoint: " <> show pvec <> "\nPerpLine: " <> show perpLine <> "\nLinePoint: " <> show linePoint <> "\nnewLine: " <> show newLine <> "\n"
