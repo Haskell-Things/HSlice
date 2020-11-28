@@ -37,7 +37,7 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence), 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅))
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp)
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, distancePPointToPLine)
 
 import Graphics.Slicer.Math.Line (makeLineSegsLooped, pointsFromLineSegs, LineSeg(LineSeg))
 
@@ -85,8 +85,14 @@ linearAlgSpec = do
   describe "Translation" $ do
     it "a translated line translated back is the same line" $
       translatePerp (translatePerp (eToPLine2 l1) 1) (-1) --> eToPLine2 l1
-    it "a projection on the perpendicular bisector of an axis aligned line is on the other axis" $
-      pointOnPerp (LineSeg (Point2 (1,1)) (Point2 (0,1))) (Point2 (1,1)) 1 --> Point2 (2,1)
+    it "a projection on the perpendicular bisector of an axis aligned line is on the other axis (1 of 2)" $
+      pointOnPerp (LineSeg (Point2 (0,0)) (Point2 (0,-1))) (Point2 (1,1)) 1 --> Point2 (0,1)
+    it "a projection on the perpendicular bisector of an axis aligned line is on the other axis (2 of 2)" $
+      pointOnPerp (LineSeg (Point2 (0,0)) (Point2 (-2,0))) (Point2 (2,2)) 2 --> Point2 (2,0)
+    it "the distance between a point at (1,1) and a line on the X axis is 1" $
+      distancePPointToPLine (eToPPoint2 $ Point2 (1,1)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> 1
+    it "the distance between a point at (2,2) and a line on the Y axis is 2" $
+      distancePPointToPLine (eToPPoint2 $ Point2 (2,2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (0,-1))) --> 2
   where
     -- FIXME: reversing this breaks the infill tests?
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
@@ -178,3 +184,4 @@ proj2DGeomAlgSpec = do
       eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,1))) --> join2PPoint2 (eToPPoint2 (Point2 (0,0))) (eToPPoint2 (Point2 (1,1)))
   where
     rawPPoint2 (x,y) = (\(PPoint2 v) -> v) $ eToPPoint2 (Point2 (x,y))
+
