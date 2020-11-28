@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(Colinear, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection), lineIntersection, lineIntersectsAt, plinesIntersectIn, PIntersection (PColinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine) where
 
-import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), foldl, sqrt, head, null, negate, (/), error)
+import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), foldl, sqrt, head, null, negate, (/), error, (<>), show)
 
 import GHC.Generics (Generic)
 
@@ -354,7 +354,6 @@ translatePerp pl1 d = PLine2 $ addVecPair m $ rawPLine pl1
     m = GVec [GVal (d*normOfPLine2 pl1) [GEZero 1]]
     rawPLine (PLine2 a) = a
 
-
 -- | find a point a given distance along a line perpendicularly bisecting this line at a given point.
 pointOnPerp :: LineSeg -> Point2 -> ℝ -> Point2
 pointOnPerp line point d = fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPoint2 $ (motor•pvec)•reverse motor
@@ -369,9 +368,11 @@ pointOnPerp line point d = fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPo
 
 
 distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
-distancePPointToPLine point line = error $ "Undefined!"
+distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
+--error $ "result: " <> show (normOfPLine2 $ newLine) <> "\nLine: " <> show lvec <> "\nPoint: " <> show pvec <> "\nPerpLine: " <> show perpLine <> "\nLinePoint: " <> show linePoint <> "\nnewLine: " <> show newLine <> "\n"
   where
-    (PLine2 lvec)       = forcePLine2Basis $ normalizePLine2 $ line
-    (PPoint2 pvec)      = forcePPoint2Basis $ canonicalizePPoint2 $ point
-    (PLine2 perpLine)   = forcePLine2Basis $ PLine2 $ vectorPart $ lvec ⎤ pvec
-    (PPoint2 linePoint) = meet2PLine2 (PLine2 perpLine) line
+    (PLine2 lvec)  = normalizePLine2 line
+    (PPoint2 pvec) = canonicalizePPoint2 point
+    perpLine       = PLine2 $ lvec ⋅ pvec
+    linePoint      = meet2PLine2 (PLine2 lvec) perpLine
+    newLine        = join2PPoint2 linePoint (PPoint2 pvec)
