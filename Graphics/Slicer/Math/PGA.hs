@@ -38,7 +38,7 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
 
 import Graphics.Slicer.Math.Line(LineSeg(LineSeg))
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), {- (∧),-} addVal, addVecPair, divVecScalar, scalarPart, vectorPart, mulScalarVec)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), {- (∧),-} addVal, addVecPair, divVecScalar, scalarPart, vectorPart, mulScalarVec, unlikeVecPair)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -101,13 +101,13 @@ lineIsLeft line1 line2
   | dualAngle dnpl1 dnpl2 == 0 = Nothing
   | otherwise                  = Just $ dualAngle dnpl1 dnpl2 > 0
   where
-    npl1 = normalizePLine2 $ eToPLine2 line1
-    npl2 = normalizePLine2 $ eToPLine2 line2
-    dnpl1 = forceBasis [[GEZero 1, GEPlus 1], [GEZero 1, GEPlus 2], [GEPlus 1, GEPlus 2]] $ dualPLine2 npl1
-    dnpl2 = forceBasis [[GEZero 1, GEPlus 1], [GEZero 1, GEPlus 2], [GEPlus 1, GEPlus 2]] $ dualPLine2 npl2
+    npl1 = dualPLine2 $ normalizePLine2 $ eToPLine2 line1
+    npl2 = dualPLine2 $ normalizePLine2 $ eToPLine2 line2
+    (PPoint2 dnpl1) = forcePPoint2Basis $ PPoint2 npl1
+    (PPoint2 dnpl2) = forcePPoint2Basis $ PPoint2 npl2
 
 dualAngle :: GVec -> GVec -> ℝ
-dualAngle ln1 ln2 = valOf 0 $ getVals [GEZero 1, GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ ln1 ⎤ ln2
+dualAngle ln1 ln2 = valOf 0 $ getVals [GEZero 1, GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ unlikeVecPair ln1 ln2
 
 angleBetween :: PLine2 -> PLine2 -> ℝ
 angleBetween pl1 pl2 =  scalarPart $ pv1 ⎣ pv2
@@ -194,17 +194,15 @@ join2PPoint2 (PPoint2 v1) (PPoint2 v2) = PLine2 $ join v1 v2
 
 -- | A typed meet function. two lines meet at a point.
 meet2PLine2 :: PLine2 -> PLine2 -> PPoint2
-meet2PLine2 pl1 pl2 = PPoint2 $ GVec $ foldl addVal [] res
+meet2PLine2 pl1 pl2 = PPoint2 $ pv1 ⎤ pv2
   where
-    (GVec res) = pv1 ⎤ pv2
     (PLine2 pv1) = forcePLine2Basis pl1
     (PLine2 pv2) = forcePLine2Basis pl2
 
 -- | A type stripping meet finction.
 meet2PPoint2 :: PPoint2 -> PPoint2 -> GVec
-meet2PPoint2 pp1 pp2 = GVec $ foldl addVal [] res
+meet2PPoint2 pp1 pp2 = pv1 ⎤ pv2
   where
-    (GVec res) = pv1 ⎤ pv2
     (PPoint2 pv1) = forcePPoint2Basis pp1
     (PPoint2 pv2) = forcePPoint2Basis pp2
 
@@ -362,7 +360,7 @@ pointOnPerp line point d =
   where
     (PLine2 lvec)  = normalizePLine2 $ eToPLine2 line
     (PPoint2 pvec) = canonicalizePPoint2 $ eToPPoint2 point
-    perpLine       = lvec ⋅ pvec
+    perpLine       = lvec ⨅ pvec
     motor = addVecPair (perpLine • gaI) (GVec [GVal 1 [G0]])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
     gaI = GVec [GVal (d/2) [GEZero 1, GEPlus 1, GEPlus 2]]

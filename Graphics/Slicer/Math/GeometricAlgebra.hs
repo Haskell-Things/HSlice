@@ -20,7 +20,7 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, sortBasis) where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, unlikeVecPair) where
 
 import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), error, flip, (||))
 
@@ -267,11 +267,11 @@ stripPairs = withoutPairs
 
 -- | our "like" operator. unicode point u+23a3
 (⎣) :: GVec -> GVec -> GVec
-(⎣) = likeVecPair
+(⎣) v1 v2 = GVec $ foldl addVal [] $ stripPairs <$> (\(GVec a) -> a) (likeVecPair v1 v2)
 
 -- | our "unlike" operator. unicode point u+23a4
 (⎤) :: GVec -> GVec -> GVec
-(⎤) = unlikeVecPair
+(⎤) v1 v2 = GVec $ foldl addVal [] $ stripPairs <$> (\(GVec a) -> a) (unlikeVecPair v1 v2)
 
 -- our "reductive" operator.
 (⨅) :: GVec -> GVec -> GVec
