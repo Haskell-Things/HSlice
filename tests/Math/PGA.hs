@@ -20,7 +20,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, proj2DGeomAlgSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True,False), (<$>), length, Either(Right))
+import Prelude (($), Bool(True,False), (<$>), length, Either(Right), foldl)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it)
@@ -34,7 +34,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence), roundPoint2)
 
 -- Our Geometric Algebra library.
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅))
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅))
 
 -- Our 2D Projective Geometric Algebra library.
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, distancePPointToPLine)
@@ -88,7 +88,7 @@ linearAlgSpec = do
     it "a projection on the perpendicular bisector of an axis aligned line is on the other axis (1 of 2)" $
       pointOnPerp (LineSeg (Point2 (0,0)) (Point2 (0,1))) (Point2 (0,0)) 1 --> Point2 (-1,0)
     it "a projection on the perpendicular bisector of an axis aligned line is on the other axis (2 of 2)" $
-      pointOnPerp (LineSeg (Point2 (0,0)) (Point2 (1,0))) (Point2 (0,0)) 1 --> Point2 (0,-1)
+      pointOnPerp (LineSeg (Point2 (0,0)) (Point2 (1,0))) (Point2 (0,0)) 1 --> Point2 (0,1)
     it "the distance between a point at (1,1) and a line on the X axis is 1" $
       distancePPointToPLine (eToPPoint2 $ Point2 (1,1)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> 1
     it "the distance between a point at (2,2) and a line on the Y axis is 2" $
@@ -162,6 +162,107 @@ geomAlgSpec = do
     it "the wedge product of two vectors is anti-comutative (u∧v == -v∧u)" $
       GVec [GVal 1 [GEPlus 1]] ∧ GVec [GVal 1 [GEPlus 2]] -->
       GVec [GVal (-1) [GEPlus 2]] ∧ GVec [GVal 1 [GEPlus 1]]
+  describe "Operators" $ do
+    it "the multiply operations that should result in nothing all result in nothing" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEZero 1]]) • (GVec [GVal 1 [GEZero 1]])
+                                 , (GVec [GVal 1 [GEZero 1]]) • (GVec [GVal 1 [GEZero 1, GEPlus 1]])
+                                 , (GVec [GVal 1 [GEZero 1]]) • (GVec [GVal 1 [GEZero 1, GEPlus 2]])
+                                 , (GVec [GVal 1 [GEZero 1]]) • (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 1]]) • (GVec [GVal 1 [GEZero 1]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 1]]) • (GVec [GVal 1 [GEZero 1, GEPlus 1]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 1]]) • (GVec [GVal 1 [GEZero 1, GEPlus 2]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 1]]) • (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 2]]) • (GVec [GVal 1 [GEZero 1]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 2]]) • (GVec [GVal 1 [GEZero 1, GEPlus 1]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 2]]) • (GVec [GVal 1 [GEZero 1, GEPlus 2]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 2]]) • (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]) • (GVec [GVal 1 [GEZero 1]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]) • (GVec [GVal 1 [GEZero 1, GEPlus 1]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]) • (GVec [GVal 1 [GEZero 1, GEPlus 2]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]) • (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]])
+                                 ] --> GVec []
+    it "the multiply operations that should result in 1 all result in 1" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEPlus 1]]) • (GVec [GVal 1 [GEPlus 1]])
+                                 , (GVec [GVal 1 [GEPlus 2]]) • (GVec [GVal 1 [GEPlus 2]])
+                                 ] --> GVec [GVal 2 [G0]]
+    it "the multiply operations that should result in -1 all result in -1" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEPlus 1, GEPlus 2]]) • (GVec [GVal 1 [GEPlus 1, GEPlus 2]])
+                                 ] --> GVec [GVal (-1) [G0]]
+    it "the multiply operations that should result in e0 all result in e0" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEZero 1, GEPlus 1]]) • (GVec [GVal 1 [GEPlus 1]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 2]]) • (GVec [GVal 1 [GEPlus 2]])
+                                 ] --> GVec [GVal 2 [GEZero 1]]
+    it "the multiply operations that should result in e1 all result in e1" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEPlus 1, GEPlus 2]]) • (GVec [GVal 1 [GEPlus 2]])
+                                 ] --> GVec [GVal 1 [GEPlus 1]]
+    it "the multiply operations that should result in e2 all result in e2" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEPlus 1]]) • (GVec [GVal 1 [GEPlus 1, GEPlus 2]])
+                                 ] --> GVec [GVal (1) [GEPlus 2]]
+    it "the multiply operations that should result in e01 all result in e01" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEZero 1]]) • (GVec [GVal 1 [GEPlus 1]])
+                                 , (GVec [GVal 1 [GEPlus 2]]) • (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]])
+                                 , (GVec [GVal 1 [GEPlus 1, GEPlus 2]]) • (GVec [GVal 1 [GEZero 1, GEPlus 2]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]) • (GVec [GVal 1 [GEPlus 2]])
+                                 ] --> GVec [GVal 4 [GEZero 1, GEPlus 1]]
+    it "the multiply operations that should result in e02 all result in e02" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEZero 1]]) • (GVec [GVal 1 [GEPlus 2]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 1]]) • (GVec [GVal 1 [GEPlus 1, GEPlus 2]])
+                                 ] --> GVec [GVal 2 [GEZero 1, GEPlus 2]]
+    it "the multiply operations that should result in e12 all result in e12" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEPlus 1]]) • (GVec [GVal 1 [GEPlus 2]])
+                                 ] --> GVec [GVal 1 [GEPlus 1, GEPlus 2]]
+    it "the multiply operations that should result in e012 all result in e012" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEZero 1]]) • (GVec [GVal 1 [GEPlus 1, GEPlus 2]])
+                                 , (GVec [GVal 1 [GEPlus 2]]) • (GVec [GVal 1 [GEZero 1, GEPlus 1]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 1]]) • (GVec [GVal 1 [GEPlus 2]])
+                                 , (GVec [GVal 1 [GEPlus 1, GEPlus 2]]) • (GVec [GVal 1 [GEZero 1]])
+                                 ] --> GVec [GVal 4 [GEZero 1, GEPlus 1, GEPlus 2]]
+    it "the multiply operations that should result in -e0 all result in -e0" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEPlus 1]]) • (GVec [GVal 1 [GEZero 1, GEPlus 1]])
+                                 , (GVec [GVal 1 [GEPlus 2]]) • (GVec [GVal 1 [GEZero 1, GEPlus 2]])
+                                 , (GVec [GVal 1 [GEPlus 1, GEPlus 2]]) • (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]) • (GVec [GVal 1 [GEPlus 1, GEPlus 2]])
+                                 ] --> GVec [GVal (-4) [GEZero 1]]
+    it "the multiply operations that should result in -e1 all result in -e1" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEPlus 2]]) • (GVec [GVal 1 [GEPlus 1, GEPlus 2]])
+                                 ] --> GVec [GVal (-1) [GEPlus 1]]
+    it "the multiply operations that should result in -e2 all result in -e2" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEPlus 1, GEPlus 2]]) • (GVec [GVal 1 [GEPlus 1]])
+                                 ] --> GVec [GVal (-1) [GEPlus 2]]
+    it "the multiply operations that should result in -e01 all result in -e01" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEPlus 1]]) • (GVec [GVal 1 [GEZero 1]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 2]]) • (GVec [GVal 1 [GEPlus 1, GEPlus 2]])
+                                 ] --> GVec [GVal (-2) [GEZero 1, GEPlus 1]]
+    it "the multiply operations that should result in -e02 all result in -e02" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEPlus 1]]) • (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]])
+                                 , (GVec [GVal 1 [GEPlus 2]]) • (GVec [GVal 1 [GEZero 1]])
+                                 , (GVec [GVal 1 [GEPlus 1, GEPlus 2]]) • (GVec [GVal 1 [GEZero 1, GEPlus 1]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]) • (GVec [GVal 1 [GEPlus 1]])
+                                 ] --> GVec [GVal (-4) [GEZero 1, GEPlus 2]]
+    it "the multiply operations that should result in -e12 all result in -e12" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEPlus 2]]) • (GVec [GVal 1 [GEPlus 1]])
+                                 ] --> GVec [GVal (-1) [GEPlus 1, GEPlus 2]]
+    it "the multiply operations that should result in -e012 all result in -e012" $
+      foldl addVecPair (GVec []) [
+                                   (GVec [GVal 1 [GEPlus 1]]) • (GVec [GVal 1 [GEZero 1, GEPlus 2]])
+                                 , (GVec [GVal 1 [GEZero 1, GEPlus 2]]) • (GVec [GVal 1 [GEPlus 1]])
+                                 ] --> GVec [GVal (-2) [GEZero 1, GEPlus 1, GEPlus 2]]
 
 proj2DGeomAlgSpec :: Spec
 proj2DGeomAlgSpec = do
