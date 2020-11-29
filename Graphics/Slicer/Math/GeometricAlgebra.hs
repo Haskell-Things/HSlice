@@ -20,9 +20,9 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, gUnlike, gLike, sortBasis) where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, sortBasis, sortBasis', sortBasis'') where
 
-import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), (.), error, flip, (||))
+import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), error, flip, (||))
 
 import GHC.Generics (Generic)
 
@@ -220,13 +220,16 @@ sortBasis (GVal r i) = if shouldFlip then GVal (-r) basis else GVal r basis
     (shouldFlip, basis) = sortBasis' i
     -- sort a set of wedged basis vectors. must return an ideal result, along with wehther the associated real value should be flipped or not.
     sortBasis'  :: [GNum] -> (Bool, [GNum])
-    sortBasis' thisBasis = if basisOf (sortBasis'' thisBasis) == basisOf (sortBasis'' $ basisOf $ sortBasis'' thisBasis)
-                           then sortBasis'' thisBasis
-                           else (newFlip, newBasis)
+    sortBasis' thisBasis
+      -- If the basis part of calling sortBasis'' once vs calling sortBasis'' twice doesn't change, we are done sorting.
+      | basisOf sortOnce == basisOf recurseTwice = sortOnce
+      -- If not, recurse.
+      | otherwise                                = recurseTwice
       where
-        (newFlip, newBasis) = sortBasis' $ basisOf $ sortBasis'' thisBasis
-        flipOf = fst
+        sortOnce = sortBasis'' thisBasis
+        recurseTwice = ((flipOf $ sortBasis'' $ basisOf $ sortOnce) /= (flipOf sortOnce), basisOf $ sortBasis'' $ basisOf $ sortOnce)
         basisOf = snd
+        flipOf  = fst
         -- sort a set of wedged basis vectors. may not provide an ideal result, but should return a better result, along with whether the associated real value should be flipped or not.
         sortBasis'' :: [GNum] -> (Bool, [GNum])
         sortBasis'' []       = (False,[])
@@ -277,14 +280,6 @@ stripPairs = withoutPairs
 -- | A dot operator. gets the dot product of the two arguments
 (⋅) :: GVec -> GVec -> GVec
 (⋅) v1 v2 = GVec $ foldl addVal [] $ stripPairs <$> (\(GVec a) -> a) (addVecPair (reduceVecPair v1 v2) (likeVecPair v1 v2))
-
--- A version of our unlike operator, with all of the simplification and cleaning.
-gUnlike :: GVec -> GVec -> GVec
-gUnlike v1 v2 = GVec $ foldl addVal [] $ stripPairs.sortBasis <$> (\(GVec a) -> a) (v1 ⎤ v2)
-
--- A version of our like operator, with all of the simplification and cleaning.
-gLike :: GVec -> GVec -> GVec
-gLike v1 v2 = GVec $ foldl addVal [] $ stripPairs.sortBasis <$> (\(GVec a) -> a) (v1 ⎣ v2)
 
 -- | A geometric product operator. Gets the geometric product of the two arguments.
 (•) :: GVec -> GVec -> GVec
