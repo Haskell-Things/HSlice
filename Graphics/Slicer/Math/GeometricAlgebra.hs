@@ -20,7 +20,7 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, sortBasis, sortBasis', sortBasis'') where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, sortBasis) where
 
 import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), error, flip, (||))
 
@@ -144,8 +144,8 @@ likeVecPair' vec1 vec2 = if null results
 -- | generate the unlike product of a vector pair.
 unlikeVecPair :: GVec -> GVec -> GVec
 unlikeVecPair vec1 vec2 = if null results
-                         then GVec []
-                         else GVec $ foldl addVal [head results] $ tail results
+                          then GVec []
+                          else GVec $ foldl addVal [head results] $ tail results
   where
     results = unlikeVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list when the two basis vectors are not the same.
@@ -265,13 +265,17 @@ stripPairs = withoutPairs
     prependI num (GVal r [G0]) = GVal r [num]
     prependI num (GVal r nums) = GVal r (num:nums)
 
--- our "like" operator. unicode point u+23a3
+-- | our "like" operator. unicode point u+23a3
 (⎣) :: GVec -> GVec -> GVec
 (⎣) = likeVecPair
 
--- our "unlike" operator. unicode point u+23a4
+-- | our "unlike" operator. unicode point u+23a4
 (⎤) :: GVec -> GVec -> GVec
 (⎤) = unlikeVecPair
+
+-- our "reductive" operator.
+(⨅) :: GVec -> GVec -> GVec
+(⨅) v1 v2 = GVec $ foldl addVal [] $ stripPairs <$> (\(GVec a) -> a) (reduceVecPair v1 v2)
 
 -- | A wedge operator. gets the wedge product of the two arguments
 (∧) :: GVec -> GVec -> GVec

@@ -38,7 +38,7 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
 
 import Graphics.Slicer.Math.Line(LineSeg(LineSeg))
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (•), (⋅), {- (∧),-} addVal, addVecPair, divVecScalar, scalarPart, vectorPart, mulScalarVec)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), {- (∧),-} addVal, addVecPair, divVecScalar, scalarPart, vectorPart, mulScalarVec)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -357,7 +357,7 @@ translatePerp pl1 d = PLine2 $ addVecPair m $ rawPLine pl1
 -- | find a point a given distance along a line perpendicularly bisecting this line at a given point.
 pointOnPerp :: LineSeg -> Point2 -> ℝ -> Point2
 pointOnPerp line point d =
---error $ "result: " <> show (fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPoint2 $ (motor•pvec)•reverse motor) <> "\nLine: " <> show lvec <> "\nPoint: " <> show pvec <> "\nPerpLine: " <> show perpLine <> "\nperpLine2: " <> show perpLine2 <> "\nmotor: " <> show motor <> "\n"
+--error $ "result: " <> show ( (motor•pvec)•reverse motor) <> "\nLine: " <> show lvec <> "\nPoint: " <> show pvec <> "\nPerpLine: " <> show perpLine <> "\nmotor•pvec: " <> show (motor•pvec) <> "\nmotor: " <> show motor <> "\nreverse motor: " <> show (reverse motor) <> "\n"
   fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPoint2 $ (motor•pvec)•reverse motor
   where
     (PLine2 lvec)  = normalizePLine2 $ eToPLine2 line
@@ -374,6 +374,6 @@ distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
   where
     (PLine2 lvec)  = normalizePLine2 line
     (PPoint2 pvec) = canonicalizePPoint2 point
-    perpLine       = PLine2 $ lvec ⋅ pvec
+    perpLine       = PLine2 $ lvec ⨅ pvec
     linePoint      = meet2PLine2 (PLine2 lvec) perpLine
     newLine        = join2PPoint2 linePoint (PPoint2 pvec)
