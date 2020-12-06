@@ -44,7 +44,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVa
 
 -- Don't check for corner cases, junt get the intersection point if it exists.
 
--- The Linear result of a line segment intersection in 2 dimensions.
+-- | The Linear result of a line segment intersection in 2 dimensions.
 data Intersection =
   Colinear LineSeg LineSeg
   | Parallel
@@ -55,7 +55,7 @@ data Intersection =
   | HitEndPointL2 LineSeg LineSeg Point2
   deriving (Show)
 
--- The Projective result of a line intersection in 2 dimensions.
+-- | The Projective result of a line intersection in 2 dimensions.
 data PIntersection =
   PColinear
   | PParallel
@@ -63,17 +63,18 @@ data PIntersection =
   | IntersectsIn PPoint2
   deriving (Show)
 
--- | Entry point when you know that the two PLine2s intersect.
+-- | Determine the intersection point of two lines, if applicable. otherwise, classify the relationship between the two line segments.
 plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
 plinesIntersectIn pl1 pl2
-  | meet2PLine2 pl1 pl2       == PPoint2 (GVec []) = PColinear
-  | scalarPart (rawPLine pl1 ⎣ rawPLine pl2) ==  1 = PParallel
-  | scalarPart (rawPLine pl1 ⎣ rawPLine pl2) == -1 = PAntiParallel
-  | otherwise                                      = IntersectsIn $ intersectionOf pl1 pl2
+  | meet2PLine2 pl1 pl2    == PPoint2 (GVec []) = PColinear
+  | scalarPart (pr1 ⎣ pr2) ==  1                = PParallel
+  | scalarPart (pr1 ⎣ pr2) == -1                = PAntiParallel
+  | otherwise                                   = IntersectsIn $ intersectionOf pl1 pl2
   where
-    rawPLine (PLine2 a) = a
+    (PLine2 pr1) = forcePLine2Basis pl1
+    (PLine2 pr2) = forcePLine2Basis pl2
 
--- Wrapper, for line segment using code
+-- | Wrapper, for line segment using code
 lineIntersectsAt :: LineSeg -> LineSeg -> Intersection
 lineIntersectsAt l1 l2 = case plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) of
                            PColinear      -> Colinear l1 l2
@@ -95,7 +96,7 @@ lineIntersection l1 l2@(LineSeg p2 s2)
     rawPLine (PLine2 a) = a
     intersection = intersectionPoint l1 l2
 
--- Check if the second line's direction is on the 'left' side of the first line, assuming they intersect.
+-- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 lineIsLeft :: LineSeg -> LineSeg -> Maybe Bool
 lineIsLeft line1 line2
   | dualAngle dnpl1 dnpl2 == 0 = Nothing
@@ -106,9 +107,11 @@ lineIsLeft line1 line2
     (PPoint2 dnpl1) = forcePPoint2Basis $ PPoint2 npl1
     (PPoint2 dnpl2) = forcePPoint2Basis $ PPoint2 npl2
 
+-- | find... something? FIXME: this is a total hack. returns positive for left, negaative for right, and +45 degrees returns the same as -45 degrees.
 dualAngle :: GVec -> GVec -> ℝ
 dualAngle ln1 ln2 = valOf 0 $ getVals [GEZero 1, GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ unlikeVecPair ln1 ln2
 
+-- | find the angle of intersection of two PLines.
 angleBetween :: PLine2 -> PLine2 -> ℝ
 angleBetween pl1 pl2 =  scalarPart $ pv1 ⎣ pv2
   where
@@ -151,22 +154,22 @@ combineConsecutiveLineSegs lines
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 onSegment :: LineSeg -> Point2 -> Bool
 onSegment (LineSeg p s) i =
-  sqNormOfPLine2 (join2PPoint2 (eToPPoint2 p) (eToPPoint2 i)) <= segmentLength &&
+  sqNormOfPLine2 (join2PPoint2 (eToPPoint2 p) (eToPPoint2 i))               <= segmentLength &&
   sqNormOfPLine2 (join2PPoint2 (eToPPoint2 i) (eToPPoint2 (addPoints p s))) <= segmentLength
   where
     segmentLength = sqNormOfPLine2 (join2PPoint2 (eToPPoint2 p) (eToPPoint2 (addPoints p s)))
 
--- Find the point where two LineSeg segments (might) intersect.
+-- | Find the point where two LineSeg segments (might) intersect.
 intersectionPoint :: LineSeg -> LineSeg -> Point2
 intersectionPoint l1 l2 = intersectPLines (eToPLine2 l1) (eToPLine2 l2)
 
--- Find out where two lines intersect, returning a linear point.
+-- | Find out where two lines intersect, returning a linear point.
 intersectPLines :: PLine2 -> PLine2 -> Point2
 intersectPLines pl1 pl2 = pToEPoint2 res
   where
     res = intersectionOf pl1 pl2
 
--- Find out where two lines intersect, returning a projective point.
+-- | Find out where two lines intersect, returning a projective point.
 intersectionOf :: PLine2 -> PLine2 -> PPoint2
 intersectionOf pl1 pl2 = canonicalizePPoint2 $ meet2PLine2 pl1 pl2
 
@@ -178,19 +181,18 @@ newtype PPoint2 = PPoint2 GVec
 newtype PLine2 = PLine2 GVec
   deriving (Eq, Generic, NFData, Show)
 
--- our join operator, which is the meet operator operating in the dual space.
+-- | The join operator in 2D PGA, which is just the meet operator operating in the dual space.
 (∨) :: GVec -> GVec -> GVec
 (∨) a b = dual2DGVec $ GVec $ foldl addVal [] res
   where
     (GVec res) = dual2DGVec a ⎤  dual2DGVec b
 
--- | our join function.
-join :: GVec -> GVec -> GVec
-join v1 v2 = v1 ∨ v2
-
 -- | a typed join function. join two points, returning a line.
 join2PPoint2 :: PPoint2 -> PPoint2 -> PLine2
-join2PPoint2 (PPoint2 v1) (PPoint2 v2) = PLine2 $ join v1 v2
+join2PPoint2 pp1 pp2 = PLine2 $ pv1 ∨ pv2
+  where
+    (PPoint2 pv1) = forcePPoint2Basis pp1
+    (PPoint2 pv2) = forcePPoint2Basis pp2
 
 -- | A typed meet function. two lines meet at a point.
 meet2PLine2 :: PLine2 -> PLine2 -> PPoint2
@@ -300,30 +302,27 @@ forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
   where
     forceVal has needs = GVal (valOf 0 $ getVals needs has) needs
 
--- | ensure all of the '0' components exist on a PLine2.
+-- | runtime basis coersion. ensure all of the '0' components exist on a PLine2.
 forcePLine2Basis :: PLine2 -> PLine2
-forcePLine2Basis ln@(PLine2 pvec@(GVec gvals)) = if length gvals == 3
-                                                 then ln
-                                                 else PLine2 $ forceBasis [[GEZero 1], [GEPlus 1], [GEPlus 2]] pvec
+forcePLine2Basis ln@(PLine2 (GVec [GVal _ [GEZero 1], GVal _ [GEPlus 1], GVal _ [GEPlus 2]])) = ln
+forcePLine2Basis (PLine2 pvec)                                                                = PLine2 $ forceBasis [[GEZero 1], [GEPlus 1], [GEPlus 2]] pvec
 
--- | ensure all of the '0' components exist on a PLine2.
+-- | runtime basis coersion. ensure all of the '0' components exist on a PPoint2.
 forcePPoint2Basis :: PPoint2 -> PPoint2
-forcePPoint2Basis pt@(PPoint2 pvec@(GVec gvals)) = if length gvals == 3
-                                                   then pt
-                                                   else PPoint2 $ forceBasis [[GEZero 1, GEPlus 1], [GEZero 1, GEPlus 2], [GEPlus 1, GEPlus 2]] pvec
+forcePPoint2Basis pt@(PPoint2 (GVec [GVal _ [GEZero 1, GEPlus 1], GVal _ [GEZero 1, GEPlus 2], GVal _ [GEPlus 1, GEPlus 2]])) = pt
+forcePPoint2Basis (PPoint2 pvec)                                                                                              =  PPoint2 $ forceBasis [[GEZero 1, GEPlus 1], [GEZero 1, GEPlus 2], [GEPlus 1, GEPlus 2]] pvec
 
--- Normalization of euclidian points is really just cannonicalization.
+-- | Normalization of euclidian points is really just cannonicalization.
 canonicalizePPoint2 :: PPoint2 -> PPoint2
 canonicalizePPoint2 (PPoint2 vec@(GVec vals)) = PPoint2 $ divVecScalar vec $ valOf 1 $ getVals [GEPlus 1, GEPlus 2] vals
 
-
--- The idealized norm of a euclidian projective point.
+-- | The idealized norm of a euclidian projective point.
 idealNormPPoint2 :: PPoint2 -> ℝ
 idealNormPPoint2 ppoint = sqrt (x*x+y*y)
   where
     (Point2 (x,y)) = pToEPoint2 ppoint
 
--- Normalize a PLine2.
+-- | Normalize a PLine2.
 normalizePLine2 :: PLine2 -> PLine2
 normalizePLine2 pl@(PLine2 vec) = PLine2 $ divVecScalar vec $ normOfPLine2 pl
 
@@ -336,7 +335,7 @@ sqNormOfPLine2 (PLine2 (GVec vals)) = a*a+b*b
     a = valOf 0 $ getVals [GEPlus 1] vals
     b = valOf 0 $ getVals [GEPlus 2] vals
 
--- reverse a line. same line, but the other direction.
+-- | Reverse a line. same line, but pointed in the other direction.
 flipPLine2 :: PLine2 -> PLine2
 flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl addVal []
                                   [
