@@ -1,5 +1,7 @@
 # HSlice
 
+[![IRC](https://img.shields.io/badge/irc.freenode.net-%23ImplicitCAD-blue.svg)](https://freenode.net/)
+
 A slicer / G-code generator for RepRap firmwares written in Haskell, using Projective Geometric Algebra.
 
 ### To compile:
