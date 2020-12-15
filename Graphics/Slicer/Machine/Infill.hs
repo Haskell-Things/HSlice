@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringLineSegsVertical) where
 
-import Prelude ((+), (<$>), ($), maximum, minimum, filter, (>), head, (.), flip, (*), sqrt, (-), (<>), show, error, otherwise, (==), length, concat, not, null, (!!), odd)
+import Prelude ((+), (<$>), ($), maximum, minimum, filter, (>), head, (.), flip, (*), sqrt, (-), (<>), show, error, otherwise, (==), length, concat, not, null, (!!), odd, Either (Left, Right))
 
 import Data.List.Ordered (sort)
 
@@ -30,11 +30,11 @@ import Data.Maybe (Maybe(Just, Nothing), catMaybes, mapMaybe)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), distance, xOf, yOf, roundToFifth)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), distance, xOf, yOf, roundToFifth, mapWithNeighbors)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), makeLineSegs, makeLineSegsLooped)
 
-import Graphics.Slicer.Math.PGA (Intersection(HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection, Parallel, AntiParallel, Colinear), lineIntersection, lineIsLeft)
+import Graphics.Slicer.Math.PGA (Intersection(HitStartPointL2, HitEndPointL2, NoIntersection), PIntersection(PParallel, PAntiParallel, PColinear, IntersectsIn), lineIntersection, lineIsLeft, pToEPoint2, intersectsWith, pToEPoint2)
 
 import Graphics.Slicer.Math.Contour (preceedingLineSeg)
 
@@ -71,30 +71,26 @@ infillLineSegInside contour childContours line
           filterTooShort [a] = [a]
           filterTooShort (a:b:xs) = if roundToFifth (distance a b) == 0 then filterTooShort xs else a:filterTooShort (b:xs)
           getLineSegIntersections :: LineSeg -> Contour -> [Point2]
-          getLineSegIntersections myline c = saneIntersections $ lineIntersection myline <$> linesOfContour c
+          getLineSegIntersections myline c = saneIntersections $ intersectsWith (Left myline) . Left <$> linesOfContour c
             where
               linesOfContour (PointSequence contourPoints) = makeLineSegsLooped $ (\(Point2 (x,y)) -> Point2 (roundToFifth x, roundToFifth y)) <$> contourPoints
-              saneIntersections :: [Intersection] -> [Point2]
-              saneIntersections xs = concat $ mapMaybe saneIntersection xs
+              saneIntersections :: [Either Intersection PIntersection] -> [Point2]
+              saneIntersections xs = catMaybes $ mapWithNeighbors saneIntersection xs
                 where
-                  saneIntersection :: Intersection -> Maybe [Point2]
+                  saneIntersection :: Either Intersection PIntersection -> Either Intersection PIntersection -> Either Intersection PIntersection -> Maybe Point2
+                  saneIntersection _ (Right (IntersectsIn ppoint)) _ = Just $ pToEPoint2 ppoint
+                  saneIntersection _ (Left NoIntersection)         _ = Nothing
+                  saneIntersection _ (Right PParallel)             _ = Nothing
+                  saneIntersection _ (Right PAntiParallel)         _ = Nothing
+                  saneIntersection _                          (Left (HitStartPointL2 point)) (Left (HitEndPointL2   _)) = Just point
+                  saneIntersection (Left (HitStartPointL2 _)) (Left (HitEndPointL2   _    )) _                          = Nothing
+                  saneIntersection _                          (Left (HitEndPointL2   _    )) (Left (HitStartPointL2 _)) = Nothing
+                  saneIntersection (Left (HitEndPointL2   _)) (Left (HitStartPointL2 point)) _                          = Just point
+                  saneIntersection (Right PColinear)          (Left (HitStartPointL2 _    )) _                          = Nothing
+                  saneIntersection _                          (Left (HitEndPointL2   _    )) (Right PColinear)          = Nothing
+                  saneIntersection _                          (Right PColinear)              _                          = Nothing
+                  saneIntersection r1 r2 r3 = error $ "insane result of intersecting a line (" <> show myline <> ") with a contour " <> show c <> "\n" <> show r1 <> "\n" <> show r2 <> "\n" <> show r3 <> "\n"
                   -- FIXME: we should 'stitch out' colinear segments, not just ignore them.
-                  saneIntersection (Colinear _ _) = Nothing
---                  saneIntersection (LColinear l1 l2@(Line p2 _)) = if lineIsLeft l1 lineTo == lineIsLeft l1 lineFrom then Just [p2, endpoint l2] else Nothing
---                    where
---                      lineTo   = preceedingLine (linesOfContour c) l2
---                      lineFrom = followingLine  (linesOfContour c) l2
-                  saneIntersection (HitStartPointL2 l1 l2 p2) = if lineIsLeft l1 lineTo == lineIsLeft l1 l2 then Just [p2] else Nothing
-                    where
-                      lineTo   = preceedingLineSeg (linesOfContour c) l2
-                  saneIntersection (HitEndPointL2 {}) = Nothing
---                  saneIntersection (HitEndPointL2 l1 l2 p2) = if lineIsLeft l1 l2 == lineIsLeft l1 lineFrom then Just [p2] else Nothing
---                    where
---                      lineFrom = followingLine  (linesOfContour c) l2
-                  saneIntersection (IntersectsAt p2) = Just [p2]
-                  saneIntersection NoIntersection = Nothing
-                  saneIntersection Parallel = Nothing
-                  saneIntersection AntiParallel = Nothing
 
 -- Generate lines over entire print area, where each one is aligned with a -1 slope.
 -- FIXME: other ways to only generate covering lines over the outer contour?

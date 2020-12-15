@@ -20,13 +20,15 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(Colinear, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, IntersectsAt, NoIntersection), lineIntersection, lineIntersectsAt, plinesIntersectIn, PIntersection (PColinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPointL2, HitEndPointL2, NoIntersection), lineIntersection, plinesIntersectIn, PIntersection (PColinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2) where
 
 import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), foldl, sqrt, head, null, negate, (/), error, (<>), show)
 
 import GHC.Generics (Generic)
 
 import Control.DeepSeq (NFData)
+
+import Data.Either (Either(Left, Right))
 
 import Data.List.Ordered (sort, foldt)
 
@@ -36,26 +38,17 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
 
-import Graphics.Slicer.Math.Line(LineSeg(LineSeg))
-
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), {- (∧),-} addVal, addVecPair, divVecScalar, scalarPart, vectorPart, mulScalarVec, unlikeVecPair)
+
+import Graphics.Slicer.Math.Line(LineSeg(LineSeg))
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
--- Don't check for corner cases, junt get the intersection point if it exists.
+-------------------------------------------------------------
+-------------- Projective Line Interface --------------------
+-------------------------------------------------------------
 
--- | The Linear result of a line segment intersection in 2 dimensions.
-data Intersection =
-  Colinear LineSeg LineSeg
-  | Parallel
-  | AntiParallel
-  | IntersectsAt Point2
-  | NoIntersection
-  | HitStartPointL2 LineSeg LineSeg Point2
-  | HitEndPointL2 LineSeg LineSeg Point2
-  deriving (Show)
-
--- | The Projective result of a line intersection in 2 dimensions.
+-- | The Projective result of line intersection in 2 dimensions.
 data PIntersection =
   PColinear
   | PParallel
@@ -63,7 +56,7 @@ data PIntersection =
   | IntersectsIn PPoint2
   deriving (Show)
 
--- | Determine the intersection point of two lines, if applicable. otherwise, classify the relationship between the two line segments.
+-- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
 plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
 plinesIntersectIn pl1 pl2
   | meet2PLine2 pl1 pl2    == PPoint2 (GVec []) = PColinear
@@ -74,49 +67,125 @@ plinesIntersectIn pl1 pl2
     (PLine2 pr1) = forcePLine2Basis pl1
     (PLine2 pr2) = forcePLine2Basis pl2
 
--- | Wrapper, for line segment using code
-lineIntersectsAt :: LineSeg -> LineSeg -> Intersection
-lineIntersectsAt l1 l2 = case plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) of
-                           PColinear      -> Colinear l1 l2
-                           PParallel      -> Parallel
-                           PAntiParallel  -> AntiParallel
-                           IntersectsIn a -> IntersectsAt $ pToEPoint2 a
-
--- | Check if/where two line segments intersect.
-lineIntersection :: LineSeg -> LineSeg -> Intersection
-lineIntersection l1 l2@(LineSeg p2 s2)
-  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])         = Colinear l1 l2
-  | onSegment l1 intersection && onSegment l2 intersection && intersection == p2 = HitStartPointL2 l1 l2 intersection
-  | onSegment l1 intersection && onSegment l2 intersection && intersection == addPoints p2 s2 = HitEndPointL2 l1 l2 intersection
-  | onSegment l1 intersection && onSegment l2 intersection = IntersectsAt intersection
-  | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l2)) ==  1 = Parallel
-  | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l2)) == -1 = Parallel
-  | otherwise = NoIntersection
-  where
-    rawPLine (PLine2 a) = a
-    intersection = intersectionPoint l1 l2
-
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
-lineIsLeft :: LineSeg -> LineSeg -> Maybe Bool
-lineIsLeft line1 line2
+pLineIsLeft :: PLine2 -> PLine2 -> Maybe Bool
+pLineIsLeft line1 line2
   | dualAngle dnpl1 dnpl2 == 0 = Nothing
   | otherwise                  = Just $ dualAngle dnpl1 dnpl2 > 0
   where
-    npl1 = dualPLine2 $ normalizePLine2 $ eToPLine2 line1
-    npl2 = dualPLine2 $ normalizePLine2 $ eToPLine2 line2
+    npl1 = dualPLine2 $ normalizePLine2 line1
+    npl2 = dualPLine2 $ normalizePLine2 line2
     (PPoint2 dnpl1) = forcePPoint2Basis $ PPoint2 npl1
     (PPoint2 dnpl2) = forcePPoint2Basis $ PPoint2 npl2
 
--- | find... something? FIXME: this is a total hack. returns positive for left, negaative for right, and +45 degrees returns the same as -45 degrees.
+-- | Find out where two lines intersect, returning a projective point.
+intersectionOf :: PLine2 -> PLine2 -> PPoint2
+intersectionOf pl1 pl2 = canonicalizePPoint2 $ meet2PLine2 pl1 pl2
+
+-- | Find... something?
+--   FIXME: this is a total hack. returns positive for left, negaative for right, and +45 degrees returns the same as -45 degrees.
 dualAngle :: GVec -> GVec -> ℝ
 dualAngle ln1 ln2 = valOf 0 $ getVals [GEZero 1, GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ unlikeVecPair ln1 ln2
 
--- | find the angle of intersection of two PLines.
+-- | Find the angle of intersection of two PLines.
 angleBetween :: PLine2 -> PLine2 -> ℝ
 angleBetween pl1 pl2 =  scalarPart $ pv1 ⎣ pv2
   where
     (PLine2 pv1) = forcePLine2Basis (normalizePLine2 pl1)
     (PLine2 pv2) = forcePLine2Basis (normalizePLine2 pl2)
+
+-- | Translate a line a given amound along it's perpendicular bisector.
+translatePerp :: PLine2 -> ℝ -> PLine2
+translatePerp pl1 d = PLine2 $ addVecPair m $ rawPLine pl1
+  where
+    m = GVec [GVal (d*normOfPLine2 pl1) [GEZero 1]]
+    rawPLine (PLine2 a) = a
+
+-- | find the distance between a point and a line.
+distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
+distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
+--error $ "result: " <> show (normOfPLine2 $ newLine) <> "\nLine: " <> show lvec <> "\nPoint: " <> show pvec <> "\nPerpLine: " <> show perpLine <> "\nLinePoint: " <> show linePoint <> "\nnewLine: " <> show newLine <> "\n"
+  where
+    (PLine2 lvec)  = normalizePLine2 line
+    (PPoint2 pvec) = canonicalizePPoint2 point
+    perpLine       = PLine2 $ lvec ⨅ pvec
+    linePoint      = meet2PLine2 (PLine2 lvec) perpLine
+    newLine        = join2PPoint2 linePoint (PPoint2 pvec)
+
+----------------------------------------------------------
+-------------- Euclidian Mixed Interface -----------------
+----------------------------------------------------------
+
+-- | The Linear result of line segment intersection in 2 dimensions.
+data Intersection =
+    NoIntersection
+  | HitStartPointL2 Point2
+  | HitEndPointL2 Point2
+  deriving (Show)
+
+-- | an alias, for cases where either input is acceptable.
+type SegOrPLine2 = Either LineSeg PLine2
+
+-- Check if/where lines/line segments intersect.
+-- entry point usable for all intersection needs, but it's faster to use the above two functions when you KNOW there MUST be an intersection.
+intersectsWith :: SegOrPLine2 -> SegOrPLine2 -> Either Intersection PIntersection
+intersectsWith (Left l1)   (Left l2)   =         lineIntersection    l1  l2
+intersectsWith (Right pl1) (Right pl2) = Right $ plinesIntersectIn   pl1 pl2
+intersectsWith (Left l1)   (Right pl1) =         lineIntersectsPLine l1  pl1
+intersectsWith (Right pl1) (Left l1)   =         lineIntersectsPLine l1  pl1
+
+-- Check if/where lines/line segments intersect.
+lineIntersectsPLine :: LineSeg -> PLine2 -> Either Intersection PIntersection
+lineIntersectsPLine l1@(LineSeg p1 s1) pl1
+  | meet2PLine2 (eToPLine2 l1) pl1 == PPoint2 (GVec [])          = Right PColinear
+  | onSegment l1 intersection && intersection == p1              = Left $ HitStartPointL2 intersection
+  | onSegment l1 intersection && intersection == addPoints p1 s1 = Left $ HitEndPointL2 intersection
+  | onSegment l1 (intersection) = Right $ IntersectsIn rawIntersection
+  | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine pl1) ==  1 = Right PParallel
+  | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine pl1) == -1 = Right PAntiParallel
+  | otherwise = Left NoIntersection
+  where
+    rawPLine (PLine2 a) = a
+    intersection = pToEPoint2 $ intersectionOf (eToPLine2 l1) pl1
+    rawIntersection = intersectionOf (eToPLine2 l1) pl1
+
+-- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
+onSegment :: LineSeg -> Point2 -> Bool
+onSegment (LineSeg p s) i =
+  sqNormOfPLine2 (join2PPoint2 (eToPPoint2 p) (eToPPoint2 i))               <= segmentLength &&
+  sqNormOfPLine2 (join2PPoint2 (eToPPoint2 i) (eToPPoint2 (addPoints p s))) <= segmentLength
+  where
+    segmentLength = sqNormOfPLine2 (join2PPoint2 (eToPPoint2 p) (eToPPoint2 (addPoints p s)))
+
+-- | Find the point where two LineSeg segments (might) intersect.
+intersectionPoint :: LineSeg -> LineSeg -> Point2
+intersectionPoint l1 l2 = intersectPLines (eToPLine2 l1) (eToPLine2 l2)
+
+-- | Check if/where two line segments intersect.
+lineIntersection :: LineSeg -> LineSeg -> Either Intersection PIntersection
+lineIntersection l1 l2@(LineSeg p2 s2)
+  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])         = Right PColinear
+  | onSegment l1 intersection && onSegment l2 intersection && intersection == p2 = Left $ HitStartPointL2 intersection
+  | onSegment l1 intersection && onSegment l2 intersection && intersection == addPoints p2 s2 = Left $ HitEndPointL2 intersection
+  | onSegment l1 intersection && onSegment l2 intersection = Right $ IntersectsIn rawIntersection
+  | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l2)) ==  1 = Right PParallel
+--  | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l2)) == -1 = Right PAntiParallel
+  | otherwise = Left NoIntersection
+  where
+    rawPLine (PLine2 a) = a
+    intersection = intersectionPoint l1 l2
+    rawIntersection = intersectionOf (eToPLine2 l1) (eToPLine2 l2)
+
+-- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
+lineIsLeft :: LineSeg -> LineSeg -> Maybe Bool
+lineIsLeft line1 line2 = pLineIsLeft (eToPLine2 line1) (eToPLine2 line2)
+
+
+-- | Find out where two lines intersect, returning a linear point.
+intersectPLines :: PLine2 -> PLine2 -> Point2
+intersectPLines pl1 pl2 = pToEPoint2 res
+  where
+    res = intersectionOf pl1 pl2
 
 -- | Combine consecutive line segments. expects line segments with their end points connecting, EG, a contour generated by makeContours.
 combineConsecutiveLineSegs :: [LineSeg] -> [LineSeg]
@@ -151,27 +220,22 @@ combineConsecutiveLineSegs lines
         sameLineSeg = meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])
         sameMiddlePoint = p2 == addPoints p1 s1
 
--- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
-onSegment :: LineSeg -> Point2 -> Bool
-onSegment (LineSeg p s) i =
-  sqNormOfPLine2 (join2PPoint2 (eToPPoint2 p) (eToPPoint2 i))               <= segmentLength &&
-  sqNormOfPLine2 (join2PPoint2 (eToPPoint2 i) (eToPPoint2 (addPoints p s))) <= segmentLength
+-- | find a point a given distance along a line perpendicularly bisecting this line at a given point.
+pointOnPerp :: LineSeg -> Point2 -> ℝ -> Point2
+pointOnPerp line point d =
+--error $ "result: " <> show ( (motor•pvec)•reverse motor) <> "\nLine: " <> show lvec <> "\nPoint: " <> show pvec <> "\nPerpLine: " <> show perpLine <> "\nmotor•pvec: " <> show (motor•pvec) <> "\nmotor: " <> show motor <> "\nreverse motor: " <> show (reverse motor) <> "\n"
+  fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPoint2 $ (motor•pvec)•reverse motor
   where
-    segmentLength = sqNormOfPLine2 (join2PPoint2 (eToPPoint2 p) (eToPPoint2 (addPoints p s)))
+    (PLine2 lvec)  = normalizePLine2 $ eToPLine2 line
+    (PPoint2 pvec) = canonicalizePPoint2 $ eToPPoint2 point
+    perpLine       = lvec ⨅ pvec
+    motor = addVecPair (perpLine • gaI) (GVec [GVal 1 [G0]])
+    -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
+    gaI = GVec [GVal (d/2) [GEZero 1, GEPlus 1, GEPlus 2]]
 
--- | Find the point where two LineSeg segments (might) intersect.
-intersectionPoint :: LineSeg -> LineSeg -> Point2
-intersectionPoint l1 l2 = intersectPLines (eToPLine2 l1) (eToPLine2 l2)
-
--- | Find out where two lines intersect, returning a linear point.
-intersectPLines :: PLine2 -> PLine2 -> Point2
-intersectPLines pl1 pl2 = pToEPoint2 res
-  where
-    res = intersectionOf pl1 pl2
-
--- | Find out where two lines intersect, returning a projective point.
-intersectionOf :: PLine2 -> PLine2 -> PPoint2
-intersectionOf pl1 pl2 = canonicalizePPoint2 $ meet2PLine2 pl1 pl2
+------------------------------------------------
+----- And now draw the rest of the algebra -----
+------------------------------------------------
 
 -- | A projective point in 2D space.
 newtype PPoint2 = PPoint2 GVec
@@ -208,11 +272,11 @@ meet2PPoint2 pp1 pp2 = pv1 ⎤ pv2
     (PPoint2 pv1) = forcePPoint2Basis pp1
     (PPoint2 pv2) = forcePPoint2Basis pp2
 
--- | Create a 2D projective point from a 2D euclidian point.
+-- | Create a projective point from a euclidian point.
 eToPPoint2 :: Point2 -> PPoint2
 eToPPoint2 (Point2 (x,y)) = PPoint2 $ GVec $ foldl addVal [GVal 1 [GEPlus 1, GEPlus 2]] [ GVal (-x) [GEZero 1, GEPlus 2], GVal y [GEZero 1, GEPlus 1] ]
 
--- | Create a 2D euclidian point from a 2D projective point.
+-- | Create a euclidian point from a projective point.
 pToEPoint2 :: PPoint2 -> Point2
 pToEPoint2 (PPoint2 (GVec pPoint)) = Point2 (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] pPoint
                                             ,         valOf 0 $ getVals [GEZero 1, GEPlus 1] pPoint)
@@ -225,7 +289,7 @@ idealPPoint2 (PPoint2 (GVec vals)) = PPoint2 $ GVec $ foldl addVal []
                                      , GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] vals) [GEZero 1, GEPlus 2]
                                      ]
 
--- | Create a 2D Euclidian point from a 2D Projective point.
+-- | Create a euclidian point from a projective point.
 ppointToPoint2 :: PPoint2 -> Maybe Point2
 ppointToPoint2 (PPoint2 (GVec vals)) = if infinitePoint
                                       then Nothing
@@ -235,12 +299,14 @@ ppointToPoint2 (PPoint2 (GVec vals)) = if infinitePoint
     yVal =          valOf 0 $ getVals [GEZero 1, GEPlus 1] vals
     infinitePoint = 0 == valOf 0 (getVals [GEPlus 1, GEPlus 2] vals)
 
--- | Create a 2D projective line from a pair of euclidian endpoints.
+-- | Create a projective line from a euclidian line segment.
 eToPLine2 :: LineSeg -> PLine2
-eToPLine2 (LineSeg (Point2 (x1,y1)) (Point2 (x,y))) = PLine2 $ GVec $ foldl addVal [] [ GVal c [GEZero 1], GVal a [GEPlus 1], GVal b [GEPlus 2] ]
+eToPLine2 (LineSeg startPoint@(Point2 (x1,y1)) (Point2 (x,y))) = plineFromEndpoints startPoint (Point2 (x1+x,y1+y))
+
+-- | Create a projective line from a pair of euclidian points.
+plineFromEndpoints :: Point2 -> Point2 -> PLine2
+plineFromEndpoints (Point2 (x1,y1)) (Point2 (x2,y2)) = PLine2 $ GVec $ foldl addVal [] [ GVal c [GEZero 1], GVal a [GEPlus 1], GVal b [GEPlus 2] ]
   where
-    x2=x1+x
-    y2=y1+y
     a=y2-y1
     b=x1-x2
     c=y1*x2-x1*y2
@@ -310,7 +376,7 @@ forcePLine2Basis (PLine2 pvec)                                                  
 -- | runtime basis coersion. ensure all of the '0' components exist on a PPoint2.
 forcePPoint2Basis :: PPoint2 -> PPoint2
 forcePPoint2Basis pt@(PPoint2 (GVec [GVal _ [GEZero 1, GEPlus 1], GVal _ [GEZero 1, GEPlus 2], GVal _ [GEPlus 1, GEPlus 2]])) = pt
-forcePPoint2Basis (PPoint2 pvec)                                                                                              =  PPoint2 $ forceBasis [[GEZero 1, GEPlus 1], [GEZero 1, GEPlus 2], [GEPlus 1, GEPlus 2]] pvec
+forcePPoint2Basis (PPoint2 pvec)                                                                                              = PPoint2 $ forceBasis [[GEZero 1, GEPlus 1], [GEZero 1, GEPlus 2], [GEPlus 1, GEPlus 2]] pvec
 
 -- | Normalization of euclidian points is really just cannonicalization.
 canonicalizePPoint2 :: PPoint2 -> PPoint2
@@ -344,33 +410,3 @@ flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl addVal []
                                   , GVal (negate $ valOf 0 $ getVals [GEPlus 2] vals) [GEPlus 2]
                                   ]
 
--- | Translate a line a given amound along it's perpendicular bisector.
-translatePerp :: PLine2 -> ℝ -> PLine2
-translatePerp pl1 d = PLine2 $ addVecPair m $ rawPLine pl1
-  where
-    m = GVec [GVal (d*normOfPLine2 pl1) [GEZero 1]]
-    rawPLine (PLine2 a) = a
-
--- | find a point a given distance along a line perpendicularly bisecting this line at a given point.
-pointOnPerp :: LineSeg -> Point2 -> ℝ -> Point2
-pointOnPerp line point d =
---error $ "result: " <> show ( (motor•pvec)•reverse motor) <> "\nLine: " <> show lvec <> "\nPoint: " <> show pvec <> "\nPerpLine: " <> show perpLine <> "\nmotor•pvec: " <> show (motor•pvec) <> "\nmotor: " <> show motor <> "\nreverse motor: " <> show (reverse motor) <> "\n"
-  fromJust $ ppointToPoint2 $ canonicalizePPoint2 $ PPoint2 $ (motor•pvec)•reverse motor
-  where
-    (PLine2 lvec)  = normalizePLine2 $ eToPLine2 line
-    (PPoint2 pvec) = canonicalizePPoint2 $ eToPPoint2 point
-    perpLine       = lvec ⨅ pvec
-    motor = addVecPair (perpLine • gaI) (GVec [GVal 1 [G0]])
-    -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
-    gaI = GVec [GVal (d/2) [GEZero 1, GEPlus 1, GEPlus 2]]
-
--- | find the distance between a point and a line.
-distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
-distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
---error $ "result: " <> show (normOfPLine2 $ newLine) <> "\nLine: " <> show lvec <> "\nPoint: " <> show pvec <> "\nPerpLine: " <> show perpLine <> "\nLinePoint: " <> show linePoint <> "\nnewLine: " <> show newLine <> "\n"
-  where
-    (PLine2 lvec)  = normalizePLine2 line
-    (PPoint2 pvec) = canonicalizePPoint2 point
-    perpLine       = PLine2 $ lvec ⨅ pvec
-    linePoint      = meet2PLine2 (PLine2 lvec) perpLine
-    newLine        = join2PPoint2 linePoint (PPoint2 pvec)
