@@ -22,11 +22,13 @@
 
 module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, unlikeVecPair) where
 
-import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, foldl, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), error, flip, (||))
+import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), error, flip, (||))
 
 import GHC.Generics (Generic)
 
 import Control.DeepSeq (NFData(rnf))
+
+import Data.List (foldl')
 
 import Data.List.Ordered(sort, insertSet)
 
@@ -98,11 +100,11 @@ subVal dst (GVal r i) = addVal dst $ GVal (-r) i
 
 -- | Add two vectors together.
 addVecPair :: GVec -> GVec -> GVec
-addVecPair (GVec vals1) (GVec vals2) = GVec $ foldl addVal vals1 vals2
+addVecPair (GVec vals1) (GVec vals2) = GVec $ foldl' addVal vals1 vals2
 
 -- | subtract one vector from the other.
 subVecPair :: GVec -> GVec -> GVec
-subVecPair (GVec vals1) (GVec vals2) = GVec $ foldl subVal vals1 vals2
+subVecPair (GVec vals1) (GVec vals2) = GVec $ foldl' subVal vals1 vals2
 
 -- | multiply a vector by a scalar. arguments are given in this order for maximum readability.
 mulScalarVec :: ℝ -> GVec -> GVec
@@ -127,7 +129,7 @@ likeVecPair a b
 likeVecPair' :: GVec -> GVec -> GVec
 likeVecPair' vec1 vec2 = if null results
                          then GVec []
-                         else GVec $ foldl addVal [head results] $ tail results
+                         else GVec $ foldl' addVal [head results] $ tail results
   where
     results = likeVecPair'' vec1 vec2
     -- cycle through one list, and generate a pair with the second list when the two basis vectors are the same.
@@ -145,7 +147,7 @@ likeVecPair' vec1 vec2 = if null results
 unlikeVecPair :: GVec -> GVec -> GVec
 unlikeVecPair vec1 vec2 = if null results
                           then GVec []
-                          else GVec $ foldl addVal [head results] $ tail results
+                          else GVec $ foldl' addVal [head results] $ tail results
   where
     results = unlikeVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list when the two basis vectors are not the same.
@@ -163,7 +165,7 @@ unlikeVecPair vec1 vec2 = if null results
 reduceVecPair :: GVec -> GVec -> GVec
 reduceVecPair vec1 vec2 = if null results
                            then GVec []
-                           else GVec $ foldl addVal [head results] $ tail results
+                           else GVec $ foldl' addVal [head results] $ tail results
   where
     results = reduceVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list.
@@ -198,7 +200,7 @@ reduceVecPair vec1 vec2 = if null results
 mulVecPair :: GVec -> GVec -> GVec
 mulVecPair vec1 vec2 = if null results
                          then GVec []
-                         else GVec $ foldl addVal [head results] $ tail results
+                         else GVec $ foldl' addVal [head results] $ tail results
   where
     results = mulVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list.
@@ -267,27 +269,27 @@ stripPairs = withoutPairs
 
 -- | our "like" operator. unicode point u+23a3
 (⎣) :: GVec -> GVec -> GVec
-(⎣) v1 v2 = GVec $ foldl addVal [] $ stripPairs <$> (\(GVec a) -> a) (likeVecPair v1 v2)
+(⎣) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (likeVecPair v1 v2)
 
 -- | our "unlike" operator. unicode point u+23a4
 (⎤) :: GVec -> GVec -> GVec
-(⎤) v1 v2 = GVec $ foldl addVal [] $ stripPairs <$> (\(GVec a) -> a) (unlikeVecPair v1 v2)
+(⎤) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (unlikeVecPair v1 v2)
 
 -- our "reductive" operator.
 (⨅) :: GVec -> GVec -> GVec
-(⨅) v1 v2 = GVec $ foldl addVal [] $ stripPairs <$> (\(GVec a) -> a) (reduceVecPair v1 v2)
+(⨅) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (reduceVecPair v1 v2)
 
 -- | A wedge operator. gets the wedge product of the two arguments
 (∧) :: GVec -> GVec -> GVec
-(∧) v1 v2 = GVec $ foldl addVal [] $ stripPairs <$> (\(GVec a) -> a) (subVecPair (reduceVecPair v1 v2) (unlikeVecPair v1 v2))
+(∧) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (subVecPair (reduceVecPair v1 v2) (unlikeVecPair v1 v2))
 
 -- | A dot operator. gets the dot product of the two arguments
 (⋅) :: GVec -> GVec -> GVec
-(⋅) v1 v2 = GVec $ foldl addVal [] $ stripPairs <$> (\(GVec a) -> a) (addVecPair (reduceVecPair v1 v2) (likeVecPair v1 v2))
+(⋅) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (addVecPair (reduceVecPair v1 v2) (likeVecPair v1 v2))
 
 -- | A geometric product operator. Gets the geometric product of the two arguments.
 (•) :: GVec -> GVec -> GVec
-(•) vec1 vec2 = GVec $ foldl addVal [] $ stripPairs <$> (\(GVec a) -> a) (mulVecPair vec1 vec2)
+(•) vec1 vec2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (mulVecPair vec1 vec2)
 
 -- simplify a GVec, and return any scalar component.
 scalarPart :: GVec -> ℝ
@@ -299,7 +301,7 @@ scalarPart (GVec gVals) = sum $ realValue <$> vals
 
 -- simplify a GVec, and return any component that is not a scalar.
 vectorPart :: GVec -> GVec
-vectorPart (GVec gVals) = GVec $ foldl addVal [] $ filter noRealValue vals
+vectorPart (GVec gVals) = GVec $ foldl' addVal [] $ filter noRealValue vals
   where
     vals = stripPairs <$> gVals
     noRealValue (GVal _ [G0]) = False
