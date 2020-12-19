@@ -20,7 +20,7 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPointL2, HitEndPointL2, NoIntersection), lineIntersection, plinesIntersectIn, PIntersection (PColinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), lineIntersection, plinesIntersectIn, PIntersection (PColinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2) where
 
 import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), sqrt, head, null, negate, (/), (<>), show)
 
@@ -40,7 +40,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), {- (∧),-} addVal, addVecPair, divVecScalar, scalarPart, vectorPart, mulScalarVec, unlikeVecPair)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), addVal, addVecPair, divVecScalar, scalarPart, vectorPart, unlikeVecPair)
 
 import Graphics.Slicer.Math.Line(LineSeg(LineSeg))
 
@@ -120,8 +120,8 @@ distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
 -- | Intersection events that can only happen with line segments.
 data Intersection =
     NoIntersection
-  | HitStartPointL2 Point2
-  | HitEndPointL2 Point2
+  | HitStartPoint LineSeg Point2
+  | HitEndPoint LineSeg Point2
   deriving (Show)
 
 -- | An alias, for cases where either input is acceptable.
@@ -135,12 +135,29 @@ intersectsWith (Right pl1) (Right pl2) = Right $ plinesIntersectIn   pl1 pl2
 intersectsWith (Left l1)   (Right pl1) =         lineIntersectsPLine l1  pl1
 intersectsWith (Right pl1) (Left l1)   =         lineIntersectsPLine l1  pl1
 
+-- | Check if/where two line segments intersect.
+lineIntersection :: LineSeg -> LineSeg -> Either Intersection PIntersection
+lineIntersection l1@(LineSeg p1 s1) l2@(LineSeg p2 s2)
+  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])         = Right PColinear
+  | onSegment l1 intersection && onSegment l2 intersection && intersection == p1 = Left $ HitStartPoint l1 intersection
+  | onSegment l1 intersection && onSegment l2 intersection && intersection == addPoints p1 s1 = Left $ HitEndPoint l1 intersection
+  | onSegment l1 intersection && onSegment l2 intersection && intersection == p2 = Left $ HitStartPoint l2 intersection
+  | onSegment l1 intersection && onSegment l2 intersection && intersection == addPoints p2 s2 = Left $ HitEndPoint l2 intersection
+  | onSegment l1 intersection && onSegment l2 intersection = Right $ IntersectsIn rawIntersection
+  | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l2)) ==  1 = Right PParallel
+--  | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l2)) == -1 = Right PAntiParallel
+  | otherwise = Left NoIntersection
+  where
+    rawPLine (PLine2 a) = a
+    intersection = intersectionPoint l1 l2
+    rawIntersection = intersectionOf (eToPLine2 l1) (eToPLine2 l2)
+
 -- Check if/where lines/line segments intersect.
 lineIntersectsPLine :: LineSeg -> PLine2 -> Either Intersection PIntersection
 lineIntersectsPLine l1@(LineSeg p1 s1) pl1
   | meet2PLine2 (eToPLine2 l1) pl1 == PPoint2 (GVec [])          = Right PColinear
-  | onSegment l1 intersection && intersection == p1              = Left $ HitStartPointL2 intersection
-  | onSegment l1 intersection && intersection == addPoints p1 s1 = Left $ HitEndPointL2 intersection
+  | onSegment l1 intersection && intersection == p1              = Left $ HitStartPoint l1 intersection
+  | onSegment l1 intersection && intersection == addPoints p1 s1 = Left $ HitEndPoint l1 intersection
   | onSegment l1 (intersection) = Right $ IntersectsIn rawIntersection
   | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine pl1) ==  1 = Right PParallel
   | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine pl1) == -1 = Right PAntiParallel
@@ -161,21 +178,6 @@ onSegment (LineSeg p s) i =
 -- | Find the point where two LineSeg segments (might) intersect.
 intersectionPoint :: LineSeg -> LineSeg -> Point2
 intersectionPoint l1 l2 = intersectPLines (eToPLine2 l1) (eToPLine2 l2)
-
--- | Check if/where two line segments intersect.
-lineIntersection :: LineSeg -> LineSeg -> Either Intersection PIntersection
-lineIntersection l1 l2@(LineSeg p2 s2)
-  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])         = Right PColinear
-  | onSegment l1 intersection && onSegment l2 intersection && intersection == p2 = Left $ HitStartPointL2 intersection
-  | onSegment l1 intersection && onSegment l2 intersection && intersection == addPoints p2 s2 = Left $ HitEndPointL2 intersection
-  | onSegment l1 intersection && onSegment l2 intersection = Right $ IntersectsIn rawIntersection
-  | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l2)) ==  1 = Right PParallel
---  | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l2)) == -1 = Right PAntiParallel
-  | otherwise = Left NoIntersection
-  where
-    rawPLine (PLine2 a) = a
-    intersection = intersectionPoint l1 l2
-    rawIntersection = intersectionOf (eToPLine2 l1) (eToPLine2 l2)
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 lineIsLeft :: LineSeg -> LineSeg -> Maybe Bool

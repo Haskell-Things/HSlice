@@ -17,7 +17,7 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-module Graphics.Slicer.Math.Contour (followingLineSeg, preceedingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour) where
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour) where
 
 import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, Either(Left, Right))
 
@@ -33,7 +33,7 @@ import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2))
 
 import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, makeLineSegsLooped, makeLineSegs, endpoint, midpoint)
 
-import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, HitStartPointL2, HitEndPointL2), PIntersection (PParallel, PAntiParallel, IntersectsIn), lineIsLeft, pointOnPerp, intersectsWith, pToEPoint2)
+import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, HitStartPoint, HitEndPoint), PIntersection (PColinear, PParallel, PAntiParallel, IntersectsIn), lineIsLeft, pointOnPerp, intersectsWith, pToEPoint2)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -176,16 +176,6 @@ followingLineSeg x = followingLineSegLooped x x
     followingLineSegLooped _ [] l1 = error $ "reached end of contour, and did not find supplied line: " <> show l1 <> "\n"
     followingLineSegLooped [a] (b:_) l1 = if a == l1 then b else followingLineSegLooped [a] [] l1
     followingLineSegLooped (a:b:xs) set l1 = if a == l1 then b else followingLineSegLooped (b:xs) set l1
-
--- Search the given sequential list of lines (assumedly generated from a contour), and return the line before this one.
-preceedingLineSeg :: [LineSeg] -> LineSeg -> LineSeg
-preceedingLineSeg x = preceedingLineSegLooped x x
-  where
-    preceedingLineSegLooped :: [LineSeg] -> [LineSeg] -> LineSeg -> LineSeg
-    preceedingLineSegLooped [] _ l1 = error $ "reached beginning of contour, and did not find supplied line: " <> show l1 <> "\n"
-    preceedingLineSegLooped _ [] l1 = error $ "reached end of contour, and did not find supplied line: " <> show l1 <> "\n"
-    preceedingLineSegLooped [a] (b:_) l1 = if b == l1 then a else preceedingLineSegLooped [a] [] l1
-    preceedingLineSegLooped (a:b:xs) set l1 = if b == l1 then a else preceedingLineSegLooped (b:xs) set l1
 
 -- | Check if the left hand side of this line in toward the inside of the contour it is a part of.
 insideIsLeft :: Contour -> LineSeg -> Bool
