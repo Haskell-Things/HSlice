@@ -34,7 +34,7 @@ import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence),
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), makeLineSegs, makeLineSegsLooped)
 
-import Graphics.Slicer.Math.PGA (Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PParallel, PAntiParallel, PColinear, IntersectsIn), pToEPoint2, intersectsWith, eToPLine2)
+import Graphics.Slicer.Math.PGA (Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PParallel, PAntiParallel, PColinear, IntersectsIn), PLine2, pToEPoint2, intersectsWith, eToPLine2)
 
 -- | what direction to put down infill lines.
 data InfillType = Diag1 | Diag2 | Vert | Horiz
@@ -51,7 +51,7 @@ makeInfill contour insideContours ls layerType = catMaybes $ infillLineSegInside
       infillCover Diag2 = coveringLineSegsPositive contour ls
 
 -- Get the segments of an infill line that are inside of a contour, skipping space occluded by any of the child contours.
-infillLineSegInside :: Contour -> [Contour] -> LineSeg -> Maybe [LineSeg]
+infillLineSegInside :: Contour -> [Contour] -> PLine2 -> Maybe [LineSeg]
 infillLineSegInside contour childContours line
 --  | contour == contour  = error $ "dumping infill inputs:" <> show contour <> "\n" <> show childContours <> "\n" <> show line <> "\n"
   | not (null allLines) = Just $ (allLines !!) <$> [0,2..length allLines - 1]
@@ -68,8 +68,8 @@ infillLineSegInside contour childContours line
           filterTooShort [] = []
           filterTooShort [a] = [a]
           filterTooShort (a:b:xs) = if roundToFifth (distance a b) == 0 then filterTooShort xs else a:filterTooShort (b:xs)
-          getLineSegIntersections :: LineSeg -> Contour -> [Point2]
-          getLineSegIntersections myline c = saneIntersections $ intersectsWith (Right $ eToPLine2 myline) . Left <$> linesOfContour c
+          getLineSegIntersections :: PLine2 -> Contour -> [Point2]
+          getLineSegIntersections myline c = saneIntersections $ intersectsWith (Right myline) . Left <$> linesOfContour c
             where
               linesOfContour (PointSequence contourPoints) = makeLineSegsLooped $ (\(Point2 (x,y)) -> Point2 (roundToFifth x, roundToFifth y)) <$> contourPoints
               saneIntersections :: [Either Intersection PIntersection] -> [Point2]
@@ -80,65 +80,68 @@ infillLineSegInside contour childContours line
                   saneIntersection _ (Left NoIntersection)         _ = Nothing
                   saneIntersection _ (Right PParallel)             _ = Nothing
                   saneIntersection _ (Right PAntiParallel)         _ = Nothing
+                  -- Since every stop point of one line segment in a contour should be the same as the next start point...
+                  -- only count the first start point, when going in one direction..
                   saneIntersection _                          (Left (HitStartPoint _ point)) (Left (HitEndPoint   _ _)) = Just point
                   saneIntersection (Left (HitStartPoint _ _)) (Left (HitEndPoint   _ _    )) _                          = Nothing
+                  -- and only count the first start point, when going in the other direction.
                   saneIntersection _                          (Left (HitEndPoint   _ _    )) (Left (HitStartPoint _ _)) = Nothing
                   saneIntersection (Left (HitEndPoint   _ _)) (Left (HitStartPoint _ point)) _                          = Just point
+                  -- FIXME: we should 'stitch out' colinear segments, not just ignore them.
                   saneIntersection (Right PColinear)          (Left (HitStartPoint _ _    )) _                          = Nothing
                   saneIntersection _                          (Left (HitEndPoint   _ _    )) (Right PColinear)          = Nothing
                   saneIntersection _                          (Right PColinear)              _                          = Nothing
                   saneIntersection (Left NoIntersection)      (Left (HitEndPoint   _ point)) (Left NoIntersection)      = Just point
                   saneIntersection r1 r2 r3 = error $ "insane result of intersecting a line (" <> show myline <> ") with a contour " <> show c <> "\n" <> show r1 <> "\n" <> show r2 <> "\n" <> show r3 <> "\n"
-                  -- FIXME: we should 'stitch out' colinear segments, not just ignore them.
 
 -- Generate lines over entire print area, where each one is aligned with a -1 slope.
--- FIXME: other ways to only generate covering lines over the given contour?
 -- FIXME: assumes we're in positive space.
-coveringLineSegsNegative :: Contour -> ℝ -> [LineSeg]
-coveringLineSegsNegative (PointSequence contourPoints) ls = flip LineSeg s . f <$> [-xMin,-xMin+lsX..xMax]
-    where s = Point2 (xMaxOutside,yMaxOutside)
-          f v = Point2 (v,0)
-          xMinRaw = minimum $ xOf <$> contourPoints
-          xMin = head $ filter (> xMinRaw) [-ls, 0..]
-          xMax = maximum $ xOf <$> contourPoints
+coveringLineSegsNegative :: Contour -> ℝ -> [PLine2]
+coveringLineSegsNegative (PointSequence contourPoints) ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
+    where slope = Point2 (1,1)
+          f v = Point2 (v-xDiff,0)
+          xDiff = (-(xMin-yMax))
+          yMin = minimum $ yOf <$> contourPoints
           yMax = maximum $ yOf <$> contourPoints
-          xMaxOutside = xMax + ls
-          yMaxOutside = yMax + ls
-          lsX = sqrt $ ls*ls+ls*ls
+          xMinRaw = minimum $ xOf <$> contourPoints
+          xMin = head $ filter (> xMinRaw) [0, lss..]
+          xMax = maximum $ xOf <$> contourPoints
+          -- line spacing, taking into account the slope.
+          lss = sqrt $ ls*ls+ls*ls
 
 -- Generate lines over entire print area, where each one is aligned with a +1 slope.
--- FIXME: other ways to only generate covering lines over the given contour?
 -- FIXME: assumes we're in positive space.
-coveringLineSegsPositive :: Contour -> ℝ -> [LineSeg]
-coveringLineSegsPositive (PointSequence contourPoints) ls = flip LineSeg s . f <$> [0,lsY..yMax + xMax]
-    where s =  Point2 (xMaxOutside + yMaxOutside,- xMaxOutside - yMaxOutside)
-          f v = Point2 (0,v)
-          xMax = maximum $ xOf <$> contourPoints
+coveringLineSegsPositive :: Contour -> ℝ -> [PLine2]
+coveringLineSegsPositive (PointSequence contourPoints) ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
+    where slope =  Point2 (1,-1)
+          f v = Point2 (v+yDiff,0)
+          yDiff = (xMin+yMin)
+          yMinRaw = minimum $ yOf <$> contourPoints
+          yMin = head $ filter (> yMinRaw) [0, lss..]
           yMax = maximum $ yOf <$> contourPoints
-          xMaxOutside = xMax + ls
-          yMaxOutside = yMax + ls
-          lsY = sqrt $ ls*ls+ls*ls
+          xMin = minimum $ xOf <$> contourPoints
+          xMax = maximum $ xOf <$> contourPoints
+          -- line spacing, taking into account the slope.
+          lss = sqrt $ ls*ls+ls*ls
 
 -- Generate lines covering the entire contour, where each line is aligned with the Y axis.
 -- FIXME: assumes we're in positive space.
-coveringLineSegsVertical :: Contour -> ℝ -> [LineSeg]
-coveringLineSegsVertical (PointSequence contourPoints) ls = flip LineSeg s . f <$> [xMin-ls,xMin..xMax]
-    where s =  Point2 (0,yMax+ls)
-          f v = Point2 (v,-ls)
+coveringLineSegsVertical :: Contour -> ℝ -> [PLine2]
+coveringLineSegsVertical (PointSequence contourPoints) ls = eToPLine2 . flip LineSeg slope . f <$> [xMin,xMin+ls..xMax]
+    where slope =  Point2 (0,1)
+          f v = Point2 (v,0)
           xMinRaw = minimum $ xOf <$> contourPoints
-          xMin = head $ filter (> xMinRaw) [-ls, 0..]
+          xMin = head $ filter (> xMinRaw) [0, ls..]
           xMax = maximum $ xOf <$> contourPoints
-          yMax = maximum $ yOf <$> contourPoints
 
 -- Generate lines covering the entire contour, where each line is aligned with the X axis.
 -- FIXME: assumes we're in positive space.
-coveringLineSegsHorizontal :: Contour -> ℝ -> [LineSeg]
-coveringLineSegsHorizontal (PointSequence contourPoints) ls = flip LineSeg s . f <$> [yMin-ls,yMin..yMax]
-    where s =  Point2 (xMax+ls,0)
-          f v = Point2 (-ls,v)
+coveringLineSegsHorizontal :: Contour -> ℝ -> [PLine2]
+coveringLineSegsHorizontal (PointSequence contourPoints) ls = eToPLine2 . flip LineSeg slope . f <$> [yMin,yMin+ls..yMax]
+    where slope =  Point2 (1,0)
+          f v = Point2 (0,v)
           yMinRaw = minimum $ yOf <$> contourPoints
-          yMin = head $ filter (> yMinRaw) [-ls, 0..]
-          xMax = maximum $ xOf <$> contourPoints
+          yMin = head $ filter (> yMinRaw) [0, ls..]
           yMax = maximum $ yOf <$> contourPoints
 
 
