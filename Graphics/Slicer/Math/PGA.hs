@@ -111,7 +111,6 @@ distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
     (PPoint2 pvec) = canonicalizePPoint2 point
     perpLine       = PLine2 $ lvec ⨅ pvec
     linePoint      = meet2PLine2 (PLine2 lvec) perpLine
-    newLine        = join2PPoint2 linePoint (PPoint2 pvec)
 
 ----------------------------------------------------------
 -------------- Euclidian Mixed Interface -----------------
@@ -139,16 +138,17 @@ intersectsWith (Right pl1) (Left l1)   =         lineIntersectsPLine l1  pl1
 lineIntersection :: LineSeg -> LineSeg -> Either Intersection PIntersection
 lineIntersection l1@(LineSeg p1 s1) l2@(LineSeg p2 s2)
   | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])         = Right PColinear
-  | onSegment l1 intersection && onSegment l2 intersection && intersection == p1 = Left $ HitStartPoint l1 intersection
-  | onSegment l1 intersection && onSegment l2 intersection && intersection == addPoints p1 s1 = Left $ HitEndPoint l1 intersection
-  | onSegment l1 intersection && onSegment l2 intersection && intersection == p2 = Left $ HitStartPoint l2 intersection
-  | onSegment l1 intersection && onSegment l2 intersection && intersection == addPoints p2 s2 = Left $ HitEndPoint l2 intersection
-  | onSegment l1 intersection && onSegment l2 intersection = Right $ IntersectsIn rawIntersection
+  | hasIntersection && intersection == p1 = Left $ HitStartPoint l1 intersection
+  | hasIntersection && intersection == addPoints p1 s1 = Left $ HitEndPoint l1 intersection
+  | hasIntersection && intersection == p2 = Left $ HitStartPoint l2 intersection
+  | hasIntersection && intersection == addPoints p2 s2 = Left $ HitEndPoint l2 intersection
+  | hasIntersection = Right $ IntersectsIn rawIntersection
   | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l2)) ==  1 = Right PParallel
---  | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l2)) == -1 = Right PAntiParallel
+  | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine (eToPLine2 l2)) == -1 = Right PAntiParallel
   | otherwise = Left NoIntersection
   where
     rawPLine (PLine2 a) = a
+    hasIntersection = onSegment l1 intersection && onSegment l2 intersection
     intersection = intersectionPoint l1 l2
     rawIntersection = intersectionOf (eToPLine2 l1) (eToPLine2 l2)
 
