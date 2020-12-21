@@ -100,7 +100,7 @@ infillLineSegInside contour childContours line
                   -- saneIntersection (Left NoIntersection)      (Left (HitEndPoint   _ point)) (Left NoIntersection)      = Just point
                   saneIntersection r1 r2 r3 = error $ "insane result of intersecting a line (" <> show myline <> ") with a contour " <> show c <> "\n" <> show r1 <> "\n" <> show r2 <> "\n" <> show r3 <> "\n"
 
--- Generate lines covering the entire contour, where each one is aligned with a -1 slope.
+-- Generate lines covering the entire contour, where each one is aligned with a +1 slope, which is to say, lines parallel to a line where x = y.
 -- FIXME: assumes we're in positive space.
 coveringLineSegsPositive :: Contour -> ℝ -> [PLine2]
 coveringLineSegsPositive (PointSequence contourPoints) ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
@@ -115,7 +115,7 @@ coveringLineSegsPositive (PointSequence contourPoints) ls = eToPLine2 . flip Lin
           -- line spacing, taking into account the slope.
           lss = sqrt $ ls*ls+ls*ls
 
--- Generate lines covering the entire contour, where each one is aligned with a +1 slope.
+-- Generate lines covering the entire contour, where each one is aligned with a -1 slope, which is to say, lines parallel to a line where x = -y.
 -- FIXME: assumes we're in positive space.
 coveringLineSegsNegative :: Contour -> ℝ -> [PLine2]
 coveringLineSegsNegative (PointSequence contourPoints) ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
@@ -130,7 +130,7 @@ coveringLineSegsNegative (PointSequence contourPoints) ls = eToPLine2 . flip Lin
           -- line spacing, taking into account the slope.
           lss = sqrt $ ls*ls+ls*ls
 
--- Generate lines covering the entire contour, where each line is aligned with the Y axis.
+-- Generate lines covering the entire contour, where each line is aligned with the Y axis, which is to say, parallel to the Y basis vector.
 -- FIXME: assumes we're in positive space.
 coveringLineSegsVertical :: Contour -> ℝ -> [PLine2]
 coveringLineSegsVertical (PointSequence contourPoints) ls = eToPLine2 . flip LineSeg slope . f <$> [xMin,xMin+ls..xMax]
@@ -140,7 +140,7 @@ coveringLineSegsVertical (PointSequence contourPoints) ls = eToPLine2 . flip Lin
           xMin = head $ filter (> xMinRaw) [0, ls..]
           xMax = maximum $ xOf <$> contourPoints
 
--- Generate lines covering the entire contour, where each line is aligned with the X axis.
+-- Generate lines covering the entire contour, where each line is aligned with the X axis, which is to say, parallel to the X basis vector.
 -- FIXME: assumes we're in positive space.
 coveringLineSegsHorizontal :: Contour -> ℝ -> [PLine2]
 coveringLineSegsHorizontal (PointSequence contourPoints) ls = eToPLine2 . flip LineSeg slope . f <$> [yMin,yMin+ls..yMax]
