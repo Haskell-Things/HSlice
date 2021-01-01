@@ -20,9 +20,9 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), lineIntersection, plinesIntersectIn, PIntersection (PColinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), lineIntersection, plinesIntersectIn, PIntersection (PColinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine) where
 
-import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), sqrt, head, null, negate, (/), (<>), show)
+import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), sqrt, head, null, negate, (/), (<>), show, (||))
 
 import GHC.Generics (Generic)
 
@@ -56,7 +56,7 @@ data PIntersection =
   | PParallel
   | PAntiParallel
   | IntersectsIn PPoint2
-  deriving (Show)
+  deriving (Show, Eq)
 
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
 plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
@@ -112,6 +112,13 @@ distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
     perpLine       = PLine2 $ lvec ⨅ pvec
     linePoint      = meet2PLine2 (PLine2 lvec) perpLine
 
+-- Determine if two points are on the same side of a given line. Requires one point that is already on the line.
+pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
+pPointsOnSameSideOfPLine point1 point2 linePoint line
+  -- Return nothing if one of the points is on the line.
+  | distancePPointToPLine point1 line == 0 || distancePPointToPLine point2 line == 0 = Nothing
+  | otherwise = Just $ pLineIsLeft (join2PPoint2 linePoint point1) line == pLineIsLeft (join2PPoint2 linePoint point2) line
+
 ----------------------------------------------------------
 -------------- Euclidian Mixed Interface -----------------
 ----------------------------------------------------------
@@ -127,7 +134,7 @@ data Intersection =
 type SegOrPLine2 = Either LineSeg PLine2
 
 -- Check if/where lines/line segments intersect.
--- entry point usable for all intersection needs, but it's faster to use the above two functions when you KNOW there MUST be an intersection.
+-- entry point usable for all intersection needs, but it's faster to use other functions when you KNOW there MUST be an intersection.
 intersectsWith :: SegOrPLine2 -> SegOrPLine2 -> Either Intersection PIntersection
 intersectsWith (Left l1)   (Left l2)   =         lineIntersection    l1  l2
 intersectsWith (Right pl1) (Right pl2) = Right $ plinesIntersectIn   pl1 pl2
@@ -158,7 +165,7 @@ lineIntersectsPLine l1@(LineSeg p1 s1) pl1
   | meet2PLine2 (eToPLine2 l1) pl1 == PPoint2 (GVec [])          = Right PColinear
   | onSegment l1 intersection && intersection == p1              = Left $ HitStartPoint l1 intersection
   | onSegment l1 intersection && intersection == addPoints p1 s1 = Left $ HitEndPoint l1 intersection
-  | onSegment l1 (intersection) = Right $ IntersectsIn rawIntersection
+  | onSegment l1 intersection = Right $ IntersectsIn rawIntersection
   | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine pl1) ==  1 = Right PParallel
   | scalarPart (rawPLine (eToPLine2 l1) ⎣ rawPLine pl1) == -1 = Right PAntiParallel
   | otherwise = Left NoIntersection
@@ -360,11 +367,12 @@ getVals num vs = if null matches then Nothing else Just $ head matches
   where
     matches = filter (\(GVal _ n) -> n == num) vs
 
--- return the value of a vector, OR a given value, if the vector requested is not found.
+-- | return the value of a vector, OR a given value, if the vector requested is not found.
 valOf :: ℝ -> Maybe GVal -> ℝ 
 valOf r Nothing = r
 valOf _ (Just (GVal v _)) = v
 
+-- | perform basis coersion. ensure all of the required '0' components exist. required before using basis sensitive raw operators.
 forceBasis :: [[GNum]] -> GVec -> GVec
 forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
   where
