@@ -79,24 +79,24 @@ infillLineSegInside contour childContours line
               saneIntersections xs = catMaybes $ mapWithNeighbors saneIntersection xs
                 where
                   saneIntersection :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe Point2
-                  saneIntersection _ (_, (Right (IntersectsIn ppoint))) _ = Just $ pToEPoint2 ppoint
-                  saneIntersection _ (_, (Left NoIntersection))         _ = Nothing
-                  saneIntersection _ (_, (Right PParallel))             _ = Nothing
-                  saneIntersection _ (_, (Right PAntiParallel))         _ = Nothing
+                  saneIntersection _ (_, Right (IntersectsIn ppoint)) _ = Just $ pToEPoint2 ppoint
+                  saneIntersection _ (_, Left NoIntersection)         _ = Nothing
+                  saneIntersection _ (_, Right PParallel)             _ = Nothing
+                  saneIntersection _ (_, Right PAntiParallel)         _ = Nothing
                   -- Since every stop point of one line segment in a contour should be the same as the next start point...
                   -- only count the first start point, when going in one direction..
-                  saneIntersection _                               (_, (Left (HitStartPoint _ point))) (_, (Left (HitEndPoint   _ _))) = Just point
-                  saneIntersection (_, (Left (HitStartPoint _ _))) (_, (Left (HitEndPoint   _ _    ))) _                               = Nothing
+                  saneIntersection _                               (_, Left (HitStartPoint _ point)) (_, Left (HitEndPoint   _ _)) = Just point
+                  saneIntersection (_, Left (HitStartPoint _ _)) (_, Left (HitEndPoint   _ _    )) _                               = Nothing
                   -- and only count the first start point, when going in the other direction.
-                  saneIntersection _                               (_, (Left (HitEndPoint   _ _    ))) (_, (Left (HitStartPoint _ _))) = Nothing
-                  saneIntersection (_, (Left (HitEndPoint   _ _))) (_, (Left (HitStartPoint _ point))) _                               = Just point
+                  saneIntersection _                               (_, Left (HitEndPoint   _ _    )) (_, Left (HitStartPoint _ _)) = Nothing
+                  saneIntersection (_, Left (HitEndPoint   _ _)) (_, Left (HitStartPoint _ point)) _                               = Just point
                   -- Ignore the end and start point that comes before / after a colinear section.
-                  saneIntersection (_, (Right PColinear))          (_, (Left (HitStartPoint _ _    ))) _                               = Nothing
-                  saneIntersection _                               (_, (Left (HitEndPoint   _ _    ))) (_, (Right PColinear))          = Nothing
-                  saneIntersection (_, (Right PColinear))          (_, (Left (HitEndPoint   _ _    ))) _                               = Nothing
-                  saneIntersection _                               (_, (Left (HitStartPoint _ _    ))) (_, (Right PColinear))          = Nothing
+                  saneIntersection (_, Right PColinear)          (_, Left (HitStartPoint _ _    )) _                               = Nothing
+                  saneIntersection _                               (_, Left (HitEndPoint   _ _    )) (_, Right PColinear)          = Nothing
+                  saneIntersection (_, Right PColinear)          (_, Left (HitEndPoint   _ _    )) _                               = Nothing
+                  saneIntersection _                               (_, Left (HitStartPoint _ _    )) (_, Right PColinear)          = Nothing
                   -- FIXME: we should 'stitch out' colinear segments, not just ignore them.
-                  saneIntersection _                               (_, (Right PColinear))              _                               = Nothing
+                  saneIntersection _                               (_, Right PColinear)              _                             = Nothing
                   -- saneIntersection (Left NoIntersection)      (Left (HitEndPoint   _ point)) (Left NoIntersection)      = Just point
                   saneIntersection r1 r2 r3 = error $ "insane result of intersecting a line (" <> show myline <> ") with a contour " <> show c <> "\n" <> show r1 <> "\n" <> show r2 <> "\n" <> show r3 <> "\n"
 
@@ -106,7 +106,7 @@ coveringLineSegsPositive :: Contour -> ℝ -> [PLine2]
 coveringLineSegsPositive (PointSequence contourPoints) ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
     where slope = Point2 (1,1)
           f v = Point2 (v-xDiff,0)
-          xDiff = (-(xMin-yMax))
+          xDiff = -(xMin - yMax)
           yMin = minimum $ yOf <$> contourPoints
           yMax = maximum $ yOf <$> contourPoints
           xMinRaw = minimum $ xOf <$> contourPoints
@@ -121,7 +121,7 @@ coveringLineSegsNegative :: Contour -> ℝ -> [PLine2]
 coveringLineSegsNegative (PointSequence contourPoints) ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
     where slope =  Point2 (1,-1)
           f v = Point2 (v+yDiff,0)
-          yDiff = (xMin+yMin)
+          yDiff = xMin + yMin
           yMinRaw = minimum $ yOf <$> contourPoints
           yMin = head $ filter (> yMinRaw) [0, lss..]
           yMax = maximum $ yOf <$> contourPoints
