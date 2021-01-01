@@ -18,15 +18,15 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude (length, (>), ($), otherwise, Eq, (<>), show, error, (==), (&&), fst, Bool(True, False), last, init, (++), (<), Show, (||))
+import Prelude (length, (>), ($), otherwise, Eq, (<>), show, error, (==), (&&), fst, Bool(True, False), last, init, (++), (<), Show)
 
-import Data.List (null, foldl)
+import Data.List (null, foldl')
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, maybeToList)
 
 import Data.Either (fromRight)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), addPoints, mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Point2, Contour(PointSequence), addPoints, mapWithNeighbors)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), makeLineSegsLooped, pointsFromLineSegs, lineSegFromEndpoints, endpoint)
 
@@ -90,7 +90,7 @@ modifyContour pathWidth (PointSequence contourPoints) direction
           | length res == length lns = res
           | otherwise                = removeDegenerates res
           where
-            res = removeDegenerateEnds $ foldl concatDegenerates [] lns
+            res = removeDegenerateEnds $ foldl' concatDegenerates [] lns
             concatDegenerates xs x
               | null xs = [x]
               | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = init xs ++ maybeToList (combineLineSegs (last xs) x)

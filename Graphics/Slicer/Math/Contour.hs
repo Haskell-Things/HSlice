@@ -17,9 +17,9 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-module Graphics.Slicer.Math.Contour (followingLineSeg, preceedingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour) where
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour) where
 
-import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, (<>))
+import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, Either(Left, Right))
 
 import Data.List(tail, last, head, partition, reverse, sortBy)
 
@@ -33,7 +33,7 @@ import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2))
 
 import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, makeLineSegsLooped, makeLineSegs, endpoint, midpoint)
 
-import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, IntersectsAt, Parallel, AntiParallel, HitStartPointL2, HitEndPointL2, Colinear), lineIntersection, lineIsLeft, pointOnPerp)
+import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, HitStartPoint, HitEndPoint), PIntersection (PColinear, PParallel, PAntiParallel, IntersectsIn), lineIsLeft, pointOnPerp, intersectsWith, pToEPoint2)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -151,13 +151,13 @@ contourContainsContour parent child = odd noIntersections
     getContourLineSegIntersections :: Contour -> LineSeg -> [Point2]
     getContourLineSegIntersections (PointSequence contourPoints) line
       | null contourPoints = []
-      | otherwise = mapMaybe (saneIntersection . lineIntersection line) $ makeLineSegsLooped contourPoints
-    saneIntersection :: Intersection -> Maybe Point2
-    saneIntersection (IntersectsAt p2) = Just p2
-    saneIntersection NoIntersection = Nothing
-    saneIntersection Parallel = Nothing
-    saneIntersection AntiParallel = Nothing
-    saneIntersection (Colinear _ _) = Nothing
+      | otherwise = mapMaybe (saneIntersection . intersectsWith (Left line) . Left) $ makeLineSegsLooped contourPoints
+    saneIntersection :: Either Intersection PIntersection -> Maybe Point2
+    saneIntersection (Left NoIntersection)         = Nothing
+    saneIntersection (Right (IntersectsIn ppoint)) = Just $ pToEPoint2 ppoint
+    saneIntersection (Right PAntiParallel)         = Nothing
+    saneIntersection (Right PParallel)             = Nothing
+    -- FIXME: fix the remaining cases. steal the code / algorithms from closedRegion
     saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
     innerPointOf contour = innerContourPoint 0.00001 contour $ oneLineSegOf contour
       where
@@ -176,16 +176,6 @@ followingLineSeg x = followingLineSegLooped x x
     followingLineSegLooped _ [] l1 = error $ "reached end of contour, and did not find supplied line: " <> show l1 <> "\n"
     followingLineSegLooped [a] (b:_) l1 = if a == l1 then b else followingLineSegLooped [a] [] l1
     followingLineSegLooped (a:b:xs) set l1 = if a == l1 then b else followingLineSegLooped (b:xs) set l1
-
--- Search the given sequential list of lines (assumedly generated from a contour), and return the line before this one.
-preceedingLineSeg :: [LineSeg] -> LineSeg -> LineSeg
-preceedingLineSeg x = preceedingLineSegLooped x x
-  where
-    preceedingLineSegLooped :: [LineSeg] -> [LineSeg] -> LineSeg -> LineSeg
-    preceedingLineSegLooped [] _ l1 = error $ "reached beginning of contour, and did not find supplied line: " <> show l1 <> "\n"
-    preceedingLineSegLooped _ [] l1 = error $ "reached end of contour, and did not find supplied line: " <> show l1 <> "\n"
-    preceedingLineSegLooped [a] (b:_) l1 = if b == l1 then a else preceedingLineSegLooped [a] [] l1
-    preceedingLineSegLooped (a:b:xs) set l1 = if b == l1 then a else preceedingLineSegLooped (b:xs) set l1
 
 -- | Check if the left hand side of this line in toward the inside of the contour it is a part of.
 insideIsLeft :: Contour -> LineSeg -> Bool
@@ -219,17 +209,13 @@ intersections dstPoint contour srcPoint = saneIntersections l0 $ contourLineSegs
     saneIntersections l1 ls = mapMaybe saneIntersectionOf ls
       where
         saneIntersectionOf :: LineSeg -> Maybe Point2
-        saneIntersectionOf l2 = saneIntersection (lineIntersection l1 l2)
+        saneIntersectionOf l2 = saneIntersection (intersectsWith (Left l1) (Left l2))
           where
-            saneIntersection :: Intersection -> Maybe Point2
-            saneIntersection (IntersectsAt p2) = Just p2
-            saneIntersection NoIntersection = Nothing
-            saneIntersection Parallel = Nothing
-            saneIntersection AntiParallel = Nothing
-    -- FIXME: fix these cases. steal the code / algorithms from infillLineSegInside.
-    --          saneIntersection Collinear = Nothing
-    --          saneIntersection LColinear _ _ = Nothing
-    --          saneIntersection (HitStartPointL2 p2) = Just p2
-    --          saneIntersection (HitEndPointL2 p2) = Just p2
+            saneIntersection :: Either Intersection PIntersection -> Maybe Point2
+            saneIntersection (Left NoIntersection)         = Nothing
+            saneIntersection (Right (IntersectsIn ppoint)) = Just $ pToEPoint2 ppoint
+            saneIntersection (Right PAntiParallel)         = Nothing
+            saneIntersection (Right PParallel)             = Nothing
             saneIntersection res = error $ "insane result of intersecting a line (" <> show l1 <> ") with it's bisector: " <> show l2 <> "\nwhen finding an inner contour point on contour " <> show ls <> "\n" <> show res <> "\n"
+            -- FIXME: fix the remaining cases. steal the code / algorithms from closedRegion
 
