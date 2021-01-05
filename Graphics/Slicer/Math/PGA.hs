@@ -40,7 +40,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), addVal, addVecPair, divVecScalar, scalarPart, vectorPart, unlikeVecPair)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (⋅), (•), addVal, addVecPair, divVecScalar, scalarPart, vectorPart, unlikeVecPair)
 
 import Graphics.Slicer.Math.Line(LineSeg(LineSeg))
 
@@ -72,26 +72,40 @@ plinesIntersectIn pl1 pl2
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: PLine2 -> PLine2 -> Maybe Bool
 pLineIsLeft line1 line2
-  | dualAngle dnpl1 dnpl2 == 0 = Nothing
-  | otherwise                  = Just $ dualAngle dnpl1 dnpl2 > 0
+  | dualAngle line1 line2 == 0 = Nothing
+  | otherwise                  = Just $ dualAngle line1 line2 > 0
+
+{-
+-- FIXME: A second implementation of dualAngle, using non-standard math. speed test this and the current implementation, and test this around 0 axises and points.
+
+-- | Find... something?
+--   FIXME: this is a total hack. taking the original lines a1^e1+b1^e2+c1^e0 and a2^e1+b2^e2+c2^e0 and calculating a1*b2-b1*a2
+dualAngle :: PLine2 -> PLine2 -> ℝ
+dualAngle line1 line2 = valOf 0 $ getVals [GEZero 1, GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ unlikeVecPair dnpl1 dnpl2
   where
     npl1 = dualPLine2 $ normalizePLine2 line1
     npl2 = dualPLine2 $ normalizePLine2 line2
     (PPoint2 dnpl1) = forcePPoint2Basis $ PPoint2 npl1
     (PPoint2 dnpl2) = forcePPoint2Basis $ PPoint2 npl2
+-}
+
+-- Return a value that is positive when a line points to the "left" of the other given line, and negative when "right".
+dualAngle :: PLine2 -> PLine2 -> ℝ
+dualAngle line1@(PLine2 lvec1) line2@(PLine2 lvec2) = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
+  where
+    (PPoint2 iPointVec) = canonicalizePPoint2 $ meet2PLine2 line1 line2
+    motor = addVecPair (lvec1•gaI) (GVec [GVal 1 [G0]])
+    antiMotor = addVecPair (lvec1•gaI) (GVec [GVal (-1) [G0]])
+    gaI = GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]
+
 
 -- | Find out where two lines intersect, returning a projective point.
 intersectionOf :: PLine2 -> PLine2 -> PPoint2
 intersectionOf pl1 pl2 = canonicalizePPoint2 $ meet2PLine2 pl1 pl2
 
--- | Find... something?
---   FIXME: this is a total hack. returns positive for left, negaative for right, and +45 degrees returns the same as -45 degrees.
-dualAngle :: GVec -> GVec -> ℝ
-dualAngle ln1 ln2 = valOf 0 $ getVals [GEZero 1, GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ unlikeVecPair ln1 ln2
-
 -- | Find the angle of intersection of two PLines.
 angleBetween :: PLine2 -> PLine2 -> ℝ
-angleBetween pl1 pl2 =  scalarPart $ pv1 ⎣ pv2
+angleBetween pl1 pl2 = scalarPart $ pv1 ⎣ pv2
   where
     (PLine2 pv1) = forcePLine2Basis (normalizePLine2 pl1)
     (PLine2 pv2) = forcePLine2Basis (normalizePLine2 pl2)
@@ -103,7 +117,7 @@ translatePerp pLine@(PLine2 rawPLine) d = PLine2 $ addVecPair m rawPLine
   where
     m = GVec [GVal (d*normOfPLine2 pLine) [GEZero 1]]
 
--- | find the distance between a point and a line.
+-- | find the distance between a point and a line. Unsigned.
 distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
 distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
   where
@@ -113,11 +127,22 @@ distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
     linePoint      = meet2PLine2 (PLine2 lvec) perpLine
 
 -- Determine if two points are on the same side of a given line. Requires one point that is already on the line.
-pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
-pPointsOnSameSideOfPLine point1 point2 linePoint line
+-- FIXME: we now have two implementations. speed test them.
+pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
+pPointsOnSameSideOfPLine point1 point2 line
   -- Return nothing if one of the points is on the line.
-  | distancePPointToPLine point1 line == 0 || distancePPointToPLine point2 line == 0 = Nothing
-  | otherwise = Just $ pLineIsLeft (join2PPoint2 linePoint point1) line == pLineIsLeft (join2PPoint2 linePoint point2) line
+  |  (valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv1 ⎤ lv1) == 0 ||
+     (valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv2 ⎤ lv1) == 0    = Nothing
+    | otherwise = Just $ (isPositive $ valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv1 ⎤ lv1) == (isPositive $ valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv2 ⎤ lv1)
+--  | distancePPointToPLine point1 line == 0 || distancePPointToPLine point2 line == 0 = Nothing
+--  | otherwise = Just $ pLineIsLeft (join2PPoint2 linePoint point1) line == pLineIsLeft (join2PPoint2 linePoint point2) line
+  where
+    (PPoint2 pv1) = forcePPoint2Basis point1
+    (PPoint2 pv2) = forcePPoint2Basis point2
+    (PLine2 lv1) = forcePLine2Basis line
+    gValOf (GVec a) = a
+    isPositive :: ℝ -> Bool
+    isPositive i = i > 0
 
 ----------------------------------------------------------
 -------------- Euclidian Mixed Interface -----------------
