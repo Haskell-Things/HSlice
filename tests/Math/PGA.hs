@@ -17,7 +17,7 @@
 
 -- Shamelessly stolen from ImplicitCAD.
 
-module Math.PGA (linearAlgSpec, geomAlgSpec, proj2DGeomAlgSpec) where
+module Math.PGA (linearAlgSpec, geomAlgSpec, proj2DGeomAlgSpec, facetSpec) where
 
 -- Be explicit about what we import.
 import Prelude (($), Bool(True, False), (<$>), length, Either(Left, Right), foldl, head)
@@ -48,7 +48,10 @@ import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
 -- Our Infill library.
 import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
--- Our utility library, for making these tests easier to read.
+-- Our Facet library.
+import Graphics.Slicer.Math.Face (convexMotorcycles, leftRegion, rightRegion, Node(Node), Spine(Spine), makeFirstNodes, Motorcycle(Motorcycle), StraightSkeleton(StraightSkeleton), findStraightSkeleton)
+
+-- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->))
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
@@ -290,3 +293,155 @@ proj2DGeomAlgSpec = do
   where
     rawPPoint2 (x,y) = (\(PPoint2 v) -> v) $ eToPPoint2 (Point2 (x,y))
 
+facetSpec :: Spec
+facetSpec = do
+  describe "Motorcycles" $ do
+    it "finds the motorcycle for a given pair of line segments" $
+      makeFirstNodes lss1 --> [Node (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0))))
+                                    (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (0,-2.0))))
+                                    (PLine2 (GVec [GVal 2.0 [GEPlus 1], GVal (-2.0) [GEPlus 2]]))]
+    it "finds one convex motorcycle in a simple shape" $
+      convexMotorcycles p1 --> [Motorcycle (LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0))) (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal 2.0 [GEPlus 1]]))]
+    it "finds the straight skeleton of the left side of our first simple shape." $
+      leftRegion  p0 (head $ convexMotorcycles p0) --> leftRegion p4 (head $ convexMotorcycles p4)
+    it "finds the straight skeleton of the right side of our first simple shape." $
+      rightRegion p0 (head $ convexMotorcycles p0) --> rightRegion p4 (head $ convexMotorcycles p4)
+    it "finds the straight skeleton of the left side of our first simple shape." $
+      leftRegion  p1 (head $ convexMotorcycles p1) --> [ [Node (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0))))
+                                                                (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (0,-2.0))))
+                                                                (PLine2 (GVec [GVal 2.0 [GEPlus 1], GVal (-2.0) [GEPlus 2]]))
+                                                         , Node (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (0,-2.0))))
+                                                                (Left (LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0))))
+                                                                (PLine2 (GVec [GVal 2.0 [GEZero 1], GVal (-3.0) [GEPlus 1], GVal (-1.0) [GEPlus 2]]))]
+                                                         ,[Node (Right (PLine2 (GVec [GVal 2.0 [GEPlus 1], GVal (-2.0) [GEPlus 2]])))
+                                                                (Right (PLine2 (GVec [GVal 2.0 [GEZero 1], GVal (-3.0) [GEPlus 1], GVal (-1.0) [GEPlus 2]])))
+                                                                (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 5.0 [GEPlus 1], GVal (-1.0) [GEPlus 2]]))]]
+    it "finds the straight skeleton of the right side of our first simple shape." $
+      rightRegion p1 (head $ convexMotorcycles p1) --> [ [Node (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))))
+                                                               (Left (LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-3.0) [GEPlus 1], GVal 1.0 [GEPlus 2]]))
+                                                        , Node (Left (LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))))
+                                                               (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0))))
+                                                               (PLine2 (GVec [GVal 2.0 [GEPlus 1], GVal 2.0 [GEPlus 2]]))]
+                                                        ,[Node (Right (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-3.0) [GEPlus 1], GVal 1.0 [GEPlus 2]])))
+                                                               (Right (PLine2 (GVec [GVal 2.0 [GEPlus 1], GVal 2.0 [GEPlus 2]])))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-5.0) [GEPlus 1], GVal (-1.0) [GEPlus 2]]))]]
+    it "finds the straight skeleton of the left side of our second simple shape." $
+      leftRegion  p2 (head $ convexMotorcycles p2) --> [ [Node (Left (LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))))
+                                                               (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0))))
+                                                               (PLine2 (GVec [GVal 2.0 [GEPlus 1], GVal 2.0 [GEPlus 2]]))
+                                                        , Node (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0))))
+                                                               (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0))))
+                                                               (PLine2 (GVec [GVal 2.0 [GEZero 1], GVal 1 [GEPlus 1], GVal (-3.0) [GEPlus 2]]))]
+                                                        ,[Node (Right (PLine2 (GVec [GVal 2.0 [GEPlus 1], GVal 2.0 [GEPlus 2]])))
+                                                               (Right (PLine2 (GVec [GVal 2.0 [GEZero 1], GVal 1 [GEPlus 1], GVal (-3.0) [GEPlus 2]])))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 1.0 [GEPlus 1], GVal 5.0 [GEPlus 2]]))]]
+    it "finds the straight skeleton of the right side of our second simple shape." $
+      rightRegion p2 (head $ convexMotorcycles p2) --> [ [Node (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))))
+                                                               (Left (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal (-3.0) [GEPlus 2]]))
+                                                        , Node (Left (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
+                                                               (Left (LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEPlus 1], GVal 2.0 [GEPlus 2]]))]
+                                                        ,[Node (Right (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal (-3.0) [GEPlus 2]])))
+                                                               (Right (PLine2 (GVec [GVal (-2.0) [GEPlus 1], GVal 2.0 [GEPlus 2]])))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 1.0 [GEPlus 1], GVal (-5.0) [GEPlus 2]]))]]
+    it "finds the straight skeleton of the left side of our third simple shape." $
+      leftRegion  p3 (head $ convexMotorcycles p3) --> [ [Node (Left (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
+                                                               (Left (LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEPlus 1], GVal 2.0 [GEPlus 2]]))
+                                                        , Node (Left (LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))))
+                                                               (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0))))
+                                                               (PLine2 (GVec [GVal 2.0 [GEZero 1], GVal 3 [GEPlus 1], GVal 1.0 [GEPlus 2]]))]
+                                                        ,[Node (Right (PLine2 (GVec [GVal (-2.0) [GEPlus 1], GVal 2.0 [GEPlus 2]])))
+                                                               (Right (PLine2 (GVec [GVal 2.0 [GEZero 1], GVal 3 [GEPlus 1], GVal 1.0 [GEPlus 2]])))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-5.0) [GEPlus 1], GVal 1.0 [GEPlus 2]]))]]
+    it "finds the straight skeleton of the right side of our third simple shape." $
+      rightRegion p3 (head $ convexMotorcycles p3) --> [ [Node (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0))))
+                                                               (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0))))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 3.0 [GEPlus 1], GVal (-1.0) [GEPlus 2]]))
+                                                        , Node (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0))))
+                                                               (Left (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEPlus 1], GVal (-2.0) [GEPlus 2]]))]
+                                                        ,[Node (Right (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 3.0 [GEPlus 1], GVal (-1.0) [GEPlus 2]])))
+                                                               (Right (PLine2 (GVec [GVal (-2.0) [GEPlus 1], GVal (-2.0) [GEPlus 2]])))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 5.0 [GEPlus 1], GVal 1.0 [GEPlus 2]]))]]
+    it "finds the straight skeleton of the left side of our fourth simple shape." $
+      leftRegion  p4 (head $ convexMotorcycles p4) --> [ [Node (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0))))
+                                                               (Left (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEPlus 1], GVal (-2.0) [GEPlus 2]]))
+                                                        , Node (Left (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
+                                                               (Left (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0))))
+                                                               (PLine2 (GVec [GVal 2.0 [GEZero 1], GVal (-1) [GEPlus 1], GVal 3.0 [GEPlus 2]]))]
+                                                        ,[Node (Right (PLine2 (GVec [GVal (-2.0) [GEPlus 1], GVal (-2.0) [GEPlus 2]])))
+                                                               (Right (PLine2 (GVec [GVal 2.0 [GEZero 1], GVal (-1) [GEPlus 1], GVal 3.0 [GEPlus 2]])))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal (-5.0) [GEPlus 2]]))]]
+    it "finds the straight skeleton of the right side of our fourth simple shape." $
+      rightRegion p4 (head $ convexMotorcycles p4) --> [ [Node (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0))))
+                                                               (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0))))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 1.0 [GEPlus 1], GVal 3.0 [GEPlus 2]]))
+                                                        , Node (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0))))
+                                                               (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0))))
+                                                               (PLine2 (GVec [GVal 2.0 [GEPlus 1], GVal (-2.0) [GEPlus 2]]))]
+                                                        ,[Node (Right (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 1.0 [GEPlus 1], GVal 3.0 [GEPlus 2]])))
+                                                               (Right (PLine2 (GVec [GVal 2.0 [GEPlus 1], GVal (-2.0) [GEPlus 2]])))
+                                                               (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal 5.0 [GEPlus 2]]))]]
+    it "finds the straight skeleton of our first simple shape." $
+      findStraightSkeleton p0 [] --> StraightSkeleton [ [ [Node (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0))))
+                                                                (Left (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
+                                                                (PLine2 (GVec [GVal (-2.0) [GEPlus 1], GVal (-2.0) [GEPlus 2]]))
+                                                         , Node (Left (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
+                                                                (Left (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0))))
+                                                                (PLine2 (GVec [GVal 2.0 [GEZero 1], GVal (-1) [GEPlus 1], GVal 3.0 [GEPlus 2]]))]
+                                                         ,[Node (Right (PLine2 (GVec [GVal (-2.0) [GEPlus 1], GVal (-2.0) [GEPlus 2]])))
+                                                                (Right (PLine2 (GVec [GVal 2.0 [GEZero 1], GVal (-1) [GEPlus 1], GVal 3.0 [GEPlus 2]])))
+                                                                (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal (-5.0) [GEPlus 2]]))]]
+                                                       ,[ [Node (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0))))
+                                                                 (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0))))
+                                                                 (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 1.0 [GEPlus 1], GVal 3.0 [GEPlus 2]]))
+                                                          , Node (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0))))
+                                                                 (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0))))
+                                                                 (PLine2 (GVec [GVal 2.0 [GEPlus 1], GVal (-2.0) [GEPlus 2]]))]
+                                                          ,[Node (Right (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 1.0 [GEPlus 1], GVal 3.0 [GEPlus 2]])))
+                                                                 (Right (PLine2 (GVec [GVal 2.0 [GEPlus 1], GVal (-2.0) [GEPlus 2]])))
+                                                                 (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal 5.0 [GEPlus 2]]))]]
+                                                       ,[  [Node (Left (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0))))
+                                                                 (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0))))
+                                                                 (PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))]
+                                                        ]][Spine (Right $ PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal (-5.0) [GEPlus 2]]))
+                                                                 (Right $ PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal 5.0 [GEPlus 2]]))
+                                                                 (Right $ PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))]
+    it "finds the straight skeleton of our fifth simple shape." $
+      findStraightSkeleton p5 [] --> StraightSkeleton [ [ [Node (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0))))
+                                                                (Left (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
+                                                                (PLine2 (GVec [GVal (-2.0) [GEPlus 1], GVal (-2.0) [GEPlus 2]]))
+                                                         , Node (Left (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
+                                                                (Left (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0))))
+                                                                (PLine2 (GVec [GVal 2.0 [GEZero 1], GVal (-1) [GEPlus 1], GVal 3.0 [GEPlus 2]]))]
+                                                         ,[Node (Right (PLine2 (GVec [GVal (-2.0) [GEPlus 1], GVal (-2.0) [GEPlus 2]])))
+                                                                (Right (PLine2 (GVec [GVal 2.0 [GEZero 1], GVal (-1) [GEPlus 1], GVal 3.0 [GEPlus 2]])))
+                                                                (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal (-5.0) [GEPlus 2]]))]]
+                                                       ,[ [Node (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0))))
+                                                                 (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0))))
+                                                                 (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 1.0 [GEPlus 1], GVal 3.0 [GEPlus 2]]))
+                                                          , Node (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0))))
+                                                                 (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0))))
+                                                                 (PLine2 (GVec [GVal 2.0 [GEPlus 1], GVal (-2.0) [GEPlus 2]]))]
+                                                          ,[Node (Right (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 1.0 [GEPlus 1], GVal 3.0 [GEPlus 2]])))
+                                                                 (Right (PLine2 (GVec [GVal 2.0 [GEPlus 1], GVal (-2.0) [GEPlus 2]])))
+                                                                 (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal 5.0 [GEPlus 2]]))]]
+                                                       ,[  [Node (Left (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0))))
+                                                                 (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0))))
+                                                                 (PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))]
+                                                        ]][Spine (Right $ PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal (-5.0) [GEPlus 2]]))
+                                                                 (Right $ PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal 5.0 [GEPlus 2]]))
+                                                                 (Right $ PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))]
+    where
+      p0 = PointSequence [Point2 (-1,1), Point2 (1,1), Point2 (1,-1), Point2 (-1,-1), Point2 (0,0)]
+      p1 = PointSequence [Point2 (-1,1), Point2 (1,1), Point2 (1,-1), Point2 (0,0), Point2 (-1,-1)]
+      p2 = PointSequence [Point2 (-1,1), Point2 (1,1), Point2 (0,0), Point2 (1,-1), Point2 (-1,-1)]
+      p3 = PointSequence [Point2 (-1,1), Point2 (0,0), Point2 (1,1), Point2 (1,-1), Point2 (-1,-1)]
+      p4 = PointSequence [Point2 (0,0), Point2 (-1,1), Point2 (1,1), Point2 (1,-1), Point2 (-1,-1)]
+      p5 = PointSequence [Point2 (0,0), Point2 (-1,1), Point2 (1,1), Point2 (2,0), Point2 (1,-1), Point2 (-1,-1)]
+      -- the top and right side of a 2x2 square around the origin.
+      lss1 = [ LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0))]

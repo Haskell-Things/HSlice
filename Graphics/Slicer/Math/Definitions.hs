@@ -22,9 +22,9 @@
 -- for adding Generic and NFData to Point.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds #-}
 
-module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointSequence), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors) where
+module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointSequence), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower) where
 
-import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, Int, error, null, zipWith3, take, length, drop, cycle, (.), (-))
+import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, Int, null, zipWith3, take, length, drop, cycle, (.), (-), zipWith)
 
 import Control.DeepSeq (NFData)
 
@@ -128,5 +128,15 @@ mapWithNeighbors  f l
     rotateList :: Int -> [a] -> [a]
     rotateList n list = take (length list + 1) . drop n $ cycle list
     x = rotateList (length l - 1) l
+    z = rotateList 1 l
+
+-- | like map, only with current, and next item, and wrapping around so the last entry gets the first entry as next.
+mapWithFollower :: (a -> a -> b) -> [a] -> [b]
+mapWithFollower  f l
+  | null l = []
+  | otherwise = withStrategy (parList rpar) $ z `pseq` zipWith f l z
+  where
+    rotateList :: Int -> [a] -> [a]
+    rotateList n list = take (length list + 1) . drop n $ cycle list
     z = rotateList 1 l
 

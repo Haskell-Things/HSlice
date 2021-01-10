@@ -26,13 +26,15 @@ import Test.Hspec(hspec, describe)
 
 
 -- the execution test for warnings.
-import Math.PGA(linearAlgSpec, geomAlgSpec, proj2DGeomAlgSpec)
+import Math.PGA(linearAlgSpec, geomAlgSpec, proj2DGeomAlgSpec, facetSpec)
 
 main :: IO ()
 main = hspec $ do
   -- run tests against the mixed algebra engine.
   describe "linearalgebra calculations" linearAlgSpec
-    -- run tests against the Geometric Algebra engine.
+  -- run tests against the Geometric Algebra engine.
   describe "geometric algebra calculations" geomAlgSpec
-    -- run tests against the 2D Projective Geometric Algebra engine.
+  -- run tests against the 2D Projective Geometric Algebra engine.
   describe "2D projectitve geometric algebra calculations" proj2DGeomAlgSpec
+  -- run tests of the facet engine.
+  describe "Contour facetization algorithms" facetSpec
