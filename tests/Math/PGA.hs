@@ -301,7 +301,7 @@ facetSpec = do
                                     (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (0,-2.0))))
                                     (PLine2 (GVec [GVal 2.0 [GEPlus 1], GVal (-2.0) [GEPlus 2]]))]
     it "finds one convex motorcycle in a simple shape" $
-      convexMotorcycles p1 --> [Motorcycle (LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0))) (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal 2.0 [GEPlus 1]]))]
+      convexMotorcycles p1 --> [Motorcycle (LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0))) (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-2.0) [GEPlus 1]]))]
     it "finds the straight skeleton of the left side of our first simple shape." $
       leftRegion  p0 (head $ convexMotorcycles p0) --> leftRegion p4 (head $ convexMotorcycles p4)
     it "finds the straight skeleton of the right side of our first simple shape." $
@@ -407,10 +407,10 @@ facetSpec = do
                                                                  (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal 5.0 [GEPlus 2]]))]]
                                                        ,[  [Node (Left (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0))))
                                                                  (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0))))
-                                                                 (PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))]
+                                                                 (PLine2 (GVec [GVal (2.0) [GEPlus 2]]))]
                                                         ]][Spine (Right $ PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal (-5.0) [GEPlus 2]]))
                                                                  (Right $ PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-1.0) [GEPlus 1], GVal 5.0 [GEPlus 2]]))
-                                                                 (Right $ PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))]
+                                                                 (Right $ PLine2 (GVec [GVal (2.0) [GEPlus 2]]))]
     it "finds the straight skeleton of our fifth simple shape." $
       findStraightSkeleton p5 [] --> StraightSkeleton [ [ [Node (Left (LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,-1.0))))
                                                                 (Left (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
@@ -432,15 +432,16 @@ facetSpec = do
                                                                  (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 4.0 [GEPlus 2]]))]]
                                                        ,[  [Node (Left (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0))))
                                                                  (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0))))
-                                                                 (PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))]]
+                                                                 (PLine2 (GVec [GVal (2.0) [GEPlus 2]]))]]
                                                        ,[  [Node (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (1.0,-1.0))))
                                                                  (Left (LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,-1.0))))
                                                                  (PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))]]
                                                         ] [Spine (Right $ PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-4.0) [GEPlus 2]]))
                                                                  (Right $ PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 4.0 [GEPlus 2]]))
                                                                  (Left 0),
+                                                            -- FIXME: these should be pointing at each other. either the motorcycle or node code is backwards.
                                                            Spine (Right $ PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))
-                                                                 (Right $ PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))
+                                                                 (Right $ PLine2 (GVec [GVal (2.0) [GEPlus 2]]))
                                                                  (Left 0)
                                                           ]
     where

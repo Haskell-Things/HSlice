@@ -210,7 +210,7 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs conto
   where
     onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
     onlyMotorcycles ((seg1, seg2), maybePLine)
-      | isJust maybePLine = Just $ Motorcycle seg1 seg2 $ fromJust maybePLine
+      | isJust maybePLine = Just $ Motorcycle seg1 seg2 $ flipPLine2 $ fromJust maybePLine
       | otherwise         = Nothing
 
 -- | Find the non-reflex virtexes of a contour, and draw Nodes from them.
