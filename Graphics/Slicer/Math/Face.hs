@@ -147,14 +147,23 @@ leftRegion contour motorcycle = concaveStraightSkeleton $ matchLineSegments cont
     -- Return the line segments we're responsible for straight skeletoning.
     matchLineSegments :: Contour -> Motorcycle -> [LineSeg]
     matchLineSegments c (Motorcycle inSeg outSeg path)
-      | findSegFromStart c outSeg motorcycleEndSegment ==               outSeg = (drop (stopSegmentIndex) $ linesOfContour c) ++ take (startSegmentIndex outSeg) (linesOfContour c)
-      | findSegFromStart c outSeg motorcycleEndSegment == motorcycleEndSegment = take ((startSegmentIndex outSeg) - stopSegmentIndex) $ drop (stopSegmentIndex) (linesOfContour c)
+      | wrapDirection   = (drop (stopSegmentIndex) $ linesOfContour c) ++ take (startSegmentIndex) (linesOfContour c)
+      | unwrapDirection = take ((startSegmentIndex) - stopSegmentIndex) $ drop (stopSegmentIndex) (linesOfContour c)
       | otherwise = error "this should be impossible."
         where
-          -- the segment that a motorcycle intersects the contour on.
-          motorcycleEndSegment = fst $ motorcycleIntersectsAt c inSeg outSeg path
-          startSegmentIndex seg = segIndex seg (linesOfContour c)
-          stopSegmentIndex = segIndex motorcycleEndSegment (linesOfContour c)
+          -- test whether we can gather our segments from the stop segment to the end ++ first one until the segment the motorcycle hits...
+          wrapDirection   = findSegFromStart c outSeg motorcycleInSegment == outSeg
+          -- .. or by starting at the stop segment, and stopping after the segment the motorcycle hits
+          unwrapDirection = findSegFromStart c outSeg motorcycleInSegment == motorcycleInSegment
+          -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the first of the two segments (from the beginning of the contour).
+          motorcycleInSegment  = fst $ motorcycleIntersection
+          -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the last of the two segments (from the beginning of the contour).
+          motorcycleOutSegment = if (isJust $ snd $ motorcycleIntersection)
+                                 then fromJust $ snd $ motorcycleIntersection
+                                 else fst $ motorcycleIntersection
+          motorcycleIntersection = motorcycleIntersectsAt c inSeg outSeg path
+          startSegmentIndex = segIndex outSeg (linesOfContour c)
+          stopSegmentIndex = segIndex motorcycleOutSegment (linesOfContour c)
 
 -- | Calculate a partial straight skeleton, for the part of a contour that is on the 'right' side of a contour, when the contour is bisected by a motorcycle.
 --   by right side, we mean consisting of the segments from the point the motorcycle left from, to the intersection, in the order they are in the original contour.
@@ -163,15 +172,25 @@ rightRegion contour motorcycle@(Motorcycle inSeg outSeg path) = concaveStraightS
   where
     -- Return the line segments we're responsible for straight skeletoning.
     matchLineSegments :: Contour -> Motorcycle -> [LineSeg]
-    matchLineSegments c (Motorcycle seg1 seg2 mc)
-      | findSegFromStart c seg2 motorcycleEndSegment ==                 seg2 = take (1 + stopSegmentIndex - startSegmentIndex seg2) $ drop (startSegmentIndex seg2) (linesOfContour c)
-      | findSegFromStart c seg2 motorcycleEndSegment == motorcycleEndSegment =(drop (startSegmentIndex seg2) $ linesOfContour c) ++ take (stopSegmentIndex+1) (linesOfContour c)
+    matchLineSegments c (Motorcycle inSeg outSeg path)
+      | wrapDirection   = (drop (startSegmentIndex) $ linesOfContour c) ++ take (stopSegmentIndex) (linesOfContour c)
+      | unwrapDirection = take (stopSegmentIndex - startSegmentIndex) $ drop (startSegmentIndex) (linesOfContour c)
       | otherwise = error "this should be impossible."
         where
+          -- test whether we can gather our segments from the stop segment to the end ++ first one until the segment the motorcycle hits...
+          wrapDirection   = findSegFromStart c outSeg motorcycleInSegment == motorcycleInSegment
+          -- .. or by starting at the stop segment, and stopping after the segment the motorcycle hits
+          unwrapDirection = findSegFromStart c outSeg motorcycleInSegment == outSeg
           -- the segment that a motorcycle intersects the contour on.
-          motorcycleEndSegment = fst $ motorcycleIntersectsAt c seg1 seg2 mc
-          startSegmentIndex seg = segIndex seg (linesOfContour c)
-          stopSegmentIndex = segIndex motorcycleEndSegment (linesOfContour c)
+          -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the first of the two segments (from the beginning of the contour).
+          motorcycleInSegment  = fst $ motorcycleIntersection
+          -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the last of the two segments (from the beginning of the contour).
+          motorcycleOutSegment = if (isJust $ snd $ motorcycleIntersection)
+                                 then fromJust $ snd $ motorcycleIntersection
+                                 else fst $ motorcycleIntersection
+          motorcycleIntersection = motorcycleIntersectsAt c inSeg outSeg path
+          startSegmentIndex = segIndex outSeg (linesOfContour c)
+          stopSegmentIndex = 1 + segIndex motorcycleInSegment (linesOfContour c)
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
 --   A reflex virtex is any point where the line in and the line out are convex, when looked at from inside of the contour.
@@ -286,7 +305,7 @@ findSegFromStart c seg1 seg2 = head $ catMaybes $ foundSeg seg1 seg2 <$> linesOf
   where
     foundSeg s1 s2 sn = if sn == s1 then Just s1 else if sn == s2 then Just s2 else Nothing
 
--- | Find what line segment a motorcycle runs into, if the motorcycle is emitted from between the two given segments.
+-- | Find where a motorcycle intersects a contour, if the motorcycle is emitted from between the two given segments.
 --   If the motorcycle lands between two segments, return the second segment, as well.
 motorcycleIntersectsAt :: Contour -> LineSeg -> LineSeg -> PLine2 -> (LineSeg, Maybe LineSeg)
 motorcycleIntersectsAt contour inSeg outSeg path
