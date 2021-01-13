@@ -432,10 +432,17 @@ facetSpec = do
                                                                  (PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 4.0 [GEPlus 2]]))]]
                                                        ,[  [Node (Left (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0))))
                                                                  (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0))))
-                                                                 (PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))]
-                                                        ]][Spine (Right $ PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-4.0) [GEPlus 2]]))
+                                                                 (PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))]]
+                                                       ,[  [Node (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (1.0,-1.0))))
+                                                                 (Left (LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,-1.0))))
+                                                                 (PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))]]
+                                                        ] [Spine (Right $ PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal (-4.0) [GEPlus 2]]))
                                                                  (Right $ PLine2 (GVec [GVal (-2.0) [GEZero 1], GVal 4.0 [GEPlus 2]]))
-                                                                 (Right $ PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))]
+                                                                 (Left 0),
+                                                           Spine (Right $ PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))
+                                                                 (Right $ PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))
+                                                                 (Left 0)
+                                                          ]
     where
       p0 = PointSequence [Point2 (-1,1), Point2 (1,1), Point2 (1,-1), Point2 (-1,-1), Point2 (0,0)]
       p1 = PointSequence [Point2 (-1,1), Point2 (1,1), Point2 (1,-1), Point2 (0,0), Point2 (-1,-1)]

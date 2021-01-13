@@ -104,7 +104,7 @@ tscherneMerge dividingMotorcycle@(Motorcycle (LineSeg rightPoint _) (LineSeg sta
     (null $ crossoverNodes rightSide rightPoint dividingMotorcycle) &&
     (isJust opposingNodes) &&
     plinesIntersectIn (finalPLine leftSide) path == plinesIntersectIn (finalPLine rightSide) path =
-      StraightSkeleton [leftSide, rightSide, [[motorcycleToNode dividingMotorcycle]]] [Spine (Right $ finalPLine leftSide) (Right $ finalPLine rightSide) (Right $ finalPLine $ [[motorcycleToNode dividingMotorcycle]])]
+      StraightSkeleton [leftSide, rightSide, [[motorcycleToNode dividingMotorcycle]], [[fromJust opposingNodes]]] [Spine (Right $ finalPLine leftSide) (Right $ finalPLine rightSide) (Left 0), Spine (Right $ finalPLine $ [[fromJust opposingNodes]]) (Right $ finalPLine $ [[motorcycleToNode dividingMotorcycle]]) (Left 0)]
   | otherwise = error $ "failing to apply Tscherne's method.\n" <>
                         show (crossoverNodes leftSide leftPoint dividingMotorcycle)  <> "\n" <>
                         show (crossoverNodes rightSide rightPoint dividingMotorcycle)  <> "\n" <>
