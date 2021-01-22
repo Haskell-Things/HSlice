@@ -131,9 +131,9 @@ distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
 pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
 pPointsOnSameSideOfPLine point1 point2 line
   -- Return nothing if one of the points is on the line.
-  |  (valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv1 ⎤ lv1) == 0 ||
-     (valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv2 ⎤ lv1) == 0    = Nothing
-    | otherwise = Just $ (isPositive $ valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv1 ⎤ lv1) == (isPositive $ valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv2 ⎤ lv1)
+  |  valOf 0 (getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv1 ⎤ lv1) == 0 ||
+     valOf 0 (getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv2 ⎤ lv1) == 0    = Nothing
+    | otherwise = Just $ isPositive (valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv1 ⎤ lv1) == isPositive (valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv2 ⎤ lv1)
 --  | distancePPointToPLine point1 line == 0 || distancePPointToPLine point2 line == 0 = Nothing
 --  | otherwise = Just $ pLineIsLeft (join2PPoint2 linePoint point1) line == pLineIsLeft (join2PPoint2 linePoint point2) line
   where
