@@ -16,11 +16,17 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-module Graphics.Slicer.Math.Face (Face, makeFaces, addLineSegs, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine)) where
+-- So we can pattern match against the last item in a list.
+{-# LANGUAGE ViewPatterns #-}
 
-import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not)
+
+module Graphics.Slicer.Math.Face (Face(Face), makeFaces, addLineSegs, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton) where
+
+import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse)
 
 import Data.List (elemIndex)
+
+import Data.List.NonEmpty (NonEmpty)
 
 import Data.Maybe( Maybe(Just,Nothing), fromMaybe,  catMaybes, isJust, fromJust, isNothing)
 
@@ -30,7 +36,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, LineSegError(LineSegFromPoint), makeLineSegsLooped)
 
-import Graphics.Slicer.Math.PGA (lineIsLeft, pointOnPerp, distancePPointToPLine, pToEPoint2, PLine2(PLine2), PPoint2, plinesIntersectIn, Intersection(NoIntersection, HitEndPoint, HitStartPoint), PIntersection(PColinear,IntersectsIn,PParallel,PAntiParallel), eToPLine2, translatePerp, plineFromEndpoints, intersectsWith, eToPPoint2, flipPLine2, pPointsOnSameSideOfPLine)
+import Graphics.Slicer.Math.PGA (lineIsLeft, pointOnPerp, distancePPointToPLine, pToEPoint2, PLine2(PLine2), PPoint2, plinesIntersectIn, Intersection(NoIntersection, HitEndPoint, HitStartPoint), PIntersection(PColinear,IntersectsIn,PParallel,PAntiParallel), eToPLine2, translatePerp, plineFromEndpoints, intersectsWith, eToPPoint2, flipPLine2, pPointsOnSameSideOfPLine, SegOrPLine2)
 
 import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 
@@ -49,17 +55,14 @@ data Node = Node { _inArc1 :: Either LineSeg PLine2, _inArc2 :: Either LineSeg P
 --   like a node, only without the in and out heirarchy. always connects to outArcs from the last item in a Node set.
 --   Used for glueing node sets together.
 --   FIXME: spines and nodes make triangles complicated. handle specially.
-data Spine = Spine {_arc1 :: Either SpineID PLine2, _arc2 :: Either SpineID PLine2, _arc3 :: Either SpineID PLine2}
+data Spine = Spine {_spineArcs :: NonEmpty PLine2}
   deriving (Show, Eq)
-
--- The index of the spine this spine connects to.
-type SpineID = Int
 
 -- A motorcycle. a Ray eminating from an intersection between two line segments toward the interior of a contour. the angle between tho line segments must make this a reflex vertex.
 data Motorcycle = Motorcycle { _inSeg :: LineSeg, _outSeg :: LineSeg, _path :: PLine2 }
   deriving (Show, Eq)
 
-data StraightSkeleton = StraightSkeleton { _nodeSets :: [[[Node]]], _spineNodes :: [Spine] }
+data StraightSkeleton = StraightSkeleton { _nodeSets :: [[[[Node]]]], _spineNodes :: [Spine] }
   deriving (Show, Eq)
 
 -- | construct a set of faces, using a straight skeleton to divide up the area of a contour, and the holes in the contour.
@@ -79,8 +82,8 @@ findStraightSkeleton contour holes
     -- | find nodes where the arc coresponding to them is colinear with the dividing Motorcycle.
     -- FIXME: Yes, this is implemented wrong, and needs to find only the one node opposing the dividing motorcycle. construct a line segment from the node and the motorcycle, and see what segments intersect?
     maybeOpposingNode
-      | length outsideContourMotorcycles == 1 && length opposingNodes == 1 = Just $ head $ opposingNodes
-      | length outsideContourMotorcycles == 1 && length opposingNodes == 0 = Nothing
+      | length outsideContourMotorcycles == 1 && length opposingNodes == 1 = Just $ head opposingNodes
+      | length outsideContourMotorcycles == 1 && null opposingNodes        = Nothing
       | otherwise                                                          = error "more than one opposing node. impossible situation."
       where
         opposingNodes =  filter (\(Node _ _ outArc) -> plinesIntersectIn outArc (pathOf dividingMotorcycle) == PColinear) $ concaveNodes contour
@@ -89,22 +92,22 @@ findStraightSkeleton contour holes
     -- | not yet used, but at least implemented properly.
 --    motorcyclesOfHoles = concaveMotorcycles <$> holes
 
-
 -- | Apply the merge algorithm from Christopher Tscherne's master's thesis.
+-- FIXME: nodeSets should always be stored in either clockwise or counterclockwise order.
 tscherneMerge :: Motorcycle -> Maybe Node -> [[Node]] -> [[Node]] -> StraightSkeleton
 tscherneMerge dividingMotorcycle@(Motorcycle (LineSeg rightPoint _) (LineSeg startPoint2 endDistance2) path) opposingNodes leftSide rightSide
   -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point, tie the sides and the motorcycle together, and we're done.
-  | (null $ crossoverNodes leftSide leftPoint dividingMotorcycle) &&
-    (null $ crossoverNodes rightSide rightPoint dividingMotorcycle) &&
-    (isNothing opposingNodes) &&
+  | null (crossoverNodes leftSide leftPoint dividingMotorcycle) &&
+    null (crossoverNodes rightSide rightPoint dividingMotorcycle) &&
+    isNothing opposingNodes &&
     plinesIntersectIn (finalPLine leftSide) path == plinesIntersectIn (finalPLine rightSide) path =
-      StraightSkeleton [leftSide, rightSide, [[motorcycleToNode dividingMotorcycle]]] [Spine (Right $ finalPLine leftSide) (Right $ finalPLine rightSide) (Right $ finalPLine $ [[motorcycleToNode dividingMotorcycle]])]
+      StraightSkeleton [[leftSide, rightSide, [[motorcycleToNode dividingMotorcycle]]]] []
   -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point, tie the sides and the motorcycle together.. and... FIXME?.
-  | (null $ crossoverNodes leftSide leftPoint dividingMotorcycle) &&
-    (null $ crossoverNodes rightSide rightPoint dividingMotorcycle) &&
-    (isJust opposingNodes) &&
+  | null (crossoverNodes leftSide leftPoint dividingMotorcycle) &&
+    null (crossoverNodes rightSide rightPoint dividingMotorcycle) &&
+    isJust opposingNodes &&
     plinesIntersectIn (finalPLine leftSide) path == plinesIntersectIn (finalPLine rightSide) path =
-      StraightSkeleton [leftSide, rightSide, [[motorcycleToNode dividingMotorcycle]], [[fromJust opposingNodes]]] [Spine (Right $ finalPLine leftSide) (Right $ finalPLine rightSide) (Left 0), Spine (Right $ finalPLine $ [[fromJust opposingNodes]]) (Right $ finalPLine $ [[motorcycleToNode dividingMotorcycle]]) (Left 0)]
+      StraightSkeleton [[leftSide, rightSide, [[motorcycleToNode dividingMotorcycle]], [[fromJust opposingNodes]]]] []
   | otherwise = error $ "failing to apply Tscherne's method.\n" <>
                         show (crossoverNodes leftSide leftPoint dividingMotorcycle)  <> "\n" <>
                         show (crossoverNodes rightSide rightPoint dividingMotorcycle)  <> "\n" <>
@@ -113,7 +116,7 @@ tscherneMerge dividingMotorcycle@(Motorcycle (LineSeg rightPoint _) (LineSeg sta
     leftPoint = addPoints startPoint2 endDistance2
     finalPLine :: [[Node]] -> PLine2
     finalPLine generations
-      | null generations = error $ "cannot have final PLine of empty side!\n"
+      | null generations = error "cannot have final PLine of empty side!\n"
       | otherwise = plineOut $ target $ last generations
       where
         plineOut (Node _ _ pline) = pline
@@ -124,7 +127,7 @@ tscherneMerge dividingMotorcycle@(Motorcycle (LineSeg rightPoint _) (LineSeg sta
     crossoverNodes generations pointOnSide (Motorcycle _ _ mcpath) = concat (crossoverGen <$> init generations)
       where
         crossoverGen :: [Node] -> [Node]
-        crossoverGen generation = filter (\a -> Just True == (intersectionSameSide mcpath (eToPPoint2 pointOnSide) a)) generation
+        crossoverGen generation = filter (\a -> Just True == intersectionSameSide mcpath (eToPPoint2 pointOnSide) a) generation
   -- determine if a node is on one side of the motorcycle, or the other.
   -- assumes the starting point of the second line segment is a point on the path.
     intersectionSameSide :: PLine2 -> PPoint2 -> Node -> Maybe Bool
@@ -147,50 +150,45 @@ leftRegion contour motorcycle = concaveStraightSkeleton $ matchLineSegments cont
     -- Return the line segments we're responsible for straight skeletoning.
     matchLineSegments :: Contour -> Motorcycle -> [LineSeg]
     matchLineSegments c (Motorcycle inSeg outSeg path)
-      | wrapDirection   = (drop (stopSegmentIndex) $ linesOfContour c) ++ take (startSegmentIndex) (linesOfContour c)
-      | unwrapDirection = take ((startSegmentIndex) - stopSegmentIndex) $ drop (stopSegmentIndex) (linesOfContour c)
+      | wrapDirection   = drop stopSegmentIndex (linesOfContour c) ++ take startSegmentIndex (linesOfContour c)
+      | unwrapDirection = take (startSegmentIndex - stopSegmentIndex) $ drop stopSegmentIndex $ linesOfContour c
       | otherwise = error "this should be impossible."
         where
           -- test whether we can gather our segments from the stop segment to the end ++ first one until the segment the motorcycle hits...
           wrapDirection   = findSegFromStart c outSeg motorcycleInSegment == outSeg
           -- .. or by starting at the stop segment, and stopping after the segment the motorcycle hits
           unwrapDirection = findSegFromStart c outSeg motorcycleInSegment == motorcycleInSegment
+          stopSegmentIndex = segIndex motorcycleOutSegment (linesOfContour c)
           -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the first of the two segments (from the beginning of the contour).
-          motorcycleInSegment  = fst $ motorcycleIntersection
+          motorcycleInSegment  = fst motorcycleIntersection
           -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the last of the two segments (from the beginning of the contour).
-          motorcycleOutSegment = if (isJust $ snd $ motorcycleIntersection)
-                                 then fromJust $ snd $ motorcycleIntersection
-                                 else fst $ motorcycleIntersection
+          motorcycleOutSegment = fromMaybe (fst motorcycleIntersection) (snd motorcycleIntersection)
           motorcycleIntersection = motorcycleIntersectsAt c inSeg outSeg path
           startSegmentIndex = segIndex outSeg (linesOfContour c)
-          stopSegmentIndex = segIndex motorcycleOutSegment (linesOfContour c)
 
 -- | Calculate a partial straight skeleton, for the part of a contour that is on the 'right' side of a contour, when the contour is bisected by a motorcycle.
 --   by right side, we mean consisting of the segments from the point the motorcycle left from, to the intersection, in the order they are in the original contour.
 rightRegion :: Contour -> Motorcycle -> [[Node]]
-rightRegion contour motorcycle@(Motorcycle inSeg outSeg path) = concaveStraightSkeleton $ matchLineSegments contour motorcycle
+rightRegion contour motorcycle = concaveStraightSkeleton $ matchLineSegments contour motorcycle
   where
     -- Return the line segments we're responsible for straight skeletoning.
     matchLineSegments :: Contour -> Motorcycle -> [LineSeg]
     matchLineSegments c (Motorcycle inSeg outSeg path)
-      | wrapDirection   = (drop (startSegmentIndex) $ linesOfContour c) ++ take (stopSegmentIndex) (linesOfContour c)
-      | unwrapDirection = take (stopSegmentIndex - startSegmentIndex) $ drop (startSegmentIndex) (linesOfContour c)
+      | wrapDirection   = drop startSegmentIndex (linesOfContour c) ++ take stopSegmentIndex (linesOfContour c)
+      | unwrapDirection = take (stopSegmentIndex - startSegmentIndex) $ drop startSegmentIndex $ linesOfContour c
       | otherwise = error "this should be impossible."
         where
           -- test whether we can gather our segments from the stop segment to the end ++ first one until the segment the motorcycle hits...
           wrapDirection   = findSegFromStart c outSeg motorcycleInSegment == motorcycleInSegment
           -- .. or by starting at the stop segment, and stopping after the segment the motorcycle hits
           unwrapDirection = findSegFromStart c outSeg motorcycleInSegment == outSeg
-          -- the segment that a motorcycle intersects the contour on.
+          stopSegmentIndex = 1 + segIndex motorcycleInSegment (linesOfContour c)
           -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the first of the two segments (from the beginning of the contour).
-          motorcycleInSegment  = fst $ motorcycleIntersection
+          motorcycleInSegment  = fst motorcycleIntersection
           -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the last of the two segments (from the beginning of the contour).
-          motorcycleOutSegment = if (isJust $ snd $ motorcycleIntersection)
-                                 then fromJust $ snd $ motorcycleIntersection
-                                 else fst $ motorcycleIntersection
+          motorcycleOutSegment = fromMaybe (fst motorcycleIntersection) (snd motorcycleIntersection)
           motorcycleIntersection = motorcycleIntersectsAt c inSeg outSeg path
           startSegmentIndex = segIndex outSeg (linesOfContour c)
-          stopSegmentIndex = 1 + segIndex motorcycleInSegment (linesOfContour c)
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
 --   A reflex virtex is any point where the line in and the line out are convex, when looked at from inside of the contour.
@@ -236,23 +234,23 @@ convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWith
 -- look at the two line segments, and determine if they are convex. if they are, construct a PLine2 bisecting them.
 convexPLines :: LineSeg -> LineSeg -> Maybe PLine2
 convexPLines seg1 seg2
-  | fromMaybe (False) $ lineIsLeft seg1 seg2  = Just $ PLine2 $ addVecPair pv1 pv2
-  | otherwise                                 = Nothing
+  | Just True == lineIsLeft seg1 seg2  = Just $ PLine2 $ addVecPair pv1 pv2
+  | otherwise                          = Nothing
   where
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
 
 -- look at the two line segments, and determine if they are concave. if they are, construct a PLine2 bisecting them.
-
 concavePLines :: LineSeg -> LineSeg -> Maybe PLine2
 concavePLines seg1 seg2
-  | fromMaybe (False) $ lineIsLeft seg1 seg2  = Nothing
-  | otherwise                                 = Just $ PLine2 $ addVecPair pv1 pv2
+  | Just True == lineIsLeft seg1 seg2  = Nothing
+  | otherwise                          = Just $ PLine2 $ addVecPair pv1 pv2
   where
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
 
--- | create a skeleton for the given segments. requires there to be no reflex virtexes between the segments, and for the segments to be in order.
+-- | create a partial skeleton for the given segments. requires there to be no reflex virtexes between the segments, and for the segments to be in contour order.
+concaveStraightSkeleton :: [LineSeg] -> [[Node]]
 concaveStraightSkeleton segs
   | null segs = error "got empty list at concaveStraightSkeleton.\n"
   | otherwise = straightSkeletonOf [makeFirstNodes segs]
@@ -261,7 +259,7 @@ concaveStraightSkeleton segs
 makeFirstNodes :: [LineSeg] -> [Node]
 makeFirstNodes segs
   | null segs = error "got empty list at makeFirstNodes.\n"
-  | otherwise = init $ mapWithFollower makeFirstNode $ segs
+  | otherwise = init $ mapWithFollower makeFirstNode segs
   where
     makeFirstNode :: LineSeg -> LineSeg -> Node
     makeFirstNode seg1 seg2 = Node (Left seg1) (Left seg2) $ getArc seg1 seg2
@@ -276,7 +274,7 @@ getArc seg1 seg2 = PLine2 $ addVecPair pv1 pv2
 -- | Recurse a set of nodes until we have a complete straight skeleton (down to one node in the final generation).
 straightSkeletonOf :: [[Node]] -> [[Node]]
 straightSkeletonOf [] = []
-straightSkeletonOf (firstGen:[])
+straightSkeletonOf [firstGen]
   | length firstGen == 2 = [firstGen,[averageNodes (head firstGen) (head $ tail firstGen)]]
   | otherwise = error $ "cannot handle node count:" <> show (length firstGen) <> "\n" <> concat ((<> "\n") . show <$> firstGen) <> "\n"
 straightSkeletonOf (firstGen:moreGens)
@@ -286,7 +284,7 @@ straightSkeletonOf (firstGen:moreGens)
 averageNodes :: Node -> Node -> Node
 averageNodes (Node _ _ pLine1@(PLine2 pv1)) (Node _ _ pLine2) = Node (Right pLine1) (Right pLine2) (PLine2 $ addVecPair pv1 pv2)
   where
-    (PLine2 pv2) = flipPLine2 $ pLine2
+    (PLine2 pv2) = flipPLine2 pLine2
 
 linesOfContour :: Contour -> [LineSeg]
 linesOfContour (PointSequence contourPoints) = makeLineSegsLooped contourPoints
@@ -303,13 +301,16 @@ segIndex seg segs = fromMaybe (error "cannot find item") $ elemIndex seg segs
 findSegFromStart :: Contour -> LineSeg -> LineSeg -> LineSeg
 findSegFromStart c seg1 seg2 = head $ catMaybes $ foundSeg seg1 seg2 <$> linesOfContour c
   where
-    foundSeg s1 s2 sn = if sn == s1 then Just s1 else if sn == s2 then Just s2 else Nothing
+    foundSeg s1 s2 sn
+      | sn == s1  = Just s1
+      | sn == s2  = Just s2
+      | otherwise = Nothing
 
 -- | Find where a motorcycle intersects a contour, if the motorcycle is emitted from between the two given segments.
 --   If the motorcycle lands between two segments, return the second segment, as well.
 motorcycleIntersectsAt :: Contour -> LineSeg -> LineSeg -> PLine2 -> (LineSeg, Maybe LineSeg)
 motorcycleIntersectsAt contour inSeg outSeg path
-  | length (getMotorcycleIntersections path contour) == 2 && length foundSegEvents == 1 = (fst (head $ foundSegEvents), snd (head $ foundSegEvents))
+  | length (getMotorcycleIntersections path contour) == 2 && length foundSegEvents == 1 = head foundSegEvents
   | otherwise = error $ "handle more than one intersection point here." <> show (getMotorcycleIntersections path contour) <> "\n"
   where
     foundSegEvents = filter (\(seg, maybeSeg) -> (seg /= inSeg && seg /= outSeg) &&
@@ -320,60 +321,126 @@ motorcycleIntersectsAt contour inSeg outSeg path
     getMotorcycleIntersections myline c = catMaybes $ mapWithNeighbors saneIntersections $ zip (linesOfContour c) $ intersectsWith (Right myline) . Left <$> linesOfContour c
       where
         saneIntersections :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg)
-        saneIntersections  _ (seg, (Right (IntersectsIn _))) _ = Just (seg, Nothing)
-        saneIntersections  _ (_  , (Left  NoIntersection))        _ = Nothing
-        saneIntersections  _ (_  , (Right PParallel))             _ = Nothing
-        saneIntersections  _ (_  , (Right PAntiParallel))         _ = Nothing
-        saneIntersections  _                                 (seg , (Left (HitStartPoint _ _))) (seg2 , (Left (HitEndPoint   _ _))) = Just (seg, Just seg2)
-        saneIntersections (_   , (Left (HitStartPoint _ _))) (_   , (Left (HitEndPoint   _ _)))  _                                  = Nothing
-        saneIntersections  _                                 (_   , (Left (HitEndPoint   _ _))) (_   , (Left (HitStartPoint  _ _))) = Nothing
-        saneIntersections (seg , (Left (HitEndPoint   _ _))) (seg2, (Left (HitStartPoint _ _)))  _                                  = Just (seg, Just seg2)
+        saneIntersections  _ (seg, Right (IntersectsIn _))      _ = Just (seg, Nothing)
+        saneIntersections  _ (_  , Left  NoIntersection)        _ = Nothing
+        saneIntersections  _ (_  , Right PParallel)             _ = Nothing
+        saneIntersections  _ (_  , Right PAntiParallel)         _ = Nothing
+        saneIntersections  _                              (seg , Left (HitStartPoint _ _)) (seg2 , Left (HitEndPoint   _ _)) = Just (seg, Just seg2)
+        saneIntersections (_  , Left (HitStartPoint _ _)) (_   , Left (HitEndPoint   _ _))  _                                = Nothing
+        saneIntersections  _                              (_   , Left (HitEndPoint   _ _)) (_    , Left (HitStartPoint _ _)) = Nothing
+        saneIntersections (seg, Left (HitEndPoint   _ _)) (seg2, Left (HitStartPoint _ _))  _                                = Just (seg, Just seg2)
         saneIntersections l1 l2 l3 = error $ "insane result of saneIntersections:\n" <> show l1 <> "\n" <> show l2 <> "\n" <> show l3 <> "\n"
 
 -- | take a straight skeleton, and create faces from it.
 facesFromStraightSkeleton :: StraightSkeleton -> [Face]
-facesFromStraightSkeleton (StraightSkeleton nodeLists spines) = error "incomplete!"
+facesFromStraightSkeleton (StraightSkeleton nodeLists spine)
+  | null spine && length nodeLists == 1 = innerNodeFaces (head nodeLists) ++ (intraNodeFaces (head nodeLists))
+  | otherwise  = error "had a spine. not a republican."
+  where
+    -- calculate faces for the regions between the nodeLists.
+    intraNodeFaces :: [[[Node]]] -> [Face]
+    intraNodeFaces nodeTreeSets = mapWithFollower findIntraNodeFace nodeTreeSets
+      where
+        -- Find a single face between two nodes.
+        findIntraNodeFace :: [[Node]] -> [[Node]] -> Face
+        findIntraNodeFace nodeTree1 nodeTree2
+          | nodeTree1 `isLeftOf` nodeTree2  = Face (leftSegOf nodeTree1) (outOf $ rightNodeOf nodeTree2) (plinesUpFrom (rightNodeOf nodeTree2) nodeTree2) (outOf $ leftNodeOf nodeTree1)
+          | nodeTree1 `isRightOf` nodeTree2 = Face (leftSegOf nodeTree2) (outOf $ rightNodeOf nodeTree1) (plinesUpFrom (rightNodeOf nodeTree1) nodeTree1) (outOf $ leftNodeOf nodeTree2)
+          | otherwise = error "merp."
+          where
+            isLeftOf :: [[Node]] -> [[Node]] -> Bool
+            isLeftOf nt1 nt2 = leftSegOf nt1 == rightSegOf nt2
+            isRightOf :: [[Node]] -> [[Node]] -> Bool
+            isRightOf nt1 nt2 = rightSegOf nt1 == leftSegOf nt2
+            leftSegOf [[Node _ (Left outSeg) _]] = outSeg
+            leftSegOf ((reverse -> (Node _ (Left outSeg) _:_)): _) = outSeg
+            rightSegOf [[Node (Left inSeg) _ _]] = inSeg
+            rightSegOf ((Node (Left inSeg) _ _:_): _) = inSeg
+            leftNodeOf [[node]] = node
+            leftNodeOf (reverse -> (node:_):_) = node
+            rightNodeOf [[node]] = node
+            rightNodeOf ((node:_):_) = node
+            plinesUpFrom :: Node -> [[Node]] -> [PLine2]
+            plinesUpFrom src [[Node _ _ _]] = []
+            plinesUpFrom src [_,gen2] = [outOf (head gen2)]
+            plinesUpFrom src xs = error $ "huh?\n" <> show xs <> "\n"
+    -- calculate faces for the regions inside of a nodeList.
+    innerNodeFaces :: [[[Node]]] -> [Face]
+    innerNodeFaces nodeTreeSets = concat $ facesOfTree <$> nodeTreeSets
+      where
+        facesOfTree :: [[Node]] -> [Face]
+        facesOfTree generations
+          | length generations == 1 = []
+          | length generations == 2 && length (head generations) == 2 = [Face commonSide (endIntersects commonSide (head generations)) [] (beginIntersects commonSide (head generations))]
+          where
+            commonSide = bothSide (head generations)
+            bothSide :: [Node] -> LineSeg
+            bothSide [n1@(Node (Left _) (Left _) _), n2@(Node (Left _) (Left _) _)] = sharedSide n1 n2
+            bothSide _ = error "wtf"
+            endIntersects :: LineSeg -> [Node] -> PLine2
+            endIntersects side nodes = if length res == 1 then outOf $ head res else error "wtf"
+              where
+                res = filter (\a -> hitsEndPoint $ intersectsWith (Left side) $ Right $ outOf a) nodes
+                hitsEndPoint (Left (HitEndPoint _ _)) = True
+                hitsEndPoint _ = False
+            beginIntersects :: LineSeg -> [Node] -> PLine2
+            beginIntersects side nodes = if length res == 1 then outOf $ head res else error "wtf"
+              where
+                res = filter (\a -> hitsStartPoint $ intersectsWith (Left side) $ Right $ outOf a) nodes
+                hitsStartPoint (Left (HitStartPoint _ _)) = True
+                hitsStartPoint _ = False
+            sharedSide :: Node -> Node -> LineSeg
+            sharedSide (Node (Left n1s1) (Left n1s2) _) (Node (Left n2s1) (Left n2s2) _)
+              | n1s1 == n2s1 || n1s1 == n2s2 = n1s1
+              | n1s2 == n2s1 || n1s2 == n2s2 = n1s2
+              | otherwise =  error "no common line segments?"
+    outOf :: Node -> PLine2
+    outOf (Node _ _ a) = a
 
 -- | Place line segments on a face. Might return remainders, in the form of one or multiple un-filled faces.
-addLineSegs :: Face -> Fastℕ -> ℝ -> ([LineSeg], Maybe [Face])
+addLineSegs :: ℝ -> Maybe Fastℕ -> Face -> ([LineSeg], Maybe [Face])
 -- | handle faces with five or more sides. basically the same as the 4 side case, only deal with finding the closest intersection point differently.
-addLineSegs (Face edge firstArc (a2:a3:xs) lastArc) n lw = error "undefined!"
+addLineSegs lw n (Face edge firstArc (a2:a3:xs) lastArc) = error "undefined!"
 -- | handle faces that have four sides.
-addLineSegs (Face edge firstArc (midArc:[]) lastArc) n lw = ((foundLineSegs maybeFoundLineSegs)  ++ subSides, remainder)
+addLineSegs lw n (Face edge firstArc [midArc] lastArc) = (subSides ++ foundLineSegs maybeFoundLineSegs, remainder)
   where
     maybeFoundLineSegs     = [ lineSegFromEndpoints (pToEPoint2 $ intersectionOf newSide firstArc) (pToEPoint2 $ intersectionOf newSide lastArc) | newSide <- newSides ]
-    newSides               = [ translatePerp (eToPLine2 edge) ((lw/2)+(lw*(fromIntegral (segmentNum-1)))) | segmentNum <- [1..linesToRender] ]
-    finalLine              = translatePerp (eToPLine2 edge) ((fromIntegral linesToRender)*lw)
+    newSides               = [ translatePerp (eToPLine2 edge) ((lw/2)+(lw * fromIntegral (segmentNum-1))) | segmentNum <- [1..linesToRender] ]
+    finalLine              = translatePerp (eToPLine2 edge) (lw * fromIntegral linesToRender)
     finalSide              = errorIfLeft $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf finalLine firstArc) (pToEPoint2 $ intersectionOf finalLine lastArc)
-    remainder              = if (distancePPointToPLine (intersectionOf firstArc midArc) (eToPLine2 edge)) /= (distancePPointToPLine (intersectionOf midArc lastArc) (eToPLine2 edge))
+    remainder              = if distancePPointToPLine (intersectionOf firstArc midArc) (eToPLine2 edge) /= distancePPointToPLine (intersectionOf midArc lastArc) (eToPLine2 edge)
                              then subRemains
                              else Nothing
     (subSides, subRemains) = if firstArcLonger
-                             then addLineSegs (Face finalSide firstArc [] lastArc) n lw
-                             else addLineSegs (Face finalSide midArc   [] lastArc) n lw
+                             then addLineSegs lw n (Face finalSide firstArc [] lastArc)
+                             else addLineSegs lw n (Face finalSide midArc   [] lastArc)
     linesUntilEnd :: Fastℕ
     linesUntilEnd          = floor $ if firstArcLonger
-                                     then (distancePPointToPLine (intersectionOf firstArc midArc) (eToPLine2 edge)) / lw
-                                     else (distancePPointToPLine (intersectionOf midArc lastArc) (eToPLine2 edge)) / lw
-    firstArcLonger         = (distancePPointToPLine (intersectionOf firstArc midArc) (eToPLine2 edge)) > (distancePPointToPLine (intersectionOf midArc lastArc) (eToPLine2 edge))
-    linesToRender          = min linesUntilEnd n
+                                     then distancePPointToPLine (intersectionOf firstArc midArc) (eToPLine2 edge) / lw
+                                     else distancePPointToPLine (intersectionOf midArc lastArc) (eToPLine2 edge) / lw
+    firstArcLonger         = distancePPointToPLine (intersectionOf firstArc midArc) (eToPLine2 edge) > distancePPointToPLine (intersectionOf midArc lastArc) (eToPLine2 edge)
+    linesToRender          = if isJust n
+                             then min linesUntilEnd $ fromJust n
+                             else linesUntilEnd
 -- | handle faces that are triangular wedges. easiest case.
-addLineSegs (Face edge firstArc [] lastArc) n lw = (foundLineSegs maybeFoundLineSegs, remainder)
+addLineSegs lw n (Face edge firstArc [] lastArc) = (foundLineSegs maybeFoundLineSegs, remainder)
   where
     maybeFoundLineSegs     = [ lineSegFromEndpoints (pToEPoint2 $ intersectionOf newSide firstArc) (pToEPoint2 $ intersectionOf newSide lastArc) | newSide <- newSides ]
-    newSides               = [ translatePerp (eToPLine2 edge) ((lw/2)+(lw*(fromIntegral (segmentNum-1)))) | segmentNum <- [1..linesToRender] ]
-    finalLine              = translatePerp (eToPLine2 edge) ((fromIntegral linesToRender)*lw)
+    newSides               = [ translatePerp (eToPLine2 edge) ((lw/2)+(lw * fromIntegral (segmentNum-1))) | segmentNum <- [1..linesToRender] ]
+    finalLine              = translatePerp (eToPLine2 edge) (lw * fromIntegral linesToRender)
     finalSide              = errorIfLeft $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf finalLine firstArc) (pToEPoint2 $ intersectionOf finalLine lastArc)
-    remainder              = if (distancePPointToPLine (intersectionOf firstArc lastArc) (eToPLine2 edge)) /= (fromIntegral (linesToRender-1))*lw
-                             then Just [(Face finalSide firstArc [] lastArc)]
+    remainder              = if distancePPointToPLine (intersectionOf firstArc lastArc) (eToPLine2 edge) /= lw * fromIntegral (linesToRender-1)
+                             then Just [Face finalSide firstArc [] lastArc]
                              else Nothing
     linesUntilEnd :: Fastℕ
-    linesUntilEnd          = floor $ (distancePPointToPLine (intersectionOf firstArc lastArc) (eToPLine2 edge)) / lw
-    linesToRender          = min linesUntilEnd n
+    linesUntilEnd          = floor $ distancePPointToPLine (intersectionOf firstArc lastArc) (eToPLine2 edge) / lw
+    linesToRender          = if isJust n
+                             then min linesUntilEnd $ fromJust n
+                             else linesUntilEnd
 
 -- | Add infill to the area of a set of faces that was not covered in lines.
 addInfill :: [Face] -> [LineSeg]
-addInfill = error $ "unimplemented!"
+addInfill = error "unimplemented!"
 
 foundLineSegs :: [Either LineSegError LineSeg] -> [LineSeg]
 foundLineSegs segs     = errorIfLeft <$> segs
