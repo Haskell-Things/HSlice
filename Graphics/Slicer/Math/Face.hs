@@ -448,15 +448,15 @@ addLineSegs lw n face@(Face edge@(LineSeg startPoint _) firstArc midArcs lastArc
     -- | The line segments we are placing.
     foundLineSegs          = [ errorIfLeft $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf newSide firstArc) (pToEPoint2 $ intersectionOf newSide lastArc) | newSide <- newSides ]
       where
-        newSides = [ translatePerp (eToPLine2 edge) $ translateDir ((lw/2)+(lw * fromIntegral segmentNum)) | segmentNum <- [0..linesToRender] ]
+        newSides = [ translatePerp (eToPLine2 edge) $ translateDir ((lw/2)+(lw * fromIntegral segmentNum)) | segmentNum <- [0..linesToRender-1] ]
 
     -- | The line where we are no longer able to fill this face. from the firstArc to the lastArc, along the point that the lines we place stop.
     finalSide              = errorIfLeft $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf finalLine firstArc) (pToEPoint2 $ intersectionOf finalLine lastArc)
       where
-        finalLine = translatePerp (eToPLine2 edge) $ translateDir (lw * fromIntegral linesToRender+1)
+        finalLine = translatePerp (eToPLine2 edge) $ translateDir (lw * fromIntegral linesToRender)
     -- | how many lines can be fit in this Face.
     linesUntilEnd :: Fastℕ
-    linesUntilEnd          = floor (distanceUntilEnd / lw)-1
+    linesUntilEnd          = floor (distanceUntilEnd / lw)
 
     -- | what is the distance from the edge to the place we can no longer place lines.
     distanceUntilEnd
