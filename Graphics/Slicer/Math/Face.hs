@@ -32,11 +32,11 @@ import Data.Maybe( Maybe(Just,Nothing), fromMaybe,  catMaybes, isJust, fromJust,
 
 import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2, mapWithFollower, mapWithNeighbors, addPoints)
 
-import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
+import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, subVecPair)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, LineSegError(LineSegFromPoint), makeLineSegsLooped)
 
-import Graphics.Slicer.Math.PGA (lineIsLeft, pointOnPerp, distancePPointToPLine, pToEPoint2, PLine2(PLine2), PPoint2, plinesIntersectIn, Intersection(NoIntersection, HitEndPoint, HitStartPoint), PIntersection(PColinear,IntersectsIn,PParallel,PAntiParallel), eToPLine2, translatePerp, plineFromEndpoints, intersectsWith, eToPPoint2, flipPLine2, pPointsOnSameSideOfPLine, SegOrPLine2, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (lineIsLeft, pointOnPerp, distancePPointToPLine, pToEPoint2, PLine2(PLine2), PPoint2, plinesIntersectIn, Intersection(NoIntersection, HitEndPoint, HitStartPoint), PIntersection(PColinear,IntersectsIn,PParallel,PAntiParallel), eToPLine2, translatePerp, plineFromEndpoints, intersectsWith, eToPPoint2, flipPLine2, pPointsOnSameSideOfPLine, SegOrPLine2, pLineIsLeft, normalizePLine2)
 
 import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 
@@ -84,7 +84,8 @@ findStraightSkeleton contour@(PointSequence pts) holes
     leftSide  = leftRegion contour dividingMotorcycle
     rightSide = rightRegion contour dividingMotorcycle
     -- | find nodes where the arc coresponding to them is colinear with the dividing Motorcycle.
-    -- FIXME: Yes, this is implemented wrong, and needs to find only the one node opposing the dividing motorcycle. construct a line segment from the node and the motorcycle, and see what segments intersect?
+    -- FIXME: Yes, this is implemented wrong. it needs to find only the one node opposing the dividing motorcycle, not every line that could be an opposing node.
+    --        construct a line segment from the node and the motorcycle, and see what segments intersect?
     maybeOpposingNode
       | length outsideContourMotorcycles == 1 && length opposingNodes == 1 = Just $ head opposingNodes
       | length outsideContourMotorcycles == 1 && null opposingNodes        = Nothing
@@ -241,7 +242,7 @@ convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWith
       | isJust maybePLine = Just $ Node (Left seg1) (Left seg2) $ fromJust maybePLine
       | otherwise         = Nothing
 
--- look at the two line segments, and determine if they are convex. if they are, construct a PLine2 bisecting them.
+-- | Examine two line segments, and determine if they are convex. if they are, construct a PLine2 bisecting them.
 convexPLines :: LineSeg -> LineSeg -> Maybe PLine2
 convexPLines seg1 seg2
   | Just True == lineIsLeft seg1 seg2  = Just $ PLine2 $ addVecPair pv1 pv2
@@ -250,7 +251,7 @@ convexPLines seg1 seg2
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
 
--- look at the two line segments, and determine if they are concave. if they are, construct a PLine2 bisecting them.
+-- Examine two line segments, and determine if they are concave. if they are, construct a PLine2 bisecting them.
 concavePLines :: LineSeg -> LineSeg -> Maybe PLine2
 concavePLines seg1 seg2
   | Just True == lineIsLeft seg1 seg2  = Nothing
@@ -285,10 +286,10 @@ makeFirstNodesLooped segs
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the two given line segments.
 getArc :: LineSeg -> LineSeg -> PLine2
-getArc seg1 seg2 = PLine2 $ addVecPair pv1 pv2
+getArc seg1 seg2 = normalizePLine2 $ PLine2 $ subVecPair pv1 pv2
   where
     (PLine2 pv1) = eToPLine2 seg1
-    (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
+    (PLine2 pv2) = eToPLine2 seg2
 
 -- | Recurse a set of nodes until we have a complete straight skeleton (down to one node in the final generation).
 straightSkeletonOf :: NodeTree -> NodeTree
