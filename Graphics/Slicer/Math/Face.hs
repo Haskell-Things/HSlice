@@ -22,9 +22,9 @@
 
 module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegs, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton) where
 
-import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse)
+import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, break)
 
-import Data.List (elemIndex)
+import Data.List (elemIndex, sortOn)
 
 import Data.List.NonEmpty (NonEmpty)
 
@@ -286,7 +286,7 @@ makeFirstNodesLooped segs
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the two given line segments.
 getArc :: LineSeg -> LineSeg -> PLine2
-getArc seg1 seg2 = normalizePLine2 $ PLine2 $ subVecPair pv1 pv2
+getArc seg1 seg2 = PLine2 $ subVecPair pv1 pv2
   where
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = eToPLine2 seg2
@@ -429,10 +429,9 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine)
 -- | Place line segments on a face. Might return remainders, in the form of one or multiple un-filled faces.
 addLineSegs :: ℝ -> Maybe Fastℕ -> Face -> ([LineSeg], Maybe [Face])
 addLineSegs lw n face@(Face edge@(LineSeg startPoint _) firstArc midArcs lastArc)
-  | null midArcs        = (            foundLineSegs, twoSideRemainder)
-  | length midArcs == 1 = (subSides ++ foundLineSegs, threeSideRemainder)
--- FIXME: implement.
---  | otherwise           = (subSides ++ foundLineSegs, nSidesRemainder)
+  | null midArcs        = (                    foundLineSegs, twoSideRemainder)
+  | length midArcs == 1 = (        subSides ++ foundLineSegs, threeSideRemainder)
+  | otherwise           = (sides1 ++ sides2 ++ foundLineSegs, nSideRemainder)
 
   where
     -----------------------------------------------------------------------------------------
@@ -460,11 +459,38 @@ addLineSegs lw n face@(Face edge@(LineSeg startPoint _) firstArc midArcs lastArc
 
     -- | what is the distance from the edge to the place we can no longer place lines.
     distanceUntilEnd
---    | length midArcs >1  = -- FIXME: implement.
+      | length midArcs >1  = closestArcDistance
       | length midArcs==1  = if firstArcLonger
-                             then distancePPointToPLine (intersectionOf firstArc midArc) (eToPLine2 edge)  / lw
-                             else distancePPointToPLine (intersectionOf midArc lastArc) (eToPLine2 edge) / lw
+                             then distancePPointToPLine (intersectionOf firstArc midArc) (eToPLine2 edge)
+                             else distancePPointToPLine (intersectionOf midArc lastArc) (eToPLine2 edge)
       | null midArcs       = distancePPointToPLine (intersectionOf firstArc lastArc) (eToPLine2 edge)
+    -----------------------------------------------------------
+    -- functions only used by n-gons with more than four sides.
+    -----------------------------------------------------------
+    nSideRemainder
+      | isJust remains1 && isJust remains2 = Just $ (fromJust remains1) ++ (fromJust remains2)
+      | isJust remains1                    = remains1
+      | isJust remains2                    = remains2
+      | otherwise                          = error "impossible!"
+    -- | Find the closest point where two of our arcs intersect, relative to our side.
+    arcIntersections = init $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf a b) (eToPLine2 edge), intersectionOf a b, (a, b))) $ [firstArc] ++ midArcs ++ [lastArc]
+    findClosestArc :: (ℝ, PPoint2, (PLine2, PLine2))
+    findClosestArc         = head $ sortOn (\(a,_,_) -> a) arcIntersections
+    closestArcDistance     = (\(a,_,_) -> a) findClosestArc
+    closestArcPoint        = (\(_,b,_) -> b) findClosestArc
+    closestArc             = (\(_,_,(c,_)) -> c) findClosestArc
+    closestArcFollower     = (\(_,_,(_,d)) -> d) findClosestArc
+    -- Return all of the arcs before and including the closest arc.
+    untilArc               = if closestArc == firstArc
+                             then [firstArc]
+                             else fst $ break (== closestArcFollower) $ midArcs ++ [lastArc]
+    afterArc               = snd $ break (== closestArcFollower) $ midArcs ++ [lastArc]
+    (sides1, remains1)     = if closestArc == firstArc
+                             then ([],Nothing)
+                             else addLineSegs lw n (Face finalSide firstArc (tail $ init untilArc) closestArc)
+    (sides2, remains2)     = if closestArc == last midArcs
+                             then ([],Nothing)
+                             else addLineSegs lw n (Face finalSide (head afterArc) (init $ tail afterArc) lastArc)
     ---------------------------------------------
     -- functions only used by a four-sided n-gon.
     ---------------------------------------------
@@ -475,7 +501,7 @@ addLineSegs lw n face@(Face edge@(LineSeg startPoint _) firstArc midArcs lastArc
                              then subRemains
                              else Nothing
     (subSides, subRemains) = if firstArcLonger
-                             then addLineSegs lw n (Face finalSide firstArc [] lastArc)
+                             then addLineSegs lw n (Face finalSide firstArc [] midArc)
                              else addLineSegs lw n (Face finalSide midArc   [] lastArc)
     firstArcLonger         = distancePPointToPLine (intersectionOf firstArc midArc) (eToPLine2 edge) > distancePPointToPLine (intersectionOf midArc lastArc) (eToPLine2 edge)
     ----------------------------------------------
