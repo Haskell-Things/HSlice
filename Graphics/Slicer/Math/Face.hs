@@ -294,17 +294,22 @@ getArc seg1 seg2 = PLine2 $ subVecPair pv1 pv2
 -- | Recurse a set of nodes until we have a complete straight skeleton (down to one node in the final generation).
 straightSkeletonOf :: NodeTree -> NodeTree
 straightSkeletonOf (NodeTree []) = NodeTree []
-straightSkeletonOf (NodeTree [firstGen])
-  | length firstGen == 2 = NodeTree [firstGen,[averageNodes (head firstGen) (head $ tail firstGen)]]
-  | otherwise = error $ "cannot handle node count:" <> show (length firstGen) <> "\n" <> concat ((<> "\n") . show <$> firstGen) <> "\n"
-straightSkeletonOf (NodeTree (firstGen:moreGens))
-  | length (last moreGens) == 2 = NodeTree [firstGen,[averageNodes (head (last moreGens)) (head $ tail (last moreGens))]]
-  | otherwise = error $ "cannot handle node count:" <> show (length (last moreGens)) <> "\n"
-
-averageNodes :: Node -> Node -> Node
-averageNodes (Node _ _ pLine1@(PLine2 pv1)) (Node _ _ pLine2) = Node (Right pLine1) (Right pLine2) (PLine2 $ addVecPair pv1 pv2)
+straightSkeletonOf nodeTree@(NodeTree generations)
+  | length workingGen == 2 &&
+    intersectsInPoint (head workingGen) (head $ tail workingGen) = NodeTree $ completeGens ++ [workingGen, [averageNodes (head workingGen) (head $ tail workingGen)]]
+  | otherwise = error $ "cannot handle nodeTree: " <> show nodeTree <> "\n"
   where
-    (PLine2 pv2) = flipPLine2 pLine2
+    completeGens = init generations
+    workingGen = last generations
+    intersectsInPoint :: Node -> Node -> Bool
+    intersectsInPoint (Node _ _ pLine1) (Node _ _ pLine2) = isPoint $ plinesIntersectIn pLine1 pLine2
+      where
+        isPoint (IntersectsIn _) = True
+        isPoint _ = False
+    averageNodes :: Node -> Node -> Node
+    averageNodes (Node _ _ pLine1@(PLine2 pv1)) (Node _ _ pLine2) = Node (Right pLine1) (Right pLine2) (PLine2 $ addVecPair pv1 pv2)
+      where
+        (PLine2 pv2) = flipPLine2 pLine2
 
 linesOfContour :: Contour -> [LineSeg]
 linesOfContour (PointSequence contourPoints) = makeLineSegsLooped contourPoints
@@ -473,13 +478,12 @@ addLineSegs lw n face@(Face edge@(LineSeg startPoint _) firstArc midArcs lastArc
       | isJust remains2                    = remains2
       | otherwise                          = error "impossible!"
     -- | Find the closest point where two of our arcs intersect, relative to our side.
-    arcIntersections = init $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf a b) (eToPLine2 edge), intersectionOf a b, (a, b))) $ [firstArc] ++ midArcs ++ [lastArc]
-    findClosestArc :: (ℝ, PPoint2, (PLine2, PLine2))
-    findClosestArc         = head $ sortOn (\(a,_,_) -> a) arcIntersections
-    closestArcDistance     = (\(a,_,_) -> a) findClosestArc
-    closestArcPoint        = (\(_,b,_) -> b) findClosestArc
-    closestArc             = (\(_,_,(c,_)) -> c) findClosestArc
-    closestArcFollower     = (\(_,_,(_,d)) -> d) findClosestArc
+    arcIntersections = init $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf a b) (eToPLine2 edge), (a, b))) $ [firstArc] ++ midArcs ++ [lastArc]
+    findClosestArc :: (ℝ, (PLine2, PLine2))
+    findClosestArc         = head $ sortOn (\(a,_) -> a) arcIntersections
+    closestArcDistance     = (\(a,_) -> a) findClosestArc
+    closestArc             = (\(_,(b,_)) -> b) findClosestArc
+    closestArcFollower     = (\(_,(_,c)) -> c) findClosestArc
     -- Return all of the arcs before and including the closest arc.
     untilArc               = if closestArc == firstArc
                              then [firstArc]
