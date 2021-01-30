@@ -19,7 +19,6 @@
 -- So we can pattern match against the last item in a list.
 {-# LANGUAGE ViewPatterns #-}
 
-
 module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegs, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton) where
 
 import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, break)
@@ -68,6 +67,12 @@ data StraightSkeleton = StraightSkeleton { _nodeSets :: [[NodeTree]], _spineNode
 
 -- A nodeTree. a set of set of nodes, where each outer set is a 'generation'.
 newtype NodeTree = NodeTree [[Node]]
+  deriving (Show, Eq)
+
+data PartialNodeTree = PartialNodeTree NodeTree RejectReason
+  deriving (Show, Eq)
+
+data RejectReason = NOMATCH
   deriving (Show, Eq)
 
 -- Find the straight skeleton for a given contour, when a given set of holes is cut in it.
@@ -264,7 +269,11 @@ concavePLines seg1 seg2
 concaveStraightSkeleton :: [LineSeg] -> NodeTree
 concaveStraightSkeleton segs
   | null segs = error "got empty list at concaveStraightSkeleton.\n"
-  | otherwise = straightSkeletonOf (NodeTree [makeFirstNodes segs])
+  | otherwise = errorIfFail $ straightSkeletonOf (NodeTree [makeFirstNodes segs])
+  where
+    errorIfFail :: Either PartialNodeTree NodeTree -> NodeTree
+    errorIfFail (Left failure) = error $ "Fail!\n" <> show failure <> "\n"
+    errorIfFail (Right res) = res
 
 -- | Make a first generation set of nodes, AKA, a set of motorcycles that come from the points where line segments meet, on the inside of the contour.
 makeFirstNodes :: [LineSeg] -> [Node]
@@ -292,12 +301,12 @@ getArc seg1 seg2 = PLine2 $ subVecPair pv1 pv2
     (PLine2 pv2) = eToPLine2 seg2
 
 -- | Recurse a set of nodes until we have a complete straight skeleton (down to one node in the final generation).
-straightSkeletonOf :: NodeTree -> NodeTree
-straightSkeletonOf (NodeTree []) = NodeTree []
+straightSkeletonOf :: NodeTree -> Either PartialNodeTree NodeTree
+straightSkeletonOf (NodeTree []) = Right $ NodeTree []
 straightSkeletonOf nodeTree@(NodeTree generations)
   | length workingGen == 2 &&
-    intersectsInPoint (head workingGen) (head $ tail workingGen) = NodeTree $ completeGens ++ [workingGen, [averageNodes (head workingGen) (head $ tail workingGen)]]
-  | otherwise = error $ "cannot handle nodeTree: " <> show nodeTree <> "\n"
+    intersectsInPoint (head workingGen) (head $ tail workingGen) = Right $ NodeTree $ completeGens ++ [workingGen, [averageNodes (head workingGen) (head $ tail workingGen)]]
+  | otherwise = Left $ PartialNodeTree nodeTree NOMATCH
   where
     completeGens = init generations
     workingGen = last generations
@@ -318,11 +327,11 @@ linesOfContour (PointSequence contourPoints) = makeLineSegsLooped contourPoints
 linePairs :: Contour -> [(LineSeg, LineSeg)]
 linePairs c = mapWithFollower (\a b -> (a,b)) $ linesOfContour c
 
--- Get the index of a specific segment, in a list of segments.
+-- | Get the index of a specific segment, in a list of segments.
 segIndex :: LineSeg -> [LineSeg] -> Int
 segIndex seg segs = fromMaybe (error "cannot find item") $ elemIndex seg segs
 
--- search a contour starting at the beginning, and return the first of the two line segments given
+-- | Search a contour starting at the beginning, and return the first of the two line segments given
 findSegFromStart :: Contour -> LineSeg -> LineSeg -> LineSeg
 findSegFromStart c seg1 seg2 = head $ catMaybes $ foundSeg seg1 seg2 <$> linesOfContour c
   where
