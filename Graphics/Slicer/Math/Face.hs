@@ -21,7 +21,7 @@
 
 module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegs, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton) where
 
-import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, break)
+import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, break, and)
 
 import Data.List (elemIndex, sortOn)
 
@@ -35,7 +35,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, subVecPair)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, LineSegError(LineSegFromPoint), makeLineSegsLooped)
 
-import Graphics.Slicer.Math.PGA (lineIsLeft, pointOnPerp, distancePPointToPLine, pToEPoint2, PLine2(PLine2), PPoint2, plinesIntersectIn, Intersection(NoIntersection, HitEndPoint, HitStartPoint), PIntersection(PColinear,IntersectsIn,PParallel,PAntiParallel), eToPLine2, translatePerp, plineFromEndpoints, intersectsWith, eToPPoint2, flipPLine2, pPointsOnSameSideOfPLine, SegOrPLine2, pLineIsLeft, normalizePLine2)
+import Graphics.Slicer.Math.PGA (lineIsLeft, pointOnPerp, distancePPointToPLine, pToEPoint2, PLine2(PLine2), PPoint2, plinesIntersectIn, Intersection(NoIntersection, HitEndPoint, HitStartPoint), PIntersection(PColinear,IntersectsIn,PParallel,PAntiParallel), eToPLine2, translatePerp, plineFromEndpoints, intersectsWith, eToPPoint2, flipPLine2, pPointsOnSameSideOfPLine, SegOrPLine2, pLineIsLeft, normalizePLine2, distanceBetweenPPoints, angleBetween)
 
 import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 
@@ -69,7 +69,7 @@ data StraightSkeleton = StraightSkeleton { _nodeSets :: [[NodeTree]], _spineNode
 newtype NodeTree = NodeTree [[Node]]
   deriving (Show, Eq)
 
-data PartialNodeTree = PartialNodeTree NodeTree RejectReason
+data PartialNodes = PartialNodes [[Node]] RejectReason
   deriving (Show, Eq)
 
 data RejectReason = NOMATCH
@@ -127,16 +127,20 @@ tscherneMerge dividingMotorcycle@(Motorcycle (LineSeg rightPoint _) (LineSeg sta
   | otherwise = error $ "failing to apply Tscherne's method.\n" <>
                         show (crossoverNodes leftSide leftPoint dividingMotorcycle)  <> "\n" <>
                         show (crossoverNodes rightSide rightPoint dividingMotorcycle)  <> "\n" <>
+                        show opposingNodes <> "\n" <>
+                        show (finalPLine leftSide) <> "\n" <>
+                        show (finalPLine rightSide) <> "\n" <>
+                        show leftSide <> "\n" <>
+                        show rightSide <> "\n" <>
                         show dividingMotorcycle <> "\n"
   where
     leftPoint = addPoints startPoint2 endDistance2
     finalPLine :: NodeTree -> PLine2
     finalPLine (NodeTree generations)
       | null generations = error "cannot have final PLine of empty side!\n"
-      | otherwise = plineOut $ target $ last generations
+      | otherwise = plineOut $ last $ last generations
       where
         plineOut (Node _ _ pline) = pline
-        target generation = head generation
     motorcycleToNode :: Motorcycle -> Node
     motorcycleToNode (Motorcycle inSeg outSeg mcpath) = Node (Left inSeg) (Left outSeg) mcpath
     crossoverNodes :: NodeTree -> Point2 -> Motorcycle -> [Node]
@@ -269,11 +273,7 @@ concavePLines seg1 seg2
 concaveStraightSkeleton :: [LineSeg] -> NodeTree
 concaveStraightSkeleton segs
   | null segs = error "got empty list at concaveStraightSkeleton.\n"
-  | otherwise = errorIfFail $ straightSkeletonOf (NodeTree [makeFirstNodes segs])
-  where
-    errorIfFail :: Either PartialNodeTree NodeTree -> NodeTree
-    errorIfFail (Left failure) = error $ "Fail!\n" <> show failure <> "\n"
-    errorIfFail (Right res) = res
+  | otherwise = straightSkeletonOf (NodeTree [makeFirstNodes segs])
 
 -- | Make a first generation set of nodes, AKA, a set of motorcycles that come from the points where line segments meet, on the inside of the contour.
 makeFirstNodes :: [LineSeg] -> [Node]
@@ -295,30 +295,60 @@ makeFirstNodesLooped segs
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the two given line segments.
 getArc :: LineSeg -> LineSeg -> PLine2
-getArc seg1 seg2 = PLine2 $ subVecPair pv1 pv2
+getArc seg1 seg2 = normalizePLine2 $ PLine2 $ subVecPair pv1 pv2
   where
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = eToPLine2 seg2
 
--- | Recurse a set of nodes until we have a complete straight skeleton (down to one node in the final generation).
-straightSkeletonOf :: NodeTree -> Either PartialNodeTree NodeTree
-straightSkeletonOf (NodeTree []) = Right $ NodeTree []
-straightSkeletonOf nodeTree@(NodeTree generations)
-  | length workingGen == 2 &&
-    intersectsInPoint (head workingGen) (head $ tail workingGen) = Right $ NodeTree $ completeGens ++ [workingGen, [averageNodes (head workingGen) (head $ tail workingGen)]]
-  | otherwise = Left $ PartialNodeTree nodeTree NOMATCH
+-- | Recurse on a set of nodes until we have a complete straight skeleton (down to one node in the final generation).
+--   Only works on a sequnce of concave line segments.
+straightSkeletonOf :: NodeTree -> NodeTree
+straightSkeletonOf (NodeTree []) = NodeTree []
+straightSkeletonOf (NodeTree generations) = NodeTree $ generations ++ (errorIfLeft $ skeletonOfNodes workingGenNodes)
   where
-    completeGens = init generations
-    workingGen = last generations
-    intersectsInPoint :: Node -> Node -> Bool
-    intersectsInPoint (Node _ _ pLine1) (Node _ _ pLine2) = isPoint $ plinesIntersectIn pLine1 pLine2
+    errorIfLeft :: Either PartialNodes [[Node]] -> [[Node]]
+    errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure <> "\n"
+    errorIfLeft (Right res) = res
+    workingGenNodes = last generations
+    skeletonOfNodes :: [Node] -> Either PartialNodes [[Node]]
+    skeletonOfNodes nodes
+      | length nodes == 3 &&
+        hasShortestPair = Right $ [[averageOfShortestPair]] ++ errorIfLeft (skeletonOfNodes nextGen)
+      | length nodes == 2 &&
+        and (init $ mapWithFollower intersectsInPoint nodes) = Right $ [[averageNodes (head nodes) (head $ tail nodes)]]
+      | otherwise = Left $ PartialNodes [nodes] NOMATCH
       where
-        isPoint (IntersectsIn _) = True
-        isPoint _ = False
-    averageNodes :: Node -> Node -> Node
-    averageNodes (Node _ _ pLine1@(PLine2 pv1)) (Node _ _ pLine2) = Node (Right pLine1) (Right pLine2) (PLine2 $ addVecPair pv1 pv2)
-      where
-        (PLine2 pv2) = flipPLine2 pLine2
+        intersectsInPoint :: Node -> Node -> Bool
+        intersectsInPoint (Node _ _ pLine1) (Node _ _ pLine2) = isPoint $ plinesIntersectIn pLine1 pLine2
+          where
+            isPoint (IntersectsIn _) = True
+            isPoint other = error $ "could not find intersection: " <> show other <> "\n" --False
+        averageNodes :: Node -> Node -> Node
+        averageNodes (Node _ _ pLine1@(PLine2 pv1)) (Node _ _ pLine2) = Node (Right pLine1) (Right pLine2) $ convexRay pLine1 pLine2
+          where
+            convexRay pl1@(PLine2 pv1) pl2@(PLine2 pv2)
+              | sameDir = (normalizePLine2 $ PLine2 $ addVecPair pv1 pv2)
+              | otherwise = (normalizePLine2 $ PLine2 $ subVecPair pv1 pv2)
+              where
+                sameDir = angleBetween pl1 pl2 < 90 && angleBetween pl1 pl2 > -90
+        ---------------------------------------------------------------
+        -- Functions used when we have 3 line segments to reason about.
+        ---------------------------------------------------------------
+        hasShortestPair :: Bool
+        hasShortestPair = and (mapWithFollower intersectsInPoint nodes)
+        averageOfShortestPair = averageNodes (fst shortestPair) (snd shortestPair)
+        shortestPair :: (Node, Node)
+        (shortestPair, remainingNode)
+          | distanceToIntersection (head nodes) (head $ tail nodes) <
+            distanceToIntersection (head $ tail nodes) (head $ tail $ tail nodes) = ((head nodes, head $ tail nodes), head (tail $ tail nodes))
+          | distanceToIntersection (head nodes) (head $ tail nodes) >
+            distanceToIntersection (head $ tail nodes) (head $ tail $ tail nodes) = ((head $ tail nodes, head $ tail $ tail nodes), head nodes)
+        distanceToIntersection :: Node -> Node -> ℝ
+        distanceToIntersection node1@(Node _ _ pline1) node2@(Node _ _ pline2) = min (distanceBetweenPPoints (pPointOf node1) (intersectionOf pline1 pline2)) (distanceBetweenPPoints (pPointOf node2) (intersectionOf pline1 pline2))  
+        nextGen :: [Node]
+        nextGen = [averageOfShortestPair, remainingNode]
+        pPointOf (Node (Left (LineSeg _ _)) (Left (LineSeg point _)) _) = eToPPoint2 point
+        pPointOf (Node (Right pline1) (Right pline2) _) = intersectionOf pline1 pline2
 
 linesOfContour :: Contour -> [LineSeg]
 linesOfContour (PointSequence contourPoints) = makeLineSegsLooped contourPoints
@@ -421,7 +451,7 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine)
             bothSide [n1@(Node (Left _) (Left _) _), n2@(Node (Left _) (Left _) _)] = sharedSide n1 n2
             bothSide _ = error "wtf"
             endIntersects :: LineSeg -> [Node] -> PLine2
-            endIntersects side nodes = if length res == 1 then outOf $ head res else error "wtf"
+            endIntersects side nodes = if length res == 1 then outOf $ head res else error $ "wtf\nres: " <> show res <> "\nside: " <> show side <> "\nnodes:" <> show nodes <> "\n"
               where
                 res = filter (\a -> hitsEndPoint $ intersectsWith (Left side) $ Right $ outOf a) nodes
                 hitsEndPoint (Left (HitEndPoint _ _)) = True

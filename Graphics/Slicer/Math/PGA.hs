@@ -20,7 +20,7 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PColinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PColinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints) where
 
 import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), sqrt, head, null, negate, (/), (<>), show, (||))
 
@@ -98,8 +98,7 @@ dualAngle line1@(PLine2 lvec1) line2@(PLine2 lvec2) = valOf 0 $ getVals [GEZero 
     antiMotor = addVecPair (lvec1•gaI) (GVec [GVal (-1) [G0]])
     gaI = GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]
 
-
--- | Find out where two lines intersect, returning a projective point.
+-- | Find out where two lines intersect, returning a projective point. Note that this should only be used when you can guarantee these are not colinear.
 intersectionOf :: PLine2 -> PLine2 -> PPoint2
 intersectionOf pl1 pl2 = canonicalizePPoint2 $ meet2PLine2 pl1 pl2
 
@@ -117,7 +116,7 @@ translatePerp pLine@(PLine2 rawPLine) d = PLine2 $ addVecPair m rawPLine
   where
     m = GVec [GVal (d*normOfPLine2 pLine) [GEZero 1]]
 
--- | find the distance between a point and a line. Unsigned.
+-- | Find the unsigned distance between a point and a line.
 distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
 distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
   where
@@ -143,6 +142,10 @@ pPointsOnSameSideOfPLine point1 point2 line
     gValOf (GVec a) = a
     isPositive :: ℝ -> Bool
     isPositive i = i > 0
+
+-- | Find the unsigned distance between two projective points.
+distanceBetweenPPoints :: PPoint2 -> PPoint2 -> ℝ
+distanceBetweenPPoints point1 point2 = normOfPLine2 $ join2PPoint2 point1 point2
 
 ----------------------------------------------------------
 -------------- Euclidian Mixed Interface -----------------
