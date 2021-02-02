@@ -315,7 +315,7 @@ straightSkeletonOf (NodeTree generations) = NodeTree $ generations ++ (errorIfLe
       | length nodes == 3 &&
         hasShortestPair = Right $ [[averageOfShortestPair]] ++ errorIfLeft (skeletonOfNodes nextGen)
       | length nodes == 2 &&
-        and (init $ mapWithFollower intersectsInPoint nodes) = Right $ [[averageNodes (head nodes) (head $ tail nodes)]]
+        pairHasIntersection = Right $ [[averageOfPair]]
       | otherwise = Left $ PartialNodes [nodes] NOMATCH
       where
         intersectsInPoint :: Node -> Node -> Bool
@@ -349,6 +349,11 @@ straightSkeletonOf (NodeTree generations) = NodeTree $ generations ++ (errorIfLe
         nextGen = [averageOfShortestPair, remainingNode]
         pPointOf (Node (Left (LineSeg _ _)) (Left (LineSeg point _)) _) = eToPPoint2 point
         pPointOf (Node (Right pline1) (Right pline2) _) = intersectionOf pline1 pline2
+        ---------------------------------------------------------------
+        -- Functions used when we have 2 line segments to reason about.
+        ---------------------------------------------------------------
+        pairHasIntersection = and (init $ mapWithFollower intersectsInPoint nodes)
+        averageOfPair = averageNodes (head nodes) (head $ tail nodes)
 
 linesOfContour :: Contour -> [LineSeg]
 linesOfContour (PointSequence contourPoints) = makeLineSegsLooped contourPoints
