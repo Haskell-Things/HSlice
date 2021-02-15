@@ -19,9 +19,9 @@
 -- So we can pattern match against the last item in a list.
 {-# LANGUAGE ViewPatterns #-}
 
-module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegs, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton) where
+module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegs, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton, averageNodes) where
 
-import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, break, and)
+import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, break, and, (<=), (>=))
 
 import Data.List (elemIndex, sortOn)
 
@@ -80,7 +80,7 @@ data RejectReason = NOMATCH
 findStraightSkeleton :: Contour -> [Contour] -> StraightSkeleton
 findStraightSkeleton contour@(PointSequence pts) holes
   -- Triangles without holes are trivial. hard code a quick path.
-  | null holes && length pts == 3 = handleTriangle contour
+  | null holes && length pts == 3 = straightSkeletonOf (linesOfContour contour) True
   -- Use the algorithm from Christopher Tscherne's master's thesis.
   | null holes && length outsideContourMotorcycles == 1 = tscherneMerge dividingMotorcycle maybeOpposingNode leftSide rightSide
   | otherwise = error "Do not know how to calculate a straight skeleton for this contour!"
@@ -159,7 +159,7 @@ tscherneMerge dividingMotorcycle@(Motorcycle (LineSeg rightPoint _) (LineSeg sta
 -- | Calculate a partial straight skeleton, for the part of a contour that is on the left side of the point that a motorcycle's path starts at.
 --   meaning we will evaluate the line segments from the point the motorcycle left from, to the segment it intersects, in the order they are in the original contour.
 leftRegion :: Contour -> Motorcycle -> NodeTree
-leftRegion contour motorcycle = skeletonOfSegments $ matchLineSegments contour motorcycle
+leftRegion contour motorcycle = oneNodeTree $ straightSkeletonOf (matchLineSegments contour motorcycle) False
   where
     -- Return the line segments we're responsible for straight skeletoning.
     matchLineSegments :: Contour -> Motorcycle -> [LineSeg]
@@ -183,7 +183,7 @@ leftRegion contour motorcycle = skeletonOfSegments $ matchLineSegments contour m
 -- | Calculate a partial straight skeleton, for the part of a contour that is on the 'right' side of a contour, when the contour is bisected by a motorcycle.
 --   by right side, we mean consisting of the segments from the point the motorcycle left from, to the intersection, in the order they are in the original contour.
 rightRegion :: Contour -> Motorcycle -> NodeTree
-rightRegion contour motorcycle = skeletonOfSegments $ matchLineSegments contour motorcycle
+rightRegion contour motorcycle = oneNodeTree $ straightSkeletonOf (matchLineSegments contour motorcycle) False
   where
     -- Return the line segments we're responsible for straight skeletoning.
     matchLineSegments :: Contour -> Motorcycle -> [LineSeg]
@@ -263,12 +263,6 @@ concavePLines seg1 seg2
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
 
--- | Create a partial skeleton for the given line segments. Requires there to be no reflex virtexes between the segments, and for the segments to be in contour order.
-skeletonOfSegments :: [LineSeg] -> NodeTree
-skeletonOfSegments segs
-  | null segs = error "got empty list at skeletonOfSegments.\n"
-  | otherwise = straightSkeletonOf (NodeTree [makeFirstNodes segs])
-
 -- | Make a first generation set of nodes, AKA, a set of motorcycles that come from the points where line segments meet, toward the inside of the contour.
 makeFirstNodes :: [LineSeg] -> [Node]
 makeFirstNodes segs
@@ -276,7 +270,7 @@ makeFirstNodes segs
   | otherwise = init $ mapWithFollower makeFirstNode segs
   where
     makeFirstNode :: LineSeg -> LineSeg -> Node
-    makeFirstNode seg1 seg2 = Node (Left seg1) (Left seg2) $ getArc seg1 seg2
+    makeFirstNode seg1 seg2 = Node (Left seg1) (Left seg2) $ getFirstArc seg1 seg2
 
 -- | Make a first generation set of nodes, AKA, a set of motorcycles that come from the points where line segments meet, toward the inside of the contour.
 makeFirstNodesLooped :: [LineSeg] -> [Node]
@@ -285,34 +279,104 @@ makeFirstNodesLooped segs
   | otherwise = mapWithFollower makeFirstNode segs
   where
     makeFirstNode :: LineSeg -> LineSeg -> Node
-    makeFirstNode seg1 seg2 = Node (Left seg1) (Left seg2) $ getArc seg1 seg2
+    makeFirstNode seg1 seg2 = Node (Left seg1) (Left seg2) $ getFirstArc seg1 seg2
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the two given line segments.
-getArc :: LineSeg -> LineSeg -> PLine2
-getArc seg1 seg2 = normalizePLine2 $ PLine2 $ subVecPair pv1 pv2
-  where
-    (PLine2 pv1) = eToPLine2 seg1
-    (PLine2 pv2) = eToPLine2 seg2
+--   Note that we normalize the output of eToPLine2, because by default, it does not output normalized lines.
+getFirstArc :: LineSeg -> LineSeg -> PLine2
+getFirstArc seg1@(LineSeg start1 _) seg2@(LineSeg start2 _) = getInsideArc start1 (normalizePLine2 $ eToPLine2 seg1) start2 (normalizePLine2 $ eToPLine2 seg2)
 
--- Create a straight skeleton for a triangle. The trivial case. All of the nodes are guaranteed to be concave, and the motorcycles are guaranteed to intersect at a single point.
--- FIXME: disolve this function into the function below.
-handleTriangle :: Contour -> StraightSkeleton
-handleTriangle contour = StraightSkeleton [(\a -> NodeTree [[a]]) <$> makeFirstNodesLooped lineSegments] []
+-- | Get a PLine at the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
+--   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
+getInsideArc :: Point2 -> PLine2 -> Point2 -> PLine2 -> PLine2
+getInsideArc point1 pline1@(PLine2 pv1) point2 pline2@(PLine2 pv2)
+  | pline1 == pline2 = pline1
+  | intersectsInPoint pline1 pline2 && sameDir pline1 pline2 = if (towardIntersection point1 pline1 (intersectionOf pline1 pline2) == towardIntersection point2 pline2 (intersectionOf pline1 pline2))
+                                                               then normalizePLine2 $ PLine2 $ addVecPair pv1 pv2 -- correct
+                                                               else normalizePLine2 $ PLine2 $ addVecPair flippedPV1 pv2 -- can never happen
+  | intersectsInPoint pline1 pline2 = if (towardIntersection point1 pline1 (intersectionOf pline1 pline2) == towardIntersection point2 pline2 (intersectionOf pline1 pline2))
+                                      then normalizePLine2 $ PLine2 $ subVecPair pv1 pv2
+                                      else normalizePLine2 $ PLine2 $ subVecPair flippedPV1 pv2 -- can never happen
+  | otherwise = error "wtf"
+    where
+      (PLine2 flippedPV1) = flipPLine2 pline1
+      (PLine2 flippedPV2) = flipPLine2 pline1
+
+-- | Get a PLine at the angle bisector of the intersection of the two given line segments.
+--   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
+getOutsideArc :: Point2 -> PLine2 -> Point2 -> PLine2 -> PLine2
+getOutsideArc point1 pline1@(PLine2 pv1) point2 pline2@(PLine2 pv2)
+  | pline1 == pline2 = pline1
+  | intersectsInPoint pline1 pline2 && sameDir pline1 pline2 = if (towardIntersection point1 pline1 (intersectionOf pline1 pline2) == towardIntersection point2 pline2 (intersectionOf pline1 pline2))
+                                                               then normalizePLine2 $ PLine2 $ addVecPair pv1 pv2 
+                                                               else normalizePLine2 $ PLine2 $ addVecPair flippedPV1 pv2
+  | intersectsInPoint pline1 pline2 = if (towardIntersection point1 pline1 (intersectionOf pline1 pline2) == towardIntersection point2 pline2 (intersectionOf pline1 pline2))
+                                      then normalizePLine2 $ PLine2 $ subVecPair pv1 pv2
+                                      else normalizePLine2 $ PLine2 $ subVecPair flippedPV1 pv2
+  | otherwise = error "wtf"
+    where
+      (PLine2 flippedPV1) = flipPLine2 pline1
+      (PLine2 flippedPV2) = flipPLine2 pline1
+
+-- | check if two line segments intersect.
+intersectsInPoint :: PLine2 -> PLine2 -> Bool
+intersectsInPoint pl1 pl2 = isPoint $ plinesIntersectIn pl1 pl2
   where
-    lineSegments = linesOfContour contour
+    isPoint (IntersectsIn _) = True
+    isPoint other = error $ "Two PLines do not intersect in a point:\n" <> show pl1 <> "\n" <> show pl2 <> "\n"
+
+sameDir pl1 pl2 = angleBetween pl1 pl2 <= 0
+
+-- Note: PLine must be normalized.
+towardIntersection :: Point2 -> PLine2 -> PPoint2 -> Bool
+towardIntersection p1 pl1 in1
+  | p1 == pToEPoint2 in1                                      = False
+  | (normalizePLine2 $ eToPLine2 $ constructedLineSeg) == pl1 = True
+  | otherwise                                                 = False
+  where
+    constructedLineSeg :: LineSeg
+    constructedLineSeg = foundLineSeg $ maybeConstructedLineSeg
+      where
+      foundLineSeg (Left a)  = error $ "encountered " <> show a <> "error."
+      foundLineSeg (Right a) = a
+    maybeConstructedLineSeg = lineSegFromEndpoints p1 (pToEPoint2 in1)
+
+-- grab the one node tree returned by straightSkeletonOf. if StraightSkeleton finds a skeleton with more than just a nodetree, bail.
+oneNodeTree :: StraightSkeleton -> NodeTree
+oneNodeTree (StraightSkeleton [[a]] []) = a
+oneNodeTree a = error $ "wtf!\n" <> show a <> "\n"
+
+-- | For a given pair of nodes, construct a new node, where it's parents are the two given nodes, and the line leaving it is along the the obtuse bisector.
+averageNodes :: Node -> Node -> Node
+averageNodes n1@(Node _ _ pLine1@(PLine2 pv1)) n2@(Node _ _ pLine2) = Node (Right pLine1) (Right pLine2) $ getOutsideArc (pointOf n1) pLine1 (pointOf n2) pLine2
+
+-- Find the euclidian point that is at the intersection of the lines of a node.
+pointOf (Node (Left (LineSeg _ _)) (Left (LineSeg point _)) _) = point
+pointOf (Node (Right pline1) (Right pline2) _) = pToEPoint2 $ intersectionOf pline1 pline2
 
 -- | Recurse on a set of nodes until we have a complete straight skeleton (down to one node in the final generation).
---   Only works on a sequnce of concave line segments.
-straightSkeletonOf :: NodeTree -> NodeTree
-straightSkeletonOf (NodeTree []) = NodeTree []
-straightSkeletonOf (NodeTree generations) = NodeTree $ generations ++ (errorIfLeft $ skeletonOfNodes workingGenNodes)
+--   Only works on a sequnce of concave line segments, when there are no holes.
+straightSkeletonOf :: [LineSeg] -> Bool -> StraightSkeleton
+straightSkeletonOf segments loop = if length res == 1
+                                   then StraightSkeleton [[NodeTree $ [nodes] ++ res]] []
+                                   else StraightSkeleton [makeNodeTrees nodes] []
   where
+    nodes = if loop
+            then makeFirstNodesLooped segments
+            else makeFirstNodes segments
+    res :: [[Node]]
+    res = errorIfLeft $ skeletonOfNodes nodes
+    -- | create multiple NodeTrees from our nodes.
+    makeNodeTrees :: [Node] -> [NodeTree]
+    -- If untangling a single generation, just 
+    makeNodeTrees x = (\a -> NodeTree [[a]]) <$> x
     errorIfLeft :: Either PartialNodes [[Node]] -> [[Node]]
     errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure <> "\n"
     errorIfLeft (Right res) = res
-    workingGenNodes = last generations
     skeletonOfNodes :: [Node] -> Either PartialNodes [[Node]]
     skeletonOfNodes nodes
+      | length nodes >= 3 &&
+        endsAtSamePoint nodes = Right []
       | length nodes == 3 &&
         hasShortestPair = Right $ [[averageOfShortestPair]] ++ errorIfLeft (skeletonOfNodes nextGen)
       | length nodes == 2 &&
@@ -330,21 +394,21 @@ straightSkeletonOf (NodeTree generations) = NodeTree $ generations ++ (errorIfLe
             isPoint (IntersectsIn _) = True
             isPoint other = False
 
-        -- | For a given pair of nodes, construct a new node, where it's parents are the two given nodes, and the line leaving it is along the the obtuse bisector.
-        averageNodes :: Node -> Node -> Node
-        averageNodes (Node _ _ pLine1@(PLine2 pv1)) (Node _ _ pLine2) = Node (Right pLine1) (Right pLine2) $ convexRay pLine1 pLine2
+        -- | when a set of nodes end in the same point, we need to return multiple NodeTrees. This lets us check for that case.
+        endsAtSamePoint :: [Node] -> Bool
+        endsAtSamePoint nodes = and $ mapWithFollower (==) $ mapWithFollower intersectionOf (plineOut <$> nodes)
           where
-            convexRay pl1@(PLine2 pv1) pl2@(PLine2 pv2)
-              | sameDir = (normalizePLine2 $ PLine2 $ addVecPair pv1 pv2)
-              | otherwise = (normalizePLine2 $ PLine2 $ subVecPair pv1 pv2)
-              where
-                sameDir = angleBetween pl1 pl2 < 90 && angleBetween pl1 pl2 > -90
+            plineOut (Node _ _ pline) = pline
+
+        -- Find the projective point that is at the intersection of the lines of a node.
+        pPointOf (Node (Left (LineSeg _ _)) (Left (LineSeg point _)) _) = eToPPoint2 point
+        pPointOf (Node (Right pline1) (Right pline2) _) = intersectionOf pline1 pline2
 
         ---------------------------------------------------------------
         -- Functions used when we have 3 line segments to reason about.
         ---------------------------------------------------------------
         hasShortestPair :: Bool
-        hasShortestPair = and (mapWithFollower intersectsInPoint nodes)
+        hasShortestPair = and $ mapWithFollower intersectsInPoint nodes
         averageOfShortestPair = averageNodes (fst shortestPair) (snd shortestPair)
         shortestPair :: (Node, Node)
         (shortestPair, remainingNode)
@@ -356,8 +420,6 @@ straightSkeletonOf (NodeTree generations) = NodeTree $ generations ++ (errorIfLe
         distanceToIntersection node1@(Node _ _ pline1) node2@(Node _ _ pline2) = min (distanceBetweenPPoints (pPointOf node1) (intersectionOf pline1 pline2)) (distanceBetweenPPoints (pPointOf node2) (intersectionOf pline1 pline2))  
         nextGen :: [Node]
         nextGen = [averageOfShortestPair, remainingNode]
-        pPointOf (Node (Left (LineSeg _ _)) (Left (LineSeg point _)) _) = eToPPoint2 point
-        pPointOf (Node (Right pline1) (Right pline2) _) = intersectionOf pline1 pline2
 
         ---------------------------------------------------------------
         -- Functions used when we have 2 line segments to reason about.
