@@ -19,7 +19,7 @@
 -- So we can pattern match against the last item in a list.
 {-# LANGUAGE ViewPatterns #-}
 
-module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegs, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton, averageNodes) where
+module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegs, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton, averageNodes, getFirstArc) where
 
 import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, break, and, (<=), (>=))
 
@@ -286,37 +286,32 @@ makeFirstNodesLooped segs
 getFirstArc :: LineSeg -> LineSeg -> PLine2
 getFirstArc seg1@(LineSeg start1 _) seg2@(LineSeg start2 _) = getInsideArc start1 (normalizePLine2 $ eToPLine2 seg1) start2 (normalizePLine2 $ eToPLine2 seg2)
 
--- | Get a PLine at the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
+-- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'acute' direction.
 --   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
+--   Note that we know that the inside is to the right of the first line given, and that the first line points toward the intersection.
 getInsideArc :: Point2 -> PLine2 -> Point2 -> PLine2 -> PLine2
 getInsideArc point1 pline1@(PLine2 pv1) point2 pline2@(PLine2 pv2)
-  | pline1 == pline2 = pline1
-  | intersectsInPoint pline1 pline2 && sameDir pline1 pline2 = if (towardIntersection point1 pline1 (intersectionOf pline1 pline2) == towardIntersection point2 pline2 (intersectionOf pline1 pline2))
-                                                               then normalizePLine2 $ PLine2 $ addVecPair pv1 pv2 -- correct
-                                                               else normalizePLine2 $ PLine2 $ addVecPair flippedPV1 pv2 -- can never happen
-  | intersectsInPoint pline1 pline2 = if (towardIntersection point1 pline1 (intersectionOf pline1 pline2) == towardIntersection point2 pline2 (intersectionOf pline1 pline2))
-                                      then normalizePLine2 $ PLine2 $ subVecPair pv1 pv2
-                                      else normalizePLine2 $ PLine2 $ subVecPair flippedPV1 pv2 -- can never happen
-  | otherwise = error "wtf"
-    where
+  | pline1 == pline2 = error "need to be able to return two PLines."
+  | noIntersection pline1 pline2 = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
+  | otherwise = normalizePLine2 $ PLine2 $ addVecPair flippedPV1 pv2
+  where
       (PLine2 flippedPV1) = flipPLine2 pline1
-      (PLine2 flippedPV2) = flipPLine2 pline1
 
--- | Get a PLine at the angle bisector of the intersection of the two given line segments.
---   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
+-- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
+--   Note: we normalize our output lines, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
+--   Note: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
 getOutsideArc :: Point2 -> PLine2 -> Point2 -> PLine2 -> PLine2
 getOutsideArc point1 pline1@(PLine2 pv1) point2 pline2@(PLine2 pv2)
-  | pline1 == pline2 = pline1
-  | intersectsInPoint pline1 pline2 && sameDir pline1 pline2 = if (towardIntersection point1 pline1 (intersectionOf pline1 pline2) == towardIntersection point2 pline2 (intersectionOf pline1 pline2))
-                                                               then normalizePLine2 $ PLine2 $ addVecPair pv1 pv2 
-                                                               else normalizePLine2 $ PLine2 $ addVecPair flippedPV1 pv2
-  | intersectsInPoint pline1 pline2 = if (towardIntersection point1 pline1 (intersectionOf pline1 pline2) == towardIntersection point2 pline2 (intersectionOf pline1 pline2))
-                                      then normalizePLine2 $ PLine2 $ subVecPair pv1 pv2
-                                      else normalizePLine2 $ PLine2 $ subVecPair flippedPV1 pv2
-  | otherwise = error "wtf"
+  | pline1 == pline2 = error "need to be able to return two PLines."
+  | noIntersection pline1 pline2 = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
+  | l1TowardPoint && l2TowardPoint = flipPLine2 $ getInsideArc point1 pline1 (pToEPoint2 $ intersectionOf pline1 pline2) (flipPLine2 pline2)
+  | l1TowardPoint                  = flipPLine2 $ getInsideArc point1 pline1 point2 pline2
+  | l2TowardPoint                  = getInsideArc point2 pline2 point1 pline1
+  | otherwise                      = getInsideArc (pToEPoint2 $ intersectionOf pline1 pline2) (flipPLine2 pline2) point1 pline1
     where
       (PLine2 flippedPV1) = flipPLine2 pline1
-      (PLine2 flippedPV2) = flipPLine2 pline1
+      l1TowardPoint = towardIntersection point1 pline1 (intersectionOf pline1 pline2)
+      l2TowardPoint = towardIntersection point2 pline2 (intersectionOf pline1 pline2)
 
 -- | check if two line segments intersect.
 intersectsInPoint :: PLine2 -> PLine2 -> Bool
@@ -325,7 +320,8 @@ intersectsInPoint pl1 pl2 = isPoint $ plinesIntersectIn pl1 pl2
     isPoint (IntersectsIn _) = True
     isPoint other = error $ "Two PLines do not intersect in a point:\n" <> show pl1 <> "\n" <> show pl2 <> "\n"
 
-sameDir pl1 pl2 = angleBetween pl1 pl2 <= 0
+noIntersection :: PLine2 -> PLine2 -> Bool
+noIntersection pl1 pl2 = not $ intersectsInPoint pl1 pl2 
 
 -- Note: PLine must be normalized.
 towardIntersection :: Point2 -> PLine2 -> PPoint2 -> Bool
