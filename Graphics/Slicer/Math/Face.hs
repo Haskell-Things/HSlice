@@ -39,41 +39,36 @@ import Graphics.Slicer.Math.PGA (lineIsLeft, distancePPointToPLine, pToEPoint2, 
 
 import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 
--- | A Face.
+-- | A Face:
 --   A portion of a contour, with a real side, and arcs (line segments between nodes) dividing it from other faces.
 --   Faces have no holes, and their arcs and nodes (lines and points) are from a straight skeleton of a contour.
 data Face = Face { _edge :: LineSeg, _firstArc :: PLine2, _arcs :: [PLine2], _lastArc :: PLine2}
   deriving (Show, Eq)
 
--- | A Node
+-- | A Node:
 --   A point in our straight skeleton where two arcs intersect, resulting in another arc, OR a point where two lines of a contour intersect, emmiting a line toward the interior of a contour.
 data Node = Node { _inArcs :: Either (LineSeg, LineSeg) (PLine2, PLine2), _outArc :: PLine2 }
   deriving (Show, Eq)
 
--- | A Spine component.
---   like a node, only without the in and out heirarchy. always connects to outArcs from the last item in a Node set.
+-- | A Spine component:
+--   Similar to a node, only without the in and out heirarchy. always connects to outArcs from the last item in a Node set.
 --   Used for glueing node sets together.
---   FIXME: spines and nodes make triangles complicated. handle specially.
 data Spine = Spine {_spineArcs :: NonEmpty PLine2}
   deriving (Show, Eq)
 
--- A motorcycle. a Ray eminating from an intersection between two line segments toward the interior of a contour. the angle between tho line segments must make this a reflex vertex.
+-- | A Motorcycle. a Ray eminating from an intersection between two line segments toward the interior of a contour. Motorcycles are only emitted when the angle between tho line segments make this point a reflex vertex.
 data Motorcycle = Motorcycle { _inSeg :: LineSeg, _outSeg :: LineSeg, _path :: PLine2 }
   deriving (Show, Eq)
 
--- The straight skeleton of a contour.
+-- | The straight skeleton of a contour.
 data StraightSkeleton = StraightSkeleton { _nodeSets :: [[NodeTree]], _spineNodes :: [Spine] }
   deriving (Show, Eq)
 
--- A nodeTree. a set of set of nodes, where each outer set is a 'generation'.
+-- | A nodeTree. a set of set of nodes, where each outer set is a 'generation', or a set of nodes that (may) result in the next set of nodes.
+--   Note that not all of the outArcs in a generation necessarilly are used in the next generation, but they must all be used by subsequent generations, with the exception of the last generation.
 newtype NodeTree = NodeTree [[Node]]
   deriving (Show, Eq)
 
-data PartialNodes = PartialNodes [[Node]] RejectReason
-  deriving (Show, Eq)
-
-data RejectReason = NOMATCH
-  deriving (Show, Eq)
 
 -- Find the straight skeleton for a given contour, when a given set of holes is cut in it.
 -- FIXME: woefully incomplete.
@@ -354,27 +349,38 @@ pointOf :: Node -> Point2
 pointOf (Node (Left (_,(LineSeg point _))) _) = point
 pointOf (Node (Right (pline1,pline2)) _) = pToEPoint2 $ intersectionOf pline1 pline2
 
+-- error types.
+
+data PartialNodes = PartialNodes [[Node]] RejectReason
+  deriving (Show, Eq)
+
+data RejectReason = NOMATCH
+  deriving (Show, Eq)
+
 -- | Recurse on a set of nodes until we have a complete straight skeleton (down to one node in the final generation).
 --   Only works on a sequnce of concave line segments, when there are no holes.
 straightSkeletonOf :: [LineSeg] -> Bool -> StraightSkeleton
 straightSkeletonOf inSegs loop
-  | length res == 1 = StraightSkeleton [[NodeTree $ [firstNodes] ++ res]] []
-  | otherwise       = StraightSkeleton [makeNodeTrees firstNodes] []
+  | length res >0 = StraightSkeleton [[NodeTree $ [firstNodes] ++ res]] []
+  | otherwise     = StraightSkeleton [makeNodeTrees firstNodes] []
   where
     -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
     firstNodes
       | loop      = makeFirstNodesLooped inSegs
       | otherwise = makeFirstNodes inSegs
-    
-    res :: [[Node]]
-    res = errorIfLeft $ skeletonOfNodes firstNodes
-    -- | create multiple NodeTrees from our nodes.
+    -- | create multiple NodeTrees from a set of nodes. used in the case that all of the final nodes intersect at the same point.
     makeNodeTrees :: [Node] -> [NodeTree]
-    -- If untangling a single generation, just 
     makeNodeTrees x = (\a -> NodeTree [[a]]) <$> x
+
     errorIfLeft :: Either PartialNodes [[Node]] -> [[Node]]
     errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure <> "\n"
     errorIfLeft (Right val)    = val
+
+    -- | apply the recursive solver.
+    res :: [[Node]]
+    res = errorIfLeft $ skeletonOfNodes firstNodes
+
+    -- | recursively try to solve the node set.
     skeletonOfNodes :: [Node] -> Either PartialNodes [[Node]]
     skeletonOfNodes nodes
       | length nodes >= 3 &&
