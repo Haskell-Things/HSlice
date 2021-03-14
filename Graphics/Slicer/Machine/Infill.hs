@@ -34,7 +34,7 @@ import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence),
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), makeLineSegs, makeLineSegsLooped)
 
-import Graphics.Slicer.Math.PGA (Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PParallel, PAntiParallel, PColinear, IntersectsIn), PLine2, pToEPoint2, intersectsWith, eToPLine2)
+import Graphics.Slicer.Math.PGA (Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PParallel, PAntiParallel, PCollinear, IntersectsIn), PLine2, pToEPoint2, intersectsWith, eToPLine2)
 
 -- | what direction to put down infill lines.
 data InfillType = Diag1 | Diag2 | Vert | Horiz
@@ -90,13 +90,13 @@ infillLineSegInside contour childContours line
                   -- and only count the first start point, when going in the other direction.
                   saneIntersection _                               (_, Left (HitEndPoint   _ _    )) (_, Left (HitStartPoint _ _)) = Nothing
                   saneIntersection (_, Left (HitEndPoint   _ _)) (_, Left (HitStartPoint _ point)) _                               = Just point
-                  -- Ignore the end and start point that comes before / after a colinear section.
-                  saneIntersection (_, Right PColinear)          (_, Left (HitStartPoint _ _    )) _                               = Nothing
-                  saneIntersection _                               (_, Left (HitEndPoint   _ _    )) (_, Right PColinear)          = Nothing
-                  saneIntersection (_, Right PColinear)          (_, Left (HitEndPoint   _ _    )) _                               = Nothing
-                  saneIntersection _                               (_, Left (HitStartPoint _ _    )) (_, Right PColinear)          = Nothing
-                  -- FIXME: we should 'stitch out' colinear segments, not just ignore them.
-                  saneIntersection _                               (_, Right PColinear)              _                             = Nothing
+                  -- Ignore the end and start point that comes before / after a collinear section.
+                  saneIntersection (_, Right PCollinear)          (_, Left (HitStartPoint _ _    )) _                               = Nothing
+                  saneIntersection _                               (_, Left (HitEndPoint   _ _    )) (_, Right PCollinear)          = Nothing
+                  saneIntersection (_, Right PCollinear)          (_, Left (HitEndPoint   _ _    )) _                               = Nothing
+                  saneIntersection _                               (_, Left (HitStartPoint _ _    )) (_, Right PCollinear)          = Nothing
+                  -- FIXME: we should 'stitch out' collinear segments, not just ignore them.
+                  saneIntersection _                               (_, Right PCollinear)              _                             = Nothing
                   -- saneIntersection (Left NoIntersection)      (Left (HitEndPoint   _ point)) (Left NoIntersection)      = Just point
                   saneIntersection r1 r2 r3 = error $ "insane result of intersecting a line (" <> show myline <> ") with a contour " <> show c <> "\n" <> show r1 <> "\n" <> show r2 <> "\n" <> show r3 <> "\n"
 

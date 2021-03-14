@@ -35,14 +35,14 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, LineSegError(LineSegFromPoint), makeLineSegsLooped)
 
-import Graphics.Slicer.Math.PGA (lineIsLeft, distancePPointToPLine, pToEPoint2, PLine2(PLine2), PPoint2, plinesIntersectIn, Intersection(NoIntersection, HitEndPoint, HitStartPoint), PIntersection(PColinear,IntersectsIn,PParallel,PAntiParallel), eToPLine2, translatePerp, intersectsWith, eToPPoint2, flipPLine2, pPointsOnSameSideOfPLine, pLineIsLeft, normalizePLine2, distanceBetweenPPoints)
+import Graphics.Slicer.Math.PGA (lineIsLeft, distancePPointToPLine, pToEPoint2, PLine2(PLine2), PPoint2, plinesIntersectIn, Intersection(NoIntersection, HitEndPoint, HitStartPoint), PIntersection(PCollinear,IntersectsIn,PParallel,PAntiParallel), eToPLine2, translatePerp, intersectsWith, eToPPoint2, flipPLine2, pPointsOnSameSideOfPLine, pLineIsLeft, normalizePLine2, distanceBetweenPPoints)
 
 import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 
 -- | A Face:
 --   A portion of a contour, with a real side, and arcs (line segments between nodes) dividing it from other faces.
 --   Faces have no holes, and their arcs and nodes (lines and points) are derived from a straight skeleton of a contour.
-data Face = Face { _edge :: LineSeg, _firstArc :: PLine2, _arcs :: [PLine2], _lastArc :: PLine2}
+data Face = Face { _edge :: LineSeg, _firstArc :: PLine2, _arcs :: [PLine2], _lastArc :: PLine2 }
   deriving (Show, Eq)
 
 -- | A Motorcycle. a Ray eminating from an intersection between two line segments toward the interior of a contour. Motorcycles are only emitted when the angle between tho line segments make this point a reflex vertex.
@@ -57,13 +57,13 @@ data Node = Node { _inArcs :: Either (LineSeg, LineSeg) [PLine2], _outArc :: May
 -- | A Spine component:
 --   Similar to a node, only without the in and out heirarchy. always connects to outArcs from the last generation in a NodeTree.
 --   Used for glueing node sets together.
-data Spine = Spine {_spineArcs :: NonEmpty PLine2}
+data Spine = Spine { _spineArcs :: NonEmpty PLine2 }
   deriving (Show, Eq)
 
 -- | A nodeTree:
 --   A set of set of nodes, divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes.
 --   Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by subsequent generations in order for a nodetree to be complete.
---   The last generation with the exception of the last generation.
+--   With the exception of the last generation, which may have an outArc.
 newtype NodeTree = NodeTree [[Node]]
   deriving (Show, Eq)
 
@@ -85,7 +85,7 @@ findStraightSkeleton contour@(PointSequence pts) holes
     dividingMotorcycle = head outsideContourMotorcycles
     leftSide  = leftRegion contour dividingMotorcycle
     rightSide = rightRegion contour dividingMotorcycle
-    -- | find nodes where the arc coresponding to them is colinear with the dividing Motorcycle.
+    -- | find nodes where the arc coresponding to them is collinear with the dividing Motorcycle.
     -- FIXME: Yes, this is implemented wrong. it needs to find only the one node opposing the dividing motorcycle, not every line that could be an opposing node.
     --        construct a line segment from the node and the motorcycle, and see what segments intersect?
     maybeOpposingNode
@@ -93,7 +93,7 @@ findStraightSkeleton contour@(PointSequence pts) holes
       | length outsideContourMotorcycles == 1 && null opposingNodes        = Nothing
       | otherwise                                                          = error "more than one opposing node. impossible situation."
       where
-        opposingNodes =  filter (\(Node _ (Just outArc)) -> plinesIntersectIn outArc (pathOf dividingMotorcycle) == PColinear) $ concaveNodes contour
+        opposingNodes =  filter (\(Node _ (Just outArc)) -> plinesIntersectIn outArc (pathOf dividingMotorcycle) == PCollinear) $ concaveNodes contour
         pathOf (Motorcycle _ _ path) = path
     outsideContourMotorcycles = convexMotorcycles contour
     -- | not yet used, but at least implemented properly.
@@ -679,7 +679,7 @@ addInfill = error "unimplemented!"
 intersectionOf :: PLine2 -> PLine2 -> PPoint2
 intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
   where
-    saneIntersection res@PColinear        = error $ "impossible!\n" <> show res <> "\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n" 
+    saneIntersection res@PCollinear        = error $ "impossible!\n" <> show res <> "\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n" 
     saneIntersection res@PParallel        = error $ "impossible!\n" <> show res <> "\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n" 
     saneIntersection res@PAntiParallel    = error $ "impossible!\n" <> show res <> "\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n" 
     saneIntersection (IntersectsIn point) = point

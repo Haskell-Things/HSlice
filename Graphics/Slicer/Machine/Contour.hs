@@ -30,7 +30,7 @@ import Graphics.Slicer.Math.Definitions (Point2, Contour(PointSequence), addPoin
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), makeLineSegsLooped, pointsFromLineSegs, lineSegFromEndpoints, endpoint)
 
-import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn, PColinear, PParallel), plinesIntersectIn, translatePerp, eToPLine2, pToEPoint2, angleBetween)
+import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn, PCollinear, PParallel), plinesIntersectIn, translatePerp, eToPLine2, pToEPoint2, angleBetween)
 
 import Graphics.Slicer.Definitions(ℝ)
 
@@ -38,7 +38,7 @@ import Graphics.Slicer.Definitions(ℝ)
 -------------------- Contour Optimizer ------------------------
 ---------------------------------------------------------------
 
--- | Contour optimizer. Merges line segments that are colinear.
+-- | Contour optimizer. Merges line segments that are collinear.
 cleanContour :: Contour -> Maybe Contour
 cleanContour (PointSequence points)
   | length (cleanPoints points) > 2 = Just $ PointSequence $ cleanPoints points
@@ -84,7 +84,7 @@ modifyContour pathWidth (PointSequence contourPoints) direction
         -- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.
         -- FIXME: draw a line before, and after the intersection. return two lines?
         maybeLineSegs = mapWithNeighbors findLineSeg $ removeDegenerates $ makeLineSegsLooped contourPoints
-        -- Remove sequential parallel lines, colinear sequential lines, and lines that are too close to parallel.
+        -- Remove sequential parallel lines, collinear sequential lines, and lines that are too close to parallel.
         removeDegenerates :: [LineSeg] -> [LineSeg]
         removeDegenerates lns
           | length res == length lns = res
@@ -111,9 +111,9 @@ modifyContour pathWidth (PointSequence contourPoints) direction
               | angleBetween pl1 pl2 < (-0.999) = True
               | angleBetween pl1 pl2 >   0.999  = True
               | otherwise = case plinesIntersectIn pl1 pl2 of
-                              PParallel -> True
-                              PColinear -> True
-                              _         -> False
+                              PParallel  -> True
+                              PCollinear -> True
+                              _          -> False
         inwardAdjust l1 = translatePerp (eToPLine2 l1) (if direction == Inward then pathWidth else (-pathWidth))
         findLineSeg :: LineSeg -> LineSeg -> LineSeg -> Maybe LineSeg
         findLineSeg previousln ln nextln
