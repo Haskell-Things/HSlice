@@ -21,7 +21,7 @@
 
 module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegs, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton, averageNodes, getFirstArc) where
 
-import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, break, and, (>=))
+import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, break, and, (>=), String)
 
 import Data.List (elemIndex, sortOn)
 
@@ -78,6 +78,8 @@ findStraightSkeleton :: Contour -> [Contour] -> StraightSkeleton
 findStraightSkeleton contour@(PointSequence pts) holes
   -- Triangles without holes are trivial. hard code a quick path.
   | null holes && length pts == 3 = straightSkeletonOf (linesOfContour contour) True
+  -- This same routine should handle all closed contours with no holes and no convex motorcycles.
+  | null holes && length outsideContourMotorcycles == 0 = straightSkeletonOf (linesOfContour contour) True
   -- Use the algorithm from Christopher Tscherne's master's thesis.
   | null holes && length outsideContourMotorcycles == 1 = tscherneMerge dividingMotorcycle maybeOpposingNode leftSide rightSide
   | otherwise = error "Do not know how to calculate a straight skeleton for this contour!"
@@ -353,16 +355,13 @@ pointOf (Node (Right (pline1:pline2:[])) _) = pToEPoint2 $ intersectionOf pline1
 
 -- error types.
 
-data PartialNodes = PartialNodes [[Node]] RejectReason
-  deriving (Show, Eq)
-
-data RejectReason = NOMATCH
+data PartialNodes = PartialNodes [[Node]] String
   deriving (Show, Eq)
 
 -- | Recurse on a set of nodes until we have a complete straight skeleton (down to one node in the final generation).
 --   Only works on a sequnce of concave line segments, when there are no holes.
 straightSkeletonOf :: [LineSeg] -> Bool -> StraightSkeleton
-straightSkeletonOf inSegs loop = StraightSkeleton [untangleNodeTrees (firstNodes inSegs loop)] []
+straightSkeletonOf inSegs loop = StraightSkeleton [separateNodeTrees (firstNodes inSegs loop)] []
   where
     -- Generate the first generation of nodes, from the passed in line segments.
     -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
@@ -373,17 +372,13 @@ straightSkeletonOf inSegs loop = StraightSkeleton [untangleNodeTrees (firstNodes
 
     -- | create multiple NodeTrees from a set of generations of nodes.
     -- FIXME: geometry may require spines, which are still a concept in flux.
-    untangleNodeTrees :: [Node] -> [NodeTree]
-    untangleNodeTrees initialGeneration
-      | length (res initialGeneration) > 0 = [NodeTree $ [initialGeneration] ++ (res initialGeneration)]
-      | otherwise                          = makeNodeTrees initialGeneration
+    separateNodeTrees :: [Node] -> [NodeTree]
+    separateNodeTrees initialGeneration
+      | length (res initialGeneration) > 0 = [NodeTree $ (res initialGeneration)]
       where
-        -- | create multiple NodeTrees from a set of nodes. used in the case that all of the final nodes intersect at the same point.
-        makeNodeTrees :: [Node] -> [NodeTree]
-        makeNodeTrees x = (\a -> NodeTree [[a]]) <$> x
         -- | apply the recursive solver.
         res :: [Node] -> [[Node]]
-        res inGen = errorIfLeft $ skeletonOfNodes inGen
+        res inGen = [initialGeneration] ++ errorIfLeft (skeletonOfNodes inGen)
 
     errorIfLeft :: Either PartialNodes [[Node]] -> [[Node]]
     errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure <> "\n"
@@ -393,16 +388,22 @@ straightSkeletonOf inSegs loop = StraightSkeleton [untangleNodeTrees (firstNodes
     skeletonOfNodes :: [Node] -> Either PartialNodes [[Node]]
     skeletonOfNodes nodes
       | length nodes >= 3 &&
-        endsAtSamePoint = Right []
+        endsAtSamePoint nodes = if loop
+                                then Right [[Node (Right $ outOf <$> nodes) Nothing]]
+                                else Right []
       | length nodes == 3 &&
-        hasShortestPair = Right $ [[averageOfShortestPair]] ++ errorIfLeft (skeletonOfNodes nextGen)
+        hasShortestPair       = Right $ [[averageOfShortestPair]] ++ errorIfLeft (skeletonOfNodes nextGen)
       | length nodes == 2 &&
-        pairHasIntersection = Right $ [[averageOfPair]]
-      | otherwise = Left $ PartialNodes [nodes] NOMATCH
+        pairHasIntersection   = Right $ [[averageOfPair]]
+      | otherwise = Left $ PartialNodes [nodes] "NOMATCH"
       where
         ------------------------------------------------------------------------------
         -- functions that are the same, regardless of number of nodes we are handling.
         ------------------------------------------------------------------------------
+
+        outOf :: Node -> PLine2
+        outOf (Node _ (Just pline)) = pline
+        outOf node@(Node _ Nothing) = error $ "tried to get the output of a node with no outputs: " <> show node <> "\n" 
 
         -- | Check if the intersection of two nodes results in a point or not.
         intersectsInPoint :: Node -> Node -> Bool
@@ -412,20 +413,25 @@ straightSkeletonOf inSegs loop = StraightSkeleton [untangleNodeTrees (firstNodes
             isPoint _                = False
 
         -- | when a set of nodes end in the same point, we need to return multiple NodeTrees. This lets us check for that case.
-        endsAtSamePoint :: Bool
-        endsAtSamePoint = and $ mapWithFollower (==) $ mapWithFollower intersectionOf (outOf <$> nodes)
+        -- | FIXME: what to do about collinear cases?
+        endsAtSamePoint :: [Node] -> Bool
+        endsAtSamePoint myNodes
+          | null (collinearNodes myNodes) = and $ mapWithFollower (==) $ mapWithFollower intersectionOf (outOf <$> myNodes)
+          | otherwise = error "wtf."
           where
-            outOf (Node _ (Just pline)) = pline
-            outOf node@(Node _ Nothing) = error $ "tried to get the output of a node with no outputs: " <> show node <> "\n" 
-
+            collinearNodes :: [Node] -> [(Node, Node)]
+            collinearNodes nodeSet = catMaybes $ (\(node1, node2) -> if isCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs nodeSet
+              where
+                getPairs :: [a] -> [(a,a)]
+                getPairs [] = []
+                getPairs (x:xs) = (((,) x) <$> xs) ++ getPairs xs
+                isCollinear :: Node -> Node -> Bool
+                isCollinear (Node _ (Just pline1)) (Node _ (Just pline2)) = plinesIntersectIn pline1 pline2 == PCollinear
+                isCollinear _ _ = False
         -- Find the projective point that is at the intersection of the lines of a node.
         pPointOf (Node (Left (_,(LineSeg point _))) _) = eToPPoint2 point
         pPointOf (Node (Right (pline1:pline2:_)) _)   = intersectionOf pline1 pline2
         pPointOf a                                     = error $ "tried to find projective point of a node with less than two PLines: " <> show a <> "\n"
-
-        ---------------------------------------------------------------
-        -- Functions used when we have 4 line segments to reason about.
-        ---------------------------------------------------------------
 
         ---------------------------------------------------------------
         -- Functions used when we have 3 line segments to reason about.
@@ -508,7 +514,7 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine)
     intraNodeFaces :: [NodeTree] -> [Face]
     intraNodeFaces nodeTreeSets
       | length nodeTreeSets > 1 = mapWithFollower findIntraNodeFace nodeTreeSets
-      | otherwise               = error "just one nodeTree?"
+      | otherwise               = []
       where
         -- Find a single face between two nodes.
         findIntraNodeFace :: NodeTree -> NodeTree -> Face
@@ -548,9 +554,14 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine)
         facesOfTree :: NodeTree -> [Face]
         facesOfTree (NodeTree nodeTree)
           | length nodeTree == 1 = []
-          | length nodeTree == 2 && length (head nodeTree) == 2 = [Face commonSide (endIntersects commonSide (head nodeTree)) [] (beginIntersects commonSide (head nodeTree))]
-          | otherwise = error $ "wtf?\n" <> show nodeTree <> show (length nodeTree) <> "\n"
+          | length nodeTree == 2 && length (head nodeTree) == 2 = [makeTriangleFace (head $ head nodeTree) (head $ tail $ head nodeTree)]
+          | length nodeTree == 2 && noOutOf (tail nodeTree)     = mapWithFollower makeTriangleFace (head nodeTree) 
+          | otherwise = error $ "wtf?\n" <> show nodeTree <> "\nlength: " <> show (length nodeTree) <> "\n"
           where
+            makeTriangleFace (Node (Left (seg1,seg2)) (Just pline1)) (Node (Left (seg3,seg4)) (Just pline2))
+              | seg2 == seg3 = Face seg2 pline2 [] pline1
+              | seg1 == seg4 = Face seg1 pline1 [] pline2
+            makeTriangleFace (Node (Left (_,seg2)) (Just pline1)) (Node _ (Just pline2)) = Face seg2 pline1 [] pline2
             commonSide = bothSide (head nodeTree)
             bothSide :: [Node] -> LineSeg
             bothSide [n1@(Node (Left _) _), n2@(Node (Left _) _)] = sharedSide n1 n2
@@ -574,6 +585,9 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine)
               | otherwise =  error "no common line segments?"
             sharedSide (Node (Right _) _) _ = error "cannot get the sharedSide of nodes that are not first generation."
             sharedSide _ (Node (Right _) _) = error "cannot get the sharedSide of nodes that are not first generation."
+    noOutOf :: [[Node]] -> Bool
+    noOutOf [[(Node _ Nothing)]] = True
+    noOutOf _                    = False
     outOf :: Node -> PLine2
     outOf (Node _ (Just a)) = a
     outOf a@(Node _ _) = error $ "could not find outOf of a node: " <> show a <> "\n"
