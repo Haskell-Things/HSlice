@@ -416,11 +416,13 @@ straightSkeletonOf inSegs loop = StraightSkeleton [separateNodeTrees (firstNodes
         -- | FIXME: what to do about collinear cases?
         endsAtSamePoint :: [Node] -> Bool
         endsAtSamePoint myNodes
-          | null (collinearNodes myNodes) = and $ mapWithFollower (==) $ mapWithFollower intersectionOf (outOf <$> myNodes)
-          | otherwise = error "wtf."
+          | null (collinearNodePairs myNodes) = and $ mapWithFollower (==) $ mapWithFollower intersectionOf (outOf <$> myNodes)
+          | otherwise                         = and $ mapWithFollower (==) $ mapWithFollower intersectionOf (outOf <$> (myNodes ++ (firstCollinearNodes $ collinearNodePairs myNodes)))
           where
-            collinearNodes :: [Node] -> [(Node, Node)]
-            collinearNodes nodeSet = catMaybes $ (\(node1, node2) -> if isCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs nodeSet
+            firstCollinearNodes :: [(Node, Node)] -> [Node]
+            firstCollinearNodes nodePairs = fst <$> nodePairs 
+            collinearNodePairs :: [Node] -> [(Node, Node)]
+            collinearNodePairs nodeSet = catMaybes $ (\(node1, node2) -> if isCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs nodeSet
               where
                 getPairs :: [a] -> [(a,a)]
                 getPairs [] = []
