@@ -579,6 +579,24 @@ facetSpec = do
                                                                                                                      []
                                                                                                                      (PLine2 (GVec [GVal (0.5000000000000001) [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))])
                                                                                                       ]
+    it "finds faces from a square" $
+      facesFromStraightSkeleton (findStraightSkeleton square []) -->  [Face (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0)))
+                                                                            (PLine2 (GVec [GVal (0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+                                                                            []
+                                                                            (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+                                                                      ,Face (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)))
+                                                                            (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                                                                            []
+                                                                            (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475[GEPlus 2]]))
+                                                                      ,Face (LineSeg (Point2(-1.0,-1.0)) (Point2 (0.0,2.0)))
+                                                                            (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                                                                            []
+                                                                            (PLine2 (GVec [GVal  0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                                                                      ,Face (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0)))
+                                                                            (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+                                                                            []
+                                                                            (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                                                                      ]
 
     where
       -- c0 - c4 are the contours of a square around the origin with a 90 degree chunk missing, rotated 0, 90, 180, 270 and 360 degrees:
@@ -609,3 +627,4 @@ facetSpec = do
       corner3 = [ LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))]
       -- the bottom and the left side of a 2x2 square around the origin, with a slice missing.
       corner4 = [ LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))]
+      square = PointSequence [Point2 (-1,1), Point2 (1,1), Point2 (1,-1), Point2 (-1,-1)]
