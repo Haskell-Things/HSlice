@@ -205,18 +205,6 @@ rightRegion contour motorcycle = skeletonOfConcaveRegion (matchLineSegments cont
           motorcycleIntersection = motorcycleIntersectsAt c inSeg outSeg path
           startSegmentIndex = segIndex outSeg (linesOfContour c)
 
--- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
---   A reflex virtex is any point where the line in and the line out are convex, when looked at from inside of the contour.
---   This function is meant to be used on interior contours.
-{-
-concaveMotorcycles :: Contour -> [Motorcycle]
-concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
-  where
-    onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
-    onlyMotorcycles ((seg1, seg2), maybePLine)
-      | isJust maybePLine = Just $ Motorcycle seg1 seg2 $ fromJust maybePLine
-      | otherwise         = Nothing
--}
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
 --   This function is meant to be used on the exterior contour.
 convexMotorcycles :: Contour -> [Motorcycle]
@@ -236,6 +224,19 @@ concaveNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWit
     onlyNodes ((seg1, seg2), maybePLine)
       | isJust maybePLine = Just $ Node (Left (seg1,seg2))  maybePLine
       | otherwise         = Nothing
+
+-- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
+--   A reflex virtex is any point where the line in and the line out are convex, when looked at from inside of the contour.
+--   This function is meant to be used on interior contours.
+{-
+concaveMotorcycles :: Contour -> [Motorcycle]
+concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
+  where
+    onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
+    onlyMotorcycles ((seg1, seg2), maybePLine)
+      | isJust maybePLine = Just $ Motorcycle seg1 seg2 $ fromJust maybePLine
+      | otherwise         = Nothing
+-}
 
 -- | Find the reflex virtexes of a contour, and draw Nodes from them.
 --   This function is meant to be used on interior contours.
@@ -511,7 +512,7 @@ motorcycleIntersectsAt contour inSeg outSeg path
 facesFromStraightSkeleton :: StraightSkeleton -> [Face]
 facesFromStraightSkeleton (StraightSkeleton nodeLists spine)
   | null spine && length nodeLists == 1 = innerNodeFaces (head nodeLists) ++ intraNodeFaces (head nodeLists)
-  | otherwise  = error "cannot yet handle spines."
+  | otherwise  = error "cannot yet handle spines, or more than one NodeList."
   where
     -- calculate faces for the regions between the nodeLists.
     intraNodeFaces :: [NodeTree] -> [Face]
@@ -556,18 +557,20 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine)
       where
         facesOfTree :: NodeTree -> [Face]
         facesOfTree (NodeTree allNodeSets)
-          | length allNodeSets > 1 = recurseNodeSets (head allNodeSets) (tail allNodeSets)
+          | length allNodeSets > 1 = areaBeneath (init allNodeSets) (head $ last allNodeSets)
           | otherwise = []
           where
-            recurseNodeSets outerNodes innerNodes
-              | length innerNodes == 0 && length outerNodes == 1 = []
-              | length innerNodes == 0                           = error $ "Looking at the first nodeSet, and I don't see just one node. node count: "
-                                                                      <> show (length (head innerNodes)) <> "\n"
-                                                                      <> show (head innerNodes) <> "\n"
-              | length innerNodes == 1 && length outerNodes == 2 = [makeTriangleFace (head outerNodes) (last outerNodes)]
-              | length innerNodes == 1 = mapWithFollower makeTriangleFace outerNodes
-              | otherwise = error $ "wtf?\n" <> show innerNodes <> "\nlength: " <> show (length innerNodes) <> "\n"
-
+            areaBeneath :: [[Node]] -> Node -> [Face]
+            areaBeneath nodeSets target@(Node (Right inArcs) outArc)
+              | length nodeSets == 1 && isJust outArc     = init $ mapWithFollower makeTriangleFace $ findNodeByOutput (head nodeSets) <$> inArcs
+              | length nodeSets == 1 && outArc == Nothing =        mapWithFollower makeTriangleFace $ findNodeByOutput (head nodeSets) <$> inArcs
+              where
+                findNodeByOutput :: [Node] -> PLine2 -> Node
+                findNodeByOutput nodes plineOut = head $ filter (\(Node _ a) -> a == Just plineOut) nodes
+            areaBeneath _ target@(Node (Left _) _) = error $ "cannot find the area beneath an initial node: " <> show target <> "\n"
+--                -- the left path is first, the right path is last.
+--                pathLeft :: [[Node]] -> Node -> (Node, [PLine2])
+--                pathRight :: [[Node]] -> Node -> (Node, [PLine2])
             -- | make a triangle shaped face from two nodes. the nodes must be composed of line segments on one side, and follow each other.
             makeTriangleFace :: Node -> Node -> Face
             makeTriangleFace (Node (Left (seg1,seg2)) (Just pline1)) (Node (Left (seg3,seg4)) (Just pline2))
