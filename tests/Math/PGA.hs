@@ -540,17 +540,27 @@ facetSpec = do
 -- VERIFYME: works, but i don't yet trust it's output.
 --    it "places lines on a set of faces" $
 --      (addLineSegs 0.25 Nothing <$> facesFromStraightSkeleton (findStraightSkeleton c0 [])) --> [([], Nothing)]
+    it "finds the straight skeleton of a triangle." $
+      findStraightSkeleton triangle [] --> StraightSkeleton [[NodeTree [ [Node (Left ((LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.7320508075688772))),  (LineSeg (Point2 (1.0,1.7320508075688772)) (Point2 (1.0,-1.7320508075688772)))))
+                                                                                (Just (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]])))
+                                                                        , Node (Left ((LineSeg (Point2 (1.0,1.7320508075688772)) (Point2 (1.0,-1.7320508075688772))), (LineSeg (Point2 (2.0,0.0)) (Point2 (-2.0,0.0)))))
+                                                                                (Just (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal (0.5000000000000001) [GEPlus 1], GVal (0.8660254037844387) [GEPlus 2]])))
+                                                                        , Node (Left (LineSeg (Point2 (2.0,0.0)) (Point2 (-2.0,0.0)), (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.7320508075688772)))))
+                                                                                (Just (PLine2 (GVec [GVal (0.5000000000000001) [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]])))
+                                                                       ],[Node (Right [(PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]])),
+                                                                                       (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1],GVal (0.5000000000000001) [GEPlus 1],GVal (0.8660254037844387) [GEPlus 2]])),
+                                                                                       (PLine2 (GVec [GVal (0.5000000000000001) [GEPlus 1],GVal (-0.8660254037844387) [GEPlus 2]]))]) (Nothing)]]]] []
     it "finds faces from a triangle" $
       facesFromStraightSkeleton (findStraightSkeleton triangle []) --> [Face (LineSeg (Point2 (1.0,1.73205080756887729)) (Point2 (1.0,-1.7320508075688772)))
                                                                              (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal (0.5000000000000001) [GEPlus 1], GVal (0.8660254037844387) [GEPlus 2]]))
                                                                              []
-                                                                             (PLine2 (GVec [GVal (1.0) [GEZero 1], GVal (-1.0) [GEPlus 1]])),
+                                                                             (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]])),
                                                                         Face (LineSeg (Point2 (2.0,0.0)) (Point2 (-2.0,0.0)))
                                                                              (PLine2 (GVec [GVal (0.5000000000000001) [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))
                                                                              []
                                                                              (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal (0.5000000000000001) [GEPlus 1], GVal (0.8660254037844387) [GEPlus 2]])),
                                                                         Face (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.7320508075688772)))
-                                                                             (PLine2 (GVec [GVal (1.0) [GEZero 1], GVal (-1.0) [GEPlus 1]]))
+                                                                             (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
                                                                              []
                                                                              (PLine2 (GVec [GVal (0.5000000000000001) [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))]
     it "places lines on a triangle" $
@@ -561,7 +571,7 @@ facetSpec = do
                                                                                                         Just [Face (LineSeg (Point2 (2.866025403784439,-0.5000000000000001)) (Point2 (-1.8660254037844388,3.232050807568877)))
                                                                                                                    (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal (0.5000000000000001) [GEPlus 1], GVal (0.8660254037844387) [GEPlus 2]]))
                                                                                                                    []
-                                                                                                                   (PLine2 (GVec [GVal (1.0) [GEZero 1], GVal (-1.0) [GEPlus 1]]))
+                                                                                                                   (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
                                                                                                              ])
                                                                                                       ,([
                                                                                                            (LineSeg (Point2 (-0.21650635094610962,-0.125)) (Point2 (2.4330127018922196,0.0))),
@@ -575,7 +585,7 @@ facetSpec = do
                                                                                                            (LineSeg (Point2 (1.0,1.9820508075688772)) (Point2 (-1.2165063509461096,-2.107050807568877))),
                                                                                                            (LineSeg (Point2 (1.0,2.4820508075688773)) (Point2 (-1.649519052838329,-2.857050807568877)))
                                                                                                         ],Just [Face (LineSeg (Point2 (1.0,2.732050807568877)) (Point2 (-1.8660254037844388,-3.232050807568877)))
-                                                                                                                     (PLine2 (GVec [GVal (1.0) [GEZero 1], GVal (-1.0) [GEPlus 1]]))
+                                                                                                                     (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
                                                                                                                      []
                                                                                                                      (PLine2 (GVec [GVal (0.5000000000000001) [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))])
                                                                                                       ]
