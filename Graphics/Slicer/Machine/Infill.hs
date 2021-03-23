@@ -1,7 +1,3 @@
------------------------------------------------------------------------
----------------------- Infill Generation ------------------------------
------------------------------------------------------------------------
-
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco
  - Copyright 2019 Julia Longtin
@@ -19,6 +15,10 @@
  - You should have received a copy of the GNU Affero General Public License
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
+
+-----------------------------------------------------------------------
+---------------------- Infill Generation ------------------------------
+-----------------------------------------------------------------------
 
 module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringLineSegsVertical) where
 
