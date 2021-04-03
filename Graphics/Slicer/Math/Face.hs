@@ -23,7 +23,7 @@ module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegs, l
 
 import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, break, and, (>=), String)
 
-import Data.List (elemIndex, sortOn)
+import Data.List (elemIndex, sortOn, dropWhile)
 
 import Data.List.NonEmpty (NonEmpty)
 
@@ -327,7 +327,6 @@ noIntersection pline1 pline2 = not $ pLinesIntersectInPoint pline1 pline2
       isPoint (IntersectsIn _) = True
       isPoint _ = False
 
-
 -- Note: PLine must be normalized.
 towardIntersection :: Point2 -> PLine2 -> PPoint2 -> Bool
 towardIntersection p1 pl1 in1
@@ -508,21 +507,37 @@ motorcycleIntersectsAt contour inSeg outSeg path
         saneIntersections l1 l2 l3 = error $ "insane result of saneIntersections:\n" <> show l1 <> "\n" <> show l2 <> "\n" <> show l3 <> "\n"
 
 -- | take a straight skeleton, and create faces from it.
--- FIXME: should return faces in contour order.
-facesFromStraightSkeleton :: StraightSkeleton -> [Face]
-facesFromStraightSkeleton (StraightSkeleton nodeLists spine)
-  | null spine && length nodeLists == 1 = innerNodeFaces (head nodeLists) ++ intraNodeFaces (head nodeLists)
-  | otherwise  = error "cannot yet handle spines, or more than one NodeList."
+-- If you have a line segment you want the first face to contain, supply it for a re-order.
+facesFromStraightSkeleton :: StraightSkeleton -> Maybe LineSeg -> [Face]
+facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
+  | null spine && length nodeLists == 1 = findFaces (head nodeLists) maybeStart
+  | otherwise                           = error "cannot yet handle spines, or more than one NodeList."
   where
-    -- calculate faces for the regions between the nodeLists.
-    intraNodeFaces :: [NodeTree] -> [Face]
-    intraNodeFaces nodeTreeSets
-      | length nodeTreeSets > 1 = mapWithFollower findIntraNodeFace nodeTreeSets
-      | otherwise               = []
+    -- find all of the faces of a set of nodeTrees.
+    findFaces :: [NodeTree] -> Maybe LineSeg -> [Face]
+    findFaces nodeTrees maybeStartSeg
+      | null nodeTrees = []
+      | length nodeTrees == 1 && lastOutOf (head nodeTrees) == Nothing && maybeStartSeg == Nothing = rawFaces
+      | length nodeTrees == 1 && lastOutOf (head nodeTrees) == Nothing                             = facesFromIndex (fromJust maybeStartSeg)
+      | length nodeTrees > 1 && maybeStartSeg == Nothing = rawFaces
+      | length nodeTrees > 1                             = facesFromIndex (fromJust maybeStartSeg)
+      | otherwise            = error $ "abandon hope!\n" <> show (length nodeLists) <> "\n" <> show nodeLists <> "\n" <> show (length nodeTrees) <> "\n" <> show nodeTrees <> "\n" <> show rawFaces <> "\n"
       where
-        -- Find a single face between two nodes.
-        findIntraNodeFace :: NodeTree -> NodeTree -> Face
-        findIntraNodeFace nodeTree1 nodeTree2
+        lastOutOf :: NodeTree -> Maybe PLine2
+        lastOutOf (NodeTree nodeGens) = (\(Node _ a) -> a) (head $ last nodeGens)
+        rawFaces = (findFacesRecurse nodeTrees) ++
+                   if length nodeTrees > 1 then [intraNodeFace (last nodeTrees) (head nodeTrees)] else []
+        facesFromIndex :: LineSeg -> [Face]
+        facesFromIndex target = take (length rawFaces) $ dropWhile (\(Face a _ _ _) -> a /= target) $ rawFaces ++ rawFaces
+        -- Recursively find faces.
+        findFacesRecurse []               = []
+        findFacesRecurse (tree1:[])       = facesOfNodeTree tree1
+        findFacesRecurse (tree1:tree2:[]) = facesOfNodeTree tree2 ++ (intraNodeFace tree1 tree2: facesOfNodeTree tree1)
+        findFacesRecurse (tree1:tree2:xs) = findFacesRecurse (tree2:xs) ++ (intraNodeFace tree1 tree2: facesOfNodeTree tree1)
+        -- Create a single face for the space between two nodetrees.
+        intraNodeFace :: NodeTree -> NodeTree -> Face
+        intraNodeFace nodeTree1 nodeTree2
+          | nodeTree1 == nodeTree2          = error $ "two identical nodes given.\n" <> show nodeTree1 <> "\n"
           | nodeTree1 `isRightOf` nodeTree2 = if (last $ leftPLinesOf nodeTree2) == (last $ rightPLinesOf nodeTree1)
                                               then Face (rightSegOf nodeTree1) (outOf $ leftNodeOf nodeTree2) ((init $ leftPLinesOf nodeTree2) ++ (tail $ reverse $ init $ rightPLinesOf nodeTree1)) (outOf $ rightNodeOf nodeTree1)
                                               else Face (rightSegOf nodeTree1) (outOf $ leftNodeOf nodeTree2) ((init $ leftPLinesOf nodeTree2) ++ (       reverse $ init $ rightPLinesOf nodeTree1)) (outOf $ rightNodeOf nodeTree1)
@@ -547,50 +562,48 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine)
             leftNodeOf (NodeTree nodeSets) = snd $ pathLeft nodeSets (head $ last nodeSets)
             leftPLinesOf :: NodeTree -> [PLine2]
             leftPLinesOf (NodeTree nodeSets) = fst $ pathLeft nodeSets (head $ last nodeSets)
-    -- calculate faces for the regions inside of a nodeList.
-    innerNodeFaces :: [NodeTree] -> [Face]
-    innerNodeFaces nodeTreeSets = concat $ facesOfTree <$> nodeTreeSets
+            -- | Find all of the PLines between this node, and the node that is part of the original contour.
+            --   When branching, use the 'left' branch, which should be the first pline in a given node.
+            pathLeft :: [[Node]] -> Node -> ([PLine2], Node)
+            pathLeft nodeSets target@(Node (Left _) (Just plineOut)) = ([plineOut], target)
+            pathLeft nodeSets target@(Node (Right plinesIn) plineOut)
+              | isJust plineOut     = ((fromJust plineOut):childPlines, endNode)
+              | plineOut == Nothing = (                    childPlines, endNode)
+              where
+                (childPlines, endNode) = pathLeft (tail nodeSets) (findNodeByOutput (head nodeSets) $ head plinesIn)
+            -- | Find all of the PLines between this node, and the node that is part of the original contour.
+            --   When branching, use the 'right' branch, which should be the last pline in a given node.
+            pathRight :: [[Node]] -> Node -> ([PLine2], Node)
+            pathRight nodeSets target@(Node (Left _) (Just plineOut)) = ([plineOut], target)
+            pathRight nodeSets target@(Node (Right plinesIn) plineOut)
+              | isJust plineOut     = ((fromJust plineOut):childPlines, endNode)
+              | plineOut == Nothing = (                    childPlines, endNode)
+              where
+                (childPlines, endNode) = pathRight (tail nodeSets) (findNodeByOutput (head nodeSets) $ last plinesIn)
+            outOf :: Node -> PLine2
+            outOf (Node _ (Just a)) = a
+            outOf a@(Node _ _) = error $ "could not find outOf of a node: " <> show a <> "\n"
+    -- | Create a set of faces from a nodetree.
+    -- FIXME: doesn't handle more than one generation deep, yet.
+    facesOfNodeTree :: NodeTree -> [Face]
+    facesOfNodeTree (NodeTree allNodeSets)
+      | length allNodeSets > 1 = areaBeneath (init allNodeSets) (head $ last allNodeSets)
+      | otherwise = []
       where
-        facesOfTree :: NodeTree -> [Face]
-        facesOfTree (NodeTree allNodeSets)
-          | length allNodeSets > 1 = areaBeneath (init allNodeSets) (head $ last allNodeSets)
-          | otherwise = []
-          where
-            areaBeneath :: [[Node]] -> Node -> [Face]
-            areaBeneath nodeSets target@(Node (Right inArcs) outArc)
-              | length nodeSets == 1 && isJust outArc     = init $ mapWithFollower makeTriangleFace $ findNodeByOutput (head nodeSets) <$> inArcs
-              | length nodeSets == 1 && outArc == Nothing =        mapWithFollower makeTriangleFace $ findNodeByOutput (head nodeSets) <$> inArcs
-            areaBeneath _ target@(Node (Left _) _) = error $ "cannot find the area beneath an initial node: " <> show target <> "\n"
-            -- | make a triangle shaped face from two nodes. the nodes must be composed of line segments on one side, and follow each other.
-            makeTriangleFace :: Node -> Node -> Face
-            makeTriangleFace (Node (Left (seg1,seg2)) (Just pline1)) (Node (Left (seg3,seg4)) (Just pline2))
-              | seg2 == seg3 = Face seg2 pline2 [] pline1
-              | seg1 == seg4 = Face seg1 pline1 [] pline2
-              | otherwise = error "cannot make a triangular face from nodes that are not neighbors."
-            makeTriangleFace _ _ = error "cannot make a triangular face from nodes that are not first generation."
+        areaBeneath :: [[Node]] -> Node -> [Face]
+        areaBeneath nodeSets target@(Node (Right inArcs) outArc)
+          | length nodeSets == 1 && isJust outArc     = init $ mapWithFollower makeTriangleFace $ findNodeByOutput (head nodeSets) <$> inArcs
+          | length nodeSets == 1 && outArc == Nothing =        mapWithFollower makeTriangleFace $ findNodeByOutput (head nodeSets) <$> inArcs
+        areaBeneath _ target@(Node (Left _) _) = error $ "cannot find the area beneath an initial node: " <> show target <> "\n"
+        -- | make a triangle shaped face from two nodes. the nodes must be composed of line segments on one side, and follow each other.
+        makeTriangleFace :: Node -> Node -> Face
+        makeTriangleFace (Node (Left (seg1,seg2)) (Just pline1)) (Node (Left (seg3,seg4)) (Just pline2))
+          | seg2 == seg3 = Face seg2 pline2 [] pline1
+          | seg1 == seg4 = Face seg1 pline1 [] pline2
+          | otherwise = error "cannot make a triangular face from nodes that are not neighbors."
+        makeTriangleFace _ _ = error "cannot make a triangular face from nodes that are not first generation."
     findNodeByOutput :: [Node] -> PLine2 -> Node
     findNodeByOutput nodes plineOut = head $ filter (\(Node _ a) -> a == Just plineOut) nodes
-    -- | Find all of the PLines between this node, and the node that is part of the original contour.
-    --   When branching, use the 'left' branch, which should be the first pline in a given node.
-    pathLeft :: [[Node]] -> Node -> ([PLine2], Node)
-    pathLeft nodeSets target@(Node (Left _) (Just plineOut)) = ([plineOut], target)
-    pathLeft nodeSets target@(Node (Right plinesIn) plineOut)
-      | isJust plineOut     = ((fromJust plineOut):childPlines, endNode)
-      | plineOut == Nothing = (                    childPlines, endNode)
-      where
-        (childPlines, endNode) = pathLeft (tail nodeSets) (findNodeByOutput (head nodeSets) $ head plinesIn)
-    -- | Find all of the PLines between this node, and the node that is part of the original contour.
-    --   When branching, use the 'right' branch, which should be the last pline in a given node.
-    pathRight :: [[Node]] -> Node -> ([PLine2], Node)
-    pathRight nodeSets target@(Node (Left _) (Just plineOut)) = ([plineOut], target)
-    pathRight nodeSets target@(Node (Right plinesIn) plineOut)
-      | isJust plineOut     = ((fromJust plineOut):childPlines, endNode)
-      | plineOut == Nothing = (                    childPlines, endNode)
-      where
-        (childPlines, endNode) = pathRight (tail nodeSets) (findNodeByOutput (head nodeSets) $ last plinesIn)
-    outOf :: Node -> PLine2
-    outOf (Node _ (Just a)) = a
-    outOf a@(Node _ _) = error $ "could not find outOf of a node: " <> show a <> "\n"
 
 -- | Place line segments on a face. Might return remainders, in the form of one or multiple un-filled faces.
 addLineSegs :: ℝ -> Maybe Fastℕ -> Face -> ([LineSeg], Maybe [Face])
