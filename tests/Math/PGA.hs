@@ -296,36 +296,32 @@ proj2DGeomAlgSpec = do
 facetSpec :: Spec
 facetSpec =
   describe "Motorcycles" $ do
-    it "finds the inside motorcycle of a 90 degree angle(toward, away)(to the left)" $
+    it "finds the inside motorcycle of a right degree angle(to the left)" $
       getFirstArc (LineSeg (Point2 (0,1.0)) (Point2 (0.0,-1.0))) (LineSeg (Point2 (0,0)) (Point2 (1.0,0.0))) --> PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])
-    it "finds the inside motorcycle of a 90 degree angle(toward, away)(to the right)" $
+    it "finds the inside motorcycle of a right degree angle(to the right)" $
       getFirstArc (LineSeg (Point2 (0,1.0)) (Point2 (0.0,-1.0))) (LineSeg (Point2 (0,0)) (Point2 (-1.0,0.0))) --> PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])
-    it "finds the inside motorcycle of a 135 degree angle(toward, away)(to the left)" $
+    it "finds the inside motorcycle of a 135 degree angle(to the left)" $
       getFirstArc (LineSeg (Point2 (0,1.0)) (Point2 (0.0,-1.0))) (LineSeg (Point2 (0,0)) (Point2 (1.0,-1.0))) --> PLine2 (GVec [GVal 0.3826834323650899 [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]])
-    it "finds the inside motorcycle of a 135 degree angle(toward, away)(to the right)" $
+    it "finds the inside motorcycle of a 135 degree angle(to the right)" $
       getFirstArc (LineSeg (Point2 (0,1.0)) (Point2 (0.0,-1.0))) (LineSeg (Point2 (0,0)) (Point2 (-1.0,-1.0))) --> PLine2 (GVec [GVal 0.3826834323650899 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]])
 
-    it "finds the inside motorcycle for a given pair of line segments (first corner)" $
-      makeFirstNodes corner1 --> [Node (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0)),
-                                              LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0))))
-                                        (Just (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]])))
+    it "finds the inside motorcycle of a given pair of line segments (first corner of c2)" $
+      makeFirstNodes corner1 --> [Node (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0))))
+                                       (Just (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]])))
                                  ]
-    it "finds the inside motorcycle for a given pair of line segments (second corner)" $
-      makeFirstNodes corner2 --> [Node (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0)),
-                                              LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))))
-                                        (Just (PLine2 (GVec [GVal (-1.0) [GEPlus 2]])))
+    it "finds the inside motorcycle of a given pair of line segments (second corner of c2)" $
+      makeFirstNodes corner2 --> [Node (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))))
+                                       (Just (PLine2 (GVec [GVal (-1.0) [GEPlus 2]])))
                                  ]
-    it "finds the inside motorcycle for a given pair of line segments (third corner)" $
-      makeFirstNodes corner3 --> [Node (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)),
-                                              LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
-                                        (Just (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]])))
+    it "finds the inside motorcycle of a given pair of line segments (third corner of c2)" $
+      makeFirstNodes corner3 --> [Node (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
+                                       (Just (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]])))
                                  ]
-    it "finds the inside motorcycle for a given pair of line segments (fourth corner)" $
-      makeFirstNodes corner4 --> [Node (Left (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)),
-                                              LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))))
-                                        (Just (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])))
+    it "finds the inside motorcycle of a given pair of line segments (fourth corner of c2)" $
+      makeFirstNodes corner4 --> [Node (Left (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))))
+                                       (Just (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])))
                                  ]
-    it "finds the intersecting line resulting from two nodes (corner3 and corner4)" $
+    it "finds the arc resulting from the intersection of the outArc of two nodes (corner3 and corner4 of c2)" $
       averageNodes (head $ makeFirstNodes corner3) (head $ makeFirstNodes corner4) --> Node (Right [PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]]),
                                                                                                     PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])])
                                                                                               (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal 0.19509032201612836 [GEPlus 2]])))
