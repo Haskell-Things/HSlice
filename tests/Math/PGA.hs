@@ -330,7 +330,7 @@ facetSpec =
                                                                                                     PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])])
                                                                                               (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal 0.19509032201612836 [GEPlus 2]])))
     it "finds one convex motorcycle in a simple shape" $
-      convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0))) (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-2.0) [GEPlus 1]]))]
+      convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-2.0) [GEPlus 1]]))]
     it "finds the straight skeleton of the left side of our first simple shape." $
       leftRegion  c0 (head $ convexMotorcycles c0) --> leftRegion c4 (head $ convexMotorcycles c4)
     it "finds the straight skeleton of the right side of our first simple shape." $

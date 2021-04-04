@@ -1,4 +1,3 @@
--- Slicer.
 {-
  - Copyright 2020 Julia Longtin
  -
@@ -23,6 +22,12 @@
 -- So we can do evil things with tuples
 {-# LANGUAGE TupleSections #-}
 
+{-
+ - This file contains three things that should probably be in separate files:
+ - Code for taking a contour, and a set of holes in that contour, and producing a straight skeleton.
+ - Code for taking a straight skeleton, and creating a series of faces, covering it.
+ - Code for taking a series of faces, and applying inset line segments and infill to them.
+ -}
 module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegs, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton, averageNodes, getFirstArc) where
 
 import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, and, (>=), String, maybe, uncurry)
@@ -45,35 +50,31 @@ import Graphics.Slicer.Machine.Infill (makeInfill, InfillType)
 
 import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 
--- | A Face:
---   A portion of a contour, with a real side, and arcs (line segments between nodes) dividing it from other faces.
---   Faces have no holes, and their arcs and nodes (lines and points) are derived from a straight skeleton of a contour.
-data Face = Face { _edge :: LineSeg, _firstArc :: PLine2, _arcs :: [PLine2], _lastArc :: PLine2 }
-  deriving Eq
-  deriving stock Show
+--------------------------------------------------------------------
+--------------- Straight Skeleton Calculation ----------------------
+--------------------------------------------------------------------
 
--- | A Motorcycle. a Ray eminating from an intersection between two line segments toward the interior of a contour. Motorcycles are only emitted when the angle between tho line segments make this point a reflex vertex.
-data Motorcycle = Motorcycle { _inSeg :: LineSeg, _outSeg :: LineSeg, _path :: PLine2 }
-  deriving Eq
-  deriving stock Show
-
--- | A Node:
---   A point in our straight skeleton where two arcs intersect, resulting in another arc, OR a point where two lines of a contour intersect, emmiting a line toward the interior of a contour.
-data Node = Node { _inArcs :: Either (LineSeg, LineSeg) [PLine2], _outArc :: Maybe PLine2 }
+-- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior of a contour. Motorcycles are only emitted from reflex vertexes.
+data Motorcycle = Motorcycle { _inSegs :: (LineSeg, LineSeg), _outPline :: PLine2 }
   deriving Eq
   deriving stock Show
 
 -- | A Spine component:
 --   Similar to a node, only without the in and out heirarchy. always connects to outArcs from the last generation in a NodeTree.
 --   Used for glueing node sets together.
+--   FIXME: not yet used.
 newtype Spine = Spine { _spineArcs :: NonEmpty PLine2 }
   deriving newtype Eq
   deriving stock Show
 
--- | A nodeTree:
---   A set of set of nodes, divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes.
---   Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by subsequent generations in order for a nodetree to be complete.
---   With the exception of the last generation, which may have an outArc.
+-- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc, OR a point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
+data Node = Node { _inArcs :: Either (LineSeg, LineSeg) [PLine2], _outArc :: Maybe PLine2 }
+  deriving Eq
+  deriving stock Show
+
+-- | A set of set of nodes, divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation contains just one node.
+--   Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.
+--   The last generation may or may not have an outArc.
 newtype NodeTree = NodeTree [[Node]]
   deriving newtype Eq
   deriving stock Show
@@ -83,37 +84,40 @@ data StraightSkeleton = StraightSkeleton { _nodeSets :: [[NodeTree]], _spineNode
   deriving Eq
   deriving stock Show
 
-
--- Find the straight skeleton for a given contour, when a given set of holes is cut in it.
+-- | Find the StraightSkeleton of a given contour, winh a given set of holes cut out of it.
 -- FIXME: woefully incomplete.
 findStraightSkeleton :: Contour -> [Contour] -> StraightSkeleton
 findStraightSkeleton contour holes
-  -- This routine should handle all closed contours with no holes and no convex motorcycles.
   | null holes && null outsideContourMotorcycles        = StraightSkeleton [[skeletonOfConcaveRegion (linesOfContour contour) True]] []
   -- Use the algorithm from Christopher Tscherne's master's thesis.
   | null holes && length outsideContourMotorcycles == 1 = tscherneMerge dividingMotorcycle maybeOpposingNode leftSide rightSide
-  | otherwise = error "Do not know how to calculate a straight skeleton for this contour!"
+  | otherwise = error "Do not know how to calculate a straight skeleton for contours with holes, or more than one motorcycle!"
   where
+    outsideContourMotorcycles = convexMotorcycles contour
+    -- | not yet used, but at least implemented properly.
+    -- motorcyclesOfHoles = concaveMotorcycles <$> holes
+
+    ---------------------------------------------------------
+    -- routines used when a single motorcycle has been found.
+    ---------------------------------------------------------
     dividingMotorcycle = head outsideContourMotorcycles
     leftSide  = leftRegion contour dividingMotorcycle
     rightSide = rightRegion contour dividingMotorcycle
     -- | find nodes where the arc coresponding to them is collinear with the dividing Motorcycle.
-    -- FIXME: Yes, this is implemented wrong. it needs to find only the one node opposing the dividing motorcycle, not every line that could be an opposing node.
-    --        construct a line segment from the node and the motorcycle, and see what segments intersect?
+    -- FIXME: this is implemented wrong. it needs to find only the one node opposing the dividing motorcycle, not every line segment that could be an opposing node.
+    -- FIXME: we should construct a line segment from the point of the node to the point of the motorcycle, and keep the one that intersects the contour an even amount of times?
     maybeOpposingNode
-      | length outsideContourMotorcycles == 1 && length opposingNodes == 1 = Just $ head opposingNodes
       | length outsideContourMotorcycles == 1 && null opposingNodes        = Nothing
+      | length outsideContourMotorcycles == 1 && length opposingNodes == 1 = Just $ head opposingNodes
       | otherwise                                                          = error "more than one opposing node. impossible situation."
       where
         opposingNodes =  filter (\(Node _ (Just outArc)) -> plinesIntersectIn outArc (pathOf dividingMotorcycle) == PCollinear) $ concaveNodes contour
-        pathOf (Motorcycle _ _ path) = path
-    outsideContourMotorcycles = convexMotorcycles contour
-    -- | not yet used, but at least implemented properly.
---    motorcyclesOfHoles = concaveMotorcycles <$> holes
+        pathOf (Motorcycle _ path) = path
 
--- | Apply the merge algorithm from Christopher Tscherne's master's thesis.
+-- | Apply Christopher Tscherne's algorithm from his master's thesis.
+--   FIXME: this function doesn't really do that, but does use observations from the paper to cover corner cases that do not require the whole algorithm.
 tscherneMerge :: Motorcycle -> Maybe Node -> NodeTree -> NodeTree -> StraightSkeleton
-tscherneMerge dividingMotorcycle@(Motorcycle (LineSeg rightPoint _) (LineSeg startPoint2 endDistance2) path) opposingNodes leftSide rightSide
+tscherneMerge dividingMotorcycle@(Motorcycle (LineSeg rightPoint _, LineSeg startPoint2 endDistance2) path) opposingNodes leftSide rightSide
   -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point, tie the sides and the motorcycle together.
   | null (crossoverNodes leftSide leftPoint dividingMotorcycle) &&
     null (crossoverNodes rightSide rightPoint dividingMotorcycle) &&
@@ -121,7 +125,7 @@ tscherneMerge dividingMotorcycle@(Motorcycle (LineSeg rightPoint _) (LineSeg sta
     plinesIntersectIn (finalPLine leftSide) path == plinesIntersectIn (finalPLine rightSide) path =
       StraightSkeleton [[leftSide, rightSide, NodeTree [[motorcycleToNode dividingMotorcycle]]]] []
   -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point, tie the sides, the motorcycle, and the opposing motorcycle together.
-  -- FIXME: nodeSets should always be stored in clockwise order.
+  -- FIXME: ensure that nodeSets are always be stored in clockwise order.
   | null (crossoverNodes leftSide leftPoint dividingMotorcycle) &&
     null (crossoverNodes rightSide rightPoint dividingMotorcycle) &&
     isJust opposingNodes &&
@@ -146,14 +150,14 @@ tscherneMerge dividingMotorcycle@(Motorcycle (LineSeg rightPoint _) (LineSeg sta
         outOf (Node _ (Just p)) = p
         outOf (Node _ Nothing) = error "skeleton of a side ended in a node with no endpoint?"
     motorcycleToNode :: Motorcycle -> Node
-    motorcycleToNode (Motorcycle inSeg outSeg mcpath) = Node (Left (inSeg,outSeg)) $ Just mcpath
+    motorcycleToNode (Motorcycle segs mcpath) = Node (Left segs) $ Just mcpath
     crossoverNodes :: NodeTree -> Point2 -> Motorcycle -> [Node]
-    crossoverNodes (NodeTree generations) pointOnSide (Motorcycle _ _ mcpath) = concat (crossoverGen <$> init generations)
+    crossoverNodes (NodeTree generations) pointOnSide (Motorcycle _ mcpath) = concat (crossoverGen <$> init generations)
       where
         crossoverGen :: [Node] -> [Node]
         crossoverGen generation = filter (\a -> Just True == intersectionSameSide mcpath (eToPPoint2 pointOnSide) a) generation
-  -- determine if a node is on one side of the motorcycle, or the other.
-  -- assumes the starting point of the second line segment is a point on the path.
+  -- | Determine if a node is on one side of a motorcycle, or the other.
+  --   Assumes the starting point of the second line segment is a point on the path.
     intersectionSameSide :: PLine2 -> PPoint2 -> Node -> Maybe Bool
     intersectionSameSide mcpath pointOnSide node = pPointsOnSameSideOfPLine (saneIntersection $ uncurry plinesIntersectIn (plineAncestors node)) pointOnSide mcpath
       where
@@ -172,7 +176,7 @@ leftRegion contour motorcycle = skeletonOfConcaveRegion (matchLineSegments conto
   where
     -- Return the line segments we're responsible for straight skeletoning.
     matchLineSegments :: Contour -> Motorcycle -> [LineSeg]
-    matchLineSegments c (Motorcycle inSeg outSeg path)
+    matchLineSegments c (Motorcycle (inSeg,outSeg) path)
       | wrapDirection   = drop stopSegmentIndex (linesOfContour c) ++ take startSegmentIndex (linesOfContour c)
       | unwrapDirection = take (startSegmentIndex - stopSegmentIndex) $ drop stopSegmentIndex $ linesOfContour c
       | otherwise = error "this should be impossible."
@@ -196,7 +200,7 @@ rightRegion contour motorcycle = skeletonOfConcaveRegion (matchLineSegments cont
   where
     -- Return the line segments we're responsible for straight skeletoning.
     matchLineSegments :: Contour -> Motorcycle -> [LineSeg]
-    matchLineSegments c (Motorcycle inSeg outSeg path)
+    matchLineSegments c (Motorcycle (inSeg,outSeg) path)
       | wrapDirection   = drop startSegmentIndex (linesOfContour c) ++ take stopSegmentIndex (linesOfContour c)
       | unwrapDirection = take (stopSegmentIndex - startSegmentIndex) $ drop startSegmentIndex $ linesOfContour c
       | otherwise = error "this should be impossible."
@@ -220,7 +224,7 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs conto
   where
     onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
     onlyMotorcycles ((seg1, seg2), maybePLine)
-      | isJust maybePLine = Just $ Motorcycle seg1 seg2 $ flipPLine2 $ fromJust maybePLine
+      | isJust maybePLine = Just $ Motorcycle (seg1, seg2) $ flipPLine2 $ fromJust maybePLine
       | otherwise         = Nothing
 
 -- | Find the non-reflex virtexes of a contour, and draw Nodes from them.
@@ -235,7 +239,7 @@ concaveNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWit
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
 --   A reflex virtex is any point where the line in and the line out are convex, when looked at from inside of the contour.
---   This function is meant to be used on interior contours.
+--   This function is for use on interior contours.
 {-
 concaveMotorcycles :: Contour -> [Motorcycle]
 concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
@@ -247,7 +251,7 @@ concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs cont
 -}
 
 -- | Find the reflex virtexes of a contour, and draw Nodes from them.
---   This function is meant to be used on interior contours.
+--   This function is for use on interior contours.
 {-
 convexNodes :: Contour -> [Node]
 convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower convexPLines $ linesOfContour contour)
@@ -258,6 +262,7 @@ convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWith
       | otherwise         = Nothing
 -}
 
+-- | Examine two line segments that are part of a Contour, and determine if they are convex toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
 -- | Examine two line segments, and determine if they are convex. if they are, construct a PLine2 bisecting them.
 convexPLines :: LineSeg -> LineSeg -> Maybe PLine2
 convexPLines seg1 seg2
@@ -267,7 +272,7 @@ convexPLines seg1 seg2
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
 
--- Examine two line segments, and determine if they are concave. if they are, construct a PLine2 bisecting them.
+-- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe PLine2
 concavePLines seg1 seg2
   | Just True == lineIsLeft seg1 seg2  = Nothing
@@ -365,7 +370,7 @@ pointOf node = error $ "cannot find a point intersection for this node: " <> sho
 data PartialNodes = PartialNodes [[Node]] String
   deriving (Show, Eq)
 
--- | Recurse on a set of nodes until we have a complete straight skeleton.
+-- | Recurse on a set of nodes until we have a complete NodeTree.
 --   Only works on a sequnce of concave line segments, when there are no holes.
 skeletonOfConcaveRegion :: [LineSeg] -> Bool -> NodeTree
 skeletonOfConcaveRegion inSegs loop = separateNodeTrees (firstNodes inSegs loop)
@@ -514,6 +519,18 @@ motorcycleIntersectsAt contour inSeg outSeg path
         saneIntersections (seg, Left (HitEndPoint   _ _)) (seg2, Left (HitStartPoint _ _))  _                                = Just (seg, Just seg2)
         saneIntersections l1 l2 l3 = error $ "insane result of saneIntersections:\n" <> show l1 <> "\n" <> show l2 <> "\n" <> show l3 <> "\n"
 
+
+--------------------------------------------------------------------
+-------------------------- Face Placement --------------------------
+--------------------------------------------------------------------
+
+-- | A Face:
+--   A portion of a contour, with a real side, and arcs (line segments between nodes) dividing it from other faces.
+--   Faces have no holes, and their arcs and nodes (line segments and points) are generated from a StraightSkeleton of a Contour.
+data Face = Face { _edge :: LineSeg, _firstArc :: PLine2, _arcs :: [PLine2], _lastArc :: PLine2 }
+  deriving Eq
+  deriving stock Show
+
 -- | take a straight skeleton, and create faces from it.
 -- If you have a line segment you want the first face to contain, supply it for a re-order.
 facesFromStraightSkeleton :: StraightSkeleton -> Maybe LineSeg -> [Face]
@@ -548,10 +565,10 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
           | nodeTree1 == nodeTree2          = error $ "two identical nodes given.\n" <> show nodeTree1 <> "\n"
           | nodeTree1 `isRightOf` nodeTree2 = if last (leftPLinesOf nodeTree2) == last (rightPLinesOf nodeTree1)
                                               then Face (rightSegOf nodeTree1) (outOf $ leftNodeOf nodeTree2) (init (leftPLinesOf nodeTree2) ++ tail (reverse $ init $ rightPLinesOf nodeTree1)) (outOf $ rightNodeOf nodeTree1)
-                                              else Face (rightSegOf nodeTree1) (outOf $ leftNodeOf nodeTree2) (init (leftPLinesOf nodeTree2) ++       reverse (init $ rightPLinesOf nodeTree1)) (outOf $ rightNodeOf nodeTree1)
+                                              else Face (rightSegOf nodeTree1) (outOf $ leftNodeOf nodeTree2) (init (leftPLinesOf nodeTree2) ++       reverse  (init $ rightPLinesOf nodeTree1)) (outOf $ rightNodeOf nodeTree1)
           | nodeTree1 `isLeftOf` nodeTree2  = if last (rightPLinesOf nodeTree1) == last (leftPLinesOf nodeTree2)
                                               then Face (rightSegOf nodeTree2) (outOf $ leftNodeOf nodeTree1) (init (rightPLinesOf nodeTree1) ++ tail (reverse $ init $ leftPLinesOf nodeTree2)) (outOf $ rightNodeOf nodeTree2)
-                                              else Face (rightSegOf nodeTree2) (outOf $ leftNodeOf nodeTree1) (init (rightPLinesOf nodeTree1) ++         reverse (init $ leftPLinesOf nodeTree2)) (outOf $ rightNodeOf nodeTree2)
+                                              else Face (rightSegOf nodeTree2) (outOf $ leftNodeOf nodeTree1) (init (rightPLinesOf nodeTree1) ++       reverse  (init $ leftPLinesOf nodeTree2)) (outOf $ rightNodeOf nodeTree2)
           | otherwise = error $ "merp.\n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n" 
           where
             isLeftOf :: NodeTree -> NodeTree -> Bool
@@ -612,6 +629,11 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
         makeTriangleFace _ _ = error "cannot make a triangular face from nodes that are not first generation."
     findNodeByOutput :: [Node] -> PLine2 -> Node
     findNodeByOutput nodes plineOut = head $ filter (\(Node _ a) -> a == Just plineOut) nodes
+
+
+------------------------------------------------------------------
+------------------ Line Segment Placement ------------------------
+------------------------------------------------------------------
 
 -- | Place line segments on a face. Might return remainders, in the form of one or multiple un-filled faces.
 addLineSegs :: ℝ -> Maybe Fastℕ -> Face -> ([LineSeg], Maybe [Face])
