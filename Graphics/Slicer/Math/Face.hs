@@ -85,16 +85,17 @@ data StraightSkeleton = StraightSkeleton { _nodeSets :: [[NodeTree]], _spineNode
   deriving stock Show
 
 -- | Find the StraightSkeleton of a given contour, winh a given set of holes cut out of it.
--- FIXME: woefully incomplete.
-findStraightSkeleton :: Contour -> [Contour] -> StraightSkeleton
+-- FIXME: Does not know how to calculate a straight skeleton for contours with holes, or more than one motorcycle. 
+-- FIXME: abusing Maybe until we can cover all cases.
+findStraightSkeleton :: Contour -> [Contour] -> Maybe StraightSkeleton
 findStraightSkeleton contour holes
-  | null holes && null outsideContourMotorcycles        = StraightSkeleton [[skeletonOfConcaveRegion (linesOfContour contour) True]] []
+  | null holes && null outsideContourMotorcycles        = Just $ StraightSkeleton [[skeletonOfConcaveRegion (linesOfContour contour) True]] []
   -- Use the algorithm from Christopher Tscherne's master's thesis.
-  | null holes && length outsideContourMotorcycles == 1 = tscherneMerge dividingMotorcycle maybeOpposingNode leftSide rightSide
-  | otherwise = error "Do not know how to calculate a straight skeleton for contours with holes, or more than one motorcycle!"
+  | null holes && length outsideContourMotorcycles == 1 = Just $ tscherneMerge dividingMotorcycle maybeOpposingNode leftSide rightSide
+  | otherwise = Nothing
   where
     outsideContourMotorcycles = convexMotorcycles contour
-    -- | not yet used, but at least implemented properly.
+    -- | not yet used.
     -- motorcyclesOfHoles = concaveMotorcycles <$> holes
 
     ---------------------------------------------------------
@@ -111,7 +112,7 @@ findStraightSkeleton contour holes
       | length outsideContourMotorcycles == 1 && length opposingNodes == 1 = Just $ head opposingNodes
       | otherwise                                                          = error "more than one opposing node. impossible situation."
       where
-        opposingNodes =  filter (\(Node _ (Just outArc)) -> plinesIntersectIn outArc (pathOf dividingMotorcycle) == PCollinear) $ concaveNodes contour
+        opposingNodes = filter (\(Node _ (Just outArc)) -> plinesIntersectIn outArc (pathOf dividingMotorcycle) == PCollinear) $ concaveNodes contour
         pathOf (Motorcycle _ path) = path
 
 -- | Apply Christopher Tscherne's algorithm from his master's thesis.
@@ -263,7 +264,6 @@ convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWith
 -}
 
 -- | Examine two line segments that are part of a Contour, and determine if they are convex toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
--- | Examine two line segments, and determine if they are convex. if they are, construct a PLine2 bisecting them.
 convexPLines :: LineSeg -> LineSeg -> Maybe PLine2
 convexPLines seg1 seg2
   | Just True == lineIsLeft seg1 seg2  = Just $ PLine2 $ addVecPair pv1 pv2

@@ -420,7 +420,7 @@ facetSpec =
                                                                   ]
                                                                 ]
     it "finds the straight skeleton of our first simple shape." $
-      findStraightSkeleton c0 [] --> StraightSkeleton [[NodeTree [ [Node (Left  (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
+      findStraightSkeleton c0 [] --> Just (StraightSkeleton [[NodeTree [ [Node (Left  (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
                                                                            (Just (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])))
                                                                    ,Node (Left  (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0))))
                                                                            (Just (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal  (-0.9238795325112867) [GEPlus 2]])))
@@ -444,9 +444,9 @@ facetSpec =
                                                                            (Just (PLine2 (GVec [GVal 2.0 [GEPlus 2]])))
                                                                    ]
                                                                  ]
-                                                       ]] []
+                                                       ]] [])
     it "finds the straight skeleton of our fifth simple shape." $
-      findStraightSkeleton c5 [] --> StraightSkeleton [[NodeTree [ [Node (Left  (LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,-1.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
+      findStraightSkeleton c5 [] --> Just (StraightSkeleton [[NodeTree [ [Node (Left  (LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,-1.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
                                                                            (Just (PLine2 (GVec [GVal (-0.5411961001461969) [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal 0.3826834323650899 [GEPlus 2]])))
                                                                   , Node (Left  (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0))))
                                                                            (Just (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]])))
@@ -474,9 +474,9 @@ facetSpec =
                                                                            (Just (PLine2 (GVec [GVal (-2.0) [GEPlus 2]])))
                                                                    ]
                                                                  ]
-                                                        ]] []
+                                                        ]] [])
     it "finds the straight skeleton of our sixth simple shape." $
-      findStraightSkeleton c6 [] --> StraightSkeleton [[NodeTree [ [Node (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0))))
+      findStraightSkeleton c6 [] --> Just (StraightSkeleton [[NodeTree [ [Node (Left (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0))))
                                                                           (Just (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])))
                                                                   , Node (Left (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-0.5,0.0))))
                                                                           (Just (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])))
@@ -510,9 +510,9 @@ facetSpec =
                                                                  ],
                                                         NodeTree [ [Node (Left (LineSeg (Point2 (0.5,-1.0)) (Point2 (-0.5,1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-0.5,-1.0))))
                                                                          (Just (PLine2 (GVec [GVal (-2.0) [GEPlus 1]])))]]
-                                                       ]] []
+                                                       ]] [])
     it "finds faces from a straight skeleton (default order)" $
-      facesFromStraightSkeleton (findStraightSkeleton c0 []) Nothing --> [ Face (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0)))
+      facesFromStraightSkeleton (fromJust $ findStraightSkeleton c0 []) Nothing --> [ Face (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0)))
                                                                                 (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
                                                                                 [PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal (-0.9807852804032305) [GEPlus 1], GVal (-0.19509032201612836) [GEPlus 2]])]
                                                                                 (PLine2 (GVec [GVal 2.0    [GEPlus 2]]))
@@ -535,7 +535,7 @@ facetSpec =
                                                                                 (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
                                                                         ]
     it "finds faces from a straight skeleton (manual order)" $
-      facesFromStraightSkeleton (findStraightSkeleton c0 []) c0l0 --> [ Face (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0)))
+      facesFromStraightSkeleton (fromJust $ findStraightSkeleton c0 []) c0l0 --> [ Face (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0)))
                                                                              (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
                                                                              []
                                                                              (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
@@ -558,7 +558,7 @@ facetSpec =
                                                                              (PLine2 (GVec [GVal 2.0    [GEPlus 2]]))
                                                                         ]
     it "finds the straight skeleton of a triangle." $
-      findStraightSkeleton triangle [] --> StraightSkeleton [[NodeTree [ [Node (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.7320508075688772)), LineSeg (Point2 (1.0,1.7320508075688772)) (Point2 (1.0,-1.7320508075688772))))
+      findStraightSkeleton triangle [] --> Just (StraightSkeleton [[NodeTree [ [Node (Left (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.7320508075688772)), LineSeg (Point2 (1.0,1.7320508075688772)) (Point2 (1.0,-1.7320508075688772))))
                                                                                 (Just (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]])))
                                                                         , Node (Left (LineSeg (Point2 (1.0,1.7320508075688772)) (Point2 (1.0,-1.7320508075688772)), LineSeg (Point2 (2.0,0.0)) (Point2 (-2.0,0.0))))
                                                                                 (Just (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]])))
@@ -566,9 +566,9 @@ facetSpec =
                                                                                 (Just (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]])))
                                                                        ],[Node (Right [PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]),
                                                                                        PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1],GVal 0.5000000000000001 [GEPlus 1],GVal 0.8660254037844387 [GEPlus 2]]),
-                                                                                       PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1],GVal (-0.8660254037844387) [GEPlus 2]])]) Nothing]]]] []
+                                                                                       PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1],GVal (-0.8660254037844387) [GEPlus 2]])]) Nothing]]]] [])
     it "finds faces from a triangle (default order)" $
-      facesFromStraightSkeleton (findStraightSkeleton triangle []) Nothing --> [Face (LineSeg (Point2 (1.0,1.73205080756887729)) (Point2 (1.0,-1.7320508075688772)))
+      facesFromStraightSkeleton (fromJust $ findStraightSkeleton triangle []) Nothing --> [Face (LineSeg (Point2 (1.0,1.73205080756887729)) (Point2 (1.0,-1.7320508075688772)))
                                                                              (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))
                                                                              []
                                                                              (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]])),
@@ -581,7 +581,7 @@ facetSpec =
                                                                              []
                                                                              (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))]
     it "finds faces from a triangle (manual order)" $
-      facesFromStraightSkeleton (findStraightSkeleton triangle []) trianglel0 --> [Face (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.7320508075688772)))
+      facesFromStraightSkeleton (fromJust $ findStraightSkeleton triangle []) trianglel0 --> [Face (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.7320508075688772)))
                                                                                         (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
                                                                                         []
                                                                                         (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]])),
@@ -595,7 +595,7 @@ facetSpec =
                                                                                         (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))
                                                                                   ]
     it "places lines on a triangle" $
-      (addLineSegs 0 (Just 1) <$> facesFromStraightSkeleton (findStraightSkeleton triangle []) trianglel0) --> [([],
+      (addLineSegs 0 (Just 1) <$> facesFromStraightSkeleton (fromJust $ findStraightSkeleton triangle []) trianglel0) --> [([],
                                                                                                                  Just [Face (LineSeg (Point2 (1.0,1.7320508075688772)) (Point2 (-1.0,-1.7320508075688772)))
                                                                                                                             (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
                                                                                                                             []
@@ -615,7 +615,7 @@ facetSpec =
 
       
     it "places lines on a triangle" $
-      (addLineSegs 0.25 Nothing <$> facesFromStraightSkeleton (findStraightSkeleton triangle []) Nothing) --> [([
+      (addLineSegs 0.25 Nothing <$> facesFromStraightSkeleton (fromJust $ findStraightSkeleton triangle []) Nothing) --> [([
                                                                                                            LineSeg (Point2 (2.21650635094611,-0.12500000000000003)) (Point2 (-1.2165063509461098,2.107050807568877)),
                                                                                                            LineSeg (Point2 (2.6495190528383294,-0.37500000000000006)) (Point2 (-1.6495190528383294,2.857050807568877))
                                                                                                         ],
@@ -641,7 +641,7 @@ facetSpec =
                                                                                                                      (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))])
                                                                                                       ]
     it "finds faces from a square" $
-      facesFromStraightSkeleton (findStraightSkeleton square []) Nothing -->  [Face (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0)))
+      facesFromStraightSkeleton (fromJust $ findStraightSkeleton square []) Nothing -->  [Face (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0)))
                                                                             (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
                                                                             []
                                                                             (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
