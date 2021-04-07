@@ -49,7 +49,7 @@ import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
 import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
 -- Our Facet library.
-import Graphics.Slicer.Math.Face (convexMotorcycles, leftRegion, rightRegion, Node(Node), Spine(Spine), Face(Face), makeFirstNodes, Motorcycle(Motorcycle), StraightSkeleton(StraightSkeleton), findStraightSkeleton, facesFromStraightSkeleton, addLineSegs, NodeTree(NodeTree), averageNodes, getFirstArc)
+import Graphics.Slicer.Math.Face (convexMotorcycles, leftRegion, rightRegion, Node(Node), Spine(Spine), Face(Face), makeFirstNodes, Motorcycle(Motorcycle), StraightSkeleton(StraightSkeleton), findStraightSkeleton, facesFromStraightSkeleton, addLineSegsToFace, NodeTree(NodeTree), averageNodes, getFirstArc)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->))
@@ -595,7 +595,7 @@ facetSpec =
                                                                                         (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))
                                                                                   ]
     it "places lines on a triangle" $
-      (addLineSegs 0 (Just 1) <$> facesFromStraightSkeleton (fromJust $ findStraightSkeleton triangle []) trianglel0) --> [([],
+      (addLineSegsToFace 0 (Just 1) <$> facesFromStraightSkeleton (fromJust $ findStraightSkeleton triangle []) trianglel0) --> [([],
                                                                                                                  Just [Face (LineSeg (Point2 (1.0,1.7320508075688772)) (Point2 (-1.0,-1.7320508075688772)))
                                                                                                                             (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
                                                                                                                             []
@@ -615,7 +615,7 @@ facetSpec =
 
       
     it "places lines on a triangle" $
-      (addLineSegs 0.25 Nothing <$> facesFromStraightSkeleton (fromJust $ findStraightSkeleton triangle []) Nothing) --> [([
+      (addLineSegsToFace 0.25 Nothing <$> facesFromStraightSkeleton (fromJust $ findStraightSkeleton triangle []) Nothing) --> [([
                                                                                                            LineSeg (Point2 (2.21650635094611,-0.12500000000000003)) (Point2 (-1.2165063509461098,2.107050807568877)),
                                                                                                            LineSeg (Point2 (2.6495190528383294,-0.37500000000000006)) (Point2 (-1.6495190528383294,2.857050807568877))
                                                                                                         ],
@@ -641,20 +641,20 @@ facetSpec =
                                                                                                                      (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))])
                                                                                                       ]
     it "finds faces from a square" $
-      facesFromStraightSkeleton (fromJust $ findStraightSkeleton square []) Nothing -->  [Face (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0)))
-                                                                            (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+      facesFromStraightSkeleton (fromJust $ findStraightSkeleton square []) Nothing -->  [Face (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
+                                                                                          (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
                                                                             []
+                                                                            (PLine2 (GVec [GVal (0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                                                                      ,Face (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
                                                                             (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                                                                      ,Face (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)))
-                                                                            (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                             []
                                                                             (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475[GEPlus 2]]))
-                                                                      ,Face (LineSeg (Point2(-1.0,-1.0)) (Point2 (0.0,2.0)))
+                                                                      ,Face (LineSeg (Point2(1.0,1.0)) (Point2 (-2.0,0.0)))
                                                                             (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                             []
-                                                                            (PLine2 (GVec [GVal  0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                      ,Face (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0)))
-                                                                            (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+                                                                            (PLine2 (GVec [GVal  (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+                                                                      ,Face (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
+                                                                            (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                             []
                                                                             (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                       ]
@@ -674,8 +674,8 @@ facetSpec =
       c5 = PointSequence [Point2 (0,0), Point2 (-1,1), Point2 (1,1), Point2 (2,0), Point2 (1,-1), Point2 (-1,-1)]
       c6 = PointSequence [Point2 (-1,1), Point2 (1,1), Point2 (1,-1), Point2 (0.5,-1), Point2 (0,0), Point2 (-0.5,-1), Point2 (-1,-1)]
       -- A simple triangle.
-      triangle = PointSequence [Point2 (0,0), Point2 (1,sqrt 3), Point2 (2,0)]
-      trianglel0 = Just (LineSeg (Point2 (0,0)) (Point2 (1,sqrt 3)))
+      triangle = PointSequence [Point2 (2,0), Point2 (1,sqrt 3), Point2 (0,0)]
+      trianglel0 = Just (LineSeg (Point2 (2,0)) (Point2 (1,sqrt 3)))
       -- The next corners are part of a square around the origin with a piece missing: (think: c2 from above)
       --    __  <-- corner 1
       --   | /
@@ -690,4 +690,6 @@ facetSpec =
       corner3 = [ LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))]
       -- the bottom and the left side of a 2x2 square around the origin, with a slice missing.
       corner4 = [ LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))]
-      square = PointSequence [Point2 (-1,1), Point2 (1,1), Point2 (1,-1), Point2 (-1,-1)]
+--      square = PointSequence [Point2 (-1,1), Point2 (1,1), Point2 (1,-1), Point2 (-1,-1)]
+      square = PointSequence [Point2 (-1,1), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1)]
+--      square = PointSequence [Point2 (97.5,87.5),Point2 (97.5,97.5),Point2 (87.5,97.5),Point2 (87.5,87.5)]

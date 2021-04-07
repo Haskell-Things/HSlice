@@ -28,7 +28,7 @@
  - Code for taking a straight skeleton, and creating a series of faces, covering it.
  - Code for taking a series of faces, and applying inset line segments and infill to them.
  -}
-module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegs, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton, averageNodes, getFirstArc) where
+module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegsToFace, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton, averageNodes, getFirstArc) where
 
 import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, and, (>=), String, maybe, uncurry)
 
@@ -84,7 +84,7 @@ data StraightSkeleton = StraightSkeleton { _nodeSets :: [[NodeTree]], _spineNode
   deriving Eq
   deriving stock Show
 
--- | Find the StraightSkeleton of a given contour, winh a given set of holes cut out of it.
+-- | Find the StraightSkeleton of a given contour, with a given set of holes cut out of it.
 -- FIXME: Does not know how to calculate a straight skeleton for contours with holes, or more than one motorcycle. 
 -- FIXME: abusing Maybe until we can cover all cases.
 findStraightSkeleton :: Contour -> [Contour] -> Maybe StraightSkeleton
@@ -235,7 +235,7 @@ concaveNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWit
   where
     onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Node
     onlyNodes ((seg1, seg2), maybePLine)
-      | isJust maybePLine = Just $ Node (Left (seg1,seg2))  maybePLine
+      | isJust maybePLine = Just $ Node (Left (seg1,seg2)) maybePLine
       | otherwise         = Nothing
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
@@ -266,8 +266,8 @@ convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWith
 -- | Examine two line segments that are part of a Contour, and determine if they are convex toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
 convexPLines :: LineSeg -> LineSeg -> Maybe PLine2
 convexPLines seg1 seg2
-  | Just True == lineIsLeft seg1 seg2  = Just $ PLine2 $ addVecPair pv1 pv2
-  | otherwise                          = Nothing
+  | Just True == lineIsLeft seg1 seg2  = Nothing
+  | otherwise                          = Just $ PLine2 $ addVecPair pv1 pv2
   where
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
@@ -275,8 +275,8 @@ convexPLines seg1 seg2
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe PLine2
 concavePLines seg1 seg2
-  | Just True == lineIsLeft seg1 seg2  = Nothing
-  | otherwise                          = Just $ PLine2 $ addVecPair pv1 pv2
+  | Just True == lineIsLeft seg1 seg2  = Just $ PLine2 $ addVecPair pv1 pv2
+  | otherwise                          = Nothing
   where
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
@@ -636,8 +636,8 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
 ------------------------------------------------------------------
 
 -- | Place line segments on a face. Might return remainders, in the form of one or multiple un-filled faces.
-addLineSegs :: ℝ -> Maybe Fastℕ -> Face -> ([LineSeg], Maybe [Face])
-addLineSegs lw n face@(Face edge firstArc midArcs lastArc)
+addLineSegsToFace :: ℝ -> Maybe Fastℕ -> Face -> ([LineSeg], Maybe [Face])
+addLineSegsToFace lw n face@(Face edge firstArc midArcs lastArc)
   | null midArcs        = (                    foundLineSegs, twoSideRemainder)
   | length midArcs == 1 = (        subSides ++ foundLineSegs, threeSideRemainder)
   | otherwise           = (sides1 ++ sides2 ++ foundLineSegs, nSideRemainder)
@@ -703,10 +703,10 @@ addLineSegs lw n face@(Face edge firstArc midArcs lastArc)
     afterArc               = dropWhile (/= closestArcFollower) $ midArcs ++ [lastArc]
     (sides1, remains1)     = if closestArc == firstArc
                              then ([],Nothing)
-                             else addLineSegs lw n (Face finalSide firstArc (tail $ init untilArc) closestArc)
+                             else addLineSegsToFace lw n (Face finalSide firstArc (tail $ init untilArc) closestArc)
     (sides2, remains2)     = if closestArc == last midArcs
                              then ([],Nothing)
-                             else addLineSegs lw n (Face finalSide (head afterArc) (init $ tail afterArc) lastArc)
+                             else addLineSegsToFace lw n (Face finalSide (head afterArc) (init $ tail afterArc) lastArc)
     ---------------------------------------------
     -- functions only used by a four-sided n-gon.
     ---------------------------------------------
@@ -717,8 +717,8 @@ addLineSegs lw n face@(Face edge firstArc midArcs lastArc)
                              then subRemains
                              else Nothing
     (subSides, subRemains) = if firstArcLonger
-                             then addLineSegs lw n (Face finalSide firstArc [] midArc)
-                             else addLineSegs lw n (Face finalSide midArc   [] lastArc)
+                             then addLineSegsToFace lw n (Face finalSide firstArc [] midArc)
+                             else addLineSegsToFace lw n (Face finalSide midArc   [] lastArc)
     firstArcLonger         = distancePPointToPLine (intersectionOf firstArc midArc) (eToPLine2 edge) > distancePPointToPLine (intersectionOf midArc lastArc) (eToPLine2 edge)
     ----------------------------------------------
     -- functions only used by a three-sided n-gon.

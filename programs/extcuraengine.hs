@@ -27,7 +27,7 @@
 -- For matching our OpenScad variable types.
 {-# LANGUAGE ViewPatterns #-}
 
-import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse, fst, filter, (<=))
+import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse, fst, filter, (<=), (&&), Either(Right))
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -45,7 +45,7 @@ import Data.List (length, zip, tail, head, zipWith, maximum, minimum, last, conc
 
 import Control.Monad ((>>=))
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe, mapMaybe)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe, mapMaybe, isJust, fromJust)
 
 import Text.Show(show)
 
@@ -76,7 +76,9 @@ import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yO
 
 import Graphics.Slicer.Math.Tri (Tri, sidesOf, shiftTri, triIntersects)
 
-import Graphics.Slicer.Math.Line (flipLineSeg, LineSeg(LineSeg))
+import Graphics.Slicer.Math.Line (flipLineSeg, LineSeg(LineSeg), endpoint, lineSegFromEndpoints)
+
+import Graphics.Slicer.Math.Face (findStraightSkeleton, facesFromStraightSkeleton, addLineSegsToFace)
 
 import Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Horiz, Vert))
 
@@ -157,19 +159,59 @@ mapEveryOther :: (a -> a) -> [a] -> [a]
 mapEveryOther _ [] = []
 mapEveryOther f [a] = [f a]
 mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [0::Fastℕ,1..]
+--------------------------------------------------------------
+------------------------ Slicing Plan ------------------------
+--------------------------------------------------------------
+
+-- First: just cover our current model.
+
+data SlicingPlan =
+  SlicingPlan
+    {
+      _preObject :: ScadStep
+    , _printObject :: ScadStep
+    , _postObject :: ScadStep
+    }
+
+data ScadStep =
+    PriorState MachineState
+  | StateM [GCode]
+
+data DivideStrategy =
+    ZLayers
+  | AllAtOnce
+
+-- The new scad functions:
+
+-- Builtins --
+-- extrude     :: Contour -> UncookedGCode
+-- inset       :: Contour -> Contour
+-- speed       :: UncookedGCode -> GCode
+
+-- Builtins, optional (user can supply implementations) --
+-- infillHoriz :: Contour -> UncookedGCode
+
+-- The default SCAD program.
+defaultSlicer :: String
+defaultSlicer =    "pathWidth = machine_nozzle_size"
+                <> "layerHeight = layer_height"
+                <> "maxHeight = maxHeightOf(inSTL)"
+                <> "triangles = trianglesOf(inSTL)"
+                <> "module sliceLayer(contour){ speed(50) inset (pathWidth/2) contour; infillHoriz inset (pathWidth) contour; }"
+                <> "module sliceObject(triangles) {for (i=0;i*layerHeight<maxHeight;i++) { "
 
 -------------------------------------------------------------
 ----------------------- ENTRY POINT -------------------------
 -------------------------------------------------------------
--- FIXME: handle rafts here.
-sliceObject :: Printer ->  Print ->  [([Contour], Fastℕ)] -> StateM [GCode]
+-- FIXME: this and the next function should be replaced with functions that use a SlicingPlan to slice an object. In this way we could have different 'profiles' (vase mode, normal, etc)...
+sliceObject :: Printer -> Print -> [([Contour], Fastℕ)] -> StateM [GCode]
 sliceObject printer@(Printer _ _ extruder) print allLayers =
   cookExtrusions extruder (concat slicedLayers) threads
   where
     slicedLayers = [sliceLayer printer print (layer == last allLayers) layer | layer <- allLayers] `using` parListChunk (div (length allLayers) (fromFastℕ threads)) rdeepseq
 
-sliceLayer ::  Printer ->  Print -> Bool -> ([Contour], Fastℕ) -> [GCode]
-sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSupport ls outerWallBeforeInner infillSpeed) isLastLayer (layerContours, layerNumber) = do
+sliceLayer :: Printer -> Print -> Bool -> ([Contour], Fastℕ) -> [GCode]
+sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBeforeInner infillSpeed) isLastLayer (layerContours, layerNumber) = do
   let
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToContour :: Contour -> [GCode]
@@ -223,7 +265,23 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
                 , travelBetweenContours (last childContoursInnerWalls) dest
                 ]
           outsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*0.5) insideContoursRaw outsideContourRaw
-          outsideContourInnerWall = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2) insideContoursRaw outsideContourRaw
+          outsideContourInnerWall = fromMaybe (outsideContourInnerWallByShrink) outsideContourInnerWallBySkeleton
+            where
+              outsideContourInnerWallByShrink = res -- error $ show res <> "\n" <> show outsideContourSkeleton <> "\n" <> show outsideContourRaw <> "\n"
+                where
+                  res = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2) insideContoursRaw outsideContourRaw
+              outsideContourSkeleton = findStraightSkeleton outsideContourRaw []
+              outsideContourInnerWallBySkeleton
+                | isJust outsideContourSkeleton && not (null outsideContourNewSegs) = Just $ head $ getContours $ (\seg@(LineSeg p1 _) -> (p1, endpoint seg)) <$> outsideContourNewSegs
+--                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourNewSegs <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
+                | otherwise = Nothing
+                where
+                  outsideContourFaces    = facesFromStraightSkeleton (fromJust outsideContourSkeleton) (firstLineSegOfContour outsideContourRaw)
+                  outsideContourNewSegs = concat $ fst <$> addLineSegsToFace (pathWidth*2) (Just 1) <$> outsideContourFaces
+                  firstLineSegOfContour :: Contour -> Maybe LineSeg
+                  firstLineSegOfContour (PointSequence [])  = Nothing
+                  firstLineSegOfContour (PointSequence [a]) = Nothing
+                  firstLineSegOfContour (PointSequence (a:b:_)) = Just $ (\(Right a) -> a) $ lineSegFromEndpoints a b 
           childContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
             where
               res c = expandContour (pathWidth*0.5) (outsideContourRaw:filter (/= c) insideContoursRaw) c
@@ -248,8 +306,6 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
       firstOuterContour
         | null allContours = error $ "no contours on layer?\n" <> show layerContours <> "\n"
         | otherwise = (\(ContourTree (a,_)) -> a) $ head allContours
-      supportGCode, layerEnd :: [GCode]
-      supportGCode = [] -- if hasSupport then gcodeForContour lh pathWidth supportContour else []
       layerEnd = if isLastLayer then [] else travelToLayerChange
       layerStart = [GCMarkLayerStart layerNumber]
       -- FIXME: make travel gcode from the previous contour's last position?
@@ -258,7 +314,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
       -- FIXME: not all support is support. what about supportInterface?
       support :: [GCode]
       support = [] -- if null supportGCode then [] else GCMarkSupportStart : supportGCode
-      -- FIXME: we need to totally redo support.
+      -- FIXME: we need to totally reimplement support.
       {-
       supportContour :: Contour
       supportContour = foldMap (\l -> Contour [point l, endpoint l])
@@ -273,6 +329,7 @@ sliceLayer (Printer _ _ extruder) print@(Print perimeterCount infill lh _ hasSup
       firstPointOfInfill (x:_) = Just $ startOfLineSeg $ head x
         where
           startOfLineSeg (LineSeg p _) = p
+      -- FIXME: this is not necessarilly the case!
       pathWidth = nozzleDiameter extruder
       raise (Point2 (x,y)) = Point3 (x, y, zHeightOfLayer)
       zHeightOfLayer = lh * (1 + fromFastℕtoℝ layerNumber)
