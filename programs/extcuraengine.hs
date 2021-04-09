@@ -270,7 +270,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
               outsideContourInnerWallByShrink = res -- error $ show res <> "\n" <> show outsideContourSkeleton <> "\n" <> show outsideContourRaw <> "\n"
                 where
                   res = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2) insideContoursRaw outsideContourRaw
-              outsideContourSkeleton = findStraightSkeleton outsideContourRaw []
+              outsideContourSkeleton = findStraightSkeleton outsideContourRaw insideContoursRaw
               outsideContourInnerWallBySkeleton
                 | isJust outsideContourSkeleton && not (null outsideContourNewSegs) = Just $ head $ getContours $ (\seg@(LineSeg p1 _) -> (p1, endpoint seg)) <$> outsideContourNewSegs
 --                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourNewSegs <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
