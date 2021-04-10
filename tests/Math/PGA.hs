@@ -387,14 +387,14 @@ facetSpec =
                                                                   ]
                                                                 ]
     it "finds the straight skeleton of the right side of our third simple shape." $
-      rightRegion c3 (head $ convexMotorcycles c3) --> NodeTree [ [Node (Left  (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0))))
-                                                                          (Just (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal 0.3826834323650897 [GEPlus 2]])))
-                                                                  ,Node (Left  (LineSeg (Point2 (1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))))
-                                                                          (Just (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])))
+      rightRegion c3 (head $ convexMotorcycles c3) --> NodeTree [ [Node (Left  (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0))))
+                                                                          (Just (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal (-0.3826834323650897) [GEPlus 2]])))
+                                                                  ,Node (Left  (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0))))
+                                                                          (Just (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])))
                                                                   ]
-                                                                , [Node (Right [PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal 0.3826834323650897 [GEPlus 2]]),
-                                                                                PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])])
-                                                                          (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal (-0.19509032201612836) [GEPlus 1], GVal 0.9807852804032305 [GEPlus 2]])))
+                                                                , [Node (Right [PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal (-0.3826834323650897) [GEPlus 2]]),
+                                                                                PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])])
+                                                                          (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal (-0.19509032201612836) [GEPlus 1], GVal (-0.9807852804032305) [GEPlus 2]])))
                                                                   ]
                                                                 ]
     it "finds the straight skeleton of the left side of our fourth simple shape." $
