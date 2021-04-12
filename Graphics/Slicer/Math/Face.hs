@@ -30,9 +30,9 @@
  -}
 module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegsToFace, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton, averageNodes, getFirstArc) where
 
-import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, and, String, maybe, uncurry, elem)
+import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, and, String, maybe, uncurry, elem, compare)
 
-import Data.List (elemIndex, sortOn, dropWhile, takeWhile, nub)
+import Data.List (elemIndex, sortOn, dropWhile, takeWhile, nub, sortBy)
 
 import Data.List.NonEmpty (NonEmpty)
 
@@ -414,55 +414,72 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstNodes inSegs loop)
 
     -- | Apply a recursive algorithm to solve the node set.
     skeletonOfNodes :: [Node] -> Either PartialNodes [[Node]]
-    skeletonOfNodes nodes@(_:_:_:_)
+    skeletonOfNodes nodes
+      --   Handle zero or one node.
+      | null nodes = Left $ PartialNodes [] "NOMATCH"
+      | length nodes == 1 = Left $ PartialNodes [nodes] "NOMATCH"
+      --   Handle the the case of two nodes.
+      | length nodes == 2 && intersectsInPoint (head nodes) (head $ tail nodes) = Right [[averageNodes (head nodes) (head $ tail nodes)]]
+      | length nodes == 2 = Left $ PartialNodes [nodes] "NOMATCH"
       --   Handle the the case of 3 or more nodes.
       | endsAtSamePoint nodes     = Right $ if loop
                                             then [[Node (Right $ outOf <$> nodes) Nothing]]
                                             else []
-      | hasShortestPair           = Right $ [averageOfShortestPair] : errorIfLeft (skeletonOfNodes nextGen)
+      | hasShortestPair nodes     = Right $ [averageOfShortestPair nodes] : errorIfLeft (skeletonOfNodes (nextGenOf nodes))
+      | otherwise = Left $ PartialNodes [] "NOMATCH"
       where
-        ------------------------------------------------------------------------------
-        -- functions that are the same, regardless of number of nodes we are handling.
-        ------------------------------------------------------------------------------
+        -- | When a set of nodes end in the same point, we may need to create a Node with all of the nodes as input. This checks for that case.
+        endsAtSamePoint :: [Node] -> Bool
+        endsAtSamePoint myNodes  = and $ mapWithFollower (==) $ mapWithFollower intersectionOf (outOf <$> ((nonCollinearNodes myNodes (collinearNodePairsOf myNodes)) ++ firstCollinearNodes (collinearNodePairsOf myNodes)))
+          where
+            allCollinearNodes :: [(Node, Node)] -> [Node]
+            allCollinearNodes nodePairs = nub $ (fst <$> nodePairs) ++ (snd <$> nodePairs)
+            firstCollinearNodes :: [(Node, Node)] -> [Node]
+            firstCollinearNodes nodePairs = fst <$> nodePairs
+            -- find the nodes that do not have a collinear pair.
+            nonCollinearNodes nodeSet nodePairs = filter (\a -> not $ a `elem` allCollinearNodes nodePairs) nodeSet
 
         -- | Get the output PLine of a node, if it exists.
         outOf (Node _ (Just p)) = p
         outOf (Node _ Nothing) = error "skeleton of a side ended in a node with no endpoint?"
 
-        -- | When a set of nodes end in the same point, we may need to create a Node with all of the nodes as input. This checks for that case.
-        endsAtSamePoint :: [Node] -> Bool
-        endsAtSamePoint myNodes  = and $ mapWithFollower (==) $ mapWithFollower intersectionOf (outOf <$> ((nonCollinearNodes myNodes (collinearNodePairsOf myNodes)) ++ firstCollinearNodes (collinearNodePairsOf myNodes)))
-          where
-            -- find the nodes that do not have a collinear pair.
-            nonCollinearNodes nodeSet nodePairs = filter (\a -> not $ a `elem` allCollinearNodes nodePairs) nodeSet
-            allCollinearNodes :: [(Node, Node)] -> [Node]
-            allCollinearNodes nodePairs = nub $ (fst <$> nodePairs) ++ (snd <$> nodePairs)
-            firstCollinearNodes :: [(Node, Node)] -> [Node]
-            firstCollinearNodes nodePairs = fst <$> nodePairs
-            -- find the nodes tha have collinear pairs.
-            collinearNodePairsOf :: [Node] -> [(Node, Node)]
-            collinearNodePairsOf nodeSet = catMaybes $ (\(node1, node2) -> if areOutSegsCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs nodeSet
-              where
-                getPairs :: [a] -> [(a,a)]
-                getPairs [] = []
-                getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
-                areOutSegsCollinear :: Node -> Node -> Bool
-                areOutSegsCollinear (Node _ (Just pline1)) (Node _ (Just pline2)) = isCollinear pline1 pline2
-                areOutSegsCollinear _ _ = False
+        -- | Determine if there is a pair of node outputs, such that the longest distance between the root of each node
+        --   and the intersection point of the outputs is shorter than the similar distance for every other possible node intersection.
+        hasShortestPair :: [Node] -> Bool
+        hasShortestPair nodeSet
+          | length (intersectingNodePairsOf nodeSet) > 1 = uncurry distanceToIntersection (head $ nodesSortedByDistance nodeSet) /= uncurry distanceToIntersection (head $ tail $ nodesSortedByDistance nodeSet)
+          | otherwise                                    = length (intersectingNodePairsOf nodeSet) > 0
 
-        ---------------------------------------------------------------
-        -- Functions used when we have 3 line segments to reason about.
-        ---------------------------------------------------------------
-        hasShortestPair :: Bool
-        hasShortestPair = and $ mapWithFollower intersectsInPoint nodes
-        averageOfShortestPair = uncurry averageNodes shortestPair
-        shortestPair :: (Node, Node)
-        (shortestPair, remainingNode)
-          | distanceToIntersection (head nodes) (head $ tail nodes) <
-            distanceToIntersection (head $ tail nodes) (head $ tail $ tail nodes) = ((head nodes, head $ tail nodes), head (tail $ tail nodes))
-          | distanceToIntersection (head nodes) (head $ tail nodes) >
-            distanceToIntersection (head $ tail nodes) (head $ tail $ tail nodes) = ((head $ tail nodes, head $ tail $ tail nodes), head nodes)
-          | otherwise                                                             = error "has no shortest pair."
+        -- | determine the nodes available for calculation during the next recurse.
+        nextGenOf :: [Node] -> [Node]
+        nextGenOf nodeSet = averageOfShortestPair nodeSet : nodesWithoutShortestPair nodeSet
+          where
+            nodesWithoutShortestPair myNodeSet = filter (\a -> a /= (fst $ head $ nodesSortedByDistance myNodeSet) && a /= (snd $ head $ nodesSortedByDistance myNodeSet)) myNodeSet
+
+        -- | assuming there is a shortest pair, this will get the resulting output of it.
+        averageOfShortestPair :: [Node] -> Node
+        averageOfShortestPair nodeSet = uncurry averageNodes $ head $ nodesSortedByDistance nodeSet
+
+        -- find nodes that have collinear pairs.
+        collinearNodePairsOf :: [Node] -> [(Node, Node)]
+        collinearNodePairsOf nodeSet = catMaybes $ (\(node1, node2) -> if areOutSegsCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs nodeSet
+          where
+            getPairs :: [a] -> [(a,a)]
+            getPairs [] = []
+            getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
+            areOutSegsCollinear :: Node -> Node -> Bool
+            areOutSegsCollinear (Node _ (Just pline1)) (Node _ (Just pline2)) = isCollinear pline1 pline2
+            areOutSegsCollinear _ _ = False
+
+        -- find nodes that can intersect.
+        intersectingNodePairsOf :: [Node] -> [(Node, Node)]
+        intersectingNodePairsOf nodeSet = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getPairs nodeSet
+          where
+            getPairs :: [a] -> [(a,a)]
+            getPairs [] = []
+            getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
+
+        -- | for two given nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
         distanceToIntersection :: Node -> Node -> ℝ
         distanceToIntersection node1@(Node _ (Just pline1)) node2@(Node _ (Just pline2)) = min (distanceBetweenPPoints (pPointOf node1) (intersectionOf pline1 pline2)) (distanceBetweenPPoints (pPointOf node2) (intersectionOf pline1 pline2))
           where
@@ -472,13 +489,10 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstNodes inSegs loop)
             pPointOf a                                   = error $ "tried to find projective point of a node with less than two PLines: " <> show a <> "\n"
         distanceToIntersection node1 node2 = error $ "cannot find distance between nodes with no exit:\n" <> show node1 <> "\n" <> show node2 <> "\n" 
 
-        nextGen :: [Node]
-        nextGen = [averageOfShortestPair, remainingNode]
-    skeletonOfNodes [node1,node2]
-      --   Handle the the case of two nodes.
-      | intersectsInPoint node1 node2 = Right [[averageNodes node1 node2]]
-      | otherwise = Left $ PartialNodes [[node1, node2]] "NOMATCH"
-    skeletonOfNodes nodes = Left $ PartialNodes [nodes] "NOMATCH"
+        -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
+        nodesSortedByDistance :: [Node] -> [(Node, Node)]
+        nodesSortedByDistance myNodeSet = sortBy (\(p1n1, p1n2) (p2n1, p2n2) -> distanceToIntersection p1n1 p1n2 `compare` distanceToIntersection p2n1 p2n2) $ intersectingNodePairsOf myNodeSet
+
 
 linesOfContour :: Contour -> [LineSeg]
 linesOfContour (PointSequence contourPoints) = makeLineSegsLooped contourPoints
