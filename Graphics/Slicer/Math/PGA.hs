@@ -20,9 +20,9 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, meet2PLine2, forcePLine2Basis) where
 
-import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), sqrt, head, null, negate, (/), (<>), show, (||))
+import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), sqrt, head, null, negate, (/), (<>), show, (||), (<))
 
 import GHC.Generics (Generic)
 
@@ -34,7 +34,7 @@ import Data.List (foldl')
 
 import Data.List.Ordered (sort, foldt)
 
-import Data.Maybe (Maybe(Just, Nothing), fromJust)
+import Data.Maybe (Maybe(Just, Nothing), fromJust, isNothing, isJust)
 
 import Graphics.Slicer.Definitions (ℝ)
 
@@ -62,12 +62,23 @@ data PIntersection =
 plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
 plinesIntersectIn pl1 pl2
   | meet2PLine2 pl1 pl2    == PPoint2 (GVec []) = PCollinear
-  | scalarPart (pr1 ⎣ pr2) ==  1                = PParallel
-  | scalarPart (pr1 ⎣ pr2) == -1                = PAntiParallel
-  | otherwise                                   = IntersectsIn $ intersectionOf pl1 pl2
+  | isNothing fudgeFactor  &&
+    scalarPart (pr1 ⎣ pr2) ==  1                = PParallel
+  | isNothing fudgeFactor  &&
+    scalarPart (pr1 ⎣ pr2) == -1                = PAntiParallel
+  | isJust   fudgeFactor   &&
+    scalarPart (pr1 ⎣ pr2) <   1+(fromJust fudgeFactor) &&
+    scalarPart (pr1 ⎣ pr2) >   1-(fromJust fudgeFactor)    = PParallel
+  | isJust   fudgeFactor   &&
+    scalarPart (pr1 ⎣ pr2) >  -1-(fromJust fudgeFactor) &&
+    scalarPart (pr1 ⎣ pr2) <  -1+(fromJust fudgeFactor)    = PAntiParallel
+  | otherwise                                              = IntersectsIn $ intersectionOf pl1 pl2
   where
     (PLine2 pr1) = forcePLine2Basis pl1
     (PLine2 pr2) = forcePLine2Basis pl2
+    -- Note: fudgefactor is to make up for Double being Double, and math not necessarilly being perfect.
+    fudgeFactor :: Maybe ℝ
+    fudgeFactor = Just 0.000000000000002
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: PLine2 -> PLine2 -> Maybe Bool

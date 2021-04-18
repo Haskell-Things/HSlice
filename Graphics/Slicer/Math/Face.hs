@@ -30,7 +30,7 @@
  -}
 module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegsToFace, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton, averageNodes, getFirstArc) where
 
-import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, and, String, maybe, uncurry, elem, compare)
+import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, and, String, maybe, uncurry, elem, compare, notElem)
 
 import Data.List (elemIndex, sortOn, dropWhile, takeWhile, nub, sortBy)
 
@@ -286,18 +286,16 @@ makeFirstNodes :: [LineSeg] -> [Node]
 makeFirstNodes segs
   | null segs = error "got empty list at makeFirstNodes.\n"
   | otherwise = init $ mapWithFollower makeFirstNode segs
-  where
-    makeFirstNode :: LineSeg -> LineSeg -> Node
-    makeFirstNode seg1 seg2 = Node (Left (seg1,seg2)) $ Just $ getFirstArc seg1 seg2
 
 -- | Make a first generation set of nodes, AKA, a set of motorcycles that come from the points where line segments meet, toward the inside of the contour.
 makeFirstNodesLooped :: [LineSeg] -> [Node]
 makeFirstNodesLooped segs
   | null segs = error "got empty list at makeFirstNodes.\n"
   | otherwise = mapWithFollower makeFirstNode segs
-  where
-    makeFirstNode :: LineSeg -> LineSeg -> Node
-    makeFirstNode seg1 seg2 = Node (Left (seg1,seg2)) $ Just $ getFirstArc seg1 seg2
+
+-- | Make a first generation node.
+makeFirstNode :: LineSeg -> LineSeg -> Node
+makeFirstNode seg1 seg2 = Node (Left (seg1,seg2)) $ Just $ getFirstArc seg1 seg2
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the two given line segments.
 --   Note that we normalize the output of eToPLine2, because by default, it does not output normalized lines.
@@ -330,6 +328,7 @@ getOutsideArc point1 pline1 point2 pline2
       l1TowardPoint = towardIntersection point1 pline1 (intersectionOf pline1 pline2)
       l2TowardPoint = towardIntersection point2 pline2 (intersectionOf pline1 pline2)
 
+-- Determine if the line segment formed by the two given points starts with the first point, or the second.
 -- Note: PLine must be normalized.
 towardIntersection :: Point2 -> PLine2 -> PPoint2 -> Bool
 towardIntersection p1 pl1 in1
@@ -359,11 +358,17 @@ noIntersection pline1 pline2 = not $ pLinesIntersectInPoint pline1 pline2
 isCollinear :: PLine2 -> PLine2 -> Bool
 isCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PCollinear
 
+-- | check if two lines are parallel.
+isParallel :: PLine2 -> PLine2 -> Bool
+isParallel pline1 pline2 =    plinesIntersectIn pline1 pline2 == PParallel
+                           || plinesIntersectIn pline1 pline2 == PAntiParallel
+
 -- | For a given pair of nodes, construct a new node, where it's parents are the two given nodes, and the line leaving it is along the the obtuse bisector.
 --   Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
 averageNodes :: Node -> Node -> Node
 averageNodes n1@(Node _ (Just pline1)) n2@(Node _ (Just pline2))
-  | isCollinear pline1 pline2 = error "Cannot yet handle two input plines that are collinear."
+  | isCollinear pline1 pline2 = error "Cannot handle two input plines that are collinear."
+  | isParallel pline1 pline2  = error $ "input makes no sense: " <> show pline1 <> "\n" <> show pline2 <> "\n"
   | otherwise                 = Node (Right [pline1,pline2]) $ Just $ getOutsideArc (pointOf n1) pline1 (pointOf n2) pline2
 averageNodes n1 n2 = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
 
@@ -373,20 +378,12 @@ pointOf (Node (Left (_,LineSeg point _)) _) = point
 pointOf (Node (Right (pline1:pline2:_)) _)  = pToEPoint2 $ intersectionOf pline1 pline2
 pointOf node = error $ "cannot find a point intersection for this node: " <> show node <> "\n"
 
--- | Check if the intersection of two nodes results in a point or not.
-intersectsInPoint :: Node -> Node -> Bool
-intersectsInPoint (Node _ (Just pline1)) (Node _ (Just pline2)) = isPoint $ plinesIntersectIn pline1 pline2
-  where
-    isPoint (IntersectsIn _) = True
-    isPoint _                = False
-intersectsInPoint node1 node2 = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\n"
-
 -- error type.
 data PartialNodes = PartialNodes [[Node]] String
   deriving (Show, Eq)
 
 -- | Recurse on a set of nodes until we have a complete NodeTree.
---   Only works on a sequnce of concave line segments, when there are no holes.
+--   Only works on a sequnce of concave line segments, when there are no holes in the effected area.
 skeletonOfConcaveRegion :: [LineSeg] -> Bool -> NodeTree
 skeletonOfConcaveRegion inSegs loop = getNodeTree (firstNodes inSegs loop)
   where
@@ -419,13 +416,16 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstNodes inSegs loop)
       | null nodes = Left $ PartialNodes [] "NOMATCH"
       | length nodes == 1 = Left $ PartialNodes [nodes] "NOMATCH"
       --   Handle the the case of two nodes.
+      | length nodes == 2 && isCollinear (outOf $ head nodes) (outOf $ head $ tail nodes) = Right $ if loop
+                                                                                                    then [[Node (Right [outOf $ head nodes, outOf $ head $ tail nodes]) Nothing]]
+                                                                                                    else []
       | length nodes == 2 && intersectsInPoint (head nodes) (head $ tail nodes) = Right [[averageNodes (head nodes) (head $ tail nodes)]]
       | length nodes == 2 = Left $ PartialNodes [nodes] "NOMATCH"
       --   Handle the the case of 3 or more nodes.
       | endsAtSamePoint nodes     = Right $ if loop
                                             then [[Node (Right $ outOf <$> nodes) Nothing]]
                                             else []
-      | hasShortestPair nodes     = Right $ [averageOfShortestPair nodes] : errorIfLeft (skeletonOfNodes (nextGenOf nodes))
+      | hasShortestPair nodes     = Right $ [averageOfShortestPairs nodes] ++ errorIfLeft (skeletonOfNodes (nextGenOf nodes))
       | otherwise = Left $ PartialNodes [] "NOMATCH"
       where
         -- | When a set of nodes end in the same point, we may need to create a Node with all of the nodes as input. This checks for that case.
@@ -446,19 +446,33 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstNodes inSegs loop)
         -- | Determine if there is a pair of node outputs, such that the longest distance between the root of each node
         --   and the intersection point of the outputs is shorter than the similar distance for every other possible node intersection.
         hasShortestPair :: [Node] -> Bool
-        hasShortestPair nodeSet
-          | length (intersectingNodePairsOf nodeSet) > 1 = uncurry distanceToIntersection (head $ nodesSortedByDistance nodeSet) /= uncurry distanceToIntersection (head $ tail $ nodesSortedByDistance nodeSet)
-          | otherwise                                    = length (intersectingNodePairsOf nodeSet) > 0
+        hasShortestPair nodeSet = not $ null $ intersectingNodePairsOf nodeSet
 
         -- | determine the nodes available for calculation during the next recurse.
         nextGenOf :: [Node] -> [Node]
-        nextGenOf nodeSet = averageOfShortestPair nodeSet : nodesWithoutShortestPair nodeSet
+        nextGenOf nodeSet = averageOfShortestPairs nodeSet ++ nodesWithoutShortestPairs nodeSet
           where
-            nodesWithoutShortestPair myNodeSet = filter (\a -> a /= (fst $ head $ nodesSortedByDistance myNodeSet) && a /= (snd $ head $ nodesSortedByDistance myNodeSet)) myNodeSet
+            nodesWithoutShortestPairs myNodeSet = filter (\a -> a `notElem` (fst <$> shortestPairs myNodeSet) ++ (snd <$> shortestPairs myNodeSet)) myNodeSet
 
-        -- | assuming there is a shortest pair, this will get the resulting output of it.
-        averageOfShortestPair :: [Node] -> Node
-        averageOfShortestPair nodeSet = uncurry averageNodes $ head $ nodesSortedByDistance nodeSet
+        -- | convert the pairs from shortestPairs into a set of result nodes.
+        averageOfShortestPairs :: [Node] -> [Node]
+        averageOfShortestPairs nodeSet = uncurry averageNodes <$> shortestPairs nodeSet
+
+        -- | get the pairs of intersecting nodes we're putting into this generation.
+        shortestPairs :: [Node] -> [(Node, Node)]
+        shortestPairs nodeSet = takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection (head $ nodePairsSortedByDistance nodeSet)) (nodePairsSortedByDistance nodeSet)
+          where
+            -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
+            nodePairsSortedByDistance :: [Node] -> [(Node, Node)]
+            nodePairsSortedByDistance myNodeSet = sortBy (\(p1n1, p1n2) (p2n1, p2n2) -> distanceToIntersection p1n1 p1n2 `compare` distanceToIntersection p2n1 p2n2) $ intersectingNodePairsOf myNodeSet
+
+        -- find nodes that can intersect.
+        intersectingNodePairsOf :: [Node] -> [(Node, Node)]
+        intersectingNodePairsOf nodeSet = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getPairs nodeSet
+          where
+            getPairs :: [a] -> [(a,a)]
+            getPairs [] = []
+            getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
 
         -- find nodes that have collinear pairs.
         collinearNodePairsOf :: [Node] -> [(Node, Node)]
@@ -471,17 +485,11 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstNodes inSegs loop)
             areOutSegsCollinear (Node _ (Just pline1)) (Node _ (Just pline2)) = isCollinear pline1 pline2
             areOutSegsCollinear _ _ = False
 
-        -- find nodes that can intersect.
-        intersectingNodePairsOf :: [Node] -> [(Node, Node)]
-        intersectingNodePairsOf nodeSet = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getPairs nodeSet
-          where
-            getPairs :: [a] -> [(a,a)]
-            getPairs [] = []
-            getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
-
-        -- | for two given nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
-        distanceToIntersection :: Node -> Node -> ℝ
-        distanceToIntersection node1@(Node _ (Just pline1)) node2@(Node _ (Just pline2)) = min (distanceBetweenPPoints (pPointOf node1) (intersectionOf pline1 pline2)) (distanceBetweenPPoints (pPointOf node2) (intersectionOf pline1 pline2))
+        -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
+        distanceToIntersection :: Node -> Node -> Maybe ℝ
+        distanceToIntersection node1@(Node _ (Just pline1)) node2@(Node _ (Just pline2))
+          | intersectsInPoint node1 node2 = Just $ min (distanceBetweenPPoints (pPointOf node1) (intersectionOf pline1 pline2)) (distanceBetweenPPoints (pPointOf node2) (intersectionOf pline1 pline2))
+          | otherwise                     = Nothing
           where
             -- Find the projective point that is at the intersection of the lines of a node.
             pPointOf (Node (Left (_,LineSeg point _)) _) = eToPPoint2 point
@@ -489,10 +497,13 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstNodes inSegs loop)
             pPointOf a                                   = error $ "tried to find projective point of a node with less than two PLines: " <> show a <> "\n"
         distanceToIntersection node1 node2 = error $ "cannot find distance between nodes with no exit:\n" <> show node1 <> "\n" <> show node2 <> "\n" 
 
-        -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
-        nodesSortedByDistance :: [Node] -> [(Node, Node)]
-        nodesSortedByDistance myNodeSet = sortBy (\(p1n1, p1n2) (p2n1, p2n2) -> distanceToIntersection p1n1 p1n2 `compare` distanceToIntersection p2n1 p2n2) $ intersectingNodePairsOf myNodeSet
-
+        -- | Check if the intersection of two nodes results in a point or not.
+        intersectsInPoint :: Node -> Node -> Bool
+        intersectsInPoint (Node _ (Just pline1)) (Node _ (Just pline2)) = isPoint $ plinesIntersectIn pline1 pline2
+          where
+            isPoint (IntersectsIn _) = True
+            isPoint _                = False
+        intersectsInPoint node1 node2 = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show nodes <> "\n"
 
 linesOfContour :: Contour -> [LineSeg]
 linesOfContour (PointSequence contourPoints) = makeLineSegsLooped contourPoints
