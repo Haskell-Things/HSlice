@@ -494,10 +494,7 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstNodes inSegs loop)
 
         -- | Check if the intersection of two nodes results in a point or not.
         intersectsInPoint :: Node -> Node -> Bool
-        intersectsInPoint (Node _ (Just pline1)) (Node _ (Just pline2)) = isPoint $ plinesIntersectIn pline1 pline2
-          where
-            isPoint (IntersectsIn _) = True
-            isPoint _                = False
+        intersectsInPoint (Node _ (Just pline1)) (Node _ (Just pline2)) = not $ noIntersection pline1 pline2
         intersectsInPoint node1 node2 = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show nodes <> "\n"
 
 linesOfContour :: Contour -> [LineSeg]
