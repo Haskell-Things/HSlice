@@ -345,14 +345,7 @@ towardIntersection p1 pl1 in1
 
 -- | check if two lines cannot intersect.
 noIntersection :: PLine2 -> PLine2 -> Bool
-noIntersection pline1 pline2 = not $ pLinesIntersectInPoint pline1 pline2
-  where
-  -- | check if two lines intersect.
-  pLinesIntersectInPoint :: PLine2 -> PLine2 -> Bool
-  pLinesIntersectInPoint pl1 pl2 = isPoint $ plinesIntersectIn pl1 pl2
-    where
-      isPoint (IntersectsIn _) = True
-      isPoint _ = False
+noIntersection pline1 pline2 = isCollinear pline1 pline2 || isParallel pline1 pline2
 
 -- | check if two lines are really the same line.
 isCollinear :: PLine2 -> PLine2 -> Bool
@@ -363,8 +356,9 @@ isParallel :: PLine2 -> PLine2 -> Bool
 isParallel pline1 pline2 =    plinesIntersectIn pline1 pline2 == PParallel
                            || plinesIntersectIn pline1 pline2 == PAntiParallel
 
--- | For a given pair of nodes, construct a new node, where it's parents are the two given nodes, and the line leaving it is along the the obtuse bisector.
+-- | For a given set of nodes, construct a new node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
 --   Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
+--   FIXME: does not handle three point intersections of arcs.
 averageNodes :: Node -> Node -> Node
 averageNodes n1@(Node _ (Just pline1)) n2@(Node _ (Just pline2))
   | isCollinear pline1 pline2 = error "Cannot handle two input plines that are collinear."
@@ -384,6 +378,7 @@ data PartialNodes = PartialNodes [[Node]] String
 
 -- | Recurse on a set of nodes until we have a complete NodeTree.
 --   Only works on a sequnce of concave line segments, when there are no holes in the effected area.
+--   FIXME: does not handle three point intersections of arcs.
 skeletonOfConcaveRegion :: [LineSeg] -> Bool -> NodeTree
 skeletonOfConcaveRegion inSegs loop = getNodeTree (firstNodes inSegs loop)
   where
