@@ -30,7 +30,7 @@
  -}
 module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegsToFace, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton, averageNodes, getFirstArc) where
 
-import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, and, String, maybe, uncurry, elem, compare, notElem)
+import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, max, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, and, String, maybe, uncurry, elem, compare, notElem)
 
 import Data.List (elemIndex, sortOn, dropWhile, takeWhile, nub, sortBy)
 
@@ -401,21 +401,24 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstNodes inSegs loop)
 
     -- | Handle the recursive resolver failing.
     errorIfLeft :: Either PartialNodes [[Node]] -> [[Node]]
-    errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure <> "\n"
+    errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure <> "\ninSegs: " <> show inSegs <> "\nloop:" <> show loop <> "\n"
     errorIfLeft (Right val)    = val
 
     -- | Apply a recursive algorithm to solve the node set.
     skeletonOfNodes :: [Node] -> Either PartialNodes [[Node]]
     skeletonOfNodes nodes
-      --   Handle zero or one node.
+      --  zero nodes == something has gone wrong.
       | null nodes = Left $ PartialNodes [] "NOMATCH"
-      | length nodes == 1 = Left $ PartialNodes [nodes] "NOMATCH"
+      --  A one node loop makes no sense, reject.
+      | length nodes == 1 && loop = Left $ PartialNodes [nodes] "NOMATCH - Length 1?"
+      --  FIXME: this is right, i think?
+      | length nodes == 1 = Right [nodes]
       --   Handle the the case of two nodes.
       | length nodes == 2 && isCollinear (outOf $ head nodes) (outOf $ head $ tail nodes) = Right $ if loop
                                                                                                     then [[Node (Right [outOf $ head nodes, outOf $ head $ tail nodes]) Nothing]]
                                                                                                     else []
-      | length nodes == 2 && intersectsInPoint (head nodes) (head $ tail nodes) = Right [[averageNodes (head nodes) (head $ tail nodes)]]
-      | length nodes == 2 = Left $ PartialNodes [nodes] "NOMATCH"
+      | length nodes == 2 && intersectsInPoint (head nodes) (head $ tail nodes) && not loop = Right [[averageNodes (head nodes) (head $ tail nodes)]]
+      | length nodes == 2 = Left $ PartialNodes [nodes] "NOMATCH - length 2?"
       --   Handle the the case of 3 or more nodes.
       | endsAtSamePoint nodes     = Right $ if loop
                                             then [[Node (Right $ outOf <$> nodes) Nothing]]
@@ -438,8 +441,7 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstNodes inSegs loop)
         outOf (Node _ (Just p)) = p
         outOf (Node _ Nothing) = error "skeleton of a side ended in a node with no endpoint?"
 
-        -- | Determine if there is a pair of node outputs, such that the longest distance between the root of each node
-        --   and the intersection point of the outputs is shorter than the similar distance for every other possible node intersection.
+        -- | make sure we have a potential intersection between two nodes to work with.
         hasShortestPair :: [Node] -> Bool
         hasShortestPair nodeSet = not $ null $ intersectingNodePairsOf nodeSet
 
@@ -461,7 +463,7 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstNodes inSegs loop)
             nodePairsSortedByDistance :: [Node] -> [(Node, Node)]
             nodePairsSortedByDistance myNodeSet = sortBy (\(p1n1, p1n2) (p2n1, p2n2) -> distanceToIntersection p1n1 p1n2 `compare` distanceToIntersection p2n1 p2n2) $ intersectingNodePairsOf myNodeSet
 
-        -- find nodes that can intersect.
+        -- | find nodes that can intersect.
         intersectingNodePairsOf :: [Node] -> [(Node, Node)]
         intersectingNodePairsOf nodeSet = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getPairs nodeSet
           where
@@ -469,21 +471,21 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstNodes inSegs loop)
             getPairs [] = []
             getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
 
-        -- find nodes that have collinear pairs.
+        -- | find nodes that have output segments that are collinear with one another.
         collinearNodePairsOf :: [Node] -> [(Node, Node)]
-        collinearNodePairsOf nodeSet = catMaybes $ (\(node1, node2) -> if areOutSegsCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs nodeSet
+        collinearNodePairsOf nodeSet = catMaybes $ (\(node1, node2) -> if outSegsCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs nodeSet
           where
             getPairs :: [a] -> [(a,a)]
             getPairs [] = []
             getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
-            areOutSegsCollinear :: Node -> Node -> Bool
-            areOutSegsCollinear (Node _ (Just pline1)) (Node _ (Just pline2)) = isCollinear pline1 pline2
-            areOutSegsCollinear _ _ = False
+            outSegsCollinear :: Node -> Node -> Bool
+            outSegsCollinear (Node _ (Just pline1)) (Node _ (Just pline2)) = isCollinear pline1 pline2
+            outSegsCollinear _ _ = False
 
         -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
         distanceToIntersection :: Node -> Node -> Maybe ℝ
         distanceToIntersection node1@(Node _ (Just pline1)) node2@(Node _ (Just pline2))
-          | intersectsInPoint node1 node2 = Just $ min (distanceBetweenPPoints (pPointOf node1) (intersectionOf pline1 pline2)) (distanceBetweenPPoints (pPointOf node2) (intersectionOf pline1 pline2))
+          | intersectsInPoint node1 node2 = Just $ max (distanceBetweenPPoints (pPointOf node1) (intersectionOf pline1 pline2)) (distanceBetweenPPoints (pPointOf node2) (intersectionOf pline1 pline2))
           | otherwise                     = Nothing
           where
             -- Find the projective point that is at the intersection of the lines of a node.
@@ -583,6 +585,7 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
         findFacesRecurse [tree1,tree2]    = facesOfNodeTree tree2 ++ (intraNodeFace tree1 tree2 : facesOfNodeTree tree1)
         findFacesRecurse (tree1:tree2:xs) = findFacesRecurse (tree2:xs) ++ (intraNodeFace tree1 tree2 : facesOfNodeTree tree1)
         -- Create a single face for the space between two nodetrees.
+        -- FIXME: merge this with areaBetween.
         intraNodeFace :: NodeTree -> NodeTree -> Face
         intraNodeFace nodeTree1 nodeTree2
           | nodeTree1 == nodeTree2          = error $ "two identical nodes given.\n" <> show nodeTree1 <> "\n"
@@ -631,25 +634,65 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
             outOf :: Node -> PLine2
             outOf (Node _ (Just a)) = a
             outOf a@(Node _ _) = error $ "could not find outOf of a node: " <> show a <> "\n"
+
     -- | Create a set of faces from a nodetree.
     -- FIXME: doesn't handle more than one generation deep, yet.
     facesOfNodeTree :: NodeTree -> [Face]
     facesOfNodeTree (NodeTree allNodeSets)
-      | length allNodeSets > 1 = areaBeneath (init allNodeSets) (head $ last allNodeSets)
-      | otherwise = []
+      | null allNodeSets = []
+      | length allNodeSets == 1 = []
+      | otherwise = areaBeneath (init allNodeSets) (head $ last allNodeSets)
       where
+        -- cover the space occupied by all of the ancestors of this node with a series of faces.
         areaBeneath :: [[Node]] -> Node -> [Face]
-        areaBeneath nodeSets (Node (Right inArcs) outArc)
+        areaBeneath nodeSets target@(Node (Right inArcs) outArc)
           | length nodeSets == 1 && isJust outArc    = init $ mapWithFollower makeTriangleFace $ findNodeByOutput (head nodeSets) <$> inArcs
           | length nodeSets == 1 && isNothing outArc =        mapWithFollower makeTriangleFace $ findNodeByOutput (head nodeSets) <$> inArcs
-        areaBeneath _ target@(Node (Left _) _) = error $ "cannot find the area beneath an initial node: " <> show target <> "\n"
-        -- | make a triangle shaped face from two nodes. the nodes must be composed of line segments on one side, and follow each other.
+          | length nodeSets == 2 && isNothing outArc = concat $ mapWithFollower (\a b -> areaBeneath (init nodeSets) a ++ [areaBetween (init nodeSets) target a b]) (head $ tail nodeSets)
+          | otherwise                                = error $ "areabeneath: " <> show nodeSets <> "\n" <> show target <> "\n" <> show (length nodeSets) <> "\n"
+        areaBeneath nodeSets target@(Node (Left _) _) = error $ "cannot find the area beneath an initial node: " <> show target <> "\n" <> show allNodeSets <> "\n"
+
+        -- cover the space between the last path of the first node and the first path of the second node with a single Face. It is assumed that both nodes have the same parent.
+        areaBetween :: [[Node]] -> Node -> Node -> Node -> Face
+        areaBetween nodeSets initialNode node1 node2
+          | length nodeSets == 1 &&
+            (lastDescendent (head nodeSets) node1) /= (last $ head nodeSets) = makeFace (lastDescendent (head nodeSets) node1) [lastPLineOf initialNode] (findMatchingDescendent (head nodeSets) node2 $ lastDescendent (head nodeSets) node1)
+          | length nodeSets == 1                                             = makeFace (firstDescendent (head nodeSets) node1) [firstPLineOf initialNode] (findMatchingDescendent (head nodeSets) node2 $ firstDescendent (head nodeSets) node1)
+          | otherwise = error $ show node1 <> "\n" <> show node2 <> "\n" <> show (findNodeByOutput (head nodeSets) (firstPLineOf node1)) <> "\n" <> show (findNodeByOutput (head nodeSets) (lastPLineOf node1)) <> "\n"
+                        <> show (findNodeByOutput (head nodeSets) (firstPLineOf node2)) <> "\n" <> show (findNodeByOutput (head nodeSets) (lastPLineOf node2)) <> "\n"
+          where
+            firstDescendent :: [Node] -> Node -> Node
+            firstDescendent nodeSet parent = findNodeByOutput nodeSet $ firstPLineOf parent
+            lastDescendent :: [Node] -> Node -> Node
+            lastDescendent nodeSet parent = findNodeByOutput nodeSet $ lastPLineOf parent
+            -- | using the set of all first generation nodes, a second generation node, and a first generation node, find out which one of the first generation children of the given second generation node shares a side with the first generation node.
+            findMatchingDescendent :: [Node] -> Node -> Node -> Node
+            findMatchingDescendent nodeSet parent target@(Node (Left(seg1,seg2)) _)
+              | length res1 == 1 = head res1
+              | length res2 == 1 = head res2
+              | otherwise = error $ show nodeSet <> "\n" <> show parent <> "\n" <> show target <> "\n" <> show (firstDescendent nodeSet parent) <> "\n" <> show (lastDescendent nodeSet parent) <> "\n" <> show res1 <> "\n" <> show res2 <> "\n"
+              where
+                -- the first case.
+                res1 = filter (\(Node (Left(sseg1, sseg2)) _) -> sseg2 == seg1) [firstDescendent nodeSet parent, lastDescendent nodeSet parent]
+                res2 = filter (\(Node (Left(sseg1, sseg2)) _) -> sseg1 == seg2) [firstDescendent nodeSet parent, lastDescendent nodeSet parent]
+
+            firstPLineOf :: Node -> PLine2
+            firstPLineOf (Node (Right (a:_)) _) = a
+            lastPLineOf :: Node -> PLine2
+            lastPLineOf (Node (Right plines) _) = last plines
+
+        -- | make a face from two nodes. the nodes must be composed of line segments on one side, and follow each other.
         makeTriangleFace :: Node -> Node -> Face
-        makeTriangleFace (Node (Left (seg1,seg2)) (Just pline1)) (Node (Left (seg3,seg4)) (Just pline2))
-          | seg2 == seg3 = Face seg2 pline2 [] pline1
-          | seg1 == seg4 = Face seg1 pline1 [] pline2
-          | otherwise = error "cannot make a triangular face from nodes that are not neighbors."
-        makeTriangleFace _ _ = error "cannot make a triangular face from nodes that are not first generation."
+        makeTriangleFace node1 node2 = makeFace node1 [] node2
+
+        -- | make a face from two nodes, and a set of arcs. the nodes must be composed of line segments on one side, and follow each other.
+        makeFace :: Node -> [PLine2] -> Node -> Face
+        makeFace node1@(Node (Left (seg1,seg2)) (Just pline1)) arcs node2@(Node (Left (seg3,seg4)) (Just pline2))
+          | seg2 == seg3 = Face seg2 pline2 arcs pline1
+          | seg1 == seg4 = Face seg1 pline1 arcs pline2
+          | otherwise = error $ "cannot make a triangular face from nodes that are not neighbors: \n" <> show node1 <> "\n" <> show node2 <> "\n"
+        makeFace _ _ _ = error "cannot make a triangular face from nodes that are not first generation."
+
     findNodeByOutput :: [Node] -> PLine2 -> Node
     findNodeByOutput nodes plineOut = head $ filter (\(Node _ a) -> a == Just plineOut) nodes
 
