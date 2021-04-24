@@ -587,53 +587,34 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
         -- Create a single face for the space between two nodetrees.
         -- FIXME: merge this with areaBetween.
         intraNodeFace :: NodeTree -> NodeTree -> Face
-        intraNodeFace nodeTree1 nodeTree2
+        intraNodeFace nodeTree1@(NodeTree nodeSets1) nodeTree2@(NodeTree nodeSets2)
           | nodeTree1 == nodeTree2          = error $ "two identical nodes given.\n" <> show nodeTree1 <> "\n"
-          | nodeTree1 `isRightOf` nodeTree2 = if last (leftPLinesOf nodeTree2) == last (rightPLinesOf nodeTree1)
-                                              then Face (rightSegOf nodeTree1) (outOf $ leftNodeOf nodeTree2) (init (leftPLinesOf nodeTree2) ++ tail (reverse $ init $ rightPLinesOf nodeTree1)) (outOf $ rightNodeOf nodeTree1)
-                                              else Face (rightSegOf nodeTree1) (outOf $ leftNodeOf nodeTree2) (init (leftPLinesOf nodeTree2) ++       reverse  (init $ rightPLinesOf nodeTree1)) (outOf $ rightNodeOf nodeTree1)
-          | nodeTree1 `isLeftOf` nodeTree2  = if last (rightPLinesOf nodeTree1) == last (leftPLinesOf nodeTree2)
-                                              then Face (rightSegOf nodeTree2) (outOf $ leftNodeOf nodeTree1) (init (rightPLinesOf nodeTree1) ++ tail (reverse $ init $ leftPLinesOf nodeTree2)) (outOf $ rightNodeOf nodeTree2)
-                                              else Face (rightSegOf nodeTree2) (outOf $ leftNodeOf nodeTree1) (init (rightPLinesOf nodeTree1) ++       reverse  (init $ leftPLinesOf nodeTree2)) (outOf $ rightNodeOf nodeTree2)
+          | nodeTree1 `isRightOf` nodeTree2 = if last (firstPLinesOf nodeSets2) == last (lastPLinesOf nodeSets1)
+                                              then makeFace (lastNodeOf nodeSets2) (init (firstPLinesOf nodeSets2) ++ tail (reverse $ init $ lastPLinesOf nodeSets1)) (firstNodeOf nodeSets1)
+                                              else makeFace (lastNodeOf nodeSets2) (init (firstPLinesOf nodeSets2) ++       reverse  (init $ lastPLinesOf nodeSets1)) (firstNodeOf nodeSets1)
+          | nodeTree1 `isLeftOf` nodeTree2  = if last (lastPLinesOf nodeSets1) == last (firstPLinesOf nodeSets2)
+                                              then makeFace (firstNodeOf nodeSets1) (init (lastPLinesOf nodeSets1) ++ tail (reverse $ init $ firstPLinesOf nodeSets2)) (lastNodeOf nodeSets2)
+                                              else makeFace (firstNodeOf nodeSets1) (init (lastPLinesOf nodeSets1) ++       reverse  (init $ firstPLinesOf nodeSets2)) (lastNodeOf nodeSets2)
           | otherwise = error $ "merp.\n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n" 
           where
             isLeftOf :: NodeTree -> NodeTree -> Bool
-            isLeftOf nt1 nt2 = leftSegOf nt1 == rightSegOf nt2
+            isLeftOf nt1 nt2 = firstSegOf nt1 == lastSegOf nt2
             isRightOf :: NodeTree -> NodeTree -> Bool
-            isRightOf nt1 nt2 = rightSegOf nt1 == leftSegOf nt2
-            rightSegOf :: NodeTree -> LineSeg
-            rightSegOf nodeTree = (\(Node (Left (_,outSeg)) _) -> outSeg) (rightNodeOf nodeTree)
-            rightNodeOf :: NodeTree -> Node
-            rightNodeOf (NodeTree nodeSets) = snd $ pathRight nodeSets (head $ last nodeSets)
-            rightPLinesOf :: NodeTree -> [PLine2]
-            rightPLinesOf (NodeTree nodeSets) = fst $ pathRight nodeSets (head $ last nodeSets)
-            leftSegOf :: NodeTree -> LineSeg
-            leftSegOf nodeTree = (\(Node (Left (outSeg,_)) _) -> outSeg) (leftNodeOf nodeTree)
-            leftNodeOf :: NodeTree -> Node
-            leftNodeOf (NodeTree nodeSets) = snd $ pathLeft nodeSets (head $ last nodeSets)
-            leftPLinesOf :: NodeTree -> [PLine2]
-            leftPLinesOf (NodeTree nodeSets) = fst $ pathLeft nodeSets (head $ last nodeSets)
-            -- | Find all of the PLines between this node, and the node that is part of the original contour.
-            --   When branching, use the 'left' branch, which should be the first pline in a given node.
-            pathLeft :: [[Node]] -> Node -> ([PLine2], Node)
-            pathLeft nodeSets target@(Node (Left _) (Just plineOut)) = ([plineOut], target)
-            pathLeft nodeSets target@(Node (Right plinesIn) plineOut)
-              | isJust plineOut    = (fromJust plineOut : childPlines, endNode)
-              | isNothing plineOut = (                    childPlines, endNode)
-              where
-                (childPlines, endNode) = pathLeft (tail nodeSets) (findNodeByOutput (head nodeSets) $ head plinesIn)
-            -- | Find all of the PLines between this node, and the node that is part of the original contour.
-            --   When branching, use the 'right' branch, which should be the last pline in a given node.
-            pathRight :: [[Node]] -> Node -> ([PLine2], Node)
-            pathRight nodeSets target@(Node (Left _) (Just plineOut)) = ([plineOut], target)
-            pathRight nodeSets target@(Node (Right plinesIn) plineOut)
-              | isJust plineOut    = (fromJust plineOut : childPlines, endNode)
-              | isNothing plineOut = (                    childPlines, endNode)
-              where
-                (childPlines, endNode) = pathRight (tail nodeSets) (findNodeByOutput (head nodeSets) $ last plinesIn)
-            outOf :: Node -> PLine2
-            outOf (Node _ (Just a)) = a
-            outOf a@(Node _ _) = error $ "could not find outOf of a node: " <> show a <> "\n"
+            isRightOf nt1 nt2 = lastSegOf nt1 == firstSegOf nt2
+            lastSegOf :: NodeTree -> LineSeg
+            lastSegOf (NodeTree nodeSets) = (\(Node (Left (_,outSeg)) _) -> outSeg) (lastNodeOf nodeSets)
+            lastNodeOf :: [[Node]] -> Node
+            lastNodeOf nodeSets = last $ snd $ pathLast nodeSets (latestNodeOf nodeSets)
+            lastPLinesOf :: [[Node]] -> [PLine2]
+            lastPLinesOf nodeSets = fst $ pathLast nodeSets (latestNodeOf nodeSets)
+            firstSegOf :: NodeTree -> LineSeg
+            firstSegOf (NodeTree nodeSets) = (\(Node (Left (outSeg,_)) _) -> outSeg) (firstNodeOf nodeSets)
+            firstNodeOf :: [[Node]] -> Node
+            firstNodeOf nodeSets = last $ snd $ pathFirst nodeSets (latestNodeOf nodeSets)
+            firstPLinesOf :: [[Node]] -> [PLine2]
+            firstPLinesOf nodeSets = fst $ pathFirst nodeSets (latestNodeOf nodeSets)
+            latestNodeOf :: [[Node]] -> Node
+            latestNodeOf nodeSets = head $ last nodeSets
 
     -- | Create a set of faces from a nodetree.
     -- FIXME: doesn't handle more than one generation deep, yet.
@@ -646,35 +627,37 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
         -- cover the space occupied by all of the ancestors of this node with a series of faces.
         areaBeneath :: [[Node]] -> Node -> [Face]
         areaBeneath nodeSets target@(Node (Right inArcs) outArc)
-          | length nodeSets == 1 && isJust outArc    = init $ mapWithFollower makeTriangleFace $ findNodeByOutput (head nodeSets) <$> inArcs
-          | length nodeSets == 1 && isNothing outArc =        mapWithFollower makeTriangleFace $ findNodeByOutput (head nodeSets) <$> inArcs
+          | length nodeSets == 1 && isJust outArc    = init $ mapWithFollower makeTriangleFace $ findNodeByOutput nodeSets <$> inArcs
+          | length nodeSets == 1 && isNothing outArc =        mapWithFollower makeTriangleFace $ findNodeByOutput nodeSets <$> inArcs
           | length nodeSets == 2 && isNothing outArc = concat $ mapWithFollower (\a b -> areaBeneath (init nodeSets) a ++ [areaBetween (init nodeSets) target a b]) (head $ tail nodeSets)
           | otherwise                                = error $ "areabeneath: " <> show nodeSets <> "\n" <> show target <> "\n" <> show (length nodeSets) <> "\n"
-        areaBeneath nodeSets target@(Node (Left _) _) = error $ "cannot find the area beneath an initial node: " <> show target <> "\n" <> show allNodeSets <> "\n"
+        areaBeneath _ target@(Node (Left _) _) = error $ "cannot find the area beneath an initial node: " <> show target <> "\n" <> show allNodeSets <> "\n"
 
         -- cover the space between the last path of the first node and the first path of the second node with a single Face. It is assumed that both nodes have the same parent.
         areaBetween :: [[Node]] -> Node -> Node -> Node -> Face
-        areaBetween nodeSets initialNode node1 node2
-          | length nodeSets == 1 &&
-            (lastDescendent (head nodeSets) node1) /= (last $ head nodeSets) = makeFace (lastDescendent (head nodeSets) node1) [lastPLineOf initialNode] (findMatchingDescendent (head nodeSets) node2 $ lastDescendent (head nodeSets) node1)
-          | length nodeSets == 1                                             = makeFace (firstDescendent (head nodeSets) node1) [firstPLineOf initialNode] (findMatchingDescendent (head nodeSets) node2 $ firstDescendent (head nodeSets) node1)
-          | otherwise = error $ show node1 <> "\n" <> show node2 <> "\n" <> show (findNodeByOutput (head nodeSets) (firstPLineOf node1)) <> "\n" <> show (findNodeByOutput (head nodeSets) (lastPLineOf node1)) <> "\n"
-                        <> show (findNodeByOutput (head nodeSets) (firstPLineOf node2)) <> "\n" <> show (findNodeByOutput (head nodeSets) (lastPLineOf node2)) <> "\n"
+        areaBetween nodeSets parent node1 node2
+          | length nodeSets == 1 = if (lastDescendent nodeSets node1) /= (last $ head nodeSets) -- Handle the case where we are creating a face across the open end of the contour.
+                                   then makeFace (lastDescendent nodeSets node1) [lastPLineOf parent] (findMatchingDescendent (head nodeSets) node2 $ lastDescendent nodeSets node1)
+                                   else makeFace (firstDescendent nodeSets node1) [firstPLineOf parent] (findMatchingDescendent (head nodeSets) node2 $ firstDescendent nodeSets node1)
+          | otherwise = error $
+                           show node1 <> "\n" <> show (findNodeByOutput (init nodeSets) (firstPLineOf node1)) <> "\n" <> show (findNodeByOutput (init nodeSets) (lastPLineOf node1)) <> "\n"
+                        <> show node2 <> "\n" <> show (findNodeByOutput (init nodeSets) (firstPLineOf node2)) <> "\n" <> show (findNodeByOutput (init nodeSets) (lastPLineOf node2)) <> "\n"
           where
-            firstDescendent :: [Node] -> Node -> Node
-            firstDescendent nodeSet parent = findNodeByOutput nodeSet $ firstPLineOf parent
-            lastDescendent :: [Node] -> Node -> Node
-            lastDescendent nodeSet parent = findNodeByOutput nodeSet $ lastPLineOf parent
+            -- find the first immediate child of the given node.
+            firstDescendent :: [[Node]] -> Node -> Node
+            firstDescendent myNodeSets myParent = findNodeByOutput myNodeSets $ firstPLineOf myParent
+
+            -- find the last immediate child of the given node.
+            lastDescendent :: [[Node]] -> Node -> Node
+            lastDescendent myNodeSets myParent = findNodeByOutput myNodeSets $ lastPLineOf myParent
+
             -- | using the set of all first generation nodes, a second generation node, and a first generation node, find out which one of the first generation children of the given second generation node shares a side with the first generation node.
             findMatchingDescendent :: [Node] -> Node -> Node -> Node
             findMatchingDescendent nodeSet parent target@(Node (Left(seg1,seg2)) _)
-              | length res1 == 1 = head res1
-              | length res2 == 1 = head res2
-              | otherwise = error $ show nodeSet <> "\n" <> show parent <> "\n" <> show target <> "\n" <> show (firstDescendent nodeSet parent) <> "\n" <> show (lastDescendent nodeSet parent) <> "\n" <> show res1 <> "\n" <> show res2 <> "\n"
+              | length res == 1 = head res
+              | otherwise = error $ show nodeSet <> "\n" <> show parent <> "\n" <> show target <> "\n" <> show (firstDescendent [nodeSet] parent) <> "\n" <> show (lastDescendent [nodeSet] parent) <> "\n" <> show res <> "\n"
               where
-                -- the first case.
-                res1 = filter (\(Node (Left(sseg1, sseg2)) _) -> sseg2 == seg1) [firstDescendent nodeSet parent, lastDescendent nodeSet parent]
-                res2 = filter (\(Node (Left(sseg1, sseg2)) _) -> sseg1 == seg2) [firstDescendent nodeSet parent, lastDescendent nodeSet parent]
+                res = filter (\(Node (Left(sseg1, sseg2)) _) -> sseg2 == seg1 || sseg1 == seg2) [firstDescendent [nodeSet] parent, lastDescendent [nodeSet] parent]
 
             firstPLineOf :: Node -> PLine2
             firstPLineOf (Node (Right (a:_)) _) = a
@@ -685,17 +668,47 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
         makeTriangleFace :: Node -> Node -> Face
         makeTriangleFace node1 node2 = makeFace node1 [] node2
 
-        -- | make a face from two nodes, and a set of arcs. the nodes must be composed of line segments on one side, and follow each other.
-        makeFace :: Node -> [PLine2] -> Node -> Face
-        makeFace node1@(Node (Left (seg1,seg2)) (Just pline1)) arcs node2@(Node (Left (seg3,seg4)) (Just pline2))
-          | seg2 == seg3 = Face seg2 pline2 arcs pline1
-          | seg1 == seg4 = Face seg1 pline1 arcs pline2
-          | otherwise = error $ "cannot make a triangular face from nodes that are not neighbors: \n" <> show node1 <> "\n" <> show node2 <> "\n"
-        makeFace _ _ _ = error "cannot make a triangular face from nodes that are not first generation."
+    -- | make a face from two nodes, and a set of arcs. the nodes must be composed of line segments on one side, and follow each other.
+    makeFace :: Node -> [PLine2] -> Node -> Face
+    makeFace node1@(Node (Left (seg1,seg2)) (Just pline1)) arcs node2@(Node (Left (seg3,seg4)) (Just pline2))
+      | seg2 == seg3 = Face seg2 pline2 arcs pline1
+      | seg1 == seg4 = Face seg1 pline1 arcs pline2
+      | otherwise = error $ "cannot make a face from nodes that are not neighbors: \n" <> show node1 <> "\n" <> show node2 <> "\n"
+    makeFace _ _ _ = error "cannot make a face from nodes that are not first generation."
 
-    findNodeByOutput :: [Node] -> PLine2 -> Node
-    findNodeByOutput nodes plineOut = head $ filter (\(Node _ a) -> a == Just plineOut) nodes
+    -- | Find all of the Nodes and all of the arcs between the target node and the node that is part of the original contour.
+    --   When branching, follow the first PLine of a given node.
+    pathFirst :: [[Node]] -> Node -> ([PLine2], [Node])
+    pathFirst nodeSets target@(Node (Left _) (Just plineOut)) = ([plineOut], [target])
+    pathFirst nodeSets target@(Node (Right (firstPLine:_)) plineOut)
+      | isJust plineOut    = (fromJust plineOut : childPlines, target: endNodes)
+      | isNothing plineOut = (                    childPlines, target: endNodes)
+      where
+        (childPlines, endNodes)
+          | length nodeSets == 1 = ([],[])
+          | null nodeSets = ([],[]) -- error "empty nodeSets"
+          | otherwise = pathFirst (tail nodeSets) (findNodeByOutput (init nodeSets) firstPLine)
 
+    -- | Find all of the Nodes and all of the arcs between this node, and the node that is part of the original contour.
+    --   When branching, follow the last PLine in a given node.
+    pathLast :: [[Node]] -> Node -> ([PLine2], [Node])
+    pathLast nodeSets target@(Node (Left _) (Just plineOut)) = ([plineOut], [target])
+    pathLast nodeSets target@(Node (Right plinesIn) plineOut)
+      | isJust plineOut    = (fromJust plineOut : childPlines, target: endNodes)
+      | isNothing plineOut = (                    childPlines, target: endNodes)
+      where
+        (childPlines, endNodes) = pathLast (tail nodeSets) (findNodeByOutput (init nodeSets) $ last plinesIn)
+
+    -- | Find a node with an output of the PLine given. start at the most recent generation, and check backwards.
+    findNodeByOutput :: [[Node]] -> PLine2 -> Node
+    findNodeByOutput nodeSets plineOut
+      | length nodesInThisGen == 1 = head nodesInThisGen
+      | null nodesInThisGen &&
+        length nodeSets > 1        = findNodeByOutput (init nodeSets) plineOut
+      | null nodesInThisGen        = error "could not find node."
+      | otherwise                  = error "more than one node in a given generation with the same PLine out!"
+      where
+        nodesInThisGen = filter (\(Node _ a) -> a == Just plineOut) (last nodeSets)
 ------------------------------------------------------------------
 ------------------ Line Segment Placement ------------------------
 ------------------------------------------------------------------
