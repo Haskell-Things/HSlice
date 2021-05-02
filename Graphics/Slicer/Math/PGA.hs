@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, meet2PLine2, forcePLine2Basis) where
 
-import Prelude (Eq, Show, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), sqrt, head, null, negate, (/), (<>), show, (||), (<))
+import Prelude (Eq, Show, Ord, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), sqrt, head, null, negate, (/), (<>), show, (||), (<))
 
 import GHC.Generics (Generic)
 
@@ -109,11 +109,11 @@ dualAngle line1@(PLine2 lvec1) line2@(PLine2 lvec2) = valOf 0 $ getVals [GEZero 
     antiMotor = addVecPair (lvec1•gaI) (GVec [GVal (-1) [G0]])
     gaI = GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]
 
--- | Find out where two lines intersect, returning a projective point. Note that this should only be used when you can guarantee these are not colinear.
+-- | Find out where two lines intersect, returning a projective point. Note that this should only be used when you can guarantee these are not collinear.
 intersectionOf :: PLine2 -> PLine2 -> PPoint2
 intersectionOf pl1 pl2 = canonicalizePPoint2 $ meet2PLine2 pl1 pl2
 
--- | Find the angle of intersection of two PLines.
+-- | Find the sin () of the angle of intersection of two PLines.
 angleBetween :: PLine2 -> PLine2 -> ℝ
 angleBetween pl1 pl2 = scalarPart $ pv1 ⎣ pv2
   where
@@ -287,7 +287,7 @@ pointOnPerp line point d =
 
 -- | A projective point in 2D space.
 newtype PPoint2 = PPoint2 GVec
-  deriving (Eq, Generic, NFData, Show)
+  deriving (Eq, Ord, Generic, NFData, Show)
 
 -- | A projective line in 2D space.
 newtype PLine2 = PLine2 GVec

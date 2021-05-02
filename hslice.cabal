@@ -21,6 +21,8 @@ Common binstuff
                 -optc-O3
                 -- see GHC manual 8.2.1 section 6.5.1.
                 -feager-blackholing
+                -- for weeder
+                -fwrite-ide-info
                 -Wall
                 -Wextra
                 -Wcompat
@@ -41,6 +43,8 @@ Common libstuff
                 -optc-O3
                 -- see GHC manual 8.2.1 section 6.5.1.
                 -feager-blackholing
+                -- for weeder
+                -fwrite-ide-info
                 -Wall
                 -Wextra
                 -Wcompat
@@ -66,6 +70,7 @@ Library
                   , implicit
                   , mtl
                   , parallel
+                  , Unique
                   , utf8-string
     Exposed-Modules:
                     Graphics.Slicer
