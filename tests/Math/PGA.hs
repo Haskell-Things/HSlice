@@ -49,7 +49,11 @@ import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
 import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
 -- Our Facet library.
-import Graphics.Slicer.Math.Face (convexMotorcycles, leftRegion, rightRegion, ENode(ENode), Spine(Spine), Face(Face), makeFirstENodes, Motorcycle(Motorcycle), StraightSkeleton(StraightSkeleton), findStraightSkeleton, facesFromStraightSkeleton, addLineSegsToFace, NodeTree(NodeTree), averageNodes, getFirstArc, INode(INode))
+import Graphics.Slicer.Math.Skeleton.Definitions (convexMotorcycles, ENode(ENode), Motorcycle(Motorcycle), StraightSkeleton(StraightSkeleton),  NodeTree(NodeTree), INode(INode))
+import Graphics.Slicer.Math.Skeleton.Tscherne (leftRegion, rightRegion)
+import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeFirstENodes, averageNodes)
+import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
+import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesFromStraightSkeleton, addLineSegsToFace)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->))
