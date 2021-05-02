@@ -34,6 +34,8 @@ import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>
 
 import Data.List (elemIndex, sortOn, dropWhile, takeWhile, nub, sortBy)
 
+import Data.List.Unique (uniq, count_)
+
 import Data.List.NonEmpty (NonEmpty)
 
 import Data.Maybe( Maybe(Just,Nothing), fromMaybe,  catMaybes, isJust, fromJust, isNothing)
@@ -74,7 +76,7 @@ class Arcable a where
   outOf :: a -> PLine2
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour. 
-data ENode = ENode { _inSegs :: (LineSeg, LineSeg), extOutArc :: PLine2 }
+data ENode = ENode { _inSegs :: (LineSeg, LineSeg), _arcOut :: PLine2 }
   deriving Eq
   deriving stock Show
 
@@ -89,9 +91,13 @@ instance Pointable ENode where
   pPointOf a = eToPPoint2 $ ePointOf a
   ePointOf (ENode (_, LineSeg point _) _) = point
 
+-- | Cut a list into all possible pairs.
+getPairs :: [a] -> [(a,a)]
+getPairs [] = []
+getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
+
 -- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
--- FIXME: inIArcs should be inArcs
-data INode = INode { _inArcs :: [PLine2], _outIArc :: Maybe PLine2 }
+data INode = INode { _inArcs :: [PLine2], _outArc :: Maybe PLine2 }
   deriving Eq
   deriving stock Show
 
@@ -114,8 +120,12 @@ instance Pointable INode where
           saneIntersect (IntersectsIn _) = True
           saneIntersect _                = False
   -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? angle based, etc?
-  pPointOf iNode@(INode plines _) = head $ intersectionsOfPairs
+  pPointOf iNode@(INode plines _)
+    | allPointsSame = head intersectionsOfPairs
+    -- Allow the pebbles to vote.
+    | otherwise = fst $ last $ count_ intersectionsOfPairs
     where
+      allPointsSame = and $ mapWithFollower (==) intersectionsOfPairs
       allPLines = if hasArc iNode
                   then outOf iNode : plines
                   else plines
@@ -124,11 +134,6 @@ instance Pointable INode where
           saneIntersect (IntersectsIn a) = Just a
           saneIntersect _                = Nothing
   ePointOf a = pToEPoint2 $ pPointOf a 
-
--- | Cut a list into all possible pairs.
-getPairs :: [a] -> [(a,a)]
-getPairs [] = []
-getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
 
 -- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior of a contour. Motorcycles are only emitted from reflex vertexes.
 data Motorcycle = Motorcycle { _inCSegs :: (LineSeg, LineSeg), _outPline :: PLine2 }
@@ -175,7 +180,7 @@ findStraightSkeleton contour holes
       | length outsideContourMotorcycles == 1 && length opposingNodes == 1 = Just $ head opposingNodes
       | otherwise                                                          = error "more than one opposing node. impossible situation."
       where
-        opposingNodes = filter (\(ENode _ outArc) -> plinesIntersectIn outArc (pathOf dividingMotorcycle) == PCollinear) $ concaveENodes contour
+        opposingNodes = filter (\eNode -> plinesIntersectIn (outOf eNode) (pathOf dividingMotorcycle) == PCollinear) $ concaveENodes contour
         pathOf (Motorcycle _ path) = path
 
 -- | Apply Christopher Tscherne's algorithm from his master's thesis.
@@ -730,11 +735,11 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
           where
             -- cover the space occupied by all of the ancestors of this node with a series of faces.
             areaBeneath :: [ENode] -> [[INode]] -> INode -> [Face]
-            areaBeneath eNodes iNodeSets target@(INode (inArcs) outArc)
-              | null iNodeSets && isJust outArc           = init $ mapWithFollower makeTriangleFace $ findENodeByOutput eNodes <$> inArcs
-              | null iNodeSets && isNothing outArc        =        mapWithFollower makeTriangleFace $ findENodeByOutput eNodes <$> inArcs
-              | length iNodeSets == 1 && isNothing outArc = concat $ mapWithFollower (\a b -> areaBeneath eNodes (init iNodeSets) a ++ [areaBetween eNodes (init iNodeSets) target a b]) (head iNodeSets)
-              | otherwise                                = error $ "areabeneath: " <> show iNodeSets <> "\n" <> show target <> "\n" <> show (length iNodeSets) <> "\n"
+            areaBeneath eNodes iNodeSets target@(INode (inArcs) _)
+              | null iNodeSets && hasArc target              = init $ mapWithFollower makeTriangleFace $ findENodeByOutput eNodes <$> inArcs
+              | null iNodeSets                               =        mapWithFollower makeTriangleFace $ findENodeByOutput eNodes <$> inArcs
+              | length iNodeSets == 1 && not (hasArc target) = concat $ mapWithFollower (\a b -> areaBeneath eNodes (init iNodeSets) a ++ [areaBetween eNodes (init iNodeSets) target a b]) (head iNodeSets)
+              | otherwise                                    = error $ "areabeneath: " <> show iNodeSets <> "\n" <> show target <> "\n" <> show (length iNodeSets) <> "\n"
               where
                 -- | make a face from two nodes. the nodes must be composed of line segments on one side, and follow each other.
                 makeTriangleFace :: ENode -> ENode -> Face
@@ -779,43 +784,43 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
     latestINodeOf :: NodeTree -> INode
     latestINodeOf (NodeTree _ iNodeSets) = head $ last iNodeSets
 
-    -- | get the last output PLine of a NodeTree, if there is one.
+    -- | get the last output PLine of a NodeTree, if there is one. otherwise, Nothing.
     lastOutOf :: NodeTree -> Maybe PLine2
-    lastOutOf newNodeTree = (\(INode _ a) -> a) $ latestINodeOf newNodeTree
+    lastOutOf newNodeTree = (\(INode _ outArc) -> outArc) $ latestINodeOf newNodeTree
 
     -- FIXME: merge pathFirst and pathLast. they differ by only one line.
     -- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.
     --   When branching, follow the last PLine in a given node.
     pathFirst :: NodeTree -> ([PLine2], [INode], ENode)
     pathFirst newNodeTree@(NodeTree eNodes iNodeSets)
-      | null iNodeSets  = ([extOutArc (last eNodes)], [], last eNodes) 
+      | null iNodeSets  = ([outOf (last eNodes)], [], last eNodes)
       | otherwise = pathFirstInner (init iNodeSets) eNodes (latestINodeOf newNodeTree)
       where
         pathFirstInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
-        pathFirstInner myINodeSets myENodes target@(INode (plinesIn) plineOut)
-          | isJust plineOut    = (fromJust plineOut : childPlines, target: endNodes, finalENode)
-          | otherwise          = (                    childPlines, target: endNodes, finalENode)
+        pathFirstInner myINodeSets myENodes target@(INode (plinesIn) _)
+          | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
+          | otherwise     = (               childPlines, target: endNodes, finalENode)
           where
             pLineToFollow = head plinesIn
             (childPlines, endNodes, finalENode)
-              | length myINodeSets < 2 = ([extOutArc $ findENodeByOutput myENodes pLineToFollow], [], findENodeByOutput myENodes pLineToFollow)
+              | length myINodeSets < 2 = ([outOf $ findENodeByOutput myENodes pLineToFollow], [], findENodeByOutput myENodes pLineToFollow)
               | otherwise              = pathFirstInner (init myINodeSets) myENodes (findINodeByOutput (init myINodeSets) pLineToFollow)
 
     -- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.
     --   When branching, follow the last PLine in a given node.
     pathLast :: NodeTree -> ([PLine2], [INode], ENode)
     pathLast newNodeTree@(NodeTree eNodes iNodeSets)
-      | null iNodeSets  = ([extOutArc (last eNodes)], [], last eNodes) 
+      | null iNodeSets  = ([outOf (last eNodes)], [], last eNodes)
       | otherwise = pathLastInner (init iNodeSets) eNodes (latestINodeOf newNodeTree)
       where
         pathLastInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
-        pathLastInner myINodeSets myENodes target@(INode (plinesIn) plineOut)
-          | isJust plineOut    = (fromJust plineOut : childPlines, target: endNodes, finalENode)
-          | otherwise          = (                    childPlines, target: endNodes, finalENode)
+        pathLastInner myINodeSets myENodes target@(INode (plinesIn) _)
+          | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
+          | otherwise     = (               childPlines, target: endNodes, finalENode)
           where
             pLineToFollow = last plinesIn
             (childPlines, endNodes, finalENode)
-              | length myINodeSets < 2 = ([extOutArc $ findENodeByOutput myENodes pLineToFollow], [], findENodeByOutput myENodes pLineToFollow)
+              | length myINodeSets < 2 = ([outOf $ findENodeByOutput myENodes pLineToFollow], [], findENodeByOutput myENodes pLineToFollow)
               | otherwise              = pathLastInner (init myINodeSets) myENodes (findINodeByOutput (init myINodeSets) pLineToFollow)
 
     -- | Find a node with an output of the PLine given. start at the most recent generation, and check backwards.
