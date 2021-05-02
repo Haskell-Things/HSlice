@@ -66,7 +66,7 @@ build: $(TARGETS)
 
 # Install.
 install: build
-	cabal install
+	cabal install -j
 
 # Cleanup from using the rules in this file.
 clean:
@@ -115,13 +115,13 @@ tests: $(EXTCURAENGINEBIN)
 $(LIBTARGET): $(LIBFILES)
 	cabal v2-build ${PROFILING} hslice
 
-# The parser test suite, since it's source is stored in a different location than the other binaries we build:
+# The test suite, since it's source is stored in a different location than the other binaries we build:
 ${TESTBUILDROOT}/test-hslice/build/test-hslice/test-hslice: Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)
 	cabal v2-build test-hslice
 
 # Build a binary target with cabal.
 ${EXEBUILDROOT}/%: programs/$$(word 1,$$(subst /, ,%)).hs Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)
-	cabal v2-build ${PROFILING} $(word 1,$(subst /, ,$*))
+	cabal v2-build -j ${PROFILING} $(word 1,$(subst /, ,$*))
 	touch $@
 
 # Build a benchmark target with cabal.
@@ -130,6 +130,7 @@ ${EXEBUILDROOT}/%: programs/$$(word 1,$$(subst /, ,%)).hs Setup ${BUILDROOT}/set
 
 dist-newstyle/cache/config: hslice.cabal
 	cabal v2-update
+	touch $@
 
 # Prepare to build.
 dist-newstyle/cache/plan.json: hslice.cabal
@@ -139,5 +140,5 @@ dist-newstyle/cache/plan.json: hslice.cabal
 # The setup command, used to perform administrative tasks (haddock, upload to hackage, clean, etc...).
 Setup: Setup.*hs dist-newstyle/cache/config dist-newstyle/cache/plan.json $(LIBTARGET)
 	$(GHC) -O2 -Wall --make Setup -package Cabal
-	touch Setup
+	touch $@
 
