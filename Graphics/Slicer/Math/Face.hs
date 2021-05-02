@@ -28,9 +28,9 @@
  - Code for taking a straight skeleton, and creating a series of faces, covering it.
  - Code for taking a series of faces, and applying inset line segments and infill to them.
  -}
-module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegsToFace, leftRegion, rightRegion, convexMotorcycles, Node(Node), makeFirstNodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton, averageNodes, getFirstArc) where
+module Graphics.Slicer.Math.Face (Face(Face), NodeTree(NodeTree), addLineSegsToFace, leftRegion, rightRegion, convexMotorcycles, ENode(ENode), INode(INode), makeFirstENodes, Motorcycle(Motorcycle), findStraightSkeleton, StraightSkeleton(StraightSkeleton), Spine(Spine), facesFromStraightSkeleton, averageNodes, getFirstArc) where
 
-import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, max, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, and, String, maybe, uncurry, elem, compare, notElem)
+import Prelude (Int, (==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, max, Bool(True,False), zip, head, (&&), (.), (||), fst, take, drop, filter, init, null, tail, last, concat, snd, not, reverse, and, String, maybe, uncurry, elem, compare, notElem, any, Ord, id)
 
 import Data.List (elemIndex, sortOn, dropWhile, takeWhile, nub, sortBy)
 
@@ -54,11 +54,6 @@ import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 --------------- Straight Skeleton Calculation ----------------------
 --------------------------------------------------------------------
 
--- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior of a contour. Motorcycles are only emitted from reflex vertexes.
-data Motorcycle = Motorcycle { _inSegs :: (LineSeg, LineSeg), _outPline :: PLine2 }
-  deriving Eq
-  deriving stock Show
-
 -- | A Spine component:
 --   Similar to a node, only without the in and out heirarchy. always connects to outArcs from the last generation in a NodeTree.
 --   Used for glueing node sets together.
@@ -67,16 +62,84 @@ newtype Spine = Spine { _spineArcs :: NonEmpty PLine2 }
   deriving newtype Eq
   deriving stock Show
 
--- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc, OR a point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
-data Node = Node { _inArcs :: Either (LineSeg, LineSeg) [PLine2], _outArc :: Maybe PLine2 }
+-- | Can this node be resolved into a point in 2d space?
+class Pointable a where
+  canPoint :: a -> Bool
+  pPointOf :: a -> PPoint2
+  ePointOf :: a -> Point2
+
+-- | does this node have an output (resulting) pLine?
+class Arcable a where
+  hasArc :: a -> Bool
+  outOf :: a -> PLine2
+
+-- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour. 
+data ENode = ENode { _inSegs :: (LineSeg, LineSeg), extOutArc :: PLine2 }
+  deriving Eq
+  deriving stock Show
+
+instance Arcable ENode where
+  -- an ENode always has an arc.
+  hasArc _ = True
+  outOf (ENode _ outArc) = outArc
+
+instance Pointable ENode where
+  -- an ENode always contains a point.
+  canPoint _ = True
+  pPointOf a = eToPPoint2 $ ePointOf a
+  ePointOf (ENode (_, LineSeg point _) _) = point
+
+-- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
+-- FIXME: inIArcs should be inArcs
+data INode = INode { _inArcs :: [PLine2], _outIArc :: Maybe PLine2 }
+  deriving Eq
+  deriving stock Show
+
+instance Arcable INode where
+  -- an INode might just end here.
+  hasArc (INode _ outArc) = isJust outArc
+  outOf (INode _ outArc)
+    | isJust outArc = fromJust outArc
+    | otherwise     = error "tried to get an outArc that has no output arc."
+
+instance Pointable INode where
+  -- an INode does not contain a point, we have to attempt to resolve one instead.
+  canPoint iNode@(INode (plines) _) = length allPLines > 1 && hasIntersectingPairs
+    where
+      allPLines = if hasArc iNode
+                  then outOf iNode : plines
+                  else plines
+      hasIntersectingPairs = any (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs allPLines
+        where
+          saneIntersect (IntersectsIn _) = True
+          saneIntersect _                = False
+  -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? angle based, etc?
+  pPointOf iNode@(INode plines _) = head $ intersectionsOfPairs
+    where
+      allPLines = if hasArc iNode
+                  then outOf iNode : plines
+                  else plines
+      intersectionsOfPairs = catMaybes $ (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) <$> getPairs allPLines
+        where
+          saneIntersect (IntersectsIn a) = Just a
+          saneIntersect _                = Nothing
+  ePointOf a = pToEPoint2 $ pPointOf a 
+
+-- | Cut a list into all possible pairs.
+getPairs :: [a] -> [(a,a)]
+getPairs [] = []
+getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
+
+-- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior of a contour. Motorcycles are only emitted from reflex vertexes.
+data Motorcycle = Motorcycle { _inCSegs :: (LineSeg, LineSeg), _outPline :: PLine2 }
   deriving Eq
   deriving stock Show
 
 -- | A set of set of nodes, divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation contains just one node.
 --   Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.
 --   The last generation may or may not have an outArc.
-newtype NodeTree = NodeTree [[Node]]
-  deriving newtype Eq
+data NodeTree = NodeTree { _eNodes :: [ENode], _iNodes :: [[INode]] }
+  deriving Eq
   deriving stock Show
 
 -- | The straight skeleton of a contour.
@@ -112,30 +175,30 @@ findStraightSkeleton contour holes
       | length outsideContourMotorcycles == 1 && length opposingNodes == 1 = Just $ head opposingNodes
       | otherwise                                                          = error "more than one opposing node. impossible situation."
       where
-        opposingNodes = filter (\(Node _ (Just outArc)) -> plinesIntersectIn outArc (pathOf dividingMotorcycle) == PCollinear) $ concaveNodes contour
+        opposingNodes = filter (\(ENode _ outArc) -> plinesIntersectIn outArc (pathOf dividingMotorcycle) == PCollinear) $ concaveENodes contour
         pathOf (Motorcycle _ path) = path
 
 -- | Apply Christopher Tscherne's algorithm from his master's thesis.
 --   FIXME: this function doesn't really do that, but does use observations from the paper to cover corner cases that do not require the whole algorithm.
-tscherneMerge :: Motorcycle -> Maybe Node -> NodeTree -> NodeTree -> StraightSkeleton
-tscherneMerge dividingMotorcycle@(Motorcycle (LineSeg rightPoint _, LineSeg startPoint2 endDistance2) path) opposingNodes leftSide rightSide
+tscherneMerge :: Motorcycle -> Maybe ENode -> NodeTree -> NodeTree -> StraightSkeleton
+tscherneMerge dividingMotorcycle@(Motorcycle (LineSeg rightPoint _, LineSeg startPoint2 endDistance2) path) opposingNode leftSide rightSide
   -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point, tie the sides and the motorcycle together.
   | null (crossoverNodes leftSide leftPoint dividingMotorcycle) &&
     null (crossoverNodes rightSide rightPoint dividingMotorcycle) &&
-    isNothing opposingNodes &&
+    isNothing opposingNode &&
     plinesIntersectIn (finalPLine leftSide) path == plinesIntersectIn (finalPLine rightSide) path =
-      StraightSkeleton [[leftSide, rightSide, NodeTree [[motorcycleToNode dividingMotorcycle]]]] []
+      StraightSkeleton [[leftSide, rightSide, NodeTree [motorcycleToENode dividingMotorcycle] []]] []
   -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point, tie the sides, the motorcycle, and the opposing motorcycle together.
   -- FIXME: ensure that nodeSets are always be stored in clockwise order.
   | null (crossoverNodes leftSide leftPoint dividingMotorcycle) &&
     null (crossoverNodes rightSide rightPoint dividingMotorcycle) &&
-    isJust opposingNodes &&
+    isJust opposingNode &&
     plinesIntersectIn (finalPLine leftSide) path == plinesIntersectIn (finalPLine rightSide) path =
-      StraightSkeleton [[leftSide, rightSide, NodeTree [[motorcycleToNode dividingMotorcycle]], NodeTree [[fromJust opposingNodes]]]] []
+      StraightSkeleton [[leftSide, rightSide, NodeTree [motorcycleToENode dividingMotorcycle] [], NodeTree [fromJust opposingNode] [] ]] []
   | otherwise = error $ "failing to apply Tscherne's method.\n" <>
                         show (crossoverNodes leftSide leftPoint dividingMotorcycle)  <> "\n" <>
                         show (crossoverNodes rightSide rightPoint dividingMotorcycle)  <> "\n" <>
-                        show opposingNodes <> "\n" <>
+                        show opposingNode <> "\n" <>
                         show (finalPLine leftSide) <> "\n" <>
                         show (finalPLine rightSide) <> "\n" <>
                         show leftSide <> "\n" <>
@@ -144,31 +207,17 @@ tscherneMerge dividingMotorcycle@(Motorcycle (LineSeg rightPoint _, LineSeg star
   where
     leftPoint = addPoints startPoint2 endDistance2
     finalPLine :: NodeTree -> PLine2
-    finalPLine (NodeTree generations)
+    finalPLine (NodeTree _ generations)
       | null generations = error "cannot have final PLine of empty side!\n"
       | otherwise = outOf $ last $ last generations
-      where
-        outOf (Node _ (Just p)) = p
-        outOf (Node _ Nothing) = error "skeleton of a side ended in a node with no endpoint?"
-    motorcycleToNode :: Motorcycle -> Node
-    motorcycleToNode (Motorcycle segs mcpath) = Node (Left segs) $ Just mcpath
-    crossoverNodes :: NodeTree -> Point2 -> Motorcycle -> [Node]
-    crossoverNodes (NodeTree generations) pointOnSide (Motorcycle _ mcpath) = concat (crossoverGen <$> init generations)
-      where
-        crossoverGen :: [Node] -> [Node]
-        crossoverGen generation = filter (\a -> Just True == intersectionSameSide mcpath (eToPPoint2 pointOnSide) a) generation
+    motorcycleToENode :: Motorcycle -> ENode
+    motorcycleToENode (Motorcycle segs mcpath) = ENode segs mcpath
+    crossoverNodes :: NodeTree -> Point2 -> Motorcycle -> [ENode]
+    crossoverNodes (NodeTree eNodes _) pointOnSide (Motorcycle _ mcpath) = filter (\a -> Just True == intersectionSameSide mcpath (eToPPoint2 pointOnSide) a) eNodes
   -- | Determine if a node is on one side of a motorcycle, or the other.
   --   Assumes the starting point of the second line segment is a point on the path.
-    intersectionSameSide :: PLine2 -> PPoint2 -> Node -> Maybe Bool
-    intersectionSameSide mcpath pointOnSide node = pPointsOnSameSideOfPLine (saneIntersection $ uncurry plinesIntersectIn (plineAncestors node)) pointOnSide mcpath
-      where
-        plineAncestors :: Node -> (PLine2, PLine2)
-        plineAncestors (Node (Left (seg1,seg2)) _)      = (eToPLine2 seg1, eToPLine2 seg2)
-        plineAncestors (Node (Right [pline1,pline2]) _) = (pline1, pline2)
-        plineAncestors myNode@(Node (Right _) _) = error $ "less than two ancestors in a Node: " <> show myNode <> "\n"  
-        saneIntersection :: PIntersection -> PPoint2
-        saneIntersection (IntersectsIn ppoint) = ppoint
-        saneIntersection a = error $ "insane result of intersection of two ancestor lines:" <> show a <> "\n"
+    intersectionSameSide :: PLine2 -> PPoint2 -> ENode -> Maybe Bool
+    intersectionSameSide mcpath pointOnSide node = pPointsOnSameSideOfPLine (pPointOf node) pointOnSide mcpath
 
 -- | Calculate a partial straight skeleton, for the part of a contour that is on the left side of the point that a motorcycle's path starts at.
 --   meaning we will evaluate the line segments from the point the motorcycle left from, to the segment it intersects, in the order they are in the original contour.
@@ -228,15 +277,14 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs conto
       | isJust maybePLine = Just $ Motorcycle (seg1, seg2) $ flipPLine2 $ fromJust maybePLine
       | otherwise         = Nothing
 
--- | Find the non-reflex virtexes of a contour, and draw Nodes from them.
+-- | Find the non-reflex virtexes of a contour, and create ENodes from them.
 --   This function is meant to be used on the exterior contour.
-concaveNodes :: Contour -> [Node]
-concaveNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
+concaveENodes :: Contour -> [ENode]
+concaveENodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
   where
-    onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Node
-    onlyNodes ((seg1, seg2), maybePLine)
-      | isJust maybePLine = Just $ Node (Left (seg1,seg2)) maybePLine
-      | otherwise         = Nothing
+    onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe ENode
+    onlyNodes ((seg1, seg2), Just pLine) = Just $ ENode (seg1,seg2) pLine 
+    onlyNodes ((_, _), Nothing) = Nothing 
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
 --   A reflex virtex is any point where the line in and the line out are convex, when looked at from inside of the contour.
@@ -281,21 +329,21 @@ concavePLines seg1 seg2
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
 
--- | Make a first generation set of nodes, AKA, a set of motorcycles that come from the points where line segments meet, toward the inside of the contour.
-makeFirstNodes :: [LineSeg] -> [Node]
-makeFirstNodes segs
-  | null segs = error "got empty list at makeFirstNodes.\n"
-  | otherwise = init $ mapWithFollower makeFirstNode segs
+-- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
+makeFirstENodes :: [LineSeg] -> [ENode]
+makeFirstENodes segs
+  | null segs = error "got empty list at makeENodes.\n"
+  | otherwise = init $ mapWithFollower makeFirstENode segs
 
--- | Make a first generation set of nodes, AKA, a set of motorcycles that come from the points where line segments meet, toward the inside of the contour.
-makeFirstNodesLooped :: [LineSeg] -> [Node]
-makeFirstNodesLooped segs
+-- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
+makeFirstENodesLooped :: [LineSeg] -> [ENode]
+makeFirstENodesLooped segs
   | null segs = error "got empty list at makeFirstNodes.\n"
-  | otherwise = mapWithFollower makeFirstNode segs
+  | otherwise = mapWithFollower makeFirstENode segs
 
 -- | Make a first generation node.
-makeFirstNode :: LineSeg -> LineSeg -> Node
-makeFirstNode seg1 seg2 = Node (Left (seg1,seg2)) $ Just $ getFirstArc seg1 seg2
+makeFirstENode :: LineSeg -> LineSeg -> ENode
+makeFirstENode seg1 seg2 = ENode (seg1,seg2) $ getFirstArc seg1 seg2
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the two given line segments.
 --   Note that we normalize the output of eToPLine2, because by default, it does not output normalized lines.
@@ -356,148 +404,209 @@ isParallel :: PLine2 -> PLine2 -> Bool
 isParallel pline1 pline2 =    plinesIntersectIn pline1 pline2 == PParallel
                            || plinesIntersectIn pline1 pline2 == PAntiParallel
 
--- | For a given set of nodes, construct a new node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
+-- | For a given set of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
 --   Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
---   FIXME: does not handle three point intersections of arcs.
-averageNodes :: Node -> Node -> Node
-averageNodes n1@(Node _ (Just pline1)) n2@(Node _ (Just pline2))
-  | isCollinear pline1 pline2 = error "Cannot handle two input plines that are collinear."
-  | isParallel pline1 pline2  = error $ "input makes no sense: " <> show pline1 <> "\n" <> show pline2 <> "\n"
-  | otherwise                 = Node (Right [pline1,pline2]) $ Just $ getOutsideArc (pointOf n1) pline1 (pointOf n2) pline2
-averageNodes n1 n2 = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
-
--- Find the euclidian point that is at the intersection of the lines of a node.
-pointOf :: Node -> Point2
-pointOf (Node (Left (_,LineSeg point _)) _) = point
-pointOf (Node (Right (pline1:pline2:_)) _)  = pToEPoint2 $ intersectionOf pline1 pline2
-pointOf node = error $ "cannot find a point intersection for this node: " <> show node <> "\n"
+averageNodes :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> INode
+averageNodes n1 n2
+  | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
+  | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
+  | isParallel  (outOf n1) (outOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
+  | isCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
+  | otherwise                 = INode [outOf n1,outOf n2] $ Just $ getOutsideArc (ePointOf n1) (outOf n1) (ePointOf n2) (outOf n2)
 
 -- error type.
-data PartialNodes = PartialNodes [[Node]] String
+data PartialNodes = PartialNodes [[INode]] String
   deriving (Show, Eq)
+
+-- Think: like Maybe, but min treats empty as greater than a value, rather than less.
+data Topped x = Something x | Empty
+  deriving (Show, Ord, Eq)
+
+isSomething :: Topped a -> Bool
+isSomething (Something _) = True
+isSomething Empty         = False
 
 -- | Recurse on a set of nodes until we have a complete NodeTree.
 --   Only works on a sequnce of concave line segments, when there are no holes in the effected area.
---   FIXME: does not handle three point intersections of arcs.
 skeletonOfConcaveRegion :: [LineSeg] -> Bool -> NodeTree
-skeletonOfConcaveRegion inSegs loop = getNodeTree (firstNodes inSegs loop)
+skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
   where
     -- Generate the first generation of nodes, from the passed in line segments.
     -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
-    firstNodes :: [LineSeg] -> Bool -> [Node]
-    firstNodes firstSegs segsInLoop
-      | segsInLoop = makeFirstNodesLooped firstSegs
-      | otherwise  = makeFirstNodes firstSegs
+    firstENodes :: [LineSeg] -> Bool -> [ENode]
+    firstENodes firstSegs segsInLoop
+      | segsInLoop = makeFirstENodesLooped firstSegs
+      | otherwise  = makeFirstENodes firstSegs
 
     -- | get a NodeTree from a set of generations of nodes.
     -- FIXME: geometry may require more than one NodeTree, or may require spines, which are still a concept in flux.
-    getNodeTree :: [Node] -> NodeTree
+    getNodeTree :: [ENode] -> NodeTree
     getNodeTree [] = error "no Nodes to generate a nodetree from?"
-    getNodeTree initialGeneration = NodeTree $ res initialGeneration
+    getNodeTree initialGeneration = NodeTree initialGeneration $ res initialGeneration
       where
         -- | apply the recursive NodeTree solver.
-        res :: [Node] -> [[Node]]
-        res inGen = initialGeneration : errorIfLeft (skeletonOfNodes inGen)
+        res :: [ENode] -> [[INode]]
+        res inGen = errorIfLeft (skeletonOfNodes inGen [])
 
     -- | Handle the recursive resolver failing.
-    errorIfLeft :: Either PartialNodes [[Node]] -> [[Node]]
+    errorIfLeft :: Either PartialNodes [[INode]] -> [[INode]]
     errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure <> "\ninSegs: " <> show inSegs <> "\nloop:" <> show loop <> "\n"
     errorIfLeft (Right val)    = val
 
     -- | Apply a recursive algorithm to solve the node set.
-    skeletonOfNodes :: [Node] -> Either PartialNodes [[Node]]
-    skeletonOfNodes nodes
-      --  zero nodes == something has gone wrong.
-      | null nodes = Left $ PartialNodes [] "NOMATCH"
+    --   FIXME: does not handle more than two point intersections of arcs properly.
+    skeletonOfNodes :: [ENode] -> [INode] -> Either PartialNodes [[INode]]
+    skeletonOfNodes eNodes iNodes
+      --  zero nodes == return emptyset. allows us to simplify our return loop.
+      | null eNodes && null iNodes = Right []
+      -- Handle single nodes.
       --  A one node loop makes no sense, reject.
-      | length nodes == 1 && loop = Left $ PartialNodes [nodes] "NOMATCH - Length 1?"
+     | length eNodes + length iNodes == 1 && loop = Left $ PartialNodes [iNodes] "NOMATCH - Length 1?"
       --  FIXME: this is right, i think?
-      | length nodes == 1 = Right [nodes]
-      --   Handle the the case of two nodes.
-      | length nodes == 2 && isCollinear (outOf $ head nodes) (outOf $ head $ tail nodes) = Right $ if loop
-                                                                                                    then [[Node (Right [outOf $ head nodes, outOf $ head $ tail nodes]) Nothing]]
-                                                                                                    else []
-      | length nodes == 2 && intersectsInPoint (head nodes) (head $ tail nodes) && not loop = Right [[averageNodes (head nodes) (head $ tail nodes)]]
-      | length nodes == 2 = Left $ PartialNodes [nodes] "NOMATCH - length 2?"
+--      | length eNodes == 1 && null iNodes = Right [[nodeToINode . eNodeToINode $ head eNodes]]
+      | null eNodes && length iNodes == 1 = Right [iNodes]
+      -- Handle just a pair of nodes.
+      | isCollinearPair = Right [[makeCollinearPair]]
+      | null eNodes && length iNodes == 2 && intersectsInPoint (head iNodes) (last iNodes) && not loop = Right [[averageNodes (head iNodes) (last iNodes)]]
+      | length eNodes == 2 && null iNodes && intersectsInPoint (head eNodes) (last eNodes) && not loop = Right [[averageNodes (head eNodes) (last eNodes)]]
+      | length eNodes == 1 && length iNodes == 1 && intersectsInPoint (head eNodes) (head iNodes) && not loop = Right [[averageNodes (head eNodes) (head iNodes)]]
+      | length eNodes + length iNodes == 2 = Left $ PartialNodes [iNodes] "NOMATCH - length 2?"
       --   Handle the the case of 3 or more nodes.
-      | endsAtSamePoint nodes     = Right $ if loop
-                                            then [[Node (Right $ outOf <$> nodes) Nothing]]
-                                            else []
-      | hasShortestPair nodes     = Right $ [averageOfShortestPairs nodes] ++ errorIfLeft (skeletonOfNodes (nextGenOf nodes))
-      | otherwise = Left $ PartialNodes [] "NOMATCH"
+      | endsAtSamePoint = Right [[INode ((outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]]
+      | hasShortestPair         = Right $ [averageOfShortestPairs] ++ errorIfLeft (skeletonOfNodes remainingENodes (remainingINodes ++ averageOfShortestPairs))
+      | otherwise = error $ "shortestPairDistance: " <> show (shortestPairDistance)
+                                <> "\nePairDistance: " <> show (shortestEPairDistance) <> "\nnum of ePairs Found: " <> show (length $ shortestPairs eNodes) <> "\nshortestEPairs: " <> show (shortestPairs eNodes) <> "\nePairResults: " <> show (uncurry averageNodes <$> shortestPairs eNodes) <> "\n" <> show (isSomething shortestEPairDistance) <> "\n" -- <> show (shortestEPairDistance == shortestPairDistance)
+                                <> "\niPairDistance: " <> show (shortestIPairDistance) <> "\nnum of iPairs Found: " <> show (length $ shortestPairs iNodes) <> "\nshortestIPairs: " <> show (shortestPairs iNodes) <> "\niPairResults: " <> show (uncurry averageNodes <$> shortestPairs iNodes) <> "\n" <> show (isSomething shortestIPairDistance) <> "\n" -- <> show (shortestEPairDistance == shortestPairDistance) 
+                                <> "\nmixedPairDistance: " <> show (shortestMixedPairDistance) <> "\nnum of mixedPairs Found: " <> show (length $ shortestMixedPairs) <> "\nshortestMixedPairs: " <> show shortestMixedPairs <> "\nMixedPairResults: " <> show (uncurry averageNodes <$> shortestMixedPairs) <> "\n" <> show (isSomething shortestMixedPairDistance) <> "\n" <> show (shortestEPairDistance == shortestPairDistance) 
+                                <> "\nresultingENodes: " <> show remainingENodes <> "\nresultingNodes: " <> show remainingINodes <> "\nthisGen: " <> show averageOfShortestPairs
+--      | otherwise = Left $ PartialNodes [] "NOMATCH"
       where
         -- | When a set of nodes end in the same point, we may need to create a Node with all of the nodes as input. This checks for that case.
-        endsAtSamePoint :: [Node] -> Bool
-        endsAtSamePoint myNodes  = and $ mapWithFollower (==) $ mapWithFollower intersectionOf (outOf <$> ((nonCollinearNodes myNodes (collinearNodePairsOf myNodes)) ++ firstCollinearNodes (collinearNodePairsOf myNodes)))
+        endsAtSamePoint :: Bool
+        endsAtSamePoint = and $ mapWithFollower (==) $ mapWithFollower intersectionOf ((outOf <$> nonCollinearNodes eNodes (collinearNodePairsOf eNodes)
+                                                                                               ++ firstCollinearNodes (collinearNodePairsOf eNodes)) ++
+                                                                                       (outOf <$> nonCollinearNodes iNodes (collinearNodePairsOf iNodes)
+                                                                                               ++ firstCollinearNodes (collinearNodePairsOf iNodes)))
           where
-            allCollinearNodes :: [(Node, Node)] -> [Node]
-            allCollinearNodes nodePairs = nub $ (fst <$> nodePairs) ++ (snd <$> nodePairs)
-            firstCollinearNodes :: [(Node, Node)] -> [Node]
             firstCollinearNodes nodePairs = fst <$> nodePairs
             -- find the nodes that do not have a collinear pair.
-            nonCollinearNodes nodeSet nodePairs = filter (\a -> not $ a `elem` allCollinearNodes nodePairs) nodeSet
+            nonCollinearNodes :: (Eq a) => [a] -> [(a,a)] -> [a]
+            nonCollinearNodes myNodes nodePairs = filter (\a -> not $ a `elem` allCollinearNodes nodePairs) myNodes
+              where
+                allCollinearNodes myNodePairs = nub $ (fst <$> myNodePairs) ++ (snd <$> myNodePairs)
 
-        -- | Get the output PLine of a node, if it exists.
-        outOf (Node _ (Just p)) = p
-        outOf (Node _ Nothing) = error "skeleton of a side ended in a node with no endpoint?"
+        -- | make sure we have a potential intersection between two nodes to work with. 
+        hasShortestPair :: Bool
+        hasShortestPair = not $ (null $ intersectingNodePairsOf eNodes) && (null $ intersectingNodePairsOf iNodes) && (null $ intersectingMixedNodePairs)
 
-        -- | make sure we have a potential intersection between two nodes to work with.
-        hasShortestPair :: [Node] -> Bool
-        hasShortestPair nodeSet = not $ null $ intersectingNodePairsOf nodeSet
-
-        -- | determine the nodes available for calculation during the next recurse.
-        nextGenOf :: [Node] -> [Node]
-        nextGenOf nodeSet = averageOfShortestPairs nodeSet ++ nodesWithoutShortestPairs nodeSet
+        -- | make sure we have a potential intersection between two nodes to work with. 
+        isCollinearPair :: Bool
+        isCollinearPair = length eNodes + length iNodes == 2 && isCollinear (head allNodeOutputs) (last allNodeOutputs)
           where
-            nodesWithoutShortestPairs myNodeSet = filter (\a -> a `notElem` (fst <$> shortestPairs myNodeSet) ++ (snd <$> shortestPairs myNodeSet)) myNodeSet
+            allNodeOutputs = (outOf <$> eNodes) ++ (outOf <$> iNodes)
 
-        -- | convert the pairs from shortestPairs into a set of result nodes.
-        averageOfShortestPairs :: [Node] -> [Node]
-        averageOfShortestPairs nodeSet = uncurry averageNodes <$> shortestPairs nodeSet
+        -- | make sure we have a potential intersection between two nodes to work with. 
+        makeCollinearPair :: INode
+        makeCollinearPair
+          | null eNodes        && length iNodes == 2 = INode [(outOf $ head iNodes), (outOf $ last iNodes)] Nothing
+          | length eNodes == 2 && null iNodes        = INode [(outOf $ head eNodes), (outOf $ last eNodes)] Nothing
+          | length eNodes == 1 && length iNodes == 1 = INode [(outOf $ head eNodes), (outOf $ head iNodes)] Nothing
+
+        -- | determine the exterior nodes available for calculation during the next recurse.
+        remainingENodes :: [ENode]
+        remainingENodes = (if isSomething shortestMixedPairDistance && shortestPairDistance == shortestMixedPairDistance
+                           then filter (\a -> a `notElem` (fst <$> shortestMixedPairs))
+                           else id) $
+                          (if isSomething shortestEPairDistance && shortestPairDistance == shortestEPairDistance
+                           then filter (\a -> a `notElem` (fst <$> shortestPairs eNodes) ++ (snd <$> shortestPairs eNodes))
+                           else id) eNodes
+
+        -- | determine the interior nodes available for calculation during the next recurse.
+        remainingINodes :: [INode]
+        remainingINodes = (if isSomething shortestMixedPairDistance && shortestPairDistance == shortestMixedPairDistance
+                           then filter (\a -> a `notElem` (snd <$> shortestMixedPairs))
+                           else id) $
+                          (if isSomething shortestIPairDistance && shortestPairDistance == shortestIPairDistance
+                           then filter (\a -> a `notElem` (fst <$> shortestPairs iNodes) ++ (snd <$> shortestPairs iNodes))
+                           else id) iNodes
+
+        -- | create our set of result nodes.
+        -- FIXME: these should have a specific order. what should it be?
+        averageOfShortestPairs :: [INode]
+        averageOfShortestPairs = ePairsFound ++ mixedPairsFound ++ iPairsFound
+
+        ePairsFound = if isSomething shortestEPairDistance && shortestEPairDistance == shortestPairDistance
+                      then (uncurry averageNodes <$> shortestPairs eNodes)
+                      else []
+        mixedPairsFound = if isSomething shortestMixedPairDistance && shortestMixedPairDistance == shortestPairDistance
+                          then (uncurry averageNodes <$> shortestMixedPairs)
+                          else []
+        iPairsFound = if isSomething shortestIPairDistance && shortestIPairDistance == shortestPairDistance
+                      then (uncurry averageNodes <$> shortestPairs iNodes)
+                      else []
+
+        shortestPairDistance = min (min shortestEPairDistance shortestMixedPairDistance) (min shortestIPairDistance shortestMixedPairDistance)
+        shortestIPairDistance
+          | null (shortestPairs iNodes) = Empty
+          | otherwise = Something $ fromJust $ uncurry distanceToIntersection $ head $ shortestPairs iNodes
+        shortestEPairDistance
+          | null (shortestPairs eNodes) = Empty
+          | otherwise = Something $ fromJust $ uncurry distanceToIntersection $ head $ shortestPairs eNodes
+        shortestMixedPairDistance
+          | null shortestMixedPairs = Empty
+          | otherwise = Something $ fromJust $ uncurry distanceToIntersection $ head shortestMixedPairs
 
         -- | get the pairs of intersecting nodes we're putting into this generation.
-        shortestPairs :: [Node] -> [(Node, Node)]
-        shortestPairs nodeSet = takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection (head $ nodePairsSortedByDistance nodeSet)) (nodePairsSortedByDistance nodeSet)
+        shortestPairs :: (Arcable a, Pointable a, Show a) => [a] -> [(a, a)]
+        shortestPairs myNodes
+          | null myNodes = []
+          | otherwise    = takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection (head $ nodePairsSortedByDistance myNodes)) (nodePairsSortedByDistance myNodes)
           where
             -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
-            nodePairsSortedByDistance :: [Node] -> [(Node, Node)]
-            nodePairsSortedByDistance myNodeSet = sortBy (\(p1n1, p1n2) (p2n1, p2n2) -> distanceToIntersection p1n1 p1n2 `compare` distanceToIntersection p2n1 p2n2) $ intersectingNodePairsOf myNodeSet
+            nodePairsSortedByDistance :: (Arcable a, Pointable a, Show a) => [a] -> [(a, a)]
+            nodePairsSortedByDistance myNodes' = sortBy (\(p1n1, p1n2) (p2n1, p2n2) -> distanceToIntersection p1n1 p1n2 `compare` distanceToIntersection p2n1 p2n2) $ intersectingNodePairsOf myNodes'
+
+        -- | get the pairs of intersecting nodes of differing types that we might be putting into this generation.
+        shortestMixedPairs :: [(ENode, INode)]
+        shortestMixedPairs
+          | null iNodes || null eNodes = []
+          | otherwise = takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection (head nodePairsSortedByDistance)) nodePairsSortedByDistance
+          where
+            -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
+            nodePairsSortedByDistance :: [(ENode, INode)]
+            nodePairsSortedByDistance = sortBy (\(p1n1, p1n2) (p2n1, p2n2) -> distanceToIntersection p1n1 p1n2 `compare` distanceToIntersection p2n1 p2n2) $ intersectingMixedNodePairs
+
+        -- | find nodes of two different types that can intersect.
+        intersectingMixedNodePairs :: [(ENode, INode)]
+        intersectingMixedNodePairs = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getMixedPairs eNodes iNodes
+          where
+            getMixedPairs ::  [a] -> [b] -> [(a, b)]
+            getMixedPairs set1 set2 = concat $ (\a -> (a,) <$> set2) <$> set1
 
         -- | find nodes that can intersect.
-        intersectingNodePairsOf :: [Node] -> [(Node, Node)]
-        intersectingNodePairsOf nodeSet = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getPairs nodeSet
-          where
-            getPairs :: [a] -> [(a,a)]
-            getPairs [] = []
-            getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
+        intersectingNodePairsOf :: (Arcable a, Show a) => [a] -> [(a, a)]
+        intersectingNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
 
         -- | find nodes that have output segments that are collinear with one another.
-        collinearNodePairsOf :: [Node] -> [(Node, Node)]
-        collinearNodePairsOf nodeSet = catMaybes $ (\(node1, node2) -> if outSegsCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs nodeSet
+        collinearNodePairsOf :: (Arcable a) => [a] -> [(a, a)]
+        collinearNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if outSegsCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
           where
-            getPairs :: [a] -> [(a,a)]
-            getPairs [] = []
-            getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
-            outSegsCollinear :: Node -> Node -> Bool
-            outSegsCollinear (Node _ (Just pline1)) (Node _ (Just pline2)) = isCollinear pline1 pline2
-            outSegsCollinear _ _ = False
+            outSegsCollinear :: (Arcable a) => a -> a -> Bool
+            outSegsCollinear node1 node2
+              | hasArc node1 && hasArc node2 = isCollinear (outOf node1) (outOf node2)
+              | otherwise = False
 
         -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
-        distanceToIntersection :: Node -> Node -> Maybe ℝ
-        distanceToIntersection node1@(Node _ (Just pline1)) node2@(Node _ (Just pline2))
-          | intersectsInPoint node1 node2 = Just $ max (distanceBetweenPPoints (pPointOf node1) (intersectionOf pline1 pline2)) (distanceBetweenPPoints (pPointOf node2) (intersectionOf pline1 pline2))
-          | otherwise                     = Nothing
-          where
-            -- Find the projective point that is at the intersection of the lines of a node.
-            pPointOf (Node (Left (_,LineSeg point _)) _) = eToPPoint2 point
-            pPointOf (Node (Right (pl1:pl2:_)) _)  = intersectionOf pl1 pl2
-            pPointOf a                                   = error $ "tried to find projective point of a node with less than two PLines: " <> show a <> "\n"
-        distanceToIntersection node1 node2 = error $ "cannot find distance between nodes with no exit:\n" <> show node1 <> "\n" <> show node2 <> "\n" 
+        distanceToIntersection :: (Pointable a, Arcable a, Show a, Pointable b, Arcable b, Show b) => a -> b -> Maybe ℝ
+        distanceToIntersection node1 node2
+          | canPoint node1 && canPoint node2 && intersectsInPoint node1 node2 = Just $ max (distanceBetweenPPoints (pPointOf node1) (intersectionOf (outOf node1) (outOf node2))) (distanceBetweenPPoints (pPointOf node2) (intersectionOf (outOf node1) (outOf node2)))
+          | otherwise                                                         = Nothing
 
         -- | Check if the intersection of two nodes results in a point or not.
-        intersectsInPoint :: Node -> Node -> Bool
-        intersectsInPoint (Node _ (Just pline1)) (Node _ (Just pline2)) = not $ noIntersection pline1 pline2
-        intersectsInPoint node1 node2 = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show nodes <> "\n"
+        intersectsInPoint :: (Arcable a, Show a, Arcable b, Show b) => a -> b -> Bool
+        intersectsInPoint node1 node2
+          | hasArc node1 && hasArc node2 = not $ noIntersection (outOf node1) (outOf node2)
+          | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
 
 linesOfContour :: Contour -> [LineSeg]
 linesOfContour (PointSequence contourPoints) = makeLineSegsLooped contourPoints
@@ -569,146 +678,175 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
       | null nodeTrees = []
       | length nodeTrees == 1 && isNothing (lastOutOf $ head nodeTrees) && isNothing maybeStartSeg = rawFaces
       | length nodeTrees == 1 && isNothing (lastOutOf $ head nodeTrees)                            = facesFromIndex (fromJust maybeStartSeg)
-      | length nodeTrees > 1  && isNothing maybeStartSeg                                           = rawFaces
-      | length nodeTrees > 1                                                                       = facesFromIndex (fromJust maybeStartSeg)
+      | length nodeTrees > 1  && isNothing maybeStartSeg                                              = rawFaces
+      | length nodeTrees > 1                                                                          = facesFromIndex (fromJust maybeStartSeg)
       | otherwise            = error $ "abandon hope!\n" <> show (length nodeLists) <> "\n" <> show nodeLists <> "\n" <> show (length nodeTrees) <> "\n" <> show nodeTrees <> "\n" <> show rawFaces <> "\n"
       where
-        lastOutOf :: NodeTree -> Maybe PLine2
-        lastOutOf (NodeTree nodeGens) = (\(Node _ a) -> a) (head $ last nodeGens)
         rawFaces = findFacesRecurse nodeTrees ++
                    if length nodeTrees > 1 then [intraNodeFace (last nodeTrees) (head nodeTrees)] else []
         facesFromIndex :: LineSeg -> [Face]
         facesFromIndex target = take (length rawFaces) $ dropWhile (\(Face a _ _ _) -> a /= target) $ rawFaces ++ rawFaces
         -- Recursively find faces.
+        findFacesRecurse :: [NodeTree] -> [Face]
         findFacesRecurse []               = []
         findFacesRecurse [tree1]          = facesOfNodeTree tree1
         findFacesRecurse [tree1,tree2]    = facesOfNodeTree tree2 ++ (intraNodeFace tree1 tree2 : facesOfNodeTree tree1)
         findFacesRecurse (tree1:tree2:xs) = findFacesRecurse (tree2:xs) ++ (intraNodeFace tree1 tree2 : facesOfNodeTree tree1)
-        -- Create a single face for the space between two nodetrees.
-        -- FIXME: merge this with areaBetween.
+        -- Create a single face for the space between two NodeTrees. like areaBetween, but for two separate NodeTrees.
         intraNodeFace :: NodeTree -> NodeTree -> Face
-        intraNodeFace nodeTree1@(NodeTree nodeSets1) nodeTree2@(NodeTree nodeSets2)
-          | nodeTree1 == nodeTree2          = error $ "two identical nodes given.\n" <> show nodeTree1 <> "\n"
-          | nodeTree1 `isRightOf` nodeTree2 = if last (firstPLinesOf nodeSets2) == last (lastPLinesOf nodeSets1)
-                                              then makeFace (lastNodeOf nodeSets2) (init (firstPLinesOf nodeSets2) ++ tail (reverse $ init $ lastPLinesOf nodeSets1)) (firstNodeOf nodeSets1)
-                                              else makeFace (lastNodeOf nodeSets2) (init (firstPLinesOf nodeSets2) ++       reverse  (init $ lastPLinesOf nodeSets1)) (firstNodeOf nodeSets1)
-          | nodeTree1 `isLeftOf` nodeTree2  = if last (lastPLinesOf nodeSets1) == last (firstPLinesOf nodeSets2)
-                                              then makeFace (firstNodeOf nodeSets1) (init (lastPLinesOf nodeSets1) ++ tail (reverse $ init $ firstPLinesOf nodeSets2)) (lastNodeOf nodeSets2)
-                                              else makeFace (firstNodeOf nodeSets1) (init (lastPLinesOf nodeSets1) ++       reverse  (init $ firstPLinesOf nodeSets2)) (lastNodeOf nodeSets2)
-          | otherwise = error $ "merp.\n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n" 
+        intraNodeFace newNodeTree1 newNodeTree2
+          | newNodeTree1 == newNodeTree2          = error $ "two identical nodes given.\n" <> show newNodeTree1 <> "\n"
+          | newNodeTree1 `isRightOf` newNodeTree2 = if last (firstPLinesOf newNodeTree2) == last (lastPLinesOf newNodeTree1)
+                                              then makeFace (lastENodeOf newNodeTree2) (init (firstPLinesOf newNodeTree2) ++ tail (reverse $ init $ lastPLinesOf newNodeTree1)) (firstENodeOf newNodeTree1)
+                                              else makeFace (lastENodeOf newNodeTree2) (init (firstPLinesOf newNodeTree2) ++       reverse  (init $ lastPLinesOf newNodeTree1)) (firstENodeOf newNodeTree1)
+          | newNodeTree1 `isLeftOf` newNodeTree2  = if last (lastPLinesOf newNodeTree1) == last (firstPLinesOf newNodeTree2)
+                                              then makeFace (firstENodeOf newNodeTree1) (init (lastPLinesOf newNodeTree1) ++ tail (reverse $ init $ firstPLinesOf newNodeTree2)) (lastENodeOf newNodeTree2)
+                                              else makeFace (firstENodeOf newNodeTree1) (init (lastPLinesOf newNodeTree1) ++       reverse  (init $ firstPLinesOf newNodeTree2)) (lastENodeOf newNodeTree2)
+          | otherwise = error $ "merp.\n" <> show newNodeTree1 <> "\n" <> show newNodeTree2 <> "\n" 
           where
             isLeftOf :: NodeTree -> NodeTree -> Bool
             isLeftOf nt1 nt2 = firstSegOf nt1 == lastSegOf nt2
             isRightOf :: NodeTree -> NodeTree -> Bool
             isRightOf nt1 nt2 = lastSegOf nt1 == firstSegOf nt2
             lastSegOf :: NodeTree -> LineSeg
-            lastSegOf (NodeTree nodeSets) = (\(Node (Left (_,outSeg)) _) -> outSeg) (lastNodeOf nodeSets)
-            lastNodeOf :: [[Node]] -> Node
-            lastNodeOf nodeSets = last $ snd $ pathLast nodeSets (latestNodeOf nodeSets)
-            lastPLinesOf :: [[Node]] -> [PLine2]
-            lastPLinesOf nodeSets = fst $ pathLast nodeSets (latestNodeOf nodeSets)
+            lastSegOf nodeTree = (\(ENode (_,outSeg) _) -> outSeg) (lastENodeOf nodeTree)
             firstSegOf :: NodeTree -> LineSeg
-            firstSegOf (NodeTree nodeSets) = (\(Node (Left (outSeg,_)) _) -> outSeg) (firstNodeOf nodeSets)
-            firstNodeOf :: [[Node]] -> Node
-            firstNodeOf nodeSets = last $ snd $ pathFirst nodeSets (latestNodeOf nodeSets)
-            firstPLinesOf :: [[Node]] -> [PLine2]
-            firstPLinesOf nodeSets = fst $ pathFirst nodeSets (latestNodeOf nodeSets)
-            latestNodeOf :: [[Node]] -> Node
-            latestNodeOf nodeSets = head $ last nodeSets
+            firstSegOf nodeTree = (\(ENode (outSeg,_) _) -> outSeg) (firstENodeOf nodeTree)
+            lastENodeOf :: NodeTree -> ENode
+            lastENodeOf nodeTree = (\(_,_,c) -> c) $ pathLast nodeTree
+            firstENodeOf :: NodeTree -> ENode
+            firstENodeOf nodeTree = (\(_,_,c) -> c) $ pathFirst nodeTree
+            lastPLinesOf :: NodeTree -> [PLine2]
+            lastPLinesOf nodeTree = (\(a,_,_) -> a) $ pathLast nodeTree
+            firstPLinesOf :: NodeTree -> [PLine2]
+            firstPLinesOf nodeTree = (\(a,_,_) -> a) $ pathFirst nodeTree
 
-    -- | Create a set of faces from a nodetree.
-    -- FIXME: doesn't handle more than one generation deep, yet.
-    facesOfNodeTree :: NodeTree -> [Face]
-    facesOfNodeTree (NodeTree allNodeSets)
-      | null allNodeSets = []
-      | length allNodeSets == 1 = []
-      | otherwise = areaBeneath (init allNodeSets) (head $ last allNodeSets)
-      where
-        -- cover the space occupied by all of the ancestors of this node with a series of faces.
-        areaBeneath :: [[Node]] -> Node -> [Face]
-        areaBeneath nodeSets target@(Node (Right inArcs) outArc)
-          | length nodeSets == 1 && isJust outArc    = init $ mapWithFollower makeTriangleFace $ findNodeByOutput nodeSets <$> inArcs
-          | length nodeSets == 1 && isNothing outArc =        mapWithFollower makeTriangleFace $ findNodeByOutput nodeSets <$> inArcs
-          | length nodeSets == 2 && isNothing outArc = concat $ mapWithFollower (\a b -> areaBeneath (init nodeSets) a ++ [areaBetween (init nodeSets) target a b]) (head $ tail nodeSets)
-          | otherwise                                = error $ "areabeneath: " <> show nodeSets <> "\n" <> show target <> "\n" <> show (length nodeSets) <> "\n"
-        areaBeneath _ target@(Node (Left _) _) = error $ "cannot find the area beneath an initial node: " <> show target <> "\n" <> show allNodeSets <> "\n"
-
-        -- cover the space between the last path of the first node and the first path of the second node with a single Face. It is assumed that both nodes have the same parent.
-        areaBetween :: [[Node]] -> Node -> Node -> Node -> Face
-        areaBetween nodeSets parent node1 node2
-          | length nodeSets == 1 = if (lastDescendent nodeSets node1) /= (last $ head nodeSets) -- Handle the case where we are creating a face across the open end of the contour.
-                                   then makeFace (lastDescendent nodeSets node1) [lastPLineOf parent] (findMatchingDescendent (head nodeSets) node2 $ lastDescendent nodeSets node1)
-                                   else makeFace (firstDescendent nodeSets node1) [firstPLineOf parent] (findMatchingDescendent (head nodeSets) node2 $ firstDescendent nodeSets node1)
-          | otherwise = error $
-                           show node1 <> "\n" <> show (findNodeByOutput (init nodeSets) (firstPLineOf node1)) <> "\n" <> show (findNodeByOutput (init nodeSets) (lastPLineOf node1)) <> "\n"
-                        <> show node2 <> "\n" <> show (findNodeByOutput (init nodeSets) (firstPLineOf node2)) <> "\n" <> show (findNodeByOutput (init nodeSets) (lastPLineOf node2)) <> "\n"
+        -- | Create a set of faces from a nodetree.
+        -- FIXME: doesn't handle more than one generation deep, yet.
+        facesOfNodeTree :: NodeTree -> [Face]
+        facesOfNodeTree newNodeTree@(NodeTree myENodes myINodeSets)
+          | null myINodeSets = []
+          | otherwise = areaBeneath myENodes (init myINodeSets) $ latestINodeOf newNodeTree
           where
-            -- find the first immediate child of the given node.
-            firstDescendent :: [[Node]] -> Node -> Node
-            firstDescendent myNodeSets myParent = findNodeByOutput myNodeSets $ firstPLineOf myParent
-
-            -- find the last immediate child of the given node.
-            lastDescendent :: [[Node]] -> Node -> Node
-            lastDescendent myNodeSets myParent = findNodeByOutput myNodeSets $ lastPLineOf myParent
-
-            -- | using the set of all first generation nodes, a second generation node, and a first generation node, find out which one of the first generation children of the given second generation node shares a side with the first generation node.
-            findMatchingDescendent :: [Node] -> Node -> Node -> Node
-            findMatchingDescendent nodeSet parent target@(Node (Left(seg1,seg2)) _)
-              | length res == 1 = head res
-              | otherwise = error $ show nodeSet <> "\n" <> show parent <> "\n" <> show target <> "\n" <> show (firstDescendent [nodeSet] parent) <> "\n" <> show (lastDescendent [nodeSet] parent) <> "\n" <> show res <> "\n"
+            -- cover the space occupied by all of the ancestors of this node with a series of faces.
+            areaBeneath :: [ENode] -> [[INode]] -> INode -> [Face]
+            areaBeneath eNodes iNodeSets target@(INode (inArcs) outArc)
+              | null iNodeSets && isJust outArc           = init $ mapWithFollower makeTriangleFace $ findENodeByOutput eNodes <$> inArcs
+              | null iNodeSets && isNothing outArc        =        mapWithFollower makeTriangleFace $ findENodeByOutput eNodes <$> inArcs
+              | length iNodeSets == 1 && isNothing outArc = concat $ mapWithFollower (\a b -> areaBeneath eNodes (init iNodeSets) a ++ [areaBetween eNodes (init iNodeSets) target a b]) (head iNodeSets)
+              | otherwise                                = error $ "areabeneath: " <> show iNodeSets <> "\n" <> show target <> "\n" <> show (length iNodeSets) <> "\n"
               where
-                res = filter (\(Node (Left(sseg1, sseg2)) _) -> sseg2 == seg1 || sseg1 == seg2) [firstDescendent [nodeSet] parent, lastDescendent [nodeSet] parent]
+                -- | make a face from two nodes. the nodes must be composed of line segments on one side, and follow each other.
+                makeTriangleFace :: ENode -> ENode -> Face
+                makeTriangleFace node1 node2 = makeFace node1 [] node2
 
-            firstPLineOf :: Node -> PLine2
-            firstPLineOf (Node (Right (a:_)) _) = a
-            lastPLineOf :: Node -> PLine2
-            lastPLineOf (Node (Right plines) _) = last plines
+            -- cover the space between the last path of the first node and the first path of the second node with a single Face. It is assumed that both nodes have the same parent.
+            areaBetween :: [ENode] -> [[INode]] -> INode -> INode -> INode -> Face
+            areaBetween eNodes iNodeSets parent iNode1 iNode2
+              | null iNodeSets = if (lastDescendent eNodes (iNode1)) /= (last eNodes) -- Handle the case where we are creating a face across the open end of the contour.
+                                 then makeFace (lastDescendent eNodes iNode1) [lastPLineOf parent] (findMatchingDescendent eNodes iNode2 $ lastDescendent eNodes iNode1)
+                                 else makeFace (firstDescendent eNodes iNode1) [firstPLineOf parent] (findMatchingDescendent eNodes iNode2 $ firstDescendent eNodes iNode1)
+              | otherwise = error $
+                               show iNode1 <> "\n" <> show (findENodeByOutput eNodes (firstPLineOf iNode1)) <> "\n" <> show (findENodeByOutput eNodes(lastPLineOf iNode1)) <> "\n"
+                            <> show iNode2 <> "\n" <> show (findENodeByOutput eNodes (firstPLineOf iNode2)) <> "\n" <> show (findENodeByOutput eNodes (lastPLineOf iNode2)) <> "\n"
+                            <> show iNodeSets <> "\n"
+              where
+                -- find the first immediate child of the given node.
+                firstDescendent :: [ENode] -> INode -> ENode
+                firstDescendent myNodeSets myParent = findENodeByOutput myNodeSets $ firstPLineOf myParent
 
-        -- | make a face from two nodes. the nodes must be composed of line segments on one side, and follow each other.
-        makeTriangleFace :: Node -> Node -> Face
-        makeTriangleFace node1 node2 = makeFace node1 [] node2
+                -- find the last immediate child of the given node.
+                lastDescendent :: [ENode] -> INode -> ENode
+                lastDescendent myNodeSets myParent = findENodeByOutput myNodeSets $ lastPLineOf myParent
+
+                -- | using the set of all first generation nodes, a second generation node, and a first generation node, find out which one of the first generation children of the given second generation node shares a side with the first generation node.
+                findMatchingDescendent :: [ENode] -> INode -> ENode -> ENode
+                findMatchingDescendent nodes myParent target@(ENode (seg1,seg2) _)
+                  | length res == 1 = head res
+                  | otherwise = error $ show nodes <> "\n" <> show myParent <> "\n" <> show target <> "\n" <> show (firstDescendent nodes myParent) <> "\n" <> show (lastDescendent nodes myParent) <> "\n" <> show res <> "\n"
+                  where
+                    res = filter (\(ENode (sseg1, sseg2) _) -> sseg2 == seg1 || sseg1 == seg2) [firstDescendent nodes myParent, lastDescendent nodes myParent]
+
+                firstPLineOf :: INode -> PLine2
+                firstPLineOf (INode [] _) = error "empty iNode?"
+                firstPLineOf (INode (a:_) _) = a
+                lastPLineOf :: INode -> PLine2
+                lastPLineOf (INode plines _)
+                  | null plines = error "empty PLines?"
+                  | otherwise   = last plines
+
+    -- | in a NodeTree, the last generation is always a single item. retrieve this item.
+    latestINodeOf :: NodeTree -> INode
+    latestINodeOf (NodeTree _ iNodeSets) = head $ last iNodeSets
+
+    -- | get the last output PLine of a NodeTree, if there is one.
+    lastOutOf :: NodeTree -> Maybe PLine2
+    lastOutOf newNodeTree = (\(INode _ a) -> a) $ latestINodeOf newNodeTree
+
+    -- FIXME: merge pathFirst and pathLast. they differ by only one line.
+    -- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.
+    --   When branching, follow the last PLine in a given node.
+    pathFirst :: NodeTree -> ([PLine2], [INode], ENode)
+    pathFirst newNodeTree@(NodeTree eNodes iNodeSets)
+      | null iNodeSets  = ([extOutArc (last eNodes)], [], last eNodes) 
+      | otherwise = pathFirstInner (init iNodeSets) eNodes (latestINodeOf newNodeTree)
+      where
+        pathFirstInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
+        pathFirstInner myINodeSets myENodes target@(INode (plinesIn) plineOut)
+          | isJust plineOut    = (fromJust plineOut : childPlines, target: endNodes, finalENode)
+          | otherwise          = (                    childPlines, target: endNodes, finalENode)
+          where
+            pLineToFollow = head plinesIn
+            (childPlines, endNodes, finalENode)
+              | length myINodeSets < 2 = ([extOutArc $ findENodeByOutput myENodes pLineToFollow], [], findENodeByOutput myENodes pLineToFollow)
+              | otherwise              = pathFirstInner (init myINodeSets) myENodes (findINodeByOutput (init myINodeSets) pLineToFollow)
+
+    -- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.
+    --   When branching, follow the last PLine in a given node.
+    pathLast :: NodeTree -> ([PLine2], [INode], ENode)
+    pathLast newNodeTree@(NodeTree eNodes iNodeSets)
+      | null iNodeSets  = ([extOutArc (last eNodes)], [], last eNodes) 
+      | otherwise = pathLastInner (init iNodeSets) eNodes (latestINodeOf newNodeTree)
+      where
+        pathLastInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
+        pathLastInner myINodeSets myENodes target@(INode (plinesIn) plineOut)
+          | isJust plineOut    = (fromJust plineOut : childPlines, target: endNodes, finalENode)
+          | otherwise          = (                    childPlines, target: endNodes, finalENode)
+          where
+            pLineToFollow = last plinesIn
+            (childPlines, endNodes, finalENode)
+              | length myINodeSets < 2 = ([extOutArc $ findENodeByOutput myENodes pLineToFollow], [], findENodeByOutput myENodes pLineToFollow)
+              | otherwise              = pathLastInner (init myINodeSets) myENodes (findINodeByOutput (init myINodeSets) pLineToFollow)
+
+    -- | Find a node with an output of the PLine given. start at the most recent generation, and check backwards.
+    findINodeByOutput :: [[INode]] -> PLine2 -> INode
+    findINodeByOutput iNodeSets plineOut
+      | null iNodeSets             = error "could not find inode. empty set?"
+      | length iNodesInThisGen == 1 = head iNodesInThisGen
+      | length iNodeSets > 1 &&
+        null iNodesInThisGen       = findINodeByOutput (init iNodeSets) plineOut
+      | null iNodesInThisGen       = error $ "could not find inode.\n" <> show iNodeSets <> "\n" <> show plineOut <> "\n"
+      | otherwise                  = error "more than one node in a given generation with the same PLine out!"
+      where
+        iNodesInThisGen = filter (\(INode _ a) -> a == Just plineOut) (last iNodeSets)
+
+    -- | Find an exterior Node with an output of the PLine given.
+    findENodeByOutput :: [ENode] -> PLine2 -> ENode
+    findENodeByOutput eNodes plineOut
+      | null eNodes               = error "could not find enode. empty set?"
+      | length nodesMatching == 1 = head nodesMatching
+      | null nodesMatching        = error "could not find exterior node."
+      | otherwise                 = error "more than one exterior node with the same PLine out!"
+      where
+        nodesMatching = filter (\(ENode _ a) -> a == plineOut) eNodes
 
     -- | make a face from two nodes, and a set of arcs. the nodes must be composed of line segments on one side, and follow each other.
-    makeFace :: Node -> [PLine2] -> Node -> Face
-    makeFace node1@(Node (Left (seg1,seg2)) (Just pline1)) arcs node2@(Node (Left (seg3,seg4)) (Just pline2))
+    makeFace :: ENode -> [PLine2] -> ENode -> Face
+    makeFace node1@(ENode (seg1,seg2) pline1) arcs node2@(ENode (seg3,seg4) pline2)
       | seg2 == seg3 = Face seg2 pline2 arcs pline1
       | seg1 == seg4 = Face seg1 pline1 arcs pline2
       | otherwise = error $ "cannot make a face from nodes that are not neighbors: \n" <> show node1 <> "\n" <> show node2 <> "\n"
-    makeFace _ _ _ = error "cannot make a face from nodes that are not first generation."
 
-    -- | Find all of the Nodes and all of the arcs between the target node and the node that is part of the original contour.
-    --   When branching, follow the first PLine of a given node.
-    pathFirst :: [[Node]] -> Node -> ([PLine2], [Node])
-    pathFirst nodeSets target@(Node (Left _) (Just plineOut)) = ([plineOut], [target])
-    pathFirst nodeSets target@(Node (Right (firstPLine:_)) plineOut)
-      | isJust plineOut    = (fromJust plineOut : childPlines, target: endNodes)
-      | isNothing plineOut = (                    childPlines, target: endNodes)
-      where
-        (childPlines, endNodes)
-          | length nodeSets == 1 = ([],[])
-          | null nodeSets = ([],[]) -- error "empty nodeSets"
-          | otherwise = pathFirst (tail nodeSets) (findNodeByOutput (init nodeSets) firstPLine)
-
-    -- | Find all of the Nodes and all of the arcs between this node, and the node that is part of the original contour.
-    --   When branching, follow the last PLine in a given node.
-    pathLast :: [[Node]] -> Node -> ([PLine2], [Node])
-    pathLast nodeSets target@(Node (Left _) (Just plineOut)) = ([plineOut], [target])
-    pathLast nodeSets target@(Node (Right plinesIn) plineOut)
-      | isJust plineOut    = (fromJust plineOut : childPlines, target: endNodes)
-      | isNothing plineOut = (                    childPlines, target: endNodes)
-      where
-        (childPlines, endNodes) = pathLast (tail nodeSets) (findNodeByOutput (init nodeSets) $ last plinesIn)
-
-    -- | Find a node with an output of the PLine given. start at the most recent generation, and check backwards.
-    findNodeByOutput :: [[Node]] -> PLine2 -> Node
-    findNodeByOutput nodeSets plineOut
-      | length nodesInThisGen == 1 = head nodesInThisGen
-      | null nodesInThisGen &&
-        length nodeSets > 1        = findNodeByOutput (init nodeSets) plineOut
-      | null nodesInThisGen        = error "could not find node."
-      | otherwise                  = error "more than one node in a given generation with the same PLine out!"
-      where
-        nodesInThisGen = filter (\(Node _ a) -> a == Just plineOut) (last nodeSets)
 ------------------------------------------------------------------
 ------------------ Line Segment Placement ------------------------
 ------------------------------------------------------------------
