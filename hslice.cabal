@@ -90,6 +90,7 @@ Library
                     Graphics.Slicer.Math.Skeleton.Concave
                     Graphics.Slicer.Math.Skeleton.Definitions
                     Graphics.Slicer.Math.Skeleton.Face
+                    Graphics.Slicer.Math.Skeleton.Line
                     Graphics.Slicer.Math.Skeleton.Skeleton
                     Graphics.Slicer.Math.Skeleton.Tscherne
                     Graphics.Slicer.Math.Tri
