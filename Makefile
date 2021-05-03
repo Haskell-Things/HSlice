@@ -134,8 +134,8 @@ dist-newstyle/cache/config: hslice.cabal
 
 # Prepare to build.
 dist-newstyle/cache/plan.json: hslice.cabal
-	cabal v2-install --only-dependencies --upgrade-dependencies --overwrite-policy=always $(PROFILING)
-	cabal v2-configure --enable-tests --enable-benchmarks $(PROFILING)
+	cabal v2-install -j --only-dependencies --upgrade-dependencies --overwrite-policy=always $(PROFILING)
+	cabal v2-configure -j --enable-tests --enable-benchmarks $(PROFILING)
 
 # The setup command, used to perform administrative tasks (haddock, upload to hackage, clean, etc...).
 Setup: Setup.*hs dist-newstyle/cache/config dist-newstyle/cache/plan.json $(LIBTARGET)
