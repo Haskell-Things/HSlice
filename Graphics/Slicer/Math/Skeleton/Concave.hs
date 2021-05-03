@@ -16,8 +16,7 @@
  -}
 
 {-
-   This will contain logic for handling an all concave contour with no holes
-
+   This contains a geometric solver handling the creation of a straight skeleton for all concave contours without holes
 -}
 
 -- inherit instances when deriving.
@@ -58,8 +57,6 @@ isSomething :: Topped a -> Bool
 isSomething (Something _) = True
 isSomething Empty         = False
 
-
-
 -- | Recurse on a set of nodes until we have a complete NodeTree.
 --   Only works on a sequnce of concave line segments, when there are no holes in the effected area.
 skeletonOfConcaveRegion :: [LineSeg] -> Bool -> NodeTree
@@ -97,9 +94,9 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
       --  A one node loop makes no sense, reject.
      | length eNodes + length iNodes == 1 && loop = Left $ PartialNodes [iNodes] "NOMATCH - Length 1?"
       --  FIXME: this is right, i think?
---      | length eNodes == 1 && null iNodes = Right [[nodeToINode . eNodeToINode $ head eNodes]]
+      | length eNodes == 1 && null iNodes = Right [[eNodeToINode $ head eNodes]]
       | null eNodes && length iNodes == 1 = Right [iNodes]
-      -- Handle just a pair of nodes.
+      -- Handle a pair of nodes.
       | isCollinearPair = Right [[makeCollinearPair]]
       | null eNodes && length iNodes == 2 && intersectsInPoint (head iNodes) (last iNodes) && not loop = Right [[averageNodes (head iNodes) (last iNodes)]]
       | length eNodes == 2 && null iNodes && intersectsInPoint (head eNodes) (last eNodes) && not loop = Right [[averageNodes (head eNodes) (last eNodes)]]
@@ -242,6 +239,9 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
         intersectsInPoint node1 node2
           | hasArc node1 && hasArc node2 = not $ noIntersection (outOf node1) (outOf node2)
           | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
+
+eNodeToINode :: ENode -> INode
+eNodeToINode (ENode (seg1, seg2) arc) = INode [eToPLine2 seg1, eToPLine2 seg2] (Just arc)
 
 -- | For a given set of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
 --   Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.

@@ -27,7 +27,7 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
+module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton, convexMotorcycles) where
 
 import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), head, null, filter, zip)
   
