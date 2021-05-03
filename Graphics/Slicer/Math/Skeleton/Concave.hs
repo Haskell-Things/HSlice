@@ -31,7 +31,7 @@ import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, o
   
 import Graphics.Slicer.Math.Definitions (Point2, mapWithFollower)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), noIntersection, intersectionOf, pPointOf, isCollinear, getPairs, isParallel)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), eNodeToINode, noIntersection, intersectionOf, pPointOf, isCollinear, getPairs, isParallel)
 
 import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints)
 
@@ -162,21 +162,22 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
                            then filter (\a -> a `notElem` (fst <$> shortestPairs iNodes) ++ (snd <$> shortestPairs iNodes))
                            else id) iNodes
 
-        -- | create our set of result nodes.
+        -- | collect our set of result nodes.
         -- FIXME: these should have a specific order. what should it be?
         averageOfShortestPairs :: [INode]
         averageOfShortestPairs = ePairsFound ++ mixedPairsFound ++ iPairsFound
-
-        ePairsFound = if isSomething shortestEPairDistance && shortestEPairDistance == shortestPairDistance
-                      then (uncurry averageNodes <$> shortestPairs eNodes)
-                      else []
-        mixedPairsFound = if isSomething shortestMixedPairDistance && shortestMixedPairDistance == shortestPairDistance
-                          then (uncurry averageNodes <$> shortestMixedPairs)
+          where
+            ePairsFound = if isSomething shortestEPairDistance && shortestEPairDistance == shortestPairDistance
+                          then (uncurry averageNodes <$> shortestPairs eNodes)
                           else []
-        iPairsFound = if isSomething shortestIPairDistance && shortestIPairDistance == shortestPairDistance
-                      then (uncurry averageNodes <$> shortestPairs iNodes)
-                      else []
+            mixedPairsFound = if isSomething shortestMixedPairDistance && shortestMixedPairDistance == shortestPairDistance
+                              then (uncurry averageNodes <$> shortestMixedPairs)
+                              else []
+            iPairsFound = if isSomething shortestIPairDistance && shortestIPairDistance == shortestPairDistance
+                          then (uncurry averageNodes <$> shortestPairs iNodes)
+                          else []
 
+        -- | calculate the distances to the shortest pairs of nodes. the shortest pair, along with all of the pairs of the same length, will be in our result set.
         shortestPairDistance = min (min shortestEPairDistance shortestMixedPairDistance) (min shortestIPairDistance shortestMixedPairDistance)
         shortestIPairDistance
           | null (shortestPairs iNodes) = Empty
@@ -188,7 +189,7 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
           | null shortestMixedPairs = Empty
           | otherwise = Something $ fromJust $ uncurry distanceToIntersection $ head shortestMixedPairs
 
-        -- | get the pairs of intersecting nodes we're putting into this generation.
+        -- | get the list of sorted pairs of intersecting nodes.
         shortestPairs :: (Arcable a, Pointable a, Show a) => [a] -> [(a, a)]
         shortestPairs myNodes
           | null myNodes = []
@@ -240,8 +241,6 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
           | hasArc node1 && hasArc node2 = not $ noIntersection (outOf node1) (outOf node2)
           | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
 
-eNodeToINode :: ENode -> INode
-eNodeToINode (ENode (seg1, seg2) arc) = INode [eToPLine2 seg1, eToPLine2 seg2] (Just arc)
 
 -- | For a given set of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
 --   Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.

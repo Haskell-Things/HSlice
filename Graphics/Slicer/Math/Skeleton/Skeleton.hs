@@ -29,11 +29,11 @@
 
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton, convexMotorcycles) where
 
-import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), head, null, filter, zip)
+import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), head, null, filter, zip, Either(Right, Left), last)
   
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), Motorcycle(Motorcycle), Arcable(outOf), linesOfContour, linePairs)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), Motorcycle(Motorcycle), Arcable(outOf), linesOfContour, linePairs, isCollinear)
 
 import Graphics.Slicer.Math.PGA (lineIsLeft, PLine2(PLine2), plinesIntersectIn, PIntersection(PCollinear), eToPLine2, flipPLine2)
 
@@ -43,7 +43,7 @@ import Graphics.Slicer.Math.Line (LineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Tscherne (tscherneMerge, leftRegion, rightRegion)
+import Graphics.Slicer.Math.Skeleton.Tscherne (tscherneCheat)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -58,9 +58,10 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 -- FIXME: abusing Maybe until we can cover all cases.
 findStraightSkeleton :: Contour -> [Contour] -> Maybe StraightSkeleton
 findStraightSkeleton contour holes
-  | null holes && null outsideContourMotorcycles        = Just $ StraightSkeleton [[skeletonOfConcaveRegion (linesOfContour contour) True]] []
+  | null holes && null (outsideContourMotorcycles)                                = Just $ StraightSkeleton [[skeletonOfConcaveRegion (linesOfContour contour) True]] []
   -- Use the algorithm from Christopher Tscherne's master's thesis.
-  | null holes && length outsideContourMotorcycles == 1 = Just $ tscherneMerge dividingMotorcycle maybeOpposingNode leftSide rightSide
+  | null holes && length outsideContourMotorcycles == 1                           = tscherneCheat contour dividingMotorcycle maybeOpposition
+  | null holes && length outsideContourMotorcycles == 2 && isJust maybeOpposition = tscherneCheat contour dividingMotorcycle maybeOpposition
   | otherwise = Nothing
   where
     outsideContourMotorcycles = convexMotorcycles contour
@@ -71,16 +72,16 @@ findStraightSkeleton contour holes
     -- routines used when a single motorcycle has been found.
     ---------------------------------------------------------
     dividingMotorcycle = head outsideContourMotorcycles
-    leftSide  = leftRegion contour dividingMotorcycle
-    rightSide = rightRegion contour dividingMotorcycle
-    -- | find nodes where the arc coresponding to them is collinear with the dividing Motorcycle.
+    -- | find nodes or motorcycles where the arc coresponding to them is collinear with the dividing Motorcycle.
     -- FIXME: this is implemented wrong. it needs to find only the one node opposing the dividing motorcycle, not every line segment that could be an opposing node.
     -- FIXME: we should construct a line segment from the point of the node to the point of the motorcycle, and keep the one that intersects the contour an even amount of times?
-    maybeOpposingNode
+    maybeOpposition
       | length outsideContourMotorcycles == 1 && null opposingNodes        = Nothing
-      | length outsideContourMotorcycles == 1 && length opposingNodes == 1 = Just $ head opposingNodes
+      | length outsideContourMotorcycles == 1 && length opposingNodes == 1 = Just $ Right $ head opposingNodes
+      | length outsideContourMotorcycles == 2 && motorcyclePairIsCollinear = Just $ Left $ last outsideContourMotorcycles
       | otherwise                                                          = error "more than one opposing node. impossible situation."
       where
+        motorcyclePairIsCollinear = isCollinear (outOf $ head outsideContourMotorcycles) (outOf $ last outsideContourMotorcycles)
         opposingNodes = filter (\eNode -> plinesIntersectIn (outOf eNode) (pathOf dividingMotorcycle) == PCollinear) $ concaveENodes contour
         pathOf (Motorcycle _ path) = path
 

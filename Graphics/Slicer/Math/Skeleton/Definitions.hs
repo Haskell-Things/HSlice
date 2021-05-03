@@ -26,7 +26,7 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), NodeTree(NodeTree), Motorcycle(Motorcycle), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linesOfContour, linePairs) where
+module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), NodeTree(NodeTree), Motorcycle(Motorcycle), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linesOfContour, linePairs, motorcycleToENode) where
 
 import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, length, (>), (&&), any, head, fst, and, (||), (<>), show)
 
@@ -38,7 +38,7 @@ import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), makeLineSegsLooped)
 
-import Graphics.Slicer.Math.PGA (pToEPoint2, PPoint2, plinesIntersectIn, PIntersection(PCollinear,IntersectsIn,PParallel,PAntiParallel), eToPPoint2, PLine2)
+import Graphics.Slicer.Math.PGA (pToEPoint2, PPoint2, plinesIntersectIn, PIntersection(PCollinear,IntersectsIn,PParallel,PAntiParallel), eToPPoint2, PLine2, eToPLine2)
 
 import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2, mapWithFollower)
 
@@ -108,10 +108,23 @@ instance Pointable INode where
           saneIntersect _                = Nothing
   ePointOf a = pToEPoint2 $ pPointOf a 
 
--- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior of a contour. Motorcycles are only emitted from reflex vertexes.
+-- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior or the exterior of a contour.
+--   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.
 data Motorcycle = Motorcycle { _inCSegs :: (LineSeg, LineSeg), _outPline :: PLine2 }
   deriving Eq
   deriving stock Show
+
+instance Arcable Motorcycle where
+  -- A Motorcycle always has an arc.
+  hasArc _ = True
+  outOf (Motorcycle _ outArc) = outArc
+
+instance Pointable Motorcycle where
+  -- A motorcycle always contains a point.
+  canPoint _ = True
+  pPointOf a = eToPPoint2 $ ePointOf a
+  ePointOf (Motorcycle (_, LineSeg point _) _) = point
+
 
 -- | A set of set of nodes, divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation contains just one node.
 --   Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.
@@ -139,6 +152,14 @@ getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
 ---------------------------------------
 -- Utility functions for our solvers --
 ---------------------------------------
+
+-- | convert an ENode to an INode.
+eNodeToINode :: ENode -> INode
+eNodeToINode (ENode (seg1, seg2) arc) = INode [eToPLine2 seg1, eToPLine2 seg2] (Just arc)
+
+-- | convert a Motorcycle to an ENode
+motorcycleToENode :: Motorcycle -> ENode
+motorcycleToENode (Motorcycle segs mcpath) = ENode segs mcpath
 
 -- | check if two lines cannot intersect.
 noIntersection :: PLine2 -> PLine2 -> Bool

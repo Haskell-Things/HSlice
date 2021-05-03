@@ -21,11 +21,11 @@
    the algorithm in Christopher Tscherne's masters thesis.
 -}
 
-module Graphics.Slicer.Math.Skeleton.Tscherne (tscherneMerge, leftRegion, rightRegion) where
+module Graphics.Slicer.Math.Skeleton.Tscherne (tscherneCheat, leftRegion, rightRegion) where
 
 import Prelude (Bool(True, False), Either(Left, Right), otherwise, ($), last, (<$>), (==), (++), error, length, (&&), head, fst, (<>), show, uncurry, null, (||), filter, (+), Int, (.), zip, (/=), drop, take, (-))
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), NodeTree(NodeTree), Motorcycle(Motorcycle), Arcable(outOf), pPointOf, linesOfContour)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, NodeTree(NodeTree), Motorcycle(Motorcycle), Arcable(outOf), pPointOf, linesOfContour, motorcycleToENode)
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
@@ -39,40 +39,46 @@ import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, fromMaybe, 
 
 import Graphics.Slicer.Math.PGA (PLine2, PPoint2, plinesIntersectIn, Intersection(NoIntersection, HitEndPoint, HitStartPoint), PIntersection(IntersectsIn,PParallel,PAntiParallel), intersectsWith, eToPPoint2, pPointsOnSameSideOfPLine)
 
--- | Apply Christopher Tscherne's algorithm from his master's thesis.
---   FIXME: this function doesn't really do that, but does use observations from the paper to cover corner cases that do not require the whole algorithm.
-tscherneMerge :: Motorcycle -> Maybe ENode -> NodeTree -> NodeTree -> StraightSkeleton
-tscherneMerge dividingMotorcycle@(Motorcycle (LineSeg rightPoint _, LineSeg startPoint2 endDistance2) path) opposingNode leftSide rightSide
+-- | use observations from christopher tscherne's masters thesis to cover corner cases that do not require the whole algorithm.
+tscherneCheat :: Contour -> Motorcycle -> Maybe (Either Motorcycle ENode) -> Maybe StraightSkeleton
+tscherneCheat contour dividingMotorcycle@(Motorcycle (LineSeg rightPoint _, LineSeg startPoint2 endDistance2) path) opposition
   -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point, tie the sides and the motorcycle together.
   | null (crossoverNodes leftSide leftPoint dividingMotorcycle) &&
     null (crossoverNodes rightSide rightPoint dividingMotorcycle) &&
-    isNothing opposingNode &&
+    isNothing opposition &&
     plinesIntersectIn (finalPLine leftSide) path == plinesIntersectIn (finalPLine rightSide) path =
-      StraightSkeleton [[leftSide, rightSide, NodeTree [motorcycleToENode dividingMotorcycle] []]] []
+      Just $ StraightSkeleton [[leftSide, rightSide, NodeTree [motorcycleToENode dividingMotorcycle] []]] []
   -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point, tie the sides, the motorcycle, and the opposing motorcycle together.
   -- FIXME: ensure that nodeSets are always be stored in clockwise order.
   | null (crossoverNodes leftSide leftPoint dividingMotorcycle) &&
     null (crossoverNodes rightSide rightPoint dividingMotorcycle) &&
-    isJust opposingNode &&
+    isJust opposition &&
     plinesIntersectIn (finalPLine leftSide) path == plinesIntersectIn (finalPLine rightSide) path =
-      StraightSkeleton [[leftSide, rightSide, NodeTree [motorcycleToENode dividingMotorcycle] [], NodeTree [fromJust opposingNode] [] ]] []
+      Just $ StraightSkeleton [[leftSide, rightSide, NodeTree [motorcycleToENode dividingMotorcycle] [], opposingNodeTree]] []
+  | otherwise = Nothing
   | otherwise = error $ "failing to apply Tscherne's method.\n" <>
                         show (crossoverNodes leftSide leftPoint dividingMotorcycle)  <> "\n" <>
                         show (crossoverNodes rightSide rightPoint dividingMotorcycle)  <> "\n" <>
-                        show opposingNode <> "\n" <>
+                        show opposition <> "\n" <>
                         show (finalPLine leftSide) <> "\n" <>
                         show (finalPLine rightSide) <> "\n" <>
                         show leftSide <> "\n" <>
                         show rightSide <> "\n" <>
                         show dividingMotorcycle <> "\n"
   where
+    opposingNodeTree = NodeTree [cooked (fromJust opposition)] []
+      where
+        cooked :: (Either Motorcycle ENode) -> ENode
+        cooked (Left motorcycle) = motorcycleToENode motorcycle
+        cooked (Right eNode) = eNode
+
+    leftSide  = leftRegion contour dividingMotorcycle
+    rightSide = rightRegion contour dividingMotorcycle
     leftPoint = addPoints startPoint2 endDistance2
     finalPLine :: NodeTree -> PLine2
     finalPLine (NodeTree _ generations)
       | null generations = error "cannot have final PLine of empty side!\n"
       | otherwise = outOf $ last $ last generations
-    motorcycleToENode :: Motorcycle -> ENode
-    motorcycleToENode (Motorcycle segs mcpath) = ENode segs mcpath
     crossoverNodes :: NodeTree -> Point2 -> Motorcycle -> [ENode]
     crossoverNodes (NodeTree eNodes _) pointOnSide (Motorcycle _ mcpath) = filter (\a -> Just True == intersectionSameSide mcpath (eToPPoint2 pointOnSide) a) eNodes
   -- | Determine if a node is on one side of a motorcycle, or the other.
@@ -166,3 +172,4 @@ findSegFromStart c seg1 seg2 = head $ catMaybes $ foundSeg seg1 seg2 <$> linesOf
       | sn == s2  = Just s2
       | otherwise = Nothing
 
+-- | Apply Christopher Tscherne's algorithm from his master's thesis.
