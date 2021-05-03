@@ -115,7 +115,7 @@ data Motorcycle = Motorcycle { _inCSegs :: (LineSeg, LineSeg), _outPline :: PLin
   deriving stock Show
 
 instance Arcable Motorcycle where
-  -- A Motorcycle always has an arc.
+  -- A Motorcycle always has an arc, which is it's path.
   hasArc _ = True
   outOf (Motorcycle _ outArc) = outArc
 
@@ -125,6 +125,8 @@ instance Pointable Motorcycle where
   pPointOf a = eToPPoint2 $ ePointOf a
   ePointOf (Motorcycle (_, LineSeg point _) _) = point
 
+-- | The collision of two motorcycles. one lives, and one doesn't, unless it's a head on collision, in which case both die, and there is no survivor.
+data Crash = Crash { _inMotorcycles :: (Motorcycle, Motorcycle), _survivor :: (Maybe Motorcycle)}
 
 -- | A set of set of nodes, divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation contains just one node.
 --   Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.

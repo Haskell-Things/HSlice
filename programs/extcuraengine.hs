@@ -78,7 +78,10 @@ import Graphics.Slicer.Math.Tri (Tri, sidesOf, shiftTri, triIntersects)
 
 import Graphics.Slicer.Math.Line (flipLineSeg, LineSeg(LineSeg), endpoint, lineSegFromEndpoints)
 
-import Graphics.Slicer.Math.Skeleton.Face (facesFromStraightSkeleton, addLineSegsToFace)
+import Graphics.Slicer.Math.Skeleton.Face (facesFromStraightSkeleton)
+
+import Graphics.Slicer.Math.Skeleton.Line (addLineSegsToFace)
+
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 import Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Horiz, Vert))
