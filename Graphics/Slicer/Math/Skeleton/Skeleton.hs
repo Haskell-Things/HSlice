@@ -33,11 +33,11 @@ import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), he
   
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), Motorcycle(Motorcycle), Arcable(outOf), linesOfContour, convexMotorcycles, linePairs)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), Motorcycle(Motorcycle), Arcable(outOf), linesOfContour, linePairs)
 
 import Graphics.Slicer.Math.PGA (lineIsLeft, PLine2(PLine2), plinesIntersectIn, PIntersection(PCollinear), eToPLine2, flipPLine2)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes)
+import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
@@ -48,11 +48,12 @@ import Graphics.Slicer.Math.Skeleton.Tscherne (tscherneMerge, leftRegion, rightR
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
 
---------------------------------------------------------------------
---------------- Straight Skeleton Calculation ----------------------
---------------------------------------------------------------------
+----------------------------------------------------------------------------------
+------------------- Straight Skeleton Calculation (Entry Point) ------------------
+----------------------------------------------------------------------------------
 
 -- | Find the StraightSkeleton of a given contour, with a given set of holes cut out of it.
+--   Really, this is a dispatcher, to a series of algorithms for doing the actual work.
 -- FIXME: Does not know how to calculate a straight skeleton for contours with holes, or more than one motorcycle. 
 -- FIXME: abusing Maybe until we can cover all cases.
 findStraightSkeleton :: Contour -> [Contour] -> Maybe StraightSkeleton
@@ -100,3 +101,48 @@ concavePLines seg1 seg2
   where
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
+
+-- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
+--   This function is meant to be used on the exterior contour.
+convexMotorcycles :: Contour -> [Motorcycle]
+convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower convexPLines $ linesOfContour contour)
+  where
+    onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
+    onlyMotorcycles ((seg1, seg2), maybePLine)
+      | isJust maybePLine = Just $ Motorcycle (seg1, seg2) $ flipPLine2 $ fromJust maybePLine
+      | otherwise         = Nothing
+
+-- | Examine two line segments that are part of a Contour, and determine if they are convex toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
+convexPLines :: LineSeg -> LineSeg -> Maybe PLine2
+convexPLines seg1 seg2
+  | Just True == lineIsLeft seg1 seg2  = Nothing
+  | otherwise                          = Just $ PLine2 $ addVecPair pv1 pv2
+  where
+    (PLine2 pv1) = eToPLine2 seg1
+    (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
+
+-- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
+--   A reflex virtex is any point where the line in and the line out are convex, when looked at from inside of the contour.
+--   This function is for use on interior contours.
+{-
+concaveMotorcycles :: Contour -> [Motorcycle]
+concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
+  where
+    onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
+    onlyMotorcycles ((seg1, seg2), maybePLine)
+      | isJust maybePLine = Just $ Motorcycle seg1 seg2 $ fromJust maybePLine
+      | otherwise         = Nothing
+-}
+
+-- | Find the reflex virtexes of a contour, and draw Nodes from them.
+--   This function is for use on interior contours.
+{-
+convexNodes :: Contour -> [Node]
+convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower convexPLines $ linesOfContour contour)
+  where
+    onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Node
+    onlyNodes ((seg1, seg2), maybePLine)
+      | isJust maybePLine = Just $ Node (Left (seg1,seg2)) $ fromJust maybePLine
+      | otherwise         = Nothing
+-}
+
