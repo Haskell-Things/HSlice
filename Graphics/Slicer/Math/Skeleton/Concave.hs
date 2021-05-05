@@ -315,3 +315,15 @@ getFirstArc :: LineSeg -> LineSeg -> PLine2
 getFirstArc seg1@(LineSeg start1 _) seg2@(LineSeg start2 _) = getInsideArc start1 (normalizePLine2 $ eToPLine2 seg1) start2 (normalizePLine2 $ eToPLine2 seg2)
 
 
+-- | Find the reflex virtexes of a contour, and draw Nodes from them.
+--   This function is for use on interior contours.
+{-
+convexNodes :: Contour -> [Node]
+convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower convexPLines $ linesOfContour contour)
+  where
+    onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Node
+    onlyNodes ((seg1, seg2), maybePLine)
+      | isJust maybePLine = Just $ Node (Left (seg1,seg2)) $ fromJust maybePLine
+      | otherwise         = Nothing
+-}
+
