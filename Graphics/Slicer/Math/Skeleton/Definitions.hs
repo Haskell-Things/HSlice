@@ -26,7 +26,7 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, Motorcycle(Motorcycle), noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linesOfContour, linePairs, finalPLine, finalINodeOf, finalOutOf) where
+module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, Motorcycle(Motorcycle), concavePLines, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linesOfContour, linePairs, finalPLine, finalINodeOf, finalOutOf) where
 
 import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, length, (>), (&&), any, head, fst, and, (||), (<>), null, show)
 
@@ -38,9 +38,11 @@ import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), makeLineSegsLooped)
 
-import Graphics.Slicer.Math.PGA (pToEPoint2, PPoint2, plinesIntersectIn, PIntersection(PCollinear,IntersectsIn,PParallel,PAntiParallel), eToPPoint2, PLine2, eToPLine2)
+import Graphics.Slicer.Math.PGA (pToEPoint2, PPoint2, plinesIntersectIn, PIntersection(PCollinear,IntersectsIn,PParallel,PAntiParallel), eToPPoint2, flipPLine2, lineIsLeft, PLine2(PLine2), eToPLine2)
 
 import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2, mapWithFollower)
+
+import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
 -- | Can this node be resolved into a point in 2d space?
 class Pointable a where
@@ -200,4 +202,12 @@ finalINodeOf (NodeTree _ iNodeSets) = head $ last iNodeSets
 finalOutOf :: NodeTree -> Maybe PLine2
 finalOutOf newNodeTree = (\(INode _ outArc) -> outArc) $ finalINodeOf newNodeTree
 
+-- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
+concavePLines :: LineSeg -> LineSeg -> Maybe PLine2
+concavePLines seg1 seg2
+  | Just True == lineIsLeft seg1 seg2  = Just $ PLine2 $ addVecPair pv1 pv2
+  | otherwise                          = Nothing
+  where
+    (PLine2 pv1) = eToPLine2 seg1
+    (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
 

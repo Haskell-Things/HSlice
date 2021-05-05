@@ -39,7 +39,7 @@ import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2,
 
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower, mapWithNeighbors)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), linesOfContour, linePairs, pPointOf, isCollinear, outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), concavePLines, linesOfContour, linePairs, pPointOf, isCollinear, outOf)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -72,7 +72,7 @@ crashMotorcycles contour holes
       | otherwise = error "cannot crash with holes yet."
 
     -- FIXME: not yet used.
-    firstMotorcyclesOfHoles = convexMotorcycles <$> holes
+    firstMotorcyclesOfHoles = concaveMotorcycles <$> holes
 
     -- Function meant to be recursed, to give us a CrashTree. when it's complete...
     -- For now, just cover the cases we know what to do with.
@@ -113,6 +113,18 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs conto
         (PLine2 pv1) = eToPLine2 seg1
         (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
 
+-- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
+--   A reflex virtex is any point where the line in and the line out are convex, when looked at from inside of the contour.
+--   This function is for use on interior contours.
+-- FIXME: why does this look so different from the previous function?
+concaveMotorcycles :: Contour -> [Motorcycle]
+concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
+  where
+    onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
+    onlyMotorcycles ((seg1, seg2), maybePLine)
+      | isJust maybePLine = Just $ Motorcycle (seg1,seg2) $ fromJust maybePLine
+      | otherwise         = Nothing
+
 -- | Find where a motorcycle intersects a contour, if the motorcycle is emitted from between the two given segments.
 --   If the motorcycle lands between two segments, return the second segment, as well.
 motorcycleIntersectsAt :: Contour -> Motorcycle -> (LineSeg, Maybe LineSeg)
@@ -143,17 +155,6 @@ motorcycleIntersectsAt contour (Motorcycle (inSeg,outSeg) path)
 intersectionSameSide :: Motorcycle -> PPoint2 -> ENode -> Maybe Bool
 intersectionSameSide (Motorcycle _ path) pointOnSide node = pPointsOnSameSideOfPLine (pPointOf node) pointOnSide path
 
--- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
---   A reflex virtex is any point where the line in and the line out are convex, when looked at from inside of the contour.
---   This function is for use on interior contours.
-{-
-concaveMotorcycles :: Contour -> [Motorcycle]
-concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
-  where
-    onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
-    onlyMotorcycles ((seg1, seg2), maybePLine)
-      | isJust maybePLine = Just $ Motorcycle seg1 seg2 $ fromJust maybePLine
-      | otherwise         = Nothing
--}
+
 
 

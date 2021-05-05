@@ -33,9 +33,9 @@ import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), he
   
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), linesOfContour, linePairs, outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), concavePLines, linesOfContour, linePairs, outOf)
 
-import Graphics.Slicer.Math.PGA (lineIsLeft, PLine2(PLine2), plinesIntersectIn, PIntersection(PCollinear), eToPLine2, flipPLine2)
+import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PCollinear), plinesIntersectIn)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
@@ -46,8 +46,6 @@ import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (CrashTree(CrashTree), Collision(HeadOn), Crash, crashMotorcycles, collisionResult)
 
 import Graphics.Slicer.Math.Skeleton.Tscherne (tscherneCheat)
-
-import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
 ----------------------------------------------------------------------------------
 ------------------- Straight Skeleton Calculation (Entry Point) ------------------
@@ -109,12 +107,4 @@ concaveENodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWi
     onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe ENode
     onlyNodes ((seg1, seg2), Just pLine) = Just $ ENode (seg1,seg2) pLine 
     onlyNodes ((_, _), Nothing) = Nothing 
-    -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
-    concavePLines :: LineSeg -> LineSeg -> Maybe PLine2
-    concavePLines seg1 seg2
-      | Just True == lineIsLeft seg1 seg2  = Just $ PLine2 $ addVecPair pv1 pv2
-      | otherwise                          = Nothing
-      where
-        (PLine2 pv1) = eToPLine2 seg1
-        (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
 
