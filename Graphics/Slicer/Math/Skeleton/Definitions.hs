@@ -26,9 +26,9 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), NodeTree(NodeTree), Motorcycle(Motorcycle), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linesOfContour, linePairs, motorcycleToENode) where
+module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, Motorcycle(Motorcycle), noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linesOfContour, linePairs, finalPLine, finalINodeOf, finalOutOf) where
 
-import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, length, (>), (&&), any, head, fst, and, (||), (<>), show)
+import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, length, (>), (&&), any, head, fst, and, (||), (<>), null, show)
 
 import Data.List.NonEmpty (NonEmpty)
 
@@ -125,9 +125,6 @@ instance Pointable Motorcycle where
   pPointOf a = eToPPoint2 $ ePointOf a
   ePointOf (Motorcycle (_, LineSeg point _) _) = point
 
--- | The collision of two motorcycles. one lives, and one doesn't, unless it's a head on collision, in which case both die, and there is no survivor.
-data Crash = Crash { _inMotorcycles :: (Motorcycle, Motorcycle), _survivor :: (Maybe Motorcycle)}
-
 -- | A set of set of nodes, divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation contains just one node.
 --   Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.
 --   The last generation may or may not have an outArc.
@@ -159,10 +156,6 @@ getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
 eNodeToINode :: ENode -> INode
 eNodeToINode (ENode (seg1, seg2) arc) = INode [eToPLine2 seg1, eToPLine2 seg2] (Just arc)
 
--- | convert a Motorcycle to an ENode
-motorcycleToENode :: Motorcycle -> ENode
-motorcycleToENode (Motorcycle segs mcpath) = ENode segs mcpath
-
 -- | check if two lines cannot intersect.
 noIntersection :: PLine2 -> PLine2 -> Bool
 noIntersection pline1 pline2 = isCollinear pline1 pline2 || isParallel pline1 pline2
@@ -191,4 +184,20 @@ linesOfContour (PointSequence contourPoints) = makeLineSegsLooped contourPoints
 -- Get pairs of lines from the contour, including one pair that is the last line paired with the first.
 linePairs :: Contour -> [(LineSeg, LineSeg)]
 linePairs c = mapWithFollower (,) $ linesOfContour c
+
+-- | Get the output of the given nodetree. fails if the nodetree has no output.
+finalPLine :: NodeTree -> PLine2
+finalPLine (NodeTree eNodes generations)
+  | null generations && length eNodes == 1 = outOf (head eNodes)
+  | null generations = error "cannot have final PLine of nodetree with more than one ENode, and no generations!\n"
+  | otherwise = outOf $ last $ last generations
+
+-- | in a NodeTree, the last generation is always a single item. retrieve this item.
+finalINodeOf :: NodeTree -> INode
+finalINodeOf (NodeTree _ iNodeSets) = head $ last iNodeSets
+
+-- | get the last output PLine of a NodeTree, if there is one. otherwise, Nothing.
+finalOutOf :: NodeTree -> Maybe PLine2
+finalOutOf newNodeTree = (\(INode _ outArc) -> outArc) $ finalINodeOf newNodeTree
+
 

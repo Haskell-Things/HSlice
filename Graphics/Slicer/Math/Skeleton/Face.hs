@@ -26,7 +26,7 @@
  -}
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesFromStraightSkeleton) where
 
-import Prelude ((==), otherwise, (<$>), ($), length, Show, (/=), error, (<>), show, Eq, Show, (<>), (<), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True), head, (&&), (||), fst, take, filter, init, null, tail, last, concat, not, reverse, maybe)
+import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), (<), (++), (>), Bool, head, (&&), (||), take, filter, init, null, tail, last, concat, not, reverse)
 
 import Data.List (dropWhile)
 
@@ -36,7 +36,7 @@ import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf))
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf, finalOutOf)
 
 import Graphics.Slicer.Math.PGA (PLine2)
 
@@ -62,8 +62,8 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
     findFaces :: [NodeTree] -> Maybe LineSeg -> [Face]
     findFaces nodeTrees maybeStartSeg
       | null nodeTrees = []
-      | length nodeTrees == 1 && isNothing (lastOutOf $ head nodeTrees) && isNothing maybeStartSeg = rawFaces
-      | length nodeTrees == 1 && isNothing (lastOutOf $ head nodeTrees)                            = facesFromIndex (fromJust maybeStartSeg)
+      | length nodeTrees == 1 && isNothing (finalOutOf $ head nodeTrees) && isNothing maybeStartSeg = rawFaces
+      | length nodeTrees == 1 && isNothing (finalOutOf $ head nodeTrees)                            = facesFromIndex (fromJust maybeStartSeg)
       | length nodeTrees > 1  && isNothing maybeStartSeg                                              = rawFaces
       | length nodeTrees > 1                                                                          = facesFromIndex (fromJust maybeStartSeg)
       | otherwise            = error $ "abandon hope!\n" <> show (length nodeLists) <> "\n" <> show nodeLists <> "\n" <> show (length nodeTrees) <> "\n" <> show nodeTrees <> "\n" <> show rawFaces <> "\n"
@@ -80,15 +80,15 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
         findFacesRecurse (tree1:tree2:xs) = findFacesRecurse (tree2:xs) ++ (intraNodeFace tree1 tree2 : facesOfNodeTree tree1)
         -- Create a single face for the space between two NodeTrees. like areaBetween, but for two separate NodeTrees.
         intraNodeFace :: NodeTree -> NodeTree -> Face
-        intraNodeFace newNodeTree1 newNodeTree2
-          | newNodeTree1 == newNodeTree2          = error $ "two identical nodes given.\n" <> show newNodeTree1 <> "\n"
-          | newNodeTree1 `isRightOf` newNodeTree2 = if last (firstPLinesOf newNodeTree2) == last (lastPLinesOf newNodeTree1)
-                                              then makeFace (lastENodeOf newNodeTree2) (init (firstPLinesOf newNodeTree2) ++ tail (reverse $ init $ lastPLinesOf newNodeTree1)) (firstENodeOf newNodeTree1)
-                                              else makeFace (lastENodeOf newNodeTree2) (init (firstPLinesOf newNodeTree2) ++       reverse  (init $ lastPLinesOf newNodeTree1)) (firstENodeOf newNodeTree1)
-          | newNodeTree1 `isLeftOf` newNodeTree2  = if last (lastPLinesOf newNodeTree1) == last (firstPLinesOf newNodeTree2)
-                                              then makeFace (firstENodeOf newNodeTree1) (init (lastPLinesOf newNodeTree1) ++ tail (reverse $ init $ firstPLinesOf newNodeTree2)) (lastENodeOf newNodeTree2)
-                                              else makeFace (firstENodeOf newNodeTree1) (init (lastPLinesOf newNodeTree1) ++       reverse  (init $ firstPLinesOf newNodeTree2)) (lastENodeOf newNodeTree2)
-          | otherwise = error $ "merp.\n" <> show newNodeTree1 <> "\n" <> show newNodeTree2 <> "\n" 
+        intraNodeFace nodeTree1 nodeTree2
+          | nodeTree1 == nodeTree2          = error $ "two identical nodes given.\n" <> show nodeTree1 <> "\n"
+          | nodeTree1 `isRightOf` nodeTree2 = if last (firstPLinesOf nodeTree2) == last (lastPLinesOf nodeTree1)
+                                              then makeFace (lastENodeOf nodeTree2) (init (firstPLinesOf nodeTree2) ++ tail (reverse $ init $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
+                                              else makeFace (lastENodeOf nodeTree2) (init (firstPLinesOf nodeTree2) ++       reverse  (init $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
+          | nodeTree1 `isLeftOf` nodeTree2  = if last (lastPLinesOf nodeTree1) == last (firstPLinesOf nodeTree2)
+                                              then makeFace (firstENodeOf nodeTree1) (init (lastPLinesOf nodeTree1) ++ tail (reverse $ init $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
+                                              else makeFace (firstENodeOf nodeTree1) (init (lastPLinesOf nodeTree1) ++       reverse  (init $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
+          | otherwise = error $ "merp.\n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n" 
           where
             isLeftOf :: NodeTree -> NodeTree -> Bool
             isLeftOf nt1 nt2 = firstSegOf nt1 == lastSegOf nt2
@@ -110,9 +110,9 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
         -- | Create a set of faces from a nodetree.
         -- FIXME: doesn't handle more than one generation deep, yet.
         facesOfNodeTree :: NodeTree -> [Face]
-        facesOfNodeTree newNodeTree@(NodeTree myENodes myINodeSets)
+        facesOfNodeTree nodeTree@(NodeTree myENodes myINodeSets)
           | null myINodeSets = []
-          | otherwise = areaBeneath myENodes (init myINodeSets) $ latestINodeOf newNodeTree
+          | otherwise = areaBeneath myENodes (init myINodeSets) $ finalINodeOf nodeTree
           where
             -- cover the space occupied by all of the ancestors of this node with a series of faces.
             areaBeneath :: [ENode] -> [[INode]] -> INode -> [Face]
@@ -161,21 +161,13 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
                   | null plines = error "empty PLines?"
                   | otherwise   = last plines
 
-    -- | in a NodeTree, the last generation is always a single item. retrieve this item.
-    latestINodeOf :: NodeTree -> INode
-    latestINodeOf (NodeTree _ iNodeSets) = head $ last iNodeSets
-
-    -- | get the last output PLine of a NodeTree, if there is one. otherwise, Nothing.
-    lastOutOf :: NodeTree -> Maybe PLine2
-    lastOutOf newNodeTree = (\(INode _ outArc) -> outArc) $ latestINodeOf newNodeTree
-
     -- FIXME: merge pathFirst and pathLast. they differ by only one line.
     -- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.
     --   When branching, follow the last PLine in a given node.
     pathFirst :: NodeTree -> ([PLine2], [INode], ENode)
-    pathFirst newNodeTree@(NodeTree eNodes iNodeSets)
+    pathFirst nodeTree@(NodeTree eNodes iNodeSets)
       | null iNodeSets  = ([outOf (last eNodes)], [], last eNodes)
-      | otherwise = pathFirstInner (init iNodeSets) eNodes (latestINodeOf newNodeTree)
+      | otherwise = pathFirstInner (init iNodeSets) eNodes (finalINodeOf nodeTree)
       where
         pathFirstInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
         pathFirstInner myINodeSets myENodes target@(INode (plinesIn) _)
@@ -190,9 +182,9 @@ facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
     -- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.
     --   When branching, follow the last PLine in a given node.
     pathLast :: NodeTree -> ([PLine2], [INode], ENode)
-    pathLast newNodeTree@(NodeTree eNodes iNodeSets)
+    pathLast nodeTree@(NodeTree eNodes iNodeSets)
       | null iNodeSets  = ([outOf (last eNodes)], [], last eNodes)
-      | otherwise = pathLastInner (init iNodeSets) eNodes (latestINodeOf newNodeTree)
+      | otherwise = pathLastInner (init iNodeSets) eNodes (finalINodeOf nodeTree)
       where
         pathLastInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
         pathLastInner myINodeSets myENodes target@(INode (plinesIn) _)
