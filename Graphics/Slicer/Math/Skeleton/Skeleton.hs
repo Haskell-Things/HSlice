@@ -27,13 +27,13 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton, convexMotorcycles) where
+module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
 import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), head, null, filter, zip, Either(Right, Left), last)
   
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), Motorcycle(Motorcycle), Arcable(outOf), linesOfContour, linePairs, isCollinear)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), linesOfContour, linePairs, outOf)
 
 import Graphics.Slicer.Math.PGA (lineIsLeft, PLine2(PLine2), plinesIntersectIn, PIntersection(PCollinear), eToPLine2, flipPLine2)
 
@@ -43,10 +43,11 @@ import Graphics.Slicer.Math.Line (LineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
+import Graphics.Slicer.Math.Skeleton.Motorcycles (CrashTree(CrashTree), Collision(HeadOn), Crash, crashMotorcycles, collisionResult)
+
 import Graphics.Slicer.Math.Skeleton.Tscherne (tscherneCheat)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
-
 
 ----------------------------------------------------------------------------------
 ------------------- Straight Skeleton Calculation (Entry Point) ------------------
@@ -58,92 +59,62 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 -- FIXME: abusing Maybe until we can cover all cases.
 findStraightSkeleton :: Contour -> [Contour] -> Maybe StraightSkeleton
 findStraightSkeleton contour holes
-  | null holes && null (outsideContourMotorcycles)                                = Just $ StraightSkeleton [[skeletonOfConcaveRegion (linesOfContour contour) True]] []
+  | foundCrashTree == Nothing                                                                = Nothing
+  | null holes && null (motorcyclesIn foundCrashTree)                                        = Just $ StraightSkeleton [[skeletonOfConcaveRegion (linesOfContour contour) True]] []
   -- Use the algorithm from Christopher Tscherne's master's thesis.
-  | null holes && length outsideContourMotorcycles == 1                           = tscherneCheat contour dividingMotorcycle maybeOpposition
-  | null holes && length outsideContourMotorcycles == 2 && isJust maybeOpposition = tscherneCheat contour dividingMotorcycle maybeOpposition
+  | null holes && length (motorcyclesIn foundCrashTree) == 1                                 = tscherneCheat contour dividingMotorcycle maybeOpposition
+  | null holes && length (motorcyclesIn foundCrashTree) == 2 && lastCrashType == Just HeadOn = tscherneCheat contour dividingMotorcycle maybeOpposition
   | otherwise = Nothing
   where
-    outsideContourMotorcycles = convexMotorcycles contour
-    -- | not yet used.
-    -- motorcyclesOfHoles = concaveMotorcycles <$> holes
+    foundCrashTree = crashMotorcycles contour holes
+    motorcyclesIn (Just (CrashTree motorcycles _ _)) = motorcycles
+    motorcyclesIn Nothing = []
+
+    -- | find nodes or motorcycles where the arc coresponding to them is collinear with the dividing Motorcycle.
+    maybeOpposition
+      | length (motorcyclesIn foundCrashTree) == 1 && null opposingNodes           = Nothing
+      | length (motorcyclesIn foundCrashTree) == 1 && length opposingNodes == 1    = Just $ Right $ head opposingNodes
+      | length (motorcyclesIn foundCrashTree) == 2 && lastCrashType == Just HeadOn = Just $ Left $ last (motorcyclesIn foundCrashTree)
+      | otherwise                                                          = error "more than one opposing node. impossible situation."
+      where
+        -- FIXME: this is implemented wrong. it needs to find only the one node opposing the dividing motorcycle, not every line segment that could be an opposing node.
+        -- FIXME: we should construct a line segment from the point of the node to the point of the motorcycle, and keep the one that intersects the contour an even amount of times?
+        opposingNodes = filter (\eNode -> plinesIntersectIn (outOf eNode) (outOf dividingMotorcycle) == PCollinear) $ concaveENodes contour
+
+    ------------------------------------------------------
+    -- routines used when two motorcycles have been found.
+    ------------------------------------------------------
+
+    -- Determine the type of the last crash that occured. only useful when we're dealing with two motorcycles, and want to find out if we can treat them like one motorcycle.
+    lastCrashType
+      | isJust (lastCrash foundCrashTree) && collisionResult (fromJust $ lastCrash foundCrashTree) == HeadOn = Just HeadOn
+      | otherwise = Nothing
+        where
+          lastCrash :: Maybe CrashTree -> Maybe Crash
+          lastCrash (Just (CrashTree _ _ crashes)) = Just $ last $ last crashes
+          lastCrash _ = Nothing
 
     ---------------------------------------------------------
     -- routines used when a single motorcycle has been found.
     ---------------------------------------------------------
-    dividingMotorcycle = head outsideContourMotorcycles
-    -- | find nodes or motorcycles where the arc coresponding to them is collinear with the dividing Motorcycle.
-    -- FIXME: this is implemented wrong. it needs to find only the one node opposing the dividing motorcycle, not every line segment that could be an opposing node.
-    -- FIXME: we should construct a line segment from the point of the node to the point of the motorcycle, and keep the one that intersects the contour an even amount of times?
-    maybeOpposition
-      | length outsideContourMotorcycles == 1 && null opposingNodes        = Nothing
-      | length outsideContourMotorcycles == 1 && length opposingNodes == 1 = Just $ Right $ head opposingNodes
-      | length outsideContourMotorcycles == 2 && motorcyclePairIsCollinear = Just $ Left $ last outsideContourMotorcycles
-      | otherwise                                                          = error "more than one opposing node. impossible situation."
-      where
-        motorcyclePairIsCollinear = isCollinear (outOf $ head outsideContourMotorcycles) (outOf $ last outsideContourMotorcycles)
-        opposingNodes = filter (\eNode -> plinesIntersectIn (outOf eNode) (pathOf dividingMotorcycle) == PCollinear) $ concaveENodes contour
-        pathOf (Motorcycle _ path) = path
+    -- when we have just a single dividing motorcycle, we can use tscherneCheat.
+    dividingMotorcycle = head (motorcyclesIn foundCrashTree)
 
 -- | Find the non-reflex virtexes of a contour, and create ENodes from them.
 --   This function is meant to be used on the exterior contour.
+-- FIXME: merge this with the same logic in Concave.
 concaveENodes :: Contour -> [ENode]
 concaveENodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
   where
     onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe ENode
     onlyNodes ((seg1, seg2), Just pLine) = Just $ ENode (seg1,seg2) pLine 
     onlyNodes ((_, _), Nothing) = Nothing 
-
--- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
-concavePLines :: LineSeg -> LineSeg -> Maybe PLine2
-concavePLines seg1 seg2
-  | Just True == lineIsLeft seg1 seg2  = Just $ PLine2 $ addVecPair pv1 pv2
-  | otherwise                          = Nothing
-  where
-    (PLine2 pv1) = eToPLine2 seg1
-    (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
-
--- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
---   This function is meant to be used on the exterior contour.
-convexMotorcycles :: Contour -> [Motorcycle]
-convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower convexPLines $ linesOfContour contour)
-  where
-    onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
-    onlyMotorcycles ((seg1, seg2), maybePLine)
-      | isJust maybePLine = Just $ Motorcycle (seg1, seg2) $ flipPLine2 $ fromJust maybePLine
-      | otherwise         = Nothing
-
--- | Examine two line segments that are part of a Contour, and determine if they are convex toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
-convexPLines :: LineSeg -> LineSeg -> Maybe PLine2
-convexPLines seg1 seg2
-  | Just True == lineIsLeft seg1 seg2  = Nothing
-  | otherwise                          = Just $ PLine2 $ addVecPair pv1 pv2
-  where
-    (PLine2 pv1) = eToPLine2 seg1
-    (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
-
--- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
---   A reflex virtex is any point where the line in and the line out are convex, when looked at from inside of the contour.
---   This function is for use on interior contours.
-{-
-concaveMotorcycles :: Contour -> [Motorcycle]
-concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
-  where
-    onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
-    onlyMotorcycles ((seg1, seg2), maybePLine)
-      | isJust maybePLine = Just $ Motorcycle seg1 seg2 $ fromJust maybePLine
-      | otherwise         = Nothing
--}
-
--- | Find the reflex virtexes of a contour, and draw Nodes from them.
---   This function is for use on interior contours.
-{-
-convexNodes :: Contour -> [Node]
-convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower convexPLines $ linesOfContour contour)
-  where
-    onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Node
-    onlyNodes ((seg1, seg2), maybePLine)
-      | isJust maybePLine = Just $ Node (Left (seg1,seg2)) $ fromJust maybePLine
-      | otherwise         = Nothing
--}
+    -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
+    concavePLines :: LineSeg -> LineSeg -> Maybe PLine2
+    concavePLines seg1 seg2
+      | Just True == lineIsLeft seg1 seg2  = Just $ PLine2 $ addVecPair pv1 pv2
+      | otherwise                          = Nothing
+      where
+        (PLine2 pv1) = eToPLine2 seg1
+        (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
 

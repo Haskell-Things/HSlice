@@ -53,7 +53,8 @@ import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeFirstENodes, aver
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), StraightSkeleton(StraightSkeleton),  NodeTree(NodeTree), INode(INode))
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesFromStraightSkeleton)
 import Graphics.Slicer.Math.Skeleton.Line (addLineSegsToFace)
-import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton, convexMotorcycles)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles)
+import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Graphics.Slicer.Math.Skeleton.Tscherne (leftRegion, rightRegion)
 
 -- Our Utility library, for making these tests easier to read.
