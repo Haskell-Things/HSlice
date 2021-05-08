@@ -128,17 +128,18 @@ concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs cont
 -- | Find where a motorcycle intersects a contour, if the motorcycle is emitted from between the two given segments.
 --   If the motorcycle lands between two segments, return the second segment, as well.
 motorcycleIntersectsAt :: Contour -> Motorcycle -> (LineSeg, Maybe LineSeg)
-motorcycleIntersectsAt contour (Motorcycle (inSeg,outSeg) path)
-  | length (getMotorcycleIntersections path contour) == 2 && length foundSegEvents == 1 = head foundSegEvents
-  | otherwise = error $ "handle more than one intersection point here." <> show (getMotorcycleIntersections path contour) <> "\n"
+motorcycleIntersectsAt contour motorcycle@(Motorcycle (inSeg,outSeg) _)
+  | length (getMotorcycleIntersections motorcycle contour) == 2 && length foundSegEvents == 1 = head foundSegEvents
+  | otherwise = error $ "handle more than one intersection point here." <> show (getMotorcycleIntersections motorcycle contour) <> "\n"
   where
     foundSegEvents = filter (\(seg, maybeSeg) -> (seg /= inSeg && seg /= outSeg) &&
                                                    (isNothing maybeSeg ||
-                                                    (fromJust maybeSeg /= inSeg && fromJust maybeSeg /= outSeg))) $ getMotorcycleIntersections path contour
+                                                    (fromJust maybeSeg /= inSeg && fromJust maybeSeg /= outSeg))) $ getMotorcycleIntersections motorcycle contour
     -- find one of the two segments given, returning the one closest to the head of the given contour.
-    getMotorcycleIntersections :: PLine2 -> Contour -> [(LineSeg, Maybe LineSeg)]
-    getMotorcycleIntersections myline c = catMaybes $ mapWithNeighbors saneIntersections $ zip (linesOfContour c) $ intersectsWith (Right myline) . Left <$> linesOfContour c
+    getMotorcycleIntersections :: Motorcycle -> Contour -> [(LineSeg, Maybe LineSeg)]
+    getMotorcycleIntersections m c = catMaybes $ mapWithNeighbors saneIntersections $ zip contourLines $ intersectsWith (Right $ outOf m) . Left <$> contourLines
       where
+        contourLines = linesOfContour c
         saneIntersections :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg)
         saneIntersections  _ (seg, Right (IntersectsIn _))      _ = Just (seg, Nothing)
         saneIntersections  _ (_  , Left  NoIntersection)        _ = Nothing
