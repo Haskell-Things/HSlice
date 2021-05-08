@@ -87,6 +87,7 @@ makeLineSegs l
     errorIfLeft :: Either LineSegError LineSeg -> LineSeg
     errorIfLeft ln = case ln of
       Left (LineSegFromPoint point) -> error $ "tried to construct a line segment from two identical points: " <> show point <> "\n" <> show l <> "\n"
+      Left EmptyList                -> error $ "tried to construct a line segment from an empty list."
       Right                    line -> line
 
 -- | Given a list of points (in order), construct line segments that go between them. make sure to construct a line segment from the last point back to the first.
@@ -103,6 +104,7 @@ makeLineSegsLooped l
     errorIfLeft :: Either LineSegError LineSeg -> LineSeg
     errorIfLeft ln = case ln of
       Left (LineSegFromPoint point) -> error $ "tried to construct a line segment from two identical points: " <> show point <> "\n" <> show l <> "\n"
+      Left EmptyList                -> error $ "tried to construct a line segment from an empty list."
       Right                    line -> line
 
 -- | Find the point where a line segment intersects the plane at a given z height.
