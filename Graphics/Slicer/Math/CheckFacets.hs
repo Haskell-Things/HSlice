@@ -15,6 +15,8 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
+{- part of an attempt to implement admesh capabilities. woefully incomplete. -}
+
 module Graphics.Slicer.Math.CheckFacets (FacetWithNeighbors(FacetWithNeighbors), findNeighbors) where
 
 import Prelude (Eq, (==), (/=), ($), length, head, filter, error, show, (||))
