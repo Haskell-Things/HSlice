@@ -24,17 +24,17 @@
  - code for applying inset line segments to a series of faces, and
  - code to and infill to faces.
  -}
-module Graphics.Slicer.Math.Skeleton.Line (addLineSegsToFace, addInfill) where
+module Graphics.Slicer.Math.Skeleton.Line (addLineSegsToFace, addInset, addInfill) where
 
-import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, (<>), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True), head, (&&), fst, init, null, tail, last, maybe)
+import Prelude ((==), concat, otherwise, (<$>), ($), length, (/=), error, (<>), show, (<>), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True), head, (&&), fst, init, null, tail, last, maybe, snd)
 
-import Data.List (sortOn, dropWhile, takeWhile)
+import Data.List (sortOn, dropWhile, takeWhile, transpose)
 
-import Data.Maybe( Maybe(Just,Nothing), isJust, fromJust)
+import Data.Maybe( Maybe(Just,Nothing), isJust, fromJust, catMaybes)
 
-import Graphics.Slicer.Math.Definitions (mapWithFollower)
+import Graphics.Slicer.Math.Definitions (Contour(PointSequence), mapWithFollower, scalePoint, addPoints)
 
-import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, LineSegError(LineSegFromPoint))
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, LineSegError(LineSegFromPoint), endpoint)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (intersectionOf)
 
@@ -43,6 +43,8 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face))
 import Graphics.Slicer.Math.PGA (distancePPointToPLine, pToEPoint2, PLine2, eToPLine2, translatePerp, pLineIsLeft)
 
 import Graphics.Slicer.Machine.Infill (makeInfill, InfillType)
+
+import Graphics.Slicer.Machine.Contour (cleanContour)
 
 import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 
@@ -142,10 +144,27 @@ addLineSegsToFace lw n face@(Face edge firstArc midArcs lastArc)
                              then Just [Face finalSide firstArc [] lastArc]
                              else Nothing
 
+-- | Add an inset to the given set of faces, returning the uncovered remainder as faces.
+--   Requires the faces are a closed set, AKA, a set of faces created from a contour.
+-- FIXME: unimplemented. basically, take the contour formed by the remainders of the faces, and squeeze in a line segment, if possible.
+-- FIXME: pretty insane when dealing with multiple insets at once. recurse into addLineSegsToFace maybe?
+addInset :: [Face] -> Fastℕ -> ℝ -> ([Contour], [Face])
+addInset faceSet insets distance
+  | insets == 1 = ([reconstructedContour], remainingFaces)
+  | otherwise = error "cannot handle more than one inset yet."
+  where
+    (Just reconstructedContour) = cleanContour $ buildContour $ mapWithFollower (\(LineSeg s1 _) l2 -> if (endpoint l2) == s1 then endpoint l2 else averagePoints (endpoint l2) s1) (concat $ transpose lineSegSets)
+    -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
+    averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
+    buildContour points = PointSequence $ last points : init points
+    lineSegSets = fst <$> res
+    remainingFaces = concat $ catMaybes $ snd <$> res
+    res = addLineSegsToFace distance (Just (1)) <$> faceSet
+
 -- | Add infill to the area of a set of faces that was not covered in lines.
 -- FIXME: unimplemented. basically, take the contour formed by the remainders of the faces, and squeeze in a line segment, if possible.
 addInfill :: [Face] -> [[Face]] -> ℝ -> InfillType -> [[LineSeg]]
 addInfill outsideFaces insideFaceSets = makeInfill (facesToContour outsideFaces) (facesToContour <$> insideFaceSets)
   where
-    facesToContour faces = error "fixme!"
+    facesToContour _ = error "fixme!"
 

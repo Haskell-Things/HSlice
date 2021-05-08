@@ -80,7 +80,7 @@ import Graphics.Slicer.Math.Line (flipLineSeg, LineSeg(LineSeg), endpoint, lineS
 
 import Graphics.Slicer.Math.Skeleton.Face (facesFromStraightSkeleton)
 
-import Graphics.Slicer.Math.Skeleton.Line (addLineSegsToFace)
+import Graphics.Slicer.Math.Skeleton.Line (addLineSegsToFace, addInset)
 
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
@@ -167,10 +167,9 @@ mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [0::Fastℕ,1
 ------------------------ Slicing Plan ------------------------
 --------------------------------------------------------------
 
--- First: just cover our current model.
-
-data SlicingPlan =
-  SlicingPlan
+-- The difference between a slicing plan, and a Print is that a Print should specify characteristics of the resulting object, where a Plan should specify what methods to attempt to use to accomplish that goal.
+data Plan =
+  Plan
     {
       _preObject :: ScadStep
     , _printObject :: ScadStep
@@ -179,11 +178,17 @@ data SlicingPlan =
 
 data ScadStep =
     PriorState MachineState
+  | NoWork
+  | Extrude (DivideStrategy, InsetStrategy)
   | StateM [GCode]
 
 data DivideStrategy =
     ZLayers
   | AllAtOnce
+
+data InsetStrategy =
+    Skeleton
+  | SkeletonFailThrough
 
 -- The new scad functions:
 
@@ -212,10 +217,12 @@ sliceObject :: Printer -> Print -> [([Contour], Fastℕ)] -> StateM [GCode]
 sliceObject printer@(Printer _ _ extruder) print allLayers =
   cookExtrusions extruder (concat slicedLayers) threads
   where
-    slicedLayers = [sliceLayer printer print (layer == last allLayers) layer | layer <- allLayers] `using` parListChunk (div (length allLayers) (fromFastℕ threads)) rdeepseq
+    slicedLayers = [sliceLayer printer print slicingPlan (layer == last allLayers) layer | layer <- allLayers] `using` parListChunk (div (length allLayers) (fromFastℕ threads)) rdeepseq
+    -- Hack: start to use types to explain how to slice.
+    slicingPlan = Plan NoWork (Extrude (ZLayers,SkeletonFailThrough)) NoWork
 
-sliceLayer :: Printer -> Print -> Bool -> ([Contour], Fastℕ) -> [GCode]
-sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBeforeInner infillSpeed) isLastLayer (layerContours, layerNumber) = do
+sliceLayer :: Printer -> Print -> Plan -> Bool -> ([Contour], Fastℕ) -> [GCode]
+sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBeforeInner infillSpeed) plan isLastLayer (layerContours, layerNumber) = do
   let
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToContour :: Contour -> [GCode]
@@ -269,12 +276,13 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
                 , travelBetweenContours (last childContoursInnerWalls) dest
                 ]
           outsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*0.5) insideContoursRaw outsideContourRaw
-          outsideContourInnerWall = fromMaybe (outsideContourInnerWallByShrink) outsideContourInnerWallBySkeleton
+          -- Fail to the old contour shrink method when the skeleton based one knows it's failed.
+          outsideContourInnerWall = fromMaybe outsideContourInnerWallByShrink outsideContourInnerWallBySkeleton
             where
               outsideContourInnerWallByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2) insideContoursRaw outsideContourRaw
               outsideContourInnerWallBySkeleton
-                | isJust outsideContourSkeleton && not (null outsideContourNewSegs) = Just $ head $ getContours $ (\seg@(LineSeg p1 _) -> (p1, endpoint seg)) <$> outsideContourNewSegs
--- uncomment this line, and comment out tho following if you want to break when the skeleton code throws it's hands up.
+                | isJust outsideContourSkeleton && not (null outsideContourNewSegs) = Just $ head $ fst $ addInset outsideContourFaces 1 (pathWidth*2)
+-- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
 --                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourNewSegs <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
                 | otherwise = Nothing
                 where
