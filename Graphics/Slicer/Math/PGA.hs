@@ -40,7 +40,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (⋅), (•), addVal, addVecPair, divVecScalar, scalarPart, vectorPart, unlikeVecPair)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (⋅), (•), addVal, addVecPair, divVecScalar, scalarPart, vectorPart)
 
 import Graphics.Slicer.Math.Line(LineSeg(LineSeg))
 

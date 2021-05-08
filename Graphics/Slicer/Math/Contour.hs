@@ -16,9 +16,9 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour) where
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour, contourIntersections) where
 
-import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, Either(Left, Right))
+import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, zip, Either(Left, Right))
 
 import Data.List(tail, last, head, partition, reverse, sortBy)
 
@@ -28,11 +28,11 @@ import Data.Either (fromRight)
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2))
+import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2), mapWithNeighbors)
 
 import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, makeLineSegsLooped, makeLineSegs, endpoint, midpoint)
 
-import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, HitStartPoint, HitEndPoint), PIntersection (PCollinear, PParallel, PAntiParallel, IntersectsIn), lineIsLeft, pointOnPerp, intersectsWith, pToEPoint2)
+import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, HitStartPoint, HitEndPoint), PIntersection (PParallel, PAntiParallel, IntersectsIn), eToPPoint2, lineIsLeft, pointOnPerp, intersectsWith, plineFromEndpoints, pToEPoint2, PPoint2, PLine2, join2PPoint2)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -194,27 +194,32 @@ innerContourPoint distance contour l
       originPoint = Point2 (-1,-1)
       perpPoint      = pointOnPerp l (midpoint l) distance
       otherPerpPoint = pointOnPerp l (midpoint l) (-distance)
-      numIntersections = length $ intersections originPoint contour $ pointOnPerp l (midpoint l) 0.00001
+      numIntersections = length $ (contourIntersections contour $ Left $ pointOnPerp l (midpoint l) 0.00001) $ Left originPoint
 
 -- | return the intersections with a given contour when traveling a straight line from srcPoint to dstPoint.
-intersections :: Point2 -> Contour -> Point2 -> [Point2]
-intersections dstPoint contour srcPoint = saneIntersections l0 $ contourLineSegs contour
+--   Not for use against line segments that are a part of the contour.
+contourIntersections :: Contour -> (Either Point2 PPoint2) -> (Either Point2 PPoint2) -> [(LineSeg, Maybe LineSeg, PPoint2)]
+contourIntersections contour@(PointSequence contourPoints) srcPoint dstPoint = foundIntersections
   where
+    foundIntersections = getIntersections (pl0 srcPoint dstPoint) contour
     -- The line we are checking for intersections along.
-    l0 = fromRight (error "cannot construct target line") $ lineSegFromEndpoints srcPoint dstPoint
-    contourLineSegs (PointSequence c) = makeLineSegsLooped c
+    pl0 (Left lstart) (Left lend) = plineFromEndpoints lstart lend
+    pl0 (Right pstart) (Right pend) = join2PPoint2 pstart pend
     -- a filter for results that make sense.
-    saneIntersections :: LineSeg -> [LineSeg] -> [Point2]
-    saneIntersections l1 ls = mapMaybe saneIntersectionOf ls
+    getIntersections :: PLine2 -> Contour -> [(LineSeg, Maybe LineSeg, PPoint2)]
+    getIntersections l1 c = catMaybes $ mapWithNeighbors saneIntersection $ zip contourLines $ intersectsWith (Right l1) . Left <$> contourLines
       where
-        saneIntersectionOf :: LineSeg -> Maybe Point2
-        saneIntersectionOf l2 = saneIntersection (intersectsWith (Left l1) (Left l2))
-          where
-            saneIntersection :: Either Intersection PIntersection -> Maybe Point2
-            saneIntersection (Left NoIntersection)         = Nothing
-            saneIntersection (Right (IntersectsIn ppoint)) = Just $ pToEPoint2 ppoint
-            saneIntersection (Right PAntiParallel)         = Nothing
-            saneIntersection (Right PParallel)             = Nothing
-            saneIntersection res = error $ "insane result of intersecting a line (" <> show l1 <> ") with it's bisector: " <> show l2 <> "\nwhen finding an inner contour point on contour " <> show ls <> "\n" <> show res <> "\n"
-            -- FIXME: fix the remaining cases. steal the code / algorithms from closedRegion
+        contourLines = makeLineSegsLooped contourPoints
+        saneIntersection :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg, PPoint2)
+        saneIntersection _ (seg,(Right (IntersectsIn ppoint))) _ = Just (seg, Nothing, ppoint)
+        saneIntersection _ (_,(Left NoIntersection))         _ = Nothing
+        saneIntersection _ (_,(Right PParallel))             _ = Nothing
+        saneIntersection _ (_,(Right PAntiParallel))         _ = Nothing
+        saneIntersection  _                              (seg , Left (HitStartPoint _ point)) (seg2 , Left (HitEndPoint   _ _)) = Just (seg, Just seg2, eToPPoint2 point)
+        saneIntersection (_  , Left (HitStartPoint _ _)) (_   , Left (HitEndPoint   _ _))      _                                = Nothing
+        saneIntersection  _                              (_   , Left (HitEndPoint   _ _))     (_    , Left (HitStartPoint _ _)) = Nothing
+        saneIntersection (seg, Left (HitEndPoint   _ _)) (seg2, Left (HitStartPoint _ point))  _                                = Just (seg, Just seg2, eToPPoint2 point)
+        saneIntersection res1 res2 res3 = error $ "insane result of intersecting a line (" <> show l1 <> ") with a contour: " <> show c <> "\n" <> show res1 <> "\n" <> show res2 <> "\n" <> show res3 <> "\n"
+
+
 
