@@ -29,17 +29,19 @@
 
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), head, null, filter, zip, Either(Right, Left), last)
+import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), head, null, filter, zip, Either(Right, Left), last, (>), even)
   
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), concavePLines, linesOfContour, linePairs, outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), concavePLines, linesOfContour, linePairs, outOf, pPointOf)
 
 import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PCollinear), plinesIntersectIn)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
 import Graphics.Slicer.Math.Line (LineSeg)
+
+import Graphics.Slicer.Math.Contour (contourIntersections)
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
@@ -53,7 +55,7 @@ import Graphics.Slicer.Math.Skeleton.Tscherne (tscherneCheat)
 
 -- | Find the StraightSkeleton of a given contour, with a given set of holes cut out of it.
 --   Really, this is a dispatcher, to a series of algorithms for doing the actual work.
--- FIXME: Does not know how to calculate a straight skeleton for contours with holes, or more than one motorcycle. 
+-- FIXME: Does not know how to calculate a straight skeleton for contours with holes, or more than one motorcycle.. or two motorcycles that are collinear.
 -- FIXME: abusing Maybe until we can cover all cases.
 findStraightSkeleton :: Contour -> [Contour] -> Maybe StraightSkeleton
 findStraightSkeleton contour holes
@@ -75,9 +77,11 @@ findStraightSkeleton contour holes
       | length (motorcyclesIn foundCrashTree) == 2 && lastCrashType == Just HeadOn = Just $ Left $ last (motorcyclesIn foundCrashTree)
       | otherwise                                                          = error "more than one opposing node. impossible situation."
       where
-        -- FIXME: this is implemented wrong. it needs to find only the one node opposing the dividing motorcycle, not every line segment that could be an opposing node.
-        -- FIXME: we should construct a line segment from the point of the node to the point of the motorcycle, and keep the one that intersects the contour an even amount of times?
-        opposingNodes = filter (\eNode -> plinesIntersectIn (outOf eNode) (outOf dividingMotorcycle) == PCollinear) $ concaveENodes contour
+        opposingNodes :: [ENode]
+        opposingNodes = filter (\eNode -> enoughIntersections $ length (contourIntersections contour (Right $ pPointOf eNode) (Right $ pPointOf dividingMotorcycle)))
+                        $ filter (\eNode -> plinesIntersectIn (outOf eNode) (outOf dividingMotorcycle) == PCollinear) $ concaveENodes contour
+          where
+            enoughIntersections n = n > 0 && even n
 
     ------------------------------------------------------
     -- routines used when two motorcycles have been found.
