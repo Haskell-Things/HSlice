@@ -281,7 +281,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
             where
               outsideContourInnerWallByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2) insideContoursRaw outsideContourRaw
               outsideContourInnerWallBySkeleton
-                | isJust outsideContourSkeleton && not (null outsideContourNewSegs) = Just $ head $ fst $ addInset outsideContourFaces 1 (pathWidth*2)
+                | isJust outsideContourSkeleton && not (null outsideContourNewSegs) = Just $ head $ fst $ addInset 1 (pathWidth*2) outsideContourFaces 
 -- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
 --                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourNewSegs <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
                 | otherwise = Nothing

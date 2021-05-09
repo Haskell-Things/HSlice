@@ -148,8 +148,8 @@ addLineSegsToFace lw n face@(Face edge firstArc midArcs lastArc)
 --   Requires the faces are a closed set, AKA, a set of faces created from a contour.
 -- FIXME: unimplemented. basically, take the contour formed by the remainders of the faces, and squeeze in a line segment, if possible.
 -- FIXME: pretty insane when dealing with multiple insets at once. recurse into addLineSegsToFace maybe?
-addInset :: [Face] -> Fastℕ -> ℝ -> ([Contour], [Face])
-addInset faceSet insets distance
+addInset :: Fastℕ -> ℝ -> [Face] -> ([Contour], [Face])
+addInset insets distance faceSet
   | insets == 1 = ([reconstructedContour], remainingFaces)
   | otherwise = error "cannot handle more than one inset yet."
   where

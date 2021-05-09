@@ -110,16 +110,19 @@ linearAlgSpec = do
       makeInfill c1 [] 0.5 Vert --> [[LineSeg (Point2 (0.5,0)) (Point2 (0,1))]]
   describe "Contours (Skeleton/line)" $ do
     it "a contour algorithmically shrunk has the same amount of points as the input contour" $
-      length ( pointsOfContour $ head $ fst $ addInset (facesOf $ fromJust $ findStraightSkeleton c1 []) 1 0.1)
+      length ( pointsOfContour $ head $ fst $ addInset 1 0.1 $ facesOf $ fromJust $ findStraightSkeleton c1 [])
                                                         --> length (pointsOfContour c1)
     it "a contour algorithmically shrunk by zero is the same as the input contour" $
-      (head $ fst (addInset (facesOf $ fromJust $ findStraightSkeleton c1 []) 1 0)) --> c1
+      (head $ fst $ addInset 1 0 $ facesOf $ fromJust $ findStraightSkeleton c1 []) --> c1
+    it "a contour algorithmically shrunk is about equal to the same contour mechanically shrunk" $
+      (expandContour 0.0 [] $ head $ fst $ addInset 1 0.1 $ orderedFacesOf c2l1 $ fromJust $ findStraightSkeleton c2 []) --> shrinkContour 0.1 [] c2
     it "a contour algorithmically shrunk and mechanically expanded is about equal to where it started" $
-      (roundPoint2 <$> (pointsOfContour $ fromJust $ expandContour 0.0 [] $ head $ fst $ addInset (facesOf $ fromJust $ findStraightSkeleton c2 []) 1 0.1)) --> roundPoint2 <$> pointsOfContour c2
+      (roundPoint2 <$> (pointsOfContour $ fromJust $ expandContour 0.0 [] $ head $ fst $ addInset 1 0.1 $ orderedFacesOf c2l1 $ fromJust $ findStraightSkeleton c2 [])) --> roundPoint2 <$> pointsOfContour c2
   where
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
     c1 = PointSequence cp1
     c2 = PointSequence [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
+    c2l1 = LineSeg (Point2 (0.75,0.25)) (Point2 (0.0,0.5))
     pointsOfContour (PointSequence contourPoints) = contourPoints
 
 geomAlgSpec :: Spec
