@@ -78,7 +78,7 @@ import Graphics.Slicer.Math.Tri (Tri, sidesOf, shiftTri, triIntersects)
 
 import Graphics.Slicer.Math.Line (flipLineSeg, LineSeg(LineSeg), endpoint, lineSegFromEndpoints)
 
-import Graphics.Slicer.Math.Skeleton.Face (facesFromStraightSkeleton)
+import Graphics.Slicer.Math.Skeleton.Face (orderedFacesOf)
 
 import Graphics.Slicer.Math.Skeleton.Line (addLineSegsToFace, addInset)
 
@@ -287,7 +287,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
                 | otherwise = Nothing
                 where
                   outsideContourSkeleton = findStraightSkeleton outsideContourRaw insideContoursRaw
-                  outsideContourFaces    = facesFromStraightSkeleton (fromJust outsideContourSkeleton) (firstLineSegOfContour outsideContourRaw)
+                  outsideContourFaces    = orderedFacesOf (fromJust $ firstLineSegOfContour outsideContourRaw) (fromJust outsideContourSkeleton) 
                   outsideContourNewSegs  = concat $ fst <$> addLineSegsToFace (pathWidth*2) (Just 1) <$> outsideContourFaces
                   firstLineSegOfContour :: Contour -> Maybe LineSeg
                   firstLineSegOfContour (PointSequence [])  = Nothing

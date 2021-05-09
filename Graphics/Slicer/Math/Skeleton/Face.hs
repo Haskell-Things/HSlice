@@ -24,13 +24,13 @@
  - Code for creating a series of faces, covering a straight skeleton.
  - Code for taking a series of faces, and applying inset line segments and infill to them.
  -}
-module Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesFromStraightSkeleton) where
+module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
 import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), (<), (++), (>), Bool, head, (&&), (||), take, filter, init, null, tail, last, concat, not, reverse)
 
 import Data.List (dropWhile)
 
-import Data.Maybe( Maybe(Just), fromJust, isNothing)
+import Data.Maybe( Maybe(Just), isNothing)
 
 import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
@@ -51,27 +51,31 @@ data Face = Face { _edge :: LineSeg, _firstArc :: PLine2, _arcs :: [PLine2], _la
   deriving Eq
   deriving stock Show
 
+
 -- | take a straight skeleton, and create faces from it.
--- If you have a line segment you want the first face to contain, supply it for a re-order.
-facesFromStraightSkeleton :: StraightSkeleton -> Maybe LineSeg -> [Face]
-facesFromStraightSkeleton (StraightSkeleton nodeLists spine) maybeStart
-  | null spine && length nodeLists == 1 = findFaces (head nodeLists) maybeStart
+-- accepts a line segment you want the first face to contain, and reorders the face list.
+orderedFacesOf :: LineSeg -> StraightSkeleton -> [Face]
+orderedFacesOf start skeleton = facesFromIndex start $ facesOf skeleton
+  where
+    facesFromIndex :: LineSeg -> [Face] -> [Face]
+    facesFromIndex targetSeg rawFaces = take (length rawFaces) $ dropWhile (\(Face a _ _ _) -> a /= targetSeg) $ rawFaces ++ rawFaces
+
+-- | take a straight skeleton, and create faces from it.
+facesOf :: StraightSkeleton -> [Face]
+facesOf (StraightSkeleton nodeLists spine)
+  | null spine && length nodeLists == 1 = findFaces (head nodeLists)
   | otherwise                           = error "cannot yet handle spines, or more than one NodeList."
   where
     -- find all of the faces of a set of nodeTrees.
-    findFaces :: [NodeTree] -> Maybe LineSeg -> [Face]
-    findFaces nodeTrees maybeStartSeg
+    findFaces :: [NodeTree] -> [Face]
+    findFaces nodeTrees
       | null nodeTrees = []
-      | length nodeTrees == 1 && isNothing (finalOutOf $ head nodeTrees) && isNothing maybeStartSeg = rawFaces
-      | length nodeTrees == 1 && isNothing (finalOutOf $ head nodeTrees)                            = facesFromIndex (fromJust maybeStartSeg)
-      | length nodeTrees > 1  && isNothing maybeStartSeg                                              = rawFaces
-      | length nodeTrees > 1                                                                          = facesFromIndex (fromJust maybeStartSeg)
+      | length nodeTrees == 1 && isNothing (finalOutOf $ head nodeTrees) = rawFaces
+      | length nodeTrees  > 1                                            = rawFaces
       | otherwise            = error $ "abandon hope!\n" <> show (length nodeLists) <> "\n" <> show nodeLists <> "\n" <> show (length nodeTrees) <> "\n" <> show nodeTrees <> "\n" <> show rawFaces <> "\n"
       where
         rawFaces = findFacesRecurse nodeTrees ++
                    if length nodeTrees > 1 then [intraNodeFace (last nodeTrees) (head nodeTrees)] else []
-        facesFromIndex :: LineSeg -> [Face]
-        facesFromIndex target = take (length rawFaces) $ dropWhile (\(Face a _ _ _) -> a /= target) $ rawFaces ++ rawFaces
         -- Recursively find faces.
         findFacesRecurse :: [NodeTree] -> [Face]
         findFacesRecurse []               = []

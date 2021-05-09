@@ -20,7 +20,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), length, Either(Right), foldl, head, sqrt)
+import Prelude (($), Bool(True, False), (<$>), length, Either(Right), foldl, fst, head, sqrt)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it)
@@ -51,8 +51,8 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 -- Our Facet library.
 import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeFirstENodes, averageNodes)
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), StraightSkeleton(StraightSkeleton),  NodeTree(NodeTree), INode(INode))
-import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesFromStraightSkeleton)
-import Graphics.Slicer.Math.Skeleton.Line (addLineSegsToFace)
+import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Line (addLineSegsToFace, addInset)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Graphics.Slicer.Math.Skeleton.Tscherne (leftRegion, rightRegion)
@@ -95,19 +95,27 @@ lineSpec = do
 linearAlgSpec :: Spec
 linearAlgSpec = do
   describe "Contours (machine/contour)" $ do
-    it "a contour shrunk has the same amount of points as the input contour" $
+    it "a contour mechanically shrunk has the same amount of points as the input contour" $
       length ( pointsOfContour $ fromJust $ shrinkContour 0.1 [] c1) --> length (pointsOfContour c1)
-    it "a contour shrunk by zero is the same as the input contour" $
+    it "a contour mechanically shrunk by zero is the same as the input contour" $
       fromJust (shrinkContour 0 [] c1) --> c1
-    it "a contour expanded has the same amount of points as the input contour" $
+    it "a contour mechanically expanded has the same amount of points as the input contour" $
       length (pointsOfContour $ fromJust $ expandContour 0.1 [] c1) --> length (pointsOfContour c1)
-    it "a contour shrunk and expanded is about equal to where it started" $
+    it "a contour mechanically shrunk and expanded is about equal to where it started" $
       (roundPoint2 <$> pointsOfContour (fromJust $ expandContour 0.1 [] $ fromJust $ shrinkContour 0.1 [] c2)) --> roundPoint2 <$> pointsOfContour c2
   describe "Infill (machine/infill)" $ do
     it "infills exactly one line inside of a box big enough for only one line (Horizontal)" $
       makeInfill c1 [] 0.5 Horiz --> [[LineSeg (Point2 (0,0.5)) (Point2 (1,0))]]
     it "infills exactly one line inside of a box big enough for only one line (Vertical)" $
       makeInfill c1 [] 0.5 Vert --> [[LineSeg (Point2 (0.5,0)) (Point2 (0,1))]]
+  describe "Contours (Skeleton/line)" $ do
+    it "a contour algorithmically shrunk has the same amount of points as the input contour" $
+      length ( pointsOfContour $ head $ fst $ addInset (facesOf $ fromJust $ findStraightSkeleton c1 []) 1 0.1)
+                                                        --> length (pointsOfContour c1)
+    it "a contour algorithmically shrunk by zero is the same as the input contour" $
+      (head $ fst (addInset (facesOf $ fromJust $ findStraightSkeleton c1 []) 1 0)) --> c1
+    it "a contour algorithmically shrunk and mechanically expanded is about equal to where it started" $
+      (roundPoint2 <$> (pointsOfContour $ fromJust $ expandContour 0.0 [] $ head $ fst $ addInset (facesOf $ fromJust $ findStraightSkeleton c2 []) 1 0.1)) --> roundPoint2 <$> pointsOfContour c2
   where
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
     c1 = PointSequence cp1
@@ -599,7 +607,7 @@ facetSpec = do
                                                                     ]] [])
   describe "Faces (Skeleton/Face)" $ do
     it "finds faces from a straight skeleton (default order)" $
-      facesFromStraightSkeleton (fromJust $ findStraightSkeleton c0 []) Nothing --> [ Face (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)))
+      facesOf (fromJust $ findStraightSkeleton c0 []) --> [ Face (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)))
                                                                                            (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
                                                                                            [PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal (-0.19509032201612836) [GEPlus 2]])]
                                                                                            (PLine2 (GVec [GVal 2.0    [GEPlus 2]]))
@@ -622,7 +630,7 @@ facetSpec = do
                                                                                            (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
                                                                                     ]
     it "finds faces from a straight skeleton (manual order)" $
-      facesFromStraightSkeleton (fromJust $ findStraightSkeleton c0 []) c0l0 --> [ Face (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)))
+      orderedFacesOf c0l0 (fromJust $ findStraightSkeleton c0 []) --> [ Face (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)))
                                                                                         (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
                                                                                         [PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal (-0.19509032201612836) [GEPlus 2]])]
                                                                                         (PLine2 (GVec [GVal 2.0    [GEPlus 2]]))
@@ -645,7 +653,7 @@ facetSpec = do
                                                                                         (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
                                                                                  ]
     it "finds faces from a triangle (default order)" $
-      facesFromStraightSkeleton (fromJust $ findStraightSkeleton triangle []) Nothing --> [Face (LineSeg (Point2 (1.0,1.73205080756887729)) (Point2 (-1.0,-1.7320508075688772)))
+      facesOf (fromJust $ findStraightSkeleton triangle []) --> [Face (LineSeg (Point2 (1.0,1.73205080756887729)) (Point2 (-1.0,-1.7320508075688772)))
                                                                                                 (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))
                                                                                                 []
                                                                                                 (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]])),
@@ -659,7 +667,7 @@ facetSpec = do
                                                                                                 (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))
                                                                                           ]
     it "finds faces from a triangle (manual order)" $
-      facesFromStraightSkeleton (fromJust $ findStraightSkeleton triangle []) trianglel0 --> [Face (LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,1.7320508075688772)))
+      orderedFacesOf trianglel0 (fromJust $ findStraightSkeleton triangle []) --> [Face (LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,1.7320508075688772)))
                                                                                                    (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
                                                                                                    []
                                                                                                    (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]])),
@@ -673,7 +681,7 @@ facetSpec = do
                                                                                                    (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))
                                                                                              ]
     it "finds faces from a square" $
-      facesFromStraightSkeleton (fromJust $ findStraightSkeleton square []) Nothing --> [Face (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
+      facesOf (fromJust $ findStraightSkeleton square []) --> [Face (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
                                                                                       (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
                                                                                       []
                                                                                       (PLine2 (GVec [GVal (0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
@@ -691,7 +699,7 @@ facetSpec = do
                                                                                       (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                                 ]
     it "finds faces from a rectangle" $
-      facesFromStraightSkeleton (fromJust $ findStraightSkeleton rectangle []) Nothing -->  [Face (LineSeg (Point2 (-2.0,1.0)) (Point2 (0.0,-2.0)))
+      facesOf (fromJust $ findStraightSkeleton rectangle []) --> [Face (LineSeg (Point2 (-2.0,1.0)) (Point2 (0.0,-2.0)))
                                                                                                   (PLine2 (GVec [GVal 0.7071067811865475 [GEZero 1], GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                                                   []
                                                                                                   (PLine2 (GVec [GVal (-0.7071067811865475) [GEZero 1], GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
@@ -711,30 +719,30 @@ facetSpec = do
 
   describe "Lines on Faces (Skeleton/Line)" $ do
     it "places lines on a triangle" $
-      (addLineSegsToFace 0.25 Nothing <$> facesFromStraightSkeleton (fromJust $ findStraightSkeleton triangle []) Nothing) --> [([
-                                                                                                           LineSeg (Point2 (-0.21650635094610968,-0.12500000000000003)) (Point2 (1.2165063509461096,2.107050807568877)),
-                                                                                                           LineSeg (Point2 (-0.649519052838329,-0.37500000000000006)) (Point2 (1.649519052838329,2.857050807568877))
-                                                                                                        ],
+      (addLineSegsToFace 0.25 Nothing <$> (facesOf (fromJust $ findStraightSkeleton triangle []))) --> [([
+                                                                                                          LineSeg (Point2 (-0.21650635094610968,-0.12500000000000003)) (Point2 (1.2165063509461096,2.107050807568877)),
+                                                                                                          LineSeg (Point2 (-0.649519052838329,-0.37500000000000006)) (Point2 (1.649519052838329,2.857050807568877))
+                                                                                                       ],
                                                                                                         Just [Face (LineSeg (Point2 (-0.8660254037844387,-0.5000000000000001)) (Point2 (1.8660254037844388,3.232050807568877)))
                                                                                                                    (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))
                                                                                                                    []
                                                                                                                    (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
                                                                                                              ])
-                                                                                                      ,([
-                                                                                                           LineSeg (Point2 (2.21650635094611,-0.125)) (Point2 (-2.4330127018922196,0.0)),
-                                                                                                           LineSeg (Point2 (2.649519052838329,-0.375)) (Point2 (-3.299038105676658,0.0))
-                                                                                                        ],
+                                                                                                     ,([
+                                                                                                          LineSeg (Point2 (2.21650635094611,-0.125)) (Point2 (-2.4330127018922196,0.0)),
+                                                                                                          LineSeg (Point2 (2.649519052838329,-0.375)) (Point2 (-3.299038105676658,0.0))
+                                                                                                       ],
                                                                                                         Just [Face (LineSeg (Point2 (2.866025403784439,-0.5)) (Point2 (-3.732050807568877,0.0)))
                                                                                                                    (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))
                                                                                                                    []
                                                                                                                    (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))])
-                                                                                                      ,([
-                                                                                                           LineSeg (Point2 (1.0,1.9820508075688772)) (Point2 (1.2165063509461098,-2.107050807568877)),
-                                                                                                           LineSeg (Point2 (1.0,2.4820508075688773)) (Point2 (1.6495190528383294,-2.857050807568877))
-                                                                                                        ],Just [Face (LineSeg (Point2 (1.0,2.732050807568877)) (Point2 (1.8660254037844388,-3.232050807568877)))
-                                                                                                                     (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
-                                                                                                                     []
-                                                                                                                     (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))])
+                                                                                                     ,([
+                                                                                                          LineSeg (Point2 (1.0,1.9820508075688772)) (Point2 (1.2165063509461098,-2.107050807568877)),
+                                                                                                          LineSeg (Point2 (1.0,2.4820508075688773)) (Point2 (1.6495190528383294,-2.857050807568877))
+                                                                                                       ],Just [Face (LineSeg (Point2 (1.0,2.732050807568877)) (Point2 (1.8660254037844388,-3.232050807568877)))
+                                                                                                                    (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
+                                                                                                                    []
+                                                                                                                    (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))])
                                                                                                       ]
     where
       -- c0 - c4 are the contours of a square around the origin with a 90 degree chunk missing, rotated 0, 90, 180, 270 and 360 degrees:
@@ -743,7 +751,7 @@ facetSpec = do
       --    /_|
       --
       c0 = PointSequence [Point2 (0,0), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
-      c0l0 = Just (LineSeg (Point2 (0,0)) (Point2 (-1,-1)))
+      c0l0 = LineSeg (Point2 (0,0)) (Point2 (-1,-1))
       c1 = PointSequence [Point2 (-1,-1), Point2 (0,0), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       c2 = PointSequence [Point2 (-1,-1), Point2 (1,-1), Point2 (0,0), Point2 (1,1), Point2 (-1,1)]
       c3 = PointSequence [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (0,0), Point2 (-1,1)]
@@ -766,7 +774,7 @@ facetSpec = do
       corner4 = [ LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))]
       -- A simple triangle.
       triangle = PointSequence [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
-      trianglel0 = Just (LineSeg (Point2 (2,0)) (Point2 (-1.0,sqrt 3)))
+      trianglel0 = LineSeg (Point2 (2,0)) (Point2 (-1.0,sqrt 3))
       -- A simple square.
       square = PointSequence [Point2 (-1,1), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1)]
       -- A simple rectangle.
