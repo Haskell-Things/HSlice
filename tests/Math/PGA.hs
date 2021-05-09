@@ -484,6 +484,33 @@ facetSpec = do
                                                                        ]
                                                                        []
                                                              ]] [])
+  describe "Straight Skeleton (Skeleton/Skeleton)" $ do
+    it "finds the straight skeleton of our third simple shape." $
+      findStraightSkeleton c2 [] --> Just (StraightSkeleton [[NodeTree [ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
+                                                                              (PLine2 (GVec [GVal (0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                                                                       ,ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0)))
+                                                                              (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal  0.9238795325112867 [GEPlus 2]]))
+                                                                       ]
+                                                                       [ [INode [PLine2 (GVec [GVal (0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]),
+                                                                                 PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (0.3826834323650897) [GEPlus 1], GVal  (0.9238795325112867) [GEPlus 2]])]
+                                                                          (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal (0.9807852804032305) [GEPlus 1], GVal (0.19509032201612836) [GEPlus 2]])))
+                                                                         ]
+                                                                       ]
+                                                             ,NodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
+                                                                              (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal  (0.9238795325112867) [GEPlus 2]]))
+                                                                       ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
+                                                                              (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                                                                       ]
+                                                                       [ [INode [PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal  (0.9238795325112867) [GEPlus 2]]),
+                                                                                 PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])]
+                                                                          (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal (-0.9807852804032305) [GEPlus 1], GVal (0.19509032201612836) [GEPlus 2]])))
+                                                                         ]
+                                                                       ]
+                                                             ,NodeTree [ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)))
+                                                                              (PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))
+                                                                       ]
+                                                                       []
+                                                             ]] [])
     it "finds the straight skeleton of our fifth simple shape." $
       findStraightSkeleton c5 [] --> Just (StraightSkeleton [[NodeTree [ENode (LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,1.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
                                                                               (PLine2 (GVec [GVal 0.5411961001461969 [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal 0.3826834323650899 [GEPlus 2]]))
