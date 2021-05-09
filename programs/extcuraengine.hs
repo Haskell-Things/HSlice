@@ -207,7 +207,17 @@ defaultSlicer =    "pathWidth = machine_nozzle_size"
                 <> "maxHeight = maxHeightOf(inSTL)"
                 <> "triangles = trianglesOf(inSTL)"
                 <> "module sliceLayer(contour){ speed(50) inset (pathWidth/2) contour; infillHoriz inset (pathWidth) contour; }"
-                <> "module sliceObject(triangles) {for (i=0;i*layerHeight<maxHeight;i++) { "
+                <> "module sliceObject(triangles) {for (i=0;i*layerHeight<maxHeight;i++) { sliceLayer (contoursAlongAxis i) }"
+
+-- An idea for a SCAD program:
+-- multiply an object, printing it with variations in print settings.
+multiSlicer :: String
+multiSlicer = "pathWidth = machine_nozzle_size"
+              <> "layerHeight = layer_height"
+              <> "maxHeight = maxHeightOf(inSTL)"
+              <> "triangles = trianglesOf(inSTL)"
+              <> "module sliceLayer(contour){ speed(50) inset (pathWidth/2) contour; infillHoriz inset (pathWidth) contour; }"
+              <> "module sliceObject(triangles) {for (i=0;i*layerHeight<maxHeight;i++) { translate (x,y) sliceLayer (contoursAlongAxis i) }"
 
 -------------------------------------------------------------
 ----------------------- ENTRY POINT -------------------------
