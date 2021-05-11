@@ -84,6 +84,7 @@ Library
                     Graphics.Slicer.Math.Contour
                     Graphics.Slicer.Math.Definitions
                     Graphics.Slicer.Math.Facet
+                    Graphics.Slicer.Math.Ganja
                     Graphics.Slicer.Math.GeometricAlgebra
                     Graphics.Slicer.Math.Line
                     Graphics.Slicer.Math.PGA
