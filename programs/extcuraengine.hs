@@ -287,24 +287,34 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
                 , drawChildOuterContours
                 , travelBetweenContours (last childContoursInnerWalls) dest
                 ]
-          outsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*0.5) insideContoursRaw outsideContourRaw
+          -- Fail to the old contour shrink method when the skeleton based one knows it's failed.
+          outsideContour = fromMaybe outsideContourByShrink outsideContourBySkeleton
+            where
+              outsideContourByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*0.5) insideContoursRaw outsideContourRaw
+              outsideContourBySkeleton
+                | isJust outsideContourSkeleton && not (null outsideContourNewSegs) = Just $ head $ fst $ addInset 1 (0.5*pathWidth) outsideContourFaces 
+-- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
+--                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourNewSegs <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
+                | otherwise = Nothing
+                where
+                  outsideContourNewSegs  = concat $ fst <$> addLineSegsToFace (0.5*pathWidth) (Just 1) <$> outsideContourFaces
           -- Fail to the old contour shrink method when the skeleton based one knows it's failed.
           outsideContourInnerWall = fromMaybe outsideContourInnerWallByShrink outsideContourInnerWallBySkeleton
             where
               outsideContourInnerWallByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*1.5) insideContoursRaw outsideContourRaw
               outsideContourInnerWallBySkeleton
-                | isJust outsideContourSkeleton && not (null outsideContourNewSegs) = Just $ head $ fst $ addInset 1 (1.5*pathWidth) outsideContourFaces 
+                | isJust outsideContourSkeleton && not (null outsideContourInnerWallNewSegs) = Just $ head $ fst $ addInset 1 (1.5*pathWidth) outsideContourFaces 
 -- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
---                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourNewSegs <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
+--                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourInnerWallNewSegs <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
                 | otherwise = Nothing
                 where
-                  outsideContourSkeleton = findStraightSkeleton outsideContourRaw insideContoursRaw
-                  outsideContourFaces    = orderedFacesOf (fromJust $ firstLineSegOfContour outsideContourRaw) (fromJust outsideContourSkeleton) 
-                  outsideContourNewSegs  = concat $ fst <$> addLineSegsToFace (1.5*pathWidth) (Just 1) <$> outsideContourFaces
-                  firstLineSegOfContour :: Contour -> Maybe LineSeg
-                  firstLineSegOfContour (PointSequence [])  = Nothing
-                  firstLineSegOfContour (PointSequence [_]) = Nothing
-                  firstLineSegOfContour (PointSequence (a:b:_)) = Just $ (\(Right v) -> v) $ lineSegFromEndpoints a b 
+                  outsideContourInnerWallNewSegs  = concat $ fst <$> addLineSegsToFace (1.5*pathWidth) (Just 1) <$> outsideContourFaces
+          outsideContourFaces    = orderedFacesOf (fromJust $ firstLineSegOfContour outsideContourRaw) (fromJust outsideContourSkeleton) 
+          outsideContourSkeleton = findStraightSkeleton outsideContourRaw insideContoursRaw
+          firstLineSegOfContour :: Contour -> Maybe LineSeg
+          firstLineSegOfContour (PointSequence [])  = Nothing
+          firstLineSegOfContour (PointSequence [_]) = Nothing
+          firstLineSegOfContour (PointSequence (a:b:_)) = Just $ (\(Right v) -> v) $ lineSegFromEndpoints a b 
           childContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
             where
               res c = expandContour (pathWidth*0.5) (outsideContourRaw:filter (/= c) insideContoursRaw) c
