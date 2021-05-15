@@ -176,6 +176,8 @@ data Plan =
     , _postObject :: ScadStep
     }
 
+-- FIXME: specify region of the object, and plan? what about boundaries between areas?
+
 data ScadStep =
     PriorState MachineState
   | NoWork
@@ -289,16 +291,16 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
           -- Fail to the old contour shrink method when the skeleton based one knows it's failed.
           outsideContourInnerWall = fromMaybe outsideContourInnerWallByShrink outsideContourInnerWallBySkeleton
             where
-              outsideContourInnerWallByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2) insideContoursRaw outsideContourRaw
+              outsideContourInnerWallByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*1.5) insideContoursRaw outsideContourRaw
               outsideContourInnerWallBySkeleton
-                | isJust outsideContourSkeleton && not (null outsideContourNewSegs) = Just $ head $ fst $ addInset 1 (pathWidth*2) outsideContourFaces 
+                | isJust outsideContourSkeleton && not (null outsideContourNewSegs) = Just $ head $ fst $ addInset 1 (1.5*pathWidth) outsideContourFaces 
 -- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
 --                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourNewSegs <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
                 | otherwise = Nothing
                 where
                   outsideContourSkeleton = findStraightSkeleton outsideContourRaw insideContoursRaw
                   outsideContourFaces    = orderedFacesOf (fromJust $ firstLineSegOfContour outsideContourRaw) (fromJust outsideContourSkeleton) 
-                  outsideContourNewSegs  = concat $ fst <$> addLineSegsToFace (pathWidth*2) (Just 1) <$> outsideContourFaces
+                  outsideContourNewSegs  = concat $ fst <$> addLineSegsToFace (1.5*pathWidth) (Just 1) <$> outsideContourFaces
                   firstLineSegOfContour :: Contour -> Maybe LineSeg
                   firstLineSegOfContour (PointSequence [])  = Nothing
                   firstLineSegOfContour (PointSequence [_]) = Nothing
@@ -311,10 +313,10 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
               res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
           infillLineSegs = mapEveryOther (\l -> reverse $ flipLineSeg <$> l) $ makeInfill infillOutsideContour infillChildContours (ls * (1/infill)) $ getInfillType print layerNumber
             where
-              infillOutsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2.5) insideContoursRaw outsideContourRaw
+              infillOutsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2) insideContoursRaw outsideContourRaw
               infillChildContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
                 where
-                  res c = expandContour (pathWidth*2.5) (outsideContourRaw:filter (/= c) insideContoursRaw) c
+                  res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
           drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth c
           drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
           drawChildOuterContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init childContoursInnerWalls) (tail childContoursInnerWalls)
