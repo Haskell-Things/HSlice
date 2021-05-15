@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, meet2PLine2, forcePLine2Basis) where
 
-import Prelude (Eq, Show, Ord, (==), ($), filter, (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), sqrt, head, null, negate, (/), (<>), show, (||), (<))
+import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), last, init, (++), length, (<$>), otherwise, (>), (<=), (+), sqrt, negate, (/), (||), (<))
 
 import GHC.Generics (Generic)
 
@@ -40,7 +40,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (⋅), (•), addVal, addVecPair, divVecScalar, scalarPart, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (⋅), (•), addVal, addVecPair, divVecScalar, getVals, scalarPart, valOf, vectorPart)
 
 import Graphics.Slicer.Math.Line(LineSeg(LineSeg))
 
@@ -398,18 +398,6 @@ dual2DGVec vec = GVec $ foldl' addVal []
   where
     realVal     = scalarPart vec
     (GVec vals) = vectorPart vec
-
--- | Extract a value from a vector.
--- FIXME: throw a failure when we get more than one match.
-getVals :: [GNum] -> [GVal] -> Maybe GVal
-getVals num vs = if null matches then Nothing else Just $ head matches
-  where
-    matches = filter (\(GVal _ n) -> n == num) vs
-
--- | return the value of a vector, OR a given value, if the vector requested is not found.
-valOf :: ℝ -> Maybe GVal -> ℝ 
-valOf r Nothing = r
-valOf _ (Just (GVal v _)) = v
 
 -- | perform basis coersion. ensure all of the required '0' components exist. required before using basis sensitive raw operators.
 forceBasis :: [[GNum]] -> GVec -> GVec

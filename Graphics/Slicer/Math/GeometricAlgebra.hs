@@ -20,7 +20,7 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, unlikeVecPair) where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, unlikeVecPair) where
 
 import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), error, flip, (||), elem, notElem, and)
 
@@ -30,7 +30,9 @@ import Control.DeepSeq (NFData(rnf))
 
 import Data.List (foldl')
 
-import Data.List.Ordered(sort, insertSet)
+import Data.List.Ordered (sort, insertSet)
+
+import Data.Maybe (Maybe(Just, Nothing))
 
 import Graphics.Slicer.Definitions (ℝ, Fastℕ)
 
@@ -59,6 +61,18 @@ instance Ord GVal where
 -- A (multi)vector in geometric algebra.
 newtype GVec = GVec [GVal]
   deriving (Eq, Generic, NFData, Show, Ord)
+
+-- | Extract a value from a vector.
+-- FIXME: throw a failure when we get more than one match.
+getVals :: [GNum] -> [GVal] -> Maybe GVal
+getVals num vs = if null matches then Nothing else Just $ head matches
+  where
+    matches = filter (\(GVal _ n) -> n == num) vs
+
+-- | return the value of a vector, OR a given value, if the vector requested is not found.
+valOf :: ℝ -> Maybe GVal -> ℝ
+valOf r Nothing = r
+valOf _ (Just (GVal v _)) = v
 
 -- | add two geometric values together.
 addValPair :: GVal -> GVal -> [GVal]
