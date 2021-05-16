@@ -24,7 +24,7 @@
  - code for applying inset line segments to a series of faces, and
  - code to and infill to faces.
  -}
-module Graphics.Slicer.Math.Skeleton.Line (addLineSegsToFace, addInset, addInfill) where
+module Graphics.Slicer.Math.Skeleton.Line (addInset, addInfill) where
 
 import Prelude ((==), concat, otherwise, (<$>), ($), length, (/=), error, (<>), show, (<>), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True), head, (&&), fst, init, null, tail, last, maybe, snd)
 
