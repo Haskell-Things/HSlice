@@ -21,7 +21,7 @@
    the algorithm in Christopher Tscherne's masters thesis.
 -}
 
-module Graphics.Slicer.Math.Skeleton.Tscherne (tscherneCheat, leftRegion, rightRegion) where
+module Graphics.Slicer.Math.Skeleton.Tscherne (tscherneCheat, regionAfter, regionBefore) where
 
 import Prelude (Bool(True, False), Either(Left, Right), otherwise, ($), (<$>), (==), (++), error, (&&), head, fst, (<>), show, uncurry, null, filter, (+), Int, drop, take, (-))
 
@@ -74,29 +74,28 @@ tscherneCheat contour dividingMotorcycle@(Motorcycle (LineSeg rightPoint _, Line
         cooked (Left motorcycle) = motorcycleToENode motorcycle
         cooked (Right eNode) = eNode
 
-    leftSide  = leftRegion contour dividingMotorcycle
-    rightSide = rightRegion contour dividingMotorcycle
+    leftSide  = regionAfter contour dividingMotorcycle
+    rightSide = regionBefore contour dividingMotorcycle
     leftPoint = addPoints startPoint2 endDistance2
     -- | given a nodeTree, a point, and a motorcycle, return all of the ENodes on the same side as the given point of the given motorcycle.
     crossoverENodes :: NodeTree -> Point2 -> Motorcycle -> [ENode]
     crossoverENodes (NodeTree eNodes _) pointOnSide motorcycle = filter (\a -> Just True == intersectionSameSide motorcycle (eToPPoint2 pointOnSide) a) eNodes
 
--- | Calculate a partial straight skeleton, for the part of a contour that is on the left side of the point that a motorcycle's path starts at.
---   meaning we will evaluate the line segments from the point the motorcycle left from, to the segment it intersects, in the order they are in the original contour.
-leftRegion :: Contour -> Motorcycle -> NodeTree
-leftRegion contour motorcycle = skeletonOfConcaveRegion (matchLineSegments contour motorcycle) False
+-- | Calculate a partial straight skeleton for the concave region that is on the left side of the point that a motorcycle's path starts at, ending where the motorcycle intersects the contour.
+regionAfter :: Contour -> Motorcycle -> NodeTree
+regionAfter contour motorcycle = skeletonOfConcaveRegion (gatherLineSegs contour motorcycle) False
   where
     -- Return the line segments we're responsible for straight skeletoning.
-    matchLineSegments :: Contour -> Motorcycle -> [LineSeg]
-    matchLineSegments c m@(Motorcycle (_,outSeg) _)
-      | wrapDirection   = drop stopSegmentIndex (linesOfContour c) ++ take startSegmentIndex (linesOfContour c)
-      | unwrapDirection = take (startSegmentIndex - stopSegmentIndex) $ drop stopSegmentIndex $ linesOfContour c
-      | otherwise = error "this should be impossible."
+    gatherLineSegs :: Contour -> Motorcycle -> [LineSeg]
+    gatherLineSegs c m@(Motorcycle (_,outSeg) _) =
+      if findSegFromStart c outSeg motorcycleInSegment == outSeg
+      -- test whether we can gather our segments from the stop segment to the end ++ first one until the segment the motorcycle hits...
+      then openSide
+      -- .. or by starting at the stop segment, and stopping after the segment the motorcycle hits
+      else closedSide
         where
-          -- test whether we can gather our segments from the stop segment to the end ++ first one until the segment the motorcycle hits...
-          wrapDirection   = findSegFromStart c outSeg motorcycleInSegment == outSeg
-          -- .. or by starting at the stop segment, and stopping after the segment the motorcycle hits
-          unwrapDirection = findSegFromStart c outSeg motorcycleInSegment == motorcycleInSegment
+          openSide   = drop stopSegmentIndex (linesOfContour c) ++ take startSegmentIndex (linesOfContour c)
+          closedSide = take (startSegmentIndex - stopSegmentIndex) $ drop stopSegmentIndex $ linesOfContour c
           stopSegmentIndex = segIndex motorcycleOutSegment (linesOfContour c)
           -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the first of the two segments (from the beginning of the contour).
           motorcycleInSegment  = fst motorcycleIntersection
@@ -105,27 +104,24 @@ leftRegion contour motorcycle = skeletonOfConcaveRegion (matchLineSegments conto
           motorcycleIntersection = motorcycleIntersectsAt c m
           startSegmentIndex = segIndex outSeg (linesOfContour c)
 
--- | Calculate a partial straight skeleton, for the part of a contour that is on the 'right' side of a contour, when the contour is bisected by a motorcycle.
---   by right side, we mean consisting of the segments from the point the motorcycle left from, to the intersection, in the order they are in the original contour.
-rightRegion :: Contour -> Motorcycle -> NodeTree
-rightRegion contour motorcycle = skeletonOfConcaveRegion (matchLineSegments contour motorcycle) False
+-- | Calculate a partial straight skeleton for the concave region that is on the right side of the point that a motorcycle's path starts at, ending where the motorcycle intersects the contour.
+regionBefore :: Contour -> Motorcycle -> NodeTree
+regionBefore contour motorcycle = skeletonOfConcaveRegion (gatherLineSegs contour motorcycle) False
   where
     -- Return the line segments we're responsible for straight skeletoning.
-    matchLineSegments :: Contour -> Motorcycle -> [LineSeg]
-    matchLineSegments c m@(Motorcycle (_,outSeg) _)
-      | wrapDirection   = drop startSegmentIndex (linesOfContour c) ++ take stopSegmentIndex (linesOfContour c)
-      | unwrapDirection = take (stopSegmentIndex - startSegmentIndex) $ drop startSegmentIndex $ linesOfContour c
-      | otherwise = error "this should be impossible."
+    gatherLineSegs :: Contour -> Motorcycle -> [LineSeg]
+    gatherLineSegs c m@(Motorcycle (_,outSeg) _) =
+      if findSegFromStart c outSeg motorcycleInSegment == motorcycleInSegment
+      -- test whether we can gather our segments from the stop segment to the end ++ first one until the segment the motorcycle hits...
+      then openSide
+      -- .. or by starting at the stop segment, and stopping after the segment the motorcycle hits
+      else closedSide
         where
-          -- test whether we can gather our segments from the stop segment to the end ++ first one until the segment the motorcycle hits...
-          wrapDirection    = findSegFromStart c outSeg motorcycleInSegment == motorcycleInSegment
-          -- .. or by starting at the stop segment, and stopping after the segment the motorcycle hits
-          unwrapDirection  = findSegFromStart c outSeg motorcycleInSegment == outSeg
+          openSide   = drop startSegmentIndex (linesOfContour c) ++ take stopSegmentIndex (linesOfContour c)
+          closedSide = take (stopSegmentIndex - startSegmentIndex) $ drop startSegmentIndex $ linesOfContour c
           stopSegmentIndex = 1 + segIndex motorcycleInSegment (linesOfContour c)
           -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the first of the two segments (from the beginning of the contour).
           motorcycleInSegment  = fst motorcycleIntersection
-          -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the last of the two segments (from the beginning of the contour).
-          -- motorcycleOutSegment = fromMaybe (fst motorcycleIntersection) (snd motorcycleIntersection)
           motorcycleIntersection = motorcycleIntersectsAt c m
           startSegmentIndex = segIndex outSeg (linesOfContour c)
 
