@@ -27,7 +27,7 @@
 -- For matching our OpenScad variable types.
 {-# LANGUAGE ViewPatterns #-}
 
-import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse, fst, filter, (<=), (&&), Either(Right))
+import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse, fst, filter, (<=), (&&), Either(Right), (>))
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -76,11 +76,11 @@ import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yO
 
 import Graphics.Slicer.Math.Tri (Tri, sidesOf, shiftTri, triIntersects)
 
-import Graphics.Slicer.Math.Line (flipLineSeg, LineSeg(LineSeg), endpoint, lineSegFromEndpoints)
+import Graphics.Slicer.Math.Line (flipLineSeg, LineSeg(LineSeg), lineSegFromEndpoints)
 
 import Graphics.Slicer.Math.Skeleton.Face (orderedFacesOf)
 
-import Graphics.Slicer.Math.Skeleton.Line (addLineSegsToFace, addInset)
+import Graphics.Slicer.Math.Skeleton.Line (addInset)
 
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
@@ -170,13 +170,16 @@ mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [0::Fastℕ,1
 -- The difference between a slicing plan, and a Print is that a Print should specify characteristics of the resulting object, where a Plan should specify what methods to attempt to use to accomplish that goal.
 data Plan =
   Plan
-    {
-      _preObject :: ScadStep
-    , _printObject :: ScadStep
-    , _postObject :: ScadStep
+    { _step :: ScadStep
     }
 
--- FIXME: specify region of the object, and plan? what about boundaries between areas?
+-- the space that a plan is to be followed with.
+-- FIXME: union, intersect, etc.. these?
+data Zone =
+  Everything Plan
+  | ZBetween (ℝ,ℝ) Plan
+  | SurfaceAndBelow (Point2, Point2) Plan
+
 
 data ScadStep =
     PriorState MachineState
@@ -195,31 +198,37 @@ data InsetStrategy =
 -- The new scad functions:
 
 -- Builtins --
--- extrude     :: Contour -> UncookedGCode
--- inset       :: Contour -> Contour
--- speed       :: UncookedGCode -> GCode
+-- extrude        :: Contour -> UncookedGCode
+-- inset          :: Contour -> Contour
+-- speed          :: UncookedGCode -> GCode
+-- zoneEverywhere :: Everything 
 
 -- Builtins, optional (user can supply implementations) --
 -- infillHoriz :: Contour -> UncookedGCode
 
--- The default SCAD program.
-defaultSlicer :: String
-defaultSlicer =    "pathWidth = machine_nozzle_size"
-                <> "layerHeight = layer_height"
-                <> "maxHeight = maxHeightOf(inSTL)"
-                <> "triangles = trianglesOf(inSTL)"
-                <> "module sliceLayer(contour){ speed(50) inset (pathWidth/2) contour; infillHoriz inset (pathWidth) contour; }"
-                <> "module sliceObject(triangles) {for (i=0;i*layerHeight<maxHeight;i++) { sliceLayer (contoursAlongAxis i) }"
+-- scad will get all of the variables (-s) from the command line.
 
--- An idea for a SCAD program:
--- multiply an object, printing it with variations in print settings.
-multiSlicer :: String
-multiSlicer = "pathWidth = machine_nozzle_size"
+-- The default SCAD program.
+defaultPlan :: String
+defaultPlan =    "pathWidth = machine_nozzle_size"
               <> "layerHeight = layer_height"
               <> "maxHeight = maxHeightOf(inSTL)"
               <> "triangles = trianglesOf(inSTL)"
-              <> "module sliceLayer(contour){ speed(50) inset (pathWidth/2) contour; infillHoriz inset (pathWidth) contour; }"
-              <> "module sliceObject(triangles) {for (i=0;i*layerHeight<maxHeight;i++) { translate (x,y) sliceLayer (contoursAlongAxis i) }"
+              <> "module sliceLayer(contour){ speed(50) inSet 1 (pathWidth*1.5) contour; speed(30) inSet 1 (pathWidth*0.5) contour; infillHoriz inset (pathWidth) contour; }"
+              <> "module sliceLayers(triangles) {for (i=0;i*layerHeight<maxHeight;i++) { sliceLayer (contoursAlongAxis i); }"
+              <> "module sliceMain(triangles) = {zoneEverywhere sliceLayers(triangles);}"
+              <> "sliceMain(triangles)"
+
+-- An idea for a SCAD program:
+-- multiply an object, printing it with variations in print settings.
+multiplyPlan :: String
+multiplyPlan =    "pathWidth = machine_nozzle_size"
+               <> "layerHeight = layer_height"
+               <> "maxHeight = maxHeightOf(inSTL)"
+               <> "triangles = trianglesOf(inSTL)"
+               <> "module sliceLayer(contour){ speed(50) inset (pathWidth/2) contour; infillHoriz inset (pathWidth) contour; }"
+               <> "module sliceMain(triangles) {for (i=0;i*layerHeight<maxHeight;i++) { translate (x,y) sliceLayer (contoursAlongAxis i) }"
+               <> "sliceMain(triangles)"
 
 -------------------------------------------------------------
 ----------------------- ENTRY POINT -------------------------
@@ -231,7 +240,7 @@ sliceObject printer@(Printer _ _ extruder) print allLayers =
   where
     slicedLayers = [sliceLayer printer print slicingPlan (layer == last allLayers) layer | layer <- allLayers] `using` parListChunk (div (length allLayers) (fromFastℕ threads)) rdeepseq
     -- Hack: start to use types to explain how to slice.
-    slicingPlan = Plan NoWork (Extrude (ZLayers,SkeletonFailThrough)) NoWork
+    slicingPlan = Plan (Extrude (ZLayers,SkeletonFailThrough))
 
 sliceLayer :: Printer -> Print -> Plan -> Bool -> ([Contour], Fastℕ) -> [GCode]
 sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBeforeInner infillSpeed) plan isLastLayer (layerContours, layerNumber) = do
@@ -291,24 +300,28 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
           outsideContour = fromMaybe outsideContourByShrink outsideContourBySkeleton
             where
               outsideContourByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*0.5) insideContoursRaw outsideContourRaw
+              -- FIXME: handle spliting
               outsideContourBySkeleton
-                | isJust outsideContourSkeleton && not (null outsideContourNewSegs) = Just $ head $ fst $ addInset 1 (0.5*pathWidth) outsideContourFaces 
+                | isJust outsideContourSkeleton && length res == 1 = Just $ head $ res
+                | isJust outsideContourSkeleton && length res > 1 = error "split event during outer contour inseting."
 -- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
---                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourNewSegs <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
+--                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
                 | otherwise = Nothing
                 where
-                  outsideContourNewSegs  = concat $ fst <$> addLineSegsToFace (0.5*pathWidth) (Just 1) <$> outsideContourFaces
+                  (res,_) = addInset 1 (0.5*pathWidth) outsideContourFaces
           -- Fail to the old contour shrink method when the skeleton based one knows it's failed.
           outsideContourInnerWall = fromMaybe outsideContourInnerWallByShrink outsideContourInnerWallBySkeleton
             where
               outsideContourInnerWallByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*1.5) insideContoursRaw outsideContourRaw
+              -- FIXME: handle spliting
               outsideContourInnerWallBySkeleton
-                | isJust outsideContourSkeleton && not (null outsideContourInnerWallNewSegs) = Just $ head $ fst $ addInset 1 (1.5*pathWidth) outsideContourFaces 
+                | isJust outsideContourSkeleton && length res == 1 = Just $ head $ res
+                | isJust outsideContourSkeleton && length res > 1 = error "split event during inner wall rendering."
 -- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
---                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourInnerWallNewSegs <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
+--                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
                 | otherwise = Nothing
                 where
-                  outsideContourInnerWallNewSegs  = concat $ fst <$> addLineSegsToFace (1.5*pathWidth) (Just 1) <$> outsideContourFaces
+                  (res,_) = addInset 1 (1.5*pathWidth) outsideContourFaces
           outsideContourFaces    = orderedFacesOf (fromJust $ firstLineSegOfContour outsideContourRaw) (fromJust outsideContourSkeleton) 
           outsideContourSkeleton = findStraightSkeleton outsideContourRaw insideContoursRaw
           firstLineSegOfContour :: Contour -> Maybe LineSeg
@@ -323,7 +336,18 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
               res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
           infillLineSegs = mapEveryOther (\l -> reverse $ flipLineSeg <$> l) $ makeInfill infillOutsideContour infillChildContours (ls * (1/infill)) $ getInfillType print layerNumber
             where
-              infillOutsideContour = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2) insideContoursRaw outsideContourRaw
+              infillOutsideContour = fromMaybe infillOutsideContourByShrink infillOutsideContourBySkeleton
+                where
+                  infillOutsideContourByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2) insideContoursRaw outsideContourRaw
+                  -- FIXME: handle spliting
+                  infillOutsideContourBySkeleton
+                    | isJust outsideContourSkeleton && length res == 1 = Just $ head $ res
+                    | isJust outsideContourSkeleton && length res > 1 = error "split event during inner wall rendering."
+-- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
+--                    | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
+                    | otherwise = Nothing
+                    where
+                      (res,_) = addInset 1 (2*pathWidth) outsideContourFaces
               infillChildContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
                 where
                   res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
