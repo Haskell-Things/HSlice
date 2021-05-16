@@ -52,7 +52,7 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeFirstENodes, averageNodes)
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), StraightSkeleton(StraightSkeleton),  NodeTree(NodeTree), INode(INode))
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
-import Graphics.Slicer.Math.Skeleton.Line (addLineSegsToFace, addInset)
+import Graphics.Slicer.Math.Skeleton.Line (addInset)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Graphics.Slicer.Math.Skeleton.Tscherne (leftRegion, rightRegion)
@@ -743,33 +743,24 @@ facetSpec = do
                                                                                                   (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
                                                                                             ]
 
-  describe "Lines on Faces (Skeleton/Line)" $ do
-    it "places lines on a triangle" $
-      (addLineSegsToFace 0.25 Nothing <$> (facesOf (fromJust $ findStraightSkeleton triangle []))) --> [([
-                                                                                                          LineSeg (Point2 (-0.21650635094610968,-0.12500000000000003)) (Point2 (1.2165063509461096,2.107050807568877)),
-                                                                                                          LineSeg (Point2 (-0.649519052838329,-0.37500000000000006)) (Point2 (1.649519052838329,2.857050807568877))
-                                                                                                       ],
-                                                                                                        Just [Face (LineSeg (Point2 (-0.8660254037844387,-0.5000000000000001)) (Point2 (1.8660254037844388,3.232050807568877)))
-                                                                                                                   (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))
-                                                                                                                   []
-                                                                                                                   (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
-                                                                                                             ])
-                                                                                                     ,([
-                                                                                                          LineSeg (Point2 (2.21650635094611,-0.125)) (Point2 (-2.4330127018922196,0.0)),
-                                                                                                          LineSeg (Point2 (2.649519052838329,-0.375)) (Point2 (-3.299038105676658,0.0))
-                                                                                                       ],
-                                                                                                        Just [Face (LineSeg (Point2 (2.866025403784439,-0.5)) (Point2 (-3.732050807568877,0.0)))
-                                                                                                                   (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))
-                                                                                                                   []
-                                                                                                                   (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))])
-                                                                                                     ,([
-                                                                                                          LineSeg (Point2 (1.0,1.9820508075688772)) (Point2 (1.2165063509461098,-2.107050807568877)),
-                                                                                                          LineSeg (Point2 (1.0,2.4820508075688773)) (Point2 (1.6495190528383294,-2.857050807568877))
-                                                                                                       ],Just [Face (LineSeg (Point2 (1.0,2.732050807568877)) (Point2 (1.8660254037844388,-3.232050807568877)))
-                                                                                                                    (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
-                                                                                                                    []
-                                                                                                                    (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))])
-                                                                                                      ]
+  describe "insets (Skeleton/Line)" $ do
+    it "insets a triangle" $
+      (addInset 1 0.25 $ facesOf $ fromJust $ findStraightSkeleton triangle []) --> ([PointSequence [Point2 (1.0,1.2320508075688772),
+                                                                                                     Point2 (0.4330127018922193,0.25),
+                                                                                                     Point2 (1.5669872981077808,0.2500000000000001)]]
+                                                                                    ,[Face (LineSeg (Point2 (-0.43301270189221935,-0.25000000000000006)) (Point2 (1.4330127018922194,2.482050807568877)))
+                                                                                           (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))
+                                                                                            []
+                                                                                           (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
+                                                                                     ,Face (LineSeg (Point2 (2.433012701892219,-0.25)) (Point2 (-2.8660254037844384,0.0)))
+                                                                                           (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))
+                                                                                            []
+                                                                                           (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1],GVal (-0.8660254037844387) [GEPlus 2]]))
+                                                                                     ,Face (LineSeg (Point2 (1.0,2.232050807568877)) (Point2 (1.4330127018922192,-2.482050807568877)))
+                                                                                           (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
+                                                                                            []
+                                                                                           (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))
+                                                                                     ])
     where
       -- c0 - c4 are the contours of a square around the origin with a 90 degree chunk missing, rotated 0, 90, 180, 270 and 360 degrees:
       --    __
