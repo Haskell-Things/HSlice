@@ -37,26 +37,23 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2, addPoints)
 
 import Data.List (elemIndex)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, fromMaybe, isNothing)
+import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, fromMaybe)
 
 import Graphics.Slicer.Math.PGA (plinesIntersectIn, eToPPoint2)
 
 -- | use observations from christopher tscherne's masters thesis to cover corner cases that do not require the whole algorithm.
 tscherneCheat :: Contour -> Motorcycle -> Maybe (Either Motorcycle ENode) -> Maybe StraightSkeleton
 tscherneCheat contour dividingMotorcycle@(Motorcycle (LineSeg rightPoint _, LineSeg startPoint2 endDistance2) path) opposition
-  -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point, tie the sides and the motorcycle together.
+    -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point
   | null (crossoverENodes leftSide leftPoint dividingMotorcycle) &&
     null (crossoverENodes rightSide rightPoint dividingMotorcycle) &&
-    isNothing opposition &&
     plinesIntersectIn (finalPLine leftSide) path == plinesIntersectIn (finalPLine rightSide) path =
-      Just $ StraightSkeleton [[leftSide, rightSide, NodeTree [motorcycleToENode dividingMotorcycle] []]] []
-  -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point, tie the sides, the motorcycle, and the opposing motorcycle together.
+    if isJust opposition
+    -- ... tie the sides, the motorcycle, and the opposing motorcycle or enode together.
+    then Just $ StraightSkeleton [[leftSide, rightSide, NodeTree [motorcycleToENode dividingMotorcycle] [], opposingNodeTree]] []
+    -- ...tie the sides and the motorcycle together.
+    else Just $ StraightSkeleton [[leftSide, rightSide, NodeTree [motorcycleToENode dividingMotorcycle] []]] []
   -- FIXME: ensure that nodeSets are always be stored in clockwise order.
-  | null (crossoverENodes leftSide leftPoint dividingMotorcycle) &&
-    null (crossoverENodes rightSide rightPoint dividingMotorcycle) &&
-    isJust opposition &&
-    plinesIntersectIn (finalPLine leftSide) path == plinesIntersectIn (finalPLine rightSide) path =
-      Just $ StraightSkeleton [[leftSide, rightSide, NodeTree [motorcycleToENode dividingMotorcycle] [], opposingNodeTree]] []
   | otherwise = Nothing
   | otherwise = error $ "failing to apply Tscherne's method.\n" <>
                         show (crossoverENodes leftSide leftPoint dividingMotorcycle)  <> "\n" <>
@@ -73,7 +70,6 @@ tscherneCheat contour dividingMotorcycle@(Motorcycle (LineSeg rightPoint _, Line
         cooked :: (Either Motorcycle ENode) -> ENode
         cooked (Left motorcycle) = motorcycleToENode motorcycle
         cooked (Right eNode) = eNode
-
     leftSide  = regionAfter contour dividingMotorcycle
     rightSide = regionBefore contour dividingMotorcycle
     leftPoint = addPoints startPoint2 endDistance2
