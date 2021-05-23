@@ -24,7 +24,7 @@
  - Code for creating a series of faces, covering a straight skeleton.
  - Code for taking a series of faces, and applying inset line segments and infill to them.
  -}
-module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf, lastSegOf, firstSegOf) where
+module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf, lastSegOf, firstSegOf, lastENodeOf, firstENodeOf) where
 
 import Prelude ((==), otherwise, (<$>), ($), (.), length, (/=), error, (<>), show, Eq, Show, (<>), (++), (>), Bool, head, (&&), (||), take, filter, init, null, tail, last, concat, not, reverse)
 
@@ -171,13 +171,14 @@ lastSegOf nodeTree = (\(ENode (_,outSeg) _) -> outSeg) (lastENodeOf nodeTree)
 firstSegOf :: NodeTree -> LineSeg
 firstSegOf nodeTree = (\(ENode (outSeg,_) _) -> outSeg) (firstENodeOf nodeTree)
 
--- dependent utility functions. used by last and first segment finder, and internal components.
--- FIXME: should lastSegOf, firstSegOf, and the below stuff be in a different place?
 lastENodeOf :: NodeTree -> ENode
 lastENodeOf nodeTree = (\(_,_,c) -> c) $ pathLast nodeTree
 
 firstENodeOf :: NodeTree -> ENode
 firstENodeOf nodeTree = (\(_,_,c) -> c) $ pathFirst nodeTree
+
+-- dependent utility functions. used by last and first segment finder, and internal components.
+-- FIXME: should lastSegOf, firstSegOf, and the below stuff be in a different place?
 
 -- FIXME: merge pathFirst and pathLast. they differ by only one line.
 -- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.

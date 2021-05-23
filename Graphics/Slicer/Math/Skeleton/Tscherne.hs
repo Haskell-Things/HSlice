@@ -23,25 +23,25 @@
 
 module Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne, cellAfter, cellBefore) where
 
-import Prelude (Bool(False), otherwise, ($), (<$>), (==), (++), error, (&&), head, fst, (<>), show, uncurry, null, filter, (+), Int, drop, take, (-), (||), last, length)
+import Prelude (Bool(False,True), Ordering(GT,LT), otherwise, ($), (<$>), (==), (++), error, (&&), head, fst, (<>), show, uncurry, null, filter, (+), Int, drop, take, (-), (||), last, length)
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, NodeTree(NodeTree), Motorcycle(Motorcycle), CellDivide(CellDivide), linesOfContour, finalPLine, outOf)
 
-import Graphics.Slicer.Math.Skeleton.Face (lastSegOf, firstSegOf)
+import Graphics.Slicer.Math.Skeleton.Face (lastSegOf, firstSegOf, lastENodeOf, firstENodeOf)
 
 import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleToENode, motorcycleIntersectsAt, intersectionSameSide)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
-
 import Graphics.Slicer.Math.Definitions (Contour, Point2)
 
-import Data.List (elemIndex)
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
+
+import Data.List (elemIndex, sortBy)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, fromMaybe)
 
-import Graphics.Slicer.Math.PGA (plinesIntersectIn, eToPPoint2)
+import Graphics.Slicer.Math.PGA (plinesIntersectIn, eToPPoint2, pLineIsLeft)
 
 applyTscherne :: Contour -> [CellDivide] -> Maybe StraightSkeleton
 applyTscherne contour cellDivisions  -- dividingMotorcycle@(Motorcycle (LineSeg rightPoint _, LineSeg startPoint2 endDistance2) path)
@@ -65,13 +65,19 @@ applyTscherne contour cellDivisions  -- dividingMotorcycle@(Motorcycle (LineSeg 
     leftSide  = cellAfter contour dividingMotorcycle
     rightSide = cellBefore contour dividingMotorcycle
     -- FIXME: ensure that nodeSets are always stored in clockwise order.
+    addCells :: [NodeTree] -> [CellDivide] -> StraightSkeleton
     addCells cells divisions
-      | length cells == 2 && length divisions == 1 = StraightSkeleton [ cells ++ nodetreesFromDivision (head divisions)] []
+      | length cells == 2 && length divisions == 1 = StraightSkeleton [sortNodeTrees $ cells ++ nodetreesFromDivision (head divisions)] []
       where
         nodetreesFromDivision :: CellDivide -> [NodeTree]
         nodetreesFromDivision (CellDivide motorcycles maybeENode) = if isJust maybeENode
                                                                     then [NodeTree (motorcycleToENode <$> motorcycles) [], NodeTree [fromJust maybeENode] []]
                                                                     else [NodeTree (motorcycleToENode <$> motorcycles) []]
+        sortNodeTrees nodeTrees = sortBy compareNodeTrees nodeTrees
+          where
+            compareNodeTrees nt1 nt2
+              | Just True == outOf (lastENodeOf nt1) `pLineIsLeft` outOf (firstENodeOf nt2) = LT
+              | otherwise                                                                   = GT
     pointInCell cell (CellDivide motorcycles _)
       | (firstSegOf cell == lastCSegOf (head motorcycles)) = endpoint $ firstSegOf cell
       | (lastSegOf cell == firstCSegOf (head motorcycles)) = startPoint $ lastSegOf cell
