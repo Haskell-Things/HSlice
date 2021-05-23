@@ -21,19 +21,21 @@
    the algorithm in Christopher Tscherne's masters thesis.
 -}
 
-module Graphics.Slicer.Math.Skeleton.Tscherne (tscherneCheat, regionAfter, regionBefore) where
+module Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne, cellAfter, cellBefore) where
 
-import Prelude (Bool(True, False), Either(Left, Right), otherwise, ($), (<$>), (==), (++), error, (&&), head, fst, (<>), show, uncurry, null, filter, (+), Int, drop, take, (-))
-
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, NodeTree(NodeTree), Motorcycle(Motorcycle), linesOfContour, finalPLine)
-
-import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleToENode, motorcycleIntersectsAt, intersectionSameSide)
+import Prelude (Bool(False), otherwise, ($), (<$>), (==), (++), error, (&&), head, fst, (<>), show, uncurry, null, filter, (+), Int, drop, take, (-), (||), last, length)
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, NodeTree(NodeTree), Motorcycle(Motorcycle), CellDivide(CellDivide), linesOfContour, finalPLine, outOf)
 
-import Graphics.Slicer.Math.Definitions (Contour, Point2, addPoints)
+import Graphics.Slicer.Math.Skeleton.Face (lastSegOf, firstSegOf)
+
+import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleToENode, motorcycleIntersectsAt, intersectionSameSide)
+
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
+
+import Graphics.Slicer.Math.Definitions (Contour, Point2)
 
 import Data.List (elemIndex)
 
@@ -41,45 +43,63 @@ import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, fromMaybe)
 
 import Graphics.Slicer.Math.PGA (plinesIntersectIn, eToPPoint2)
 
--- | use observations from christopher tscherne's masters thesis to cover corner cases that do not require the whole algorithm.
-tscherneCheat :: Contour -> Motorcycle -> Maybe (Either Motorcycle ENode) -> Maybe StraightSkeleton
-tscherneCheat contour dividingMotorcycle@(Motorcycle (LineSeg rightPoint _, LineSeg startPoint2 endDistance2) path) opposition
+applyTscherne :: Contour -> [CellDivide] -> Maybe StraightSkeleton
+applyTscherne contour cellDivisions  -- dividingMotorcycle@(Motorcycle (LineSeg rightPoint _, LineSeg startPoint2 endDistance2) path)
+  -- | use observations from christopher tscherne's masters thesis to cover the corner cases that do not require the whole algorithm.
     -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point
-  | null (crossoverENodes leftSide leftPoint dividingMotorcycle) &&
-    null (crossoverENodes rightSide rightPoint dividingMotorcycle) &&
-    plinesIntersectIn (finalPLine leftSide) path == plinesIntersectIn (finalPLine rightSide) path =
-    if isJust opposition
-    -- ... tie the sides, the motorcycle, and the opposing motorcycle or enode together.
-    then Just $ StraightSkeleton [[leftSide, rightSide, NodeTree [motorcycleToENode dividingMotorcycle] [], opposingNodeTree]] []
-    -- ...tie the sides and the motorcycle together.
-    else Just $ StraightSkeleton [[leftSide, rightSide, NodeTree [motorcycleToENode dividingMotorcycle] []]] []
-  -- FIXME: ensure that nodeSets are always be stored in clockwise order.
-  | otherwise = Nothing
+  | length cellDivisions == 1 && cellsDoNotOverlap leftSide rightSide (head cellDivisions) = Just $ addCells [leftSide,rightSide] cellDivisions
+    -- FIXME: ok, can't cheat. apply the full algorithm.
   | otherwise = error $ "failing to apply Tscherne's method.\n" <>
-                        show (crossoverENodes leftSide leftPoint dividingMotorcycle)  <> "\n" <>
-                        show (crossoverENodes rightSide rightPoint dividingMotorcycle)  <> "\n" <>
-                        show opposition <> "\n" <>
+                        show (crossoverENodes leftSide (pointInCell leftSide (head cellDivisions)) (head cellDivisions))  <> "\n" <>
+                        show (crossoverENodes rightSide (pointInCell rightSide (head cellDivisions)) (head cellDivisions))  <> "\n" <>
                         show (finalPLine leftSide) <> "\n" <>
                         show (finalPLine rightSide) <> "\n" <>
                         show leftSide <> "\n" <>
                         show rightSide <> "\n" <>
                         show dividingMotorcycle <> "\n"
+  | otherwise = Nothing
   where
-    opposingNodeTree = NodeTree [cooked (fromJust opposition)] []
+    cellsDoNotOverlap cell1 cell2 cellDivision = null (crossoverENodes cell1 (pointInCell cell1 cellDivision) cellDivision) &&
+                                                 null (crossoverENodes cell2 (pointInCell cell2 cellDivision) cellDivision) &&
+                                                 cellOutsIntersect cell1 cell2 cellDivision
+    leftSide  = cellAfter contour dividingMotorcycle
+    rightSide = cellBefore contour dividingMotorcycle
+    -- FIXME: ensure that nodeSets are always stored in clockwise order.
+    addCells cells divisions
+      | length cells == 2 && length divisions == 1 = StraightSkeleton [ cells ++ nodetreesFromDivision (head divisions)] []
       where
-        cooked :: (Either Motorcycle ENode) -> ENode
-        cooked (Left motorcycle) = motorcycleToENode motorcycle
-        cooked (Right eNode) = eNode
-    leftSide  = regionAfter contour dividingMotorcycle
-    rightSide = regionBefore contour dividingMotorcycle
-    leftPoint = addPoints startPoint2 endDistance2
-    -- | given a nodeTree, a point, and a motorcycle, return all of the ENodes on the same side as the given point of the given motorcycle.
-    crossoverENodes :: NodeTree -> Point2 -> Motorcycle -> [ENode]
-    crossoverENodes (NodeTree eNodes _) pointOnSide motorcycle = filter (\a -> Just True == intersectionSameSide motorcycle (eToPPoint2 pointOnSide) a) eNodes
+        nodetreesFromDivision :: CellDivide -> [NodeTree]
+        nodetreesFromDivision (CellDivide motorcycles maybeENode) = if isJust maybeENode
+                                                                    then [NodeTree (motorcycleToENode <$> motorcycles) [], NodeTree [fromJust maybeENode] []]
+                                                                    else [NodeTree (motorcycleToENode <$> motorcycles) []]
+    pointInCell cell (CellDivide motorcycles _)
+      | (firstSegOf cell == lastCSegOf (head motorcycles)) = endpoint $ firstSegOf cell
+      | (lastSegOf cell == firstCSegOf (head motorcycles)) = startPoint $ lastSegOf cell
+      | otherwise = error $ "unhandled case: " <> show cell <> "\n" <> show motorcycles <> "\n" <> show contour <> "\n" <> show cellDivisions <> "\n" <> show (lastSegOf cell) <> "\n" <> show (firstSegOf cell) <> "\n"
+      where
+        startPoint (LineSeg a _) = a
+        firstCSegOf (Motorcycle (seg1,_) _) = seg1
+        lastCSegOf (Motorcycle (_, seg2) _) = seg2
+    -- Functions used when we have two cells, and one dividing motorcycle between them --
+    dividingMotorcycle = if length (motorcyclesFromDivision $ head cellDivisions) == 1
+                         then head (motorcyclesFromDivision $ head cellDivisions)
+                         else error "cannot yet handle more than one dividing motorcycle."
 
--- | Calculate a partial straight skeleton for the concave region that is on the left side of the point that a motorcycle's path starts at, ending where the motorcycle intersects the contour.
-regionAfter :: Contour -> Motorcycle -> NodeTree
-regionAfter contour motorcycle = skeletonOfConcaveRegion (gatherLineSegs contour motorcycle) False
+    cellOutsIntersect cell1 cell2 (CellDivide motorcycles _)
+      | length motorcycles == 1 = plinesIntersectIn (finalPLine cell1) (outOf $ head motorcycles) ==
+                                  plinesIntersectIn (finalPLine cell2) (outOf $ head motorcycles)
+      | otherwise = error "cannot yet check outpoint intersections of more than one motorcycle."
+    -- | given a nodeTree, a point, and a motorcycle, return all of the ENodes on the opposite side as the given point of the given motorcycle.
+    crossoverENodes :: NodeTree -> Point2 -> CellDivide -> [ENode]
+    crossoverENodes (NodeTree eNodes _) pointOnSide cellDivision
+      | length (motorcyclesFromDivision cellDivision) == 1 = filter (\a -> Just False == intersectionSameSide (head $ motorcyclesFromDivision cellDivision) (eToPPoint2 pointOnSide) a) eNodes
+      | length (motorcyclesFromDivision cellDivision) == 2 = filter (\a -> (Just False == intersectionSameSide (head $ motorcyclesFromDivision cellDivision) (eToPPoint2 pointOnSide) a) ||
+                                                                           (Just False == intersectionSameSide (last $ motorcyclesFromDivision cellDivision) (eToPPoint2 pointOnSide) a)) eNodes
+    motorcyclesFromDivision (CellDivide m _) = m
+
+-- | Calculate a partial straight skeleton for the motorcycle cell that is on the left side of the point that a motorcycle's path starts at, ending where the motorcycle intersects the contour.
+cellAfter :: Contour -> Motorcycle -> NodeTree
+cellAfter contour motorcycle = skeletonOfConcaveRegion (gatherLineSegs contour motorcycle) False
   where
     -- Return the line segments we're responsible for straight skeletoning.
     gatherLineSegs :: Contour -> Motorcycle -> [LineSeg]
@@ -92,17 +112,17 @@ regionAfter contour motorcycle = skeletonOfConcaveRegion (gatherLineSegs contour
         where
           openSide   = drop stopSegmentIndex (linesOfContour c) ++ take startSegmentIndex (linesOfContour c)
           closedSide = take (startSegmentIndex - stopSegmentIndex) $ drop stopSegmentIndex $ linesOfContour c
-          stopSegmentIndex = segIndex motorcycleOutSegment (linesOfContour c)
+          startSegmentIndex = segIndex outSeg (linesOfContour c)
+          motorcycleIntersection = motorcycleIntersectsAt c m
           -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the first of the two segments (from the beginning of the contour).
           motorcycleInSegment  = fst motorcycleIntersection
+          stopSegmentIndex = segIndex motorcycleOutSegment (linesOfContour c)
           -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the last of the two segments (from the beginning of the contour).
           motorcycleOutSegment = uncurry fromMaybe motorcycleIntersection
-          motorcycleIntersection = motorcycleIntersectsAt c m
-          startSegmentIndex = segIndex outSeg (linesOfContour c)
 
--- | Calculate a partial straight skeleton for the concave region that is on the right side of the point that a motorcycle's path starts at, ending where the motorcycle intersects the contour.
-regionBefore :: Contour -> Motorcycle -> NodeTree
-regionBefore contour motorcycle = skeletonOfConcaveRegion (gatherLineSegs contour motorcycle) False
+-- | Calculate a partial straight skeleton for the motorcycle cell that is on the right side of the point that a motorcycle's path starts at, ending where the motorcycle intersects the contour.
+cellBefore :: Contour -> Motorcycle -> NodeTree
+cellBefore contour motorcycle = skeletonOfConcaveRegion (gatherLineSegs contour motorcycle) False
   where
     -- Return the line segments we're responsible for straight skeletoning.
     gatherLineSegs :: Contour -> Motorcycle -> [LineSeg]
@@ -115,11 +135,11 @@ regionBefore contour motorcycle = skeletonOfConcaveRegion (gatherLineSegs contou
         where
           openSide   = drop startSegmentIndex (linesOfContour c) ++ take stopSegmentIndex (linesOfContour c)
           closedSide = take (stopSegmentIndex - startSegmentIndex) $ drop startSegmentIndex $ linesOfContour c
-          stopSegmentIndex = 1 + segIndex motorcycleInSegment (linesOfContour c)
+          startSegmentIndex = segIndex outSeg (linesOfContour c)
+          motorcycleIntersection = motorcycleIntersectsAt c m
           -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the first of the two segments (from the beginning of the contour).
           motorcycleInSegment  = fst motorcycleIntersection
-          motorcycleIntersection = motorcycleIntersectsAt c m
-          startSegmentIndex = segIndex outSeg (linesOfContour c)
+          stopSegmentIndex = 1 + segIndex motorcycleInSegment (linesOfContour c)
 
 -- | Get the index of a specific segment, in a list of segments.
 segIndex :: LineSeg -> [LineSeg] -> Int

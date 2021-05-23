@@ -30,7 +30,7 @@ import Prelude ((==), otherwise, (<$>), ($), (.), length, (/=), error, (<>), sho
 
 import Data.List (dropWhile)
 
-import Data.Maybe( Maybe(Just, Nothing), isNothing, fromJust)
+import Data.Maybe( Maybe(Just, Nothing), isNothing, fromJust, isJust)
 
 import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
@@ -193,10 +193,29 @@ pathFirst nodeTree@(NodeTree eNodes iNodeSets)
       | otherwise     = (               childPlines, target: endNodes, finalENode)
       where
         pLineToFollow = head plinesIn
+        iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow
+        iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow
+        result = findENodeByOutput myENodes pLineToFollow
+        terminate = ([outOf $ fromJust $ result], [], fromJust $ result)
+        myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodes <> "\n" <> show myINodeSets <> "\n"
         (childPlines, endNodes, finalENode)
-          | length myINodeSets == 1 ||
-            null myINodeSets        = ([outOf $ fromJust $ findENodeByOutput myENodes pLineToFollow], [], fromJust $ findENodeByOutput myENodes pLineToFollow)
-          | otherwise               = pathFirstInner (init myINodeSets) myENodes (fromJust $ findINodeByOutput (init myINodeSets) pLineToFollow)
+          | null myINodeSets &&
+            isJust result            = terminate
+          -- nothing left to do.
+          | null myINodeSets         = myError
+          -- cannot happen.
+          | length myINodeSets == 1 &&
+            isJust iNodeOnThisLevel &&
+            isJust result            = myError
+          | length myINodeSets == 1 &&
+            isJust result            = terminate
+          | isJust iNodeOnThisLevel  = pathFirstInner myINodeSets myENodes (fromJust iNodeOnThisLevel)
+          -- nothing left to do.
+          | length myINodeSets == 1  = myError
+          | isJust iNodeOnLowerLevel = pathFirstInner (init myINodeSets) myENodes (fromJust iNodeOnLowerLevel)
+          | isJust result            = terminate
+          -- cannot happen
+          | otherwise                = myError
 
 
 -- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.
@@ -212,10 +231,29 @@ pathLast nodeTree@(NodeTree eNodes iNodeSets)
       | otherwise     = (               childPlines, target: endNodes, finalENode)
       where
         pLineToFollow = last plinesIn
+        iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow
+        iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow
+        result = findENodeByOutput myENodes pLineToFollow
+        terminate = ([outOf $ fromJust $ result], [], fromJust $ result)
+        myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodes <> "\n" <> show myINodeSets <> "\n"
         (childPlines, endNodes, finalENode)
-          | length myINodeSets == 1 = pathLastInner (init myINodeSets) myENodes (fromJust $ findINodeByOutput myINodeSets pLineToFollow)
-          | null myINodeSets        = ([outOf $ fromJust $ findENodeByOutput myENodes pLineToFollow], [], fromJust $ findENodeByOutput myENodes pLineToFollow)
-          | otherwise               = pathLastInner (init myINodeSets) myENodes (fromJust $ findINodeByOutput (init myINodeSets) pLineToFollow)
+          | null myINodeSets &&
+            isJust result            = terminate
+          -- nothing left to do.
+          | null myINodeSets         = myError
+          -- cannot happen.
+          | length myINodeSets == 1 &&
+            isJust iNodeOnThisLevel &&
+            isJust result            = myError
+          | length myINodeSets == 1 &&
+            isJust result            = terminate
+          | isJust iNodeOnThisLevel  = pathLastInner myINodeSets myENodes (fromJust iNodeOnThisLevel)
+          -- nothing left to do.
+          | length myINodeSets == 1  = myError
+          | isJust iNodeOnLowerLevel = pathLastInner (init myINodeSets) myENodes (fromJust iNodeOnLowerLevel)
+          | isJust result            = terminate
+          -- cannot happen
+          | otherwise                = myError
 
 -- | Find a node with an output of the PLine given. start at the most recent generation, and check backwards.
 findINodeByOutput :: [[INode]] -> PLine2 -> Maybe INode

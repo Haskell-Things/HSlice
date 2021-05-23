@@ -33,7 +33,7 @@ import Graphics.Slicer.Math.Definitions (Point2, mapWithFollower)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), eNodeToINode, noIntersection, intersectionOf, pPointOf, isCollinear, getPairs, isParallel)
 
-import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints)
+import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromJust)
 
@@ -103,6 +103,7 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
       | length eNodes == 1 && length iNodes == 1 && intersectsInPoint (head eNodes) (head iNodes) && not loop = Right [[averageNodes (head eNodes) (head iNodes)]]
       | length eNodes + length iNodes == 2 = Left $ PartialNodes [iNodes] "NOMATCH - length 2?"
       --   Handle the the case of 3 or more nodes.
+      -- FIXME: needs a sort function.
       | endsAtSamePoint = Right [[INode ((outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]]
       | hasShortestPair         = Right $ [averageOfShortestPairs] ++ errorIfLeft (skeletonOfNodes remainingENodes (remainingINodes ++ averageOfShortestPairs))
       | otherwise = error $ "shortestPairDistance: " <> show (shortestPairDistance)
@@ -141,7 +142,8 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
         makeCollinearPair
           | null eNodes        && length iNodes == 2 = INode [(outOf $ head iNodes), (outOf $ last iNodes)] Nothing
           | length eNodes == 2 && null iNodes        = INode [(outOf $ head eNodes), (outOf $ last eNodes)] Nothing
-          | length eNodes == 1 && length iNodes == 1 = INode [(outOf $ head eNodes), (outOf $ head iNodes)] Nothing
+          -- FIXME: how do we get these sorted properly?
+          | length eNodes == 1 && length iNodes == 1 = INode (sortedPair (head eNodes) (head iNodes)) Nothing
           | otherwise = error "cannot construct a collinear pear: we don't have two nodes to work with."
 
         -- | determine the exterior nodes available for calculation during the next recurse.
@@ -250,7 +252,13 @@ averageNodes n1 n2
   | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | isParallel  (outOf n1) (outOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | isCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
-  | otherwise                 = INode [outOf n1,outOf n2] $ Just $ getOutsideArc (ePointOf n1) (outOf n1) (ePointOf n2) (outOf n2)
+  | otherwise                 = INode (sortedPair n1 n2) $ Just $ getOutsideArc (ePointOf n1) (outOf n1) (ePointOf n2) (outOf n2)
+
+-- take a pair of arcables, and return their outOf, in a sorted order.
+sortedPair :: (Arcable a, Arcable b) => a -> b -> [PLine2]
+sortedPair n1 n2 = if Just True == (outOf n1) `pLineIsLeft` (outOf n2)
+                   then [outOf n1,outOf n2]
+                   else [outOf n2,outOf n1]
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
 --   Note: we normalize our output lines, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.

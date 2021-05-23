@@ -29,11 +29,11 @@
 
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), head, null, filter, zip, Either(Right, Left), last, (>), even)
+import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), head, null, filter, zip, Either(Right), last, (>), even)
   
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), concavePLines, linesOfContour, linePairs, outOf, pPointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), CellDivide(CellDivide), concavePLines, linesOfContour, linePairs, outOf, pPointOf)
 
 import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PCollinear), plinesIntersectIn)
 
@@ -47,7 +47,7 @@ import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
 import Graphics.Slicer.Math.Skeleton.Motorcycles (CrashTree(CrashTree), Collision(HeadOn), Crash, crashMotorcycles, collisionResult)
 
-import Graphics.Slicer.Math.Skeleton.Tscherne (tscherneCheat)
+import Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne)
 
 ----------------------------------------------------------------------------------
 ------------------- Straight Skeleton Calculation (Entry Point) ------------------
@@ -62,8 +62,8 @@ findStraightSkeleton contour holes
   | foundCrashTree == Nothing                                                                = Nothing
   | null holes && null (motorcyclesIn foundCrashTree)                                        = Just $ StraightSkeleton [[skeletonOfConcaveRegion (linesOfContour contour) True]] []
   -- Use the algorithm from Christopher Tscherne's master's thesis.
-  | null holes && length (motorcyclesIn foundCrashTree) == 1                                 = tscherneCheat contour dividingMotorcycle maybeOpposition
-  | null holes && length (motorcyclesIn foundCrashTree) == 2 && lastCrashType == Just HeadOn = tscherneCheat contour dividingMotorcycle maybeOpposition
+  | null holes && length (motorcyclesIn foundCrashTree) == 1                                 = applyTscherne contour [CellDivide (motorcyclesIn foundCrashTree) maybeOpposingENode]
+  | null holes && length (motorcyclesIn foundCrashTree) == 2 && lastCrashType == Just HeadOn = applyTscherne contour [CellDivide (motorcyclesIn foundCrashTree) maybeOpposingENode]
   | otherwise = Nothing
   where
     foundCrashTree = crashMotorcycles contour holes
@@ -71,11 +71,10 @@ findStraightSkeleton contour holes
     motorcyclesIn Nothing = []
 
     -- | find nodes or motorcycles where the arc coresponding to them is collinear with the dividing Motorcycle.
-    maybeOpposition
-      | length (motorcyclesIn foundCrashTree) == 1 && null opposingNodes           = Nothing
-      | length (motorcyclesIn foundCrashTree) == 1 && length opposingNodes == 1    = Just $ Right $ head opposingNodes
-      | length (motorcyclesIn foundCrashTree) == 2 && lastCrashType == Just HeadOn = Just $ Left $ last (motorcyclesIn foundCrashTree)
-      | otherwise                                                          = error "more than one opposing node. impossible situation."
+    maybeOpposingENode
+      | null opposingNodes           = Nothing
+      | length opposingNodes == 1    = Just $ head opposingNodes
+      | otherwise                    = error "more than one opposing node. impossible situation."
       where
         opposingNodes :: [ENode]
         opposingNodes = filter (\eNode -> enoughIntersections $ length (contourIntersections contour (Right $ pPointOf eNode) (Right $ pPointOf dividingMotorcycle)))
