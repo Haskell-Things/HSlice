@@ -24,13 +24,13 @@
  - Code for creating a series of faces, covering a straight skeleton.
  - Code for taking a series of faces, and applying inset line segments and infill to them.
  -}
-module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
+module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf, lastSegOf, firstSegOf) where
 
-import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), (<), (++), (>), Bool, head, (&&), (||), take, filter, init, null, tail, last, concat, not, reverse)
+import Prelude ((==), otherwise, (<$>), ($), (.), length, (/=), error, (<>), show, Eq, Show, (<>), (++), (>), Bool, head, (&&), (||), take, filter, init, null, tail, last, concat, not, reverse)
 
 import Data.List (dropWhile)
 
-import Data.Maybe( Maybe(Just), isNothing)
+import Data.Maybe( Maybe(Just, Nothing), isNothing, fromJust)
 
 import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
@@ -50,7 +50,6 @@ import Graphics.Slicer.Math.PGA (PLine2)
 data Face = Face { _edge :: LineSeg, _firstArc :: PLine2, _arcs :: [PLine2], _lastArc :: PLine2 }
   deriving Eq
   deriving stock Show
-
 
 -- | take a straight skeleton, and create faces from it.
 -- accepts a line segment you want the first face to contain, and reorders the face list.
@@ -98,14 +97,6 @@ facesOf (StraightSkeleton nodeLists spine)
             isLeftOf nt1 nt2 = firstSegOf nt1 == lastSegOf nt2
             isRightOf :: NodeTree -> NodeTree -> Bool
             isRightOf nt1 nt2 = lastSegOf nt1 == firstSegOf nt2
-            lastSegOf :: NodeTree -> LineSeg
-            lastSegOf nodeTree = (\(ENode (_,outSeg) _) -> outSeg) (lastENodeOf nodeTree)
-            firstSegOf :: NodeTree -> LineSeg
-            firstSegOf nodeTree = (\(ENode (outSeg,_) _) -> outSeg) (firstENodeOf nodeTree)
-            lastENodeOf :: NodeTree -> ENode
-            lastENodeOf nodeTree = (\(_,_,c) -> c) $ pathLast nodeTree
-            firstENodeOf :: NodeTree -> ENode
-            firstENodeOf nodeTree = (\(_,_,c) -> c) $ pathFirst nodeTree
             lastPLinesOf :: NodeTree -> [PLine2]
             lastPLinesOf nodeTree = (\(a,_,_) -> a) $ pathLast nodeTree
             firstPLinesOf :: NodeTree -> [PLine2]
@@ -121,8 +112,8 @@ facesOf (StraightSkeleton nodeLists spine)
             -- cover the space occupied by all of the ancestors of this node with a series of faces.
             areaBeneath :: [ENode] -> [[INode]] -> INode -> [Face]
             areaBeneath eNodes iNodeSets target@(INode (inArcs) _)
-              | null iNodeSets && hasArc target              = init $ mapWithFollower makeTriangleFace $ findENodeByOutput eNodes <$> inArcs
-              | null iNodeSets                               =        mapWithFollower makeTriangleFace $ findENodeByOutput eNodes <$> inArcs
+              | null iNodeSets && hasArc target              = init $ mapWithFollower makeTriangleFace $ fromJust . findENodeByOutput eNodes <$> inArcs
+              | null iNodeSets                               =        mapWithFollower makeTriangleFace $ fromJust . findENodeByOutput eNodes <$> inArcs
               | length iNodeSets == 1 && not (hasArc target) = concat $ mapWithFollower (\a b -> areaBeneath eNodes (init iNodeSets) a ++ [areaBetween eNodes (init iNodeSets) target a b]) (head iNodeSets)
               | otherwise                                    = error $ "areabeneath: " <> show iNodeSets <> "\n" <> show target <> "\n" <> show (length iNodeSets) <> "\n"
               where
@@ -143,11 +134,11 @@ facesOf (StraightSkeleton nodeLists spine)
               where
                 -- find the first immediate child of the given node.
                 firstDescendent :: [ENode] -> INode -> ENode
-                firstDescendent myNodeSets myParent = findENodeByOutput myNodeSets $ firstPLineOf myParent
+                firstDescendent myNodeSets myParent = fromJust $ findENodeByOutput myNodeSets $ firstPLineOf myParent
 
                 -- find the last immediate child of the given node.
                 lastDescendent :: [ENode] -> INode -> ENode
-                lastDescendent myNodeSets myParent = findENodeByOutput myNodeSets $ lastPLineOf myParent
+                lastDescendent myNodeSets myParent = fromJust $ findENodeByOutput myNodeSets $ lastPLineOf myParent
 
                 -- | using the set of all first generation nodes, a second generation node, and a first generation node, find out which one of the first generation children of the given second generation node shares a side with the first generation node.
                 findMatchingDescendent :: [ENode] -> INode -> ENode -> ENode
@@ -165,67 +156,86 @@ facesOf (StraightSkeleton nodeLists spine)
                   | null plines = error "empty PLines?"
                   | otherwise   = last plines
 
-    -- FIXME: merge pathFirst and pathLast. they differ by only one line.
-    -- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.
-    --   When branching, follow the last PLine in a given node.
-    pathFirst :: NodeTree -> ([PLine2], [INode], ENode)
-    pathFirst nodeTree@(NodeTree eNodes iNodeSets)
-      | null iNodeSets  = ([outOf (last eNodes)], [], last eNodes)
-      | otherwise = pathFirstInner (init iNodeSets) eNodes (finalINodeOf nodeTree)
-      where
-        pathFirstInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
-        pathFirstInner myINodeSets myENodes target@(INode (plinesIn) _)
-          | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
-          | otherwise     = (               childPlines, target: endNodes, finalENode)
-          where
-            pLineToFollow = head plinesIn
-            (childPlines, endNodes, finalENode)
-              | length myINodeSets < 2 = ([outOf $ findENodeByOutput myENodes pLineToFollow], [], findENodeByOutput myENodes pLineToFollow)
-              | otherwise              = pathFirstInner (init myINodeSets) myENodes (findINodeByOutput (init myINodeSets) pLineToFollow)
-
-    -- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.
-    --   When branching, follow the last PLine in a given node.
-    pathLast :: NodeTree -> ([PLine2], [INode], ENode)
-    pathLast nodeTree@(NodeTree eNodes iNodeSets)
-      | null iNodeSets  = ([outOf (last eNodes)], [], last eNodes)
-      | otherwise = pathLastInner (init iNodeSets) eNodes (finalINodeOf nodeTree)
-      where
-        pathLastInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
-        pathLastInner myINodeSets myENodes target@(INode (plinesIn) _)
-          | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
-          | otherwise     = (               childPlines, target: endNodes, finalENode)
-          where
-            pLineToFollow = last plinesIn
-            (childPlines, endNodes, finalENode)
-              | length myINodeSets < 2 = ([outOf $ findENodeByOutput myENodes pLineToFollow], [], findENodeByOutput myENodes pLineToFollow)
-              | otherwise              = pathLastInner (init myINodeSets) myENodes (findINodeByOutput (init myINodeSets) pLineToFollow)
-
-    -- | Find a node with an output of the PLine given. start at the most recent generation, and check backwards.
-    findINodeByOutput :: [[INode]] -> PLine2 -> INode
-    findINodeByOutput iNodeSets plineOut
-      | null iNodeSets             = error "could not find inode. empty set?"
-      | length iNodesInThisGen == 1 = head iNodesInThisGen
-      | length iNodeSets > 1 &&
-        null iNodesInThisGen       = findINodeByOutput (init iNodeSets) plineOut
-      | null iNodesInThisGen       = error $ "could not find inode.\n" <> show iNodeSets <> "\n" <> show plineOut <> "\n"
-      | otherwise                  = error "more than one node in a given generation with the same PLine out!"
-      where
-        iNodesInThisGen = filter (\(INode _ a) -> a == Just plineOut) (last iNodeSets)
-
-    -- | Find an exterior Node with an output of the PLine given.
-    findENodeByOutput :: [ENode] -> PLine2 -> ENode
-    findENodeByOutput eNodes plineOut
-      | null eNodes               = error "could not find enode. empty set?"
-      | length nodesMatching == 1 = head nodesMatching
-      | null nodesMatching        = error "could not find exterior node."
-      | otherwise                 = error "more than one exterior node with the same PLine out!"
-      where
-        nodesMatching = filter (\(ENode _ a) -> a == plineOut) eNodes
-
     -- | make a face from two nodes, and a set of arcs. the nodes must be composed of line segments on one side, and follow each other.
     makeFace :: ENode -> [PLine2] -> ENode -> Face
     makeFace node1@(ENode (seg1,seg2) pline1) arcs node2@(ENode (seg3,seg4) pline2)
       | seg2 == seg3 = Face seg2 pline2 arcs pline1
       | seg1 == seg4 = Face seg1 pline1 arcs pline2
       | otherwise = error $ "cannot make a face from nodes that are not neighbors: \n" <> show node1 <> "\n" <> show node2 <> "\n"
+
+
+-- utility functions exposed for tscherne.
+lastSegOf :: NodeTree -> LineSeg
+lastSegOf nodeTree = (\(ENode (_,outSeg) _) -> outSeg) (lastENodeOf nodeTree)
+
+firstSegOf :: NodeTree -> LineSeg
+firstSegOf nodeTree = (\(ENode (outSeg,_) _) -> outSeg) (firstENodeOf nodeTree)
+
+-- dependent utility functions. used by last and first segment finder, and internal components.
+-- FIXME: should lastSegOf, firstSegOf, and the below stuff be in a different place?
+lastENodeOf :: NodeTree -> ENode
+lastENodeOf nodeTree = (\(_,_,c) -> c) $ pathLast nodeTree
+
+firstENodeOf :: NodeTree -> ENode
+firstENodeOf nodeTree = (\(_,_,c) -> c) $ pathFirst nodeTree
+
+-- FIXME: merge pathFirst and pathLast. they differ by only one line.
+-- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.
+--   When branching, follow the last PLine in a given node.
+pathFirst :: NodeTree -> ([PLine2], [INode], ENode)
+pathFirst nodeTree@(NodeTree eNodes iNodeSets)
+  | null iNodeSets  = ([outOf (last eNodes)], [], last eNodes)
+  | otherwise = pathFirstInner (init iNodeSets) eNodes (finalINodeOf nodeTree)
+  where
+    pathFirstInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
+    pathFirstInner myINodeSets myENodes target@(INode (plinesIn) _)
+      | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
+      | otherwise     = (               childPlines, target: endNodes, finalENode)
+      where
+        pLineToFollow = head plinesIn
+        (childPlines, endNodes, finalENode)
+          | length myINodeSets == 1 ||
+            null myINodeSets        = ([outOf $ fromJust $ findENodeByOutput myENodes pLineToFollow], [], fromJust $ findENodeByOutput myENodes pLineToFollow)
+          | otherwise               = pathFirstInner (init myINodeSets) myENodes (fromJust $ findINodeByOutput (init myINodeSets) pLineToFollow)
+
+
+-- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.
+--   When branching, follow the last PLine in a given node.
+pathLast :: NodeTree -> ([PLine2], [INode], ENode)
+pathLast nodeTree@(NodeTree eNodes iNodeSets)
+  | null iNodeSets  = ([outOf (last eNodes)], [], last eNodes)
+  | otherwise = pathLastInner (init iNodeSets) eNodes (finalINodeOf nodeTree)
+  where
+    pathLastInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
+    pathLastInner myINodeSets myENodes target@(INode (plinesIn) _)
+      | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
+      | otherwise     = (               childPlines, target: endNodes, finalENode)
+      where
+        pLineToFollow = last plinesIn
+        (childPlines, endNodes, finalENode)
+          | length myINodeSets == 1 = pathLastInner (init myINodeSets) myENodes (fromJust $ findINodeByOutput myINodeSets pLineToFollow)
+          | null myINodeSets        = ([outOf $ fromJust $ findENodeByOutput myENodes pLineToFollow], [], fromJust $ findENodeByOutput myENodes pLineToFollow)
+          | otherwise               = pathLastInner (init myINodeSets) myENodes (fromJust $ findINodeByOutput (init myINodeSets) pLineToFollow)
+
+-- | Find a node with an output of the PLine given. start at the most recent generation, and check backwards.
+findINodeByOutput :: [[INode]] -> PLine2 -> Maybe INode
+findINodeByOutput iNodeSets plineOut
+  | null iNodeSets            = error "could not find inode. empty set?"
+  | length nodesMatching == 1 = Just $ head nodesMatching
+  | length iNodeSets > 1 &&
+    null nodesMatching        = findINodeByOutput (init iNodeSets) plineOut
+  | null nodesMatching        = Nothing
+  | otherwise                 = error "more than one node in a given generation with the same PLine out!"
+  where
+    nodesMatching = filter (\(INode _ a) -> a == Just plineOut) (last iNodeSets)
+
+-- | Find an exterior Node with an output of the PLine given.
+findENodeByOutput :: [ENode] -> PLine2 -> Maybe ENode
+findENodeByOutput eNodes plineOut
+  | null eNodes               = error "could not find enode. empty set?"
+  | length nodesMatching == 1 = Just $ head nodesMatching
+  | null nodesMatching        = Nothing
+  | otherwise                 = error "more than one exterior node with the same PLine out!"
+  where
+    nodesMatching = filter (\(ENode _ a) -> a == plineOut) eNodes
 
