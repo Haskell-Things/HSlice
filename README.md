@@ -1,6 +1,6 @@
 # HSlice
 
-[![IRC](https://img.shields.io/badge/irc.freenode.net-%23ImplicitCAD-blue.svg)](https://freenode.net/)
+[![IRC](https://img.shields.io/badge/irc.libera.chat-%23ImplicitCAD-blue.svg)](https://libera.chat/)
 
 A slicer / G-code generator for RepRap firmwares written in Haskell, using Projective Geometric Algebra.
 
@@ -29,7 +29,7 @@ Functional programming is beautiful, and gets us closer to perfection.
 
 [Catherine Moresco](http://catmores.co) and [Noah Halford](http://noahhalford.com/) are two fourth-year undergraduates at the University of Chicago who originally wrote this.
 
-[Julia Longtin](http://implicitcad.org) is the developer that picked it up, and is cleaning it off, to run her printers.
+[Julia Longtin](https://implicitcad.org) is the developer that picked it up, and is cleaning it off, to run her printers.
 
 #### *Can I contribute?*
 
