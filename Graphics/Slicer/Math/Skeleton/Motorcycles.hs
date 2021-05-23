@@ -27,7 +27,7 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Motorcycles (Collision(HeadOn), CrashTree(CrashTree), Motorcycle(Motorcycle), motorcycleToENode, Crash(Crash), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles) where
+module Graphics.Slicer.Math.Skeleton.Motorcycles (Collision(HeadOn), CrashTree(CrashTree), motorcycleToENode, Crash(Crash), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles) where
 
 import Prelude (Bool(True, False), Either(Left,Right), Eq, error, filter, head, last, length, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (||), (.), zip, null)
 
@@ -85,6 +85,7 @@ crashMotorcycles contour holes
       -- One crash, no survivors.
       | length inMotorcycles == 2 && null crashedMotorcycles
         && crashOf (head inMotorcycles) (last inMotorcycles) == Just HeadOn = Just $ CrashTree inMotorcycles [] [[Crash inMotorcycles Nothing HeadOn]]
+      -- Note that to solve this case, we will have to have a concept of speed of the motorcycle.
       | otherwise = Nothing
         where
           -- determine the set of motorcycles have not yet had a crash.
