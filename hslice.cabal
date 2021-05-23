@@ -93,6 +93,7 @@ Library
                     Graphics.Slicer.Math.Skeleton.Face
                     Graphics.Slicer.Math.Skeleton.Line
                     Graphics.Slicer.Math.Skeleton.Motorcycles
+                    Graphics.Slicer.Math.Skeleton.NodeTrees
                     Graphics.Slicer.Math.Skeleton.Skeleton
                     Graphics.Slicer.Math.Skeleton.Tscherne
                     Graphics.Slicer.Math.Tri

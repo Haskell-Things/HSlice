@@ -29,7 +29,7 @@ import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, NodeTree(NodeTree), Motorcycle(Motorcycle), CellDivide(CellDivide), linesOfContour, finalPLine, outOf)
 
-import Graphics.Slicer.Math.Skeleton.Face (lastSegOf, firstSegOf, lastENodeOf, firstENodeOf)
+import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, firstSegOf, lastENodeOf, firstENodeOf)
 
 import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleToENode, motorcycleIntersectsAt, intersectionSameSide)
 
