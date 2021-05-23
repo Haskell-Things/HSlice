@@ -26,7 +26,7 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, Motorcycle(Motorcycle), concavePLines, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linesOfContour, linePairs, finalPLine, finalINodeOf, finalOutOf) where
+module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, Motorcycle(Motorcycle), CellDivide(CellDivide), concavePLines, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linesOfContour, linePairs, finalPLine, finalINodeOf, finalOutOf) where
 
 import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, length, (>), (&&), any, head, fst, and, (||), (<>), null, show)
 
@@ -112,6 +112,7 @@ instance Pointable INode where
 
 -- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior or the exterior of a contour.
 --   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.
+--   FIXME: Note that a new motorcycle may be created in the case of degenerate polygons... with it's inSegs being two other motorcycles.
 data Motorcycle = Motorcycle { _inCSegs :: (LineSeg, LineSeg), _outPline :: PLine2 }
   deriving Eq
   deriving stock Show
@@ -126,6 +127,11 @@ instance Pointable Motorcycle where
   canPoint _ = True
   pPointOf a = eToPPoint2 $ ePointOf a
   ePointOf (Motorcycle (_, LineSeg point _) _) = point
+
+-- the border dividing two motorcycle cells.
+-- note that if there is an ENode, it's anticolinnear to the last motorcycle in _divMotorcycles.
+data CellDivide = CellDivide { _divMotorcycles :: [Motorcycle], _divENode :: Maybe ENode }
+  deriving stock Show
 
 -- | A set of set of nodes, divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation contains just one node.
 --   Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.
