@@ -29,7 +29,7 @@ import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, NodeTree(NodeTree), Motorcycle(Motorcycle), CellDivide(CellDivide), linesOfContour, finalPLine, outOf)
 
-import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, firstSegOf, lastENodeOf, firstENodeOf)
+import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, firstSegOf, lastENodeOf, firstENodeOf, sortNodeTrees)
 
 import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleToENode, motorcycleIntersectsAt, intersectionSameSide)
 
@@ -59,12 +59,11 @@ applyTscherne contour cellDivisions  -- dividingMotorcycle@(Motorcycle (LineSeg 
                         show dividingMotorcycle <> "\n"
   | otherwise = Nothing
   where
+    -- Check whether the NodeTrees of two cells have an effect on each other.
     cellsDoNotOverlap cell1 cell2 cellDivision = null (crossoverENodes cell1 (pointInCell cell1 cellDivision) cellDivision) &&
                                                  null (crossoverENodes cell2 (pointInCell cell2 cellDivision) cellDivision) &&
                                                  cellOutsIntersect cell1 cell2 cellDivision
-    leftSide  = cellAfter contour dividingMotorcycle
-    rightSide = cellBefore contour dividingMotorcycle
-    -- FIXME: ensure that nodeSets are always stored in clockwise order.
+    -- Add a set of cells together, to create a straight skeleton. The straight skeleton should have it's NodeTrees in order.
     addCells :: [NodeTree] -> [CellDivide] -> StraightSkeleton
     addCells cells divisions
       | length cells == 2 && length divisions == 1 = StraightSkeleton [sortNodeTrees $ cells ++ nodetreesFromDivision (head divisions)] []
@@ -73,11 +72,6 @@ applyTscherne contour cellDivisions  -- dividingMotorcycle@(Motorcycle (LineSeg 
         nodetreesFromDivision (CellDivide motorcycles maybeENode) = if isJust maybeENode
                                                                     then [NodeTree (motorcycleToENode <$> motorcycles) [], NodeTree [fromJust maybeENode] []]
                                                                     else [NodeTree (motorcycleToENode <$> motorcycles) []]
-        sortNodeTrees nodeTrees = sortBy compareNodeTrees nodeTrees
-          where
-            compareNodeTrees nt1 nt2
-              | Just True == outOf (lastENodeOf nt1) `pLineIsLeft` outOf (firstENodeOf nt2) = LT
-              | otherwise                                                                   = GT
     pointInCell cell (CellDivide motorcycles _)
       | (firstSegOf cell == lastCSegOf (head motorcycles)) = endpoint $ firstSegOf cell
       | (lastSegOf cell == firstCSegOf (head motorcycles)) = startPoint $ lastSegOf cell
@@ -86,11 +80,6 @@ applyTscherne contour cellDivisions  -- dividingMotorcycle@(Motorcycle (LineSeg 
         startPoint (LineSeg a _) = a
         firstCSegOf (Motorcycle (seg1,_) _) = seg1
         lastCSegOf (Motorcycle (_, seg2) _) = seg2
-    -- Functions used when we have two cells, and one dividing motorcycle between them --
-    dividingMotorcycle = if length (motorcyclesFromDivision $ head cellDivisions) == 1
-                         then head (motorcyclesFromDivision $ head cellDivisions)
-                         else error "cannot yet handle more than one dividing motorcycle."
-
     cellOutsIntersect cell1 cell2 (CellDivide motorcycles _)
       | length motorcycles == 1 = plinesIntersectIn (finalPLine cell1) (outOf $ head motorcycles) ==
                                   plinesIntersectIn (finalPLine cell2) (outOf $ head motorcycles)
@@ -102,6 +91,17 @@ applyTscherne contour cellDivisions  -- dividingMotorcycle@(Motorcycle (LineSeg 
       | length (motorcyclesFromDivision cellDivision) == 2 = filter (\a -> (Just False == intersectionSameSide (head $ motorcyclesFromDivision cellDivision) (eToPPoint2 pointOnSide) a) ||
                                                                            (Just False == intersectionSameSide (last $ motorcyclesFromDivision cellDivision) (eToPPoint2 pointOnSide) a)) eNodes
     motorcyclesFromDivision (CellDivide m _) = m
+
+    -------------------------------------------------------------------------------------
+    -- Functions used when we have two cells, and one dividing motorcycle between them --
+    -------------------------------------------------------------------------------------
+
+    leftSide  = cellAfter contour dividingMotorcycle
+    rightSide = cellBefore contour dividingMotorcycle
+    dividingMotorcycle = if length (motorcyclesFromDivision $ head cellDivisions) == 1
+                         then head (motorcyclesFromDivision $ head cellDivisions)
+                         else error "cannot yet handle more than one dividing motorcycle."
+
 
 -- | Calculate a partial straight skeleton for the motorcycle cell that is on the left side of the point that a motorcycle's path starts at, ending where the motorcycle intersects the contour.
 cellAfter :: Contour -> Motorcycle -> NodeTree

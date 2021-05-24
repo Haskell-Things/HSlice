@@ -17,19 +17,19 @@
 
 {- Purpose of this file: to hold utility functions for working with NodeTrees. -}
 
-module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput) where
+module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, sortNodeTrees) where
 
-import Prelude ((==), otherwise, (<$>), ($), (.), length, (/=), error, (<>), show, Eq, Show, (<>), (++), (>), Bool, head, (&&), (||), take, filter, init, null, tail, last, concat, not, reverse)
+import Prelude (Bool(True), Ordering(LT,GT), (==), fst, otherwise, snd, ($), length, error, (<>), show, (<>), (>), head, (&&), filter, init, null, last)
 
-import Data.List (dropWhile)
+import Data.List (sortBy)
 
-import Data.Maybe( Maybe(Just, Nothing), isNothing, fromJust, isJust)
+import Data.Maybe( Maybe(Just, Nothing), fromJust, isJust)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf, finalOutOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf)
 
-import Graphics.Slicer.Math.PGA (PLine2)
+import Graphics.Slicer.Math.PGA (PLine2, pLineIsLeft)
 
 lastSegOf :: NodeTree -> LineSeg
 lastSegOf nodeTree = (\(ENode (_,outSeg) _) -> outSeg) (lastENodeOf nodeTree)
@@ -76,10 +76,10 @@ pathFirst nodeTree@(NodeTree eNodes iNodeSets)
             isJust result            = myError
           | length myINodeSets == 1 &&
             isJust result            = terminate
-          | isJust iNodeOnThisLevel  = pathFirstInner myINodeSets myENodes (fromJust iNodeOnThisLevel)
+          | isJust iNodeOnThisLevel  = pathFirstInner myINodeSets myENodes (snd $ fromJust iNodeOnThisLevel)
           -- nothing left to do.
           | length myINodeSets == 1  = myError
-          | isJust iNodeOnLowerLevel = pathFirstInner (init myINodeSets) myENodes (fromJust iNodeOnLowerLevel)
+          | isJust iNodeOnLowerLevel = pathFirstInner (init $ fst $ fromJust iNodeOnLowerLevel) myENodes (snd $ fromJust iNodeOnLowerLevel)
           | isJust result            = terminate
           -- cannot happen
           | otherwise                = myError
@@ -114,19 +114,19 @@ pathLast nodeTree@(NodeTree eNodes iNodeSets)
             isJust result            = myError
           | length myINodeSets == 1 &&
             isJust result            = terminate
-          | isJust iNodeOnThisLevel  = pathLastInner myINodeSets myENodes (fromJust iNodeOnThisLevel)
+          | isJust iNodeOnThisLevel  = pathLastInner myINodeSets myENodes (snd $ fromJust iNodeOnThisLevel)
           -- nothing left to do.
           | length myINodeSets == 1  = myError
-          | isJust iNodeOnLowerLevel = pathLastInner (init myINodeSets) myENodes (fromJust iNodeOnLowerLevel)
+          | isJust iNodeOnLowerLevel = pathLastInner (init $ fst $ fromJust iNodeOnLowerLevel) myENodes (snd $ fromJust iNodeOnLowerLevel)
           | isJust result            = terminate
           -- cannot happen
           | otherwise                = myError
 
--- | Find a node with an output of the PLine given. start at the most recent generation, and check backwards.
-findINodeByOutput :: [[INode]] -> PLine2 -> Maybe INode
+-- | Find a node with an output of the PLine given. Start at the most recent generation, and check backwards.
+findINodeByOutput :: [[INode]] -> PLine2 -> Maybe ([[INode]],INode)
 findINodeByOutput iNodeSets plineOut
   | null iNodeSets            = error "could not find inode. empty set?"
-  | length nodesMatching == 1 = Just $ head nodesMatching
+  | length nodesMatching == 1 = Just $ (iNodeSets, head nodesMatching)
   | length iNodeSets > 1 &&
     null nodesMatching        = findINodeByOutput (init iNodeSets) plineOut
   | null nodesMatching        = Nothing
@@ -144,3 +144,10 @@ findENodeByOutput eNodes plineOut
   where
     nodesMatching = filter (\(ENode _ a) -> a == plineOut) eNodes
 
+-- Sort a set of nodeTrees. they should come out in order, so that the last segment of a preceeding NodeTree stops at the first segment of the current NodeTree
+sortNodeTrees :: [NodeTree] -> [NodeTree]
+sortNodeTrees nodeTrees = sortBy compareNodeTrees nodeTrees
+          where
+            compareNodeTrees nt1 nt2
+              | Just True == outOf (lastENodeOf nt1) `pLineIsLeft` outOf (firstENodeOf nt2) = LT
+              | otherwise                                                                   = GT
