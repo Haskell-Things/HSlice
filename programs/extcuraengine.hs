@@ -176,10 +176,14 @@ data Plan =
 -- the space that a plan is to be followed with.
 -- FIXME: union, intersect, etc.. these?
 data Zone =
-  Everything Plan
-  | ZBetween (ℝ,ℝ) Plan
-  | SurfaceAndBelow (Point2, Point2) Plan
+  Everywhere Plan
+  | ZBetween (ℝ,Maybe ℝ) Plan
+  | RegionAndBelow (Point2, Point2) Plan
 
+-- the order of operations in a Plan.
+--data Ordering =
+
+-- FIXME: what to do about conflicting orderings when a component crosses from one Zone to the other?
 
 data ScadStep =
     PriorState MachineState
@@ -197,11 +201,17 @@ data InsetStrategy =
 
 -- The new scad functions:
 
--- Builtins --
+-- new Plan Builtins --
+-- for specifying how to perform actions within a region.
 -- extrude        :: Contour -> UncookedGCode
 -- inset          :: Contour -> Contour
 -- speed          :: UncookedGCode -> GCode
--- zoneEverywhere :: Everything 
+
+-- new Geometric Builtins --
+-- for specifying what regions of the print get which plans applied.
+-- PlaneAndUp
+-- RegionAndUp
+-- zoneEverywhere :: Everything
 
 -- Builtins, optional (user can supply implementations) --
 -- infillHoriz :: Contour -> UncookedGCode
@@ -334,12 +344,12 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
           childContoursInnerWalls = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
             where
               res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
+          -- FIXME: handle spliting
           infillLineSegs = mapEveryOther (\l -> reverse $ flipLineSeg <$> l) $ makeInfill infillOutsideContour infillChildContours (ls * (1/infill)) $ getInfillType print layerNumber
             where
               infillOutsideContour = fromMaybe infillOutsideContourByShrink infillOutsideContourBySkeleton
                 where
                   infillOutsideContourByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2) insideContoursRaw outsideContourRaw
-                  -- FIXME: handle spliting
                   infillOutsideContourBySkeleton
                     | isJust outsideContourSkeleton && length res == 1 = Just $ head $ res
                     | isJust outsideContourSkeleton && length res > 1 = error "split event during inner wall rendering."
