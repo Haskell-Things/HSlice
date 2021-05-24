@@ -20,9 +20,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 
 {-
- - This file contains two things that should probably be in separate files:
- - Code for creating a series of faces, covering a straight skeleton.
- - Code for taking a series of faces, and applying inset line segments and infill to them.
+ - This file contains code for creating a series of faces, covering a straight skeleton.
  -}
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf, lastSegOf, firstSegOf, lastENodeOf, firstENodeOf) where
 
