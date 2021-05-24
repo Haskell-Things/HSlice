@@ -19,7 +19,7 @@
 
 module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, sortNodeTrees) where
 
-import Prelude (Bool(True), Ordering(LT,GT), (==), fst, otherwise, snd, ($), length, error, (<>), show, (<>), (>), head, (&&), filter, init, null, last)
+import Prelude (Bool(True,False), Ordering(LT,GT), (==), fst, otherwise, snd, ($), length, error, (<>), show, (<>), (>), head, (&&), filter, init, null, last)
 
 import Data.List (sortBy)
 
@@ -60,8 +60,8 @@ pathFirst nodeTree@(NodeTree eNodes iNodeSets)
       | otherwise     = (               childPlines, target: endNodes, finalENode)
       where
         pLineToFollow = head plinesIn
-        iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow
-        iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow
+        iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow False
+        iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow True
         result = findENodeByOutput myENodes pLineToFollow
         terminate = ([outOf $ fromJust $ result], [], fromJust $ result)
         myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodes <> "\n" <> show myINodeSets <> "\n"
@@ -84,7 +84,6 @@ pathFirst nodeTree@(NodeTree eNodes iNodeSets)
           -- cannot happen
           | otherwise                = myError
 
-
 -- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.
 --   When branching, follow the last PLine in a given node.
 pathLast :: NodeTree -> ([PLine2], [INode], ENode)
@@ -98,8 +97,8 @@ pathLast nodeTree@(NodeTree eNodes iNodeSets)
       | otherwise     = (               childPlines, target: endNodes, finalENode)
       where
         pLineToFollow = last plinesIn
-        iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow
-        iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow
+        iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow False
+        iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow True
         result = findENodeByOutput myENodes pLineToFollow
         terminate = ([outOf $ fromJust $ result], [], fromJust $ result)
         myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodes <> "\n" <> show myINodeSets <> "\n"
@@ -123,12 +122,13 @@ pathLast nodeTree@(NodeTree eNodes iNodeSets)
           | otherwise                = myError
 
 -- | Find a node with an output of the PLine given. Start at the most recent generation, and check backwards.
-findINodeByOutput :: [[INode]] -> PLine2 -> Maybe ([[INode]],INode)
-findINodeByOutput iNodeSets plineOut
+findINodeByOutput :: [[INode]] -> PLine2 -> Bool -> Maybe ([[INode]],INode)
+findINodeByOutput iNodeSets plineOut recurse
   | null iNodeSets            = error "could not find inode. empty set?"
   | length nodesMatching == 1 = Just $ (iNodeSets, head nodesMatching)
   | length iNodeSets > 1 &&
-    null nodesMatching        = findINodeByOutput (init iNodeSets) plineOut
+    null nodesMatching &&
+    recurse                   = findINodeByOutput (init iNodeSets) plineOut recurse
   | null nodesMatching        = Nothing
   | otherwise                 = error "more than one node in a given generation with the same PLine out!"
   where
