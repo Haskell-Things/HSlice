@@ -30,13 +30,13 @@ import Prelude ((==), otherwise, (<$>), ($), (.), length, (/=), error, (<>), sho
 
 import Data.List (dropWhile)
 
-import Data.Maybe( Maybe(Just, Nothing), isNothing, fromJust, isJust)
+import Data.Maybe(isNothing, fromJust)
 
 import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf, finalOutOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc), finalINodeOf, finalOutOf)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, findENodeByOutput, firstSegOf, lastENodeOf, firstENodeOf, pathFirst, pathLast)
 
