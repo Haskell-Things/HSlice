@@ -72,12 +72,13 @@ crashMotorcycles contour holes
       | otherwise = error "cannot crash with holes yet."
 
     -- FIXME: not yet used.
-    firstMotorcyclesOfHoles = concaveMotorcycles <$> holes
+    --firstMotorcyclesOfHoles = concaveMotorcycles <$> holes
 
     -- Function meant to be recursed, to give us a CrashTree. when it's complete...
     -- For now, just cover the cases we know what to do with.
     getCrashTree :: [Motorcycle] -> [Motorcycle] -> [[Crash]] -> Bool -> Maybe CrashTree
     getCrashTree inMotorcycles crashedMotorcycles inCrashes hasHoles
+      | hasHoles = error "do not support holes yet"
       -- We're done.
       | null findSurvivors = Just $ CrashTree inMotorcycles findSurvivors inCrashes
       -- there is no-one to collide with.
@@ -154,8 +155,8 @@ motorcycleIntersectsAt contour motorcycle@(Motorcycle (inSeg,outSeg) _)
 
 -- | Determine if a node is on one side of a motorcycle, or the other.
 --   Assumes the starting point of the second line segment is a point on the path.
-intersectionSameSide :: Motorcycle -> PPoint2 -> ENode -> Maybe Bool
-intersectionSameSide (Motorcycle _ path) pointOnSide node = pPointsOnSameSideOfPLine (pPointOf node) pointOnSide path
+intersectionSameSide :: PPoint2 -> ENode -> Motorcycle -> Maybe Bool
+intersectionSameSide pointOnSide node (Motorcycle _ path) = pPointsOnSameSideOfPLine (pPointOf node) pointOnSide path
 
 
 
