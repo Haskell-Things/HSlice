@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne, cellAfter, cellBefore) where
 
-import Prelude (Bool(False,True), any, concat, not, otherwise, tail, ($), (<$>), (==), (++), error, (&&), head, fst, (<>), show, uncurry, null, filter, (+), Int, drop, take, (-), (||), length)
+import Prelude (Bool(False), any, concat, otherwise, tail, ($), (<$>), (==), (++), error, (&&), head, fst, (<>), show, uncurry, null, filter, (+), Int, drop, take, (-), (||), length)
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
@@ -33,7 +33,7 @@ import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, firstSegOf, sortNodeT
 
 import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleToENode, motorcycleIntersectsAt, intersectionSameSide)
 
-import Graphics.Slicer.Math.Definitions (Contour, Point2)
+import Graphics.Slicer.Math.Definitions (Contour)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
 
