@@ -47,7 +47,7 @@ applyTscherne :: Contour -> [CellDivide] -> Maybe StraightSkeleton
 applyTscherne contour cellDivisions
   -- | use observations from christopher tscherne's masters thesis to cover the corner cases that do not require the whole algorithm.
   -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point
-  | length cellDivisions == 1 && cellsDoNotOverlap leftSide rightSide (head cellDivisions) = Just $ addCells [leftSide,rightSide] cellDivisions
+  | length cellDivisions == 1 && cellsDoNotOverlap (leftSide, head cellDivisions) (rightSide, head cellDivisions) = Just $ addCells [leftSide,rightSide] cellDivisions
     -- FIXME: ok, can't cheat. apply the full algorithm.
   | otherwise = error $ "failing to apply Tscherne's method.\n" <>
                         show (crossoverENodes leftSide (head cellDivisions))  <> "\n" <>
@@ -60,11 +60,15 @@ applyTscherne contour cellDivisions
   | otherwise = Nothing
   where
     -- Check whether the NodeTrees of two cells have an effect on each other.
-    cellsDoNotOverlap cell1 cell2 cellDivision@(CellDivide motorcycles _)
-      | length motorcycles == 1 ||
-        (length motorcycles == 2 && motorcyclesAreCollinear motorcycles) = null (crossoverENodes cell1 cellDivision) &&
-                                                                           null (crossoverENodes cell2 cellDivision) &&
-                                                                           cellOutsIntersect cell1 cell2 cellDivision
+    cellsDoNotOverlap :: (NodeTree, CellDivide) -> (NodeTree, CellDivide) -> Bool
+    cellsDoNotOverlap (cell1,cellDivision1@(CellDivide motorcycles1 _)) (cell2,cellDivision2)
+      -- Only works when the CellDivide is simple enough that it is symetrical (a line).
+      | cellDivision1 == cellDivision2 &&
+        (length motorcycles1 == 1 ||
+         (length motorcycles1 == 2 && motorcyclesAreCollinear (head motorcycles1) (head $ tail motorcycles1)))
+      = null (crossoverENodes cell1 cellDivision1) &&
+        null (crossoverENodes cell2 cellDivision2) &&
+        cellOutsIntersect cell1 cell2 cellDivision1
       | otherwise = False
 
     -- Check that the outputs of the cells collide at the same point at the division between the two cells.
@@ -94,14 +98,14 @@ applyTscherne contour cellDivisions
       where
         nodetreesFromDivision :: CellDivide -> [NodeTree]
         nodetreesFromDivision (CellDivide motorcycles maybeENode)
-          | length motorcycles == 1 ||
-            (length motorcycles == 2 && motorcyclesAreCollinear motorcycles) = if isJust maybeENode
-                                                                               then [NodeTree (motorcycleToENode <$> motorcycles) [], NodeTree [fromJust maybeENode] []]
-                                                                               else [NodeTree (motorcycleToENode <$> motorcycles) []]
+          | (length motorcycles == 1 ||
+             (length motorcycles == 2 && motorcyclesAreCollinear (head motorcycles) (head $ tail motorcycles)))
+          = if isJust maybeENode
+            then [NodeTree (motorcycleToENode <$> motorcycles) [], NodeTree [fromJust maybeENode] []]
+            else [NodeTree (motorcycleToENode <$> motorcycles) []]
 
     -- check if the output of two motorcycles are collinear with each other.
-    motorcyclesAreCollinear motorcycles
-      | length motorcycles == 2 = plinesIntersectIn (outOf $ head motorcycles) (outOf $ head $ tail motorcycles) == PCollinear
+    motorcyclesAreCollinear motorcycle1 motorcycle2 = plinesIntersectIn (outOf motorcycle1) (outOf motorcycle2) == PCollinear
 
     motorcyclesFromDivision (CellDivide m _) = m
 

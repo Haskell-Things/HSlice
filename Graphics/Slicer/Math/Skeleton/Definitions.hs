@@ -131,6 +131,7 @@ instance Pointable Motorcycle where
 -- the border dividing two motorcycle cells.
 -- note that if there is an ENode, it's anticolinnear to the last motorcycle in _divMotorcycles.
 data CellDivide = CellDivide { _divMotorcycles :: [Motorcycle], _divENode :: Maybe ENode }
+  deriving Eq
   deriving stock Show
 
 -- | A set of set of nodes, divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation contains just one node.
