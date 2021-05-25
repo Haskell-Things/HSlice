@@ -55,7 +55,7 @@ pathFirst nodeTree@(NodeTree eNodes iNodeSets)
   | otherwise = pathFirstInner (init iNodeSets) eNodes (finalINodeOf nodeTree)
   where
     pathFirstInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
-    pathFirstInner myINodeSets myENodes target@(INode (plinesIn) _)
+    pathFirstInner myINodeSets myENodes target@(INode plinesIn _)
       | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
       | otherwise     = (               childPlines, target: endNodes, finalENode)
       where
@@ -63,7 +63,7 @@ pathFirst nodeTree@(NodeTree eNodes iNodeSets)
         iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow False
         iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow True
         result = findENodeByOutput myENodes pLineToFollow
-        terminate = ([outOf $ fromJust $ result], [], fromJust $ result)
+        terminate = ([outOf $ fromJust result], [], fromJust result)
         myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodes <> "\n" <> show myINodeSets <> "\n"
         (childPlines, endNodes, finalENode)
           | null myINodeSets &&
@@ -92,7 +92,7 @@ pathLast nodeTree@(NodeTree eNodes iNodeSets)
   | otherwise = pathLastInner (init iNodeSets) eNodes (finalINodeOf nodeTree)
   where
     pathLastInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
-    pathLastInner myINodeSets myENodes target@(INode (plinesIn) _)
+    pathLastInner myINodeSets myENodes target@(INode plinesIn _)
       | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
       | otherwise     = (               childPlines, target: endNodes, finalENode)
       where
@@ -100,7 +100,7 @@ pathLast nodeTree@(NodeTree eNodes iNodeSets)
         iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow False
         iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow True
         result = findENodeByOutput myENodes pLineToFollow
-        terminate = ([outOf $ fromJust $ result], [], fromJust $ result)
+        terminate = ([outOf $ fromJust result], [], fromJust result)
         myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodes <> "\n" <> show myINodeSets <> "\n"
         (childPlines, endNodes, finalENode)
           | null myINodeSets &&
@@ -125,7 +125,7 @@ pathLast nodeTree@(NodeTree eNodes iNodeSets)
 findINodeByOutput :: [[INode]] -> PLine2 -> Bool -> Maybe ([[INode]],INode)
 findINodeByOutput iNodeSets plineOut recurse
   | null iNodeSets            = error "could not find inode. empty set?"
-  | length nodesMatching == 1 = Just $ (iNodeSets, head nodesMatching)
+  | length nodesMatching == 1 = Just (iNodeSets, head nodesMatching)
   | length iNodeSets > 1 &&
     null nodesMatching &&
     recurse                   = findINodeByOutput (init iNodeSets) plineOut recurse
@@ -146,7 +146,7 @@ findENodeByOutput eNodes plineOut
 
 -- Sort a set of nodeTrees. they should come out in order, so that the last segment of a preceeding NodeTree stops at the first segment of the current NodeTree
 sortNodeTrees :: [NodeTree] -> [NodeTree]
-sortNodeTrees nodeTrees = sortBy compareNodeTrees nodeTrees
+sortNodeTrees = sortBy compareNodeTrees
           where
             compareNodeTrees nt1 nt2
               | Just True == outOf (lastENodeOf nt1) `pLineIsLeft` outOf (firstENodeOf nt2) = LT

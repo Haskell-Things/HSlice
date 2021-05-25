@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne, cellAfter, cellBefore) where
 
-import Prelude (Bool(False), any, concat, otherwise, tail, ($), (<$>), (==), (++), error, (&&), head, fst, (<>), show, uncurry, null, filter, (+), Int, drop, take, (-), (||), length)
+import Prelude (Bool(False), concat, elem, otherwise, tail, ($), (<$>), (==), (++), error, (&&), head, fst, (<>), show, uncurry, null, filter, (+), Int, drop, take, (-), (||), length)
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
@@ -79,12 +79,12 @@ applyTscherne contour cellDivisions
 
     -- | given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
     crossoverENodes :: NodeTree -> CellDivide -> [ENode]
-    crossoverENodes nodeTree@(NodeTree eNodes _) cellDivision = filter (\a -> any (== Just False) (intersectionSameSide pointOnSide a <$> motorcyclesFromDivision cellDivision)) eNodes
+    crossoverENodes nodeTree@(NodeTree eNodes _) cellDivision = filter (\a -> elem (Just False) (intersectionSameSide pointOnSide a <$> motorcyclesFromDivision cellDivision)) eNodes
       where
         pointOnSide = eToPPoint2 $ pointInCell nodeTree cellDivision
         pointInCell cell (CellDivide motorcycles _)
-          | (firstSegOf cell == lastCSegOf (head motorcycles)) = endpoint $ firstSegOf cell
-          | (lastSegOf cell == firstCSegOf (head motorcycles)) = startPoint $ lastSegOf cell
+          | firstSegOf cell == lastCSegOf (head motorcycles) = endpoint $ firstSegOf cell
+          | lastSegOf cell == firstCSegOf (head motorcycles) = startPoint $ lastSegOf cell
           | otherwise = error $ "unhandled case: " <> show cell <> "\n" <> show motorcycles <> "\n" <> show contour <> "\n" <> show cellDivisions <> "\n" <> show (lastSegOf cell) <> "\n" <> show (firstSegOf cell) <> "\n"
           where
             startPoint (LineSeg a _) = a
@@ -94,12 +94,12 @@ applyTscherne contour cellDivisions
     -- Add a set of cells together, to create a straight skeleton. The straight skeleton should have it's NodeTrees in order.
     addCells :: [NodeTree] -> [CellDivide] -> StraightSkeleton
     addCells cells divisions
-      | length cells == 2 && length divisions == 1 = StraightSkeleton [sortNodeTrees $ cells ++ (concat $ nodetreesFromDivision <$> divisions)] []
+      | length cells == 2 && length divisions == 1 = StraightSkeleton [sortNodeTrees $ cells ++ concat (nodetreesFromDivision <$> divisions)] []
       where
         nodetreesFromDivision :: CellDivide -> [NodeTree]
         nodetreesFromDivision (CellDivide motorcycles maybeENode)
-          | (length motorcycles == 1 ||
-             (length motorcycles == 2 && motorcyclesAreCollinear (head motorcycles) (head $ tail motorcycles)))
+          | length motorcycles == 1 ||
+            (length motorcycles == 2 && motorcyclesAreCollinear (head motorcycles) (head $ tail motorcycles))
           = if isJust maybeENode
             then [NodeTree (motorcycleToENode <$> motorcycles) [], NodeTree [fromJust maybeENode] []]
             else [NodeTree (motorcycleToENode <$> motorcycles) []]

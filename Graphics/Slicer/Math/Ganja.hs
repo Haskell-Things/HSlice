@@ -86,9 +86,9 @@ instance GanjaAble PPoint2 where
   toGanja (PPoint2 (GVec vals)) varname = (
     "  var " <> varname <> " = "
       <> show (valOf 0 (getVals [GEPlus 1, GEPlus 2] vals)) <> "e12"
-      <> (if e02 >= 0 then ("+" <> show e02) else show e02)
+      <> (if e02 >= 0 then "+" <> show e02 else show e02)
       <> "e02"
-      <> (if e01 >= 0 then ("+" <> show e01) else show e01)
+      <> (if e01 >= 0 then "+" <> show e01 else show e01)
       <> "e01;\n"
     ,
     "    " <> varname <> ", " <> show varname <> ",\n")
@@ -100,9 +100,9 @@ instance GanjaAble PLine2 where
   toGanja (PLine2 (GVec vals)) varname = (
     "  var " <> varname <> " = "
       <> show (valOf 0 (getVals [GEPlus 1] vals)) <> "e1"
-      <> (if e2 >= 0 then ("+" <> show e2) else show e2)
+      <> (if e2 >= 0 then "+" <> show e2 else show e2)
       <> "e2"
-      <> (if e0 >= 0 then ("+" <> show e0) else show e0)
+      <> (if e0 >= 0 then "+" <> show e0 else show e0)
       <> "e0;\n"
     ,
     "    " <> varname <> ", " <> show varname <> ",\n")
@@ -123,7 +123,7 @@ instance GanjaAble ENode where
     where
       (l1var, l1ref) = toGanja l1 (varname <> "a")
       (l2var, l2ref) = toGanja l2 (varname <> "b")
-      (plvar, plref) = toGanja (outPLine) (varname <> "c")
+      (plvar, plref) = toGanja outPLine (varname <> "c")
 
 instance GanjaAble Motorcycle where
   toGanja (Motorcycle (l1, l2) outPLine) varname = (
@@ -138,7 +138,7 @@ instance GanjaAble Motorcycle where
     where
       (l1var, l1ref) = toGanja l1 (varname <> "a")
       (l2var, l2ref) = toGanja l2 (varname <> "b")
-      (plvar, plref) = toGanja (outPLine) (varname <> "c")
+      (plvar, plref) = toGanja outPLine (varname <> "c")
 
 instance GanjaAble INode where
   toGanja (INode inPLines outPLine) varname = (invars, inrefs)
@@ -147,12 +147,12 @@ instance GanjaAble INode where
         where
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> zip allPLines allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
-          allPLines    = inPLines ++ (if isJust outPLine then [fromJust $ outPLine] else [])
+          allPLines    = inPLines ++ (if isJust outPLine then [fromJust outPLine] else [])
 
 instance GanjaAble Contour where
   toGanja (PointSequence contourPoints) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, (concat $ snd <$> res) <> "    0x882288,\n" <> linePairs)
+      (invars, inrefs) = (concat $ fst <$> res, concat (snd <$> res) <> "    0x882288,\n" <> linePairs)
         where
           linePairs    = concat $ mapWithFollower (\(_,a) (_,b) -> "    [" <> varname <> a <> "," <> varname <> b <> "],\n") pairs
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> pairs
@@ -165,7 +165,7 @@ instance GanjaAble Face where
       (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
-          pairs        = zip ((toGanja edge):allPLines) allStrings
+          pairs        = zip (toGanja edge : allPLines) allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
           allPLines    = toGanja <$> ([firstArc] ++ arcs ++ [lastArc])
 
@@ -174,7 +174,7 @@ dumpGanjas [] = error "no items to dump."
 dumpGanjas [f] = ganjaHeader <> vars <> ganjaFooterStart <> refs <> ganjaFooterEnd
   where
     (vars, refs) = f "a"
-dumpGanjas (xs) = ganjaHeader <> vars <> ganjaFooterStart <> refs <> ganjaFooterEnd
+dumpGanjas xs = ganjaHeader <> vars <> ganjaFooterStart <> refs <> ganjaFooterEnd
   where
     (vars, refs) =  (concat $ fst <$> res, concat $ snd <$> res)
       where

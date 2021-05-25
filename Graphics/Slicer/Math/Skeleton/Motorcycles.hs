@@ -21,11 +21,7 @@
 -}
 
 -- inherit instances when deriving.
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DerivingStrategies #-}
-
--- So we can section tuples
-{-# LANGUAGE TupleSections #-}
 
 module Graphics.Slicer.Math.Skeleton.Motorcycles (Collision(HeadOn), CrashTree(CrashTree), motorcycleToENode, Crash(Crash), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles) where
 
@@ -39,7 +35,7 @@ import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2,
 
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower, mapWithNeighbors)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), concavePLines, linesOfContour, linePairs, pPointOf, isCollinear, outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), linesOfContour, linePairs, pPointOf, isCollinear, outOf)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -90,7 +86,7 @@ crashMotorcycles contour holes
       | otherwise = Nothing
         where
           -- determine the set of motorcycles have not yet had a crash.
-          findSurvivors = filter (\a -> a `notElem` crashedMotorcycles) inMotorcycles
+          findSurvivors = filter (`notElem` crashedMotorcycles) inMotorcycles
 
           -- Crash two motorcycles.
           crashOf mot1 mot2@(Motorcycle (seg1, seg2) _)
@@ -119,6 +115,7 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs conto
 --   A reflex virtex is any point where the line in and the line out are convex, when looked at from inside of the contour.
 --   This function is for use on interior contours.
 -- FIXME: why does this look so different from the previous function?
+{-
 concaveMotorcycles :: Contour -> [Motorcycle]
 concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
   where
@@ -126,6 +123,7 @@ concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs cont
     onlyMotorcycles ((seg1, seg2), maybePLine)
       | isJust maybePLine = Just $ Motorcycle (seg1,seg2) $ fromJust maybePLine
       | otherwise         = Nothing
+-}
 
 -- | Find where a motorcycle intersects a contour, if the motorcycle is emitted from between the two given segments.
 --   If the motorcycle lands between two segments, return the second segment, as well.

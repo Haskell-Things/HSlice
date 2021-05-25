@@ -85,7 +85,7 @@ instance Arcable INode where
 
 instance Pointable INode where
   -- an INode does not contain a point, we have to attempt to resolve one instead.
-  canPoint iNode@(INode (plines) _) = length allPLines > 1 && hasIntersectingPairs
+  canPoint iNode@(INode plines _) = length allPLines > 1 && hasIntersectingPairs
     where
       allPLines = if hasArc iNode
                   then outOf iNode : plines

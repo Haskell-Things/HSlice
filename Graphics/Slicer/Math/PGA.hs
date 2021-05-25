@@ -67,11 +67,11 @@ plinesIntersectIn pl1 pl2
   | isNothing fudgeFactor  &&
     scalarPart (pr1 ⎣ pr2) == -1                = PAntiParallel
   | isJust   fudgeFactor   &&
-    scalarPart (pr1 ⎣ pr2) <   1+(fromJust fudgeFactor) &&
-    scalarPart (pr1 ⎣ pr2) >   1-(fromJust fudgeFactor)    = PParallel
+    scalarPart (pr1 ⎣ pr2) <   1+fromJust fudgeFactor &&
+    scalarPart (pr1 ⎣ pr2) >   1-fromJust fudgeFactor    = PParallel
   | isJust   fudgeFactor   &&
-    scalarPart (pr1 ⎣ pr2) >  -1-(fromJust fudgeFactor) &&
-    scalarPart (pr1 ⎣ pr2) <  -1+(fromJust fudgeFactor)    = PAntiParallel
+    scalarPart (pr1 ⎣ pr2) >  -1-fromJust fudgeFactor &&
+    scalarPart (pr1 ⎣ pr2) <  -1+fromJust fudgeFactor    = PAntiParallel
   | otherwise                                              = IntersectsIn $ intersectionOf pl1 pl2
   where
     (PLine2 pr1) = forcePLine2Basis pl1

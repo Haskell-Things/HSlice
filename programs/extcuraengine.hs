@@ -312,7 +312,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
               outsideContourByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*0.5) insideContoursRaw outsideContourRaw
               -- FIXME: handle spliting
               outsideContourBySkeleton
-                | isJust outsideContourSkeleton && length res == 1 = Just $ head $ res
+                | isJust outsideContourSkeleton && length res == 1 = Just $ head res
                 | isJust outsideContourSkeleton && length res > 1 = error "split event during outer contour inseting."
 -- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
 --                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
@@ -325,7 +325,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
               outsideContourInnerWallByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*1.5) insideContoursRaw outsideContourRaw
               -- FIXME: handle spliting
               outsideContourInnerWallBySkeleton
-                | isJust outsideContourSkeleton && length res == 1 = Just $ head $ res
+                | isJust outsideContourSkeleton && length res == 1 = Just $ head res
                 | isJust outsideContourSkeleton && length res > 1 = error "split event during inner wall rendering."
 -- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
 --                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
@@ -351,7 +351,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
                 where
                   infillOutsideContourByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2) insideContoursRaw outsideContourRaw
                   infillOutsideContourBySkeleton
-                    | isJust outsideContourSkeleton && length res == 1 = Just $ head $ res
+                    | isJust outsideContourSkeleton && length res == 1 = Just $ head res
                     | isJust outsideContourSkeleton && length res > 1 = error "split event during inner wall rendering."
 -- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
 --                    | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"

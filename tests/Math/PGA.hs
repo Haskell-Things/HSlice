@@ -113,7 +113,7 @@ linearAlgSpec = do
       length ( pointsOfContour $ head $ fst $ addInset 1 0.1 $ facesOf $ fromJust $ findStraightSkeleton c1 [])
                                                         --> length (pointsOfContour c1)
     it "a contour algorithmically shrunk and mechanically expanded is about equal to where it started" $
-      (roundPoint2 <$> (pointsOfContour $ fromJust $ expandContour 0.1 [] $ head $ fst $ addInset 1 0.1 $ orderedFacesOf c2l1 $ fromJust $ findStraightSkeleton c2 [])) --> roundPoint2 <$> pointsOfContour c2
+      roundPoint2 <$> pointsOfContour (fromJust $ expandContour 0.1 [] $ head $ fst $ addInset 1 0.1 $ orderedFacesOf c2l1 $ fromJust $ findStraightSkeleton c2 []) --> roundPoint2 <$> pointsOfContour c2
   where
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
     c1 = PointSequence cp1
@@ -483,23 +483,23 @@ facetSpec = do
   describe "Straight Skeleton (Skeleton/Skeleton)" $ do
     it "finds the straight skeleton of our third simple shape." $
       findStraightSkeleton c2 [] --> Just (StraightSkeleton [[NodeTree [ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
-                                                                              (PLine2 (GVec [GVal (0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                                                                              (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                        ,ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0)))
                                                                               (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal  0.9238795325112867 [GEPlus 2]]))
                                                                        ]
-                                                                       [ [INode [PLine2 (GVec [GVal (0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]),
-                                                                                 PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (0.3826834323650897) [GEPlus 1], GVal  (0.9238795325112867) [GEPlus 2]])]
-                                                                          (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal (0.9807852804032305) [GEPlus 1], GVal (0.19509032201612836) [GEPlus 2]])))
+                                                                       [ [INode [PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]),
+                                                                                 PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]])]
+                                                                          (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal 0.19509032201612836 [GEPlus 2]])))
                                                                          ]
                                                                        ]
                                                              ,NodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
-                                                                              (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal  (0.9238795325112867) [GEPlus 2]]))
+                                                                              (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]]))
                                                                        ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
                                                                               (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                        ]
-                                                                       [ [INode [PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal  (0.9238795325112867) [GEPlus 2]]),
+                                                                       [ [INode [PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]]),
                                                                                  PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])]
-                                                                          (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal (-0.9807852804032305) [GEPlus 1], GVal (0.19509032201612836) [GEPlus 2]])))
+                                                                          (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal (-0.9807852804032305) [GEPlus 1], GVal 0.19509032201612836 [GEPlus 2]])))
                                                                          ]
                                                                        ]
                                                              ,NodeTree [ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)))
@@ -710,7 +710,7 @@ facetSpec = do
       facesOf (fromJust $ findStraightSkeleton square []) --> [Face (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
                                                                                       (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
                                                                                       []
-                                                                                      (PLine2 (GVec [GVal (0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                                                                                      (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                                 ,Face (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
                                                                                       (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
                                                                                       []
@@ -731,7 +731,7 @@ facetSpec = do
                                                                                                   (PLine2 (GVec [GVal (-0.7071067811865475) [GEZero 1], GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                                             ,Face (LineSeg (Point2 (-2.0,-1.0)) (Point2 (3.0,0.0)))
                                                                                                   (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                                                                                                  [PLine2 (GVec [GVal (1.0) [GEPlus 2]])]
+                                                                                                  [PLine2 (GVec [GVal 1.0 [GEPlus 2]])]
                                                                                                   (PLine2 (GVec [GVal 0.7071067811865475 [GEZero 1], GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                                             ,Face (LineSeg (Point2(1.0,-1.0)) (Point2 (0.0,2.0)))
                                                                                                   (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
@@ -739,13 +739,13 @@ facetSpec = do
                                                                                                   (PLine2 (GVec [GVal  0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
                                                                                             ,Face (LineSeg (Point2 (1.0,1.0)) (Point2 (-3.0,0.0)))
                                                                                                   (PLine2 (GVec [GVal (-0.7071067811865475) [GEZero 1], GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                                                  [PLine2 (GVec [GVal (1.0) [GEPlus 2]])]
+                                                                                                  [PLine2 (GVec [GVal 1.0 [GEPlus 2]])]
                                                                                                   (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
                                                                                             ]
 
   describe "insets (Skeleton/Line)" $ do
     it "insets a triangle" $
-      (addInset 1 0.25 $ facesOf $ fromJust $ findStraightSkeleton triangle []) --> ([PointSequence [Point2 (1.0,1.2320508075688772),
+      addInset 1 0.25 (facesOf $ fromJust $ findStraightSkeleton triangle []) --> ([PointSequence [Point2 (1.0,1.2320508075688772),
                                                                                                      Point2 (0.4330127018922193,0.25),
                                                                                                      Point2 (1.5669872981077808,0.2500000000000001)]]
                                                                                     ,[Face (LineSeg (Point2 (-0.43301270189221935,-0.25000000000000006)) (Point2 (1.4330127018922194,2.482050807568877)))

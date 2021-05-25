@@ -16,7 +16,6 @@
  -}
 
 -- inherit instances when deriving.
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DerivingStrategies #-}
 
 {-
@@ -73,7 +72,7 @@ addLineSegsToFace d n face@(Face edge firstArc midArcs lastArc)
     -- | The line segments we are placing.
     foundLineSegs          = [ errorIfLeft $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf newSide firstArc) (pToEPoint2 $ intersectionOf newSide lastArc) | newSide <- newSides ]
       where
-        newSides = [ translatePerp (eToPLine2 edge) $ translateDir (-((d)+(d * fromIntegral segmentNum))) | segmentNum <- [0..linesToRender-1] ]
+        newSides = [ translatePerp (eToPLine2 edge) $ translateDir (-(d+(d * fromIntegral segmentNum))) | segmentNum <- [0..linesToRender-1] ]
 
     -- | The line where we are no longer able to fill this face. from the firstArc to the lastArc, along the point that the lines we place stop.
     finalSide              = errorIfLeft $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf finalLine firstArc) (pToEPoint2 $ intersectionOf finalLine lastArc)
@@ -153,13 +152,13 @@ addInset insets distance faceSet
   | insets == 1 = ([reconstructedContour], remainingFaces)
   | otherwise = error "cannot handle more than one inset yet."
   where
-    (Just reconstructedContour) = cleanContour $ buildContour $ mapWithFollower (\(LineSeg s1 _) l2 -> if (endpoint l2) == s1 then endpoint l2 else averagePoints (endpoint l2) s1) (concat $ transpose lineSegSets)
+    (Just reconstructedContour) = cleanContour $ buildContour $ mapWithFollower (\(LineSeg s1 _) l2 -> if endpoint l2 == s1 then endpoint l2 else averagePoints (endpoint l2) s1) (concat $ transpose lineSegSets)
     -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
     averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
     buildContour points = PointSequence $ last points : init points
     lineSegSets = fst <$> res
     remainingFaces = concat $ catMaybes $ snd <$> res
-    res = addLineSegsToFace distance (Just (1)) <$> faceSet
+    res = addLineSegsToFace distance (Just 1) <$> faceSet
 
 -- | Add infill to the area of a set of faces that was not covered in lines.
 -- FIXME: unimplemented. basically, take the contour formed by the remainders of the faces, and squeeze in a line segment, if possible.

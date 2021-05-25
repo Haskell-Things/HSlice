@@ -179,7 +179,6 @@ followingLineSeg x = followingLineSegLooped x x
 -- | Check if the left hand side of this line in toward the inside of the contour it is a part of.
 insideIsLeft :: Contour -> LineSeg -> Bool
 insideIsLeft contour lineSegment = lineIsLeft lineSecondHalf lineToInside == Just True
-  --error $ show (lineSecondHalf) <> "\n" <> show lineToInside <> "\n" <> show (innerContourPoint 0.1 contour line) <> "\n" <> show (lineIsLeft lineSecondHalf lineToInside) <> "\n" 
   where
     lineSecondHalf = fromRight (error "cannot construct SecondHalf") $ lineSegFromEndpoints (midpoint lineSegment) (endpoint lineSegment)
     lineToInside = fromRight (error "cannot construct lineToInside") $ lineSegFromEndpoints (midpoint lineSegment) $ innerContourPoint 0.00001 contour lineSegment
@@ -194,11 +193,11 @@ innerContourPoint distance contour l
       originPoint = Point2 (-1,-1)
       perpPoint      = pointOnPerp l (midpoint l) distance
       otherPerpPoint = pointOnPerp l (midpoint l) (-distance)
-      numIntersections = length $ (contourIntersections contour $ Left $ pointOnPerp l (midpoint l) 0.00001) $ Left originPoint
+      numIntersections = length $ contourIntersections contour (Left $ pointOnPerp l (midpoint l) 0.00001) $ Left originPoint
 
 -- | return the intersections with a given contour when traveling a straight line from srcPoint to dstPoint.
 --   Not for use against line segments that are a part of the contour.
-contourIntersections :: Contour -> (Either Point2 PPoint2) -> (Either Point2 PPoint2) -> [(LineSeg, Maybe LineSeg, PPoint2)]
+contourIntersections :: Contour -> Either Point2 PPoint2 -> Either Point2 PPoint2 -> [(LineSeg, Maybe LineSeg, PPoint2)]
 contourIntersections contour@(PointSequence contourPoints) srcPoint dstPoint = foundIntersections
   where
     foundIntersections = getIntersections (pl0 srcPoint dstPoint) contour
@@ -211,10 +210,10 @@ contourIntersections contour@(PointSequence contourPoints) srcPoint dstPoint = f
       where
         contourLines = makeLineSegsLooped contourPoints
         saneIntersection :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg, PPoint2)
-        saneIntersection _ (seg,(Right (IntersectsIn ppoint))) _ = Just (seg, Nothing, ppoint)
-        saneIntersection _ (_,(Left NoIntersection))         _ = Nothing
-        saneIntersection _ (_,(Right PParallel))             _ = Nothing
-        saneIntersection _ (_,(Right PAntiParallel))         _ = Nothing
+        saneIntersection _ (seg,Right (IntersectsIn ppoint)) _ = Just (seg, Nothing, ppoint)
+        saneIntersection _ (_,Left NoIntersection)         _ = Nothing
+        saneIntersection _ (_,Right PParallel)             _ = Nothing
+        saneIntersection _ (_,Right PAntiParallel)         _ = Nothing
         saneIntersection  _                              (seg , Left (HitStartPoint _ point)) (seg2 , Left (HitEndPoint   _ _)) = Just (seg, Just seg2, eToPPoint2 point)
         saneIntersection (_  , Left (HitStartPoint _ _)) (_   , Left (HitEndPoint   _ _))      _                                = Nothing
         saneIntersection  _                              (_   , Left (HitEndPoint   _ _))     (_    , Left (HitStartPoint _ _)) = Nothing

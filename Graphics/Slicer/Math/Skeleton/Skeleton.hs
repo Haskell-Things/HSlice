@@ -21,11 +21,8 @@
 -}
 
 -- inherit instances when deriving.
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DerivingStrategies #-}
 
--- So we can section tuples
-{-# LANGUAGE TupleSections #-}
 
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
@@ -37,7 +34,7 @@ import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkele
 
 import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PCollinear), plinesIntersectIn)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
+import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, isNothing)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
@@ -59,7 +56,7 @@ import Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne)
 -- FIXME: abusing Maybe until we can cover all cases.
 findStraightSkeleton :: Contour -> [Contour] -> Maybe StraightSkeleton
 findStraightSkeleton contour holes
-  | foundCrashTree == Nothing                                                                = Nothing
+  | isNothing foundCrashTree                                                                 = Nothing
   | null holes && null (motorcyclesIn foundCrashTree)                                        = Just $ StraightSkeleton [[skeletonOfConcaveRegion (linesOfContour contour) True]] []
   -- Use the algorithm from Christopher Tscherne's master's thesis.
   | null holes && length (motorcyclesIn foundCrashTree) == 1                                 = applyTscherne contour [CellDivide (motorcyclesIn foundCrashTree) maybeOpposingENode]
