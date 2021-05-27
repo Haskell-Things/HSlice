@@ -20,12 +20,14 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), length, Either(Right), foldl, fst, head, sqrt)
+import Prelude (($), Bool(True, False), (<$>), error, length, Either(Right), fst, head, sqrt)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it)
 
-import Data.Maybe (fromJust, Maybe(Just, Nothing))
+import Data.List (foldl')
+
+import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
 
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
@@ -96,13 +98,13 @@ linearAlgSpec :: Spec
 linearAlgSpec = do
   describe "Contours (machine/contour)" $ do
     it "a contour mechanically shrunk has the same amount of points as the input contour" $
-      length ( pointsOfContour $ fromJust $ shrinkContour 0.1 [] c1) --> length (pointsOfContour c1)
+      length ( pointsOfContour $ fromMaybe (error "got Nothing") $ shrinkContour 0.1 [] c1) --> length (pointsOfContour c1)
     it "a contour mechanically shrunk by zero is the same as the input contour" $
-      fromJust (shrinkContour 0 [] c1) --> c1
+      shrinkContour 0 [] c1 --> Just c1
     it "a contour mechanically expanded has the same amount of points as the input contour" $
-      length (pointsOfContour $ fromJust $ expandContour 0.1 [] c1) --> length (pointsOfContour c1)
+      length (pointsOfContour $ fromMaybe (error "got Nothing") $ expandContour 0.1 [] c1) --> length (pointsOfContour c1)
     it "a contour mechanically shrunk and expanded is about equal to where it started" $
-      (roundPoint2 <$> pointsOfContour (fromJust $ expandContour 0.1 [] $ fromJust $ shrinkContour 0.1 [] c2)) --> roundPoint2 <$> pointsOfContour c2
+      (roundPoint2 <$> pointsOfContour (fromMaybe (error "got Nothing") $ expandContour 0.1 [] $ fromMaybe (error "got Nothing") $ shrinkContour 0.1 [] c2)) --> roundPoint2 <$> pointsOfContour c2
   describe "Infill (machine/infill)" $ do
     it "infills exactly one line inside of a box big enough for only one line (Horizontal)" $
       makeInfill c1 [] 0.5 Horiz --> [[LineSeg (Point2 (0,0.5)) (Point2 (1,0))]]
@@ -110,10 +112,10 @@ linearAlgSpec = do
       makeInfill c1 [] 0.5 Vert --> [[LineSeg (Point2 (0.5,0)) (Point2 (0,1))]]
   describe "Contours (Skeleton/line)" $ do
     it "a contour algorithmically shrunk has the same amount of points as the input contour" $
-      length ( pointsOfContour $ head $ fst $ addInset 1 0.1 $ facesOf $ fromJust $ findStraightSkeleton c1 [])
+      length ( pointsOfContour $ head $ fst $ addInset 1 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c1 [])
                                                         --> length (pointsOfContour c1)
     it "a contour algorithmically shrunk and mechanically expanded is about equal to where it started" $
-      roundPoint2 <$> pointsOfContour (fromJust $ expandContour 0.1 [] $ head $ fst $ addInset 1 0.1 $ orderedFacesOf c2l1 $ fromJust $ findStraightSkeleton c2 []) --> roundPoint2 <$> pointsOfContour c2
+      roundPoint2 <$> pointsOfContour (fromMaybe (error "got Nothing") $ expandContour 0.1 [] $ head $ fst $ addInset 1 0.1 $ orderedFacesOf c2l1 $ fromMaybe (error "got Nothing") $ findStraightSkeleton c2 []) --> roundPoint2 <$> pointsOfContour c2
   where
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
     c1 = PointSequence cp1
@@ -181,7 +183,7 @@ geomAlgSpec = do
       GVec [GVal (-1) [GEPlus 2]] ∧ GVec [GVal 1 [GEPlus 1]]
   describe "Operators (Math/GeometricAlgebra)" $ do
     it "the multiply operations that should result in nothing all result in nothing" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEZero 1]] • GVec [GVal 1 [GEZero 1]]
                                  , GVec [GVal 1 [GEZero 1]] • GVec [GVal 1 [GEZero 1, GEPlus 1]]
                                  , GVec [GVal 1 [GEZero 1]] • GVec [GVal 1 [GEZero 1, GEPlus 2]]
@@ -200,83 +202,83 @@ geomAlgSpec = do
                                  , GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]] • GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]
                                  ] --> GVec []
     it "the multiply operations that should result in 1 all result in 1" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEPlus 1]] • GVec [GVal 1 [GEPlus 1]]
                                  , GVec [GVal 1 [GEPlus 2]] • GVec [GVal 1 [GEPlus 2]]
                                  ] --> GVec [GVal 2 [G0]]
     it "the multiply operations that should result in -1 all result in -1" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEPlus 1, GEPlus 2]] • GVec [GVal 1 [GEPlus 1, GEPlus 2]]
                                  ] --> GVec [GVal (-1) [G0]]
     it "the multiply operations that should result in e0 all result in e0" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEZero 1, GEPlus 1]] • GVec [GVal 1 [GEPlus 1]]
                                  , GVec [GVal 1 [GEZero 1, GEPlus 2]] • GVec [GVal 1 [GEPlus 2]]
                                  ] --> GVec [GVal 2 [GEZero 1]]
     it "the multiply operations that should result in e1 all result in e1" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEPlus 1, GEPlus 2]] • GVec [GVal 1 [GEPlus 2]]
                                  ] --> GVec [GVal 1 [GEPlus 1]]
     it "the multiply operations that should result in e2 all result in e2" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEPlus 1]] • GVec [GVal 1 [GEPlus 1, GEPlus 2]]
                                  ] --> GVec [GVal 1 [GEPlus 2]]
     it "the multiply operations that should result in e01 all result in e01" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEZero 1]] • GVec [GVal 1 [GEPlus 1]]
                                  , GVec [GVal 1 [GEPlus 2]] • GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]
                                  , GVec [GVal 1 [GEPlus 1, GEPlus 2]] • GVec [GVal 1 [GEZero 1, GEPlus 2]]
                                  , GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]] • GVec [GVal 1 [GEPlus 2]]
                                  ] --> GVec [GVal 4 [GEZero 1, GEPlus 1]]
     it "the multiply operations that should result in e02 all result in e02" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEZero 1]] • GVec [GVal 1 [GEPlus 2]]
                                  , GVec [GVal 1 [GEZero 1, GEPlus 1]] • GVec [GVal 1 [GEPlus 1, GEPlus 2]]
                                  ] --> GVec [GVal 2 [GEZero 1, GEPlus 2]]
     it "the multiply operations that should result in e12 all result in e12" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEPlus 1]] • GVec [GVal 1 [GEPlus 2]]
                                  ] --> GVec [GVal 1 [GEPlus 1, GEPlus 2]]
     it "the multiply operations that should result in e012 all result in e012" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEZero 1]] • GVec [GVal 1 [GEPlus 1, GEPlus 2]]
                                  , GVec [GVal 1 [GEPlus 2]] • GVec [GVal 1 [GEZero 1, GEPlus 1]]
                                  , GVec [GVal 1 [GEZero 1, GEPlus 1]] • GVec [GVal 1 [GEPlus 2]]
                                  , GVec [GVal 1 [GEPlus 1, GEPlus 2]] • GVec [GVal 1 [GEZero 1]]
                                  ] --> GVec [GVal 4 [GEZero 1, GEPlus 1, GEPlus 2]]
     it "the multiply operations that should result in -e0 all result in -e0" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEPlus 1]] • GVec [GVal 1 [GEZero 1, GEPlus 1]]
                                  , GVec [GVal 1 [GEPlus 2]] • GVec [GVal 1 [GEZero 1, GEPlus 2]]
                                  , GVec [GVal 1 [GEPlus 1, GEPlus 2]] • GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]
                                  , GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]] • GVec [GVal 1 [GEPlus 1, GEPlus 2]]
                                  ] --> GVec [GVal (-4) [GEZero 1]]
     it "the multiply operations that should result in -e1 all result in -e1" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEPlus 2]] • GVec [GVal 1 [GEPlus 1, GEPlus 2]]
                                  ] --> GVec [GVal (-1) [GEPlus 1]]
     it "the multiply operations that should result in -e2 all result in -e2" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEPlus 1, GEPlus 2]] • GVec [GVal 1 [GEPlus 1]]
                                  ] --> GVec [GVal (-1) [GEPlus 2]]
     it "the multiply operations that should result in -e01 all result in -e01" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEPlus 1]] • GVec [GVal 1 [GEZero 1]]
                                  , GVec [GVal 1 [GEZero 1, GEPlus 2]] • GVec [GVal 1 [GEPlus 1, GEPlus 2]]
                                  ] --> GVec [GVal (-2) [GEZero 1, GEPlus 1]]
     it "the multiply operations that should result in -e02 all result in -e02" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEPlus 1]] • GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]
                                  , GVec [GVal 1 [GEPlus 2]] • GVec [GVal 1 [GEZero 1]]
                                  , GVec [GVal 1 [GEPlus 1, GEPlus 2]] • GVec [GVal 1 [GEZero 1, GEPlus 1]]
                                  , GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]] • GVec [GVal 1 [GEPlus 1]]
                                  ] --> GVec [GVal (-4) [GEZero 1, GEPlus 2]]
     it "the multiply operations that should result in -e12 all result in -e12" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEPlus 2]] • GVec [GVal 1 [GEPlus 1]]
                                  ] --> GVec [GVal (-1) [GEPlus 1, GEPlus 2]]
     it "the multiply operations that should result in -e012 all result in -e012" $
-      foldl addVecPair (GVec []) [
+      foldl' addVecPair (GVec []) [
                                    GVec [GVal 1 [GEPlus 1]] • GVec [GVal 1 [GEZero 1, GEPlus 2]]
                                  , GVec [GVal 1 [GEZero 1, GEPlus 2]] • GVec [GVal 1 [GEPlus 1]]
                                  ] --> GVec [GVal (-2) [GEZero 1, GEPlus 1, GEPlus 2]]
@@ -362,97 +364,111 @@ facetSpec = do
       convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (PLine2 (GVec [GVal (-2.0) [GEPlus 1]]))]
   describe "Straight Skeletons (skeleton/Tscherne)" $ do
     it "finds the straight skeleton of the left side of our first simple shape." $
-      cellAfter c0 (head $ convexMotorcycles c0) --> cellAfter c4 (head $ convexMotorcycles c4)
+      cellAfter c0 c0m1 --> cellAfter c4 c4m1
     it "finds the straight skeleton of the right side of our first simple shape." $
-      cellBefore c0 (head $ convexMotorcycles c0) --> cellBefore c4 (head $ convexMotorcycles c4)
+      cellBefore c0 c0m1 --> cellBefore c4 c4m1
     it "finds the straight skeleton of the left side of our first simple shape." $
-      cellAfter c1 (head $ convexMotorcycles c1) --> NodeTree [ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0,-2.0)))
-                                                                       (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                ,ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0)))
-                                                                       (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal (-0.3826834323650897) [GEPlus 2]]))
-                                                                ]
-                                                                [ [INode [PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]),
-                                                                          PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal (-0.3826834323650897) [GEPlus 2]])]
-                                                                   (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal 0.19509032201612836 [GEPlus 1], GVal (-0.9807852804032305) [GEPlus 2]])))
-                                                                  ]
-                                                                ]
+      cellAfter c1 c1m1 -->
+      NodeTree [ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0,-2.0)))
+                      (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+               ,ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0)))
+                      (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal (-0.3826834323650897) [GEPlus 2]]))
+               ]
+               [
+                 [INode [PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]),
+                         PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal (-0.3826834323650897) [GEPlus 2]])]
+                  (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal 0.19509032201612836 [GEPlus 1], GVal (-0.9807852804032305) [GEPlus 2]])))
+                 ]
+               ]
     it "finds the straight skeleton of the right side of our first simple shape." $
-      cellBefore c1 (head $ convexMotorcycles c1) --> NodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
-                                                                       (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal 0.3826834323650897 [GEPlus 2]]))
-                                                                ,ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
-                                                                       (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                                                                ]
-                                                                [ [INode [PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal 0.3826834323650897 [GEPlus 2]]),
-                                                                          PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])]
-                                                                   (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal 0.19509032201612836 [GEPlus 1], GVal 0.9807852804032305 [GEPlus 2]])))
-                                                                  ]
-                                                                ]
+      cellBefore c1 c1m1 -->
+      NodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
+                      (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal 0.3826834323650897 [GEPlus 2]]))
+               ,ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
+                      (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+               ]
+               [
+                 [INode [PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal 0.3826834323650897 [GEPlus 2]]),
+                         PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])]
+                  (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal 0.19509032201612836 [GEPlus 1], GVal 0.9807852804032305 [GEPlus 2]])))
+                 ]
+               ]
     it "finds the straight skeleton of the left side of our second simple shape." $
-      cellAfter c2 (head $ convexMotorcycles c2) --> NodeTree [ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
-                                                                       (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                ,ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0)))
-                                                                       (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]]))
-                                                                ]
-                                                                [ [INode [PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]),
-                                                                          PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]])]
-                                                                   (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal 0.19509032201612836 [GEPlus 2]])))
-                                                                  ]
-                                                                ]
+      cellAfter c2 c2m1 -->
+      NodeTree [ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
+                      (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+               ,ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0)))
+                      (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]]))
+               ]
+               [
+                 [INode [PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]),
+                         PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]])]
+                  (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal 0.19509032201612836 [GEPlus 2]])))
+                 ]
+               ]
     it "finds the straight skeleton of the right side of our second simple shape." $
-      cellBefore c2 (head $ convexMotorcycles c2) --> NodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
-                                                                       (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]]))
-                                                                ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
-                                                                       (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                ]
-                                                                [ [INode [PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]]),
-                                                                          PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])]
-                                                                   (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal (-0.9807852804032305) [GEPlus 1], GVal 0.19509032201612836 [GEPlus 2]])))
-                                                                  ]
-                                                                ]
+      cellBefore c2 c2m1 -->
+      NodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
+                      (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]]))
+               ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
+                      (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+               ]
+               [ [INode [PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]]),
+                         PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])]
+                  (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal (-0.9807852804032305) [GEPlus 1], GVal 0.19509032201612836 [GEPlus 2]])))
+                 ]
+               ]
     it "finds the straight skeleton of the left side of our third simple shape." $
-      cellAfter c3 (head $ convexMotorcycles c3) --> NodeTree [ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
-                                                                       (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                                                                ,ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0)))
-                                                                       (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal 0.3826834323650897 [GEPlus 2]]))
-                                                                ]
-                                                                [ [INode [PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]),
-                                                                          PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal 0.3826834323650897 [GEPlus 2]])]
-                                                                   (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal (-0.19509032201612836) [GEPlus 1], GVal 0.9807852804032305 [GEPlus 2]])))
-                                                                  ]
-                                                                ]
+      cellAfter c3 c3m1 -->
+      NodeTree [ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
+                      (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+               ,ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0)))
+                      (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal 0.3826834323650897 [GEPlus 2]]))
+               ]
+               [ [INode [PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]),
+                         PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal 0.3826834323650897 [GEPlus 2]])]
+                  (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal (-0.19509032201612836) [GEPlus 1], GVal 0.9807852804032305 [GEPlus 2]])))
+                 ]
+               ]
     it "finds the straight skeleton of the right side of our third simple shape." $
-      cellBefore c3 (head $ convexMotorcycles c3) --> NodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
-                                                                       (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal (-0.3826834323650897) [GEPlus 2]]))
-                                                                ,ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
-                                                                       (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                ]
-                                                                [ [INode [PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal (-0.3826834323650897) [GEPlus 2]]),
-                                                                          PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])]
-                                                                   (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal (-0.19509032201612836) [GEPlus 1], GVal (-0.9807852804032305) [GEPlus 2]])))
-                                                                  ]
-                                                                ]
+      cellBefore c3 c3m1  -->
+      NodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
+                      (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal (-0.3826834323650897) [GEPlus 2]]))
+               ,ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
+                      (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+               ]
+               [
+                 [INode [PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal (-0.3826834323650897) [GEPlus 2]]),
+                         PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])]
+                  (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal (-0.19509032201612836) [GEPlus 1], GVal (-0.9807852804032305) [GEPlus 2]])))
+                 ]
+               ]
     it "finds the straight skeleton of the left side of our fourth simple shape." $
-      cellAfter c4 (head $ convexMotorcycles c4) --> NodeTree [ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
-                                                                       (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                                                                ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)))
-                                                                       (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal  (-0.9238795325112867) [GEPlus 2]]))
-                                                                ]
-                                                                [ [INode [PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]),
-                                                                          PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]])]
-                                                                   (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal (-0.9807852804032305) [GEPlus 1], GVal (-0.19509032201612836) [GEPlus 2]])))
-                                                                  ]
-                                                                ]
+      cellAfter c4 c4m1 -->
+      NodeTree [ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
+                      (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+               ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)))
+                      (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal  (-0.9238795325112867) [GEPlus 2]]))
+               ]
+               [
+                 [INode [PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]),
+                         PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]])]
+                  (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal (-0.9807852804032305) [GEPlus 1], GVal (-0.19509032201612836) [GEPlus 2]])))
+                 ]
+               ]
     it "finds the straight skeleton of the right side of our fourth simple shape." $
-      cellBefore c4 (head $ convexMotorcycles c4) --> NodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
-                                                                       (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal  (-0.9238795325112867) [GEPlus 2]]))
-                                                                ,ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
-                                                                       (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                                                                ]
-                                                                [ [INode [PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]),
-                                                                          PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])]
-                                                                   (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal (-0.19509032201612836) [GEPlus 2]])))
-                                                                  ]
-                                                                ]
+      cellBefore c4 c4m1 -->
+      NodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
+                      (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal  (-0.9238795325112867) [GEPlus 2]]))
+               ,ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
+                      (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+               ]
+               [
+                 [INode [PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]),
+                         PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])]
+                  (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal (-0.19509032201612836) [GEPlus 2]])))
+                 ]
+               ]
   describe "Straight Skeleton (Skeleton/Skeleton)" $ do
     it "finds the straight skeleton of our first simple shape." $
       findStraightSkeleton c0 [] --> Just (StraightSkeleton [[NodeTree [ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
@@ -633,7 +649,7 @@ facetSpec = do
                                                                     ]] [])
   describe "Faces (Skeleton/Face)" $ do
     it "finds faces from a straight skeleton (default order)" $
-      facesOf (fromJust $ findStraightSkeleton c0 []) --> [ Face (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)))
+      facesOf (fromMaybe (error "got Nothing") $ findStraightSkeleton c0 []) --> [ Face (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)))
                                                                                            (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
                                                                                            [PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal (-0.19509032201612836) [GEPlus 2]])]
                                                                                            (PLine2 (GVec [GVal 2.0    [GEPlus 2]]))
@@ -656,7 +672,7 @@ facetSpec = do
                                                                                            (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
                                                                                     ]
     it "finds faces from a straight skeleton (manual order)" $
-      orderedFacesOf c0l0 (fromJust $ findStraightSkeleton c0 []) --> [ Face (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)))
+      orderedFacesOf c0l0 (fromMaybe (error "got Nothing") $ findStraightSkeleton c0 []) --> [ Face (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)))
                                                                                         (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
                                                                                         [PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal (-0.19509032201612836) [GEPlus 2]])]
                                                                                         (PLine2 (GVec [GVal 2.0    [GEPlus 2]]))
@@ -679,7 +695,7 @@ facetSpec = do
                                                                                         (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
                                                                                  ]
     it "finds faces from a triangle (default order)" $
-      facesOf (fromJust $ findStraightSkeleton triangle []) --> [Face (LineSeg (Point2 (1.0,1.73205080756887729)) (Point2 (-1.0,-1.7320508075688772)))
+      facesOf (fromMaybe (error "got Nothing") $ findStraightSkeleton triangle []) --> [Face (LineSeg (Point2 (1.0,1.73205080756887729)) (Point2 (-1.0,-1.7320508075688772)))
                                                                                                 (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))
                                                                                                 []
                                                                                                 (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]])),
@@ -693,7 +709,7 @@ facetSpec = do
                                                                                                 (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))
                                                                                           ]
     it "finds faces from a triangle (manual order)" $
-      orderedFacesOf trianglel0 (fromJust $ findStraightSkeleton triangle []) --> [Face (LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,1.7320508075688772)))
+      orderedFacesOf trianglel0 (fromMaybe (error "got Nothing") $ findStraightSkeleton triangle []) --> [Face (LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,1.7320508075688772)))
                                                                                                    (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
                                                                                                    []
                                                                                                    (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]])),
@@ -707,7 +723,7 @@ facetSpec = do
                                                                                                    (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))
                                                                                              ]
     it "finds faces from a square" $
-      facesOf (fromJust $ findStraightSkeleton square []) --> [Face (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
+      facesOf (fromMaybe (error "got Nothing") $ findStraightSkeleton square []) --> [Face (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
                                                                                       (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
                                                                                       []
                                                                                       (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
@@ -725,42 +741,44 @@ facetSpec = do
                                                                                       (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                                 ]
     it "finds faces from a rectangle" $
-      facesOf (fromJust $ findStraightSkeleton rectangle []) --> [Face (LineSeg (Point2 (-2.0,1.0)) (Point2 (0.0,-2.0)))
-                                                                                                  (PLine2 (GVec [GVal 0.7071067811865475 [GEZero 1], GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                                                  []
-                                                                                                  (PLine2 (GVec [GVal (-0.7071067811865475) [GEZero 1], GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                                            ,Face (LineSeg (Point2 (-2.0,-1.0)) (Point2 (3.0,0.0)))
-                                                                                                  (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                                                                                                  [PLine2 (GVec [GVal 1.0 [GEPlus 2]])]
-                                                                                                  (PLine2 (GVec [GVal 0.7071067811865475 [GEZero 1], GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                                            ,Face (LineSeg (Point2(1.0,-1.0)) (Point2 (0.0,2.0)))
-                                                                                                  (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                                                                                                  []
-                                                                                                  (PLine2 (GVec [GVal  0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                                                                                            ,Face (LineSeg (Point2 (1.0,1.0)) (Point2 (-3.0,0.0)))
-                                                                                                  (PLine2 (GVec [GVal (-0.7071067811865475) [GEZero 1], GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                                                  [PLine2 (GVec [GVal 1.0 [GEPlus 2]])]
-                                                                                                  (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                                                                                            ]
+      facesOf (fromMaybe (error "got Nothing") $ findStraightSkeleton rectangle [])
+      --> [Face (LineSeg (Point2 (-2.0,1.0)) (Point2 (0.0,-2.0)))
+                (PLine2 (GVec [GVal 0.7071067811865475 [GEZero 1], GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                []
+                (PLine2 (GVec [GVal (-0.7071067811865475) [GEZero 1], GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+          ,Face (LineSeg (Point2 (-2.0,-1.0)) (Point2 (3.0,0.0)))
+                (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+                [PLine2 (GVec [GVal 1.0 [GEPlus 2]])]
+                (PLine2 (GVec [GVal 0.7071067811865475 [GEZero 1], GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+          ,Face (LineSeg (Point2(1.0,-1.0)) (Point2 (0.0,2.0)))
+                (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+                []
+                (PLine2 (GVec [GVal  0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+          ,Face (LineSeg (Point2 (1.0,1.0)) (Point2 (-3.0,0.0)))
+                (PLine2 (GVec [GVal (-0.7071067811865475) [GEZero 1], GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                [PLine2 (GVec [GVal 1.0 [GEPlus 2]])]
+                (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+          ]
 
   describe "insets (Skeleton/Line)" $ do
     it "insets a triangle" $
-      addInset 1 0.25 (facesOf $ fromJust $ findStraightSkeleton triangle []) --> ([PointSequence [Point2 (1.0,1.2320508075688772),
-                                                                                                     Point2 (0.4330127018922193,0.25),
-                                                                                                     Point2 (1.5669872981077808,0.2500000000000001)]]
-                                                                                    ,[Face (LineSeg (Point2 (-0.43301270189221935,-0.25000000000000006)) (Point2 (1.4330127018922194,2.482050807568877)))
-                                                                                           (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))
-                                                                                            []
-                                                                                           (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
-                                                                                     ,Face (LineSeg (Point2 (2.433012701892219,-0.25)) (Point2 (-2.8660254037844384,0.0)))
-                                                                                           (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))
-                                                                                            []
-                                                                                           (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1],GVal (-0.8660254037844387) [GEPlus 2]]))
-                                                                                     ,Face (LineSeg (Point2 (1.0,2.232050807568877)) (Point2 (1.4330127018922192,-2.482050807568877)))
-                                                                                           (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
-                                                                                            []
-                                                                                           (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))
-                                                                                     ])
+      addInset 1 0.25 (facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton triangle [])
+      --> ([PointSequence [Point2 (1.0,1.2320508075688772),
+                           Point2 (0.4330127018922193,0.25),
+                           Point2 (1.5669872981077808,0.2500000000000001)]]
+          ,[Face (LineSeg (Point2 (-0.43301270189221935,-0.25000000000000006)) (Point2 (1.4330127018922194,2.482050807568877)))
+                 (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))
+                 []
+                 (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
+           ,Face (LineSeg (Point2 (2.433012701892219,-0.25)) (Point2 (-2.8660254037844384,0.0)))
+                 (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))
+                 []
+                 (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1],GVal (-0.8660254037844387) [GEPlus 2]]))
+           ,Face (LineSeg (Point2 (1.0,2.232050807568877)) (Point2 (1.4330127018922192,-2.482050807568877)))
+                 (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
+                 []
+                 (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))
+           ])
     where
       -- c0 - c4 are the contours of a square around the origin with a 90 degree chunk missing, rotated 0, 90, 180, 270 and 360 degrees:
       --    __
@@ -769,10 +787,15 @@ facetSpec = do
       --
       c0 = PointSequence [Point2 (0,0), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       c0l0 = LineSeg (Point2 (0,0)) (Point2 (-1,-1))
+      c0m1 = Motorcycle (LineSeg (Point2 (-1,1)) (Point2 (1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,-1))) (PLine2 (GVec [GVal 2.0 [GEPlus 2]]))
       c1 = PointSequence [Point2 (-1,-1), Point2 (0,0), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
+      c1m1 = Motorcycle (LineSeg (Point2 (-1,-1)) (Point2 (1,1)), LineSeg (Point2 (0,0)) (Point2 (1,-1))) (PLine2 (GVec [GVal (-2.0) [GEPlus 1]]))
       c2 = PointSequence [Point2 (-1,-1), Point2 (1,-1), Point2 (0,0), Point2 (1,1), Point2 (-1,1)]
+      c2m1 = Motorcycle (LineSeg (Point2 (1,-1)) (Point2 (-1,1)), LineSeg (Point2 (0,0)) (Point2 (1,1))) (PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))
       c3 = PointSequence [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (0,0), Point2 (-1,1)]
+      c3m1 = Motorcycle (LineSeg (Point2 (1,1)) (Point2 (-1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,1))) (PLine2 (GVec [GVal 2.0 [GEPlus 1]]))
       c4 = PointSequence [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
+      c4m1 = Motorcycle (LineSeg (Point2 (-1,1)) (Point2 (1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,-1))) (PLine2 (GVec [GVal 2.0 [GEPlus 2]]))
       c5 = PointSequence [Point2 (-1,-1), Point2 (1,-1), Point2 (2,0), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
       c6 = PointSequence [Point2 (-1,-1), Point2 (-0.5,-1), Point2 (0,0), Point2 (0.5,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       -- The next corners are part of a square around the origin with a piece missing: (think: c2 from above)
