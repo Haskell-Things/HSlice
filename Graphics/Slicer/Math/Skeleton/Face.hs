@@ -16,7 +16,6 @@
  -}
 
 -- inherit instances when deriving.
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DerivingStrategies #-}
 
 {-
@@ -111,7 +110,7 @@ facesOf (StraightSkeleton nodeLists spine)
           where
             -- cover the space occupied by all of the ancestors of this node with a series of faces.
             areaBeneath :: [ENode] -> [[INode]] -> INode -> [Face]
-            areaBeneath eNodes iNodeSets target@(INode (inArcs) _)
+            areaBeneath eNodes iNodeSets target@(INode inArcs _)
               | null iNodeSets && hasArc target              = init $ mapWithFollower makeTriangleFace $ fromJust . findENodeByOutput eNodes <$> inArcs
               | null iNodeSets                               =        mapWithFollower makeTriangleFace $ fromJust . findENodeByOutput eNodes <$> inArcs
               | length iNodeSets == 1 && not (hasArc target) = concat $ mapWithFollower (\a b -> areaBeneath eNodes (init iNodeSets) a ++ [areaBetween eNodes (init iNodeSets) target a b]) (head iNodeSets)
@@ -124,7 +123,7 @@ facesOf (StraightSkeleton nodeLists spine)
             -- cover the space between the last path of the first node and the first path of the second node with a single Face. It is assumed that both nodes have the same parent.
             areaBetween :: [ENode] -> [[INode]] -> INode -> INode -> INode -> Face
             areaBetween eNodes iNodeSets parent iNode1 iNode2
-              | null iNodeSets = if (lastDescendent eNodes (iNode1)) /= (last eNodes) -- Handle the case where we are creating a face across the open end of the contour.
+              | null iNodeSets = if lastDescendent eNodes iNode1 /= last eNodes -- Handle the case where we are creating a face across the open end of the contour.
                                  then makeFace (lastDescendent eNodes iNode1) [lastPLineOf parent] (findMatchingDescendent eNodes iNode2 $ lastDescendent eNodes iNode1)
                                  else makeFace (firstDescendent eNodes iNode1) [firstPLineOf parent] (findMatchingDescendent eNodes iNode2 $ firstDescendent eNodes iNode1)
               | otherwise = error $
