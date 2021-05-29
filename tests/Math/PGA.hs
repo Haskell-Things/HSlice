@@ -356,7 +356,7 @@ facetSpec = do
                                        (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                  ]
     it "finds the arc resulting from a node at the intersection of the outArc of two nodes (corner3 and corner4 of c2)" $
-      averageNodes (head $ makeFirstENodes corner3) (head $ makeFirstENodes corner4) --> INode [PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]),
+      averageNodes corner3E1 corner4E1 --> INode [PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]),
                                                                                                 PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]])]
                                                                                          (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal 0.19509032201612836 [GEPlus 2]])))
   describe "Motorcycles (Skeleton/Motorcycles)" $ do
@@ -808,10 +808,13 @@ facetSpec = do
       corner1 = [ LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0))]
       -- the entry and the exit to the convex angle of a 2x2 square around the origin, with a slice missing.
       corner2 = [ LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))]
+      corner2E1 = ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0)) ,LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (PLine2 (GVec [GVal (-1.0) [GEPlus 2]]))
       -- the exit to the convex angle and the bottom of a 2x2 square around the origin, with a slice missing.
       corner3 = [ LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))]
+      corner3E1 = ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)) ,LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))) (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1],GVal 0.9238795325112867 [GEPlus 2]]))
       -- the bottom and the left side of a 2x2 square around the origin, with a slice missing.
       corner4 = [ LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))]
+      corner4E1 = ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)),LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))) (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1],GVal (-0.7071067811865475) [GEPlus 2]]))
       -- A simple triangle.
       triangle = PointSequence [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
       trianglel0 = LineSeg (Point2 (2,0)) (Point2 (-1.0,sqrt 3))
