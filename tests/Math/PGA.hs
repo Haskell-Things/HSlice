@@ -20,7 +20,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), error, length, Either(Right), fst, head, sqrt)
+import Prelude (($), Bool(True, False), (<$>), error, Either(Right), sqrt)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it)
@@ -44,7 +44,8 @@ import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, e
 import Graphics.Slicer.Math.Line (makeLineSegsLooped, pointsFromLineSegs, LineSeg(LineSeg))
 
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (contourContainsContour, getContours)
+import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom)
+
 import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
 
 -- Our Infill library.
@@ -98,11 +99,11 @@ linearAlgSpec :: Spec
 linearAlgSpec = do
   describe "Contours (machine/contour)" $ do
     it "a contour mechanically shrunk has the same amount of points as the input contour" $
-      length ( pointsOfContour $ fromMaybe (error "got Nothing") $ shrinkContour 0.1 [] c1) --> length (pointsOfContour c1)
+      numPointsOfContour (fromMaybe (error "got Nothing") $ shrinkContour 0.1 [] c1) --> numPointsOfContour c1
     it "a contour mechanically shrunk by zero is the same as the input contour" $
       shrinkContour 0 [] c1 --> Just c1
     it "a contour mechanically expanded has the same amount of points as the input contour" $
-      length (pointsOfContour $ fromMaybe (error "got Nothing") $ expandContour 0.1 [] c1) --> length (pointsOfContour c1)
+      numPointsOfContour (fromMaybe (error "got Nothing") $ expandContour 0.1 [] c1) --> numPointsOfContour c1
     it "a contour mechanically shrunk and expanded is about equal to where it started" $
       (roundPoint2 <$> pointsOfContour (fromMaybe (error "got Nothing") $ expandContour 0.1 [] $ fromMaybe (error "got Nothing") $ shrinkContour 0.1 [] c2)) --> roundPoint2 <$> pointsOfContour c2
   describe "Infill (machine/infill)" $ do
@@ -112,16 +113,14 @@ linearAlgSpec = do
       makeInfill c1 [] 0.5 Vert --> [[LineSeg (Point2 (0.5,0)) (Point2 (0,1))]]
   describe "Contours (Skeleton/line)" $ do
     it "a contour algorithmically shrunk has the same amount of points as the input contour" $
-      length ( pointsOfContour $ head $ fst $ addInset 1 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c1 [])
-                                                        --> length (pointsOfContour c1)
+      numPointsOfContour (justOneContourFrom $ addInset 1 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c1 []) --> numPointsOfContour c1
     it "a contour algorithmically shrunk and mechanically expanded is about equal to where it started" $
-      roundPoint2 <$> pointsOfContour (fromMaybe (error "got Nothing") $ expandContour 0.1 [] $ head $ fst $ addInset 1 0.1 $ orderedFacesOf c2l1 $ fromMaybe (error "got Nothing") $ findStraightSkeleton c2 []) --> roundPoint2 <$> pointsOfContour c2
+      roundPoint2 <$> pointsOfContour (fromMaybe (error "got Nothing") $ expandContour 0.1 [] $ justOneContourFrom $ addInset 1 0.1 $ orderedFacesOf c2l1 $ fromMaybe (error "got Nothing") $ findStraightSkeleton c2 []) --> roundPoint2 <$> pointsOfContour c2
   where
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
     c1 = PointSequence cp1
     c2 = PointSequence [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
     c2l1 = LineSeg (Point2 (0.75,0.25)) (Point2 (0.0,0.5))
-    pointsOfContour (PointSequence contourPoints) = contourPoints
 
 geomAlgSpec :: Spec
 geomAlgSpec = do
@@ -808,7 +807,6 @@ facetSpec = do
       corner1 = [ LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0))]
       -- the entry and the exit to the convex angle of a 2x2 square around the origin, with a slice missing.
       corner2 = [ LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))]
-      corner2E1 = ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0)) ,LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (PLine2 (GVec [GVal (-1.0) [GEPlus 2]]))
       -- the exit to the convex angle and the bottom of a 2x2 square around the origin, with a slice missing.
       corner3 = [ LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))]
       corner3E1 = ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)) ,LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))) (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1],GVal 0.9238795325112867 [GEPlus 2]]))
