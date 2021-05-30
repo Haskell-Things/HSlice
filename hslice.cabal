@@ -23,6 +23,8 @@ Common binstuff
                 -feager-blackholing
                 -- for weeder
                 -fwrite-ide-info
+                -- for stan
+                -hiedir=.hie
                 -Wall
                 -Wextra
                 -Wcompat
@@ -45,6 +47,8 @@ Common libstuff
                 -feager-blackholing
                 -- for weeder
                 -fwrite-ide-info
+                -- for stan
+                -hiedir=.hie
                 -Wall
                 -Wextra
                 -Wcompat
@@ -70,6 +74,7 @@ Library
                   , implicit
                   , mtl
                   , parallel
+                  , slist
                   , Unique
                   , utf8-string
     Exposed-Modules:
