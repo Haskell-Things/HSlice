@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.Tri (Tri(Tri), sidesOf, shiftTri, triIntersects) where
 
-import Prelude (Eq, (<$>), ($), error, (==), length, head, (&&), Show)
+import Prelude (Eq, (<$>), ($), error, (==), (&&), Show)
 
 import Data.List.Extra(nubOrd)
 
@@ -57,21 +57,23 @@ sidesOf (Tri (a,b,c)) = [a,b,c]
 
 -- determine where a tri intersects a plane at a given z value
 triIntersects :: ℝ -> Tri -> Maybe (Point2,Point2)
-triIntersects v f = if length matchingEdge == 1
-                      then Just $ head matchingEdge
-                      else trimIntersections $ nubOrd $ catMaybes intersections
+triIntersects v f = res matchingEdges
   where
-    matchingEdge = catMaybes $ edgeOnPlane <$> sidesOf f
-    edgeOnPlane :: (Point3,Point3) -> Maybe (Point2,Point2)
-    edgeOnPlane (start,stop) = if zOf start == zOf stop && zOf start == v
-                               then Just (flatten start, flatten stop)
-                               else Nothing
+    res []        = trimIntersections $ nubOrd $ catMaybes intersections
+    res [oneEdge] = Just oneEdge
+    res _         = Nothing
     intersections = (`pointAtZValue` v) <$> sidesOf f
     -- Get rid of the case where a tri intersects the plane at one point
     trimIntersections :: [Point2] -> Maybe (Point2,Point2)
     trimIntersections []      = Nothing
     trimIntersections [_]     = Nothing
     trimIntersections [p1,p2] = Just (p1,p2)
-    -- ignore triangles that are exactly aligned.
+    -- ignore triangles that are exactly aligned with the plane.
     trimIntersections [_,_,_] = Nothing
     trimIntersections _ = error "unpossible!"
+    matchingEdges = catMaybes $ edgeOnPlane <$> sidesOf f
+      where
+        edgeOnPlane :: (Point3,Point3) -> Maybe (Point2,Point2)
+        edgeOnPlane (start,stop) = if zOf start == zOf stop && zOf start == v
+                                   then Just (flatten start, flatten stop)
+                                   else Nothing
