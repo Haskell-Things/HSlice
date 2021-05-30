@@ -20,19 +20,23 @@
    structures used when performing slicing related math. -}
 
 -- for adding Generic and NFData to Point.
-{-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds #-}
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
-module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointSequence), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower) where
+module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointSequence, SafeContour), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower) where
 
-import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, Int, null, zipWith3, take, length, drop, cycle, (.), (-), zipWith)
+import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, Int, null, zipWith3, take, length, drop, cycle, (.), (-), seq, zipWith)
 
-import Control.DeepSeq (NFData)
+import Control.DeepSeq (NFData(rnf))
 
 import Control.Parallel.Strategies (withStrategy, parList, rpar)
 
 import Control.Parallel (par, pseq)
 
 import GHC.Generics (Generic)
+
+import Slist.Type (Slist(Slist))
+
+import Slist.Size (Size(Infinity, Size))
 
 import Graphics.Slicer.Definitions (ℝ, ℝ2, ℝ3, Fastℕ)
 
@@ -85,7 +89,6 @@ instance Ord Point2 where
       (x1,y1) = (xOf p1, yOf p1)
       (x2,y2) = (xOf p2, yOf p2)
 
-
 -- | functions for getting a point's position on a 2D plane. If the point is 3d, assume the plane is aligned with the xy basis axes.
 instance PlanePoint Point3 where
   xOf (Point3 (x,_,_)) = x
@@ -106,8 +109,16 @@ instance SpacePoint Point3 where
   flatten (Point3 (x,y,_)) = Point2 (x,y)
 
 -- | a list of points around a (2d) shape.
-newtype Contour = PointSequence [Point2]
+data Contour = PointSequence [Point2]
+             | SafeContour { _firstPoint :: Point2, _secondPoint :: Point2, _thirdPoint :: Point2 , morePoints :: (Slist Point2) }
   deriving (Eq, Generic, NFData, Show)
+
+instance NFData (Slist Point2) where
+  rnf (Slist vals n) = rnf vals `seq` rnf n
+
+instance NFData Size where
+  rnf (Infinity) = ()
+  rnf (Size n) = seq n ()
 
 -- | round a value
 roundToFifth :: ℝ -> ℝ
