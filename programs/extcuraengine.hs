@@ -80,7 +80,9 @@ import Graphics.Slicer.Math.Tri (Tri, sidesOf, shiftTri, triIntersects)
 
 import Graphics.Slicer.Math.Line (flipLineSeg, LineSeg(LineSeg), lineSegFromEndpoints)
 
-import Graphics.Slicer.Math.Skeleton.Face (orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton)
+
+import Graphics.Slicer.Math.Skeleton.Face (Face, orderedFacesOf)
 
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
 
@@ -312,31 +314,8 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
                 , travelBetweenContours (last childContoursInnerWalls) dest
                 ]
           -- Fail to the old contour shrink method when the skeleton based one knows it's failed.
-          outsideContour = fromMaybe outsideContourByShrink outsideContourBySkeleton
-            where
-              outsideContourByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*0.5) insideContoursRaw outsideContourRaw
-              outsideContourBySkeleton
-                | isJust outsideContourSkeleton = Just res
--- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
---                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
-                | otherwise = Nothing
-                where
-                  -- FIXME: if this provides more than one contour, parallelize the inside functions.
-                  res = justOneContourFrom $ addInset 1 (0.5*pathWidth) outsideContourFaces
-          -- Fail to the old contour shrink method when the skeleton based one knows it's failed.
-          outsideContourInnerWall = fromMaybe outsideContourInnerWallByShrink outsideContourInnerWallBySkeleton
-            where
-              outsideContourInnerWallByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*1.5) insideContoursRaw outsideContourRaw
-              -- FIXME: handle spliting
-              outsideContourInnerWallBySkeleton
-                | isJust outsideContourSkeleton && length res == 1 = Just $ head res
-                | isJust outsideContourSkeleton && length res > 1 = error "split event during inner wall rendering."
--- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
---                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
-                | otherwise = Nothing
-                where
-                  (res,_) = addInset 1 (1.5*pathWidth) outsideContourFaces
-          outsideContourFaces    = orderedFacesOf (fromJust $ firstLineSegOfContour outsideContourRaw) (fromJust outsideContourSkeleton) 
+          outsideContour = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*0.5)
+          outsideContourInnerWall =  reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*1.5)
           outsideContourSkeleton = findStraightSkeleton outsideContourRaw insideContoursRaw
           childContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
             where
@@ -344,20 +323,10 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
           childContoursInnerWalls = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
             where
               res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
-          -- FIXME: handle spliting
+          -- FIXME: handle multiple infillOutsideContours
           infillLineSegs = mapEveryOther (\l -> reverse $ flipLineSeg <$> l) $ makeInfill infillOutsideContour infillChildContours (ls * (1/infill)) $ getInfillType print layerNumber
             where
-              infillOutsideContour = fromMaybe infillOutsideContourByShrink infillOutsideContourBySkeleton
-                where
-                  infillOutsideContourByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*2) insideContoursRaw outsideContourRaw
-                  infillOutsideContourBySkeleton
-                    | isJust outsideContourSkeleton && length res == 1 = Just $ head res
-                    | isJust outsideContourSkeleton && length res > 1 = error "split event during inner wall rendering."
--- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
---                    | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
-                    | otherwise = Nothing
-                    where
-                      (res,_) = addInset 1 (2*pathWidth) outsideContourFaces
+              infillOutsideContour = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*2)
               infillChildContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
                 where
                   res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
@@ -369,15 +338,24 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
   -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
   layerStart <> concat (renderContourTree <$> allContours) <> support <> layerEnd 
     where
+      reduceContour :: Contour -> [Contour] -> Maybe StraightSkeleton -> ℝ -> Contour
+      reduceContour targetContour insideContours targetSkeleton insetAmt = fromMaybe reduceByShrink reduceBySkeleton
+        where
+          reduceByShrink = fromMaybe (error "failed to clean contour") $ cleanContour $ fromMaybe (error "failed to shrink contour") $ shrinkContour insetAmt insideContours targetContour
+          reduceBySkeleton = if isJust targetSkeleton
+                             then Just $ justOneContourFrom $ addInset 1 insetAmt $ orderedFacesOf (fromJust $ firstLineSegOfContour targetContour) (fromJust targetSkeleton)
+-- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
+--                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
+                             else Nothing
       allContours = makeContourTree layerContours
-      firstOuterContour
-        | null allContours = error $ "no contours on layer?\n" <> show layerContours <> "\n" <> show layerNumber <> "\n"
-        | otherwise = (\(ContourTree (a,_)) -> a) $ head allContours
+      firstOuterContour [] = error $ "no contours on layer?\n" <> show layerContours <> "\n" <> show layerNumber <> "\n"
+      firstOuterContour [contour] = (\(ContourTree (a,_)) -> a) contour
+      firstOuterContour (c:_)     = (\(ContourTree (a,_)) -> a) c
       layerEnd = if isLastLayer then [] else travelToLayerChange
       layerStart = [GCMarkLayerStart layerNumber]
       -- FIXME: make travel gcode from the previous contour's last position?
       travelToLayerChange :: [GCode]
-      travelToLayerChange = [make2DTravelGCode (Point2 (0,0)) $ firstPointOfContour firstOuterContour]
+      travelToLayerChange = [make2DTravelGCode (Point2 (0,0)) $ firstPointOfContour (firstOuterContour allContours)]
       -- FIXME: not all support is support. what about supportInterface?
       support :: [GCode]
       support = [] -- if null supportGCode then [] else GCMarkSupportStart : supportGCode
