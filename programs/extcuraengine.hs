@@ -72,6 +72,8 @@ import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Contour
 
 import Graphics.Slicer.Formats.STL.Definitions (trianglesFromSTL)
 
+import Graphics.Slicer.Math.Contour (firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour)
+
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yOf, zOf)
 
 import Graphics.Slicer.Math.Tri (Tri, sidesOf, shiftTri, triIntersects)
@@ -167,18 +169,22 @@ mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [0::Fastℕ,1
 ------------------------ Slicing Plan ------------------------
 --------------------------------------------------------------
 
+
 -- The difference between a slicing plan, and a Print is that a Print should specify characteristics of the resulting object, where a Plan should specify what methods to attempt to use to accomplish that goal.
 data Plan =
   Plan
     { _step :: ScadStep
     }
 
--- the space that a plan is to be followed with.
+-- the space that a plan is to be followed within.
 -- FIXME: union, intersect, etc.. these?
+-- FIXME: transitions between regions?
+-- FIXME: the printer's working area is a Zone of type Box3.
 data Zone =
   Everywhere Plan
   | ZBetween (ℝ,Maybe ℝ) Plan
-  | RegionAndBelow (Point2, Point2) Plan
+  | BelowBottom (Point2, Point2) Plan
+  | Box3 (Point3, Point3) Plan
 
 -- the order of operations in a Plan.
 --data Ordering =
@@ -193,7 +199,6 @@ data ScadStep =
 
 data DivideStrategy =
     ZLayers
-  | AllAtOnce
 
 data InsetStrategy =
     Skeleton
@@ -257,11 +262,11 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
   let
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToContour :: Contour -> [GCode]
-    travelToContour contour = [make3DTravelGCode (Point3 (0,0,0)) (raise $ firstPoint contour)]
+    travelToContour contour = [make3DTravelGCode (Point3 (0,0,0)) (raise $ firstPointOfContour contour)]
     travelBetweenContours :: Contour -> Contour -> [GCode]
-    travelBetweenContours source dest = [make2DTravelGCode (lastPoint source) $ firstPoint dest]
+    travelBetweenContours source dest = [make2DTravelGCode (lastPointOfContour source) $ firstPointOfContour dest]
     travelFromContourToInfill :: Contour -> [[LineSeg]] -> [GCode]
-    travelFromContourToInfill source lines = if firstPointOfInfill lines /= Nothing then [addFeedRate infillSpeed $ make2DTravelGCode (lastPoint source) $ fromMaybe (Point2 (0,0)) $ firstPointOfInfill lines] else []
+    travelFromContourToInfill source lines = if firstPointOfInfill lines /= Nothing then [addFeedRate infillSpeed $ make2DTravelGCode (lastPointOfContour source) $ fromMaybe (Point2 (0,0)) $ firstPointOfInfill lines] else []
     renderContourTree :: ContourTree -> [GCode]
     renderContourTree (ContourTree (thisContour, subContours)) = renderSurface thisContour (interiorContours subContours) <> concat (renderContourTree <$> insidePositiveSpaces subContours)
       where
@@ -310,15 +315,14 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
           outsideContour = fromMaybe outsideContourByShrink outsideContourBySkeleton
             where
               outsideContourByShrink = fromMaybe (error "failed to clean outside contour") $ cleanContour $ fromMaybe (error "failed to shrink outside contour") $ shrinkContour (pathWidth*0.5) insideContoursRaw outsideContourRaw
-              -- FIXME: handle spliting
               outsideContourBySkeleton
-                | isJust outsideContourSkeleton && length res == 1 = Just $ head res
-                | isJust outsideContourSkeleton && length res > 1 = error "split event during outer contour inseting."
+                | isJust outsideContourSkeleton = Just res
 -- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
 --                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
                 | otherwise = Nothing
                 where
-                  (res,_) = addInset 1 (0.5*pathWidth) outsideContourFaces
+                  -- FIXME: if this provides more than one contour, parallelize the inside functions.
+                  res = justOneContourFrom $ addInset 1 (0.5*pathWidth) outsideContourFaces
           -- Fail to the old contour shrink method when the skeleton based one knows it's failed.
           outsideContourInnerWall = fromMaybe outsideContourInnerWallByShrink outsideContourInnerWallBySkeleton
             where
@@ -334,10 +338,6 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
                   (res,_) = addInset 1 (1.5*pathWidth) outsideContourFaces
           outsideContourFaces    = orderedFacesOf (fromJust $ firstLineSegOfContour outsideContourRaw) (fromJust outsideContourSkeleton) 
           outsideContourSkeleton = findStraightSkeleton outsideContourRaw insideContoursRaw
-          firstLineSegOfContour :: Contour -> Maybe LineSeg
-          firstLineSegOfContour (PointSequence [])  = Nothing
-          firstLineSegOfContour (PointSequence [_]) = Nothing
-          firstLineSegOfContour (PointSequence (a:b:_)) = Just $ (\(Right v) -> v) $ lineSegFromEndpoints a b 
           childContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
             where
               res c = expandContour (pathWidth*0.5) (outsideContourRaw:filter (/= c) insideContoursRaw) c
@@ -371,13 +371,13 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
     where
       allContours = makeContourTree layerContours
       firstOuterContour
-        | null allContours = error $ "no contours on layer?\n" <> show layerContours <> "\n"
+        | null allContours = error $ "no contours on layer?\n" <> show layerContours <> "\n" <> show layerNumber <> "\n"
         | otherwise = (\(ContourTree (a,_)) -> a) $ head allContours
       layerEnd = if isLastLayer then [] else travelToLayerChange
       layerStart = [GCMarkLayerStart layerNumber]
       -- FIXME: make travel gcode from the previous contour's last position?
       travelToLayerChange :: [GCode]
-      travelToLayerChange = [make2DTravelGCode (Point2 (0,0)) $ firstPoint firstOuterContour]
+      travelToLayerChange = [make2DTravelGCode (Point2 (0,0)) $ firstPointOfContour firstOuterContour]
       -- FIXME: not all support is support. what about supportInterface?
       support :: [GCode]
       support = [] -- if null supportGCode then [] else GCMarkSupportStart : supportGCode
@@ -388,12 +388,9 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
                         $ mapEveryOther flipLineSeg
                         $ makeSupport (head outerContours) outerContours layerThickness pathWidth zHeightOfLayer
       -}
-      firstPoint (PointSequence contourPoints) = if not (null contourPoints) then head contourPoints else error "tried to get the first point of an empty contour.\n"
-      -- since we always print contours as a big loop, the first point IS the last point.
-      lastPoint (PointSequence contourPoints) = if not (null contourPoints) then head contourPoints else error "tried to get the last point of an empty contour.\n"
       firstPointOfInfill :: [[LineSeg]] -> Maybe Point2
       firstPointOfInfill [] = Nothing
-      firstPointOfInfill (x:_) = Just $ startOfLineSeg $ head x
+      firstPointOfInfill ((x:_):_) = Just $ startOfLineSeg x
         where
           startOfLineSeg (LineSeg p _) = p
       -- FIXME: this is not necessarilly the case!
@@ -410,16 +407,16 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
 data ExtCuraEngineRootOpts =
   ExtCuraEngineRootOpts
     {
-      _commandOpt             :: String
-    , _targetOpt              :: Maybe String
-    , _settingFileOpt         :: Maybe FilePath
-    , _verboseOpt             :: Bool
-    , _threadsOpt             :: Maybe Fastℕ
-    , _progressOpt            :: Bool
-    , outputFileOpt           :: Maybe String
-    , inputFileOpt            :: Maybe String
-    , settingOpts             :: [String]
-    , _commandOpt2            :: Maybe String
+      _commandOpt             :: !String
+    , _targetOpt              :: !(Maybe String)
+    , _settingFileOpt         :: !(Maybe FilePath)
+    , _verboseOpt             :: !Bool
+    , _threadsOpt             :: !(Maybe Fastℕ)
+    , _progressOpt            :: !Bool
+    , outputFileOpt           :: !(Maybe String)
+    , inputFileOpt            :: !(Maybe String)
+    , settingOpts             :: ![String]
+    , _commandOpt2            :: !(Maybe String)
     }
 
 {-
@@ -537,25 +534,26 @@ sliceParser = pure (ExtCuraEngineRootOpts "slice")
 -----------------------------------------------------------------------
 --------------------------- Main --------------------------------------
 -----------------------------------------------------------------------
+
 -- Characteristics of the printer we are using.
 data Printer = Printer
   {
-    _printBed :: Bed
-  , buildArea :: BuildArea
-  , _extruder :: Extruder
+    _printBed :: !Bed
+  , buildArea :: !BuildArea
+  , _extruder :: !Extruder
   }
 
 -- | The parameters of the print that is being requested.
 data Print = Print
   {
-    _perimeters              :: Fastℕ
-  , _infillAmount            :: ℝ    -- ^ An amount of infill from 0 (none) to 1 (full density).
-  , layerHeight              :: ℝ
-  , topBottomThickness       :: ℝ    -- ^ The thickness of top and bottom surfaces.
-  , _withSupport             :: Bool
-  , _lineSpacing             :: ℝ    -- ^ In Millimeters.
-  , _outer_wall_before_inner :: Bool -- ^ print outer wall before inside wall.
-  , _infill_speed            :: ℝ    -- ^ In millimeters per second
+    _perimeters              :: !Fastℕ
+  , _infillAmount            :: !ℝ    -- ^ An amount of infill from 0 (none) to 1 (full density).
+  , layerHeight              :: !ℝ
+  , topBottomThickness       :: !ℝ    -- ^ The thickness of top and bottom surfaces.
+  , _withSupport             :: !Bool
+  , _lineSpacing             :: !ℝ    -- ^ In Millimeters.
+  , _outer_wall_before_inner :: !Bool -- ^ print outer wall before inside wall.
+  , _infill_speed            :: !ℝ    -- ^ In millimeters per second
   }
 
 run :: ExtCuraEngineRootOpts -> IO ()
