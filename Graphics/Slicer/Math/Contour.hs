@@ -16,19 +16,28 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour, contourIntersections) where
+-- for not handling faces:
+{-# LANGUAGE PartialTypeSignatures #-}
 
-import Prelude ((==), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, zip, Either(Left, Right))
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour, contourIntersections, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour) where
+
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, zip, Either(Left, Right))
 
 import Data.List(tail, last, head, partition, reverse, sortBy)
 
-import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
+import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe, fromJust)
 
 import Data.Either (fromRight)
 
+import Slist (len, size)
+
+import Slist.Type (Slist(Slist))
+
+import Slist.Size (Size(Infinity, Size))
+
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2), mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Contour(PointSequence, SafeContour), Point2(Point2), mapWithNeighbors)
 
 import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, makeLineSegsLooped, makeLineSegs, endpoint, midpoint)
 
@@ -122,10 +131,8 @@ getContours pointPairs = maybeFlipContour <$> foundContours
     -- make sure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
     maybeFlipContour :: Contour -> Contour
     maybeFlipContour contour@(PointSequence contourPoints)
-      | insideIsLeft contour $ firstLineSegOf contour = contour
+      | insideIsLeft contour $ (fromJust $ firstLineSegOfContour contour) = contour
       | otherwise = PointSequence $ reverse contourPoints
-      where
-        firstLineSegOf (PointSequence ps) = head $ makeLineSegs ps
 
 -- | A contour tree. A contour, which contains a list of contours that are cut out of the first contour, each of them contaiting a list of contours of positive space.. ad infinatum.
 newtype ContourTree = ContourTree (Contour, [ContourTree])
@@ -220,5 +227,37 @@ contourIntersections contour@(PointSequence contourPoints) srcPoint dstPoint = f
         saneIntersection (seg, Left (HitEndPoint   _ _)) (seg2, Left (HitStartPoint _ point))  _                                = Just (seg, Just seg2, eToPPoint2 point)
         saneIntersection res1 res2 res3 = error $ "insane result of intersecting a line (" <> show l1 <> ") with a contour: " <> show c <> "\n" <> show res1 <> "\n" <> show res2 <> "\n" <> show res3 <> "\n"
 
+
+-- Utility functions for contours. moving here for migration.
+pointsOfContour :: Contour -> [Point2]
+pointsOfContour (SafeContour p1 p2 p3 pts@(Slist vals _))
+  | size pts == Infinity = error "cannot handle infinite contours."
+  | otherwise            = p1:p2:p3:vals
+pointsOfContour (PointSequence contourPoints) = contourPoints
+
+numPointsOfContour :: Contour -> Int
+numPointsOfContour (SafeContour _ _ _ pts) = 3 + len pts
+numPointsOfContour (PointSequence contourPoints) = length contourPoints
+
+-- In an ideal world, only the test suite needs this.
+justOneContourFrom :: ([Contour], [_]) -> Contour
+justOneContourFrom ([contour],  _) = contour
+justOneContourFrom (contours, _) = error $ "received multiple contours when we expected just one:\n" <> show contours <> "\n" -- <> show faces <> "\n"
+
+-- since we always print contours as a big loop, the first point IS the last point.
+lastPointOfContour a = firstPointOfContour a
+
+-- Find the first point in a contour.
+firstPointOfContour (SafeContour p1 _ _ _) = p1
+firstPointOfContour contour@(PointSequence _)
+  | (null $ pointsOfContour contour) = error "tried to get the last point of an empty contour.\n"
+  | otherwise = head $ pointsOfContour contour
+
+-- find the first line segment in a contour.
+firstLineSegOfContour :: Contour -> Maybe LineSeg
+firstLineSegOfContour (SafeContour p1 p2 _ _) = Just $ (\(Right v) -> v) $ lineSegFromEndpoints p1 p2
+firstLineSegOfContour (PointSequence [])  = Nothing
+firstLineSegOfContour (PointSequence [_]) = Nothing
+firstLineSegOfContour (PointSequence (p1:p2:_)) = Just $ (\(Right v) -> v) $ lineSegFromEndpoints p1 p2 
 
 
