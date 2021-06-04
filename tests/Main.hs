@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 {-
  - Copyright 2020 Julia Longtin
  -
@@ -23,7 +24,6 @@ import Prelude (($), IO)
 
 -- our testing engine.
 import Test.Hspec(hspec, describe)
-
 
 -- the execution test for warnings.
 import Math.PGA(contourSpec, lineSpec, linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec)

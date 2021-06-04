@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 {-
  - Copyright 2021 Julia Longtin
  -
@@ -120,7 +121,6 @@ applyTscherne contour cellDivisions
     dividingMotorcycle = if length (motorcyclesFromDivision $ head cellDivisions) == 1
                          then head (motorcyclesFromDivision $ head cellDivisions)
                          else error "cannot yet handle more than one dividing motorcycle."
-
 
 -- | Calculate a partial straight skeleton for the motorcycle cell that is on the left side of the point that a motorcycle's path starts at, ending where the motorcycle intersects the contour.
 cellAfter :: Contour -> Motorcycle -> NodeTree

@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 {-
  - Copyright 2021 Julia Longtin
  -
@@ -157,7 +158,4 @@ motorcycleIntersectsAt contour motorcycle@(Motorcycle (inSeg,outSeg) _)
 --   Assumes the starting point of the second line segment is a point on the path.
 intersectionSameSide :: PPoint2 -> ENode -> Motorcycle -> Maybe Bool
 intersectionSameSide pointOnSide node (Motorcycle _ path) = pPointsOnSameSideOfPLine (pPointOf node) pointOnSide path
-
-
-
 

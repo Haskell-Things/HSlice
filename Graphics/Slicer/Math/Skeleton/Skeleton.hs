@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 {-
  - Copyright 2021 Julia Longtin
  -
@@ -23,11 +24,10 @@
 -- inherit instances when deriving.
 {-# LANGUAGE DerivingStrategies #-}
 
-
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
 import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), head, null, filter, zip, Either(Right), last, (>), even)
-  
+
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), CellDivide(CellDivide), concavePLines, linePairs, outOf, pPointOf)
@@ -105,6 +105,6 @@ concaveENodes :: Contour -> [ENode]
 concaveENodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
   where
     onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe ENode
-    onlyNodes ((seg1, seg2), Just pLine) = Just $ ENode (seg1,seg2) pLine 
-    onlyNodes ((_, _), Nothing) = Nothing 
+    onlyNodes ((seg1, seg2), Just pLine) = Just $ ENode (seg1,seg2) pLine
+    onlyNodes ((_, _), Nothing) = Nothing
 
