@@ -167,6 +167,7 @@ mapEveryOther :: (a -> a) -> [a] -> [a]
 mapEveryOther _ [] = []
 mapEveryOther f [a] = [f a]
 mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [0::Fastℕ,1..]
+
 --------------------------------------------------------------
 ------------------------ Slicing Plan ------------------------
 --------------------------------------------------------------
@@ -183,10 +184,10 @@ data Plan =
 -- FIXME: transitions between regions?
 -- FIXME: the printer's working area is a Zone of type Box3.
 data Zone =
-  Everywhere Plan
-  | ZBetween (ℝ,Maybe ℝ) Plan
-  | BelowBottom (Point2, Point2) Plan
-  | Box3 (Point3, Point3) Plan
+  Everywhere !Plan
+  | ZBetween !(ℝ,Maybe ℝ) !Plan
+  | BelowBottom !(Point2, Point2) !Plan
+  | Box3 !(Point3, Point3) !Plan
 
 -- the order of operations in a Plan.
 --data Ordering =
@@ -194,13 +195,14 @@ data Zone =
 -- FIXME: what to do about conflicting orderings when a component crosses from one Zone to the other?
 
 data ScadStep =
-    PriorState MachineState
+    PriorState !MachineState
   | NoWork
-  | Extrude (DivideStrategy, InsetStrategy)
-  | StateM [GCode]
+  | Extrude !(DivideStrategy, InsetStrategy)
+  | StateM ![GCode]
 
 data DivideStrategy =
     ZLayers
+    | VaseMode
 
 data InsetStrategy =
     Skeleton
@@ -332,8 +334,12 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
                   res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
           drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth c
           drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
-          drawChildOuterContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) (init childContoursInnerWalls) (tail childContoursInnerWalls)
-          drawChildContours = concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) (init childContours) (tail childContours)
+          drawChildOuterContours = case childContoursInnerWalls of
+            [] -> []
+            (_:tailContours) -> concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) childContoursInnerWalls tailContours
+          drawChildContours = case childContours of
+            [] -> []
+            (_:tailContours) -> concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) childContours tailContours
           drawInfill = GCMarkInfillStart : gcodeForInfill lh ls infillLineSegs
   -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
   layerStart <> concat (renderContourTree <$> allContours) <> support <> layerEnd 
@@ -342,11 +348,11 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
       reduceContour targetContour insideContours targetSkeleton insetAmt = fromMaybe reduceByShrink reduceBySkeleton
         where
           reduceByShrink = fromMaybe (error "failed to clean contour") $ cleanContour $ fromMaybe (error "failed to shrink contour") $ shrinkContour insetAmt insideContours targetContour
-          reduceBySkeleton = if isJust targetSkeleton
-                             then Just $ justOneContourFrom $ addInset 1 insetAmt $ orderedFacesOf (fromJust $ firstLineSegOfContour targetContour) (fromJust targetSkeleton)
+          reduceBySkeleton = case targetSkeleton of
+                               Just skeleton -> Just $ justOneContourFrom $ addInset 1 insetAmt $ orderedFacesOf (firstLineSegOfContour targetContour) skeleton
 -- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
---                | otherwise = error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
-                             else Nothing
+--                             Nothing -> error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
+                               Nothing -> Nothing
       allContours = makeContourTree layerContours
       firstOuterContour [] = error $ "no contours on layer?\n" <> show layerContours <> "\n" <> show layerNumber <> "\n"
       firstOuterContour [contour] = (\(ContourTree (a,_)) -> a) contour
@@ -368,6 +374,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
       -}
       firstPointOfInfill :: [[LineSeg]] -> Maybe Point2
       firstPointOfInfill [] = Nothing
+      firstPointOfInfill ([]:_) = Nothing
       firstPointOfInfill ((x:_):_) = Just $ startOfLineSeg x
         where
           startOfLineSeg (LineSeg p _) = p
