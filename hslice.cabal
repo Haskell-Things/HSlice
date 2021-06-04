@@ -147,6 +147,7 @@ Test-suite test-hslice
                     base
                   , hspec
                   , hslice
+                  , slist
     Type: exitcode-stdio-1.0
     Other-Modules:
                    Math.Util
