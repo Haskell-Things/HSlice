@@ -24,7 +24,7 @@ module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSp
 import Prelude (($), Bool(True, False), (<$>), error, Either(Right), sqrt)
 
 -- Hspec, for writing specs.
-import Test.Hspec (describe, Spec, it)
+import Test.Hspec (describe, Spec, it, pendingWith)
 
 import Data.List (foldl')
 
@@ -112,9 +112,11 @@ linearAlgSpec = do
     it "a contour mechanically shrunk and expanded is about equal to where it started" $
       (roundPoint2 <$> pointsOfContour (fromMaybe (error "got Nothing") $ expandContour 0.1 [] $ fromMaybe (error "got Nothing") $ shrinkContour 0.1 [] c2)) --> roundPoint2 <$> pointsOfContour c2
   describe "Infill (machine/infill)" $ do
-    it "infills exactly one line inside of a box big enough for only one line (Horizontal)" $
+    it "infills exactly one line inside of a box big enough for only one line (Horizontal)" $ do
+      pendingWith "https://github.com/julialongtin/hslice/issues/31"
       makeInfill c1 [] 0.5 Horiz --> [[LineSeg (Point2 (0,0.5)) (Point2 (1,0))]]
-    it "infills exactly one line inside of a box big enough for only one line (Vertical)" $
+    it "infills exactly one line inside of a box big enough for only one line (Vertical)" $ do
+      pendingWith "https://github.com/julialongtin/hslice/issues/31"
       makeInfill c1 [] 0.5 Vert --> [[LineSeg (Point2 (0.5,0)) (Point2 (0,1))]]
   describe "Contours (Skeleton/line)" $ do
     it "a contour algorithmically shrunk has the same amount of points as the input contour" $
