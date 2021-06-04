@@ -26,7 +26,7 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, Motorcycle(Motorcycle), CellDivide(CellDivide), concavePLines, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linesOfContour, linePairs, finalPLine, finalINodeOf, finalOutOf) where
+module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, Motorcycle(Motorcycle), CellDivide(CellDivide), concavePLines, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf) where
 
 import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, length, (>), (&&), any, head, fst, and, (||), (<>), null, show)
 
@@ -36,11 +36,13 @@ import Data.List.Unique (count_)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), makeLineSegsLooped)
+import Graphics.Slicer.Math.Contour (linesOfContour)
+
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
 
 import Graphics.Slicer.Math.PGA (pToEPoint2, PPoint2, plinesIntersectIn, PIntersection(PCollinear,IntersectsIn,PParallel,PAntiParallel), eToPPoint2, flipPLine2, lineIsLeft, PLine2(PLine2), eToPLine2)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2, mapWithFollower)
+import Graphics.Slicer.Math.Definitions (Contour, Point2, mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -186,9 +188,6 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
     saneIntersection PParallel        = error $ "cannot get the intersection of parallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
     saneIntersection PAntiParallel    = error $ "cannot get the intersection of antiparallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
     saneIntersection (IntersectsIn point) = point
-
-linesOfContour :: Contour -> [LineSeg]
-linesOfContour (PointSequence contourPoints) = makeLineSegsLooped contourPoints
 
 -- Get pairs of lines from the contour, including one pair that is the last line paired with the first.
 linePairs :: Contour -> [(LineSeg, LineSeg)]

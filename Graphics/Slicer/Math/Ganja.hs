@@ -49,7 +49,9 @@ import Prelude (String, (<>), (++), (<$>), ($), (>=), concat, error, fst, show, 
 
 import Data.Maybe(isJust, fromJust)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(PointSequence), mapWithFollower)
+import Graphics.Slicer.Math.Contour (pointsOfContour)
+
+import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf)
 
@@ -150,8 +152,9 @@ instance GanjaAble INode where
           allPLines    = inPLines ++ (if isJust outPLine then [fromJust outPLine] else [])
 
 instance GanjaAble Contour where
-  toGanja (PointSequence contourPoints) varname = (invars, inrefs)
+  toGanja contour varname = (invars, inrefs)
     where
+      contourPoints = pointsOfContour contour
       (invars, inrefs) = (concat $ fst <$> res, concat (snd <$> res) <> "    0x882288,\n" <> linePairs)
         where
           linePairs    = concat $ mapWithFollower (\(_,a) (_,b) -> "    [" <> varname <> a <> "," <> varname <> b <> "],\n") pairs

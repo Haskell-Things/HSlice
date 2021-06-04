@@ -22,7 +22,7 @@
 -- for adding Generic and NFData to Point.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
-module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointSequence, SafeContour), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower) where
+module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(SafeContour), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower) where
 
 import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, Int, null, zipWith3, take, length, drop, cycle, (.), (-), seq, zipWith)
 
@@ -109,8 +109,7 @@ instance SpacePoint Point3 where
   flatten (Point3 (x,y,_)) = Point2 (x,y)
 
 -- | a list of points around a (2d) shape.
-data Contour = PointSequence [Point2]
-             | SafeContour { _firstPoint :: Point2, _secondPoint :: Point2, _thirdPoint :: Point2 , morePoints :: (Slist Point2) }
+data Contour = SafeContour { _firstPoint :: Point2, _secondPoint :: Point2, _thirdPoint :: Point2 , morePoints :: (Slist Point2) }
   deriving (Eq, Generic, NFData, Show)
 
 instance NFData (Slist Point2) where

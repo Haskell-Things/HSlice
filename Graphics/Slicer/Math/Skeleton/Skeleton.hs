@@ -30,7 +30,7 @@ import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), he
   
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), CellDivide(CellDivide), concavePLines, linesOfContour, linePairs, outOf, pPointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), CellDivide(CellDivide), concavePLines, linePairs, outOf, pPointOf)
 
 import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PCollinear), plinesIntersectIn)
 
@@ -38,7 +38,7 @@ import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, isNothing)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
-import Graphics.Slicer.Math.Contour (contourIntersections)
+import Graphics.Slicer.Math.Contour (contourIntersections, linesOfContour)
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 

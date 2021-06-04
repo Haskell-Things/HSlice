@@ -29,11 +29,15 @@ import Data.List (foldl')
 
 import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
 
+import Slist.Type (Slist(Slist))
+
+import Slist.Size (Size(Size))
+
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
 -- A euclidian point.
-import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(PointSequence), roundPoint2)
+import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(SafeContour), roundPoint2)
 
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅))
@@ -44,7 +48,7 @@ import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, e
 import Graphics.Slicer.Math.Line (makeLineSegsLooped, pointsFromLineSegs, LineSeg(LineSeg))
 
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom)
+import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, makeSafeContour)
 
 import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
 
@@ -83,9 +87,9 @@ contourSpec = do
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
     oocl1 = [(Point2 (1,0), Point2 (0,0)), (Point2 (0,1), Point2 (1,1)), (Point2 (0,0), Point2 (0,1)), (Point2 (1,1), Point2 (1,0))]
     cl1 = [(Point2 (0,0), Point2 (0,1)), (Point2 (0,1), Point2 (1,1)), (Point2 (1,1), Point2 (1,0)), (Point2 (1,0), Point2 (0,0))]
-    c1 = PointSequence cp1
-    c2 = PointSequence [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
-    c3 = PointSequence [Point2 (3,0), Point2 (3,1), Point2 (2,1), Point2 (2,0)]
+    c1 = makeSafeContour cp1
+    c2 = makeSafeContour [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
+    c3 = makeSafeContour [Point2 (3,0), Point2 (3,1), Point2 (2,1), Point2 (2,0)]
 
 lineSpec :: Spec
 lineSpec = do
@@ -118,8 +122,8 @@ linearAlgSpec = do
       roundPoint2 <$> pointsOfContour (fromMaybe (error "got Nothing") $ expandContour 0.1 [] $ justOneContourFrom $ addInset 1 0.1 $ orderedFacesOf c2l1 $ fromMaybe (error "got Nothing") $ findStraightSkeleton c2 []) --> roundPoint2 <$> pointsOfContour c2
   where
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
-    c1 = PointSequence cp1
-    c2 = PointSequence [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
+    c1 = makeSafeContour cp1
+    c2 = makeSafeContour [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
     c2l1 = LineSeg (Point2 (0.75,0.25)) (Point2 (0.0,0.5))
 
 geomAlgSpec :: Spec
@@ -762,9 +766,10 @@ facetSpec = do
   describe "insets (Skeleton/Line)" $ do
     it "insets a triangle" $
       addInset 1 0.25 (facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton triangle [])
-      --> ([PointSequence [Point2 (1.0,1.2320508075688772),
-                           Point2 (0.4330127018922193,0.25),
-                           Point2 (1.5669872981077808,0.2500000000000001)]]
+      --> ([SafeContour (Point2 (1.0,1.2320508075688772))
+                        (Point2 (0.4330127018922193,0.25))
+                        (Point2 (1.5669872981077808,0.2500000000000001))
+                        (Slist [] (Size 0))]
           ,[Face (LineSeg (Point2 (-0.43301270189221935,-0.25000000000000006)) (Point2 (1.4330127018922194,2.482050807568877)))
                  (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1], GVal (-0.8660254037844387) [GEPlus 2]]))
                  []
@@ -784,19 +789,19 @@ facetSpec = do
       --    \ |
       --    /_|
       --
-      c0 = PointSequence [Point2 (0,0), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
+      c0 = makeSafeContour [Point2 (0,0), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       c0l0 = LineSeg (Point2 (0,0)) (Point2 (-1,-1))
       c0m1 = Motorcycle (LineSeg (Point2 (-1,1)) (Point2 (1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,-1))) (PLine2 (GVec [GVal 2.0 [GEPlus 2]]))
-      c1 = PointSequence [Point2 (-1,-1), Point2 (0,0), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
+      c1 = makeSafeContour [Point2 (-1,-1), Point2 (0,0), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       c1m1 = Motorcycle (LineSeg (Point2 (-1,-1)) (Point2 (1,1)), LineSeg (Point2 (0,0)) (Point2 (1,-1))) (PLine2 (GVec [GVal (-2.0) [GEPlus 1]]))
-      c2 = PointSequence [Point2 (-1,-1), Point2 (1,-1), Point2 (0,0), Point2 (1,1), Point2 (-1,1)]
+      c2 = makeSafeContour [Point2 (-1,-1), Point2 (1,-1), Point2 (0,0), Point2 (1,1), Point2 (-1,1)]
       c2m1 = Motorcycle (LineSeg (Point2 (1,-1)) (Point2 (-1,1)), LineSeg (Point2 (0,0)) (Point2 (1,1))) (PLine2 (GVec [GVal (-2.0) [GEPlus 2]]))
-      c3 = PointSequence [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (0,0), Point2 (-1,1)]
+      c3 = makeSafeContour [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (0,0), Point2 (-1,1)]
       c3m1 = Motorcycle (LineSeg (Point2 (1,1)) (Point2 (-1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,1))) (PLine2 (GVec [GVal 2.0 [GEPlus 1]]))
-      c4 = PointSequence [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
+      c4 = makeSafeContour [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
       c4m1 = Motorcycle (LineSeg (Point2 (-1,1)) (Point2 (1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,-1))) (PLine2 (GVec [GVal 2.0 [GEPlus 2]]))
-      c5 = PointSequence [Point2 (-1,-1), Point2 (1,-1), Point2 (2,0), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
-      c6 = PointSequence [Point2 (-1,-1), Point2 (-0.5,-1), Point2 (0,0), Point2 (0.5,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
+      c5 = makeSafeContour [Point2 (-1,-1), Point2 (1,-1), Point2 (2,0), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
+      c6 = makeSafeContour [Point2 (-1,-1), Point2 (-0.5,-1), Point2 (0,0), Point2 (0.5,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       -- The next corners are part of a square around the origin with a piece missing: (think: c2 from above)
       --    __  <-- corner 1
       --   | /
@@ -814,9 +819,9 @@ facetSpec = do
       corner4 = [ LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))]
       corner4E1 = ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)),LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))) (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1],GVal (-0.7071067811865475) [GEPlus 2]]))
       -- A simple triangle.
-      triangle = PointSequence [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
+      triangle = makeSafeContour [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
       trianglel0 = LineSeg (Point2 (2,0)) (Point2 (-1.0,sqrt 3))
       -- A simple square.
-      square = PointSequence [Point2 (-1,1), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1)]
+      square = makeSafeContour [Point2 (-1,1), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1)]
       -- A simple rectangle.
-      rectangle = PointSequence [Point2 (-2,1), Point2 (-2,-1), Point2 (1,-1), Point2 (1,1)]
+      rectangle = makeSafeContour [Point2 (-2,1), Point2 (-2,-1), Point2 (1,-1), Point2 (1,1)]

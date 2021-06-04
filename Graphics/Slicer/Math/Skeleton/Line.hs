@@ -31,7 +31,9 @@ import Data.List (sortOn, dropWhile, takeWhile, transpose)
 
 import Data.Maybe( Maybe(Just,Nothing), isJust, fromJust, catMaybes)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointSequence), mapWithFollower, scalePoint, addPoints)
+import Graphics.Slicer.Math.Contour (makeSafeContour)
+
+import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower, scalePoint, addPoints)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, LineSegError(LineSegFromPoint), endpoint)
 
@@ -155,7 +157,7 @@ addInset insets distance faceSet
     (Just reconstructedContour) = cleanContour $ buildContour $ mapWithFollower (\(LineSeg s1 _) l2 -> if endpoint l2 == s1 then endpoint l2 else averagePoints (endpoint l2) s1) (concat $ transpose lineSegSets)
     -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
     averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
-    buildContour points = PointSequence $ last points : init points
+    buildContour points = makeSafeContour $ last points : init points
     lineSegSets = fst <$> res
     remainingFaces = concat $ catMaybes $ snd <$> res
     res = addLineSegsToFace distance (Just 1) <$> faceSet

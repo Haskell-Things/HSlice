@@ -26,7 +26,7 @@ module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWal
 
 import GHC.Generics (Generic)
 
-import Prelude (Eq, Int, ($), tail, init, zipWith, concat, head, last, (<>), show, error, (++), otherwise, (==), length, (>), (/=), fst, pi, (/), (*), pure, toRational, (.), fromRational, (<$>), seq, (+), div, Bool)
+import Prelude (Eq, Int, ($), tail, init, zipWith, concat, head, last, (<>), show, error, (++), otherwise, (==), length, (/=), fst, pi, (/), (*), pure, toRational, (.), fromRational, (<$>), (+), div, Bool)
 
 import Data.ByteString (ByteString)
 
@@ -38,11 +38,13 @@ import Data.ByteString.UTF8 (fromString)
 
 import Data.Double.Conversion.ByteString (toFixed)
 
-import Control.DeepSeq (NFData(rnf))
+import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions(ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour(PointSequence), distance, roundToFifth)
+import Graphics.Slicer.Math.Contour (pointsOfContour)
+
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour, distance, roundToFifth)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
 
@@ -73,10 +75,6 @@ data GCode =
   | GCMarkSupportStart
   | GCMarkInfillStart
   deriving (Eq, Generic, NFData)
-
--- FIXME: move this to the proper place in ImplicitCAD.
-instance NFData Fastℕ where
-  rnf a = seq a ()
 
 -- | The dimensions of a section of material to be extruded.
 data RawExtrude = RawExtrude { _pathLength :: ℝ, _pathWidth :: ℝ, _pathHeight :: ℝ }
@@ -161,10 +159,9 @@ gcodeToText GCMarkInfillStart = ";TYPE:FILL"
 -- | Generate GCode for a given contour.
 -- Assumes the printer is already at the first point of the contour.
 gcodeForContour :: ℝ -> ℝ -> Contour -> [GCode]
-gcodeForContour lh pathWidth (PointSequence contourPoints)
-  | length contourPoints > 1  = zipWith (make2DExtrudeGCode lh pathWidth) (init contourPoints) (tail contourPoints) ++ [make2DExtrudeGCode lh pathWidth (last contourPoints) (head contourPoints)]
-  | length contourPoints == 1 = error $ "Given a contour with a single point in it:" <> show contourPoints <> "\n"
-  | otherwise                 = []
+gcodeForContour lh pathWidth contour = zipWith (make2DExtrudeGCode lh pathWidth) contourPoints (tail contourPoints) ++ [make2DExtrudeGCode lh pathWidth (last contourPoints) (head contourPoints)]
+  where
+    contourPoints = pointsOfContour contour
 
 -- | For each group of lines, generate gcode for the segments, with move commands between them.
 gcodeForInfill :: ℝ -> ℝ -> [[LineSeg]] -> [GCode]

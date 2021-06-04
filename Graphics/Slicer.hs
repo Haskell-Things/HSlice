@@ -34,7 +34,7 @@ module Graphics.Slicer (
 
 import Prelude ()
 
-import Graphics.Slicer.Math.Definitions as MD (Point2(Point2),Point3(Point3), Contour(PointSequence), distance, addPoints, scalePoint, roundPoint2)
+import Graphics.Slicer.Math.Definitions as MD (Point2(Point2),Point3(Point3), Contour, distance, addPoints, scalePoint, roundPoint2)
 
 import Graphics.Slicer.Math.Point as MP (crossProduct, twoDCrossProduct)
 

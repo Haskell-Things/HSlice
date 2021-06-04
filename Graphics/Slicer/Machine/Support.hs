@@ -28,15 +28,18 @@ import Prelude (fmap, (||), Bool, (-), (+), ($), (<$>), maximum, minimum, error,
 
 import Data.List (concat)
 
-import Data.Maybe (Maybe(Just, Nothing), fromMaybe, mapMaybe, catMaybes)
+import Data.Maybe(catMaybes)
 
 import Graphics.Slicer.Definitions (ℝ,ℝ2)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointSequence), Point2(Point2), xOf, yOf, addPoints, scalePoint)
+import Graphics.Slicer.Math.Contour (pointsOfContour, makeSafeContour)
+
+import Graphics.Slicer.Math.Definitions (Contour(SafeContour), Point2(Point2), xOf, yOf, addPoints, scalePoint)
+
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
 
 import Graphics.Slicer.Machine.Infill (infillLineSegInside, coveringLineSegsVertical)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
 
 -- | shorten a line segment by a given amount in millimeters on each end
 shortenLineBy :: ℝ -> LineSeg -> LineSeg
@@ -67,21 +70,21 @@ isEmptyBBox :: BBox -> Bool
 isEmptyBBox (BBox (x1,y1) (x2,y2)) = x1 == x2 || y1 == y2
 
 -- Get a bounding box of all contours.
-boundingBoxAll :: [Contour] -> Maybe BBox
-boundingBoxAll contours = if isEmptyBBox box then Nothing else Just box
+boundingBoxAll :: [Contour] -> BBox
+boundingBoxAll contours = if isEmptyBBox box then error "empty box with a SafeContour" else box
     where
       box  = BBox (minX, minY) (maxX, maxY)
       minX = minimum $ (\(BBox (x1,_) _) -> x1) <$> bBoxes
       minY = minimum $ (\(BBox (_,y1) _) -> y1) <$> bBoxes
       maxX = maximum $ (\(BBox _ (x2,_)) -> x2) <$> bBoxes
       maxY = maximum $ (\(BBox _ (_,y2)) -> y2) <$> bBoxes
-      bBoxes = mapMaybe boundingBox contours
+      bBoxes = boundingBox <$> contours
 
 -- Get a bounding box of a contour.
-boundingBox :: Contour -> Maybe BBox
-boundingBox (PointSequence []) = error "boundingBox given an empty contour?"
-boundingBox (PointSequence contourPoints) = if isEmptyBBox box then Nothing else Just box
+boundingBox :: Contour -> BBox
+boundingBox contour@(SafeContour _ _ _ _) = if isEmptyBBox box then error "empty box with a Safecontour" else box
   where
+    contourPoints = pointsOfContour contour
     box  = BBox (minX, minY) (maxX, maxY)
     minX = minimum $ xOf <$> contourPoints
     minY = minimum $ yOf <$> contourPoints
@@ -91,9 +94,9 @@ boundingBox (PointSequence contourPoints) = if isEmptyBBox box then Nothing else
 -- add a bounding box to a list of contours, as the first contour in the list.
 -- FIXME: what is this for?
 addBBox :: [Contour] -> [Contour]
-addBBox contours = PointSequence [Point2 (x1,y1), Point2 (x2,y1), Point2 (x2,y2), Point2 (x1,y2), Point2 (x1,y1)] : contours
+addBBox contours = makeSafeContour [Point2 (x1,y1),Point2 (x2,y1),Point2 (x2,y2),Point2 (x1,y2), Point2 (x1,y1)] : contours
     where
-      bbox = fromMaybe (BBox (1,1) (-1,-1)) $ boundingBoxAll contours
+      bbox = boundingBoxAll contours
       (BBox (x1, y1) (x2, y2)) = incBBox bbox 1
       -- Put a fixed amount around the 2d bounding box.
       incBBox (BBox (nx1,ny1) (nx2,ny2)) amount = BBox (nx1+amount, ny1+amount) (nx2-amount, ny2-amount)

@@ -27,7 +27,7 @@ import Prelude (Bool(False), concat, elem, otherwise, tail, ($), (<$>), (==), (+
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, NodeTree(NodeTree), Motorcycle(Motorcycle), CellDivide(CellDivide), linesOfContour, finalPLine, outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, NodeTree(NodeTree), Motorcycle(Motorcycle), CellDivide(CellDivide), finalPLine, outOf)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, firstSegOf, sortNodeTrees)
 
@@ -40,6 +40,8 @@ import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
 import Data.List (elemIndex)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, fromMaybe)
+
+import Graphics.Slicer.Math.Contour (linesOfContour)
 
 import Graphics.Slicer.Math.PGA (PIntersection(PCollinear), plinesIntersectIn, eToPPoint2)
 

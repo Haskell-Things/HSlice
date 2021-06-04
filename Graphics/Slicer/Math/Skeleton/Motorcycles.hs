@@ -29,13 +29,15 @@ import Prelude (Bool(True, False), Either(Left,Right), Eq, error, filter, head, 
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, isNothing)
 
+import Graphics.Slicer.Math.Contour (linesOfContour)
+
 import Graphics.Slicer.Math.Line (LineSeg)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, lineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith)
 
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower, mapWithNeighbors)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), linesOfContour, linePairs, pPointOf, isCollinear, outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), linePairs, pPointOf, isCollinear, outOf)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 

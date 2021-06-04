@@ -26,9 +26,11 @@ import Data.Maybe (Maybe(Just, Nothing), catMaybes, maybeToList)
 
 import Data.Either (fromRight)
 
-import Graphics.Slicer.Math.Definitions (Point2, Contour(PointSequence), addPoints, mapWithNeighbors)
+import Graphics.Slicer.Math.Contour (linesOfContour, makeSafeContour)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), makeLineSegsLooped, pointsFromLineSegs, lineSegFromEndpoints, endpoint)
+import Graphics.Slicer.Math.Definitions (Contour, addPoints, mapWithNeighbors)
+
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg), pointsFromLineSegs, lineSegFromEndpoints, endpoint)
 
 import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn, PCollinear, PParallel), plinesIntersectIn, translatePerp, eToPLine2, pToEPoint2, angleBetween)
 
@@ -40,15 +42,7 @@ import Graphics.Slicer.Definitions(ℝ)
 
 -- | Contour optimizer. Merges line segments that are collinear.
 cleanContour :: Contour -> Maybe Contour
-cleanContour (PointSequence points)
-  | length (cleanPoints points) > 2 = Just $ PointSequence $ cleanPoints points
-  | otherwise = error $ "asked to clean a contour with " <> show (length points) <> "points: " <> show points <> "\n"
-  where
-    cleanPoints :: [Point2] -> [Point2]
-    cleanPoints pts
-      | null pts = []
-      | length pts > 2 = fromRight (error "no lines left") $ pointsFromLineSegs $ combineConsecutiveLineSegs $ makeLineSegsLooped pts
-      | otherwise = [] 
+cleanContour contour = Just $ makeSafeContour $ fromRight (error "no lines left") $ pointsFromLineSegs $ combineConsecutiveLineSegs $ linesOfContour contour
 
 ---------------------------------------------------------------
 -------------------- Contour Modifiers ------------------------
@@ -60,7 +54,7 @@ data Direction =
   deriving (Eq, Show)
 
 -- | Generate a new contour that is a given amount smaller than the given contour.
--- FIXME: what about other contours inside of this contour, or walling off of a section, creating two contours?
+-- WARNING: potentially unsafe regarding colliding into other contours inside of this contour, or walling off of a section, creating two contours?
 shrinkContour :: ℝ -> [Contour] -> Contour -> Maybe Contour
 shrinkContour amount _ contour = fst $ modifyContour amount contour Inward
 
@@ -71,19 +65,16 @@ expandContour amount _ contour = fst $ modifyContour amount contour Outward
 
 -- | Generate a new contour that is a given amount larger/smaller than the given contour.
 modifyContour :: ℝ -> Contour -> Direction -> (Maybe Contour,[Contour])
-modifyContour pathWidth (PointSequence contourPoints) direction
-  | null contourPoints = error "tried to modify an empty contour."
+modifyContour pathWidth contour direction
   | null foundContour  = (Nothing, [])
-  | otherwise          = (Just $ PointSequence $ fromRight (error "found contour is empty") $ pointsFromLineSegs foundContour,[])
+  | otherwise          = (Just $ makeSafeContour $ fromRight (error "found contour is empty") $ pointsFromLineSegs foundContour,[])
   where
     -- FIXME: implement me. we need this to handle further interior contours, and only check against the contour they are inside of.
-    foundContour
-      | length contourPoints > 2 = catMaybes maybeLineSegs
-      | otherwise = error $ "tried to modify a contour with too few points: " <> show (length contourPoints) <> "\n"
+    foundContour = catMaybes maybeLineSegs
       where
         -- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.
         -- FIXME: draw a line before, and after the intersection. return two lines?
-        maybeLineSegs = mapWithNeighbors findLineSeg $ removeDegenerates $ makeLineSegsLooped contourPoints
+        maybeLineSegs = mapWithNeighbors findLineSeg $ removeDegenerates $ linesOfContour contour
         -- Remove sequential parallel lines, collinear sequential lines, and lines that are too close to parallel.
         removeDegenerates :: [LineSeg] -> [LineSeg]
         removeDegenerates lns
@@ -126,29 +117,7 @@ modifyContour pathWidth (PointSequence contourPoints) direction
                                      IntersectsIn _ -> True
                                      _              -> False
             intersectionPoint pl1 pl2 = case plinesIntersectIn pl1 pl2 of
-                                          IntersectsIn p2 -> {- let (Point2 (x,y)) = pToEPoint2 p2
-                                                             in
-                                                               if x<0 || y<0
-                                                               then
-                                                                 error $ "outside field!\nresult: " <> show p2 <> "\npline 1: " <> show pl1
-                                                                 <> "\npline 2: " <> show pl2
-                                                                 <> "\nEvaluating line intersections between:\nFirst: " <> show previousln
-                                                                 <> "\nSecond: " <> show ln
-                                                                 <> "\nThird: " <> show nextln
-                                                                 <> "\n" <> show (eToPLine2 previousln)
-                                                                 <> "\n" <> show (inwardAdjust previousln)
-                                                                 <> "\n" <> show (angleBetween (eToPLine2 previousln) (eToPLine2 ln))
-                                                                 <> "\n" <> show (angleBetween (inwardAdjust previousln) (inwardAdjust ln))
-                                                                 <> "\n" <> show (eToPLine2 ln)
-                                                                 <> "\n" <> show (inwardAdjust ln)
-                                                                 <> "\n" <> show (angleBetween (eToPLine2 ln) (eToPLine2 nextln))
-                                                                 <> "\n" <> show (angleBetween (inwardAdjust ln) (inwardAdjust nextln))
-                                                                 <> "\n" <> show (eToPLine2 nextln)
-                                                                 <> "\n" <> show (inwardAdjust nextln)
-                                                                 <> "\n" <> show direction
-                                                                 <> "\n" <> show contourPoints
-                                                                 <> "\n"
-                                                               else  -} pToEPoint2 p2
+                                          IntersectsIn p2 -> pToEPoint2 p2
                                           a               -> error $ "impossible result!\nresult: " <> show a <> "\npline 1: " <> show pl1
                                                              <> "\npline 2: " <> show pl2
                                                              <> "\nEvaluating line intersections between:\nFirst: " <> show previousln
@@ -160,5 +129,5 @@ modifyContour pathWidth (PointSequence contourPoints) direction
                                                              <> "\n" <> show (inwardAdjust nextln)
                                                              <> "\n" <> show (eToPLine2 nextln)
                                                              <> "\n" <> show direction
-                                                             <> "\n" <> show contourPoints
+                                                             <> "\n" <> show contour
                                                              <> "\n"
