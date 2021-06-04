@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 -- Slicer.
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco

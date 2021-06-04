@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 {- HSlice. 
  - Copyright 2020 Julia Longtin
  -

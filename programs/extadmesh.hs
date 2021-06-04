@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 -- STL Linter.
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco

@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco
  - Copyright 2019 Julia Longtin
