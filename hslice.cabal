@@ -74,7 +74,7 @@ Library
                   , implicit
                   , mtl
                   , parallel
-                  , slist
+                  , slist >=0.2.0.0
                   , Unique
                   , utf8-string
     Exposed-Modules:
