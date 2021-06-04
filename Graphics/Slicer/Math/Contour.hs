@@ -109,7 +109,7 @@ getLoops' segs workingLoop =
     else getLoops' unused (workingLoop <> [next])
 
 -- | Turn pairs of points into lists of points in sequence.
---   The point pairs are the beginning and end of a line segment. 
+--   The point pairs are the beginning and end of a line segment.
 getContours :: [(Point2,Point2)] -> [Contour]
 getContours pointPairs = maybeFlipContour <$> foundContours
   where
@@ -223,7 +223,6 @@ contourIntersections contour srcPoint dstPoint = foundIntersections
         saneIntersection (seg, Left (HitEndPoint   _ _)) (seg2, Left (HitStartPoint _ point))  _                                = Just (seg, Just seg2, eToPPoint2 point)
         saneIntersection res1 res2 res3 = error $ "insane result of intersecting a line (" <> show l1 <> ") with a contour: " <> show c <> "\n" <> show res1 <> "\n" <> show res2 <> "\n" <> show res3 <> "\n"
 
-
 -- Utility functions for contours. moving here for migration.
 pointsOfContour :: Contour -> [Point2]
 pointsOfContour (SafeContour p1 p2 p3 pts@(Slist vals _))
@@ -254,9 +253,8 @@ makeSafeContour _ = error "too few points to construct a contour."
 firstLineSegOfContour :: Contour -> LineSeg
 firstLineSegOfContour (SafeContour p1 p2 _ _) = case lineSegFromEndpoints p1 p2
                                                 of
-                                                  (Right v) -> v 
+                                                  (Right v) -> v
                                                   (Left _) -> error "wtf"
-
 
 linesOfContour :: Contour -> [LineSeg]
 linesOfContour contour = makeLineSegsLooped $ pointsOfContour contour

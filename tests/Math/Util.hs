@@ -1,5 +1,5 @@
 {- ORMOLU_DISABLE -}
-{- HSlice. 
+{- HSlice.
  - Copyright 2020 Julia Longtin
  -
  - This program is free software: you can redistribute it and/or modify

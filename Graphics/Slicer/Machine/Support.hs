@@ -41,7 +41,6 @@ import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
 
 import Graphics.Slicer.Machine.Infill (infillLineSegInside, coveringLineSegsVertical)
 
-
 -- | shorten a line segment by a given amount in millimeters on each end
 shortenLineBy :: ℝ -> LineSeg -> LineSeg
 shortenLineBy amt (LineSeg p m) = LineSeg newStart newSlope

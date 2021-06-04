@@ -137,7 +137,7 @@ distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
     perpLine       = PLine2 $ lvec ⨅ pvec
     linePoint      = meet2PLine2 (PLine2 lvec) perpLine
 
--- Determine if two points are on the same side of a given line. 
+-- Determine if two points are on the same side of a given line.
 -- FIXME: we now have two implementations. speed test them. the second implementation requires one point that is already on the line.
 pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
 pPointsOnSameSideOfPLine point1 point2 line
@@ -229,7 +229,6 @@ intersectionPoint l1 l2 = intersectPLines (eToPLine2 l1) (eToPLine2 l2)
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 lineIsLeft :: LineSeg -> LineSeg -> Maybe Bool
 lineIsLeft line1 line2 = pLineIsLeft (eToPLine2 line1) (eToPLine2 line2)
-
 
 -- | Find out where two lines intersect, returning a linear point.
 intersectPLines :: PLine2 -> PLine2 -> Point2
@@ -329,7 +328,6 @@ eToPPoint2 (Point2 (x,y)) = PPoint2 $ GVec $ foldl' addVal [GVal 1 [GEPlus 1, GE
 pToEPoint2 :: PPoint2 -> Point2
 pToEPoint2 (PPoint2 (GVec pPoint)) = Point2 (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] pPoint
                                             ,         valOf 0 $ getVals [GEZero 1, GEPlus 1] pPoint)
-
 
 idealPPoint2 :: PPoint2 -> PPoint2
 idealPPoint2 (PPoint2 (GVec vals)) = PPoint2 $ GVec $ foldl' addVal []

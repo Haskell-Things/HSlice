@@ -108,7 +108,6 @@ cookExtrusions extruder gcodes threads = do
     calculateExtrusion _ = 0
     filamentDia = filamentWidth extruder
 
-
 -- | Construct a GCode to travel to a point without extruding (2D)
 make2DTravelGCode :: Point2 -> Point2 -> GCode
 make2DTravelGCode (Point2 (x1,y1)) (Point2 (x2,y2)) = GCMove2 (x1,y1) (x2,y2)
@@ -152,7 +151,7 @@ gcodeToText (GCMarkLayerStart layerNo) = ";LAYER:" <> fromString (show (fromFast
 gcodeToText GCMarkInnerWallStart = ";TYPE:WALL-INNER"
 -- a perimeter on the outside of the object. may contact the infill, or an inside paremeter.
 gcodeToText GCMarkOuterWallStart = ";TYPE:WALL-OUTER"
--- Marker indicating the following gcode commands are part of the support, and do not touch the object or the build plate. think: the sparsely generated back-and-forth 
+-- Marker indicating the following gcode commands are part of the support, and do not touch the object or the build plate. think: the sparsely generated back-and-forth
 gcodeToText GCMarkSupportStart = ";TYPE:SUPPORT"
 -- The interior of an object. should only contact inner parameters, skin, or outer paremeters.
 gcodeToText GCMarkInfillStart = ";TYPE:FILL"

@@ -159,6 +159,3 @@ motorcycleIntersectsAt contour motorcycle@(Motorcycle (inSeg,outSeg) _)
 intersectionSameSide :: PPoint2 -> ENode -> Motorcycle -> Maybe Bool
 intersectionSameSide pointOnSide node (Motorcycle _ path) = pPointsOnSameSideOfPLine (pPointOf node) pointOnSide path
 
-
-
-

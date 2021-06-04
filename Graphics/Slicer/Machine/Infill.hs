@@ -157,4 +157,3 @@ coveringLineSegsHorizontal contour ls = eToPLine2 . flip LineSeg slope . f <$> [
       yMin = head $ filter (> yMinRaw) [0, ls..]
       yMax = maximum $ yOf <$> contourPoints
 
-

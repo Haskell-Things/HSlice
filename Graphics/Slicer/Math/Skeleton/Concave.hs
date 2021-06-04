@@ -28,7 +28,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, makeFirstENodes, averageNodes) where
 import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, notElem, otherwise, ($), last, (<$>), (==), (++), error, length, (&&), head, fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, init, id, (+))
-  
+
 import Graphics.Slicer.Math.Definitions (Point2, mapWithFollower)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), eNodeToINode, noIntersection, intersectionOf, pPointOf, isCollinear, getPairs, isParallel)
@@ -107,9 +107,9 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
       | endsAtSamePoint = Right [[INode ((outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]]
       | hasShortestPair         = Right $ averageOfShortestPairs : errorIfLeft (skeletonOfNodes remainingENodes (remainingINodes ++ averageOfShortestPairs))
       | otherwise = error $ "shortestPairDistance: " <> show shortestPairDistance
-                                <> "\nePairDistance: " <> show shortestEPairDistance <> "\nnum of ePairs Found: " <> show (length $ shortestPairs eNodes) <> "\nshortestEPairs: " <> show (shortestPairs eNodes) <> "\nePairResults: " <> show (uncurry averageNodes <$> shortestPairs eNodes) <> "\n" <> show (isSomething shortestEPairDistance) <> "\n" 
-                                <> "\niPairDistance: " <> show shortestIPairDistance <> "\nnum of iPairs Found: " <> show (length $ shortestPairs iNodes) <> "\nshortestIPairs: " <> show (shortestPairs iNodes) <> "\niPairResults: " <> show (uncurry averageNodes <$> shortestPairs iNodes) <> "\n" <> show (isSomething shortestIPairDistance) <> "\n" 
-                                <> "\nmixedPairDistance: " <> show shortestMixedPairDistance <> "\nnum of mixedPairs Found: " <> show (length shortestMixedPairs) <> "\nshortestMixedPairs: " <> show shortestMixedPairs <> "\nMixedPairResults: " <> show (uncurry averageNodes <$> shortestMixedPairs) <> "\n" <> show (isSomething shortestMixedPairDistance) <> "\n" <> show (shortestEPairDistance == shortestPairDistance) 
+                                <> "\nePairDistance: " <> show shortestEPairDistance <> "\nnum of ePairs Found: " <> show (length $ shortestPairs eNodes) <> "\nshortestEPairs: " <> show (shortestPairs eNodes) <> "\nePairResults: " <> show (uncurry averageNodes <$> shortestPairs eNodes) <> "\n" <> show (isSomething shortestEPairDistance) <> "\n"
+                                <> "\niPairDistance: " <> show shortestIPairDistance <> "\nnum of iPairs Found: " <> show (length $ shortestPairs iNodes) <> "\nshortestIPairs: " <> show (shortestPairs iNodes) <> "\niPairResults: " <> show (uncurry averageNodes <$> shortestPairs iNodes) <> "\n" <> show (isSomething shortestIPairDistance) <> "\n"
+                                <> "\nmixedPairDistance: " <> show shortestMixedPairDistance <> "\nnum of mixedPairs Found: " <> show (length shortestMixedPairs) <> "\nshortestMixedPairs: " <> show shortestMixedPairs <> "\nMixedPairResults: " <> show (uncurry averageNodes <$> shortestMixedPairs) <> "\n" <> show (isSomething shortestMixedPairDistance) <> "\n" <> show (shortestEPairDistance == shortestPairDistance)
                                 <> "\nresultingENodes: " <> show remainingENodes <> "\nresultingNodes: " <> show remainingINodes <> "\nthisGen: " <> show averageOfShortestPairs
 --      | otherwise = Left $ PartialNodes [] "NOMATCH"
       where
@@ -127,17 +127,17 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
               where
                 allCollinearNodes myNodePairs = nub $ (fst <$> myNodePairs) ++ (snd <$> myNodePairs)
 
-        -- | make sure we have a potential intersection between two nodes to work with. 
+        -- | make sure we have a potential intersection between two nodes to work with.
         hasShortestPair :: Bool
         hasShortestPair = not $ null (intersectingNodePairsOf eNodes) && null (intersectingNodePairsOf iNodes) && null intersectingMixedNodePairs
 
-        -- | make sure we have a potential intersection between two nodes to work with. 
+        -- | make sure we have a potential intersection between two nodes to work with.
         isCollinearPair :: Bool
         isCollinearPair = length eNodes + length iNodes == 2 && isCollinear (head allNodeOutputs) (last allNodeOutputs)
           where
             allNodeOutputs = (outOf <$> eNodes) ++ (outOf <$> iNodes)
 
-        -- | make sure we have a potential intersection between two nodes to work with. 
+        -- | make sure we have a potential intersection between two nodes to work with.
         makeCollinearPair :: INode
         makeCollinearPair
           | null eNodes        && length iNodes == 2 = INode [outOf $ head iNodes, outOf $ last iNodes] Nothing
@@ -243,7 +243,6 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
           | hasArc node1 && hasArc node2 = not $ noIntersection (outOf node1) (outOf node2)
           | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
 
-
 -- | For a given set of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
 --   Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
 averageNodes :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> INode
@@ -321,7 +320,6 @@ makeFirstENode seg1 seg2 = ENode (seg1,seg2) $ getFirstArc seg1 seg2
 --   Note that we normalize the output of eToPLine2, because by default, it does not output normalized lines.
 getFirstArc :: LineSeg -> LineSeg -> PLine2
 getFirstArc seg1@(LineSeg start1 _) seg2@(LineSeg start2 _) = getInsideArc start1 (normalizePLine2 $ eToPLine2 seg1) start2 (normalizePLine2 $ eToPLine2 seg2)
-
 
 -- | Find the reflex virtexes of a contour, and draw Nodes from them.
 --   This function is for use on interior contours.
