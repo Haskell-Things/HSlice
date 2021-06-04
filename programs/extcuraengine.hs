@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 -- Slicer.
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco
@@ -172,7 +173,6 @@ mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [0::Fastℕ,1
 ------------------------ Slicing Plan ------------------------
 --------------------------------------------------------------
 
-
 -- The difference between a slicing plan, and a Print is that a Print should specify characteristics of the resulting object, where a Plan should specify what methods to attempt to use to accomplish that goal.
 data Plan =
   Plan
@@ -342,7 +342,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
             (_:tailContours) -> concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) childContours tailContours
           drawInfill = GCMarkInfillStart : gcodeForInfill lh ls infillLineSegs
   -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
-  layerStart <> concat (renderContourTree <$> allContours) <> support <> layerEnd 
+  layerStart <> concat (renderContourTree <$> allContours) <> support <> layerEnd
     where
       reduceContour :: Contour -> [Contour] -> Maybe StraightSkeleton -> ℝ -> Contour
       reduceContour targetContour insideContours targetSkeleton insetAmt = fromMaybe reduceByShrink reduceBySkeleton
@@ -415,13 +415,12 @@ data ExtCuraEngineSubOpts =
 
 -- | A parser for curaengine style command line arguments.
 extCuraEngineOpts :: Parser ExtCuraEngineRootOpts
-extCuraEngineOpts = hsubparser $ 
+extCuraEngineOpts = hsubparser $
   command "connect"
   (info connectParser (progDesc "Connect to target"))
   <>
   command "slice"
   (info sliceParser (progDesc "Slice input file"))
-   
 
 connectParser :: Parser ExtCuraEngineRootOpts
 connectParser = pure (ExtCuraEngineRootOpts "connect")

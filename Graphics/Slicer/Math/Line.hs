@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco
  - Copyright 2019 Julia Longtin
@@ -64,7 +65,7 @@ pointsFromLineSegs lineSegs
   | otherwise = Right $ makePoints lineSegs
   where
     makePoints ls = last (endpointsOf ls) : init (endpointsOf ls)
-    -- FIXME: nub should not be necessary here. 
+    -- FIXME: nub should not be necessary here.
     endpointsOf :: [LineSeg] -> [Point2]
     endpointsOf ls = nub $ endpoint <$> ls
 

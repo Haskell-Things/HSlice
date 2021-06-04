@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 -----------------------------------------------------------------------
 ----------------------------- SUPPORT ---------------------------------
 -----------------------------------------------------------------------
@@ -39,7 +40,6 @@ import Graphics.Slicer.Math.Definitions (Contour(SafeContour), Point2(Point2), x
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
 
 import Graphics.Slicer.Machine.Infill (infillLineSegInside, coveringLineSegsVertical)
-
 
 -- | shorten a line segment by a given amount in millimeters on each end
 shortenLineBy :: ℝ -> LineSeg -> LineSeg

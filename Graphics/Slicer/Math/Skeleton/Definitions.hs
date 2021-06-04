@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 {-
  - Copyright 2021 Julia Longtin
  -
@@ -57,7 +58,7 @@ class Arcable a where
   hasArc :: a -> Bool
   outOf :: a -> PLine2
 
--- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour. 
+-- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 data ENode = ENode { _inSegs :: (LineSeg, LineSeg), _arcOut :: PLine2 }
   deriving Eq
   deriving stock Show
@@ -110,7 +111,7 @@ instance Pointable INode where
         where
           saneIntersect (IntersectsIn a) = Just a
           saneIntersect _                = Nothing
-  ePointOf a = pToEPoint2 $ pPointOf a 
+  ePointOf a = pToEPoint2 $ pPointOf a
 
 -- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior or the exterior of a contour.
 --   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.

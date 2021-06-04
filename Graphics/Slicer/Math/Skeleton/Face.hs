@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 {-
  - Copyright 2020 Julia Longtin
  -
@@ -90,7 +91,7 @@ facesOf (StraightSkeleton nodeLists spine)
           | nodeTree1 `isLeftOf` nodeTree2  = if last (lastPLinesOf nodeTree1) == last (firstPLinesOf nodeTree2)
                                               then makeFace (firstENodeOf nodeTree1) (init (lastPLinesOf nodeTree1) ++ tail (reverse $ init $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
                                               else makeFace (firstENodeOf nodeTree1) (init (lastPLinesOf nodeTree1) ++       reverse  (init $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
-          | otherwise = error $ "merp.\n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n" 
+          | otherwise = error $ "merp.\n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
           where
             isLeftOf :: NodeTree -> NodeTree -> Bool
             isLeftOf nt1 nt2 = firstSegOf nt1 == lastSegOf nt2
@@ -161,5 +162,4 @@ facesOf (StraightSkeleton nodeLists spine)
       | seg2 == seg3 = Face seg2 pline2 arcs pline1
       | seg1 == seg4 = Face seg1 pline1 arcs pline2
       | otherwise = error $ "cannot make a face from nodes that are not neighbors: \n" <> show node1 <> "\n" <> show node2 <> "\n"
-
 

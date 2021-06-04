@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco
  - Copyright 2019 Julia Longtin
@@ -41,7 +42,6 @@
 
  - cut and paste, drop into https://enkimute.github.io/ganja.js/examples/coffeeshop.html, click 'Run'
  -}
-
 
 module Graphics.Slicer.Math.Ganja (toGanja, dumpGanja, dumpGanjas) where
 
@@ -203,4 +203,4 @@ ganjaFooterEnd = "  ],{\n"
                  <> "    scale: 1,\n"
                  <> "}));\n"
                  <> "});\n"
-  
+

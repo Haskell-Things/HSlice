@@ -1,3 +1,4 @@
+{- ORMOLU_DISABLE -}
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco
  - Copyright 2019 Julia Longtin
@@ -155,5 +156,4 @@ coveringLineSegsHorizontal contour ls = eToPLine2 . flip LineSeg slope . f <$> [
       yMinRaw = minimum $ yOf <$> contourPoints
       yMin = head $ filter (> yMinRaw) [0, ls..]
       yMax = maximum $ yOf <$> contourPoints
-
 
