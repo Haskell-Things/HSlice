@@ -41,7 +41,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (⋅), (•), addVal, addVecPair, divVecScalar, getVals, scalarPart, valOf, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (•), addVal, addVecPair, divVecScalar, getVals, scalarPart, valOf, vectorPart)
 
 import Graphics.Slicer.Math.Line(LineSeg(LineSeg))
 
@@ -314,8 +314,8 @@ meet2PLine2 pl1 pl2 = PPoint2 $ pv1 ⎤ pv2
     (PLine2 pv2) = forcePLine2Basis pl2
 
 -- | A type stripping meet finction.
-meet2PPoint2 :: PPoint2 -> PPoint2 -> GVec
-meet2PPoint2 pp1 pp2 = pv1 ⎤ pv2
+_meet2PPoint2 :: PPoint2 -> PPoint2 -> GVec
+_meet2PPoint2 pp1 pp2 = pv1 ⎤ pv2
   where
     (PPoint2 pv1) = forcePPoint2Basis pp1
     (PPoint2 pv2) = forcePPoint2Basis pp2
@@ -329,8 +329,8 @@ pToEPoint2 :: PPoint2 -> Point2
 pToEPoint2 (PPoint2 (GVec pPoint)) = Point2 (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] pPoint
                                             ,         valOf 0 $ getVals [GEZero 1, GEPlus 1] pPoint)
 
-idealPPoint2 :: PPoint2 -> PPoint2
-idealPPoint2 (PPoint2 (GVec vals)) = PPoint2 $ GVec $ foldl' addVal []
+_idealPPoint2 :: PPoint2 -> PPoint2
+_idealPPoint2 (PPoint2 (GVec vals)) = PPoint2 $ GVec $ foldl' addVal []
                                      [
                                        GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] vals) [GEZero 1, GEPlus 1]
                                      , GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] vals) [GEZero 1, GEPlus 2]
@@ -419,8 +419,8 @@ canonicalizePPoint2 :: PPoint2 -> PPoint2
 canonicalizePPoint2 (PPoint2 vec@(GVec vals)) = PPoint2 $ divVecScalar vec $ valOf 1 $ getVals [GEPlus 1, GEPlus 2] vals
 
 -- | The idealized norm of a euclidian projective point.
-idealNormPPoint2 :: PPoint2 -> ℝ
-idealNormPPoint2 ppoint = sqrt (x*x+y*y)
+_idealNormPPoint2 :: PPoint2 -> ℝ
+_idealNormPPoint2 ppoint = sqrt (x*x+y*y)
   where
     (Point2 (x,y)) = pToEPoint2 ppoint
 

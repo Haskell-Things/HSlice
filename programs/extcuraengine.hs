@@ -28,7 +28,7 @@
 -- For matching our OpenScad variable types.
 {-# LANGUAGE ViewPatterns #-}
 
-import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, init, error, div, reverse, fst, filter, (<=), (&&), Either(Right), (>))
+import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, error, div, reverse, fst, filter, (<=))
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -40,13 +40,13 @@ import Data.ByteString.UTF8 (fromString)
 
 import Data.String (String)
 
-import Data.Bool(Bool(True, False), otherwise, not)
+import Data.Bool(Bool(True, False), otherwise)
 
-import Data.List (length, zip, tail, head, zipWith, maximum, minimum, last, concat, null)
+import Data.List (length, zip,  head, zipWith, maximum, minimum, last, concat, null)
 
 import Control.Monad ((>>=))
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe, mapMaybe, isJust, fromJust)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe, mapMaybe)
 
 import Text.Show(show)
 
@@ -69,7 +69,7 @@ import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString,
 
 import Graphics.Implicit.Definitions (ℝ, ℕ, Fastℕ(Fastℕ), fromFastℕ, fromFastℕtoℝ)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea, CylinderArea), Contour, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), makeContourTree, ContourTree(ContourTree))
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea), Contour, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), makeContourTree, ContourTree(ContourTree))
 
 import Graphics.Slicer.Formats.STL.Definitions (trianglesFromSTL)
 
@@ -79,11 +79,11 @@ import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yO
 
 import Graphics.Slicer.Math.Tri (Tri, sidesOf, shiftTri, triIntersects)
 
-import Graphics.Slicer.Math.Line (flipLineSeg, LineSeg(LineSeg), lineSegFromEndpoints)
+import Graphics.Slicer.Math.Line (flipLineSeg, LineSeg(LineSeg))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton)
 
-import Graphics.Slicer.Math.Skeleton.Face (Face, orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Face (orderedFacesOf)
 
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
 
@@ -93,7 +93,7 @@ import Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Hori
 
 import Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour)
 
-import Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart, GCMarkSupportStart), cookExtrusions, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText)
+import Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart), cookExtrusions, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText)
 
 default (ℕ, Fastℕ, ℝ)
 
@@ -262,7 +262,7 @@ sliceObject printer@(Printer _ _ extruder) print allLayers =
     slicingPlan = Plan (Extrude (ZLayers,SkeletonFailThrough))
 
 sliceLayer :: Printer -> Print -> Plan -> Bool -> ([Contour], Fastℕ) -> [GCode]
-sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBeforeInner infillSpeed) plan isLastLayer (layerContours, layerNumber) = do
+sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBeforeInner infillSpeed) _plan isLastLayer (layerContours, layerNumber) = do
   let
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToContour :: Contour -> [GCode]
@@ -547,7 +547,7 @@ run rawArgs = do
       inFile = fromMaybe "in.stl" $ inputFileOpt args
     stl <- readFile inFile
     -- FIXME: do something with messages.
-    (settings, messages) <- addConstants $ settingOpts args
+    (settings, _messages) <- addConstants $ settingOpts args
     let
       printer   = printerFromSettings settings
       buildarea = buildArea printer
