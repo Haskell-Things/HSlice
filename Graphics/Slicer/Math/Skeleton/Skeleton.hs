@@ -26,15 +26,17 @@
 
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), head, null, filter, zip, Either(Right), last, (>), even)
+import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), head, null, filter, zip, Either(Right), (>), even)
+
+import Data.Maybe( Maybe(Just,Nothing), catMaybes)
+
+import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), CellDivide(CellDivide), concavePLines, linePairs, outOf, pPointOf)
 
 import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PCollinear), plinesIntersectIn)
-
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, isNothing)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
@@ -55,23 +57,27 @@ import Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne)
 -- FIXME: Does not know how to calculate a straight skeleton for contours with holes, or more than one motorcycle.. or two motorcycles that are collinear.
 -- FIXME: abusing Maybe until we can cover all cases.
 findStraightSkeleton :: Contour -> [Contour] -> Maybe StraightSkeleton
-findStraightSkeleton contour holes
-  | isNothing foundCrashTree                                                                 = Nothing
-  | null holes && null (motorcyclesIn foundCrashTree)                                        = Just $ StraightSkeleton [[skeletonOfConcaveRegion (linesOfContour contour) True]] []
-  -- Use the algorithm from Christopher Tscherne's master's thesis.
-  | null holes && length (motorcyclesIn foundCrashTree) == 1                                 = applyTscherne contour [CellDivide (motorcyclesIn foundCrashTree) maybeOpposingENode]
-  | null holes && length (motorcyclesIn foundCrashTree) == 2 && lastCrashType == Just HeadOn = applyTscherne contour [CellDivide (motorcyclesIn foundCrashTree) maybeOpposingENode]
-  | otherwise = Nothing
+findStraightSkeleton contour holes = case foundCrashTree of
+  Nothing -> Nothing
+  (Just crashTree) -> if null holes
+                      then case motorcyclesIn crashTree of
+                             (Slist _ 0) -> Just $ StraightSkeleton [[skeletonOfConcaveRegion (linesOfContour contour) True]] []
+                             -- Use the algorithm from Christopher Tscherne's master's thesis.
+                             (Slist inMC 1) -> applyTscherne contour [CellDivide inMC maybeOpposingENode]
+                             (Slist inMCs 2) -> if lastCrashType == Just HeadOn
+                                                then applyTscherne contour [CellDivide inMCs maybeOpposingENode]
+                                                else Nothing
+                             (Slist _ _) -> Nothing
+                      else Nothing
   where
     foundCrashTree = crashMotorcycles contour holes
-    motorcyclesIn (Just (CrashTree motorcycles _ _)) = motorcycles
-    motorcyclesIn Nothing = []
+    motorcyclesIn (CrashTree motorcycles _ _) = motorcycles
 
     -- | find nodes or motorcycles where the arc coresponding to them is collinear with the dividing Motorcycle.
-    maybeOpposingENode
-      | null opposingNodes           = Nothing
-      | length opposingNodes == 1    = Just $ head opposingNodes
-      | otherwise                    = error "more than one opposing node. impossible situation."
+    maybeOpposingENode = case opposingNodes of
+                         [] -> Nothing
+                         [oneNode] -> Just oneNode
+                         _ -> error "more than one opposing node. impossible situation."
       where
         opposingNodes :: [ENode]
         opposingNodes = filter (\eNode -> enoughIntersections $ length (contourIntersections contour (Right $ pPointOf eNode) (Right $ pPointOf dividingMotorcycle)))
@@ -84,9 +90,11 @@ findStraightSkeleton contour holes
     ------------------------------------------------------
 
     -- Determine the type of the last crash that occured. only useful when we're dealing with two motorcycles, and want to find out if we can treat them like one motorcycle.
-    lastCrashType
-      | isJust (lastCrash foundCrashTree) && collisionResult (fromJust $ lastCrash foundCrashTree) == HeadOn = Just HeadOn
-      | otherwise = Nothing
+    lastCrashType = case lastCrash foundCrashTree of
+                      (Just crash) -> if collisionResult crash == HeadOn
+                                      then Just HeadOn
+                                      else Nothing
+                      Nothing -> Nothing
         where
           lastCrash :: Maybe CrashTree -> Maybe Crash
           lastCrash (Just (CrashTree _ _ crashes)) = Just $ last $ last crashes
@@ -96,7 +104,11 @@ findStraightSkeleton contour holes
     -- routines used when a single motorcycle has been found.
     ---------------------------------------------------------
     -- when we have just a single dividing motorcycle, we can use tscherneCheat.
-    dividingMotorcycle = head (motorcyclesIn foundCrashTree)
+    dividingMotorcycle = case foundCrashTree of
+                           Nothing -> error "no crash tree?"
+                           (Just crashTree) -> case motorcyclesIn crashTree of
+                                                 (Slist [inMC] 1) -> inMC
+                                                 (Slist _ _) -> error "cannot handle anything but one motorcycle."
 
 -- | Find the non-reflex virtexes of a contour, and create ENodes from them.
 --   This function is meant to be used on the exterior contour.

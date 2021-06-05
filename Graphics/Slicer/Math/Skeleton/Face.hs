@@ -62,9 +62,13 @@ orderedFacesOf start skeleton = facesFromIndex start $ facesOf skeleton
 -- | take a straight skeleton, and create faces from it.
 facesOf :: StraightSkeleton -> [Face]
 facesOf (StraightSkeleton nodeLists spine)
-  | null spine && length nodeLists == 1 = findFaces (head nodeLists)
-  | otherwise                           = error "cannot yet handle spines, or more than one NodeList."
+  | null spine = case nodeLists of
+                   [] -> nodeListError
+                   [oneNodeList] -> findFaces oneNodeList
+                   (_:_) -> nodeListError
+  | otherwise = error "cannot yet handle spines, or more than one NodeList."
   where
+    nodeListError = error "cannot handle anything other than one NodeList in a straight skeleton."
     -- find all of the faces of a set of nodeTrees.
     findFaces :: [NodeTree] -> [Face]
     findFaces nodeTrees
@@ -73,14 +77,18 @@ facesOf (StraightSkeleton nodeLists spine)
       | length nodeTrees  > 1                                            = rawFaces
       | otherwise            = error $ "abandon hope!\n" <> show (length nodeLists) <> "\n" <> show nodeLists <> "\n" <> show (length nodeTrees) <> "\n" <> show nodeTrees <> "\n" <> show rawFaces <> "\n"
       where
-        rawFaces = findFacesRecurse nodeTrees ++
-                   if length nodeTrees > 1 then [intraNodeFace (last nodeTrees) (head nodeTrees)] else []
+        rawFaces = case nodeTrees of
+                     [] -> []
+                     [a] -> facesOfNodeTree a
+                     [firstNodeTree, secondNodeTree] -> findFacesRecurse nodeTrees ++ [intraNodeFace secondNodeTree firstNodeTree]
+                     (firstNodeTree:secondNodeTree:lastNodeTrees) -> findFacesRecurse nodeTrees ++ [intraNodeFace (last lastNodeTrees) firstNodeTree]
         -- Recursively find faces.
         findFacesRecurse :: [NodeTree] -> [Face]
-        findFacesRecurse []               = []
-        findFacesRecurse [tree1]          = facesOfNodeTree tree1
-        findFacesRecurse [tree1,tree2]    = facesOfNodeTree tree2 ++ (intraNodeFace tree1 tree2 : facesOfNodeTree tree1)
-        findFacesRecurse (tree1:tree2:xs) = findFacesRecurse (tree2:xs) ++ (intraNodeFace tree1 tree2 : facesOfNodeTree tree1)
+        findFacesRecurse myNodeTrees = case myNodeTrees of
+                                         [] -> []
+                                         [tree1] -> facesOfNodeTree tree1
+                                         [tree1,tree2] -> facesOfNodeTree tree2 ++ (intraNodeFace tree1 tree2 : facesOfNodeTree tree1)
+                                         (tree1:tree2:xs) -> findFacesRecurse (tree2:xs) ++ (intraNodeFace tree1 tree2 : facesOfNodeTree tree1)
         -- Create a single face for the space between two NodeTrees. like areaBetween, but for two separate NodeTrees.
         intraNodeFace :: NodeTree -> NodeTree -> Face
         intraNodeFace nodeTree1 nodeTree2
