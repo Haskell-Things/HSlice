@@ -111,6 +111,9 @@ tests: $(EXTCURAENGINEBIN)
 	cd tests && for each in `find ./ -name '*.stl' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINEBIN) slice -l $$each $(RTSOPTS); md5sum out.gcode; } done
 #	$(TESTSUITE)
 
+format:
+	./layout/ormolu.sh -f
+
 # The Hslice library.
 $(LIBTARGET): $(LIBFILES)
 	cabal v2-build ${PROFILING} hslice
