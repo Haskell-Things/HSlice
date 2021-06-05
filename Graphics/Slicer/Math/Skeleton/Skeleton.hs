@@ -26,7 +26,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (Bool(True), otherwise, ($), (<$>), (==), error, length, (&&), head, null, filter, zip, Either(Right), (>), even)
+import Prelude (Bool(True), ($), (<$>), (==), error, length, (&&), null, filter, zip, Either(Right), (>), even, last)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
