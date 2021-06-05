@@ -21,9 +21,6 @@
    This file will require calling out to other files for applying algorithms.
 -}
 
--- inherit instances when deriving.
-{-# LANGUAGE DerivingStrategies #-}
-
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
 import Prelude (Bool(True), ($), (<$>), (==), error, length, (&&), null, filter, zip, Either(Right), (>), even, last)
@@ -77,7 +74,7 @@ findStraightSkeleton contour holes = case foundCrashTree of
     maybeOpposingENode = case opposingNodes of
                          [] -> Nothing
                          [oneNode] -> Just oneNode
-                         _ -> error "more than one opposing node. impossible situation."
+                         (_:_) -> error "more than one opposing exterior node. impossible situation."
       where
         opposingNodes :: [ENode]
         opposingNodes = filter (\eNode -> enoughIntersections $ length (contourIntersections contour (Right $ pPointOf eNode) (Right $ pPointOf dividingMotorcycle)))
