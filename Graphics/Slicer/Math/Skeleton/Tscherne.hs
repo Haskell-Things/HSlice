@@ -53,10 +53,11 @@ applyTscherne contour cellDivisions =
   -- | use observations from christopher tscherne's masters thesis to cover the corner cases that do not require the whole algorithm.
   -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point
   case cellDivisions of
+    [] -> Nothing
     [oneDivision] -> if cellsDoNotOverlap (leftSide, oneDivision) (rightSide, oneDivision)
                      then Just $ addMirrorCells leftSide rightSide oneDivision
                      else errorIncomplete
-    _             -> Nothing
+    (_:_) -> Nothing
   where
     -- FIXME: ok, can't cheat. apply the full algorithm.
     errorIncomplete = error $ "failing to apply Tscherne's method.\n" <>
@@ -76,7 +77,7 @@ applyTscherne contour cellDivisions =
                                            (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreCollinear firstMotorcycle secondMotorcycle
                                                                                                                  then res
                                                                                                                  else False
-                                           _ -> False
+                                           (DividingMotorcycles _ (Slist _ _)) -> False
       | otherwise = False
       where
         res = null (crossoverENodes cell1 cellDivision1) &&
@@ -86,7 +87,7 @@ applyTscherne contour cellDivisions =
     -- Check that the outputs of the cells collide at the same point at the division between the two cells.
     cellOutsIntersect cell1 cell2 (CellDivide motorcycles _) = case motorcycles of
                                                                  (DividingMotorcycles m (Slist _ 0)) -> plinesIntersectIn (finalPLine cell1) (outOf m) == plinesIntersectIn (finalPLine cell2) (outOf m)
-                                                                 _ -> error "cannot yet check outpoint intersections of more than one motorcycle."
+                                                                 (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet check outpoint intersections of more than one motorcycle."
 
     -- | given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
     crossoverENodes :: NodeTree -> CellDivide -> [ENode]
