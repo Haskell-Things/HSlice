@@ -79,7 +79,7 @@ applyTscherne contour cellDivisions =
       where
         res = null (crossoverENodes cell1 cellDivision1) &&
               null (crossoverENodes cell2 cellDivision2) &&
-             cellOutsIntersect cell1 cell2 cellDivision1
+              cellOutsIntersect cell1 cell2 cellDivision1
 
     -- Check that the outputs of the cells collide at the same point at the division between the two cells.
     cellOutsIntersect cell1 cell2 (CellDivide motorcycles _) = case motorcycles of
