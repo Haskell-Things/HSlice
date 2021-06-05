@@ -30,7 +30,6 @@ jobs:
         ghc:
           - '8.10.4'
           - '8.8.4'
-          - '8.6.5'
 name: Haskell CI
 on:
   - push
