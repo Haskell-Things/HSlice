@@ -81,7 +81,7 @@ facesOf (StraightSkeleton nodeLists spine)
                      [] -> []
                      [a] -> facesOfNodeTree a
                      [firstNodeTree, secondNodeTree] -> findFacesRecurse nodeTrees ++ [intraNodeFace secondNodeTree firstNodeTree]
-                     (firstNodeTree:secondNodeTree:lastNodeTrees) -> findFacesRecurse nodeTrees ++ [intraNodeFace (last lastNodeTrees) firstNodeTree]
+                     (firstNodeTree:_:lastNodeTrees) -> findFacesRecurse nodeTrees ++ [intraNodeFace (last lastNodeTrees) firstNodeTree]
         -- Recursively find faces.
         findFacesRecurse :: [NodeTree] -> [Face]
         findFacesRecurse myNodeTrees = case myNodeTrees of
