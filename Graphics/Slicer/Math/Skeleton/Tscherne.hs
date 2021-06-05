@@ -40,7 +40,7 @@ import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
 
 import Data.List (elemIndex)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, fromMaybe)
+import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromMaybe)
 
 import Graphics.Slicer.Math.Contour (linesOfContour)
 
@@ -112,9 +112,9 @@ applyTscherne contour cellDivisions =
                                                                                                              else errorOut
                                                                       _                                   -> errorOut
             where
-              res = if isJust maybeENode
-                    then [NodeTree (motorcycleToENode <$> motorcycles) [], NodeTree [fromJust maybeENode] []]
-                    else [NodeTree (motorcycleToENode <$> motorcycles) []]
+              res = case maybeENode of
+                      (Just eNode) -> [NodeTree (motorcycleToENode <$> motorcycles) [], NodeTree [eNode] []]
+                      Nothing -> [NodeTree (motorcycleToENode <$> motorcycles) []]
               errorOut = error "tried to add two cells with a non-bilateral cellDivide"
 
     -- check if the output of two motorcycles are collinear with each other.
@@ -128,9 +128,16 @@ applyTscherne contour cellDivisions =
 
     leftSide  = cellAfter contour dividingMotorcycle
     rightSide = cellBefore contour dividingMotorcycle
-    dividingMotorcycle = case motorcyclesFromDivision (head cellDivisions) of
-                           [a] -> a
-                           _   -> error "cannot yet handle more than one dividing motorcycle."
+    dividingMotorcycle = case motorcyclesFromDivision cellDivision of
+                           [] -> error "no motorcycles to work with."
+                           [a]     -> a
+                           (_:_)   -> error "cannot yet handle more than one dividing motorcycle."
+      where
+        cellDivision = case cellDivisions of
+                         [] -> error "no cellDivision to work with."
+                         [a] -> a
+                         (_:_) -> error "cannot yet handle more that one cell division point."
+
 
 -- | Calculate a partial straight skeleton for the motorcycle cell that is on the left side of the point that a motorcycle's path starts at, ending where the motorcycle intersects the contour.
 cellAfter :: Contour -> Motorcycle -> NodeTree
@@ -182,7 +189,10 @@ segIndex seg segs = fromMaybe (error "cannot find item") $ elemIndex seg segs
 
 -- | Search a contour starting at the beginning, and return the first of the two line segments given
 findSegFromStart :: Contour -> LineSeg -> LineSeg -> LineSeg
-findSegFromStart c seg1 seg2 = head $ catMaybes $ foundSeg seg1 seg2 <$> linesOfContour c
+findSegFromStart c seg1 seg2 = case catMaybes (foundSeg seg1 seg2 <$> linesOfContour c) of
+                                 [] -> error "could not find requested segment."
+                                 [a] -> a
+                                 (a:_) -> a
   where
     foundSeg s1 s2 sn
       | sn == s1  = Just s1
