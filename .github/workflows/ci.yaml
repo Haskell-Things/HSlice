@@ -16,13 +16,13 @@ jobs:
       - name: Install dependencies
         run: |
           cabal update
-          cabal build --enable-tests --enable-benchmarks --only-dependencies
-      - name: build
-        run: cabal build --enable-tests --enable-benchmarks
-      - name: test
-        run: cabal test --enable-tests
-      - name: haddock
-        run: cabal haddock 
+          cabal build all --enable-tests --enable-benchmarks --only-dependencies
+      - name: build all
+        run: cabal build all --enable-tests --enable-benchmarks
+      - name: test all
+        run: cabal test all --enable-tests
+      - name: haddock all
+        run: cabal haddock all 
     strategy:
       matrix:
         cabal:
