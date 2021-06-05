@@ -27,7 +27,7 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, Motorcycle(Motorcycle), CellDivide(CellDivide), concavePLines, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf) where
+module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf) where
 
 import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, length, (>), (&&), any, head, fst, and, (||), (<>), null, show)
 
@@ -35,7 +35,9 @@ import Data.List.NonEmpty (NonEmpty)
 
 import Data.List.Unique (count_)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
+import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust, fromJust)
+
+import Slist.Type (Slist)
 
 import Graphics.Slicer.Math.Contour (linesOfContour)
 
@@ -131,9 +133,13 @@ instance Pointable Motorcycle where
   pPointOf a = eToPPoint2 $ ePointOf a
   ePointOf (Motorcycle (_, LineSeg point _) _) = point
 
+data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: Motorcycle, moreMotorcycles :: Slist Motorcycle}
+  deriving Eq
+  deriving stock Show
+
 -- the border dividing two motorcycle cells.
 -- note that if there is an ENode, it's anticolinnear to the last motorcycle in _divMotorcycles.
-data CellDivide = CellDivide { _divMotorcycles :: [Motorcycle], _divENode :: Maybe ENode }
+data CellDivide = CellDivide { _divMotorcycles :: DividingMotorcycles, _divENode :: Maybe ENode }
   deriving Eq
   deriving stock Show
 

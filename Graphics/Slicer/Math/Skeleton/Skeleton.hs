@@ -34,7 +34,7 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), CellDivide(CellDivide), concavePLines, linePairs, outOf, pPointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, linePairs, outOf, pPointOf)
 
 import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PCollinear), plinesIntersectIn)
 
@@ -63,9 +63,9 @@ findStraightSkeleton contour holes = case foundCrashTree of
                       then case motorcyclesIn crashTree of
                              (Slist _ 0) -> Just $ StraightSkeleton [[skeletonOfConcaveRegion (linesOfContour contour) True]] []
                              -- Use the algorithm from Christopher Tscherne's master's thesis.
-                             (Slist inMC 1) -> applyTscherne contour [CellDivide inMC maybeOpposingENode]
-                             (Slist inMCs 2) -> if lastCrashType == Just HeadOn
-                                                then applyTscherne contour [CellDivide inMCs maybeOpposingENode]
+                             (Slist [inMC] 1) -> applyTscherne contour [CellDivide (DividingMotorcycles inMC (Slist [] 0)) maybeOpposingENode]
+                             (Slist [firstMC,secondMC] 2) -> if lastCrashType == Just HeadOn
+                                                then applyTscherne contour [CellDivide (DividingMotorcycles firstMC (Slist [secondMC] 1)) maybeOpposingENode]
                                                 else Nothing
                              (Slist _ _) -> Nothing
                       else Nothing
