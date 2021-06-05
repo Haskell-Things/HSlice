@@ -26,7 +26,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Motorcycles (Collision(HeadOn), CrashTree(CrashTree), motorcycleToENode, Crash(Crash), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles) where
 
-import Prelude (Bool(True, False), Either(Left,Right), Eq, error, head, last, length, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (||), (.), zip, not, null)
+import Prelude (Bool(True, False), Either(Left,Right), Eq, error, head, length, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (||), (.), zip, null)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, isNothing)
 
