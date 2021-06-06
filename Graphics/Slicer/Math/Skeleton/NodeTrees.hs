@@ -20,7 +20,7 @@
 
 module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, sortNodeTrees) where
 
-import Prelude (Bool(True,False), Ordering(LT,GT), (==), fst, otherwise, snd, ($), length, error, (<>), show, (<>), (>), head, (&&), filter, init, null, last)
+import Prelude (Bool(True,False), Ordering(LT,GT), (==), fst, otherwise, snd, ($), error, (<>), show, (<>), head, filter, init, null, last)
 
 import Data.List (sortBy)
 
@@ -44,111 +44,78 @@ lastENodeOf nodeTree = (\(_,_,c) -> c) $ pathLast nodeTree
 firstENodeOf :: NodeTree -> ENode
 firstENodeOf nodeTree = (\(_,_,c) -> c) $ pathFirst nodeTree
 
--- dependent utility functions. used by last and first segment finder, and internal components.
--- FIXME: should lastSegOf, firstSegOf, and the below stuff be in a different place?
+-- whether to follow the first or the last node in a branch, when branching in pathTo.
+data Direction = Head
+               | Last
 
--- FIXME: merge pathFirst and pathLast. they differ by only one line.
--- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.
---   When branching, follow the last PLine in a given node.
-pathFirst :: NodeTree -> ([PLine2], [INode], ENode)
-pathFirst nodeTree@(NodeTree eNodes iNodeSets)
+pathFirst, pathLast :: NodeTree -> ([PLine2], [INode], ENode)
+pathFirst nodeTree = pathTo nodeTree Head
+pathLast nodeTree = pathTo nodeTree Last
+
+-- | Find all of the Nodes and all of the arcs between the last item in the nodeTree and the node that is part of the original contour on the given side.
+pathTo :: NodeTree -> Direction -> ([PLine2], [INode], ENode)
+pathTo nodeTree@(NodeTree eNodes iNodeSets) direction
   | null iNodeSets  = ([outOf (last eNodes)], [], last eNodes)
-  | otherwise = pathFirstInner (init iNodeSets) eNodes (finalINodeOf nodeTree)
+  | otherwise = pathInner (init iNodeSets) eNodes (finalINodeOf nodeTree)
   where
-    pathFirstInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
-    pathFirstInner myINodeSets myENodes target@(INode plinesIn _)
+    pathInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
+    pathInner myINodeSets myENodes target@(INode plinesIn _)
       | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
       | otherwise     = (               childPlines, target: endNodes, finalENode)
       where
-        pLineToFollow = head plinesIn
+        pLineToFollow = case direction of
+                          Head -> head plinesIn
+                          Last -> last plinesIn
         iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow False
         iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow True
         result = findENodeByOutput myENodes pLineToFollow
         terminate = ([outOf $ fromJust result], [], fromJust result)
         myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodes <> "\n" <> show myINodeSets <> "\n"
-        (childPlines, endNodes, finalENode)
-          | null myINodeSets &&
-            isJust result            = terminate
-          -- nothing left to do.
-          | null myINodeSets         = myError
-          -- cannot happen.
-          | length myINodeSets == 1 &&
-            isJust iNodeOnThisLevel &&
-            isJust result            = myError
-          | length myINodeSets == 1 &&
-            isJust result            = terminate
-          | isJust iNodeOnThisLevel  = pathFirstInner myINodeSets myENodes (snd $ fromJust iNodeOnThisLevel)
-          -- nothing left to do.
-          | length myINodeSets == 1  = myError
-          | isJust iNodeOnLowerLevel = pathFirstInner (init $ fst $ fromJust iNodeOnLowerLevel) myENodes (snd $ fromJust iNodeOnLowerLevel)
-          | isJust result            = terminate
-          -- cannot happen
-          | otherwise                = myError
-
--- | Find all of the Nodes and all of the arcs between the last of the nodeTree and the node that is part of the original contour.
---   When branching, follow the last PLine in a given node.
-pathLast :: NodeTree -> ([PLine2], [INode], ENode)
-pathLast nodeTree@(NodeTree eNodes iNodeSets)
-  | null iNodeSets  = ([outOf (last eNodes)], [], last eNodes)
-  | otherwise = pathLastInner (init iNodeSets) eNodes (finalINodeOf nodeTree)
-  where
-    pathLastInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
-    pathLastInner myINodeSets myENodes target@(INode plinesIn _)
-      | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
-      | otherwise     = (               childPlines, target: endNodes, finalENode)
-      where
-        pLineToFollow = last plinesIn
-        iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow False
-        iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow True
-        result = findENodeByOutput myENodes pLineToFollow
-        terminate = ([outOf $ fromJust result], [], fromJust result)
-        myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodes <> "\n" <> show myINodeSets <> "\n"
-        (childPlines, endNodes, finalENode)
-          | null myINodeSets &&
-            isJust result            = terminate
-          -- nothing left to do.
-          | null myINodeSets         = myError
-          -- cannot happen.
-          | length myINodeSets == 1 &&
-            isJust iNodeOnThisLevel &&
-            isJust result            = myError
-          | length myINodeSets == 1 &&
-            isJust result            = terminate
-          | isJust iNodeOnThisLevel  = pathLastInner myINodeSets myENodes (snd $ fromJust iNodeOnThisLevel)
-          -- nothing left to do.
-          | length myINodeSets == 1  = myError
-          | isJust iNodeOnLowerLevel = pathLastInner (init $ fst $ fromJust iNodeOnLowerLevel) myENodes (snd $ fromJust iNodeOnLowerLevel)
-          | isJust result            = terminate
-          -- cannot happen
-          | otherwise                = myError
-
--- | Find a node with an output of the PLine given. Start at the most recent generation, and check backwards.
-findINodeByOutput :: [[INode]] -> PLine2 -> Bool -> Maybe ([[INode]],INode)
-findINodeByOutput iNodeSets plineOut recurse
-  | null iNodeSets            = error "could not find inode. empty set?"
-  | length nodesMatching == 1 = Just (iNodeSets, head nodesMatching)
-  | length iNodeSets > 1 &&
-    null nodesMatching &&
-    recurse                   = findINodeByOutput (init iNodeSets) plineOut recurse
-  | null nodesMatching        = Nothing
-  | otherwise                 = error "more than one node in a given generation with the same PLine out!"
-  where
-    nodesMatching = filter (\(INode _ a) -> a == Just plineOut) (last iNodeSets)
+        (childPlines, endNodes, finalENode) = if isJust result
+                                              then terminate
+                                              else case iNodeOnThisLevel of
+                                                     (Just res) -> pathInner myINodeSets myENodes (snd res)
+                                                     Nothing -> case myINodeSets of
+                                                                  [] -> myError
+                                                                  [_] -> myError
+                                                                  (_:_) ->  case iNodeOnLowerLevel of
+                                                                              (Just res) -> pathInner (init $ fst res) myENodes (snd res)
+                                                                              Nothing -> myError
 
 -- | Find an exterior Node with an output of the PLine given.
 findENodeByOutput :: [ENode] -> PLine2 -> Maybe ENode
 findENodeByOutput eNodes plineOut
-  | null eNodes               = error "could not find enode. empty set?"
-  | length nodesMatching == 1 = Just $ head nodesMatching
-  | null nodesMatching        = Nothing
-  | otherwise                 = error "more than one exterior node with the same PLine out!"
+  | null eNodes = Nothing
+  | otherwise = case nodesMatching of
+                  [] -> Nothing
+                  [oneNode] -> Just oneNode
+                  (_:_) ->  error "more than one exterior node with the same PLine out!"
   where
     nodesMatching = filter (\(ENode _ a) -> a == plineOut) eNodes
 
 -- Sort a set of nodeTrees. they should come out in order, so that the last segment of a preceeding NodeTree stops at the first segment of the current NodeTree
 sortNodeTrees :: [NodeTree] -> [NodeTree]
 sortNodeTrees = sortBy compareNodeTrees
-          where
-            compareNodeTrees nt1 nt2
-              | Just True == outOf (lastENodeOf nt1) `pLineIsLeft` outOf (firstENodeOf nt2) = LT
-              | otherwise                                                                   = GT
+  where
+    compareNodeTrees nt1 nt2 = if outOf (lastENodeOf nt1) `pLineIsLeft` outOf (firstENodeOf nt2) == Just True
+                               then LT
+                               else GT
+
+-- dependent utility functions. used by internal components. not exported.
+
+-- | Find a node with an output of the PLine given. Start at the most recent generation, and check backwards.
+findINodeByOutput :: [[INode]] -> PLine2 -> Bool -> Maybe ([[INode]],INode)
+findINodeByOutput iNodeSets plineOut recurse
+  | null iNodeSets = Nothing
+  | otherwise = case nodesMatching of
+                  [] -> if recurse
+                        then case iNodeSets of
+                               [] -> Nothing
+                               [_] -> Nothing
+                               (_:_) -> findINodeByOutput (init iNodeSets) plineOut recurse
+                        else Nothing
+                  [_] -> Just (iNodeSets, head nodesMatching)
+                  (_:_) -> error "more than one node in a given generation with the same PLine out!"
+  where
+    nodesMatching = filter (\(INode _ a) -> a == Just plineOut) (last iNodeSets)
+
