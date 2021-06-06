@@ -26,9 +26,9 @@
 
 module Graphics.Slicer.Math.Skeleton.Motorcycles (Collision(HeadOn), CrashTree(CrashTree), motorcycleToENode, Crash(Crash), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles) where
 
-import Prelude (Bool(True, False), Either(Left,Right), Eq, error, head, length, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (||), (.), zip, null)
+import Prelude (Bool(True, False), Either(Left,Right), Eq, error, head, length, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, null)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, isNothing)
+import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
 import Data.List as L (filter)
 
@@ -146,9 +146,15 @@ motorcycleIntersectsAt contour motorcycle@(Motorcycle (inSeg,outSeg) _)
   | length (getMotorcycleIntersections motorcycle contour) == 2 && length foundSegEvents == 1 = head foundSegEvents
   | otherwise = error $ "handle more than one intersection point here." <> show (getMotorcycleIntersections motorcycle contour) <> "\n"
   where
-    foundSegEvents = L.filter (\(seg, maybeSeg) -> (seg /= inSeg && seg /= outSeg) &&
-                                                   (isNothing maybeSeg ||
-                                                    (fromJust maybeSeg /= inSeg && fromJust maybeSeg /= outSeg))) $ getMotorcycleIntersections motorcycle contour
+    foundSegEvents = L.filter fun $ getMotorcycleIntersections motorcycle contour
+                     where
+                       -- make sure neither of these segments are inSeg or outSeg
+                       fun (seg,maybeSeg) = if (seg /= inSeg && seg /= outSeg)
+                                            then case maybeSeg of
+                                                   (Just isSeg) -> isSeg /= inSeg && isSeg /= outSeg
+                                                   Nothing -> True
+                                            else False
+
     -- find one of the two segments given, returning the one closest to the head of the given contour.
     getMotorcycleIntersections :: Motorcycle -> Contour -> [(LineSeg, Maybe LineSeg)]
     getMotorcycleIntersections m c = catMaybes $ mapWithNeighbors saneIntersections $ zip contourLines $ intersectsWith (Right $ outOf m) . Left <$> contourLines
