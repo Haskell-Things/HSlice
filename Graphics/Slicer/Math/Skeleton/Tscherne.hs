@@ -74,9 +74,7 @@ applyTscherne contour cellDivisions =
       -- Only works when the CellDivide is simple enough that it is symetrical (a line).
       | cellDivision1 == cellDivision2 = case motorcycles1 of
                                            (DividingMotorcycles _ (Slist [] 0)) -> res
-                                           (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreCollinear firstMotorcycle secondMotorcycle
-                                                                                                                 then res
-                                                                                                                 else False
+                                           (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> motorcyclesAreCollinear firstMotorcycle secondMotorcycle && res
                                            (DividingMotorcycles _ (Slist _ _)) -> False
       | otherwise = False
       where

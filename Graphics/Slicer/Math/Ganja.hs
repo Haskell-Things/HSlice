@@ -49,6 +49,8 @@ import Prelude (String, (<>), (++), (<$>), ($), (>=), concat, error, fst, show, 
 
 import Data.Maybe(isJust, fromJust)
 
+import Slist.Type (Slist(Slist))
+
 import Graphics.Slicer.Math.Contour (pointsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, mapWithFollower)
@@ -163,7 +165,7 @@ instance GanjaAble Contour where
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
 
 instance GanjaAble Face where
-  toGanja (Face edge firstArc arcs lastArc) varname = (invars, inrefs)
+  toGanja (Face edge firstArc (Slist arcs _) lastArc) varname = (invars, inrefs)
     where
       (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
         where

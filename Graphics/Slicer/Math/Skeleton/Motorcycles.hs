@@ -149,11 +149,10 @@ motorcycleIntersectsAt contour motorcycle@(Motorcycle (inSeg,outSeg) _)
     foundSegEvents = L.filter fun $ getMotorcycleIntersections motorcycle contour
                      where
                        -- make sure neither of these segments are inSeg or outSeg
-                       fun (seg,maybeSeg) = if (seg /= inSeg && seg /= outSeg)
-                                            then case maybeSeg of
-                                                   (Just isSeg) -> isSeg /= inSeg && isSeg /= outSeg
-                                                   Nothing -> True
-                                            else False
+                       fun (seg,maybeSeg) = (seg /= inSeg && seg /= outSeg)
+                                            && (case maybeSeg of
+                                                  (Just isSeg) -> isSeg /= inSeg && isSeg /= outSeg
+                                                  Nothing -> True)
 
     -- find one of the two segments given, returning the one closest to the head of the given contour.
     getMotorcycleIntersections :: Motorcycle -> Contour -> [(LineSeg, Maybe LineSeg)]

@@ -30,6 +30,10 @@ import Data.List (dropWhile)
 
 import Data.Maybe(isNothing, fromJust)
 
+import Slist.Type (Slist)
+
+import Slist (slist)
+
 import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
 import Graphics.Slicer.Math.Line (LineSeg)
@@ -47,7 +51,7 @@ import Graphics.Slicer.Math.PGA (PLine2)
 -- | A Face:
 --   A portion of a contour, with a real side, and arcs (line segments between nodes) dividing it from other faces.
 --   Faces have no holes, and their arcs and nodes (line segments and points) are generated from a StraightSkeleton of a Contour.
-data Face = Face { _edge :: LineSeg, _firstArc :: PLine2, _arcs :: [PLine2], _lastArc :: PLine2 }
+data Face = Face { _edge :: LineSeg, _firstArc :: PLine2, _arcs :: Slist PLine2, _lastArc :: PLine2 }
   deriving Eq
   deriving stock Show
 
@@ -167,7 +171,7 @@ facesOf (StraightSkeleton nodeLists spine)
     -- | make a face from two nodes, and a set of arcs. the nodes must be composed of line segments on one side, and follow each other.
     makeFace :: ENode -> [PLine2] -> ENode -> Face
     makeFace node1@(ENode (seg1,seg2) pline1) arcs node2@(ENode (seg3,seg4) pline2)
-      | seg2 == seg3 = Face seg2 pline2 arcs pline1
-      | seg1 == seg4 = Face seg1 pline1 arcs pline2
+      | seg2 == seg3 = Face seg2 pline2 (slist arcs) pline1
+      | seg1 == seg4 = Face seg1 pline1 (slist arcs) pline2
       | otherwise = error $ "cannot make a face from nodes that are not neighbors: \n" <> show node1 <> "\n" <> show node2 <> "\n"
 
