@@ -20,9 +20,9 @@
 
 module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, sortNodeTrees, makeNodeTree) where
 
-import Prelude (Bool(True,False), Ordering(LT,GT), (==), fst, otherwise, snd, ($), error, (<>), show, (<>), head, init, null, last)
+import Prelude (Bool(True,False), Ordering(LT,GT), (==), fst, otherwise, snd, ($), error, (<>), show, (<>), head, init, null)
 
-import Prelude as P (filter)
+import Prelude as P (filter, last)
 
 import Data.List (sortBy)
 
@@ -32,7 +32,7 @@ import Slist.Type (Slist(Slist))
 
 import Slist (slist, cons)
 
-import Slist as SL (filter)
+import Slist as SL (filter, last)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
@@ -67,13 +67,13 @@ pathTo nodeTree@(NodeTree eNodeList@(ENodeList firstENode _) iNodeSets) directio
   | otherwise = pathInner (init iNodeSets) eNodeList (finalINodeOf nodeTree)
   where
     pathInner :: [[INode]] -> ENodeList -> INode -> ([PLine2], [INode], ENode)
-    pathInner myINodeSets myENodeList target@(INode plinesIn _)
+    pathInner myINodeSets myENodeList target@(INode firstPLine morePLines _)
       | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
       | otherwise     = (               childPlines, target: endNodes, finalENode)
       where
         pLineToFollow = case direction of
-                          Head -> head plinesIn
-                          Last -> last plinesIn
+                          Head -> firstPLine
+                          Last -> SL.last (cons firstPLine morePLines)
         iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow False
         iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow True
         result = findENodeByOutput myENodeList pLineToFollow
@@ -123,7 +123,7 @@ findINodeByOutput iNodeSets plineOut recurse
                   [_] -> Just (iNodeSets, head nodesMatching)
                   (_:_) -> error "more than one node in a given generation with the same PLine out!"
   where
-    nodesMatching = P.filter (\(INode _ a) -> a == Just plineOut) (last iNodeSets)
+    nodesMatching = P.filter (\(INode _ _ a) -> a == Just plineOut) (P.last iNodeSets)
 
 -- | a smart constructor for a NodeTree
 makeNodeTree :: [ENode] -> [[INode]] -> NodeTree

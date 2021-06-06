@@ -29,7 +29,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeList(ENodeList), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf) where
 
-import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, length, (>), (&&), any, head, fst, and, (||), (<>), null, show)
+import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, (>), (&&), any, head, fst, and, (||), (<>), null, show)
 
 import Data.List.NonEmpty (NonEmpty)
 
@@ -37,9 +37,9 @@ import Data.List.Unique (count_)
 
 import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
-import Slist.Type (Slist)
+import Slist.Type (Slist(Slist))
 
-import Slist (len)
+import Slist (len, cons, slist)
 
 import Graphics.Slicer.Math.Contour (linesOfContour)
 
@@ -79,39 +79,39 @@ instance Pointable ENode where
   ePointOf (ENode (_, LineSeg point _) _) = point
 
 -- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
-data INode = INode { _inArcs :: [PLine2], _outArc :: Maybe PLine2 }
+data INode = INode { _firstInArc :: PLine2, _moreInArcs :: Slist PLine2, _outArc :: Maybe PLine2 }
   deriving Eq
   deriving stock Show
 
 instance Arcable INode where
   -- an INode might just end here.
-  hasArc (INode _ outArc) = isJust outArc
-  outOf (INode _ outArc)
+  hasArc (INode _ _ outArc) = isJust outArc
+  outOf (INode _ _ outArc)
     | isJust outArc = fromJust outArc
     | otherwise     = error "tried to get an outArc that has no output arc."
 
 instance Pointable INode where
   -- an INode does not contain a point, we have to attempt to resolve one instead.
-  canPoint iNode@(INode plines _) = length allPLines > 1 && hasIntersectingPairs
+  canPoint iNode@(INode firstPLine morePLines _) = len allPLines > 1 && hasIntersectingPairs allPLines
     where
       allPLines = if hasArc iNode
-                  then outOf iNode : plines
-                  else plines
-      hasIntersectingPairs = any (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs allPLines
+                  then cons (outOf iNode) (cons firstPLine morePLines)
+                  else cons firstPLine morePLines
+      hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
         where
           saneIntersect (IntersectsIn _) = True
           saneIntersect _                = False
   -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? angle based, etc?
-  pPointOf iNode@(INode plines _)
-    | allPointsSame = head intersectionsOfPairs
+  pPointOf iNode@(INode firstPLine morePLines _)
+    | allPointsSame = head $ intersectionsOfPairs allPLines
     -- Allow the pebbles to vote.
-    | otherwise = fst $ last $ count_ intersectionsOfPairs
+    | otherwise = fst $ last $ count_ $ intersectionsOfPairs allPLines
     where
-      allPointsSame = and $ mapWithFollower (==) intersectionsOfPairs
+      allPointsSame = and $ mapWithFollower (==) (intersectionsOfPairs allPLines)
       allPLines = if hasArc iNode
-                  then outOf iNode : plines
-                  else plines
-      intersectionsOfPairs = catMaybes $ (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) <$> getPairs allPLines
+                  then cons (outOf iNode) (cons firstPLine morePLines)
+                  else cons firstPLine morePLines
+      intersectionsOfPairs (Slist pLines _) = catMaybes $ (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) <$> getPairs pLines
         where
           saneIntersect (IntersectsIn a) = Just a
           saneIntersect _                = Nothing
@@ -178,7 +178,7 @@ getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
 
 -- | convert an ENode to an INode.
 eNodeToINode :: ENode -> INode
-eNodeToINode (ENode (seg1, seg2) arc) = INode [eToPLine2 seg1, eToPLine2 seg2] (Just arc)
+eNodeToINode (ENode (seg1, seg2) arc) = INode (eToPLine2 seg1) (slist [eToPLine2 seg2]) (Just arc)
 
 -- | check if two lines cannot intersect.
 noIntersection :: PLine2 -> PLine2 -> Bool
@@ -219,7 +219,7 @@ finalINodeOf (NodeTree _ iNodeSets) = head $ last iNodeSets
 
 -- | get the last output PLine of a NodeTree, if there is one. otherwise, Nothing.
 finalOutOf :: NodeTree -> Maybe PLine2
-finalOutOf newNodeTree = (\(INode _ outArc) -> outArc) $ finalINodeOf newNodeTree
+finalOutOf newNodeTree = (\(INode _ _ outArc) -> outArc) $ finalINodeOf newNodeTree
 
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe PLine2

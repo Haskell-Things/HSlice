@@ -145,13 +145,13 @@ instance GanjaAble Motorcycle where
       (plvar, plref) = toGanja outPLine (varname <> "c")
 
 instance GanjaAble INode where
-  toGanja (INode inPLines outPLine) varname = (invars, inrefs)
+  toGanja (INode firstPLine (Slist rawMorePLines _) outPLine) varname = (invars, inrefs)
     where
       (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
         where
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> zip allPLines allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
-          allPLines    = inPLines ++ (if isJust outPLine then [fromJust outPLine] else [])
+          allPLines    =   firstPLine:rawMorePLines ++ (if isJust outPLine then [fromJust outPLine] else [])
 
 instance GanjaAble Contour where
   toGanja contour varname = (invars, inrefs)
