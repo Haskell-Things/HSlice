@@ -18,17 +18,25 @@
 
 {- Purpose of this file: to hold utility functions for working with NodeTrees. -}
 
-module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, sortNodeTrees) where
+module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, sortNodeTrees, makeNodeTree) where
 
-import Prelude (Bool(True,False), Ordering(LT,GT), (==), fst, otherwise, snd, ($), error, (<>), show, (<>), head, filter, init, null, last)
+import Prelude (Bool(True,False), Ordering(LT,GT), (==), fst, otherwise, snd, ($), error, (<>), show, (<>), head, init, null, last)
+
+import Prelude as P (filter)
 
 import Data.List (sortBy)
 
 import Data.Maybe( Maybe(Just, Nothing), fromJust, isJust)
 
+import Slist.Type (Slist(Slist))
+
+import Slist (slist, cons)
+
+import Slist as SL (filter)
+
 import Graphics.Slicer.Math.Line (LineSeg)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), ENodeList(ENodeList), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf)
 
 import Graphics.Slicer.Math.PGA (PLine2, pLineIsLeft)
 
@@ -54,12 +62,12 @@ pathLast nodeTree = pathTo nodeTree Last
 
 -- | Find all of the Nodes and all of the arcs between the last item in the nodeTree and the node that is part of the original contour on the given side.
 pathTo :: NodeTree -> Direction -> ([PLine2], [INode], ENode)
-pathTo nodeTree@(NodeTree eNodes iNodeSets) direction
-  | null iNodeSets  = ([outOf (last eNodes)], [], last eNodes)
-  | otherwise = pathInner (init iNodeSets) eNodes (finalINodeOf nodeTree)
+pathTo nodeTree@(NodeTree eNodeList@(ENodeList firstENode _) iNodeSets) direction
+  | null iNodeSets = ([outOf firstENode], [], firstENode)
+  | otherwise = pathInner (init iNodeSets) eNodeList (finalINodeOf nodeTree)
   where
-    pathInner :: [[INode]] -> [ENode] -> INode -> ([PLine2], [INode], ENode)
-    pathInner myINodeSets myENodes target@(INode plinesIn _)
+    pathInner :: [[INode]] -> ENodeList -> INode -> ([PLine2], [INode], ENode)
+    pathInner myINodeSets myENodeList target@(INode plinesIn _)
       | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
       | otherwise     = (               childPlines, target: endNodes, finalENode)
       where
@@ -68,30 +76,28 @@ pathTo nodeTree@(NodeTree eNodes iNodeSets) direction
                           Last -> last plinesIn
         iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow False
         iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow True
-        result = findENodeByOutput myENodes pLineToFollow
+        result = findENodeByOutput myENodeList pLineToFollow
         terminate = ([outOf $ fromJust result], [], fromJust result)
-        myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodes <> "\n" <> show myINodeSets <> "\n"
+        myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodeList <> "\n" <> show myINodeSets <> "\n"
         (childPlines, endNodes, finalENode) = if isJust result
                                               then terminate
                                               else case iNodeOnThisLevel of
-                                                     (Just res) -> pathInner myINodeSets myENodes (snd res)
+                                                     (Just res) -> pathInner myINodeSets myENodeList (snd res)
                                                      Nothing -> case myINodeSets of
                                                                   [] -> myError
                                                                   [_] -> myError
                                                                   (_:_) ->  case iNodeOnLowerLevel of
-                                                                              (Just res) -> pathInner (init $ fst res) myENodes (snd res)
+                                                                              (Just res) -> pathInner (init $ fst res) myENodeList (snd res)
                                                                               Nothing -> myError
 
 -- | Find an exterior Node with an output of the PLine given.
-findENodeByOutput :: [ENode] -> PLine2 -> Maybe ENode
-findENodeByOutput eNodes plineOut
-  | null eNodes = Nothing
-  | otherwise = case nodesMatching of
-                  [] -> Nothing
-                  [oneNode] -> Just oneNode
-                  (_:_) ->  error "more than one exterior node with the same PLine out!"
+findENodeByOutput :: ENodeList -> PLine2 -> Maybe ENode
+findENodeByOutput (ENodeList firstENode moreENodes) plineOut = case nodesMatching of
+                                                                 (Slist [] _) -> Nothing
+                                                                 (Slist [oneNode] _) -> Just oneNode
+                                                                 (Slist (_:_) _)->  error "more than one exterior node with the same PLine out!"
   where
-    nodesMatching = filter (\(ENode _ a) -> a == plineOut) eNodes
+    nodesMatching = SL.filter (\(ENode _ a) -> a == plineOut) (cons firstENode moreENodes)
 
 -- Sort a set of nodeTrees. they should come out in order, so that the last segment of a preceeding NodeTree stops at the first segment of the current NodeTree
 sortNodeTrees :: [NodeTree] -> [NodeTree]
@@ -117,5 +123,11 @@ findINodeByOutput iNodeSets plineOut recurse
                   [_] -> Just (iNodeSets, head nodesMatching)
                   (_:_) -> error "more than one node in a given generation with the same PLine out!"
   where
-    nodesMatching = filter (\(INode _ a) -> a == Just plineOut) (last iNodeSets)
+    nodesMatching = P.filter (\(INode _ a) -> a == Just plineOut) (last iNodeSets)
 
+-- | a smart constructor for a NodeTree
+makeNodeTree :: [ENode] -> [[INode]] -> NodeTree
+makeNodeTree eNodes iNodeSets = case eNodes of
+                                  [] -> error "not enough nodes to make a nodeTree"
+                                  [eNode] -> NodeTree (ENodeList eNode (slist [])) iNodeSets
+                                  (eNode:moreENodes) -> NodeTree (ENodeList eNode (slist moreENodes)) iNodeSets

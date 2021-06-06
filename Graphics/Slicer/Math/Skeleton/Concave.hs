@@ -29,21 +29,23 @@
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, makeFirstENodes, averageNodes) where
 import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, notElem, otherwise, ($), last, (<$>), (==), (++), error, length, (&&), head, fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, init, id, (+))
 
-import Graphics.Slicer.Math.Definitions (Point2, mapWithFollower)
-
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), eNodeToINode, noIntersection, intersectionOf, pPointOf, isCollinear, getPairs, isParallel)
-
-import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft)
-
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromJust)
 
 import Data.List (takeWhile, nub, sortBy)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints)
-
 import Graphics.Implicit.Definitions (ℝ)
 
+import Graphics.Slicer.Math.Definitions (Point2, mapWithFollower)
+
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
+
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints)
+
+import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft)
+
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), eNodeToINode, noIntersection, intersectionOf, pPointOf, isCollinear, getPairs, isParallel)
+
+import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree)
 
 -- error type.
 data PartialNodes = PartialNodes [[INode]] String
@@ -73,7 +75,7 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
     -- FIXME: geometry may require more than one NodeTree, or may require spines, which are still a concept in flux.
     getNodeTree :: [ENode] -> NodeTree
     getNodeTree [] = error "no Nodes to generate a nodetree from?"
-    getNodeTree initialGeneration = NodeTree initialGeneration $ res initialGeneration
+    getNodeTree initialGeneration = makeNodeTree initialGeneration $ res initialGeneration
       where
         -- | apply the recursive NodeTree solver.
         res :: [ENode] -> [[INode]]
