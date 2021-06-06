@@ -25,11 +25,17 @@
 -- | Christopher Tscherne\'s algorithm from his master\'s thesis.
 module Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne, cellAfter, cellBefore) where
 
-import Prelude (Bool(False), concat, elem, otherwise, tail, ($), (<$>), (==), (++), error, (&&), head, fst, (<>), show, uncurry, null, filter, (+), Int, drop, take, (-), (||), length)
+import Prelude (Bool(False), elem, otherwise, ($), (<$>), (==), (++), error, (&&), fst, (<>), show, uncurry, null, filter, (+), Int, drop, take, (-))
+
+import Data.List (elemIndex)
+
+import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromMaybe)
+
+import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, NodeTree(NodeTree), Motorcycle(Motorcycle), CellDivide(CellDivide), finalPLine, outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, NodeTree(NodeTree), Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles (DividingMotorcycles), finalPLine, outOf)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, firstSegOf, sortNodeTrees)
 
@@ -39,10 +45,6 @@ import Graphics.Slicer.Math.Definitions (Contour)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
 
-import Data.List (elemIndex)
-
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, fromMaybe)
-
 import Graphics.Slicer.Math.Contour (linesOfContour)
 
 import Graphics.Slicer.Math.PGA (PIntersection(PCollinear), plinesIntersectIn, eToPPoint2)
@@ -50,68 +52,84 @@ import Graphics.Slicer.Math.PGA (PIntersection(PCollinear), plinesIntersectIn, e
 -- | Use observations from christopher tscherne\'s masters thesis to cover the corner cases that do not require the whole algorithm.
 -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point
 applyTscherne :: Contour -> [CellDivide] -> Maybe StraightSkeleton
-applyTscherne contour cellDivisions
-  | length cellDivisions == 1 && cellsDoNotOverlap (leftSide, head cellDivisions) (rightSide, head cellDivisions) = Just $ addCells [leftSide,rightSide] cellDivisions
-    -- FIXME: ok, can't cheat. apply the full algorithm.
-  | otherwise = error $ "failing to apply Tscherne's method.\n" <>
-                        show (crossoverENodes leftSide (head cellDivisions))  <> "\n" <>
-                        show (crossoverENodes rightSide (head cellDivisions))  <> "\n" <>
-                        show (finalPLine leftSide) <> "\n" <>
-                        show (finalPLine rightSide) <> "\n" <>
-                        show leftSide <> "\n" <>
-                        show rightSide <> "\n" <>
-                        show dividingMotorcycle <> "\n"
-  | otherwise = Nothing
+
+applyTscherne contour cellDivisions =
+  -- | use observations from christopher tscherne's masters thesis to cover the corner cases that do not require the whole algorithm.
+  -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point
+  case cellDivisions of
+    [] -> Nothing
+    [oneDivision] -> if cellsDoNotOverlap (leftSide, oneDivision) (rightSide, oneDivision)
+                     then Just $ addMirrorCells leftSide rightSide oneDivision
+                     else errorIncomplete
+    (_:_) -> Nothing
   where
+    -- FIXME: ok, can't cheat. apply the full algorithm.
+    errorIncomplete = error $ "failing to apply Tscherne's method.\n" <>
+                      show (finalPLine leftSide) <> "\n" <>
+                      show (finalPLine rightSide) <> "\n" <>
+                      show leftSide <> "\n" <>
+                      show rightSide <> "\n" <>
+                      show contour  <> "\n" <>
+                      show cellDivisions  <> "\n" <>
+                      show dividingMotorcycle <> "\n"
     -- Check whether the NodeTrees of two cells have an effect on each other.
     cellsDoNotOverlap :: (NodeTree, CellDivide) -> (NodeTree, CellDivide) -> Bool
     cellsDoNotOverlap (cell1,cellDivision1@(CellDivide motorcycles1 _)) (cell2,cellDivision2)
       -- Only works when the CellDivide is simple enough that it is symetrical (a line).
-      | cellDivision1 == cellDivision2 &&
-        (length motorcycles1 == 1 ||
-         (length motorcycles1 == 2 && motorcyclesAreCollinear (head motorcycles1) (head $ tail motorcycles1)))
-      = null (crossoverENodes cell1 cellDivision1) &&
-        null (crossoverENodes cell2 cellDivision2) &&
-        cellOutsIntersect cell1 cell2 cellDivision1
+      | cellDivision1 == cellDivision2 = case motorcycles1 of
+                                           (DividingMotorcycles _ (Slist [] 0)) -> res
+                                           (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreCollinear firstMotorcycle secondMotorcycle
+                                                                                                                 then res
+                                                                                                                 else False
+                                           (DividingMotorcycles _ (Slist _ _)) -> False
       | otherwise = False
+      where
+        res = null (crossoverENodes cell1 cellDivision1) &&
+              null (crossoverENodes cell2 cellDivision2) &&
+              cellOutsIntersect cell1 cell2 cellDivision1
 
     -- Check that the outputs of the cells collide at the same point at the division between the two cells.
-    cellOutsIntersect cell1 cell2 (CellDivide motorcycles _)
-      | length motorcycles == 1 = plinesIntersectIn (finalPLine cell1) (outOf $ head motorcycles) ==
-                                  plinesIntersectIn (finalPLine cell2) (outOf $ head motorcycles)
-      | otherwise = error "cannot yet check outpoint intersections of more than one motorcycle."
+    cellOutsIntersect cell1 cell2 (CellDivide motorcycles _) = case motorcycles of
+                                                                 (DividingMotorcycles m (Slist _ 0)) -> plinesIntersectIn (finalPLine cell1) (outOf m) == plinesIntersectIn (finalPLine cell2) (outOf m)
+                                                                 (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet check outpoint intersections of more than one motorcycle."
 
     -- given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
     crossoverENodes :: NodeTree -> CellDivide -> [ENode]
-    crossoverENodes nodeTree@(NodeTree eNodes _) cellDivision = filter (\a -> elem (Just False) (intersectionSameSide pointOnSide a <$> motorcyclesFromDivision cellDivision)) eNodes
+    crossoverENodes nodeTree@(NodeTree eNodes _) cellDivision = filter (\a -> elem (Just False) (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)) eNodes
       where
         pointOnSide = eToPPoint2 $ pointInCell nodeTree cellDivision
-        pointInCell cell (CellDivide motorcycles _)
-          | firstSegOf cell == lastCSegOf (head motorcycles) = endpoint $ firstSegOf cell
-          | lastSegOf cell == firstCSegOf (head motorcycles) = startPoint $ lastSegOf cell
-          | otherwise = error $ "unhandled case: " <> show cell <> "\n" <> show motorcycles <> "\n" <> show contour <> "\n" <> show cellDivisions <> "\n" <> show (lastSegOf cell) <> "\n" <> show (firstSegOf cell) <> "\n"
+        pointInCell cell (CellDivide (DividingMotorcycles m _) _)
+          | firstSegOf cell == lastCSegOf m = endpoint $ firstSegOf cell
+          | lastSegOf cell == firstCSegOf m = startPoint $ lastSegOf cell
+          | otherwise = error $ "unhandled case: " <> show cell <> "\n" <> show m <> "\n" <> show contour <> "\n" <> show cellDivisions <> "\n" <> show (lastSegOf cell) <> "\n" <> show (firstSegOf cell) <> "\n"
           where
             startPoint (LineSeg a _) = a
             firstCSegOf (Motorcycle (seg1,_) _) = seg1
             lastCSegOf (Motorcycle (_, seg2) _) = seg2
 
     -- Add a set of cells together, to create a straight skeleton. The straight skeleton should have it's NodeTrees in order.
-    addCells :: [NodeTree] -> [CellDivide] -> StraightSkeleton
-    addCells cells divisions
-      | length cells == 2 && length divisions == 1 = StraightSkeleton [sortNodeTrees $ cells ++ concat (nodetreesFromDivision <$> divisions)] []
+    addMirrorCells :: NodeTree -> NodeTree -> CellDivide -> StraightSkeleton
+    addMirrorCells cell1 cell2 division = StraightSkeleton [sortNodeTrees $ cell1 : cell2 : nodetreesFromDivision division] []
       where
         nodetreesFromDivision :: CellDivide -> [NodeTree]
-        nodetreesFromDivision (CellDivide motorcycles maybeENode)
-          | length motorcycles == 1 ||
-            (length motorcycles == 2 && motorcyclesAreCollinear (head motorcycles) (head $ tail motorcycles))
-          = if isJust maybeENode
-            then [NodeTree (motorcycleToENode <$> motorcycles) [], NodeTree [fromJust maybeENode] []]
-            else [NodeTree (motorcycleToENode <$> motorcycles) []]
+        nodetreesFromDivision cellDivision@(CellDivide motorcycles maybeENode) = case motorcycles of
+                                                                                   (DividingMotorcycles _ (Slist [] 0)) -> res
+                                                                                   (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreCollinear firstMotorcycle secondMotorcycle
+                                                                                                                                                         then res
+                                                                                                                                                         else errorOut
+                                                                                   (DividingMotorcycles _ (Slist _ _)) -> errorOut
+            where
+              res = case maybeENode of
+                      (Just eNode) -> [NodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) [], NodeTree [eNode] []]
+                      Nothing -> [NodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) []]
+              errorOut = error "tried to add two cells with a non-bilateral cellDivide"
 
     -- check if the output of two motorcycles are collinear with each other.
     motorcyclesAreCollinear motorcycle1 motorcycle2 = plinesIntersectIn (outOf motorcycle1) (outOf motorcycle2) == PCollinear
 
     motorcyclesFromDivision (CellDivide m _) = m
+
+    motorcyclesInDivision (CellDivide (DividingMotorcycles a (Slist b _)) _) = a : b
 
     -------------------------------------------------------------------------------------
     -- Functions used when we have two cells, and one dividing motorcycle between them --
@@ -119,9 +137,15 @@ applyTscherne contour cellDivisions
 
     leftSide  = cellAfter contour dividingMotorcycle
     rightSide = cellBefore contour dividingMotorcycle
-    dividingMotorcycle = if length (motorcyclesFromDivision $ head cellDivisions) == 1
-                         then head (motorcyclesFromDivision $ head cellDivisions)
-                         else error "cannot yet handle more than one dividing motorcycle."
+    dividingMotorcycle = case motorcyclesFromDivision cellDivision of
+                           (DividingMotorcycles a (Slist _ 0)) -> a
+                           (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet handle more than one dividing motorcycle."
+      where
+        cellDivision = case cellDivisions of
+                         [] -> error "no cellDivision to work with."
+                         [a] -> a
+                         (_:_) -> error "cannot yet handle more that one cell division point."
+
 
 -- | Calculate a partial straight skeleton for the motorcycle cell that is on the left side of the point that a motorcycle\'s path starts at, ending where the motorcycle intersects the contour.
 cellAfter :: Contour -> Motorcycle -> NodeTree
@@ -173,7 +197,10 @@ segIndex seg segs = fromMaybe (error "cannot find item") $ elemIndex seg segs
 
 -- | Search a contour starting at the beginning, and return the first of the two line segments given
 findSegFromStart :: Contour -> LineSeg -> LineSeg -> LineSeg
-findSegFromStart c seg1 seg2 = head $ catMaybes $ foundSeg seg1 seg2 <$> linesOfContour c
+findSegFromStart c seg1 seg2 = case catMaybes (foundSeg seg1 seg2 <$> linesOfContour c) of
+                                 [] -> error "could not find requested segment."
+                                 [a] -> a
+                                 (a:_) -> a
   where
     foundSeg s1 s2 sn
       | sn == s1  = Just s1

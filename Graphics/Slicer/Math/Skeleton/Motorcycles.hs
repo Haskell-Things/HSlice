@@ -26,9 +26,17 @@
 
 module Graphics.Slicer.Math.Skeleton.Motorcycles (Collision(HeadOn), CrashTree(CrashTree), motorcycleToENode, Crash(Crash), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles) where
 
-import Prelude (Bool(True, False), Either(Left,Right), Eq, error, filter, head, last, length, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (||), (.), zip, null)
+import Prelude (Bool(True, False), Either(Left,Right), Eq, error, head, length, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (||), (.), zip, null)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, isNothing)
+
+import Data.List as L (filter)
+
+import Slist (slist)
+
+import Slist as SL (filter)
+
+import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (linesOfContour)
 
@@ -43,7 +51,7 @@ import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
 -- | The collision of two motorcycles. one lives, and one doesn't, unless it's a head on collision, in which case both die, and there is no survivor.
-data Crash = Crash { _inMotorcycles :: [Motorcycle], _survivor :: Maybe Motorcycle, _collisionType :: Collision}
+data Crash = Crash { _inMotorcycles :: Slist Motorcycle, _survivor :: Maybe Motorcycle, _collisionType :: Collision}
   deriving (Eq)
 
 -- | the type of collision. only normal collisions (motorcycle to the other motorcycle's path) are survivable, and then only by the motorcycle who's path was collided with.
@@ -51,7 +59,7 @@ data Collision = Normal | HeadOn | SideSwipe
   deriving (Eq)
 
 -- | the resulting node graph for a given contour.
-data CrashTree = CrashTree { _motorcycles :: [Motorcycle], _survivors :: [Motorcycle], _crashes :: [[Crash]] }
+data CrashTree = CrashTree { _motorcycles :: Slist Motorcycle, _survivors :: Slist Motorcycle, _crashes :: [[Crash]] }
   deriving (Eq)
 
 collisionResult :: Crash -> Collision
@@ -63,7 +71,7 @@ motorcycleToENode (Motorcycle segs mcpath) = ENode segs mcpath
 
 crashMotorcycles :: Contour -> [Contour] -> Maybe CrashTree
 crashMotorcycles contour holes
-  | null holes = getCrashTree firstMotorcycles [] [] False
+  | null holes = getCrashTree (slist firstMotorcycles) [] [] False
   | otherwise = Nothing
   where
     firstMotorcycles
@@ -75,21 +83,24 @@ crashMotorcycles contour holes
 
     -- Function meant to be recursed, to give us a CrashTree. when it's complete...
     -- For now, just cover the cases we know what to do with.
-    getCrashTree :: [Motorcycle] -> [Motorcycle] -> [[Crash]] -> Bool -> Maybe CrashTree
+    getCrashTree :: Slist Motorcycle -> [Motorcycle] -> [[Crash]] -> Bool -> Maybe CrashTree
     getCrashTree inMotorcycles crashedMotorcycles inCrashes hasHoles
       | hasHoles = error "do not support holes yet"
       -- We're done.
       | null findSurvivors = Just $ CrashTree inMotorcycles findSurvivors inCrashes
-      -- there is no-one to collide with.
-      | length inMotorcycles == 1 && null crashedMotorcycles = Just $ CrashTree inMotorcycles inMotorcycles []
-      -- One crash, no survivors.
-      | length inMotorcycles == 2 && null crashedMotorcycles
-        && crashOf (head inMotorcycles) (last inMotorcycles) == Just HeadOn = Just $ CrashTree inMotorcycles [] [[Crash inMotorcycles Nothing HeadOn]]
+      | null crashedMotorcycles = case inMotorcycles of
+                                    -- there is no-one to collide with.
+                                    (Slist _ 1) -> Just $ CrashTree inMotorcycles inMotorcycles []
+                                  -- One crash, no survivors.
+                                    (Slist [firstMC, secondMC] 2) -> if crashOf firstMC secondMC == Just HeadOn
+                                                                     then Just $ CrashTree inMotorcycles (slist []) [[Crash inMotorcycles Nothing HeadOn]]
+                                                                     else Nothing
+                                    _ -> Nothing
       -- Note that to solve this case, we will have to have a concept of speed of the motorcycle.
       | otherwise = Nothing
         where
           -- determine the set of motorcycles have not yet had a crash.
-          findSurvivors = filter (`notElem` crashedMotorcycles) inMotorcycles
+          findSurvivors = SL.filter (`notElem` crashedMotorcycles) inMotorcycles
 
           -- Crash two motorcycles.
           crashOf mot1 mot2@(Motorcycle (seg1, seg2) _)
@@ -135,7 +146,7 @@ motorcycleIntersectsAt contour motorcycle@(Motorcycle (inSeg,outSeg) _)
   | length (getMotorcycleIntersections motorcycle contour) == 2 && length foundSegEvents == 1 = head foundSegEvents
   | otherwise = error $ "handle more than one intersection point here." <> show (getMotorcycleIntersections motorcycle contour) <> "\n"
   where
-    foundSegEvents = filter (\(seg, maybeSeg) -> (seg /= inSeg && seg /= outSeg) &&
+    foundSegEvents = L.filter (\(seg, maybeSeg) -> (seg /= inSeg && seg /= outSeg) &&
                                                    (isNothing maybeSeg ||
                                                     (fromJust maybeSeg /= inSeg && fromJust maybeSeg /= outSeg))) $ getMotorcycleIntersections motorcycle contour
     -- find one of the two segments given, returning the one closest to the head of the given contour.

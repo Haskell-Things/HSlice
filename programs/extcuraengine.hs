@@ -42,7 +42,7 @@ import Data.String (String)
 
 import Data.Bool(Bool(True, False), otherwise)
 
-import Data.List (length, zip,  head, zipWith, maximum, minimum, last, concat, null)
+import Data.List (length, zip, head, zipWith, maximum, minimum, last, concat, null)
 
 import Control.Monad ((>>=))
 
@@ -175,9 +175,7 @@ mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [0::Fastℕ,1
 
 -- The difference between a slicing plan, and a Print is that a Print should specify characteristics of the resulting object, where a Plan should specify what methods to attempt to use to accomplish that goal.
 data Plan =
-  Plan
-    { _step :: ScadStep
-    }
+  Extrude !(DivideStrategy, InsetStrategy)
 
 -- the space that a plan is to be followed within.
 -- FIXME: union, intersect, etc.. these?
@@ -185,28 +183,31 @@ data Plan =
 -- FIXME: the printer's working area is a Zone of type Box3.
 data Zone =
   Everywhere !Plan
-  | ZBetween !(ℝ,Maybe ℝ) !Plan
-  | BelowBottom !(Point2, Point2) !Plan
-  | Box3 !(Point3, Point3) !Plan
+--  | ZBetween !(ℝ,Maybe ℝ) !Plan
+--  | BelowBottom !(Point2, Point2) !Plan
+  | Box3 !Point3 !Point3 !Plan
+
+data DivideStrategy =
+    ZLayers
+--    | LongString
+--    | PlaneLayers
 
 -- the order of operations in a Plan.
---data Ordering =
+--data LayerOrdering =
 
--- FIXME: what to do about conflicting orderings when a component crosses from one Zone to the other?
+-- FIXME: what to do about conflicting orderings when a component crosses from one Zone to the other? need a Zone Transition solver.
 
 data ScadStep =
     PriorState !MachineState
   | NoWork
-  | Extrude !(DivideStrategy, InsetStrategy)
   | StateM ![GCode]
-
-data DivideStrategy =
-    ZLayers
-    | VaseMode
 
 data InsetStrategy =
     Skeleton
   | SkeletonFailThrough
+
+--data Tool = Extruder
+--   | Remover
 
 -- The new scad functions:
 
@@ -252,17 +253,18 @@ multiplyPlan =    "pathWidth = machine_nozzle_size"
 -------------------------------------------------------------
 ----------------------- ENTRY POINT -------------------------
 -------------------------------------------------------------
--- FIXME: this and the next function should be replaced with functions that use a SlicingPlan to slice an object. In this way we could have different 'profiles' (vase mode, normal, etc)...
+-- FIXME: this and the next function should be replaced with functions that use a SlicingPlan to slice an object that fits in a Zone. In this way we could have different 'profiles' (vase mode, layers, etc)...
 sliceObject :: Printer -> Print -> [([Contour], Fastℕ)] -> StateM [GCode]
 sliceObject printer@(Printer _ _ extruder) print allLayers =
   cookExtrusions extruder (concat slicedLayers) threads
   where
     slicedLayers = [sliceLayer printer print slicingPlan (layer == last allLayers) layer | layer <- allLayers] `using` parListChunk (div (length allLayers) (fromFastℕ threads)) rdeepseq
     -- Hack: start to use types to explain how to slice.
-    slicingPlan = Plan (Extrude (ZLayers,SkeletonFailThrough))
+    slicingPlan = Everywhere (Extrude (ZLayers,SkeletonFailThrough))
 
-sliceLayer :: Printer -> Print -> Plan -> Bool -> ([Contour], Fastℕ) -> [GCode]
-sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBeforeInner infillSpeed) _plan isLastLayer (layerContours, layerNumber) = do
+
+sliceLayer :: Printer -> Print -> Zone -> Bool -> ([Contour], Fastℕ) -> [GCode]
+sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBeforeInner infillSpeed) plan isLastLayer (layerContours, layerNumber) = do
   let
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToContour :: Contour -> [GCode]
