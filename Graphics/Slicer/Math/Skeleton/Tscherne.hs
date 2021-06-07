@@ -32,8 +32,6 @@ import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromMaybe)
 
 import Slist.Type (Slist(Slist))
 
-import Slist (cons)
-
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, NodeTree(NodeTree), Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles (DividingMotorcycles), ENodeList(ENodeList), finalPLine, outOf)
@@ -91,7 +89,7 @@ applyTscherne contour cellDivisions =
 
     -- | given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
     crossoverENodes :: NodeTree -> CellDivide -> [ENode]
-    crossoverENodes nodeTree@(NodeTree eNodes@(ENodeList firstENode (Slist moreRawNodes _)) _) cellDivision = filter (\a -> elem (Just False) (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)) (firstENode:moreRawNodes)
+    crossoverENodes nodeTree@(NodeTree (ENodeList firstENode (Slist moreRawNodes _)) _) cellDivision = filter (\a -> elem (Just False) (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)) (firstENode:moreRawNodes)
       where
         pointOnSide = eToPPoint2 $ pointInCell nodeTree cellDivision
         pointInCell cell (CellDivide (DividingMotorcycles m _) _)
