@@ -262,7 +262,6 @@ sliceObject printer@(Printer _ _ extruder) print allLayers =
     -- Hack: start to use types to explain how to slice.
     slicingPlan = Everywhere (Extrude (ZLayers,SkeletonFailThrough))
 
-
 sliceLayer :: Printer -> Print -> Zone -> Bool -> ([Contour], Fastℕ) -> [GCode]
 sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBeforeInner infillSpeed) plan isLastLayer (layerContours, layerNumber) = do
   let

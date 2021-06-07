@@ -145,7 +145,6 @@ applyTscherne contour cellDivisions =
                          [a] -> a
                          (_:_) -> error "cannot yet handle more that one cell division point."
 
-
 -- | Calculate a partial straight skeleton for the motorcycle cell that is on the left side of the point that a motorcycle\'s path starts at, ending where the motorcycle intersects the contour.
 cellAfter :: Contour -> Motorcycle -> NodeTree
 cellAfter contour motorcycle = skeletonOfConcaveRegion (gatherLineSegs contour motorcycle) False
