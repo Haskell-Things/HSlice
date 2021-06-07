@@ -29,21 +29,25 @@
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, makeFirstENodes, averageNodes) where
 import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, notElem, otherwise, ($), last, (<$>), (==), (++), error, length, (&&), head, fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, init, id, (+))
 
-import Graphics.Slicer.Math.Definitions (Point2, mapWithFollower)
-
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), eNodeToINode, noIntersection, intersectionOf, pPointOf, isCollinear, getPairs, isParallel)
-
-import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft)
-
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromJust)
 
 import Data.List (takeWhile, nub, sortBy)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints)
+import Slist (slist)
 
 import Graphics.Implicit.Definitions (ℝ)
 
+import Graphics.Slicer.Math.Definitions (Point2, mapWithFollower)
+
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
+
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints)
+
+import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft)
+
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), eNodeToINode, noIntersection, intersectionOf, pPointOf, isCollinear, getPairs, isParallel)
+
+import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree)
 
 -- error type.
 data PartialNodes = PartialNodes [[INode]] String
@@ -73,7 +77,7 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
     -- FIXME: geometry may require more than one NodeTree, or may require spines, which are still a concept in flux.
     getNodeTree :: [ENode] -> NodeTree
     getNodeTree [] = error "no Nodes to generate a nodetree from?"
-    getNodeTree initialGeneration = NodeTree initialGeneration $ res initialGeneration
+    getNodeTree initialGeneration = makeNodeTree initialGeneration $ res initialGeneration
       where
         -- | apply the recursive NodeTree solver.
         res :: [ENode] -> [[INode]]
@@ -104,7 +108,7 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
       | length eNodes + length iNodes == 2 = Left $ PartialNodes [iNodes] "NOMATCH - length 2?"
       --   Handle the the case of 3 or more nodes.
       -- FIXME: needs a sort function.
-      | endsAtSamePoint = Right [[INode ((outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]]
+      | endsAtSamePoint = Right [[makeINode ((outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]]
       | hasShortestPair         = Right $ averageOfShortestPairs : errorIfLeft (skeletonOfNodes remainingENodes (remainingINodes ++ averageOfShortestPairs))
       | otherwise = error $ "shortestPairDistance: " <> show shortestPairDistance
                                 <> "\nePairDistance: " <> show shortestEPairDistance <> "\nnum of ePairs Found: " <> show (length $ shortestPairs eNodes) <> "\nshortestEPairs: " <> show (shortestPairs eNodes) <> "\nePairResults: " <> show (uncurry averageNodes <$> shortestPairs eNodes) <> "\n" <> show (isSomething shortestEPairDistance) <> "\n"
@@ -140,10 +144,10 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
         -- | make sure we have a potential intersection between two nodes to work with.
         makeCollinearPair :: INode
         makeCollinearPair
-          | null eNodes        && length iNodes == 2 = INode [outOf $ head iNodes, outOf $ last iNodes] Nothing
-          | length eNodes == 2 && null iNodes        = INode [outOf $ head eNodes, outOf $ last eNodes] Nothing
+          | null eNodes        && length iNodes == 2 = makeINode [outOf $ head iNodes, outOf $ last iNodes] Nothing
+          | length eNodes == 2 && null iNodes        = makeINode [outOf $ head eNodes, outOf $ last eNodes] Nothing
           -- FIXME: how do we get these sorted properly?
-          | length eNodes == 1 && length iNodes == 1 = INode (sortedPair (head eNodes) (head iNodes)) Nothing
+          | length eNodes == 1 && length iNodes == 1 = makeINode (sortedPair (head eNodes) (head iNodes)) Nothing
           | otherwise = error "cannot construct a collinear pear: we don't have two nodes to work with."
 
         -- | determine the exterior nodes available for calculation during the next recurse.
@@ -251,7 +255,7 @@ averageNodes n1 n2
   | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | isParallel  (outOf n1) (outOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | isCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
-  | otherwise                 = INode (sortedPair n1 n2) $ Just $ getOutsideArc (ePointOf n1) (outOf n1) (ePointOf n2) (outOf n2)
+  | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (ePointOf n1) (outOf n1) (ePointOf n2) (outOf n2)
 
 -- take a pair of arcables, and return their outOf, in a sorted order.
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [PLine2]
@@ -299,6 +303,13 @@ getInsideArc _ pline1 _ pline2@(PLine2 pv2)
   | otherwise = normalizePLine2 $ PLine2 $ addVecPair flippedPV1 pv2
   where
       (PLine2 flippedPV1) = flipPLine2 pline1
+
+-- | A smart constructor for INodes.
+makeINode :: [PLine2] -> Maybe PLine2 -> INode
+makeINode pLines maybeOut = case pLines of
+                              [] -> error "tried to construct a broken INode"
+                              [onePLine] -> INode onePLine (slist []) maybeOut
+                              (first:more) -> INode first (slist more) maybeOut
 
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
 makeFirstENodes :: [LineSeg] -> [ENode]

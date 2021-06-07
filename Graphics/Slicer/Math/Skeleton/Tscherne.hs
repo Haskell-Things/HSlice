@@ -33,11 +33,13 @@ import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromMaybe)
 
 import Slist.Type (Slist(Slist))
 
+import Slist (cons)
+
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, NodeTree(NodeTree), Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles (DividingMotorcycles), finalPLine, outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, NodeTree(NodeTree), Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles (DividingMotorcycles), ENodeList(ENodeList), finalPLine, outOf)
 
-import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, firstSegOf, sortNodeTrees)
+import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, firstSegOf, sortNodeTrees, makeNodeTree)
 
 import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleToENode, motorcycleIntersectsAt, intersectionSameSide)
 
@@ -75,9 +77,7 @@ applyTscherne contour cellDivisions =
       -- Only works when the CellDivide is simple enough that it is symetrical (a line).
       | cellDivision1 == cellDivision2 = case motorcycles1 of
                                            (DividingMotorcycles _ (Slist [] 0)) -> res
-                                           (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreCollinear firstMotorcycle secondMotorcycle
-                                                                                                                 then res
-                                                                                                                 else False
+                                           (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> motorcyclesAreCollinear firstMotorcycle secondMotorcycle && res
                                            (DividingMotorcycles _ (Slist _ _)) -> False
       | otherwise = False
       where
@@ -92,7 +92,7 @@ applyTscherne contour cellDivisions =
 
     -- given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
     crossoverENodes :: NodeTree -> CellDivide -> [ENode]
-    crossoverENodes nodeTree@(NodeTree eNodes _) cellDivision = filter (\a -> elem (Just False) (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)) eNodes
+    crossoverENodes nodeTree@(NodeTree eNodes@(ENodeList firstENode (Slist moreRawNodes _)) _) cellDivision = filter (\a -> elem (Just False) (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)) (firstENode:moreRawNodes)
       where
         pointOnSide = eToPPoint2 $ pointInCell nodeTree cellDivision
         pointInCell cell (CellDivide (DividingMotorcycles m _) _)
@@ -117,8 +117,8 @@ applyTscherne contour cellDivisions =
                                                                                    (DividingMotorcycles _ (Slist _ _)) -> errorOut
             where
               res = case maybeENode of
-                      (Just eNode) -> [NodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) [], NodeTree [eNode] []]
-                      Nothing -> [NodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) []]
+                      (Just eNode) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) [], makeNodeTree [eNode] []]
+                      Nothing -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) []]
               errorOut = error "tried to add two cells with a non-bilateral cellDivide"
 
     -- check if the output of two motorcycles are collinear with each other.
