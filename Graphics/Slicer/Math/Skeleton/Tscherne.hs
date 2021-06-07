@@ -53,8 +53,6 @@ import Graphics.Slicer.Math.PGA (PIntersection(PCollinear), plinesIntersectIn, e
 -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point
 applyTscherne :: Contour -> [CellDivide] -> Maybe StraightSkeleton
 applyTscherne contour cellDivisions =
-  -- | use observations from christopher tscherne's masters thesis to cover the corner cases that do not require the whole algorithm.
-  -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point
   case cellDivisions of
     [] -> Nothing
     [oneDivision] -> if cellsDoNotOverlap (leftSide, oneDivision) (rightSide, oneDivision)
