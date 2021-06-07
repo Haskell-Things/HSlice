@@ -24,7 +24,7 @@
 
 module Graphics.Slicer.Math.Line (LineSeg(LineSeg), LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegsLooped, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg) where
 
-import Prelude ((/), (<), (>), ($), (-), otherwise, (&&), (<=), (==), Eq, length, head, tail, (++), last, init, (<$>), Show, error, null, zipWith, (<>), show, concat, Either(Left, Right))
+import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), Eq, tail, (++), last, init, (<$>), Show, error, null, zipWith, (<>), show, Either(Left, Right))
 
 import Data.List (nub)
 
@@ -79,9 +79,10 @@ flipLineSeg l@(LineSeg _ s) = LineSeg (endpoint l) (scalePoint (-1) s)
 
 -- | Given a list of points (in order), construct line segments that go between them.
 makeLineSegs :: [Point2] -> [LineSeg]
-makeLineSegs l
-  | length l > 1 = res
-  | otherwise = error $ "tried to makeLineSegs a list with " <> show (length l) <> " entries.\n" <> concat (show <$> l) <> "\n"
+makeLineSegs l = case l of
+                   [] -> error "tried to makeLineSegs a list with no points."
+                   [p] -> error $ "tried to makeLineSegs a list with only one point: " <> show p <> "\n"
+                   (_:_) -> res
   where
     res = zipWith consLineSeg (init l) (tail l)
     consLineSeg p1 p2 = errorIfLeft $ lineSegFromEndpoints p1 p2
@@ -93,13 +94,14 @@ makeLineSegs l
 
 -- | Given a list of points (in order), construct line segments that go between them. make sure to construct a line segment from the last point back to the first.
 makeLineSegsLooped :: [Point2] -> [LineSeg]
-makeLineSegsLooped l
-  -- too short, bail.
-  | length l < 2 = error $ "tried to makeLinesLooped a list with " <> show (length l) <> " entries.\n" <> concat (show <$> l) <> "\n"
-  -- already looped, use makeLines.
-  | head l ~= last l = makeLineSegs l
-  -- ok, do the work and loop it.
-  | otherwise = zipWith consLineSeg l (tail l ++ l)
+makeLineSegsLooped l = case l of
+                         [] -> error "tried to makeLineSegs a list with no points."
+                         [p] -> error $ "tried to makeLineSegs a list with only one point: " <> show p <> "\n"
+                         (h:t) -> if h ~= last t
+                                     -- already looped, use makeLines.
+                                  then makeLineSegs l
+                                       -- ok, do the work and loop it.
+                                  else zipWith consLineSeg l (t ++ [h])
   where
     consLineSeg p1 p2 = errorIfLeft $ lineSegFromEndpoints p1 p2
     errorIfLeft :: Either LineSegError LineSeg -> LineSeg
