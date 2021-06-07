@@ -17,8 +17,11 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- No reason to get excited. just some dumping facilities.
- - to use:
+{- | No reason to get excited. just some dumping facilities.
+
+ to use:
+
+ @
  juri@ni:/disk4/faikvm.com/HSlice/HSlice-current$ cabal repl
  Ok, 30 modules loaded.
  *Graphics.Slicer> import Prelude (($),putStrLn)
@@ -39,10 +42,10 @@
      scale: 1,
    }));
  });
+ @
 
- - cut and paste, drop into https://enkimute.github.io/ganja.js/examples/coffeeshop.html, click 'Run'
+ cut and paste, drop into https://enkimute.github.io/ganja.js/examples/coffeeshop.html, click 'Run'
  -}
-
 module Graphics.Slicer.Math.Ganja (toGanja, dumpGanja, dumpGanjas) where
 
 import Prelude (String, (<>), (++), (<$>), ($), (>=), concat, error, fst, show, snd, zip)
@@ -203,4 +206,3 @@ ganjaFooterEnd = "  ],{\n"
                  <> "    scale: 1,\n"
                  <> "}));\n"
                  <> "});\n"
-
