@@ -127,13 +127,13 @@ facesOf (StraightSkeleton nodeLists spine)
           where
             -- cover the space occupied by all of the ancestors of this node with a series of faces.
             areaBeneath :: ENodeList -> [[INode]] -> INode -> [Face]
-            areaBeneath eNodeList iNodeSets target@(INode firstArc (Slist rawMoreArcs _) _)
+            areaBeneath eNodeList iNodeSets target@(INode firstArc secondArc (Slist rawMoreArcs _) _)
               | null iNodeSets && hasArc target              = init $ mapWithFollower makeTriangleFace $ fromJust . findENodeByOutput eNodeList <$> inArcs
               | null iNodeSets                               =        mapWithFollower makeTriangleFace $ fromJust . findENodeByOutput eNodeList <$> inArcs
               | length iNodeSets == 1 && not (hasArc target) = concat $ mapWithFollower (\a b -> areaBeneath eNodeList (init iNodeSets) a ++ [areaBetween eNodeList (init iNodeSets) target a b]) (head iNodeSets)
               | otherwise                                    = error $ "areabeneath: " <> show iNodeSets <> "\n" <> show target <> "\n" <> show (length iNodeSets) <> "\n"
               where
-                inArcs = firstArc : rawMoreArcs
+                inArcs = firstArc : secondArc : rawMoreArcs
                 -- | make a face from two nodes. the nodes must be composed of line segments on one side, and follow each other.
                 makeTriangleFace :: ENode -> ENode -> Face
                 makeTriangleFace node1 node2 = makeFace node1 [] node2
@@ -166,9 +166,9 @@ facesOf (StraightSkeleton nodeLists spine)
                     res = filter (\(ENode (sseg1, sseg2) _) -> sseg2 == seg1 || sseg1 == seg2) [firstDescendent eNodeList myParent, lastDescendent eNodeList myParent]
 
                 firstPLineOf :: INode -> PLine2
-                firstPLineOf (INode a _ _) = a
+                firstPLineOf (INode a _ _ _) = a
                 lastPLineOf :: INode -> PLine2
-                lastPLineOf (INode firstPLine morePLines _) = SL.last (cons firstPLine morePLines)
+                lastPLineOf (INode firstPLine secondPLine morePLines _) = SL.last (cons secondPLine morePLines)
 
     -- | make a face from two nodes, and a set of arcs. the nodes must be composed of line segments on one side, and follow each other.
     makeFace :: ENode -> [PLine2] -> ENode -> Face

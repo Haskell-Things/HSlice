@@ -366,7 +366,8 @@ facetSpec = do
                                  ]
     it "finds the arc resulting from a node at the intersection of the outArc of two nodes (corner3 and corner4 of c2)" $
       averageNodes corner3E1 corner4E1 --> INode (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                          (slist [PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]])])
+                                                 (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]]))
+                                                 (slist [])
                                            (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal 0.19509032201612836 [GEPlus 2]])))
   describe "Motorcycles (Skeleton/Motorcycles)" $ do
     it "finds one convex motorcycle in a simple shape" $
@@ -385,7 +386,8 @@ facetSpec = do
                ]
                [
                  [INode (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                 (slist [PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal (-0.3826834323650897) [GEPlus 2]])])
+                        (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal (-0.3826834323650897) [GEPlus 2]]))
+                        (slist [])
                   (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal 0.19509032201612836 [GEPlus 1], GVal (-0.9807852804032305) [GEPlus 2]])))
                  ]
                ]
@@ -398,7 +400,8 @@ facetSpec = do
                ]
                [
                  [INode (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal 0.3826834323650897 [GEPlus 2]]))
-                 (slist [PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])])
+                        (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+                        (slist [])
                   (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal 0.19509032201612836 [GEPlus 1], GVal 0.9807852804032305 [GEPlus 2]])))
                  ]
                ]
@@ -411,7 +414,8 @@ facetSpec = do
                ]
                [
                  [INode (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                 (slist [PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]])])
+                        (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]]))
+                        (slist [])
                   (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal 0.19509032201612836 [GEPlus 2]])))
                  ]
                ]
@@ -423,7 +427,8 @@ facetSpec = do
                       (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                ]
                [ [INode (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]]))
-                 (slist [PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])])
+                        (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                        (slist [])
                   (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal (-0.9807852804032305) [GEPlus 1], GVal 0.19509032201612836 [GEPlus 2]])))
                  ]
                ]
@@ -435,7 +440,8 @@ facetSpec = do
                       (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal 0.3826834323650897 [GEPlus 2]]))
                ]
                [ [INode (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                 (slist [PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal 0.3826834323650897 [GEPlus 2]])])
+                        (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal 0.3826834323650897 [GEPlus 2]]))
+                        (slist [])
                   (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal (-0.19509032201612836) [GEPlus 1], GVal 0.9807852804032305 [GEPlus 2]])))
                  ]
                ]
@@ -448,7 +454,8 @@ facetSpec = do
                ]
                [
                  [INode (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal (-0.3826834323650897) [GEPlus 2]]))
-                 (slist [PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])])
+                        (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                        (slist [])
                   (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal (-0.19509032201612836) [GEPlus 1], GVal (-0.9807852804032305) [GEPlus 2]])))
                  ]
                ]
@@ -461,7 +468,8 @@ facetSpec = do
                ]
                [
                  [INode (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                 (slist [PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]])])
+                        (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
+                        (slist [])
                   (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal (-0.9807852804032305) [GEPlus 1], GVal (-0.19509032201612836) [GEPlus 2]])))
                  ]
                ]
@@ -474,7 +482,8 @@ facetSpec = do
                ]
                [
                  [INode (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
-                 (slist [PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])])
+                        (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+                        (slist [])
                   (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal (-0.19509032201612836) [GEPlus 2]])))
                  ]
                ]
@@ -486,7 +495,8 @@ facetSpec = do
                                                                               (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal  (-0.9238795325112867) [GEPlus 2]]))
                                                                        ]
                                                                        [ [INode (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                                                                         (slist [PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal  (-0.9238795325112867) [GEPlus 2]])])
+                                                                                (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal  (-0.9238795325112867) [GEPlus 2]]))
+                                                                                (slist [])
                                                                           (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal (-0.9807852804032305) [GEPlus 1], GVal (-0.19509032201612836) [GEPlus 2]])))
                                                                          ]
                                                                        ]
@@ -496,7 +506,8 @@ facetSpec = do
                                                                               (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
                                                                        ]
                                                                        [ [INode (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal  (-0.9238795325112867) [GEPlus 2]]))
-                                                                         (slist [PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])])
+                                                                                (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+                                                                                (slist [])
                                                                           (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal (-0.19509032201612836) [GEPlus 2]])))
                                                                          ]
                                                                        ]
@@ -513,7 +524,8 @@ facetSpec = do
                                                                               (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal  0.9238795325112867 [GEPlus 2]]))
                                                                        ]
                                                                        [ [INode (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                         (slist [PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]])])
+                                                                                (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]]))
+                                                                                (slist [])
                                                                           (Just (PLine2 (GVec [GVal 0.4870636221857319 [GEZero 1], GVal 0.9807852804032305 [GEPlus 1], GVal 0.19509032201612836 [GEPlus 2]])))
                                                                          ]
                                                                        ]
@@ -523,7 +535,8 @@ facetSpec = do
                                                                               (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                        ]
                                                                        [ [INode (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal 0.9238795325112867 [GEPlus 2]]))
-                                                                         (slist [PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])])
+                                                                                (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                                                                                (slist [])
                                                                           (Just (PLine2 (GVec [GVal (-0.4870636221857319) [GEZero 1], GVal (-0.9807852804032305) [GEPlus 1], GVal 0.19509032201612836 [GEPlus 2]])))
                                                                          ]
                                                                        ]
@@ -539,7 +552,8 @@ facetSpec = do
                                                                               (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
                                                                        ]
                                                                        [ [INode (PLine2 (GVec [GVal 0.5411961001461969 [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal 0.3826834323650899 [GEPlus 2]]))
-                                                                         (slist [PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]])])
+                                                                                (PLine2 (GVec [GVal 0.541196100146197 [GEZero 1], GVal (-0.3826834323650897) [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
+                                                                                (slist [])
                                                                           (Just (PLine2 (GVec [GVal 0.7653668647301793 [GEZero 1], GVal (-0.9238795325112867) [GEPlus 1], GVal (-0.38268343236508967) [GEPlus 2]])))
                                                                          ]
                                                                        ]
@@ -553,7 +567,8 @@ facetSpec = do
                                                                               (PLine2 (GVec [GVal (-0.5411961001461969) [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal 0.3826834323650899 [GEPlus 2]]))
                                                                        ]
                                                                        [ [INode (PLine2 (GVec [GVal (-0.541196100146197) [GEZero 1], GVal 0.3826834323650897 [GEPlus 1], GVal (-0.9238795325112867) [GEPlus 2]]))
-                                                                         (slist [PLine2 (GVec [GVal (-0.5411961001461969) [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal 0.3826834323650899 [GEPlus 2]])])
+                                                                                (PLine2 (GVec [GVal (-0.5411961001461969) [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal 0.3826834323650899 [GEPlus 2]]))
+                                                                                (slist [])
                                                                           (Just (PLine2 (GVec [GVal (-0.7653668647301793) [GEZero 1], GVal 0.9238795325112867 [GEPlus 1], GVal (-0.38268343236508967) [GEPlus 2]])))
                                                                          ]
                                                                        ]
@@ -571,11 +586,13 @@ facetSpec = do
                                                                               (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
                                                                        ]
                                                                        [ [INode (PLine2 (GVec [GVal (-0.9510565162951536) [GEZero 1], GVal 0.8506508083520399 [GEPlus 1], GVal (-0.5257311121191337) [GEPlus 2]]))
-                                                                         (slist [PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])])
+                                                                                (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+                                                                                (slist [])
                                                                           (Just (PLine2 (GVec [GVal (-0.606432399999752) [GEZero 1], GVal 0.9932897335288758 [GEPlus 1], GVal 0.11565251949756605 [GEPlus 2]])))
                                                                          ]
                                                                        , [INode (PLine2 (GVec [GVal (-0.606432399999752) [GEZero 1], GVal 0.9932897335288758 [GEPlus 1], GVal 0.11565251949756605 [GEPlus 2]]))
-                                                                         (slist [PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])])
+                                                                                (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+                                                                                (slist [])
                                                                           (Just (PLine2 (GVec [GVal (-0.6961601101968017) [GEZero 1], GVal 0.328526568895664 [GEPlus 1], GVal 0.9444947292227959 [GEPlus 2]])))
                                                                          ]
                                                                        ],
@@ -587,11 +604,13 @@ facetSpec = do
                                                                               (PLine2 (GVec [GVal 0.9510565162951536 [GEZero 1], GVal 0.8506508083520399 [GEPlus 1], GVal 0.5257311121191337 [GEPlus 2]]))
                                                                        ]
                                                                        [ [INode (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                         (slist [PLine2 (GVec [GVal 0.9510565162951536 [GEZero 1], GVal 0.8506508083520399 [GEPlus 1], GVal 0.5257311121191337 [GEPlus 2]])])
+                                                                                (PLine2 (GVec [GVal 0.9510565162951536 [GEZero 1], GVal 0.8506508083520399 [GEPlus 1], GVal 0.5257311121191337 [GEPlus 2]]))
+                                                                                (slist [])
                                                                           (Just (PLine2 (GVec [GVal 0.606432399999752 [GEZero 1], GVal 0.9932897335288758 [GEPlus 1], GVal (-0.11565251949756605) [GEPlus 2]])))
                                                                          ],
                                                                          [INode (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                         (slist [PLine2 (GVec [GVal 0.606432399999752 [GEZero 1], GVal 0.9932897335288758 [GEPlus 1], GVal (-0.11565251949756605) [GEPlus 2]])])
+                                                                                (PLine2 (GVec [GVal 0.606432399999752 [GEZero 1], GVal 0.9932897335288758 [GEPlus 1], GVal (-0.11565251949756605) [GEPlus 2]]))
+                                                                                (slist [])
                                                                           (Just (PLine2 (GVec [GVal 0.6961601101968017 [GEZero 1], GVal 0.328526568895664 [GEPlus 1], GVal (-0.9444947292227959) [GEPlus 2]])))
                                                                          ]
                                                                        ],
@@ -609,8 +628,8 @@ facetSpec = do
                                                                                     (PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1], GVal 0.8660254037844387 [GEPlus 2]]))
                                                                              ]
                                                                              [ [INode (PLine2 (GVec [GVal 1.0 [GEZero 1], GVal (-1.0) [GEPlus 1]]))
-                                                                               (slist [PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1],GVal (-0.8660254037844387) [GEPlus 2]]),
-                                                                                       PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1],GVal 0.8660254037844387 [GEPlus 2]])])
+                                                                                      (PLine2 (GVec [GVal 0.5000000000000001 [GEPlus 1],GVal (-0.8660254037844387) [GEPlus 2]]))
+                                                                               (slist [PLine2 (GVec [GVal (-1.0000000000000002) [GEZero 1], GVal 0.5000000000000001 [GEPlus 1],GVal 0.8660254037844387 [GEPlus 2]])])
                                                                                       Nothing
                                                                                ]
                                                                              ]
@@ -626,8 +645,8 @@ facetSpec = do
                                                                                   (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                            ]
                                                                            [ [INode (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                             (slist [PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])
-                                                                                    ,PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])
+                                                                                    (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+                                                                             (slist [PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])
                                                                                     ,PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])])
                                                                                     Nothing
                                                                              ]
@@ -644,14 +663,17 @@ facetSpec = do
                                                                                      (PLine2 (GVec [GVal (-0.7071067811865475) [GEZero 1], GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                               ]
                                                                               [ [INode (PLine2 (GVec [GVal (-0.7071067811865475) [GEZero 1], GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
-                                                                                (slist [PLine2 (GVec [GVal 0.7071067811865475 [GEZero 1], GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])])
+                                                                                       (PLine2 (GVec [GVal 0.7071067811865475 [GEZero 1], GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
+                                                                                       (slist [])
                                                                                        (Just (PLine2 (GVec [GVal (-1.0) [GEPlus 2]])))
                                                                                 ,INode (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                                                                                (slist [PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])])
+                                                                                       (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
+                                                                                       (slist [])
                                                                                        (Just (PLine2 (GVec [GVal 1.0 [GEPlus 2]])))
                                                                                 ],
                                                                                  [INode (PLine2 (GVec [GVal (-1.0) [GEPlus 2]]))
-                                                                                 (slist [PLine2 (GVec [GVal 1.0 [GEPlus 2]])])
+                                                                                        (PLine2 (GVec [GVal 1.0 [GEPlus 2]]))
+                                                                                        (slist [])
                                                                                         Nothing
                                                                                  ]
                                                                               ]

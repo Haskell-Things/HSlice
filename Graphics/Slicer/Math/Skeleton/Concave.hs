@@ -308,8 +308,9 @@ getInsideArc _ pline1 _ pline2@(PLine2 pv2)
 makeINode :: [PLine2] -> Maybe PLine2 -> INode
 makeINode pLines maybeOut = case pLines of
                               [] -> error "tried to construct a broken INode"
-                              [onePLine] -> INode onePLine (slist []) maybeOut
-                              (first:more) -> INode first (slist more) maybeOut
+                              [_] -> error "tried to construct a broken INode"
+                              [first,second] -> INode first second (slist []) maybeOut
+                              (first:second:more) -> INode first second (slist more) maybeOut
 
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
 makeFirstENodes :: [LineSeg] -> [ENode]
