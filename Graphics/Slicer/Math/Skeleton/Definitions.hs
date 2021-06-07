@@ -223,4 +223,3 @@ concavePLines seg1 seg2
   where
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
-
