@@ -28,7 +28,7 @@
 
 module Graphics.Slicer.Formats.STL.Facets (facetsFromSTL, buildAsciiSTL) where
 
-import Prelude (($), (==), read, error, length, otherwise, (<$>), (<>), show, isNaN, isInfinite, (<), (||), isNegativeZero, (-), mconcat, (&&), filter, head, fst, snd, (.))
+import Prelude (($), (==), read, error, otherwise, (<$>), (<>), show, isNaN, isInfinite, (<), (||), isNegativeZero, (-), mconcat, (&&), filter, fst, snd, (.))
 
 import Control.Parallel.Strategies (using, rdeepseq, parBuffer)
 
@@ -82,7 +82,15 @@ readFacet f = do
           facetFromPointsAndNormal :: [Point3] -> Point3 -> Facet
           facetFromPointsAndNormal [p1,p2,p3] n = Facet ((p1,p2),(p2,p3),(p3,p1)) n
           facetFromPointsAndNormal _ _ = error "tried to make a facet from something other than 3 points."
-        if length foundPoints == 3 && length foundNormals == 1 then facetFromPointsAndNormal foundPoints (head foundNormals) else error $ "wrong number of points/normals found: " <> show (length foundPoints) <> "\n" <> show f <> "\n" <> show foundPoints <> "\n"
+        case foundPoints of
+          [] -> error "no points found."
+          [_] -> error "only one point found."
+          [_,_] -> error "only two points found."
+          [_,_,_] -> case foundNormals of
+                       [] -> error "found no normal."
+                       [foundNormal] -> facetFromPointsAndNormal foundPoints foundNormal
+                       (_:_) -> error "too many normals."
+          (_:_) -> error "found too many points."
 
 -- | Read a point when it's given as a string of the form "vertex x y z"
 --   or a normal when it's given as a string of the form "facet normal x y z".

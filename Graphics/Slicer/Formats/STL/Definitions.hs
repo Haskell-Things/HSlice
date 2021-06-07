@@ -27,7 +27,7 @@
 
 module Graphics.Slicer.Formats.STL.Definitions (trianglesFromSTL) where
 
-import Prelude (($), (==), read, error, length, (<$>), (<>), show)
+import Prelude (($), (==), read, error, (<$>), (<>), show)
 
 import Control.Parallel.Strategies (using, rdeepseq, parBuffer)
 
@@ -91,5 +91,7 @@ readTri f = do
           triFromPoints :: [Point3] -> Tri
           triFromPoints [p1,p2,p3] = Tri ((p1,p2),(p2,p3),(p3,p1))
           triFromPoints _ = error "tried to make a tri from something other than 3 points."
-        if length foundPoints == 3 then triFromPoints foundPoints else error $ "wrong number of points found: " <> show (length foundPoints) <> "\n" <> show f <> "\n" <> show foundPoints <> "\n"
+        case foundPoints of
+          threePoints@[_,_,_] -> triFromPoints threePoints
+          _ -> error $ "wrong number of points found." <> show f <> "\n" <> show foundPoints <> "\n"
 
