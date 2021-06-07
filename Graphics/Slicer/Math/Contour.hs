@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour, contourIntersections, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, linesOfContour) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), (>), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, zip, Either(Left, Right))
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, zip, Either(Left, Right))
 
 import Data.List(tail, last, head, partition, reverse, sortBy)
 
@@ -119,10 +119,10 @@ getContours pointPairs = maybeFlipContour <$> foundContours
     contourAsPointPairs contourPointPairs = (\[a,b] -> (a,b)) <$> contourPointPairs
     foundContours = makeSafeContour . contourAsPoints . contourAsPointPairs <$> mapMaybe contourLongEnough foundContourSets
     contourLongEnough :: [[Point2]] -> Maybe [[Point2]]
-    contourLongEnough pts
-      | length pts > 2 = Just pts
-      -- NOTE: returning nothing here, even though this is an error condition, and a sign that the input file has two triangles that intersect. should not happen.
-      | otherwise = Nothing -- error $ "fragment insufficient to be a contour found: " <> show pts <> "\n"
+    contourLongEnough pts = case pts of
+                              (_:_:_:_) -> Just pts
+                              -- NOTE: returning nothing here, even though this is an error condition, and a sign that the input file has two triangles that intersect. should not happen.
+                              _ -> Nothing -- error $ "fragment insufficient to be a contour found: " <> show pts <> "\n"
     foundContourSets :: [[[Point2]]]
     foundContourSets = getLoops $ (\(a,b) -> [a,b]) <$> sortPairs pointPairs
       where
@@ -246,8 +246,11 @@ firstPointOfContour :: Contour -> Point2
 firstPointOfContour (SafeContour p1 _ _ _) = p1
 
 makeSafeContour :: [Point2] -> Contour
-makeSafeContour (p1:p2:p3:pts) = SafeContour p1 p2 p3 (slist pts)
-makeSafeContour _ = error "too few points to construct a contour."
+makeSafeContour points = case points of
+                           [] -> error "tried to create an empty contour"
+                           [p] -> error $ "tried to create a contour with a single point: " <> show p <> "\n"
+                           [p1,p2] -> error $ "tried to create a contour with only two points:\n" <> show p1 <> "\n" <> show p2 <> "\n"
+                           (p1:p2:p3:pts) -> SafeContour p1 p2 p3 (slist pts)
 
 -- find the first line segment in a contour.
 firstLineSegOfContour :: Contour -> LineSeg
