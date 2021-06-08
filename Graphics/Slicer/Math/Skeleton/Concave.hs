@@ -91,32 +91,48 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
     -- | Apply a recursive algorithm to solve the node set.
     --   FIXME: does not handle more than two point intersections of arcs properly.
     skeletonOfNodes :: [ENode] -> [INode] -> Either PartialNodes [[INode]]
-    skeletonOfNodes eNodes iNodes
-      --  zero nodes == return emptyset. allows us to simplify our return loop.
-      | null eNodes && null iNodes = Right []
-      -- Handle single nodes.
-      --  A one node loop makes no sense, reject.
-     | length eNodes + length iNodes == 1 && loop = Left $ PartialNodes [iNodes] "NOMATCH - Length 1?"
-      --  FIXME: this is right, i think?
-      | length eNodes == 1 && null iNodes = Right [[eNodeToINode $ head eNodes]]
-      | null eNodes && length iNodes == 1 = Right [iNodes]
-      -- Handle a pair of nodes.
-      | isCollinearPair = Right [[makeCollinearPair]]
-      | null eNodes && length iNodes == 2 && intersectsInPoint (head iNodes) (last iNodes) && not loop = Right [[averageNodes (head iNodes) (last iNodes)]]
-      | length eNodes == 2 && null iNodes && intersectsInPoint (head eNodes) (last eNodes) && not loop = Right [[averageNodes (head eNodes) (last eNodes)]]
-      | length eNodes == 1 && length iNodes == 1 && intersectsInPoint (head eNodes) (head iNodes) && not loop = Right [[averageNodes (head eNodes) (head iNodes)]]
-      | length eNodes + length iNodes == 2 = Left $ PartialNodes [iNodes] "NOMATCH - length 2?"
-      --   Handle the the case of 3 or more nodes.
-      -- FIXME: needs a sort function.
-      | endsAtSamePoint = Right [[makeINode ((outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]]
-      | hasShortestPair         = Right $ averageOfShortestPairs : errorIfLeft (skeletonOfNodes remainingENodes (remainingINodes ++ averageOfShortestPairs))
-      | otherwise = error $ "shortestPairDistance: " <> show shortestPairDistance
-                                <> "\nePairDistance: " <> show shortestEPairDistance <> "\nnum of ePairs Found: " <> show (length $ shortestPairs eNodes) <> "\nshortestEPairs: " <> show (shortestPairs eNodes) <> "\nePairResults: " <> show (uncurry averageNodes <$> shortestPairs eNodes) <> "\n" <> show (isSomething shortestEPairDistance) <> "\n"
-                                <> "\niPairDistance: " <> show shortestIPairDistance <> "\nnum of iPairs Found: " <> show (length $ shortestPairs iNodes) <> "\nshortestIPairs: " <> show (shortestPairs iNodes) <> "\niPairResults: " <> show (uncurry averageNodes <$> shortestPairs iNodes) <> "\n" <> show (isSomething shortestIPairDistance) <> "\n"
-                                <> "\nmixedPairDistance: " <> show shortestMixedPairDistance <> "\nnum of mixedPairs Found: " <> show (length shortestMixedPairs) <> "\nshortestMixedPairs: " <> show shortestMixedPairs <> "\nMixedPairResults: " <> show (uncurry averageNodes <$> shortestMixedPairs) <> "\n" <> show (isSomething shortestMixedPairDistance) <> "\n" <> show (shortestEPairDistance == shortestPairDistance)
-                                <> "\nresultingENodes: " <> show remainingENodes <> "\nresultingNodes: " <> show remainingINodes <> "\nthisGen: " <> show averageOfShortestPairs
---      | otherwise = Left $ PartialNodes [] "NOMATCH"
+    skeletonOfNodes eNodes iNodes =
+      case eNodes of
+        [] -> case iNodes of
+                --  zero nodes == return emptyset. allows us to simplify our return loop.
+                [] -> Right []
+                [iNode] -> if not loop
+                           then Right [[iNode]] -- just hand back single node requests.
+                           else errorLen1 -- A one node loop makes no sense, reject.
+                [iNode1,iNode2] -> handleTwoNodes iNode1 iNode2
+                (_:_:_:_) -> handleThreeOrMoreNodes
+        [eNode] -> case iNodes of
+                     [] -> if not loop
+                           then Right [[eNodeToINode eNode]] -- just hand back single node requests.
+                           else errorLen1  -- A one node loop makes no sense, reject.
+                     [iNode] -> handleTwoNodes eNode iNode
+                     (_:_:_) -> handleThreeOrMoreNodes
+        [eNode1,eNode2] -> case iNodes of
+                             [] -> handleTwoNodes eNode1 eNode2
+                             (_:_) -> handleThreeOrMoreNodes
+        (_:_:_:_) -> handleThreeOrMoreNodes
       where
+        errorLen1 = Left $ PartialNodes [iNodes] "NOMATCH - length 1?"
+        --   Handle the the case of two nodes.
+        handleTwoNodes node1 node2 = if isCollinear (outOf node1) (outOf node2)
+                                     then Right [[makeCollinearPair]]
+                                     else if intersectsInPoint node1 node2 && not loop
+                                          then Right [[averageNodes node1 node2]]
+                                          else errorLen2
+        errorLen2 = Left $ PartialNodes [iNodes] "NOMATCH - length 2?"
+        --   Handle the the case of 3 or more nodes.
+        -- FIXME: needs a sort function.
+        handleThreeOrMoreNodes = if endsAtSamePoint
+                                 then Right [[makeINode ((outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]]
+                                 else if hasShortestPair
+                                      then Right $ averageOfShortestPairs : errorIfLeft (skeletonOfNodes remainingENodes (remainingINodes ++ averageOfShortestPairs))
+                                      else errorLen3
+        errorLen3 = error $ "shortestPairDistance: " <> show shortestPairDistance
+                    <> "\nePairDistance: " <> show shortestEPairDistance <> "\nnum of ePairs Found: " <> show (length $ shortestPairs eNodes) <> "\nshortestEPairs: " <> show (shortestPairs eNodes) <> "\nePairResults: " <> show (uncurry averageNodes <$> shortestPairs eNodes) <> "\n" <> show (isSomething shortestEPairDistance) <> "\n"
+                    <> "\niPairDistance: " <> show shortestIPairDistance <> "\nnum of iPairs Found: " <> show (length $ shortestPairs iNodes) <> "\nshortestIPairs: " <> show (shortestPairs iNodes) <> "\niPairResults: " <> show (uncurry averageNodes <$> shortestPairs iNodes) <> "\n" <> show (isSomething shortestIPairDistance) <> "\n"
+                    <> "\nmixedPairDistance: " <> show shortestMixedPairDistance <> "\nnum of mixedPairs Found: " <> show (length shortestMixedPairs) <> "\nshortestMixedPairs: " <> show shortestMixedPairs <> "\nMixedPairResults: " <> show (uncurry averageNodes <$> shortestMixedPairs) <> "\n" <> show (isSomething shortestMixedPairDistance) <> "\n" <> show (shortestEPairDistance == shortestPairDistance)
+                    <> "\nresultingENodes: " <> show remainingENodes <> "\nresultingNodes: " <> show remainingINodes <> "\nthisGen: " <> show averageOfShortestPairs
+
         -- | When a set of nodes end in the same point, we may need to create a Node with all of the nodes as input. This checks for that case.
         endsAtSamePoint :: Bool
         endsAtSamePoint = and $ mapWithFollower (==) $ mapWithFollower intersectionOf ((outOf <$> nonCollinearNodes eNodes (collinearNodePairsOf eNodes)
