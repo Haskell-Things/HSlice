@@ -93,7 +93,7 @@ import Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Hori
 
 import Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour)
 
-import Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart, GCMarkSupportStart), cookExtrusions, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText)
+import Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart), cookExtrusions, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText)
 
 default (ℕ, Fastℕ, ℝ)
 
@@ -548,7 +548,7 @@ run rawArgs = do
       inFile = fromMaybe "in.stl" $ inputFileOpt args
     stl <- readFile inFile
     -- FIXME: do something with messages.
-    (settings, messages) <- addConstants $ settingOpts args
+    (settings, _messages) <- addConstants $ settingOpts args
     let
       printer   = printerFromSettings settings
       buildarea = buildArea printer

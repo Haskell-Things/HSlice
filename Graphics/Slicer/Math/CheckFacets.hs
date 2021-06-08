@@ -22,7 +22,7 @@ module Graphics.Slicer.Math.CheckFacets (FacetWithNeighbors(FacetWithNeighbors),
 
 import Prelude (Eq, (==), (/=), ($), length, head, filter, error, show, (||))
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3))
+import Graphics.Slicer.Math.Definitions (Point3)
 
 import Graphics.Slicer.Math.Facet (Facet(Facet))
 

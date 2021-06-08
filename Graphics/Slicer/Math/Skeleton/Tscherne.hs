@@ -22,6 +22,7 @@
    the algorithm in Christopher Tscherne's masters thesis.
 -}
 
+-- | Christopher Tscherne\'s algorithm from his master\'s thesis.
 module Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne, cellAfter, cellBefore) where
 
 import Prelude (Bool(False), elem, otherwise, ($), (<$>), (==), (++), error, (&&), fst, (<>), show, uncurry, null, filter, (+), Int, drop, take, (-))
@@ -48,10 +49,10 @@ import Graphics.Slicer.Math.Contour (linesOfContour)
 
 import Graphics.Slicer.Math.PGA (PIntersection(PCollinear), plinesIntersectIn, eToPPoint2)
 
+-- | Use observations from christopher tscherne\'s masters thesis to cover the corner cases that do not require the whole algorithm.
+-- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point
 applyTscherne :: Contour -> [CellDivide] -> Maybe StraightSkeleton
 applyTscherne contour cellDivisions =
-  -- | use observations from christopher tscherne's masters thesis to cover the corner cases that do not require the whole algorithm.
-  -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point
   case cellDivisions of
     [] -> Nothing
     [oneDivision] -> if cellsDoNotOverlap (leftSide, oneDivision) (rightSide, oneDivision)
@@ -87,7 +88,7 @@ applyTscherne contour cellDivisions =
                                                                  (DividingMotorcycles m (Slist _ 0)) -> plinesIntersectIn (finalPLine cell1) (outOf m) == plinesIntersectIn (finalPLine cell2) (outOf m)
                                                                  (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet check outpoint intersections of more than one motorcycle."
 
-    -- | given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
+    -- given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
     crossoverENodes :: NodeTree -> CellDivide -> [ENode]
     crossoverENodes nodeTree@(NodeTree (ENodeList firstENode (Slist moreRawNodes _)) _) cellDivision = filter (\a -> elem (Just False) (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)) (firstENode:moreRawNodes)
       where
@@ -140,8 +141,7 @@ applyTscherne contour cellDivisions =
                          [a] -> a
                          (_:_) -> error "cannot yet handle more that one cell division point."
 
-
--- | Calculate a partial straight skeleton for the motorcycle cell that is on the left side of the point that a motorcycle's path starts at, ending where the motorcycle intersects the contour.
+-- | Calculate a partial straight skeleton for the motorcycle cell that is on the left side of the point that a motorcycle\'s path starts at, ending where the motorcycle intersects the contour.
 cellAfter :: Contour -> Motorcycle -> NodeTree
 cellAfter contour motorcycle = skeletonOfConcaveRegion (gatherLineSegs contour motorcycle) False
   where
@@ -164,7 +164,7 @@ cellAfter contour motorcycle = skeletonOfConcaveRegion (gatherLineSegs contour m
           -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the last of the two segments (from the beginning of the contour).
           motorcycleOutSegment = uncurry fromMaybe motorcycleIntersection
 
--- | Calculate a partial straight skeleton for the motorcycle cell that is on the right side of the point that a motorcycle's path starts at, ending where the motorcycle intersects the contour.
+-- | Calculate a partial straight skeleton for the motorcycle cell that is on the right side of the point that a motorcycle\'s path starts at, ending where the motorcycle intersects the contour.
 cellBefore :: Contour -> Motorcycle -> NodeTree
 cellBefore contour motorcycle = skeletonOfConcaveRegion (gatherLineSegs contour motorcycle) False
   where
@@ -200,5 +200,3 @@ findSegFromStart c seg1 seg2 = case catMaybes (foundSeg seg1 seg2 <$> linesOfCon
       | sn == s1  = Just s1
       | sn == s2  = Just s2
       | otherwise = Nothing
-
--- | Apply Christopher Tscherne's algorithm from his master's thesis.

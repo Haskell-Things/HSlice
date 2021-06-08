@@ -19,6 +19,7 @@
 
 -- for not handling faces:
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour, contourIntersections, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, linesOfContour) where
 
