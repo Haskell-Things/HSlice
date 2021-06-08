@@ -27,7 +27,7 @@
 {-# LANGUAGE TupleSections #-}
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, makeFirstENodes, averageNodes) where
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, notElem, otherwise, ($), last, (<$>), (==), (++), error, length, (&&), head, fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, init, id, (+))
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (<$>), (==), (++), error, (&&), head, fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, init, id)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromJust)
 
@@ -115,7 +115,7 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
         errorLen1 = Left $ PartialNodes [iNodes] "NOMATCH - length 1?"
         --   Handle the the case of two nodes.
         handleTwoNodes node1 node2 = if isCollinear (outOf node1) (outOf node2)
-                                     then Right [[makeCollinearPair]]
+                                     then Right [[makeCollinearPair node1 node2]]
                                      else if intersectsInPoint node1 node2 && not loop
                                           then Right [[averageNodes node1 node2]]
                                           else errorLen2
@@ -123,14 +123,14 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
         --   Handle the the case of 3 or more nodes.
         -- FIXME: needs a sort function.
         handleThreeOrMoreNodes = if endsAtSamePoint
-                                 then Right [[makeINode ((outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]]
+                                 then Right [[makeINode (sortedPLines ((outOf <$> eNodes) ++ (outOf <$> iNodes))) Nothing]]
                                  else if hasShortestPair
                                       then Right $ averageOfShortestPairs : errorIfLeft (skeletonOfNodes remainingENodes (remainingINodes ++ averageOfShortestPairs))
                                       else errorLen3
         errorLen3 = error $ "shortestPairDistance: " <> show shortestPairDistance
-                    <> "\nePairDistance: " <> show shortestEPairDistance <> "\nnum of ePairs Found: " <> show (length $ shortestPairs eNodes) <> "\nshortestEPairs: " <> show (shortestPairs eNodes) <> "\nePairResults: " <> show (uncurry averageNodes <$> shortestPairs eNodes) <> "\n" <> show (isSomething shortestEPairDistance) <> "\n"
-                    <> "\niPairDistance: " <> show shortestIPairDistance <> "\nnum of iPairs Found: " <> show (length $ shortestPairs iNodes) <> "\nshortestIPairs: " <> show (shortestPairs iNodes) <> "\niPairResults: " <> show (uncurry averageNodes <$> shortestPairs iNodes) <> "\n" <> show (isSomething shortestIPairDistance) <> "\n"
-                    <> "\nmixedPairDistance: " <> show shortestMixedPairDistance <> "\nnum of mixedPairs Found: " <> show (length shortestMixedPairs) <> "\nshortestMixedPairs: " <> show shortestMixedPairs <> "\nMixedPairResults: " <> show (uncurry averageNodes <$> shortestMixedPairs) <> "\n" <> show (isSomething shortestMixedPairDistance) <> "\n" <> show (shortestEPairDistance == shortestPairDistance)
+                    <> "\nePairDistance: " <> show shortestEPairDistance <> "\nshortestEPairs: " <> show (shortestPairs eNodes) <> "\nePairResults: " <> show (uncurry averageNodes <$> shortestPairs eNodes) <> "\n" <> show (isSomething shortestEPairDistance) <> "\n"
+                    <> "\niPairDistance: " <> show shortestIPairDistance <> "\nshortestIPairs: " <> show (shortestPairs iNodes) <> "\niPairResults: " <> show (uncurry averageNodes <$> shortestPairs iNodes) <> "\n" <> show (isSomething shortestIPairDistance) <> "\n"
+                    <> "\nmixedPairDistance: " <> show shortestMixedPairDistance <> "\nshortestMixedPairs: " <> show shortestMixedPairs <> "\nMixedPairResults: " <> show (uncurry averageNodes <$> shortestMixedPairs) <> "\n" <> show (isSomething shortestMixedPairDistance) <> "\n" <> show (shortestEPairDistance == shortestPairDistance)
                     <> "\nresultingENodes: " <> show remainingENodes <> "\nresultingNodes: " <> show remainingINodes <> "\nthisGen: " <> show averageOfShortestPairs
 
         -- | When a set of nodes end in the same point, we may need to create a Node with all of the nodes as input. This checks for that case.
@@ -152,19 +152,8 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
         hasShortestPair = not $ null (intersectingNodePairsOf eNodes) && null (intersectingNodePairsOf iNodes) && null intersectingMixedNodePairs
 
         -- | make sure we have a potential intersection between two nodes to work with.
-        isCollinearPair :: Bool
-        isCollinearPair = length eNodes + length iNodes == 2 && isCollinear (head allNodeOutputs) (last allNodeOutputs)
-          where
-            allNodeOutputs = (outOf <$> eNodes) ++ (outOf <$> iNodes)
-
-        -- | make sure we have a potential intersection between two nodes to work with.
-        makeCollinearPair :: INode
-        makeCollinearPair
-          | null eNodes        && length iNodes == 2 = makeINode [outOf $ head iNodes, outOf $ last iNodes] Nothing
-          | length eNodes == 2 && null iNodes        = makeINode [outOf $ head eNodes, outOf $ last eNodes] Nothing
-          -- FIXME: how do we get these sorted properly?
-          | length eNodes == 1 && length iNodes == 1 = makeINode (sortedPair (head eNodes) (head iNodes)) Nothing
-          | otherwise = error "cannot construct a collinear pear: we don't have two nodes to work with."
+        makeCollinearPair :: (Arcable a, Arcable b) => a -> b -> INode
+        makeCollinearPair node1 node2 = makeINode (sortedPair node1 node2) Nothing
 
         -- | determine the exterior nodes available for calculation during the next recurse.
         remainingENodes :: [ENode]
@@ -278,6 +267,9 @@ sortedPair :: (Arcable a, Arcable b) => a -> b -> [PLine2]
 sortedPair n1 n2 = if Just True == outOf n1 `pLineIsLeft` outOf n2
                    then [outOf n1,outOf n2]
                    else [outOf n2,outOf n1]
+
+sortedPLines :: [PLine2] -> [PLine2]
+sortedPLines nodes = sortBy (\n1 n2 -> if (n1 `pLineIsLeft` n2) == Just True then GT else LT) nodes
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
 --   Note: we normalize our output lines, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
