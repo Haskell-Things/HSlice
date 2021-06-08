@@ -646,8 +646,8 @@ facetSpec = do
                                                                            ]
                                                                            [ [INode (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]]))
                                                                                     (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
-                                                                             (slist [PLine2 (GVec [GVal (0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])
-                                                                                    ,PLine2 (GVec [GVal (0.7071067811865475) [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])])
+                                                                             (slist [PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]])
+                                                                                    ,PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal (-0.7071067811865475) [GEPlus 2]])])
                                                                                     Nothing
                                                                              ]
                                                                            ]
@@ -669,9 +669,9 @@ facetSpec = do
                                                                                 ,INode (PLine2 (GVec [GVal 0.7071067811865475 [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
                                                                                        (PLine2 (GVec [GVal (-0.7071067811865475) [GEPlus 1], GVal 0.7071067811865475 [GEPlus 2]]))
                                                                                        (slist [])
-                                                                                       (Just (PLine2 (GVec [GVal (1.0) [GEPlus 2]])))
+                                                                                       (Just (PLine2 (GVec [GVal 1.0 [GEPlus 2]])))
                                                                                 ],
-                                                                                 [INode (PLine2 (GVec [GVal (1.0) [GEPlus 2]]))
+                                                                                 [INode (PLine2 (GVec [GVal 1.0 [GEPlus 2]]))
                                                                                         (PLine2 (GVec [GVal (-1.0) [GEPlus 2]]))
                                                                                         (slist [])
                                                                                         Nothing
