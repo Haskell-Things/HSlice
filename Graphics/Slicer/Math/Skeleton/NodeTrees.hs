@@ -20,13 +20,13 @@
 
 module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, sortNodeTrees, makeNodeTree) where
 
-import Prelude (Bool(True,False), Ordering(LT,GT), (==), fst, otherwise, snd, ($), error, (<>), show, (<>), head, init, null)
+import Prelude (Bool(True,False), Ordering(LT,GT), (==), fst, otherwise, snd, ($), error, (<>), show, (<>), init, null)
 
 import Prelude as P (filter, last)
 
 import Data.List (sortBy)
 
-import Data.Maybe( Maybe(Just, Nothing), fromJust, isJust)
+import Data.Maybe( Maybe(Just, Nothing), isJust)
 
 import Slist.Type (Slist(Slist))
 
@@ -77,7 +77,9 @@ pathTo nodeTree@(NodeTree eNodeList@(ENodeList firstENode _) iNodeSets) directio
         iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow False
         iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow True
         result = findENodeByOutput myENodeList pLineToFollow
-        terminate = ([outOf $ fromJust result], [], fromJust result)
+        terminate = case result of
+                      (Just eNode) -> ([outOf eNode], [], eNode)
+                      Nothing -> error "FIXME: cannot happen."
         myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodeList <> "\n" <> show myINodeSets <> "\n"
         (childPlines, endNodes, finalENode) = if isJust result
                                               then terminate
@@ -85,7 +87,7 @@ pathTo nodeTree@(NodeTree eNodeList@(ENodeList firstENode _) iNodeSets) directio
                                                      (Just res) -> pathInner myINodeSets myENodeList (snd res)
                                                      Nothing -> case myINodeSets of
                                                                   [] -> myError
-                                                                  [_] -> myError
+                                                                  [(INode _ _ _ _:_)] -> myError
                                                                   (_:_) ->  case iNodeOnLowerLevel of
                                                                               (Just res) -> pathInner (init $ fst res) myENodeList (snd res)
                                                                               Nothing -> myError
@@ -109,7 +111,7 @@ sortNodeTrees = sortBy compareNodeTrees
 
 -- dependent utility functions. used by internal components. not exported.
 
--- | Find a node with an output of the PLine given. Start at the most recent generation, and check backwards.
+-- | Find a node with an output of the PLine given. Check the most recent generation, and if recurse is set, check backwards.
 findINodeByOutput :: [[INode]] -> PLine2 -> Bool -> Maybe ([[INode]],INode)
 findINodeByOutput iNodeSets plineOut recurse
   | null iNodeSets = Nothing
@@ -117,10 +119,10 @@ findINodeByOutput iNodeSets plineOut recurse
                   [] -> if recurse
                         then case iNodeSets of
                                [] -> Nothing
-                               [_] -> Nothing
+                               [(INode _ _ _ _:_)] -> Nothing
                                (_:_) -> findINodeByOutput (init iNodeSets) plineOut recurse
                         else Nothing
-                  [_] -> Just (iNodeSets, head nodesMatching)
+                  [iNode@(INode _ _ _ _)] -> Just (iNodeSets, iNode)
                   (_:_) -> error "more than one node in a given generation with the same PLine out!"
   where
     nodesMatching = P.filter (\(INode _ _ _ a) -> a == Just plineOut) (P.last iNodeSets)

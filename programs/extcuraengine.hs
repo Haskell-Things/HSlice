@@ -143,7 +143,6 @@ layers print fs = catMaybes <$> rawContours
     allIntersections :: ℝ -> [(Point2,Point2)]
     allIntersections zLayer = catMaybes $ triIntersects zLayer <$> fs
     zs = [zOf . fst <$> triPoints | triPoints <- sidesOf <$> fs ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
-    zmax :: ℝ
     zmax = maximum $ concat zs
     lh = layerHeight print
 
