@@ -38,7 +38,7 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (makeSafeContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower, scalePoint, addPoints)
+import Graphics.Slicer.Math.Definitions (Contour, (~=), mapWithFollower, scalePoint, addPoints)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, LineSegError(LineSegFromPoint), endpoint)
 
@@ -158,8 +158,16 @@ addInset insets distance faceSet
   | insets == 1 = ([reconstructedContour], remainingFaces)
   | otherwise = error "cannot handle more than one inset yet."
   where
-    (Just reconstructedContour) = cleanContour $ buildContour $ mapWithFollower (\(LineSeg s1 _) l2 -> if endpoint l2 == s1 then endpoint l2 else averagePoints (endpoint l2) s1) (concat $ transpose lineSegSets)
-    -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
+    reconstructedContour = case (cleanContour $ buildContour $ mapWithFollower recoveryFun (concat $ transpose lineSegSets)) of
+                             (Just v) -> v
+                             Nothing -> error $ "failed to inset:"
+    recoveryFun l1@(LineSeg s1 _) l2@(LineSeg s2 _)
+      | endpoint l1 == s2 = endpoint l1
+      | endpoint l2 == s1 = endpoint l2
+      -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
+      | endpoint l1 ~= s2 = averagePoints (endpoint l1) s1
+      | endpoint l2 ~= s1 = averagePoints (endpoint l2) s1
+      | otherwise = error $ "out of order lineSegs generated from faces: " <> show faceSet <> "\n" <> show lineSegSets <> "\n"
     averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
     buildContour points = makeSafeContour $ last points : init points
     lineSegSets = fst <$> res
