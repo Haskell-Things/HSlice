@@ -159,16 +159,16 @@ facesOf (StraightSkeleton nodeLists spine)
 
                 -- | using the set of all first generation nodes, a second generation node, and a first generation node, find out which one of the first generation children of the given second generation node shares a side with the first generation node.
                 findMatchingDescendent :: ENodeList -> INode -> ENode -> ENode
-                findMatchingDescendent eNodeList myParent target@(ENode (seg1,seg2) _)
+                findMatchingDescendent eNodes myParent target@(ENode (seg1,seg2) _)
                   | length res == 1 = head res
-                  | otherwise = error $ show eNodeList <> "\n" <> show myParent <> "\n" <> show target <> "\n" <> show (firstDescendent eNodeList myParent) <> "\n" <> show (lastDescendent eNodeList myParent) <> "\n" <> show res <> "\n"
+                  | otherwise = error $ show eNodes <> "\n" <> show myParent <> "\n" <> show target <> "\n" <> show (firstDescendent eNodes myParent) <> "\n" <> show (lastDescendent eNodes myParent) <> "\n" <> show res <> "\n"
                   where
-                    res = filter (\(ENode (sseg1, sseg2) _) -> sseg2 == seg1 || sseg1 == seg2) [firstDescendent eNodeList myParent, lastDescendent eNodeList myParent]
+                    res = filter (\(ENode (sseg1, sseg2) _) -> sseg2 == seg1 || sseg1 == seg2) [firstDescendent eNodes myParent, lastDescendent eNodes myParent]
 
                 firstPLineOf :: INode -> PLine2
                 firstPLineOf (INode a _ _ _) = a
                 lastPLineOf :: INode -> PLine2
-                lastPLineOf (INode firstPLine secondPLine morePLines _) = SL.last (cons secondPLine morePLines)
+                lastPLineOf (INode _firstPLine secondPLine morePLines _) = SL.last (cons secondPLine morePLines)
 
     -- | make a face from two nodes, and a set of arcs. the nodes must be composed of line segments on one side, and follow each other.
     makeFace :: ENode -> [PLine2] -> ENode -> Face

@@ -28,6 +28,9 @@
 -- For matching our OpenScad variable types.
 {-# LANGUAGE ViewPatterns #-}
 
+-- FIXME: turn this warning back on at some point.
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
+
 import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, error, div, reverse, fst, filter, (<=))
 
 import Control.Applicative (pure, (<*>), (<$>))
@@ -185,7 +188,7 @@ data Zone =
   Everywhere !Plan
 --  | ZBetween !(ℝ,Maybe ℝ) !Plan
 --  | BelowBottom !(Point2, Point2) !Plan
-  | Box3 !Point3 !Point3 !Plan
+--  | Box3 !Point3 !Point3 !Plan
 
 data DivideStrategy =
     ZLayers
@@ -263,7 +266,7 @@ sliceObject printer@(Printer _ _ extruder) print allLayers =
     slicingPlan = Everywhere (Extrude (ZLayers,SkeletonFailThrough))
 
 sliceLayer :: Printer -> Print -> Zone -> Bool -> ([Contour], Fastℕ) -> [GCode]
-sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBeforeInner infillSpeed) plan isLastLayer (layerContours, layerNumber) = do
+sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBeforeInner infillSpeed) _plan isLastLayer (layerContours, layerNumber) = do
   let
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToContour :: Contour -> [GCode]
