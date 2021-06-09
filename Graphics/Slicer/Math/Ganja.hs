@@ -50,7 +50,9 @@ module Graphics.Slicer.Math.Ganja (toGanja, dumpGanja, dumpGanjas) where
 
 import Prelude (String, (<>), (++), (<$>), ($), (>=), concat, error, fst, show, snd, zip)
 
-import Data.Maybe(isJust, fromJust)
+import Data.Maybe(isJust, fromJust, Maybe(Nothing))
+
+import Numeric(showFFloat)
 
 import Slist.Type (Slist(Slist))
 
@@ -73,8 +75,11 @@ class GanjaAble a where
 
 instance GanjaAble Point2 where
   toGanja (Point2 (x,y)) varname = (
-    "  var " <> varname <> " = point(" <> show x <> "," <> show y <> ");\n",
+    "  var " <> varname <> " = point(" <> showFullPrecision x <> "," <> showFullPrecision y <> ");\n",
     "    " <> varname <> ", " <> show varname <> ",\n")
+    where
+      -- because ganja's website does not handle scientific notation.
+      showFullPrecision v = showFFloat Nothing v ""
 
 instance GanjaAble LineSeg where
   toGanja l1@(LineSeg p1 _) varname = (
@@ -92,30 +97,34 @@ instance GanjaAble LineSeg where
 instance GanjaAble PPoint2 where
   toGanja (PPoint2 (GVec vals)) varname = (
     "  var " <> varname <> " = "
-      <> show (valOf 0 (getVals [GEPlus 1, GEPlus 2] vals)) <> "e12"
-      <> (if e02 >= 0 then "+" <> show e02 else show e02)
+      <> showFullPrecision (valOf 0 (getVals [GEPlus 1, GEPlus 2] vals)) <> "e12"
+      <> (if e02 >= 0 then "+" <> showFullPrecision e02 else showFullPrecision e02)
       <> "e02"
-      <> (if e01 >= 0 then "+" <> show e01 else show e01)
+      <> (if e01 >= 0 then "+" <> showFullPrecision e01 else showFullPrecision e01)
       <> "e01;\n"
     ,
     "    " <> varname <> ", " <> show varname <> ",\n")
     where
       e02 = valOf 0 (getVals [GEZero 1, GEPlus 2] vals)
       e01 = valOf 0 (getVals [GEZero 1, GEPlus 1] vals)
+      -- because ganja's website does not handle scientific notation.
+      showFullPrecision v = showFFloat Nothing v ""
 
 instance GanjaAble PLine2 where
   toGanja (PLine2 (GVec vals)) varname = (
     "  var " <> varname <> " = "
-      <> show (valOf 0 (getVals [GEPlus 1] vals)) <> "e1"
-      <> (if e2 >= 0 then "+" <> show e2 else show e2)
+      <> showFullPrecision (valOf 0 (getVals [GEPlus 1] vals)) <> "e1"
+      <> (if e2 >= 0 then "+" <> showFullPrecision e2 else showFullPrecision e2)
       <> "e2"
-      <> (if e0 >= 0 then "+" <> show e0 else show e0)
+      <> (if e0 >= 0 then "+" <> showFullPrecision e0 else showFullPrecision e0)
       <> "e0;\n"
     ,
     "    " <> varname <> ", " <> show varname <> ",\n")
     where
       e2 = valOf 0 (getVals [GEPlus 2] vals)
       e0 = valOf 0 (getVals [GEZero 1] vals)
+      -- because ganja's website does not handle scientific notation.
+      showFullPrecision v = showFFloat Nothing v ""
 
 instance GanjaAble ENode where
   toGanja (ENode (l1, l2) outPLine) varname = (
