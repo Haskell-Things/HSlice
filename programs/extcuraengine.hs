@@ -117,10 +117,14 @@ https://github.com/Zip-o-mat/Slic3r/tree/nonplanar
 -------------------- Point and Line Arithmetic ----------------------------
 ---------------------------------------------------------------------------
 
+centeredTrisFromSTLNonTotal :: BuildArea -> ByteString -> [Tri]
+centeredTrisFromSTLNonTotal (RectArea (bedX,bedY,_)) stl = centeredTrisFromSTL bedX bedY stl
+centeredTrisFromSTLNonTotal _ _ = error "centeredTrisFromSTLNonTotal: bad arguments."
+
 -- Center triangles relative to the center of the build area.
 -- FIXME: assumes the origin is at the front left corner.
-centeredTrisFromSTL :: BuildArea -> ByteString -> [Tri]
-centeredTrisFromSTL (RectArea (bedX,bedY,_)) stl = shiftedTris
+centeredTrisFromSTL :: ℝ -> ℝ -> ByteString -> [Tri]
+centeredTrisFromSTL bedX bedY stl = shiftedTris
     where
       centerPoint = Point3 (dx,dy,dz)
       shiftedTris = [shiftTri centerPoint tri | tri <- tris] `using` parListChunk (div (length tris) (fromFastℕ threads)) rseq
@@ -556,7 +560,7 @@ run rawArgs = do
       printer   = printerFromSettings settings
       buildarea = buildArea printer
       print = printFromSettings settings
-      triangles = centeredTrisFromSTL buildarea stl
+      triangles = centeredTrisFromSTLNonTotal buildarea stl
       allLayers :: [[Contour]]
       allLayers = layers print triangles
       object = zip allLayers [(0::Fastℕ)..]
