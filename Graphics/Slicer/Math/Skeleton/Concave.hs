@@ -121,9 +121,8 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
                                           else errorLen2
         errorLen2 = Left $ PartialNodes [iNodes] "NOMATCH - length 2?"
         --   Handle the the case of 3 or more nodes.
-        -- FIXME: needs a sort function.
         handleThreeOrMoreNodes = if endsAtSamePoint
-                                 then Right [[makeINode (sortedPLines ((outOf <$> eNodes) ++ (outOf <$> iNodes))) Nothing]]
+                                 then Right [[makeINode (sortedPLines $ (outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]]
                                  else if hasShortestPair
                                       then Right $ averageOfShortestPairs : errorIfLeft (skeletonOfNodes remainingENodes (remainingINodes ++ averageOfShortestPairs))
                                       else errorLen3
@@ -264,12 +263,11 @@ averageNodes n1 n2
 
 -- take a pair of arcables, and return their outOf, in a sorted order.
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [PLine2]
-sortedPair n1 n2 = if Just True == outOf n1 `pLineIsLeft` outOf n2
-                   then [outOf n1,outOf n2]
-                   else [outOf n2,outOf n1]
+sortedPair n1 n2 = sortedPLines [outOf n1, outOf n2]
 
+-- Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
 sortedPLines :: [PLine2] -> [PLine2]
-sortedPLines nodes = sortBy (\n1 n2 -> if (n1 `pLineIsLeft` n2) == Just True then GT else LT) nodes
+sortedPLines nodes = sortBy (\n1 n2 -> if (n1 `pLineIsLeft` n2) == Just True then LT else GT) nodes
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
 --   Note: we normalize our output lines, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
