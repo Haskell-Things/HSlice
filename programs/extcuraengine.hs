@@ -28,7 +28,7 @@
 -- For matching our OpenScad variable types.
 {-# LANGUAGE ViewPatterns #-}
 
-import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, error, div, reverse, fst, filter, (<=))
+import Prelude ((*), (/), (+), (-), odd, mod, round, floor, (<>), FilePath, fromInteger, error, div, reverse, fst, filter, (<=))
 
 import Control.Applicative (pure, (<*>), (<$>))
 
