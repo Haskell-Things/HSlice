@@ -285,7 +285,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
     renderContourTreeSet (ContourTreeSet firstContourTree moreContourTrees) = renderContourTree firstContourTree <> concat (renderContourTree <$> moreContourTrees)
       where
         renderContourTree :: ContourTree -> [GCode]
-        renderContourTree (ContourTree (firstContour, subContours)) = renderSurface firstContour (interiorContours subContours)
+        renderContourTree (ContourTree firstContour subContours) = renderSurface firstContour (interiorContours subContours)
         interiorContours :: Slist ContourTreeSet -> [Contour]
         interiorContours (Slist treeSets _) = firstContourOfContourTreeSet <$> treeSets
     renderSurface :: Contour -> [Contour] -> [GCode]

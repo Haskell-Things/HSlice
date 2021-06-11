@@ -140,7 +140,7 @@ getContours pointPairs = maybeFlipContour <$> foundContours
 
 -- | A contour tree. A contour, which contains a list of contours that are cut out of the first contour, each of them contaiting a list of contours of positive space.. ad infinatum.
 -- FIXME: move this away from a tuple.
-newtype ContourTree = ContourTree (Contour, Slist ContourTreeSet)
+data ContourTree = ContourTree { _parentContour :: Contour, _childContours :: Slist ContourTreeSet}
   deriving (Show)
 
 -- | A set of contour trees.
@@ -152,13 +152,13 @@ makeContourTreeSet :: [Contour] -> ContourTreeSet
 makeContourTreeSet contours =
   case contours of
     [] -> error "no contours to make a set out of."
-    [contour] -> ContourTreeSet (ContourTree (contour, (slist []))) (slist [])
+    [contour] -> ContourTreeSet (ContourTree contour (slist [])) (slist [])
     (_:_) ->
       case contoursWithoutParents contours of
         [] -> error $ "impossible: contours given, but no top level contours found?" <> show contours <> "\n"
-        [oneContour] -> ContourTreeSet (ContourTree (oneContour, slist [makeContourTreeSet $ filter (\a -> a /= oneContour) contours])) (slist [])
-        (headParent:tailParents) -> ContourTreeSet (ContourTree (headParent, slist (recurseIfNotEmpty contours headParent)))
-                                                   (slist [ContourTree (foundContour, slist (recurseIfNotEmpty contours foundContour)) | foundContour <- tailParents])
+        [oneContour] -> ContourTreeSet (ContourTree oneContour (slist [makeContourTreeSet $ filter (\a -> a /= oneContour) contours])) (slist [])
+        (headParent:tailParents) -> ContourTreeSet (ContourTree headParent (slist $ recurseIfNotEmpty contours headParent))
+                                                   (slist [ContourTree foundContour (slist $ recurseIfNotEmpty contours foundContour) | foundContour <- tailParents])
   where
     recurseIfNotEmpty cs c =
       case contoursWithAncestor cs c of
@@ -287,7 +287,7 @@ firstLineSegOfContour (SafeContour p1 p2 _ _) = case lineSegFromEndpoints p1 p2
 
 -- find the first outer contour of a contourTreeSet, and return it as a contour.
 firstContourOfContourTreeSet :: ContourTreeSet -> Contour
-firstContourOfContourTreeSet (ContourTreeSet (ContourTree (contour,_)) _) = contour
+firstContourOfContourTreeSet (ContourTreeSet (ContourTree contour _) _) = contour
 
 linesOfContour :: Contour -> [LineSeg]
 linesOfContour contour = makeLineSegsLooped $ pointsOfContour contour
