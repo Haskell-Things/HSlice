@@ -35,6 +35,8 @@ import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FileP
 
 import Control.Applicative (pure, (<*>), (<$>))
 
+import Control.Monad ((>>=))
+
 import Data.Eq ((==), (/=))
 
 import Data.Function ((.), ($))
@@ -47,13 +49,13 @@ import Data.Bool(Bool(True, False), otherwise)
 
 import Data.List (length, zip, head, zipWith, maximum, minimum, last, concat, null)
 
-import Control.Monad ((>>=))
-
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe, mapMaybe)
 
-import Text.Show(show)
+import Slist.Type (Slist(Slist))
 
 import System.IO (IO)
+
+import Text.Show(show)
 
 import Data.ByteString (readFile, writeFile, ByteString)
 
@@ -72,11 +74,11 @@ import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString,
 
 import Graphics.Implicit.Definitions (ℝ, ℕ, Fastℕ(Fastℕ), fromFastℕ, fromFastℕtoℝ)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea), Contour, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), makeContourTree, ContourTree(ContourTree))
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea), Contour, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), ContourTree(ContourTree))
 
 import Graphics.Slicer.Formats.STL.Definitions (trianglesFromSTL)
 
-import Graphics.Slicer.Math.Contour (firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour)
+import Graphics.Slicer.Math.Contour (firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, ContourTreeSet(ContourTreeSet), makeContourTreeSet, firstContourOfContourTreeSet)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yOf, zOf)
 
@@ -279,13 +281,13 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
     travelBetweenContours source dest = [make2DTravelGCode (lastPointOfContour source) $ firstPointOfContour dest]
     travelFromContourToInfill :: Contour -> [[LineSeg]] -> [GCode]
     travelFromContourToInfill source lines = if firstPointOfInfill lines /= Nothing then [addFeedRate infillSpeed $ make2DTravelGCode (lastPointOfContour source) $ fromMaybe (Point2 (0,0)) $ firstPointOfInfill lines] else []
-    renderContourTree :: ContourTree -> [GCode]
-    renderContourTree (ContourTree (thisContour, subContours)) = renderSurface thisContour (interiorContours subContours) <> concat (renderContourTree <$> insidePositiveSpaces subContours)
+    renderContourTreeSet :: ContourTreeSet -> [GCode]
+    renderContourTreeSet (ContourTreeSet firstContourTree moreContourTrees) = renderContourTree firstContourTree <> concat (renderContourTree <$> moreContourTrees)
       where
-        interiorContours :: [ContourTree] -> [Contour]
-        interiorContours trees = (\(ContourTree (a,_)) -> a) <$> trees
-        insidePositiveSpaces :: [ContourTree] -> [ContourTree]
-        insidePositiveSpaces trees = concat $ (\(ContourTree (_,a)) -> a) <$> trees
+        renderContourTree :: ContourTree -> [GCode]
+        renderContourTree (ContourTree (firstContour, subContours)) = renderSurface firstContour (interiorContours subContours)
+        interiorContours :: Slist ContourTreeSet -> [Contour]
+        interiorContours (Slist treeSets _) = firstContourOfContourTreeSet <$> treeSets
     renderSurface :: Contour -> [Contour] -> [GCode]
     renderSurface outsideContourRaw insideContoursRaw
       | outerWallBeforeInner == True =
@@ -347,8 +349,9 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
             [] -> []
             (_:tailContours) -> concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) childContours tailContours
           drawInfill = GCMarkInfillStart : gcodeForInfill lh ls infillLineSegs
-  -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
-  layerStart <> concat (renderContourTree <$> allContours) <> support <> layerEnd
+    in
+    -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
+    layerStart <> renderContourTreeSet allContours <> support <> layerEnd
     where
       reduceContour :: Contour -> [Contour] -> Maybe StraightSkeleton -> ℝ -> Contour
       reduceContour targetContour insideContours targetSkeleton insetAmt = fromMaybe reduceByShrink reduceBySkeleton
@@ -360,17 +363,12 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
 -- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
 --                             Nothing -> error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
                                Nothing -> Nothing
-      allContours = makeContourTree layerContours
-      -- find the first contour of a contourTree, and return it as a contour.
-      firstOuterContour contours = case contours of
-        [] -> error $ "no contours on layer?\n" <> show layerContours <> "\n" <> show layerNumber <> "\n"
-        [contour] -> (\(ContourTree (a,_)) -> a) contour
-        (contour:_) -> (\(ContourTree (a,_)) -> a) contour
+      allContours = makeContourTreeSet layerContours
       layerEnd = if isLastLayer then [] else travelToLayerChange
       layerStart = [GCMarkLayerStart layerNumber]
       -- FIXME: make travel gcode from the previous contour's last position?
       travelToLayerChange :: [GCode]
-      travelToLayerChange = [make2DTravelGCode (Point2 (0,0)) $ firstPointOfContour (firstOuterContour allContours)]
+      travelToLayerChange = [make2DTravelGCode (Point2 (0,0)) $ firstPointOfContour $ firstContourOfContourTreeSet allContours]
       -- FIXME: not all support is support. what about supportInterface?
       support :: [GCode]
       support = [] -- if null supportGCode then [] else GCMarkSupportStart : supportGCode

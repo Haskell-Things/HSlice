@@ -21,7 +21,7 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 
-module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour, contourIntersections, contourIntersectionsNonTotal, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, linesOfContour) where
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, contourIntersections, contourIntersectionsNonTotal, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, linesOfContour, firstContourOfContourTreeSet) where
 
 import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, zip, Either(Left, Right))
 
@@ -136,16 +136,35 @@ getContours pointPairs = maybeFlipContour <$> foundContours
       | insideIsLeft contour $ (firstLineSegOfContour contour) = contour
       | otherwise = makeSafeContour $ reverse $ pointsOfContour contour
 
+
+
 -- | A contour tree. A contour, which contains a list of contours that are cut out of the first contour, each of them contaiting a list of contours of positive space.. ad infinatum.
-newtype ContourTree = ContourTree (Contour, [ContourTree])
+-- FIXME: move this away from a tuple.
+newtype ContourTree = ContourTree (Contour, Slist ContourTreeSet)
+  deriving (Show)
+
+-- | A set of contour trees.
+data ContourTreeSet = ContourTreeSet { _firstContourTree :: ContourTree, _moreContourTrees :: Slist ContourTree}
   deriving (Show)
 
 -- | Contstruct a set of contour trees. that is to say, a set of contours, containing a set of contours that is negative space, containing a set of contours that is positive space..
-makeContourTree :: [Contour] -> [ContourTree]
-makeContourTree []        = []
-makeContourTree [contour] = [ContourTree (contour, [])]
-makeContourTree contours  = [ContourTree (foundContour, makeContourTree $ contoursWithAncestor contours foundContour) | foundContour <- contoursWithoutParents contours]
+makeContourTreeSet :: [Contour] -> ContourTreeSet
+makeContourTreeSet contours =
+  case contours of
+    [] -> error "no contours to make a set out of."
+    [contour] -> ContourTreeSet (ContourTree (contour, (slist []))) (slist [])
+    (_:_) ->
+      case contoursWithoutParents contours of
+        [] -> error $ "impossible: contours given, but no top level contours found?" <> show contours <> "\n"
+        [oneContour] -> ContourTreeSet (ContourTree (oneContour, slist [makeContourTreeSet $ filter (\a -> a /= oneContour) contours])) (slist [])
+        (headParent:tailParents) -> ContourTreeSet (ContourTree (headParent, slist (recurseIfNotEmpty contours headParent)))
+                                                   (slist [ContourTree (foundContour, slist (recurseIfNotEmpty contours foundContour)) | foundContour <- tailParents])
   where
+    recurseIfNotEmpty cs c =
+      case contoursWithAncestor cs c of
+        [] -> []
+        [oneContour] -> [makeContourTreeSet [oneContour]]
+        manyContours@(_:_) -> [makeContourTreeSet manyContours]
     contoursWithAncestor cs c = mapMaybe (\cx -> if contourContainsContour c cx then Just cx else Nothing) $ filter (/=c) cs
     contoursWithoutParents cs = catMaybes $ [ if null $ mapMaybe (\cx -> if contourContainedByContour contourToCheck cx then Just cx else Nothing) (filter (/=contourToCheck) cs) then Just contourToCheck else Nothing | contourToCheck <- cs ]
 
@@ -265,6 +284,10 @@ firstLineSegOfContour (SafeContour p1 p2 _ _) = case lineSegFromEndpoints p1 p2
                                                 of
                                                   (Right v) -> v
                                                   (Left _) -> error "wtf"
+
+-- find the first outer contour of a contourTreeSet, and return it as a contour.
+firstContourOfContourTreeSet :: ContourTreeSet -> Contour
+firstContourOfContourTreeSet (ContourTreeSet (ContourTree (contour,_)) _) = contour
 
 linesOfContour :: Contour -> [LineSeg]
 linesOfContour contour = makeLineSegsLooped $ pointsOfContour contour
