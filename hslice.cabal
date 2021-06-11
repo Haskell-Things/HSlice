@@ -27,7 +27,6 @@ Common binstuff
                 -hiedir=.hie
                 -Wall
                 -Wextra
-                -Werror
                 -Wcompat
                 -Wmonomorphism-restriction
                 -Wmissing-signatures
@@ -52,7 +51,6 @@ Common libstuff
                 -hiedir=.hie
                 -Wall
                 -Wextra
-                -Werror
                 -Wcompat
                 -Wmonomorphism-restriction
                 -Wmissing-signatures
