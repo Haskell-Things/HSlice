@@ -21,7 +21,7 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 
-module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour, contourIntersections, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, linesOfContour) where
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour, contourIntersections, contourIntersectionsNonTotal, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, linesOfContour) where
 
 import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, zip, Either(Left, Right))
 
@@ -198,17 +198,23 @@ innerContourPoint distance contour l
       originPoint = Point2 (-1,-1)
       perpPoint      = pointOnPerp l (midpoint l) distance
       otherPerpPoint = pointOnPerp l (midpoint l) (-distance)
-      numIntersections = length $ contourIntersections contour (Left $ pointOnPerp l (midpoint l) 0.00001) $ Left originPoint
+      numIntersections = length $ contourIntersections contour (Left (pointOnPerp l (midpoint l) 0.00001, originPoint))
+
+-- | Non-total convenience function; use 'contourIntersections' if you can.
+contourIntersectionsNonTotal :: Contour -> Either Point2 PPoint2 -> Either Point2 PPoint2 -> [(LineSeg, Maybe LineSeg, PPoint2)]
+contourIntersectionsNonTotal contour (Left srcPoint) (Left dstPoint) = contourIntersections contour (Left (srcPoint, dstPoint))
+contourIntersectionsNonTotal contour (Right srcPoint) (Right dstPoint) = contourIntersections contour (Right (srcPoint, dstPoint))
+contourIntersectionsNonTotal _ srcBad dstBad = error ("contourIntersectionsUnsafe: bad arguments: " <> show (srcBad, dstBad))
 
 -- | return the intersections with a given contour when traveling a straight line from srcPoint to dstPoint.
 --   Not for use against line segments that are a part of the contour.
-contourIntersections :: Contour -> Either Point2 PPoint2 -> Either Point2 PPoint2 -> [(LineSeg, Maybe LineSeg, PPoint2)]
-contourIntersections contour srcPoint dstPoint = foundIntersections
+contourIntersections :: Contour -> Either (Point2, Point2) (PPoint2, PPoint2) -> [(LineSeg, Maybe LineSeg, PPoint2)]
+contourIntersections contour points = foundIntersections
   where
-    foundIntersections = getIntersections (pl0 srcPoint dstPoint) contour
+    foundIntersections = getIntersections (pl0 points) contour
     -- The line we are checking for intersections along.
-    pl0 (Left lstart) (Left lend) = plineFromEndpoints lstart lend
-    pl0 (Right pstart) (Right pend) = join2PPoint2 pstart pend
+    pl0 (Left (lstart, lend)) = plineFromEndpoints lstart lend
+    pl0 (Right (pstart, pend)) = join2PPoint2 pstart pend
     -- a filter for results that make sense.
     getIntersections :: PLine2 -> Contour -> [(LineSeg, Maybe LineSeg, PPoint2)]
     getIntersections l1 c = catMaybes $ mapWithNeighbors saneIntersection $ zip (linesOfContour contour) $ intersectsWith (Right l1) . Left <$> linesOfContour contour

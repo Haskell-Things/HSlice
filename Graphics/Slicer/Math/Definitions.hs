@@ -20,14 +20,13 @@
 {- The purpose of this file is to hold the definitions of the data
    structures used when performing slicing related math. -}
 
--- for adding Generic and NFData to Point.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
 module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(SafeContour), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower) where
 
-import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, Int, null, zipWith3, take, length, drop, cycle, (.), (-), seq, zipWith)
+import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, Int, null, zipWith3, take, length, drop, cycle, (.), (-), zipWith)
 
-import Control.DeepSeq (NFData(rnf))
+import Control.DeepSeq (NFData)
 
 import Control.Parallel.Strategies (withStrategy, parList, rpar)
 
@@ -35,11 +34,11 @@ import Control.Parallel (par, pseq)
 
 import GHC.Generics (Generic)
 
-import Slist.Type (Slist(Slist))
-
-import Slist.Size (Size(Infinity, Size))
+import Slist.Type (Slist)
 
 import Graphics.Slicer.Definitions (ℝ, ℝ2, ℝ3, Fastℕ)
+
+import Graphics.Slicer.Orphans ()
 
 -- A single Point in 2D or 3D linear space.
 newtype Point3 = Point3 ℝ3
@@ -112,13 +111,6 @@ instance SpacePoint Point3 where
 -- | a list of points around a (2d) shape.
 data Contour = SafeContour { _firstPoint :: Point2, _secondPoint :: Point2, _thirdPoint :: Point2 , morePoints :: (Slist Point2) }
   deriving (Eq, Generic, NFData, Show)
-
-instance NFData (Slist Point2) where
-  rnf (Slist vals n) = rnf vals `seq` rnf n
-
-instance NFData Size where
-  rnf (Infinity) = ()
-  rnf (Size n) = seq n ()
 
 -- | round a value
 roundToFifth :: ℝ -> ℝ

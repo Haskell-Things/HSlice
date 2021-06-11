@@ -102,6 +102,7 @@ Library
                     Graphics.Slicer.Math.Skeleton.Skeleton
                     Graphics.Slicer.Math.Skeleton.Tscherne
                     Graphics.Slicer.Math.Tri
+                    Graphics.Slicer.Orphans
     Other-Modules:
                   Graphics.Slicer.Math.Point
                   Graphics.Slicer.Machine.Support

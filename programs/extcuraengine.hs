@@ -28,6 +28,9 @@
 -- For matching our OpenScad variable types.
 {-# LANGUAGE ViewPatterns #-}
 
+-- FIXME: turn this warning back on at some point.
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
+
 import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, error, div, reverse, fst, filter, (<=))
 
 import Control.Applicative (pure, (<*>), (<$>))
@@ -114,10 +117,14 @@ https://github.com/Zip-o-mat/Slic3r/tree/nonplanar
 -------------------- Point and Line Arithmetic ----------------------------
 ---------------------------------------------------------------------------
 
+centeredTrisFromSTLNonTotal :: BuildArea -> ByteString -> [Tri]
+centeredTrisFromSTLNonTotal (RectArea (bedX,bedY,_)) stl = centeredTrisFromSTL bedX bedY stl
+centeredTrisFromSTLNonTotal _ _ = error "centeredTrisFromSTLNonTotal: bad arguments."
+
 -- Center triangles relative to the center of the build area.
 -- FIXME: assumes the origin is at the front left corner.
-centeredTrisFromSTL :: BuildArea -> ByteString -> [Tri]
-centeredTrisFromSTL (RectArea (bedX,bedY,_)) stl = shiftedTris
+centeredTrisFromSTL :: ℝ -> ℝ -> ByteString -> [Tri]
+centeredTrisFromSTL bedX bedY stl = shiftedTris
     where
       centerPoint = Point3 (dx,dy,dz)
       shiftedTris = [shiftTri centerPoint tri | tri <- tris] `using` parListChunk (div (length tris) (fromFastℕ threads)) rseq
@@ -185,7 +192,7 @@ data Zone =
   Everywhere !Plan
 --  | ZBetween !(ℝ,Maybe ℝ) !Plan
 --  | BelowBottom !(Point2, Point2) !Plan
-  | Box3 !Point3 !Point3 !Plan
+--  | Box3 !Point3 !Point3 !Plan
 
 data DivideStrategy =
     ZLayers
@@ -263,7 +270,7 @@ sliceObject printer@(Printer _ _ extruder) print allLayers =
     slicingPlan = Everywhere (Extrude (ZLayers,SkeletonFailThrough))
 
 sliceLayer :: Printer -> Print -> Zone -> Bool -> ([Contour], Fastℕ) -> [GCode]
-sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBeforeInner infillSpeed) plan isLastLayer (layerContours, layerNumber) = do
+sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBeforeInner infillSpeed) _plan isLastLayer (layerContours, layerNumber) = do
   let
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToContour :: Contour -> [GCode]
@@ -553,7 +560,7 @@ run rawArgs = do
       printer   = printerFromSettings settings
       buildarea = buildArea printer
       print = printFromSettings settings
-      triangles = centeredTrisFromSTL buildarea stl
+      triangles = centeredTrisFromSTLNonTotal buildarea stl
       allLayers :: [[Contour]]
       allLayers = layers print triangles
       object = zip allLayers [(0::Fastℕ)..]

@@ -77,7 +77,7 @@ findStraightSkeleton contour holes = case foundCrashTree of
                          (_:_) -> error "more than one opposing exterior node. impossible situation."
       where
         opposingNodes :: [ENode]
-        opposingNodes = filter (\eNode -> enoughIntersections $ length (contourIntersections contour (Right $ pPointOf eNode) (Right $ pPointOf dividingMotorcycle)))
+        opposingNodes = filter (\eNode -> enoughIntersections $ length (contourIntersections contour (Right (pPointOf eNode, pPointOf dividingMotorcycle))))
                         $ filter (\eNode -> plinesIntersectIn (outOf eNode) (outOf dividingMotorcycle) == PCollinear) $ concaveENodes contour
           where
             enoughIntersections n = n > 0 && even n

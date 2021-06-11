@@ -23,11 +23,11 @@
 
 module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, unlikeVecPair) where
 
-import Prelude (Eq, Show, Ord(compare), seq, (==), (/=), (+), otherwise, ($), (++), head, tail, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), error, flip, (||), elem, notElem, and)
+import Prelude (Eq, Show, Ord(compare), (==), (/=), (+), otherwise, ($), (++), head, tail, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), error, flip, (||), elem, notElem, and)
 
 import GHC.Generics (Generic)
 
-import Control.DeepSeq (NFData(rnf))
+import Control.DeepSeq (NFData)
 
 import Data.List (foldl')
 
@@ -37,9 +37,7 @@ import Data.Maybe (Maybe(Just, Nothing))
 
 import Graphics.Slicer.Definitions (ℝ, Fastℕ)
 
--- FIXME: move this to the proper place in ImplicitCAD.
-instance NFData Fastℕ where
-  rnf a = seq a ()
+import Graphics.Slicer.Orphans ()
 
 -- The geometric numbers.
 -- We are deriving Ord so we can sort the terms during simplification.
