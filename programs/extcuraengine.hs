@@ -281,24 +281,22 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
         insidePositiveSpaces trees = concat $ (\(ContourTree (_,a)) -> a) <$> trees
     renderSurface :: Contour -> [Contour] -> [GCode]
     renderSurface outsideContourRaw insideContoursRaw
-      | outerWallBeforeInner == True = concat [
-            travelToContour outsideContour
-          , drawOuterContour outsideContour
-          , renderChildOuterContours outsideContour outsideContourInnerWall
-          , drawInnerContour outsideContourInnerWall
-          , renderChildInnerContours outsideContourInnerWall outsideContour
-          , travelFromContourToInfill outsideContour infillLineSegs
-          , drawInfill
-          ]
-      | otherwise = concat [
-            travelToContour outsideContourInnerWall
-          , drawInnerContour outsideContourInnerWall
-          , renderChildInnerContours outsideContourInnerWall outsideContour
-          , drawOuterContour outsideContour
-          , renderChildOuterContours outsideContour outsideContourInnerWall
-          , travelFromContourToInfill outsideContourInnerWall infillLineSegs
-          , drawInfill
-          ]
+      | outerWallBeforeInner == True =
+          travelToContour outsideContour
+          <> drawOuterContour outsideContour
+          <> renderChildOuterContours outsideContour outsideContourInnerWall
+          <> drawInnerContour outsideContourInnerWall
+          <> renderChildInnerContours outsideContourInnerWall outsideContour
+          <> travelFromContourToInfill outsideContour infillLineSegs
+          <> drawInfill
+      | otherwise =
+          travelToContour outsideContourInnerWall
+          <> drawInnerContour outsideContourInnerWall
+          <> renderChildInnerContours outsideContourInnerWall outsideContour
+          <> drawOuterContour outsideContour
+          <> renderChildOuterContours outsideContour outsideContourInnerWall
+          <> travelFromContourToInfill outsideContourInnerWall infillLineSegs
+          <> drawInfill
         where
           renderChildOuterContours src dest
             | null childContours = travelBetweenContours src dest
@@ -318,7 +316,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
                 ]
           -- Fail to the old contour shrink method when the skeleton based one knows it's failed.
           outsideContour = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*0.5)
-          outsideContourInnerWall =  reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*1.5)
+          outsideContourInnerWall = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*1.5)
           outsideContourSkeleton = findStraightSkeleton outsideContourRaw insideContoursRaw
           childContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
             where
@@ -348,6 +346,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
       reduceContour :: Contour -> [Contour] -> Maybe StraightSkeleton -> ℝ -> Contour
       reduceContour targetContour insideContours targetSkeleton insetAmt = fromMaybe reduceByShrink reduceBySkeleton
         where
+          -- Fail to the old contour shrink method when the skeleton based one knows it's failed.
           reduceByShrink = fromMaybe (error "failed to clean contour") $ cleanContour $ fromMaybe (error "failed to shrink contour") $ shrinkContour insetAmt insideContours targetContour
           reduceBySkeleton = case targetSkeleton of
                                Just skeleton -> Just $ justOneContourFrom $ addInset 1 insetAmt $ orderedFacesOf (firstLineSegOfContour targetContour) skeleton
@@ -355,9 +354,11 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
 --                             Nothing -> error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
                                Nothing -> Nothing
       allContours = makeContourTree layerContours
-      firstOuterContour [] = error $ "no contours on layer?\n" <> show layerContours <> "\n" <> show layerNumber <> "\n"
-      firstOuterContour [contour] = (\(ContourTree (a,_)) -> a) contour
-      firstOuterContour (c:_)     = (\(ContourTree (a,_)) -> a) c
+      -- find the first contour of a contourTree, and return it as a contour.
+      firstOuterContour contours = case contours of
+        [] -> error $ "no contours on layer?\n" <> show layerContours <> "\n" <> show layerNumber <> "\n"
+        [contour] -> (\(ContourTree (a,_)) -> a) contour
+        (contour:_) -> (\(ContourTree (a,_)) -> a) contour
       layerEnd = if isLastLayer then [] else travelToLayerChange
       layerStart = [GCMarkLayerStart layerNumber]
       -- FIXME: make travel gcode from the previous contour's last position?
@@ -374,12 +375,11 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
                         $ makeSupport (head outerContours) outerContours layerThickness pathWidth zHeightOfLayer
       -}
       firstPointOfInfill :: [[LineSeg]] -> Maybe Point2
-      firstPointOfInfill [] = Nothing
-      firstPointOfInfill ([]:_) = Nothing
-      firstPointOfInfill ((x:_):_) = Just $ startOfLineSeg x
-        where
-          startOfLineSeg (LineSeg p _) = p
-      -- FIXME: this is not necessarilly the case!
+      firstPointOfInfill infillLineSets = case infillLineSets of
+                                            [] -> Nothing
+                                            ([]:_) -> error "starts with an empty set?"
+                                            (((LineSeg p _):_):_) -> Just p
+      -- FIXME: this is certainly not the case!
       pathWidth = nozzleDiameter extruder
       raise (Point2 (x,y)) = Point3 (x, y, zHeightOfLayer)
       zHeightOfLayer = lh * (1 + fromFastℕtoℝ layerNumber)
