@@ -28,7 +28,7 @@
 -- For matching our OpenScad variable types.
 {-# LANGUAGE ViewPatterns #-}
 
-import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, error, div, reverse, fst, filter, (<=))
+import Prelude ((*), (/), (+), (-), odd, mod, round, floor, (<>), FilePath, fromInteger, error, div, reverse, fst, filter, (<=))
 
 import Control.Applicative (pure, (<*>), (<$>))
 
@@ -121,13 +121,16 @@ centeredTrisFromSTL (RectArea (bedX,bedY,_)) stl = shiftedTris
     where
       centerPoint = Point3 (dx,dy,dz)
       shiftedTris = [shiftTri centerPoint tri | tri <- tris] `using` parListChunk (div (length tris) (fromFastℕ threads)) rseq
+      xs = [ xOf.fst <$> triPoints | triPoints <- sidesOf <$> tris ] `using` parListChunk (div (length tris) (fromFastℕ threads)) rseq
+      ys = [ yOf.fst <$> triPoints | triPoints <- sidesOf <$> tris ] `using` parListChunk (div (length tris) (fromFastℕ threads)) rseq
+      zs = [ zOf.fst <$> triPoints | triPoints <- sidesOf <$> tris ] `using` parListChunk (div (length tris) (fromFastℕ threads)) rseq
       tris = trianglesFromSTL threads stl
       (dx,dy,dz) = (bedX/2-x0, bedY/2-y0, -zMin)
-      xMin = minimum $ xOf.fst <$> foldMap sidesOf tris
-      yMin = minimum $ yOf.fst <$> foldMap sidesOf tris
-      zMin = minimum $ zOf.fst <$> foldMap sidesOf tris
-      xMax = maximum $ xOf.fst <$> foldMap sidesOf tris
-      yMax = maximum $ yOf.fst <$> foldMap sidesOf tris
+      xMin = minimum $ concat xs
+      xMax = maximum $ concat xs
+      yMin = minimum $ concat ys
+      yMax = maximum $ concat ys
+      zMin = minimum $ concat zs
       (x0,y0) = ((xMax+xMin)/2-xMin, (yMax+yMin)/2-yMin)
 
 -----------------------------------------------------------------------
