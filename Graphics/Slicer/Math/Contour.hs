@@ -136,10 +136,7 @@ getContours pointPairs = maybeFlipContour <$> foundContours
       | insideIsLeft contour $ (firstLineSegOfContour contour) = contour
       | otherwise = makeSafeContour $ reverse $ pointsOfContour contour
 
-
-
 -- | A contour tree. A contour, which contains a list of contours that are cut out of the first contour, each of them contaiting a list of contours of positive space.. ad infinatum.
--- FIXME: move this away from a tuple.
 data ContourTree = ContourTree { _parentContour :: Contour, _childContours :: Slist ContourTreeSet}
   deriving (Show)
 
