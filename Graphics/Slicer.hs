@@ -33,7 +33,7 @@ module Graphics.Slicer (
   module MaS
   ) where
 
-import Prelude ()
+import Prelude (head)
 
 import Graphics.Slicer.Math.Definitions as MD (Point2(Point2),Point3(Point3), Contour, distance, addPoints, scalePoint, roundPoint2)
 
