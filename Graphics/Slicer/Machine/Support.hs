@@ -35,7 +35,7 @@ import Graphics.Slicer.Definitions (ℝ,ℝ2)
 
 import Graphics.Slicer.Math.Contour (pointsOfContour, makeSafeContour)
 
-import Graphics.Slicer.Math.Definitions (Contour(SafeContour), Point2(Point2), xOf, yOf, addPoints, scalePoint)
+import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), xOf, yOf, addPoints, scalePoint)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
 
@@ -71,7 +71,7 @@ isEmptyBBox (BBox (x1,y1) (x2,y2)) = x1 == x2 || y1 == y2
 
 -- Get a bounding box of all contours.
 boundingBoxAll :: [Contour] -> BBox
-boundingBoxAll contours = if isEmptyBBox box then error "empty box with a SafeContour" else box
+boundingBoxAll contours = if isEmptyBBox box then error "empty box with a contour" else box
     where
       box  = BBox (minX, minY) (maxX, maxY)
       minX = minimum $ (\(BBox (x1,_) _) -> x1) <$> bBoxes
@@ -82,7 +82,7 @@ boundingBoxAll contours = if isEmptyBBox box then error "empty box with a SafeCo
 
 -- Get a bounding box of a contour.
 boundingBox :: Contour -> BBox
-boundingBox contour@(SafeContour _ _ _ _) = if isEmptyBBox box then error "empty box with a Safecontour" else box
+boundingBox contour = if isEmptyBBox box then error "empty box with a contour" else box
   where
     contourPoints = pointsOfContour contour
     box  = BBox (minX, minY) (maxX, maxY)

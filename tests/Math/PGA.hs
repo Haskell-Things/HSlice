@@ -794,7 +794,8 @@ facetSpec = do
   describe "insets (Skeleton/Line)" $ do
     it "insets a triangle" $
       addInset 1 0.25 (facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton triangle [])
-      --> ([SafeContour (Point2 (1.0,1.2320508075688772))
+      --> ([SafeContour (Point2 (-0.5669872981077807,-0.75))
+                        (Point2 (1.0,1.2320508075688772))
                         (Point2 (0.4330127018922193,0.25))
                         (Point2 (1.5669872981077808,0.2500000000000001))
                         (Slist [] (Size 0))]

@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour, contourIntersections, contourIntersectionsNonTotal, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, linesOfContour) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, zip, Either(Left, Right))
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, minimum, zip, Either(Left, Right), (-))
 
 import Data.List(tail, last, head, partition, reverse, sortBy)
 
@@ -39,7 +39,7 @@ import Slist.Size (Size(Infinity))
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour(SafeContour), Point2(Point2), mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Contour(SafeContour), Point2(Point2), mapWithNeighbors, xOf, yOf)
 
 import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, makeLineSegsLooped, endpoint, midpoint)
 
@@ -189,13 +189,11 @@ insideIsLeft contour lineSegment = lineIsLeft lineSecondHalf lineToInside == Jus
     lineToInside = fromRight (error "cannot construct lineToInside") $ lineSegFromEndpoints (midpoint lineSegment) $ innerContourPoint 0.00001 contour lineSegment
 
 -- | Find a point on the interior of the given contour, on the perpendicular bisector of the given line, a given distance from the line.
--- FIXME: assumes we are in positive space.
 innerContourPoint :: ℝ -> Contour -> LineSeg -> Point2
-innerContourPoint distance contour l
+innerContourPoint distance contour@(SafeContour originPoint _ _ _ _) l
     | odd numIntersections = perpPoint
     | otherwise            = otherPerpPoint
   where
-      originPoint = Point2 (-1,-1)
       perpPoint      = pointOnPerp l (midpoint l) distance
       otherPerpPoint = pointOnPerp l (midpoint l) (-distance)
       numIntersections = length $ contourIntersections contour (Left (pointOnPerp l (midpoint l) 0.00001, originPoint))
@@ -232,12 +230,12 @@ contourIntersections contour points = foundIntersections
 
 -- Utility functions for contours. moving here for migration.
 pointsOfContour :: Contour -> [Point2]
-pointsOfContour (SafeContour p1 p2 p3 pts@(Slist vals _))
+pointsOfContour (SafeContour _ p1 p2 p3 pts@(Slist vals _))
   | size pts == Infinity = error "cannot handle infinite contours."
   | otherwise            = p1:p2:p3:vals
 
 numPointsOfContour :: Contour -> Int
-numPointsOfContour (SafeContour _ _ _ pts) = 3 + len pts
+numPointsOfContour (SafeContour _ _ _ _ pts) = 3 + len pts
 
 -- In an ideal world, only the test suite needs this.
 justOneContourFrom :: ([Contour], [_]) -> Contour
@@ -250,21 +248,22 @@ lastPointOfContour a = firstPointOfContour a
 
 -- Find the first point in a contour.
 firstPointOfContour :: Contour -> Point2
-firstPointOfContour (SafeContour p1 _ _ _) = p1
+firstPointOfContour (SafeContour _ p1 _ _ _) = p1
 
 makeSafeContour :: [Point2] -> Contour
 makeSafeContour points = case points of
                            [] -> error "tried to create an empty contour"
                            [p] -> error $ "tried to create a contour with a single point: " <> show p <> "\n"
                            [p1,p2] -> error $ "tried to create a contour with only two points:\n" <> show p1 <> "\n" <> show p2 <> "\n"
-                           (p1:p2:p3:pts) -> SafeContour p1 p2 p3 (slist pts)
+                           (p1:p2:p3:pts) -> SafeContour p0 p1 p2 p3 (slist pts)
+  where
+    p0 = Point2 ((minimum $ xOf <$> points)-1, (minimum $ yOf <$> points)-1)
 
 -- find the first line segment in a contour.
 firstLineSegOfContour :: Contour -> LineSeg
-firstLineSegOfContour (SafeContour p1 p2 _ _) = case lineSegFromEndpoints p1 p2
-                                                of
-                                                  (Right v) -> v
-                                                  (Left _) -> error "wtf"
+firstLineSegOfContour (SafeContour _ p1 p2 _ _) = case lineSegFromEndpoints p1 p2 of
+                                                    (Right v) -> v
+                                                    (Left _) -> error "wtf"
 
 linesOfContour :: Contour -> [LineSeg]
 linesOfContour contour = makeLineSegsLooped $ pointsOfContour contour
