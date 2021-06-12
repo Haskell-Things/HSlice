@@ -19,11 +19,13 @@
 
 -- for not handling faces:
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-partial-type-signatures -Wno-orphans -Wno-monomorphism-restriction #-}
 
-module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour, contourIntersections, contourIntersectionsNonTotal, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, linesOfContour) where
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour, contourIntersections, contourIntersectionsNonTotal, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, linesOfContour, specs) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, zip, Either(Left, Right))
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), (<*>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, zip, Either(Left, Right))
 
 import Data.List(tail, last, head, partition, reverse, sortBy)
 
@@ -44,6 +46,10 @@ import Graphics.Slicer.Math.Definitions (Contour(SafeContour), Point2(Point2), m
 import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, makeLineSegsLooped, endpoint, midpoint)
 
 import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, HitStartPoint, HitEndPoint), PIntersection (PParallel, PAntiParallel, IntersectsIn), eToPPoint2, lineIsLeft, pointOnPerp, intersectsWith, plineFromEndpoints, pToEPoint2, PPoint2, PLine2, join2PPoint2)
+
+import Test.Hspec
+import Test.QuickCheck
+import Debug.Trace
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -145,9 +151,27 @@ makeContourTree :: [Contour] -> [ContourTree]
 makeContourTree []        = []
 makeContourTree [contour] = [ContourTree (contour, [])]
 makeContourTree contours  = [ContourTree (foundContour, makeContourTree $ contoursWithAncestor contours foundContour) | foundContour <- contoursWithoutParents contours]
-  where
-    contoursWithAncestor cs c = mapMaybe (\cx -> if contourContainsContour c cx then Just cx else Nothing) $ filter (/=c) cs
-    contoursWithoutParents cs = catMaybes $ [ if null $ mapMaybe (\cx -> if contourContainedByContour contourToCheck cx then Just cx else Nothing) (filter (/=contourToCheck) cs) then Just contourToCheck else Nothing | contourToCheck <- cs ]
+
+{- ORMOLU_ENSABLE -}
+
+contoursWithAncestor :: [Contour] -> Contour -> [Contour]
+contoursWithAncestor cs c = [ cx
+                            | cx <- cs
+                            , cx /= c
+                            , contourContainsContour c cx
+                            ]
+
+contoursWithoutParents :: [Contour] -> [Contour]
+contoursWithoutParents cs = [ contourToCheck
+                            | contourToCheck <- cs
+                            , null [ ()
+                                   | cx <- cs
+                                   , cx /= contourToCheck
+                                   , contourContainedByContour contourToCheck cx
+                                   ]
+                            ]
+
+{- ORMOLU_DISABLE -}
 
 -- | Determine whether a contour is contained inside of another contour.
 -- FIXME: magic numbers.
@@ -269,3 +293,30 @@ firstLineSegOfContour (SafeContour p1 p2 _ _) = case lineSegFromEndpoints p1 p2
 linesOfContour :: Contour -> [LineSeg]
 linesOfContour contour = makeLineSegsLooped $ pointsOfContour contour
 
+----------------------------------------------------------------------
+-- test suite
+
+specs :: Spec
+specs = describe "helpers" $ do
+  describe "contoursWithAncestor" $ do
+    it "behaves like its bench implementation" . property $
+      \(cs, c) -> traceShow (cs, c) $ contoursWithAncestor cs c `shouldBe` contoursWithAncestorBench cs c
+  describe "contoursWithoutParents" $ do
+    it "behaves like its bench implementation" . property $
+      \cs -> traceShow cs $ contoursWithoutParents cs `shouldBe` contoursWithoutParentsBench cs
+
+instance Arbitrary Contour where
+  arbitrary = SafeContour <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary Point2 where
+  arbitrary = Point2 <$> ((,) <$> arbr <*> arbr)
+    where arbr = elements [0.001, 0.002, 0.1, 0.2, 0.3, 0.8, 1, 2, 3, 8, 10]
+
+instance Arbitrary [a] => Arbitrary (Slist a) where
+  arbitrary = slist <$> arbitrary
+
+contoursWithAncestorBench :: [Contour] -> Contour -> [Contour]
+contoursWithAncestorBench cs c = mapMaybe (\cx -> if contourContainsContour c cx then Just cx else Nothing) $ filter (/= c) cs
+
+contoursWithoutParentsBench :: [Contour] -> [Contour]
+contoursWithoutParentsBench cs = catMaybes $ [if null $ mapMaybe (\cx -> if contourContainedByContour contourToCheck cx then Just cx else Nothing) (filter (/= contourToCheck) cs) then Just contourToCheck else Nothing | contourToCheck <- cs]

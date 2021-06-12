@@ -77,6 +77,8 @@ Library
                   , slist >=0.2.0.0
                   , Unique
                   , utf8-string
+                  , hspec
+                  , QuickCheck
     Exposed-Modules:
                     Graphics.Slicer
                     Graphics.Slicer.Formats.STL.Definitions
