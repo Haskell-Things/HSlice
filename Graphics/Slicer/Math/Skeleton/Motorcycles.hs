@@ -26,9 +26,9 @@
 
 module Graphics.Slicer.Math.Skeleton.Motorcycles (Collision(HeadOn), CrashTree(CrashTree), motorcycleToENode, Crash(Crash), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles) where
 
-import Prelude (Bool(True, False), Either(Left,Right), Eq, error, head, length, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, null)
+import Prelude (Bool(True, False), Either(Left,Right), Eq, error, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, null)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
+import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
 import Data.List as L (filter)
 
@@ -90,12 +90,13 @@ crashMotorcycles contour holes
       | null findSurvivors = Just $ CrashTree inMotorcycles findSurvivors inCrashes
       | null crashedMotorcycles = case inMotorcycles of
                                     -- there is no-one to collide with.
+                                    (Slist [] _) -> Just $ CrashTree inMotorcycles inMotorcycles []
                                     (Slist _ 1) -> Just $ CrashTree inMotorcycles inMotorcycles []
                                   -- One crash, no survivors.
                                     (Slist [firstMC, secondMC] 2) -> if crashOf firstMC secondMC == Just HeadOn
                                                                      then Just $ CrashTree inMotorcycles (slist []) [[Crash inMotorcycles Nothing HeadOn]]
                                                                      else Nothing
-                                    _ -> Nothing
+                                    (Slist (_:_) _) -> Nothing
       -- Note that to solve this case, we will have to have a concept of speed of the motorcycle.
       | otherwise = Nothing
         where
@@ -113,9 +114,9 @@ convexMotorcycles :: Contour -> [Motorcycle]
 convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower convexPLines $ linesOfContour contour)
   where
     onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
-    onlyMotorcycles ((seg1, seg2), maybePLine)
-      | isJust maybePLine = Just $ Motorcycle (seg1, seg2) $ flipPLine2 $ fromJust maybePLine
-      | otherwise         = Nothing
+    onlyMotorcycles ((seg1, seg2), maybePLine) = case maybePLine of
+                                                   (Just pLine) -> Just $ Motorcycle (seg1, seg2) $ flipPLine2 pLine
+                                                   Nothing -> Nothing
     -- | Examine two line segments that are part of a Contour, and determine if they are convex toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
     convexPLines :: LineSeg -> LineSeg -> Maybe PLine2
     convexPLines seg1 seg2
@@ -142,9 +143,14 @@ concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs cont
 -- | Find where a motorcycle intersects a contour, if the motorcycle is emitted from between the two given segments.
 --   If the motorcycle lands between two segments, return the second segment, as well.
 motorcycleIntersectsAt :: Contour -> Motorcycle -> (LineSeg, Maybe LineSeg)
-motorcycleIntersectsAt contour motorcycle@(Motorcycle (inSeg,outSeg) _)
-  | length (getMotorcycleIntersections motorcycle contour) == 2 && length foundSegEvents == 1 = head foundSegEvents
-  | otherwise = error $ "handle more than one intersection point here." <> show (getMotorcycleIntersections motorcycle contour) <> "\n"
+motorcycleIntersectsAt contour motorcycle@(Motorcycle (inSeg,outSeg) _) = case getMotorcycleIntersections motorcycle contour of
+                                                                            [] -> error "no intersections?"
+                                                                            [(_,_)] -> error "not enough intersections?"
+                                                                            [_,_] -> case foundSegEvents of
+                                                                                       [] -> error "no foundSegEvents?"
+                                                                                       [res] -> res
+                                                                                       (_:_) -> error "too many foundSegEvents?"
+                                                                            (_:_) -> error "too many intersections?"
   where
     foundSegEvents = L.filter fun $ getMotorcycleIntersections motorcycle contour
                      where

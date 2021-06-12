@@ -45,7 +45,7 @@ import Data.String (String)
 
 import Data.Bool(Bool(True, False), otherwise)
 
-import Data.List (length, zip, head, zipWith, maximum, minimum, last, concat, null)
+import Data.List (length, zip, zipWith, maximum, minimum, last, concat)
 
 import Control.Monad ((>>=))
 
@@ -150,7 +150,6 @@ layers print fs = catMaybes <$> rawContours
     allIntersections :: ℝ -> [(Point2,Point2)]
     allIntersections zLayer = catMaybes $ triIntersects zLayer <$> fs
     zs = [zOf . fst <$> triPoints | triPoints <- sidesOf <$> fs ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
-    zmax :: ℝ
     zmax = maximum $ concat zs
     lh = layerHeight print
 
@@ -305,23 +304,28 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
           <> travelFromContourToInfill outsideContourInnerWall infillLineSegs
           <> drawInfill
         where
-          renderChildOuterContours src dest
-            | null childContours = travelBetweenContours src dest
-            | otherwise          = concat [
-                travelBetweenContours src $ head childContours
-                , drawOuterContour $ head childContours
-                , drawChildContours
-                , travelBetweenContours (last childContours) dest
-                ]
-          renderChildInnerContours src dest
-            | null childContoursInnerWalls = travelBetweenContours src dest
-            | otherwise          = concat [
-                travelBetweenContours src $ head childContoursInnerWalls
-                , drawInnerContour $ head childContoursInnerWalls
-                , drawChildOuterContours
-                , travelBetweenContours (last childContoursInnerWalls) dest
-                ]
-          -- Fail to the old contour shrink method when the skeleton based one knows it's failed.
+          renderChildOuterContours src dest = case childContours of
+            [] -> travelBetweenContours src dest
+            [headContour] ->
+              travelBetweenContours src headContour
+              <> drawOuterContour headContour
+              <> travelBetweenContours headContour dest
+            (headContour:tailContours) ->
+              travelBetweenContours src headContour
+              <> drawOuterContour headContour
+              <> (concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) childContours tailContours)
+              <> travelBetweenContours (last tailContours) dest
+          renderChildInnerContours src dest = case childContoursInnerWalls of
+            [] -> travelBetweenContours src dest
+            [headContour] ->
+              travelBetweenContours src headContour
+              <> drawInnerContour headContour
+              <> travelBetweenContours headContour dest
+            (headContour:tailContours) ->
+              travelBetweenContours src headContour
+              <> drawInnerContour headContour
+              <> (concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) childContoursInnerWalls tailContours)
+              <> travelBetweenContours (last tailContours) dest
           outsideContour = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*0.5)
           outsideContourInnerWall = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*1.5)
           outsideContourSkeleton = findStraightSkeleton outsideContourRaw insideContoursRaw
@@ -340,12 +344,6 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
                   res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
           drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth c
           drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
-          drawChildOuterContours = case childContoursInnerWalls of
-            [] -> []
-            (_:tailContours) -> concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) childContoursInnerWalls tailContours
-          drawChildContours = case childContours of
-            [] -> []
-            (_:tailContours) -> concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) childContours tailContours
           drawInfill = GCMarkInfillStart : gcodeForInfill lh ls infillLineSegs
   -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
   layerStart <> concat (renderContourTree <$> allContours) <> support <> layerEnd
