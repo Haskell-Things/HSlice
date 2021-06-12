@@ -87,7 +87,7 @@ pathTo nodeTree@(NodeTree eNodeList@(ENodeList firstENode _) iNodeSets) directio
                                                      (Just res) -> pathInner myINodeSets myENodeList (snd res)
                                                      Nothing -> case myINodeSets of
                                                                   [] -> myError
-                                                                  [(INode _ _ _ _:_)] -> myError
+                                                                  [(_:_)] -> myError
                                                                   (_:_) ->  case iNodeOnLowerLevel of
                                                                               (Just res) -> pathInner (init $ fst res) myENodeList (snd res)
                                                                               Nothing -> myError
