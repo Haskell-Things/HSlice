@@ -87,7 +87,7 @@ pathTo nodeTree@(NodeTree eNodeList@(ENodeList firstENode _) iNodeSets) directio
                                                      (Just res) -> pathInner myINodeSets myENodeList (snd res)
                                                      Nothing -> case myINodeSets of
                                                                   [] -> myError
-                                                                  [(_:_)] -> myError
+                                                                  [(INode _ _ _ _:_)] -> myError
                                                                   (_:_) ->  case iNodeOnLowerLevel of
                                                                               (Just res) -> pathInner (init $ fst res) myENodeList (snd res)
                                                                               Nothing -> myError
@@ -122,7 +122,7 @@ findINodeByOutput iNodeSets plineOut recurse
                                [(INode _ _ _ _:_)] -> Nothing
                                (_:_) -> findINodeByOutput (init iNodeSets) plineOut recurse
                         else Nothing
-                  [iNode@(INode _ _ _ _)] -> Just (iNodeSets, iNode)
+                  [iNode] -> Just (iNodeSets, iNode)
                   (_:_) -> error "more than one node in a given generation with the same PLine out!"
   where
     nodesMatching = P.filter (\(INode _ _ _ a) -> a == Just plineOut) (P.last iNodeSets)
