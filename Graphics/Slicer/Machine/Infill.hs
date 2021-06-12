@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringLineSegsVertical) where
 
-import Prelude ((+), (<$>), ($), maximum, minimum, filter, (>), head, (.), flip, (*), sqrt, (-), (<>), show, error, otherwise, (==), length, concat, not, null, (!!), odd, Either (Left, Right), zip)
+import Prelude ((+), (<$>), ($), filter, (>), head, (.), flip, (*), sqrt, (-), (<>), show, error, otherwise, (==), length, concat, not, null, (!!), odd, Either (Left, Right), zip)
 
 import Data.List.Ordered (sort)
 
@@ -31,9 +31,9 @@ import Data.Maybe (Maybe(Just, Nothing), catMaybes)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Contour (pointsOfContour, linesOfContour)
+import Graphics.Slicer.Math.Contour (linesOfContour)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, distance, xOf, yOf, roundToFifth, mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(SafeContour), distance, xOf, yOf, roundToFifth, mapWithNeighbors)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), makeLineSegs)
 
@@ -102,58 +102,54 @@ infillLineSegInside contour childContours line
 -- Generate lines covering the entire contour, where each one is aligned with a +1 slope, which is to say, lines parallel to a line where x = y.
 -- FIXME: assumes we're in positive space.
 coveringLineSegsPositive :: Contour -> ℝ -> [PLine2]
-coveringLineSegsPositive contour ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
+coveringLineSegsPositive (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
     where
-      contourPoints = pointsOfContour contour
       slope = Point2 (1,1)
       f v = Point2 (v-xDiff,0)
       xDiff = -(xMin - yMax)
-      yMin = minimum $ yOf <$> contourPoints
-      yMax = maximum $ yOf <$> contourPoints
-      xMinRaw = minimum $ xOf <$> contourPoints
+      yMin = yOf minPoint
+      yMax = yOf maxPoint
+      xMinRaw = xOf minPoint
       xMin = head $ filter (> xMinRaw) [0, lss..]
-      xMax = maximum $ xOf <$> contourPoints
+      xMax = xOf maxPoint
       -- line spacing, taking into account the slope.
       lss = sqrt $ ls*ls+ls*ls
 
 -- Generate lines covering the entire contour, where each one is aligned with a -1 slope, which is to say, lines parallel to a line where x = -y.
 -- FIXME: assumes we're in positive space.
 coveringLineSegsNegative :: Contour -> ℝ -> [PLine2]
-coveringLineSegsNegative contour ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
+coveringLineSegsNegative (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
     where
-      contourPoints = pointsOfContour contour
       slope =  Point2 (1,-1)
       f v = Point2 (v+yDiff,0)
       yDiff = xMin + yMin
-      yMinRaw = minimum $ yOf <$> contourPoints
+      yMinRaw = yOf minPoint
       yMin = head $ filter (> yMinRaw) [0, lss..]
-      yMax = maximum $ yOf <$> contourPoints
-      xMin = minimum $ xOf <$> contourPoints
-      xMax = maximum $ xOf <$> contourPoints
+      yMax = yOf maxPoint
+      xMin = xOf minPoint
+      xMax = xOf maxPoint
       -- line spacing, taking into account the slope.
       lss = sqrt $ ls*ls+ls*ls
 
 -- Generate lines covering the entire contour, where each line is aligned with the Y axis, which is to say, parallel to the Y basis vector.
 -- FIXME: assumes we're in positive space.
 coveringLineSegsVertical :: Contour -> ℝ -> [PLine2]
-coveringLineSegsVertical contour ls = eToPLine2 . flip LineSeg slope . f <$> [xMin,xMin+ls..xMax]
+coveringLineSegsVertical (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 . flip LineSeg slope . f <$> [xMin,xMin+ls..xMax]
     where
-      contourPoints = pointsOfContour contour
       slope = Point2 (0,1)
       f v = Point2 (v,0)
-      xMinRaw = minimum $ xOf <$> contourPoints
+      xMinRaw = xOf minPoint
       xMin = head $ filter (> xMinRaw) [0, ls..]
-      xMax = maximum $ xOf <$> contourPoints
+      xMax = xOf maxPoint
 
 -- Generate lines covering the entire contour, where each line is aligned with the X axis, which is to say, parallel to the X basis vector.
 -- FIXME: assumes we're in positive space.
 coveringLineSegsHorizontal :: Contour -> ℝ -> [PLine2]
-coveringLineSegsHorizontal contour ls = eToPLine2 . flip LineSeg slope . f <$> [yMin,yMin+ls..yMax]
+coveringLineSegsHorizontal (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 . flip LineSeg slope . f <$> [yMin,yMin+ls..yMax]
     where
-      contourPoints = pointsOfContour contour
       slope = Point2 (1,0)
       f v = Point2 (0,v)
-      yMinRaw = minimum $ yOf <$> contourPoints
+      yMinRaw = yOf minPoint
       yMin = head $ filter (> yMinRaw) [0, ls..]
-      yMax = maximum $ yOf <$> contourPoints
+      yMax = yOf maxPoint
 

@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTree, ContourTree(ContourTree), contourContainsContour, contourIntersections, contourIntersectionsNonTotal, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, linesOfContour) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, minimum, zip, Either(Left, Right), (-))
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, maximum, minimum, min, zip, Either(Left, Right), (-))
 
 import Data.List(tail, last, head, partition, reverse, sortBy)
 
@@ -152,10 +152,11 @@ makeContourTree contours  = [ContourTree (foundContour, makeContourTree $ contou
 -- | Determine whether a contour is contained inside of another contour.
 -- FIXME: magic numbers.
 contourContainsContour :: Contour -> Contour -> Bool
-contourContainsContour parent child = odd noIntersections
+contourContainsContour parent@(SafeContour minPoint1 _ _ _ _ _) child@(SafeContour minPoint2 _ _ _ _ _) = odd noIntersections
   where
+    outsidePointOfPair = Point2 ((min (xOf minPoint1) (xOf minPoint2))-1,(min (yOf minPoint1) (yOf minPoint2))-1)
     noIntersections = length $ getContourLineSegIntersections parent $ lineSegToEdge $ innerPointOf child
-    lineSegToEdge p = fromRight (error "cannot construct lineToEdge") $ lineSegFromEndpoints p (Point2 (-1,-1))
+    lineSegToEdge p = fromRight (error "cannot construct lineToEdge") $ lineSegFromEndpoints p outsidePointOfPair
     getContourLineSegIntersections :: Contour -> LineSeg -> [Point2]
     getContourLineSegIntersections contour line = mapMaybe (saneIntersection . intersectsWith (Left line) . Left) $ linesOfContour contour
     saneIntersection :: Either Intersection PIntersection -> Maybe Point2
@@ -190,13 +191,14 @@ insideIsLeft contour lineSegment = lineIsLeft lineSecondHalf lineToInside == Jus
 
 -- | Find a point on the interior of the given contour, on the perpendicular bisector of the given line, a given distance from the line.
 innerContourPoint :: ℝ -> Contour -> LineSeg -> Point2
-innerContourPoint distance contour@(SafeContour originPoint _ _ _ _) l
+innerContourPoint distance contour@(SafeContour minPoint _ _ _ _ _) l
     | odd numIntersections = perpPoint
     | otherwise            = otherPerpPoint
   where
       perpPoint      = pointOnPerp l (midpoint l) distance
       otherPerpPoint = pointOnPerp l (midpoint l) (-distance)
-      numIntersections = length $ contourIntersections contour (Left (pointOnPerp l (midpoint l) 0.00001, originPoint))
+      outsidePoint   = Point2 (xOf minPoint - 1 , yOf minPoint - 1)
+      numIntersections = length $ contourIntersections contour (Left (pointOnPerp l (midpoint l) 0.00001, outsidePoint))
 
 -- | Non-total convenience function; use 'contourIntersections' if you can.
 contourIntersectionsNonTotal :: Contour -> Either Point2 PPoint2 -> Either Point2 PPoint2 -> [(LineSeg, Maybe LineSeg, PPoint2)]
@@ -230,12 +232,12 @@ contourIntersections contour points = foundIntersections
 
 -- Utility functions for contours. moving here for migration.
 pointsOfContour :: Contour -> [Point2]
-pointsOfContour (SafeContour _ p1 p2 p3 pts@(Slist vals _))
+pointsOfContour (SafeContour _ _ p1 p2 p3 pts@(Slist vals _))
   | size pts == Infinity = error "cannot handle infinite contours."
   | otherwise            = p1:p2:p3:vals
 
 numPointsOfContour :: Contour -> Int
-numPointsOfContour (SafeContour _ _ _ _ pts) = 3 + len pts
+numPointsOfContour (SafeContour _ _ _ _ _ pts) = 3 + len pts
 
 -- In an ideal world, only the test suite needs this.
 justOneContourFrom :: ([Contour], [_]) -> Contour
@@ -248,20 +250,21 @@ lastPointOfContour a = firstPointOfContour a
 
 -- Find the first point in a contour.
 firstPointOfContour :: Contour -> Point2
-firstPointOfContour (SafeContour _ p1 _ _ _) = p1
+firstPointOfContour (SafeContour _ _ p1 _ _ _) = p1
 
 makeSafeContour :: [Point2] -> Contour
 makeSafeContour points = case points of
                            [] -> error "tried to create an empty contour"
                            [p] -> error $ "tried to create a contour with a single point: " <> show p <> "\n"
                            [p1,p2] -> error $ "tried to create a contour with only two points:\n" <> show p1 <> "\n" <> show p2 <> "\n"
-                           (p1:p2:p3:pts) -> SafeContour p0 p1 p2 p3 (slist pts)
+                           (p1:p2:p3:pts) -> SafeContour pL pH p1 p2 p3 (slist pts)
   where
-    p0 = Point2 ((minimum $ xOf <$> points)-1, (minimum $ yOf <$> points)-1)
+    pL = Point2 ((minimum $ xOf <$> points), (minimum $ yOf <$> points))
+    pH = Point2 ((maximum $ xOf <$> points), (maximum $ yOf <$> points))
 
 -- find the first line segment in a contour.
 firstLineSegOfContour :: Contour -> LineSeg
-firstLineSegOfContour (SafeContour _ p1 p2 _ _) = case lineSegFromEndpoints p1 p2 of
+firstLineSegOfContour (SafeContour _ _ p1 p2 _ _) = case lineSegFromEndpoints p1 p2 of
                                                     (Right v) -> v
                                                     (Left _) -> error "wtf"
 

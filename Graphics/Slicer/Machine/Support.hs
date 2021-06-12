@@ -33,9 +33,9 @@ import Data.Maybe(catMaybes)
 
 import Graphics.Slicer.Definitions (ℝ,ℝ2)
 
-import Graphics.Slicer.Math.Contour (pointsOfContour, makeSafeContour)
+import Graphics.Slicer.Math.Contour (makeSafeContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), xOf, yOf, addPoints, scalePoint)
+import Graphics.Slicer.Math.Definitions (Contour(SafeContour), Point2(Point2), xOf, yOf, addPoints, scalePoint)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
 
@@ -82,14 +82,13 @@ boundingBoxAll contours = if isEmptyBBox box then error "empty box with a contou
 
 -- Get a bounding box of a contour.
 boundingBox :: Contour -> BBox
-boundingBox contour = if isEmptyBBox box then error "empty box with a contour" else box
+boundingBox (SafeContour minPoint maxPoint _ _ _ _) = if isEmptyBBox box then error "empty box with a contour" else box
   where
-    contourPoints = pointsOfContour contour
     box  = BBox (minX, minY) (maxX, maxY)
-    minX = minimum $ xOf <$> contourPoints
-    minY = minimum $ yOf <$> contourPoints
-    maxX = maximum $ xOf <$> contourPoints
-    maxY = maximum $ yOf <$> contourPoints
+    minX = xOf minPoint
+    minY = yOf minPoint
+    maxX = xOf maxPoint
+    maxY = yOf maxPoint
 
 -- add a bounding box to a list of contours, as the first contour in the list.
 -- FIXME: what is this for?

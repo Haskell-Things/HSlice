@@ -109,8 +109,8 @@ instance SpacePoint Point3 where
   flatten (Point3 (x,y,_)) = Point2 (x,y)
 
 -- | a list of points around a (2d) shape.
--- Note that the outside point has to be outside the contour, far away enough that a vertical line and a horizontal line drawn from the outside poind do not intersect the contour.
-data Contour = SafeContour { _outsidePoint :: Point2, _firstPoint :: Point2, _secondPoint :: Point2, _thirdPoint :: Point2 , morePoints :: (Slist Point2) }
+-- Note that the minPoint and maxPoint define a bounding box for the contour that it does not spill out of.
+data Contour = SafeContour { _minPoint :: Point2, _maxPoint :: Point2, _firstPoint :: Point2, _secondPoint :: Point2, _thirdPoint :: Point2 , morePoints :: (Slist Point2) }
   deriving (Eq, Generic, NFData, Show)
 
 -- | round a value
