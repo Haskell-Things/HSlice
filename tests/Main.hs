@@ -28,6 +28,8 @@ import Test.Hspec(hspec, describe)
 -- the execution test for warnings.
 import Math.PGA(contourSpec, lineSpec, linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec)
 
+import qualified Graphics.Slicer.Math.Contour (specs)
+
 main :: IO ()
 main = hspec $ do
   -- run tests against the mixed algebra engine.
@@ -41,3 +43,7 @@ main = hspec $ do
   describe "2D PGA operations" pgaSpec
   -- run tests of the facet engine.
   describe "Contour facetization algorithms" facetSpec
+
+  -- experimental new shape for the test suite: have all the tests in the production modules,
+  -- but export only the `specs` to run it here.
+  describe "Graphics.Slicer.Math.Contour" Graphics.Slicer.Math.Contour.specs
