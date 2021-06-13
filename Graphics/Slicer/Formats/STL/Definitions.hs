@@ -27,15 +27,17 @@
 
 module Graphics.Slicer.Formats.STL.Definitions (trianglesFromSTL) where
 
-import Prelude (($), (==), read, error, (<$>), (<>), show)
+import Prelude (($), (==), error, (<$>), (<>), show)
 
 import Control.Parallel.Strategies (using, rdeepseq, parBuffer)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes)
 
-import Data.ByteString(ByteString)
+import Data.ByteString (ByteString)
 
-import Data.ByteString.Char8(lines, words, unpack, breakSubstring, break, null, drop)
+import Data.ByteString.Char8 (lines, words, unpack, breakSubstring, break, null, drop)
+
+import Text.Read (readMaybe)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3))
 
@@ -57,7 +59,7 @@ import Graphics.Slicer.Definitions (Fastℕ, fromFastℕ)
 15:53 < InPhase> Such a constraint seems essential or else it cannot function as a document exchange format.
 -}
 
--- produce a list of Tris from the input STL file.
+-- | produce a list of Tris from the input STL file.
 trianglesFromSTL :: Fastℕ -> ByteString -> [Tri]
 trianglesFromSTL threads stl = [readTri f | f <- rawTrisFromSTL strippedStl] `using` parBuffer (fromFastℕ threads) rdeepseq
   where
@@ -66,7 +68,7 @@ trianglesFromSTL threads stl = [readTri f | f <- rawTrisFromSTL strippedStl] `us
     -- and the last line terminator off of the stl file.
     (strippedStl, _) = breakSubstring "endsolid" headStrippedStl
 
--- Separate STL file into triangles
+-- | Separate the STL file into triangles
 rawTrisFromSTL :: ByteString -> [ByteString]
 rawTrisFromSTL l = if null l then [] else f : rawTrisFromSTL (drop 1 remainder)
     where (f, r) = breakSubstring "endfacet" l
@@ -78,20 +80,22 @@ readVertex :: ByteString -> Maybe Point3
 readVertex s = readVertex' $ words s
   where
     readVertex' :: [ByteString] -> Maybe Point3
-    readVertex' [vertex,xv,yv,zv]
-      | vertex == "vertex" = Just $ Point3 (read $ unpack xv,read $ unpack yv,read $ unpack zv)
+    readVertex' [vertex,xs,ys,zs]
+      | vertex == "vertex" = case (readMaybe $ unpack xs, readMaybe $ unpack ys, readMaybe $ unpack zs) of
+                               (Just x, Just y, Just z) -> Just $ Point3 (x,y,z)
+                               (_maybex,_maybey,_maybez) -> error "error reading."
     readVertex' _ = Nothing
 
--- Read a list of three vertexes and generate a triangle from them.
+-- | Read a list of three vertexes and generate a triangle from them.
 readTri :: ByteString -> Tri
 readTri f = do
         let
           points = readVertex <$> lines f
           foundPoints = catMaybes points
-          triFromPoints :: [Point3] -> Tri
-          triFromPoints [p1,p2,p3] = Tri ((p1,p2),(p2,p3),(p3,p1))
-          triFromPoints _ = error "tried to make a tri from something other than 3 points."
+          triFromPoints :: Point3 -> Point3 -> Point3 -> Tri
+          triFromPoints p1 p2 p3 = Tri ((p1,p2),(p2,p3),(p3,p1))
         case foundPoints of
-          threePoints@[_,_,_] -> triFromPoints threePoints
-          _ -> error $ "wrong number of points found." <> show f <> "\n" <> show foundPoints <> "\n"
+          [] -> error $ "no points found" <> show f <> "\n"
+          [p1,p2,p3] -> triFromPoints p1 p2 p3
+          (_a:_b) -> error $ "wrong number of points found." <> show f <> "\n" <> show foundPoints <> "\n"
 
