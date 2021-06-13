@@ -28,11 +28,9 @@
 
 module Graphics.Slicer.Formats.STL.Facets (facetsFromSTL, buildAsciiSTL) where
 
-import Prelude (($), (==), read, error, otherwise, (<$>), (<>), show, isNaN, isInfinite, (<), (||), isNegativeZero, (-), mconcat, (&&), filter, fst, snd, (.))
+import Prelude (($), (==), error, otherwise, (<$>), (<>), show, isNaN, isInfinite, (<), (||), isNegativeZero, (-), mconcat, concat)
 
 import Control.Parallel.Strategies (using, rdeepseq, parBuffer)
-
-import Data.Maybe (Maybe(Just, Nothing), isJust, fromJust)
 
 import Data.ByteString(ByteString)
 
@@ -40,7 +38,13 @@ import Data.ByteString.Builder(Builder, stringUtf8, charUtf8, intDec, byteString
 
 import Data.ByteString.Char8(lines, words, unpack, breakSubstring, break, null, drop)
 
+import Data.Either (Either(Left, Right), rights, lefts)
+
+import Data.Maybe (Maybe(Just, Nothing), catMaybes)
+
 import Numeric (floatToDigits)
+
+import Text.Read (readMaybe)
 
 import GHC.Base (Int(I#), Char(C#), chr#, ord#, (+#))
 
@@ -77,8 +81,8 @@ readFacet :: ByteString -> Facet
 readFacet f = do
         let
           pointsAndNormals = readVertexOrNormal <$> lines f
-          foundPoints = fromJust.fst <$> filter (\(a,_) -> isJust a) pointsAndNormals
-          foundNormals = fromJust.snd <$> filter (\(_,b) -> isJust b) pointsAndNormals
+          foundPoints =  lefts $ catMaybes pointsAndNormals
+          foundNormals = rights $ catMaybes pointsAndNormals
           facetFromPointsAndNormal :: [Point3] -> Point3 -> Facet
           facetFromPointsAndNormal [p1,p2,p3] n = Facet ((p1,p2),(p2,p3),(p3,p1)) n
           facetFromPointsAndNormal _ _ = error "tried to make a facet from something other than 3 points."
@@ -95,20 +99,21 @@ readFacet f = do
 -- | Read a point when it's given as a string of the form "vertex x y z"
 --   or a normal when it's given as a string of the form "facet normal x y z".
 --   Skip "outer loop" and "endloop".
-readVertexOrNormal :: ByteString -> (Maybe Point3, Maybe Point3)
+readVertexOrNormal :: ByteString -> Maybe (Either Point3 Point3)
 readVertexOrNormal s = readVertexOrNormal' $ words s
   where
-    readVertexOrNormal' :: [ByteString] -> (Maybe Point3, Maybe Point3)
-    readVertexOrNormal' [facet, normal, xv, yv, zv]
-      | facet == "facet" && normal == "normal" = (Nothing, Just (Point3 (read $ unpack xv, read $ unpack yv, read $ unpack zv)))
-    readVertexOrNormal' [vertex,xv,yv,zv]
-      | vertex == "vertex" = (Just (Point3 (read $ unpack xv,read $ unpack yv,read $ unpack zv)), Nothing)
-    readVertexOrNormal' [outer, loop]
-      | outer == "outer" && loop == "loop" = (Nothing, Nothing)
-    readVertexOrNormal' [endloop]
-      | endloop == "endloop" = (Nothing, Nothing)
-    readVertexOrNormal' [] = (Nothing, Nothing)
-    readVertexOrNormal' a = error $ "unexpected input in STL file: " <> show a <> "\n"
+    readVertexOrNormal' :: [ByteString] -> Maybe (Either Point3 Point3)
+    readVertexOrNormal' inLine = case inLine of
+                                   [] -> Nothing
+                                   ["endloop"] -> Nothing
+                                   ["outer", "loop"] -> Nothing
+                                   ["facet", "normal", xs, ys, zs] -> case (readMaybe $ unpack xs, readMaybe $ unpack ys, readMaybe $ unpack zs) of
+                                                                        (Just xv, Just yv, Just zv) -> Just $ Right $ Point3 (xv,yv,zv)
+                                                                        (_maybex, _maybey, _maybez) -> error "could not read normal point."
+                                   ["vertex" ,xs,ys,zs] -> case (readMaybe $ unpack xs,readMaybe $ unpack ys,readMaybe $ unpack zs) of
+                                                             (Just xv, Just yv, Just zv) -> Just $ Left $ Point3 (xv,yv,zv)
+                                                             (_maybex, _maybey, _maybez) -> error "error reading vertex point."
+                                   (x:xs) -> error $ "unexpected input in STL file: " <> show x <> " " <> concat (show <$> xs) <> "\n"
 
 ----------------------------------------------------------------
 ----------- Functions to deal with ASCII STL writing -----------
