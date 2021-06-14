@@ -33,7 +33,7 @@ import Data.Maybe(catMaybes)
 
 import Graphics.Slicer.Definitions (ℝ,ℝ2)
 
-import Graphics.Slicer.Math.Contour (pointsOfContour, makeSafeContour)
+import Graphics.Slicer.Math.Contour (makeSafeContour)
 
 import Graphics.Slicer.Math.Definitions (Contour(SafeContour), Point2(Point2), xOf, yOf, addPoints, scalePoint)
 
@@ -71,7 +71,7 @@ isEmptyBBox (BBox (x1,y1) (x2,y2)) = x1 == x2 || y1 == y2
 
 -- Get a bounding box of all contours.
 boundingBoxAll :: [Contour] -> BBox
-boundingBoxAll contours = if isEmptyBBox box then error "empty box with a SafeContour" else box
+boundingBoxAll contours = if isEmptyBBox box then error "empty box with a contour" else box
     where
       box  = BBox (minX, minY) (maxX, maxY)
       minX = minimum $ (\(BBox (x1,_) _) -> x1) <$> bBoxes
@@ -82,14 +82,13 @@ boundingBoxAll contours = if isEmptyBBox box then error "empty box with a SafeCo
 
 -- Get a bounding box of a contour.
 boundingBox :: Contour -> BBox
-boundingBox contour@(SafeContour _ _ _ _) = if isEmptyBBox box then error "empty box with a Safecontour" else box
+boundingBox (SafeContour minPoint maxPoint _ _ _ _) = if isEmptyBBox box then error "empty box with a contour" else box
   where
-    contourPoints = pointsOfContour contour
     box  = BBox (minX, minY) (maxX, maxY)
-    minX = minimum $ xOf <$> contourPoints
-    minY = minimum $ yOf <$> contourPoints
-    maxX = maximum $ xOf <$> contourPoints
-    maxY = maximum $ yOf <$> contourPoints
+    minX = xOf minPoint
+    minY = yOf minPoint
+    maxX = xOf maxPoint
+    maxY = yOf maxPoint
 
 -- add a bounding box to a list of contours, as the first contour in the list.
 -- FIXME: what is this for?
