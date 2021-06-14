@@ -63,14 +63,14 @@ default (ℕ, Fastℕ, ℝ)
 
 -- | A single gcode statement.
 data GCode =
-    GCMove2 { _startPoint2 :: ℝ2, _stopPoint2 :: ℝ2 }
-  | GCMove3 { _startPoint3 :: ℝ3, _stopPoint3 :: ℝ3 }
-  | GCFeedRate { _rate :: ℝ, _code :: GCode }
-  | GCExtrude2 { _startPoint2 :: ℝ2, _stopPoint2 :: ℝ2, _ePos :: ℝ }
-  | GCExtrude3 { _startPoint3 :: ℝ3, _stopPoint3 :: ℝ3, _ePos :: ℝ }
-  | GCRawExtrude2 { _startPoint2 :: ℝ2, _stopPoint2 :: ℝ2, _extrusion :: RawExtrude }
-  | GCRawExtrude3 { _startPoint3 :: ℝ3, _stopPoint3 :: ℝ3, _extrusion :: RawExtrude }
-  | GCMarkLayerStart { _layerNumber :: Fastℕ }
+    GCMove2 { _startPoint2 :: !ℝ2, _stopPoint2 :: !ℝ2 }
+  | GCMove3 { _startPoint3 :: !ℝ3, _stopPoint3 :: !ℝ3 }
+  | GCFeedRate { _rate :: !ℝ, _code :: !GCode }
+  | GCExtrude2 { _startPoint2 :: !ℝ2, _stopPoint2 :: !ℝ2, _ePos :: !ℝ }
+  | GCExtrude3 { _startPoint3 :: !ℝ3, _stopPoint3 :: !ℝ3, _ePos :: !ℝ }
+  | GCRawExtrude2 { _startPoint2 :: !ℝ2, _stopPoint2 :: !ℝ2, _extrusion :: !RawExtrude }
+  | GCRawExtrude3 { _startPoint3 :: !ℝ3, _stopPoint3 :: !ℝ3, _extrusion :: !RawExtrude }
+  | GCMarkLayerStart { _layerNumber :: !Fastℕ }
   | GCMarkInnerWallStart
   | GCMarkOuterWallStart
   | GCMarkSupportStart
@@ -78,7 +78,7 @@ data GCode =
   deriving (Eq, Generic, NFData)
 
 -- | The dimensions of a section of material to be extruded.
-data RawExtrude = RawExtrude { _pathLength :: ℝ, _pathWidth :: ℝ, _pathHeight :: ℝ }
+data RawExtrude = RawExtrude { _pathLength :: !ℝ, _pathWidth :: !ℝ, _pathHeight :: !ℝ }
   deriving (Eq, Generic, NFData)
 
 -- | Calculate the extrusion values for all of the GCodes that extrude.
