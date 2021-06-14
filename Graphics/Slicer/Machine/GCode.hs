@@ -27,7 +27,7 @@ module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWal
 
 import GHC.Generics (Generic)
 
-import Prelude (Eq, Int, ($), tail, init, zipWith, concat, head, last, (<>), show, error, (++), otherwise, (==), length, (/=), fst, pi, (/), (*), pure, toRational, (.), fromRational, (<$>), (+), div, Bool)
+import Prelude (Eq, Int, ($), zipWith, concat, head, last, (<>), show, error, (++), otherwise, (==), length, (/=), fst, pi, (/), (*), pure, toRational, (.), fromRational, (<$>), (+), div, Bool)
 
 import Data.ByteString (ByteString)
 
@@ -159,14 +159,22 @@ gcodeToText GCMarkInfillStart = ";TYPE:FILL"
 -- | Generate GCode for a given contour.
 -- Assumes the printer is already at the first point of the contour.
 gcodeForContour :: ℝ -> ℝ -> Contour -> [GCode]
-gcodeForContour lh pathWidth contour = zipWith (make2DExtrudeGCode lh pathWidth) contourPoints (tail contourPoints) ++ [make2DExtrudeGCode lh pathWidth (last contourPoints) (head contourPoints)]
+gcodeForContour lh pathWidth contour =
+  case contourPoints of
+    [] -> error "impossible"
+    [_a] -> error "also impossible"
+    [_a,_b] -> error "more impossible"
+    (headPoints:tailPoints) -> zipWith (make2DExtrudeGCode lh pathWidth) contourPoints tailPoints ++ [make2DExtrudeGCode lh pathWidth (last contourPoints) headPoints]
   where
     contourPoints = pointsOfContour contour
 
 -- | For each group of lines, generate gcode for the segments, with move commands between them.
 gcodeForInfill :: ℝ -> ℝ -> [[LineSeg]] -> [GCode]
 gcodeForInfill _ _ [] = []
-gcodeForInfill lh pathWidth lineGroups = concat $ renderLineSegGroup (head lineGroups) : zipWith (\group1 group2 -> moveBetweenLineSegGroups group1 group2 ++ renderLineSegGroup group2) (init lineGroups) (tail lineGroups)
+gcodeForInfill lh pathWidth lineGroups =
+  case lineGroups of
+    [] -> []
+    (headGroup:tailGroups) -> concat $ renderLineSegGroup headGroup : zipWith (\group1 group2 -> moveBetweenLineSegGroups group1 group2 ++ renderLineSegGroup group2) lineGroups tailGroups
   where
     -- FIXME: this should be a single gcode. why are we getting empty line groups given to us?
     moveBetweenLineSegGroups :: [LineSeg] -> [LineSeg] -> [GCode]
@@ -174,8 +182,9 @@ gcodeForInfill lh pathWidth lineGroups = concat $ renderLineSegGroup (head lineG
     moveBetweenLineSegGroups g1 [] = error $ "line group empty when finding line group following " <> show g1 <> "\n"
     moveBetweenLineSegGroups g1 g2 = [moveBetween (last g1) (head g2)]
     renderLineSegGroup :: [LineSeg] -> [GCode]
-    renderLineSegGroup [] = []
-    renderLineSegGroup group = renderSegment (head group) : concat (zipWith (\ l1 l2 -> moveBetween l1 l2 : [renderSegment l2]) (init group) (tail group))
+    renderLineSegGroup lineSegSet = case lineSegSet of
+                                      [] -> []
+                                      (headGroup:tailGroups) -> renderSegment headGroup : concat (zipWith (\ l1 l2 -> moveBetween l1 l2 : [renderSegment l2]) lineSegSet tailGroups)
     moveBetween :: LineSeg -> LineSeg -> GCode
     moveBetween l1 (LineSeg startPointl2 _) = make2DTravelGCode (endpoint l1) startPointl2
     renderSegment :: LineSeg -> GCode
