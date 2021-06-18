@@ -33,4 +33,4 @@ Functional programming is beautiful, and gets us closer to perfection.
 
 #### *Can I contribute?*
 
-Pull requests welcome. Drop by #implicitcad on freenode IRC, or sign up for the implicitcad mailing list, OR email the author at julia.longtin@gmail.com!
+Pull requests welcome. Drop by #implicitcad on libera IRC, or sign up for the implicitcad mailing list, OR email the author at julia.longtin@gmail.com!
