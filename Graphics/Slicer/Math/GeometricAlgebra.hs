@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, unlikeVecPair) where
 
-import Prelude (Eq, Show, Ord(compare), (==), (/=), (+), otherwise, ($), (++), head, tail, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), error, flip, (||), elem, notElem, and)
+import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), otherwise, ($), (++), head, tail, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), error, flip, (||), elem, notElem, and)
 
 import GHC.Generics (Generic)
 
@@ -39,8 +39,8 @@ import Graphics.Slicer.Definitions (ℝ, Fastℕ)
 
 import Graphics.Slicer.Orphans ()
 
--- The geometric numbers.
--- We are deriving Ord so we can sort the terms during simplification.
+-- | The geometric numbers.
+-- We must derive Ord so we can sort the terms during simplification.
 data GNum =
     GEMinus Fastℕ -- squared equal to -1 -- associated with rotation
   | GEZero  Fastℕ -- squared equal to  0 -- associated with translations
@@ -48,32 +48,35 @@ data GNum =
   | G0            -- A scalar type. short lived.
   deriving (Eq, Generic, NFData, Show, Ord)
 
--- A value in geometric algebra
+-- | A value in geometric algebra.
 data GVal = GVal { _real :: ℝ, _basis :: [GNum] }
   deriving (Eq, Generic, NFData, Show)
 
+-- When sorting gvals, sort the basis, THEN sort the multiplier.
 instance Ord GVal where
   (GVal r1 i1) `compare` (GVal r2 i2)
     | i1 == i2  = compare r1 r2
     | otherwise = compare i1 i2
 
--- A (multi)vector in geometric algebra.
+-- | A (multi)vector in geometric algebra.
 newtype GVec = GVec [GVal]
   deriving (Eq, Generic, NFData, Show, Ord)
 
 -- | Extract a value from a vector.
--- FIXME: throw a failure when we get more than one match.
 getVals :: [GNum] -> [GVal] -> Maybe GVal
-getVals num vs = if null matches then Nothing else Just $ head matches
+getVals nums vs = case matches of
+                    [] -> Nothing
+                    [oneMatch] -> Just oneMatch
+                    multiMatch@(_:_) -> error $ "found multiple candidates" <> show multiMatch <> " when using getVals on " <> show vs <> "when searching for " <> show nums <> "\n"
   where
-    matches = filter (\(GVal _ n) -> n == num) vs
+    matches = filter (\(GVal _ n) -> n == nums) vs
 
--- | return the value of a vector, OR a given value, if the vector requested is not found.
+-- | Return the value of a vector, OR a given value, if the vector requested is not found.
 valOf :: ℝ -> Maybe GVal -> ℝ
 valOf r Nothing = r
 valOf _ (Just (GVal v _)) = v
 
--- | add two geometric values together.
+-- | Add two geometric values together.
 addValPair :: GVal -> GVal -> [GVal]
 addValPair v1@(GVal r1 i1) v2@(GVal r2 i2)
   | r1 == 0 && r2 == 0      = []
@@ -83,7 +86,7 @@ addValPair v1@(GVal r1 i1) v2@(GVal r2 i2)
   | i1 == i2                = [GVal (r1+r2) i1]
   | otherwise               = sort [v1,v2]
 
--- | subtract a geometric value from another geometric vaalue.
+-- | Subtract a geometric value from another geometric value.
 subValPair :: GVal -> GVal -> [GVal]
 subValPair v1@(GVal r1 i1) (GVal r2 i2)
   | i1 == i2 && r1 == r2 = []
@@ -106,8 +109,8 @@ addVal dst src@(GVal r1 _)
     iOf (GVal _ i) = i
     rOf (GVal r _) = r
 
--- | subtract a geometric value from a list of geometric values.
---   assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
+-- | Subtract a geometric value from a list of geometric values.
+--   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
 subVal :: [GVal] -> GVal -> [GVal]
 subVal dst (GVal r i) = addVal dst $ GVal (-r) i
 
@@ -115,17 +118,17 @@ subVal dst (GVal r i) = addVal dst $ GVal (-r) i
 addVecPair :: GVec -> GVec -> GVec
 addVecPair (GVec vals1) (GVec vals2) = GVec $ foldl' addVal vals1 vals2
 
--- | subtract one vector from the other.
+-- | Subtract one vector from the other.
 subVecPair :: GVec -> GVec -> GVec
 subVecPair (GVec vals1) (GVec vals2) = GVec $ foldl' subVal vals1 vals2
 
--- | multiply a vector by a scalar. arguments are given in this order for maximum readability.
+-- | Multiply a vector by a scalar. arguments are given in this order for maximum readability.
 mulScalarVec :: ℝ -> GVec -> GVec
 mulScalarVec s (GVec vals) = GVec $ mulVal s <$> vals
   where
     mulVal s1 (GVal r i) = GVal (s1*r) i
 
--- | divide a vector by a scalar. arguments are given in this order for maximum readability.
+-- | Divide a vector by a scalar. arguments are given in this order for maximum readability.
 divVecScalar :: GVec -> ℝ -> GVec
 divVecScalar (GVec vals) s = GVec $ divVal s <$> vals
   where
@@ -138,7 +141,7 @@ likeVecPair a b
   | a > b     = likeVecPair' a b
   | otherwise = likeVecPair' b a
 
--- | generate the like product of a vector pair.
+-- | Generate the like product of a vector pair.
 likeVecPair' :: GVec -> GVec -> GVec
 likeVecPair' vec1 vec2 = if null results
                          then GVec []
@@ -156,7 +159,7 @@ likeVecPair' vec1 vec2 = if null results
               | i == [G0] = GVal (r1*r2) [G0]
               | otherwise  = sortBasis $ GVal (r1*r2) (i ++ i)
 
--- | generate the unlike product of a vector pair.
+-- | Generate the unlike product of a vector pair.
 unlikeVecPair :: GVec -> GVec -> GVec
 unlikeVecPair vec1 vec2 = if null results
                           then GVec []
@@ -174,7 +177,7 @@ unlikeVecPair vec1 vec2 = if null results
               where
                 filterG0 xs = filter (/= G0) xs
 
--- | generate the reductive product of a vector pair.
+-- | Generate the reductive product of a vector pair.
 reduceVecPair :: GVec -> GVec -> GVec
 reduceVecPair vec1 vec2 = if null results
                            then GVec []
@@ -207,7 +210,7 @@ reduceVecPair vec1 vec2 = if null results
               where
                 filterG0 xs = filter (/= G0) xs
 
--- | generate the geometric product of a vector pair.
+-- | Generate the geometric product of a vector pair.
 mulVecPair :: GVec -> GVec -> GVec
 mulVecPair vec1 vec2 = if null results
                          then GVec []
@@ -226,7 +229,7 @@ mulVecPair vec1 vec2 = if null results
           where
             filterG0 xs = filter (/= G0) xs
 
--- for a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
+-- | For a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
 sortBasis :: GVal -> GVal
 sortBasis (GVal r i) = if shouldFlip then GVal (-r) basis else GVal r basis
   where
@@ -278,23 +281,23 @@ stripPairs = withoutPairs
     prependI num (GVal r [G0]) = GVal r [num]
     prependI num (GVal r nums) = GVal r (num:nums)
 
--- | our "like" operator. unicode point u+23a3
+-- | Our "like" operator. unicode point u+23a3.
 (⎣) :: GVec -> GVec -> GVec
 (⎣) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (likeVecPair v1 v2)
 
--- | our "unlike" operator. unicode point u+23a4
+-- | Our "unlike" operator. unicode point u+23a4.
 (⎤) :: GVec -> GVec -> GVec
 (⎤) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (unlikeVecPair v1 v2)
 
--- our "reductive" operator.
+-- | Our "reductive" operator.
 (⨅) :: GVec -> GVec -> GVec
 (⨅) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (reduceVecPair v1 v2)
 
--- | A wedge operator. gets the wedge product of the two arguments
+-- | A wedge operator. gets the wedge product of the two arguments. note that wedge = reductive minus unlike.
 (∧) :: GVec -> GVec -> GVec
 (∧) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (subVecPair (reduceVecPair v1 v2) (unlikeVecPair v1 v2))
 
--- | A dot operator. gets the dot product of the two arguments
+-- | A dot operator. gets the dot product of the two arguments. note that dot = reductive plus like.
 (⋅) :: GVec -> GVec -> GVec
 (⋅) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (addVecPair (reduceVecPair v1 v2) (likeVecPair v1 v2))
 
@@ -302,7 +305,7 @@ stripPairs = withoutPairs
 (•) :: GVec -> GVec -> GVec
 (•) vec1 vec2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (mulVecPair vec1 vec2)
 
--- simplify a GVec, and return any scalar component.
+-- | Simplify a GVec, and return any scalar component.
 scalarPart :: GVec -> ℝ
 scalarPart (GVec gVals) = sum $ realValue <$> vals
   where
@@ -310,7 +313,7 @@ scalarPart (GVec gVals) = sum $ realValue <$> vals
     realValue (GVal r [G0]) = r
     realValue _ = 0
 
--- simplify a GVec, and return any component that is not a scalar.
+-- | Simplify a GVec, and return any component that is not a scalar.
 vectorPart :: GVec -> GVec
 vectorPart (GVec gVals) = GVec $ foldl' addVal [] $ filter noRealValue vals
   where
