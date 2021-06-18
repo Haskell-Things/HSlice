@@ -124,6 +124,7 @@ Executable extcuraengine
                   , mtl
                   , optparse-applicative
                   , parallel
+                  , slist >=0.2.0.0
                   , utf8-string
 
 Executable extadmesh

@@ -39,7 +39,7 @@ import Graphics.Slicer.Math.Definitions as MD (Point2(Point2),Point3(Point3), Co
 
 import Graphics.Slicer.Math.Point as MP (crossProduct, twoDCrossProduct)
 
-import Graphics.Slicer.Math.Contour as MC (getContours, makeContourTree, ContourTree(ContourTree))
+import Graphics.Slicer.Math.Contour as MC (getContours, makeContourTreeSet, ContourTree(ContourTree))
 
 import Graphics.Slicer.Math.Slicer as MS (accumulateValues)
 
