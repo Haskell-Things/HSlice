@@ -36,7 +36,7 @@ import Slist as SL (filter, last)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), ENodeList(ENodeList), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), ENodeSet(ENodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf)
 
 import Graphics.Slicer.Math.PGA (PLine2, pLineIsLeft)
 
@@ -62,12 +62,12 @@ pathLast nodeTree = pathTo nodeTree Last
 
 -- | Find all of the Nodes and all of the arcs between the last item in the nodeTree and the node that is part of the original contour on the given side.
 pathTo :: NodeTree -> Direction -> ([PLine2], [INode], ENode)
-pathTo nodeTree@(NodeTree eNodeList@(ENodeList firstENode _) iNodeSets) direction
+pathTo nodeTree@(NodeTree eNodeList@(ENodeSet firstENode _) iNodeSets) direction
   | null iNodeSets = ([outOf firstENode], [], firstENode)
   | otherwise = pathInner (init iNodeSets) eNodeList (finalINodeOf nodeTree)
   where
-    pathInner :: [[INode]] -> ENodeList -> INode -> ([PLine2], [INode], ENode)
-    pathInner myINodeSets myENodeList target@(INode firstPLine secondPLine morePLines _)
+    pathInner :: [[INode]] -> ENodeSet -> INode -> ([PLine2], [INode], ENode)
+    pathInner myINodeSets myENodeSet target@(INode firstPLine secondPLine morePLines _)
       | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
       | otherwise     = (               childPlines, target: endNodes, finalENode)
       where
@@ -76,7 +76,7 @@ pathTo nodeTree@(NodeTree eNodeList@(ENodeList firstENode _) iNodeSets) directio
                           Last -> SL.last (cons secondPLine morePLines)
         iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow False
         iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow True
-        result = findENodeByOutput myENodeList pLineToFollow
+        result = findENodeByOutput myENodeSet pLineToFollow
         terminate = case result of
                       (Just eNode) -> ([outOf eNode], [], eNode)
                       Nothing -> error "FIXME: cannot happen."
@@ -84,17 +84,17 @@ pathTo nodeTree@(NodeTree eNodeList@(ENodeList firstENode _) iNodeSets) directio
         (childPlines, endNodes, finalENode) = if isJust result
                                               then terminate
                                               else case iNodeOnThisLevel of
-                                                     (Just res) -> pathInner myINodeSets myENodeList (snd res)
+                                                     (Just res) -> pathInner myINodeSets myENodeSet (snd res)
                                                      Nothing -> case myINodeSets of
                                                                   [] -> myError
                                                                   [(INode _ _ _ _:_)] -> myError
                                                                   (_:_) ->  case iNodeOnLowerLevel of
-                                                                              (Just res) -> pathInner (init $ fst res) myENodeList (snd res)
+                                                                              (Just res) -> pathInner (init $ fst res) myENodeSet (snd res)
                                                                               Nothing -> myError
 
 -- | Find an exterior Node with an output of the PLine given.
-findENodeByOutput :: ENodeList -> PLine2 -> Maybe ENode
-findENodeByOutput (ENodeList firstENode moreENodes) plineOut = case nodesMatching of
+findENodeByOutput :: ENodeSet -> PLine2 -> Maybe ENode
+findENodeByOutput (ENodeSet firstENode moreENodes) plineOut = case nodesMatching of
                                                                  (Slist [] _) -> Nothing
                                                                  (Slist [oneNode] _) -> Just oneNode
                                                                  (Slist (_:_) _)->  error "more than one exterior node with the same PLine out!"
@@ -131,5 +131,5 @@ findINodeByOutput iNodeSets plineOut recurse
 makeNodeTree :: [ENode] -> [[INode]] -> NodeTree
 makeNodeTree eNodes iNodeSets = case eNodes of
                                   [] -> error "not enough nodes to make a nodeTree"
-                                  [eNode] -> NodeTree (ENodeList eNode (slist [])) iNodeSets
-                                  (eNode:moreENodes) -> NodeTree (ENodeList eNode (slist moreENodes)) iNodeSets
+                                  [eNode] -> NodeTree (ENodeSet eNode (slist [])) iNodeSets
+                                  (eNode:moreENodes) -> NodeTree (ENodeSet eNode (slist moreENodes)) iNodeSets

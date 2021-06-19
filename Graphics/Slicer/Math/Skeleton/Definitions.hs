@@ -27,7 +27,7 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeList(ENodeList), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf) where
+module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf) where
 
 import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, (>), (&&), any, head, fst, and, (||), (<>), null, show)
 
@@ -145,14 +145,14 @@ data CellDivide = CellDivide { _divMotorcycles :: DividingMotorcycles, _divENode
   deriving Eq
   deriving stock Show
 
-data ENodeList = ENodeList { _firstENode :: ENode, _moreENodes :: Slist ENode }
+data ENodeSet = ENodeSet { _firstENode :: ENode, _moreENodes :: Slist ENode }
   deriving Eq
   deriving stock Show
 
 -- | A set of set of nodes, divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation contains just one node.
 --   Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.
 --   The last generation may or may not have an outArc.
-data NodeTree = NodeTree { _eNodes :: ENodeList, _iNodes :: [[INode]] }
+data NodeTree = NodeTree { _eNodes :: ENodeSet, _iNodes :: [[INode]] }
   deriving Eq
   deriving stock Show
 
@@ -208,7 +208,7 @@ linePairs c = mapWithFollower (,) $ linesOfContour c
 
 -- | Get the output of the given nodetree. fails if the nodetree has no output.
 finalPLine :: NodeTree -> PLine2
-finalPLine (NodeTree (ENodeList firstENode moreENodes) generations)
+finalPLine (NodeTree (ENodeSet firstENode moreENodes) generations)
   | null generations && len moreENodes == 0 = outOf firstENode
   | null generations = error "cannot have final PLine of nodetree with more than one ENode, and no generations!\n"
   | otherwise = outOf $ last $ last generations
