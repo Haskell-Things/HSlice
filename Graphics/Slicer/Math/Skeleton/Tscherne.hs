@@ -31,11 +31,13 @@ import Data.List (elemIndex)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromMaybe)
 
+import Slist (slist)
+
 import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, NodeTree(NodeTree), Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles (DividingMotorcycles), ENodeSet(ENodeSet), finalPLine, outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, INodeSet (INodeSet), NodeTree(NodeTree), Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles (DividingMotorcycles), ENodeSet(ENodeSet), finalPLine, outOf)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, firstSegOf, sortNodeTrees, makeNodeTree)
 
@@ -115,8 +117,8 @@ applyTscherne contour cellDivisions =
                                                                                    (DividingMotorcycles _ (Slist _ _)) -> errorOut
             where
               res = case maybeENode of
-                      (Just eNode) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) [], makeNodeTree [eNode] []]
-                      Nothing -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) []]
+                      (Just eNode) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist []), makeNodeTree [eNode] (INodeSet $ slist [])]
+                      Nothing -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist [])]
               errorOut = error "tried to add two cells with a non-bilateral cellDivide"
 
     -- check if the output of two motorcycles are collinear with each other.

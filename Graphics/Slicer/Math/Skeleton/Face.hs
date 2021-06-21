@@ -24,7 +24,7 @@
  -}
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf, lastSegOf, firstSegOf, lastENodeOf, firstENodeOf) where
 
-import Prelude ((==), otherwise, (<$>), ($), (.), length, (/=), error, (<>), show, Eq, Show, (<>), (++), (>), Bool, head, (&&), (||), take, filter, init, null, tail, concat, not, reverse)
+import Prelude ((==), otherwise, (<$>), ($), (.), length, (/=), error, (<>), show, Eq, Show, (<>), (++), Bool, (||), take, filter, null, tail, concat, reverse, init)
 
 import Prelude as P (last)
 
@@ -34,7 +34,7 @@ import Data.Maybe(isNothing, fromJust)
 
 import Slist.Type (Slist(Slist))
 
-import Slist (slist, cons)
+import Slist (slist, cons, isEmpty, len)
 
 import Slist as SL (last)
 
@@ -42,7 +42,7 @@ import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), INode(INode), ENodeSet(ENodeSet), NodeTree(NodeTree), Arcable(hasArc), finalINodeOf, finalOutOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc), finalINodeOf, finalOutOf, ancestorsOf)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, findENodeByOutput, firstSegOf, lastENodeOf, firstENodeOf, pathFirst, pathLast)
 
@@ -79,11 +79,12 @@ facesOf (StraightSkeleton nodeLists spine)
     nodeListError = error "cannot handle anything other than one NodeList in a straight skeleton."
     -- find all of the faces of a set of nodeTrees.
     findFaces :: [NodeTree] -> [Face]
-    findFaces nodeTrees
-      | null nodeTrees = []
-      | length nodeTrees == 1 && isNothing (finalOutOf $ head nodeTrees) = rawFaces
-      | length nodeTrees  > 1                                            = rawFaces
-      | otherwise            = error $ "abandon hope!\n" <> show (length nodeLists) <> "\n" <> show nodeLists <> "\n" <> show (length nodeTrees) <> "\n" <> show nodeTrees <> "\n" <> show rawFaces <> "\n"
+    findFaces nodeTrees = case nodeTrees of
+                            [] -> []
+                            [nodeTree] -> if isNothing (finalOutOf nodeTree)
+                                          then rawFaces
+                                          else error $ "abandon hope!\n" <> show (length nodeLists) <> "\n" <> show nodeLists <> "\n" <> show (length nodeTrees) <> "\n" <> show nodeTrees <> "\n" <> show rawFaces <> "\n"
+                            (_:_) -> rawFaces
       where
         rawFaces = case nodeTrees of
                      [] -> []
@@ -121,33 +122,39 @@ facesOf (StraightSkeleton nodeLists spine)
         -- | Create a set of faces from a nodetree.
         -- FIXME: doesn't handle more than one generation deep, yet.
         facesOfNodeTree :: NodeTree -> [Face]
-        facesOfNodeTree nodeTree@(NodeTree myENodes myINodeSets)
-          | null myINodeSets = []
-          | otherwise = areaBeneath myENodes (init myINodeSets) $ finalINodeOf nodeTree
+        facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
+          | isEmpty generations = []
+          | otherwise = areaBeneath myENodes (ancestorsOf iNodeSet) $ finalINodeOf nodeTree
           where
             -- cover the space occupied by all of the ancestors of this node with a series of faces.
-            areaBeneath :: ENodeSet -> [[INode]] -> INode -> [Face]
-            areaBeneath eNodeList iNodeSets target@(INode firstArc secondArc (Slist rawMoreArcs _) _)
-              | null iNodeSets && hasArc target              = init $ mapWithFollower makeTriangleFace $ fromJust . findENodeByOutput eNodeList <$> inArcs
-              | null iNodeSets                               =        mapWithFollower makeTriangleFace $ fromJust . findENodeByOutput eNodeList <$> inArcs
-              | length iNodeSets == 1 && not (hasArc target) = concat $ mapWithFollower (\a b -> areaBeneath eNodeList (init iNodeSets) a ++ [areaBetween eNodeList (init iNodeSets) target a b]) (head iNodeSets)
-              | otherwise                                    = error $ "areabeneath: " <> show iNodeSets <> "\n" <> show target <> "\n" <> show (length iNodeSets) <> "\n"
+            areaBeneath :: ENodeSet -> INodeSet -> INode -> [Face]
+            areaBeneath eNodeList myINodeSet@(INodeSet myGenerations) target@(INode firstArc secondArc (Slist rawMoreArcs _) _) =
+              case myGenerations of
+                (Slist [] _) -> if hasArc target
+                                then init $ mapWithFollower makeTriangleFace $ fromJust . findENodeByOutput eNodeList <$> inArcs
+                                else        mapWithFollower makeTriangleFace $ fromJust . findENodeByOutput eNodeList <$> inArcs
+                (Slist [oneGeneration] _) -> if hasArc target
+                                             then errorHasArc
+                                             else concat $ mapWithFollower (\a b -> areaBeneath eNodeList (ancestorsOf myINodeSet) a ++ [areaBetween eNodeList (ancestorsOf myINodeSet) target a b]) oneGeneration
+                (Slist (_:_) _) -> errorTooMany
               where
+                errorHasArc = error $ "Has Arc: " <> show nodeTree <> "\n" <> show target <> "\n" <> show (len myGenerations) <> "\n"
+                errorTooMany = error $ "Too Many: " <> show nodeTree <> "\n" <> show target <> "\n" <> show (len myGenerations) <> "\n"
                 inArcs = firstArc : secondArc : rawMoreArcs
                 -- | make a face from two nodes. the nodes must be composed of line segments on one side, and follow each other.
                 makeTriangleFace :: ENode -> ENode -> Face
                 makeTriangleFace node1 node2 = makeFace node1 [] node2
 
             -- cover the space between the last path of the first node and the first path of the second node with a single Face. It is assumed that both nodes have the same parent.
-            areaBetween :: ENodeSet -> [[INode]] -> INode -> INode -> INode -> Face
-            areaBetween eNodeList@(ENodeSet firstENode moreENodes) iNodeSets parent iNode1 iNode2
-              | null iNodeSets = if lastDescendent eNodeList iNode1 /= SL.last (cons firstENode moreENodes) -- Handle the case where we are creating a face across the open end of the contour.
-                                 then makeFace (lastDescendent eNodeList iNode1) [lastPLineOf parent] (findMatchingDescendent eNodeList iNode2 $ lastDescendent eNodeList iNode1)
-                                 else makeFace (firstDescendent eNodeList iNode1) [firstPLineOf parent] (findMatchingDescendent eNodeList iNode2 $ firstDescendent eNodeList iNode1)
+            areaBetween :: ENodeSet -> INodeSet -> INode -> INode -> INode -> Face
+            areaBetween eNodeList@(ENodeSet firstENode moreENodes) myINodeSet@(INodeSet myGenerations) parent iNode1 iNode2
+              | isEmpty myGenerations = if lastDescendent eNodeList iNode1 /= SL.last (cons firstENode moreENodes) -- Handle the case where we are creating a face across the open end of the contour.
+                                      then makeFace (lastDescendent eNodeList iNode1) [lastPLineOf parent] (findMatchingDescendent eNodeList iNode2 $ lastDescendent eNodeList iNode1)
+                                      else makeFace (firstDescendent eNodeList iNode1) [firstPLineOf parent] (findMatchingDescendent eNodeList iNode2 $ firstDescendent eNodeList iNode1)
               | otherwise = error $
                                show iNode1 <> "\n" <> show (findENodeByOutput eNodeList (firstPLineOf iNode1)) <> "\n" <> show (findENodeByOutput eNodeList (lastPLineOf iNode1)) <> "\n"
                             <> show iNode2 <> "\n" <> show (findENodeByOutput eNodeList (firstPLineOf iNode2)) <> "\n" <> show (findENodeByOutput eNodeList (lastPLineOf iNode2)) <> "\n"
-                            <> show iNodeSets <> "\n"
+                            <> show myINodeSet <> "\n"
               where
                 -- find the first immediate child of the given node.
                 firstDescendent :: ENodeSet -> INode -> ENode
@@ -159,10 +166,14 @@ facesOf (StraightSkeleton nodeLists spine)
 
                 -- | using the set of all first generation nodes, a second generation node, and a first generation node, find out which one of the first generation children of the given second generation node shares a side with the first generation node.
                 findMatchingDescendent :: ENodeSet -> INode -> ENode -> ENode
-                findMatchingDescendent eNodes myParent target@(ENode (seg1,seg2) _)
-                  | length res == 1 = head res
-                  | otherwise = error $ show eNodes <> "\n" <> show myParent <> "\n" <> show target <> "\n" <> show (firstDescendent eNodes myParent) <> "\n" <> show (lastDescendent eNodes myParent) <> "\n" <> show res <> "\n"
+                findMatchingDescendent eNodes myParent target@(ENode (seg1,seg2) _) =
+                  case res of
+                    [] -> errorNoRes
+                    [oneResult] -> oneResult
+                    (_:_) -> errorTooManyRes
                   where
+                    errorNoRes = error $ show eNodes <> "\n" <> show myParent <> "\n" <> show target <> "\n" <> show (firstDescendent eNodes myParent) <> "\n" <> show (lastDescendent eNodes myParent) <> "\n" <> show res <> "\n"
+                    errorTooManyRes = errorNoRes
                     res = filter (\(ENode (sseg1, sseg2) _) -> sseg2 == seg1 || sseg1 == seg2) [firstDescendent eNodes myParent, lastDescendent eNodes myParent]
 
                 firstPLineOf :: INode -> PLine2

@@ -27,9 +27,9 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), eNodeToINode, Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf) where
+module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, eNodeToINode, Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf) where
 
-import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, (>), (&&), any, head, fst, and, (||), (<>), null, show)
+import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, (>), (&&), any, head, fst, and, (||), (<>), show)
 
 import Data.List.NonEmpty (NonEmpty)
 
@@ -39,7 +39,7 @@ import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
 import Slist.Type (Slist(Slist))
 
-import Slist (len, cons, slist)
+import Slist (len, cons, slist, isEmpty, safeLast, init)
 
 import Graphics.Slicer.Math.Contour (linesOfContour)
 
@@ -149,10 +149,14 @@ data ENodeSet = ENodeSet { _firstENode :: ENode, _moreENodes :: Slist ENode }
   deriving Eq
   deriving stock Show
 
+newtype INodeSet = INodeSet (Slist [INode])
+  deriving Eq
+  deriving stock Show
+
 -- | A set of set of nodes, divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation contains just one node.
 --   Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.
 --   The last generation may or may not have an outArc.
-data NodeTree = NodeTree { _eNodes :: ENodeSet, _iNodes :: [[INode]] }
+data NodeTree = NodeTree { _eNodes :: ENodeSet, _iNodes :: INodeSet }
   deriving Eq
   deriving stock Show
 
@@ -208,14 +212,33 @@ linePairs c = mapWithFollower (,) $ linesOfContour c
 
 -- | Get the output of the given nodetree. fails if the nodetree has no output.
 finalPLine :: NodeTree -> PLine2
-finalPLine (NodeTree (ENodeSet firstENode moreENodes) generations)
-  | null generations && len moreENodes == 0 = outOf firstENode
-  | null generations = error "cannot have final PLine of nodetree with more than one ENode, and no generations!\n"
-  | otherwise = outOf $ last $ last generations
+finalPLine (NodeTree (ENodeSet firstENode moreENodes) (INodeSet generations))
+  | isEmpty generations && len moreENodes == 0 = outOf firstENode
+  | isEmpty generations = error "cannot have final PLine of nodetree with more than one ENode, and no generations!\n"
+  | otherwise = outOf $ last $ case safeLast generations of
+                                 Nothing -> error "either infinite, or empty list"
+                                 (Just val) -> val
 
 -- | in a NodeTree, the last generation is always a single item. retrieve this item.
 finalINodeOf :: NodeTree -> INode
-finalINodeOf (NodeTree _ iNodeSets) = head $ last iNodeSets
+finalINodeOf (NodeTree _ (INodeSet generations))
+  | isEmpty generations = error "cannot get final INode if there are no INodes."
+  | otherwise = case finalGeneration of
+                  [] -> error "empty INode list?"
+                  [a] -> a
+                  (_:_) -> error "final generation has too many members."
+  where
+    finalGeneration = case safeLast generations of
+                        Nothing -> error "either infinite, or empty list"
+                        (Just val) -> val
+
+-- | strip off the latest generation of the given INodeSet.
+ancestorsOf :: INodeSet -> INodeSet
+ancestorsOf (INodeSet generations)
+  | isEmpty generations = error "cannot get all but the last generation of INodes if there are no INodes."
+  | otherwise = INodeSet ancestors
+  where
+    ancestors = init generations
 
 -- | get the last output PLine of a NodeTree, if there is one. otherwise, Nothing.
 finalOutOf :: NodeTree -> Maybe PLine2

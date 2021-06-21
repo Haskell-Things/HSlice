@@ -20,9 +20,9 @@
 
 module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, sortNodeTrees, makeNodeTree) where
 
-import Prelude (Bool(True,False), Ordering(LT,GT), (==), fst, otherwise, snd, ($), error, (<>), show, (<>), init, null)
+import Prelude (Bool(True,False), Ordering(LT,GT), (==), otherwise, snd, ($), error, (<>), show, (<>))
 
-import Prelude as P (filter, last)
+import Prelude as P (filter)
 
 import Data.List (sortBy)
 
@@ -30,13 +30,13 @@ import Data.Maybe( Maybe(Just, Nothing), isJust)
 
 import Slist.Type (Slist(Slist))
 
-import Slist (slist, cons)
+import Slist (slist, cons, isEmpty)
 
 import Slist as SL (filter, last)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), ENodeSet(ENodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf, ancestorsOf)
 
 import Graphics.Slicer.Math.PGA (PLine2, pLineIsLeft)
 
@@ -62,35 +62,36 @@ pathLast nodeTree = pathTo nodeTree Last
 
 -- | Find all of the Nodes and all of the arcs between the last item in the nodeTree and the node that is part of the original contour on the given side.
 pathTo :: NodeTree -> Direction -> ([PLine2], [INode], ENode)
-pathTo nodeTree@(NodeTree eNodeList@(ENodeSet firstENode _) iNodeSets) direction
-  | null iNodeSets = ([outOf firstENode], [], firstENode)
-  | otherwise = pathInner (init iNodeSets) eNodeList (finalINodeOf nodeTree)
+pathTo nodeTree@(NodeTree eNodeList@(ENodeSet firstENode _) iNodeSet@(INodeSet generations)) direction
+  | isEmpty generations = ([outOf firstENode], [], firstENode)
+  | otherwise = pathInner (ancestorsOf iNodeSet) eNodeList (finalINodeOf nodeTree)
   where
-    pathInner :: [[INode]] -> ENodeSet -> INode -> ([PLine2], [INode], ENode)
-    pathInner myINodeSets myENodeSet target@(INode firstPLine secondPLine morePLines _)
+    pathInner :: INodeSet -> ENodeSet -> INode -> ([PLine2], [INode], ENode)
+    pathInner myINodeSet@(INodeSet myGenerations) myENodeSet target@(INode firstPLine secondPLine morePLines _)
       | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
       | otherwise     = (               childPlines, target: endNodes, finalENode)
       where
         pLineToFollow = case direction of
                           Head -> firstPLine
                           Last -> SL.last (cons secondPLine morePLines)
-        iNodeOnThisLevel = findINodeByOutput myINodeSets pLineToFollow False
-        iNodeOnLowerLevel = findINodeByOutput (init myINodeSets) pLineToFollow True
+        iNodeOnThisLevel = findINodeByOutput myINodeSet pLineToFollow False
+        iNodeOnLowerLevel = findINodeByOutput (ancestorsOf myINodeSet) pLineToFollow True
         result = findENodeByOutput myENodeSet pLineToFollow
         terminate = case result of
                       (Just eNode) -> ([outOf eNode], [], eNode)
                       Nothing -> error "FIXME: cannot happen."
-        myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodeList <> "\n" <> show myINodeSets <> "\n"
+        myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodeList <> "\n" <> show myINodeSet <> "\n"
         (childPlines, endNodes, finalENode) = if isJust result
                                               then terminate
                                               else case iNodeOnThisLevel of
-                                                     (Just res) -> pathInner myINodeSets myENodeSet (snd res)
-                                                     Nothing -> case myINodeSets of
-                                                                  [] -> myError
-                                                                  [(INode _ _ _ _:_)] -> myError
-                                                                  (_:_) ->  case iNodeOnLowerLevel of
-                                                                              (Just res) -> pathInner (init $ fst res) myENodeSet (snd res)
-                                                                              Nothing -> myError
+                                                     (Just res) -> pathInner myINodeSet myENodeSet (snd res)
+                                                     Nothing -> case myGenerations of
+                                                                  (Slist [] _) -> myError
+                                                                  (Slist ([]:_) _) -> myError
+                                                                  (Slist ((INode _ _ _ _:[]):_) _) -> myError
+                                                                  (Slist ((INode _ _ _ _:_):_) _) ->  case iNodeOnLowerLevel of
+                                                                                        (Just (resINodeSet,resINode)) -> pathInner (ancestorsOf resINodeSet) myENodeSet resINode
+                                                                                        Nothing -> myError
 
 -- | Find an exterior Node with an output of the PLine given.
 findENodeByOutput :: ENodeSet -> PLine2 -> Maybe ENode
@@ -112,24 +113,24 @@ sortNodeTrees = sortBy compareNodeTrees
 -- dependent utility functions. used by internal components. not exported.
 
 -- | Find a node with an output of the PLine given. Check the most recent generation, and if recurse is set, check backwards.
-findINodeByOutput :: [[INode]] -> PLine2 -> Bool -> Maybe ([[INode]],INode)
-findINodeByOutput iNodeSets plineOut recurse
-  | null iNodeSets = Nothing
+findINodeByOutput :: INodeSet -> PLine2 -> Bool -> Maybe (INodeSet,INode)
+findINodeByOutput iNodeSet@(INodeSet generations) plineOut recurse
+  | isEmpty generations = Nothing
   | otherwise = case nodesMatching of
                   [] -> if recurse
-                        then case iNodeSets of
-                               [] -> Nothing
-                               [(INode _ _ _ _:_)] -> Nothing
-                               (_:_) -> findINodeByOutput (init iNodeSets) plineOut recurse
+                        then case generations of
+                               (Slist [] _) -> Nothing
+                               (Slist [(INode _ _ _ _:_)] _) -> Nothing
+                               (Slist (_:_) _) -> findINodeByOutput (ancestorsOf iNodeSet) plineOut recurse
                         else Nothing
-                  [iNode] -> Just (iNodeSets, iNode)
+                  [iNode] -> Just (iNodeSet, iNode)
                   (_:_) -> error "more than one node in a given generation with the same PLine out!"
   where
-    nodesMatching = P.filter (\(INode _ _ _ a) -> a == Just plineOut) (P.last iNodeSets)
+    nodesMatching = P.filter (\(INode _ _ _ a) -> a == Just plineOut) (SL.last generations)
 
 -- | a smart constructor for a NodeTree
-makeNodeTree :: [ENode] -> [[INode]] -> NodeTree
-makeNodeTree eNodes iNodeSets = case eNodes of
+makeNodeTree :: [ENode] -> INodeSet -> NodeTree
+makeNodeTree eNodes iNodeSet = case eNodes of
                                   [] -> error "not enough nodes to make a nodeTree"
-                                  [eNode] -> NodeTree (ENodeSet eNode (slist [])) iNodeSets
-                                  (eNode:moreENodes) -> NodeTree (ENodeSet eNode (slist moreENodes)) iNodeSets
+                                  [eNode] -> NodeTree (ENodeSet eNode (slist [])) iNodeSet
+                                  (eNode:moreENodes) -> NodeTree (ENodeSet eNode (slist moreENodes)) iNodeSet
