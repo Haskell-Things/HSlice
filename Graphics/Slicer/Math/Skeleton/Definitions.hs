@@ -35,7 +35,7 @@ import Data.List.NonEmpty (NonEmpty)
 
 import Data.List.Unique (count_)
 
-import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust, fromJust)
+import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust)
 
 import Slist.Type (Slist(Slist))
 
@@ -86,9 +86,9 @@ data INode = INode { _firstInArc :: PLine2, _secondInArc :: PLine2, _moreInArcs 
 instance Arcable INode where
   -- an INode might just end here.
   hasArc (INode _ _ _ outArc) = isJust outArc
-  outOf (INode _ _ _ outArc)
-    | isJust outArc = fromJust outArc
-    | otherwise     = error "tried to get an outArc that has no output arc."
+  outOf (INode _ _ _ outArc) = case outArc of
+                                 (Just rawOutArc) -> rawOutArc
+                                 Nothing -> error "tried to get an outArc that has no output arc."
 
 instance Pointable INode where
   -- an INode does not contain a point, we have to attempt to resolve one instead.

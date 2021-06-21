@@ -19,7 +19,7 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude (length, (>), ($), otherwise, Eq, (<>), show, error, (==), (&&), fst, Bool(True, False), last, init, (++), (<), Show)
+import Prelude (length, (>), ($), otherwise, Eq, (<>), show, error, (==), (&&), Bool(True, False), last, init, (++), (<), Show)
 
 import Data.List (null, foldl')
 
@@ -55,20 +55,19 @@ data Direction =
   deriving (Eq, Show)
 
 -- | Generate a new contour that is a given amount smaller than the given contour.
--- WARNING: potentially unsafe regarding colliding into other contours inside of this contour, or walling off of a section, creating two contours?
 shrinkContour :: ℝ -> [Contour] -> Contour -> Maybe Contour
-shrinkContour amount _ contour = fst $ modifyContour amount contour Inward
+shrinkContour amount _ contour = modifyContour amount contour Inward
 
 -- | Generate a new contour that is a given amount larger than the given contour.
--- FIXME: what about other contours outside of this contour, or walling off of a section, creating two contours?
 expandContour :: ℝ -> [Contour] -> Contour -> Maybe Contour
-expandContour amount _ contour = fst $ modifyContour amount contour Outward
+expandContour amount _ contour = modifyContour amount contour Outward
 
 -- | Generate a new contour that is a given amount larger/smaller than the given contour.
-modifyContour :: ℝ -> Contour -> Direction -> (Maybe Contour,[Contour])
+-- WARNING: unsafe, generating results that may collide into other contours inside of this contour, or may wall off of a section, creating two contours?
+modifyContour :: ℝ -> Contour -> Direction -> Maybe Contour
 modifyContour pathWidth contour direction
-  | null foundContour  = (Nothing, [])
-  | otherwise          = (Just $ makeSafeContour $ fromRight (error "found contour is empty") $ pointsFromLineSegs foundContour,[])
+  | null foundContour  = Nothing
+  | otherwise          = Just $ makeSafeContour $ fromRight (error "found contour is empty") $ pointsFromLineSegs foundContour
   where
     -- FIXME: implement me. we need this to handle further interior contours, and only check against the contour they are inside of.
     foundContour = catMaybes maybeLineSegs
@@ -102,10 +101,9 @@ modifyContour pathWidth contour direction
             isDegenerate pl1 pl2
               | angleBetween pl1 pl2 < (-0.999) = True
               | angleBetween pl1 pl2 >   0.999  = True
-              | otherwise = case plinesIntersectIn pl1 pl2 of
-                              PParallel  -> True
-                              PCollinear -> True
-                              _          -> False
+              | plinesIntersectIn pl1 pl2  == PParallel = True
+              | plinesIntersectIn pl1 pl2  == PCollinear = True
+              | otherwise = False
         inwardAdjust l1 = translatePerp (eToPLine2 l1) (if direction == Inward then pathWidth else (-pathWidth))
         findLineSeg :: LineSeg -> LineSeg -> LineSeg -> Maybe LineSeg
         findLineSeg previousln ln nextln
@@ -116,7 +114,7 @@ modifyContour pathWidth contour direction
           where
             isIntersection l1 l2 = case plinesIntersectIn (inwardAdjust l1) (inwardAdjust l2) of
                                      IntersectsIn _ -> True
-                                     _              -> False
+                                     _other         -> False
             intersectionPoint pl1 pl2 = case plinesIntersectIn pl1 pl2 of
                                           IntersectsIn p2 -> pToEPoint2 p2
                                           a               -> error $ "impossible result!\nresult: " <> show a <> "\npline 1: " <> show pl1

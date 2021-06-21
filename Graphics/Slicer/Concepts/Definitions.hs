@@ -26,12 +26,10 @@ import Prelude (Eq)
 
 import Graphics.Slicer.Definitions(ℝ2, ℝ3)
 
-import Graphics.Slicer.Math.Definitions(Contour)
-
 -- The shape of the 3d printer's build area.
+  -- FIXME: replace this with Zones.
 data BuildArea =
-    RectArea ℝ3 -- Width, Depth, and Height of the build area.
-  | CylinderArea ℝ2 -- Radius and Height of the build area.
-  | ContourArea Contour -- Something strange.
+    RectArea !ℝ3 -- Width, Depth, and Height of the build area.
+  | CylinderArea !ℝ2 -- Radius and Height of the build area.
   deriving Eq
 
