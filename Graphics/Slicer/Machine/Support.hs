@@ -63,7 +63,8 @@ makeSupport contour childContours lh ls = fmap (shortenLineBy $ 2 * lh)
                                           <$> coveringLineSegsVertical contour ls
 
 -- A bounding box. a box around a contour.
-data BBox = BBox ℝ2 ℝ2
+-- FIXME: built into the contours, now.
+data BBox = BBox !ℝ2 !ℝ2
 
 -- | Check if a bounding box is empty.
 isEmptyBBox :: BBox -> Bool

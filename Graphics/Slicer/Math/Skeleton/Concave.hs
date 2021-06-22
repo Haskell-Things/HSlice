@@ -191,15 +191,15 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
 
         -- | calculate the distances to the shortest pairs of nodes. the shortest pair, along with all of the pairs of the same length, will be in our result set.
         shortestPairDistance = min (min shortestEPairDistance shortestMixedPairDistance) (min shortestIPairDistance shortestMixedPairDistance)
-        shortestIPairDistance
-          | null (shortestPairs iNodes) = Empty
-          | otherwise = Something $ fromJust $ uncurry distanceToIntersection $ head $ shortestPairs iNodes
-        shortestEPairDistance
-          | null (shortestPairs eNodes) = Empty
-          | otherwise = Something $ fromJust $ uncurry distanceToIntersection $ head $ shortestPairs eNodes
-        shortestMixedPairDistance
-          | null shortestMixedPairs = Empty
-          | otherwise = Something $ fromJust $ uncurry distanceToIntersection $ head shortestMixedPairs
+        shortestIPairDistance = case shortestPairs iNodes of
+                                  [] -> Empty
+                                  (firstPair:_) -> Something $ fromJust $ uncurry distanceToIntersection firstPair
+        shortestEPairDistance = case shortestPairs eNodes of
+                                  [] -> Empty
+                                  (firstPair:_) -> Something $ fromJust $ uncurry distanceToIntersection firstPair
+        shortestMixedPairDistance = case shortestMixedPairs of
+                                      [] -> Empty
+                                      (firstPair:_) -> Something $ fromJust $ uncurry distanceToIntersection firstPair
 
         -- | get the list of sorted pairs of intersecting nodes.
         shortestPairs :: (Arcable a, Pointable a, Show a) => [a] -> [(a, a)]

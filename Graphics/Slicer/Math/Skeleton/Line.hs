@@ -26,11 +26,11 @@
  -}
 module Graphics.Slicer.Math.Skeleton.Line (addInset, addInfill) where
 
-import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True), head, (&&), fst, init, tail, last, maybe, snd)
+import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True, False), head, fst, init, tail, last, maybe, snd)
 
 import Data.List (sortOn, dropWhile, takeWhile, transpose)
 
-import Data.Maybe (Maybe(Just,Nothing), isJust, fromJust, catMaybes)
+import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromMaybe)
 
 import Slist (slist, len)
 
@@ -70,7 +70,10 @@ addLineSegsToFace d n face@(Face edge firstArc midArcs@(Slist rawMidArcs _) last
     -----------------------------------------------------------------------------------------
 
     -- | The direction we need to translate our edge in order for it to be going inward.
-    translateDir v         = if Just True == pLineIsLeft (eToPLine2 edge) firstArc then (-v) else v
+    translateDir v         = case pLineIsLeft (eToPLine2 edge) firstArc of
+                               (Just True) -> (-v)
+                               (Just False) -> v
+                               Nothing -> error "cannot happen: edge and firstArc are the same line?"
 
     -- | How many lines we are going to place in this Face.
     linesToRender          = maybe linesUntilEnd (min linesUntilEnd) n
@@ -84,6 +87,7 @@ addLineSegsToFace d n face@(Face edge firstArc midArcs@(Slist rawMidArcs _) last
     finalSide              = errorIfLeft $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf finalLine firstArc) (pToEPoint2 $ intersectionOf finalLine lastArc)
       where
         finalLine = translatePerp (eToPLine2 edge) $ translateDir (d * fromIntegral linesToRender)
+
     -- | how many lines can be fit in this Face.
     linesUntilEnd :: Fastℕ
     linesUntilEnd          = floor (distanceUntilEnd / d)
@@ -106,11 +110,10 @@ addLineSegsToFace d n face@(Face edge firstArc midArcs@(Slist rawMidArcs _) last
     -----------------------------------------------------------
     -- functions only used by n-gons with more than four sides.
     -----------------------------------------------------------
-    nSideRemainder
-      | isJust remains1 && isJust remains2 = Just $ fromJust remains1 ++ fromJust remains2
-      | isJust remains1                    = remains1
-      | isJust remains2                    = remains2
-      | otherwise                          = error "impossible!"
+    nSideRemainder = case fromMaybe [] remains1 ++ fromMaybe [] remains2 of
+                       res@(_:_) -> Just res
+                       [] -> error "no remains for an nSideRemainder?"
+
     -- | Find the closest point where two of our arcs intersect, relative to our side.
     arcIntersections = init $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf a b) (eToPLine2 edge), (a, b))) $ [firstArc] ++ rawMidArcs ++ [lastArc]
     findClosestArc :: (ℝ, (PLine2, PLine2))
@@ -177,7 +180,7 @@ addInset insets distance faceSet
 -- | Add infill to the area of a set of faces that was not covered in lines.
 -- FIXME: unimplemented. basically, take the contour formed by the remainders of the faces, and squeeze in a line segment, if possible.
 addInfill :: [Face] -> [[Face]] -> ℝ -> InfillType -> [[LineSeg]]
-addInfill outsideFaces insideFaceSets = makeInfill (facesToContour outsideFaces) (facesToContour <$> insideFaceSets)
+addInfill outsideFaces insideFaceSets = makeInfill (facesToContours outsideFaces) (facesToContours <$> insideFaceSets)
   where
-    facesToContour _ = error "fixme!"
+    facesToContours _ = error "fixme!"
 
