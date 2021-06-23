@@ -35,7 +35,7 @@ import Data.List (foldl')
 
 import Data.List.Ordered (sort, foldt)
 
-import Data.Maybe (Maybe(Just, Nothing), fromJust, isNothing, isJust)
+import Data.Maybe (Maybe(Just, Nothing), fromJust, isNothing, isJust, maybeToList)
 
 import Graphics.Slicer.Definitions (ℝ)
 
@@ -43,7 +43,7 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (•), addVal, addVecPair, divVecScalar, getVals, scalarPart, valOf, vectorPart)
 
-import Graphics.Slicer.Math.Line(LineSeg(LineSeg))
+import Graphics.Slicer.Math.Line(LineSeg(LineSeg), combineLineSegs)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -245,23 +245,16 @@ combineConsecutiveLineSegs lines
     combine :: [LineSeg] -> [LineSeg] -> [LineSeg]
     combine  l1       [] = l1
     combine  []       l2 = l2
-    combine [l1] [l2]    = if canCombineLineSegs l1 l2 then [combineLineSegs l1 l2] else l1 : [l2]
-    combine [l1] (l2:ls) = if canCombineLineSegs l1 l2 then combineLineSegs l1 l2 : ls else l1:l2:ls
-    combine  l1  [l2]    = if canCombineLineSegs (last l1) l2 then init l1 ++ [combineLineSegs (last l1) l2] else l1 ++ [l2]
-    combine  l1  (l2:ls) = if canCombineLineSegs (last l1) l2 then init l1 ++ combineLineSegs (last l1) l2 : ls else l1 ++ l2:ls
+    combine [l1] [l2]    = if canCombineLineSegs l1 l2 then maybeToList (combineLineSegs l1 l2) else l1 : [l2]
+    combine [l1] (l2:ls) = if canCombineLineSegs l1 l2 then maybeToList (combineLineSegs l1 l2) ++ ls else l1:l2:ls
+    combine  l1  [l2]    = if canCombineLineSegs (last l1) l2 then init l1 ++ maybeToList (combineLineSegs (last l1) l2) else l1 ++ [l2]
+    combine  l1  (l2:ls) = if canCombineLineSegs (last l1) l2 then init l1 ++ maybeToList (combineLineSegs (last l1) l2) ++ ls else l1 ++ l2:ls
     combineEnds :: [LineSeg] -> [LineSeg]
     combineEnds  []      = []
     combineEnds  [l1]    = [l1]
     combineEnds  (l1:ls)
-      | length ls > 1 = if canCombineLineSegs (last ls) l1 then init ls ++ [combineLineSegs (last ls) l1] else l1:ls
+      | length ls > 1 = if canCombineLineSegs (last ls) l1 then init ls ++ maybeToList (combineLineSegs (last ls) l1) else l1:ls
       | otherwise = combine [l1] ls
-    -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
-    -- if p2 == p3 and the lines are parallel (see canCombineLineSegs)
-    combineLineSegs :: LineSeg -> LineSeg -> LineSeg
-    combineLineSegs (LineSeg p _) (LineSeg p1 s1) = llineFromEndpoints p (addPoints p1 s1)
-    -- | Create a euclidian line given it's endpoints.
-    llineFromEndpoints :: Point2 -> Point2 -> LineSeg
-    llineFromEndpoints p1@(Point2 (x1,y1)) (Point2 (x2,y2)) = LineSeg p1 (Point2 (x2-x1,y2-y1))
     -- | determine if two euclidian line segments are on the same projective line, and if they share a middle point.
     canCombineLineSegs :: LineSeg -> LineSeg -> Bool
     canCombineLineSegs l1@(LineSeg p1 s1) l2@(LineSeg p2 _) = sameLineSeg && sameMiddlePoint

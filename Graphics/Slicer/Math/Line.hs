@@ -22,11 +22,13 @@
 -- for adding Generic and NFData to LineSeg.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Line (LineSeg(LineSeg), LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegsLooped, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg) where
+module Graphics.Slicer.Math.Line (LineSeg(LineSeg), LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegsLooped, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs) where
 
 import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), Eq, tail, (++), last, init, (<$>), Show, error, null, zipWith, (<>), show, Either(Left, Right))
 
 import Data.List (nub)
+
+import Data.Either (fromRight)
 
 import Data.Maybe (Maybe(Just, Nothing))
 
@@ -68,6 +70,14 @@ pointsFromLineSegs lineSegs
     -- FIXME: nub should not be necessary here.
     endpointsOf :: [LineSeg] -> [Point2]
     endpointsOf ls = nub $ endpoint <$> ls
+
+-- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
+-- if p2 == p3 and the lines are really close to parallel
+combineLineSegs :: LineSeg -> LineSeg -> Maybe LineSeg
+combineLineSegs l1@(LineSeg p _) l2@(LineSeg p1 s1) = if endpoint l2 == p -- If line 2 ends where line 1 begins:
+                                                      then Nothing -- handle a contour that loops back on itsself.
+                                                      else Just $ fromRight (error $ "cannot combine lines: " <> show l1 <> "\n" <> show l2 <> "\n") $ lineSegFromEndpoints p (addPoints p1 s1)
+
 
 -- | Get the midpoint of a line segment
 midpoint :: LineSeg -> Point2

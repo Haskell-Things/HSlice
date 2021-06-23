@@ -29,9 +29,9 @@ import Data.Either (fromRight)
 
 import Graphics.Slicer.Math.Contour (linesOfContour, makeSafeContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, addPoints, mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Contour, mapWithNeighbors)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), pointsFromLineSegs, lineSegFromEndpoints, endpoint)
+import Graphics.Slicer.Math.Line (LineSeg, pointsFromLineSegs, lineSegFromEndpoints, combineLineSegs)
 
 import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn, PCollinear, PParallel), plinesIntersectIn, translatePerp, eToPLine2, pToEPoint2, angleBetween)
 
@@ -92,12 +92,6 @@ modifyContour pathWidth contour direction
                                             [l1] -> [l1]
                                             [l1,l2] -> [l1,l2]
                                             (l1:ls) -> if isDegenerate (inwardAdjust (last ls)) (inwardAdjust l1) then init ls ++ maybeToList (combineLineSegs (last ls) l1) else l1:ls
-            -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
-            -- if p2 == p3 and the lines are really close to parallel
-            combineLineSegs :: LineSeg -> LineSeg -> Maybe LineSeg
-            combineLineSegs l1@(LineSeg p _) l2@(LineSeg p1 s1) = if endpoint l2 == p -- If line 2 ends where line 1 begins:
-                                                                  then Nothing -- handle a contour that loops back on itsself.
-                                                                  else Just $ fromRight (error $ "cannot combine lines: " <> show l1 <> "\n" <> show l2 <> "\n") $ lineSegFromEndpoints p (addPoints p1 s1)
             isDegenerate pl1 pl2
               | angleBetween pl1 pl2 < (-0.999) = True
               | angleBetween pl1 pl2 >   0.999  = True
