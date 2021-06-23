@@ -26,7 +26,9 @@
  -}
 module Graphics.Slicer.Math.Skeleton.Line (addInset, addInfill) where
 
-import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, Either(Left, Right), (+), (*), (-), (++), (>), min, Bool(True, False), head, fst, init, tail, last, maybe, snd)
+import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (++), (>), min, Bool(True, False), head, fst, init, tail, last, maybe, snd)
+
+import Data.Either (Either (Left, Right))
 
 import Data.List (sortOn, dropWhile, takeWhile, transpose)
 
@@ -60,7 +62,7 @@ import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 
 -- | Place line segments on a face. Might return remainders, in the form of one or multiple un-filled faces.
 addLineSegsToFace :: ℝ -> Maybe Fastℕ -> Face -> ([LineSeg], Maybe [Face])
-addLineSegsToFace d n face@(Face edge firstArc midArcs@(Slist rawMidArcs _) lastArc)
+addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMidArcs _) lastArc)
   | len midArcs == 0 = (foundLineSegs, twoSideRemainder)
   | len midArcs == 1 = (subSides ++ foundLineSegs, threeSideRemainder)
   | otherwise = (sides1 ++ sides2 ++ foundLineSegs, nSideRemainder)
@@ -76,21 +78,21 @@ addLineSegsToFace d n face@(Face edge firstArc midArcs@(Slist rawMidArcs _) last
                                Nothing -> error "cannot happen: edge and firstArc are the same line?"
 
     -- | How many lines we are going to place in this Face.
-    linesToRender          = maybe linesUntilEnd (min linesUntilEnd) n
+    linesToRender          = maybe linesUntilEnd (min linesUntilEnd) insets
 
     -- | The line segments we are placing.
     foundLineSegs          = [ errorIfLeft $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf newSide firstArc) (pToEPoint2 $ intersectionOf newSide lastArc) | newSide <- newSides ]
       where
-        newSides = [ translatePerp (eToPLine2 edge) $ translateDir (-(d+(d * fromIntegral segmentNum))) | segmentNum <- [0..linesToRender-1] ]
+        newSides = [ translatePerp (eToPLine2 edge) $ translateDir (-(distance+(distance * fromIntegral segmentNum))) | segmentNum <- [0..linesToRender-1] ]
 
     -- | The line where we are no longer able to fill this face. from the firstArc to the lastArc, along the point that the lines we place stop.
     finalSide              = errorIfLeft $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf finalLine firstArc) (pToEPoint2 $ intersectionOf finalLine lastArc)
       where
-        finalLine = translatePerp (eToPLine2 edge) $ translateDir (d * fromIntegral linesToRender)
+        finalLine = translatePerp (eToPLine2 edge) $ translateDir (distance * fromIntegral linesToRender)
 
     -- | how many lines can be fit in this Face.
     linesUntilEnd :: Fastℕ
-    linesUntilEnd          = floor (distanceUntilEnd / d)
+    linesUntilEnd          = floor (distanceUntilEnd / distance)
 
     -- | what is the distance from the edge to the place we can no longer place lines.
     distanceUntilEnd = case midArcs of
@@ -128,27 +130,27 @@ addLineSegsToFace d n face@(Face edge firstArc midArcs@(Slist rawMidArcs _) last
     afterArc               = dropWhile (/= closestArcFollower) $ rawMidArcs ++ [lastArc]
     (sides1, remains1)     = if closestArc == firstArc
                              then ([],Nothing)
-                             else addLineSegsToFace d n (Face finalSide firstArc (slist $ tail $ init untilArc) closestArc)
+                             else addLineSegsToFace distance insets (Face finalSide firstArc (slist $ tail $ init untilArc) closestArc)
     (sides2, remains2)     = if closestArc == last rawMidArcs
                              then ([],Nothing)
-                             else addLineSegsToFace d n (Face finalSide (head afterArc) (slist $ init $ tail afterArc) lastArc)
+                             else addLineSegsToFace distance insets (Face finalSide (head afterArc) (slist $ init $ tail afterArc) lastArc)
     ---------------------------------------------
     -- functions only used by a four-sided n-gon.
     ---------------------------------------------
     midArc = case midArcs of
                (Slist [oneArc] 1) -> oneArc
-               (Slist _ _) -> error $ "evaluated midArc with the wrong number of items\nd: " <> show d <> "\nn: " <> show n <> "\nFace: " <> show face <> "\n"
+               (Slist _ _) -> error $ "evaluated midArc with the wrong insets of items\nd: " <> show distance <> "\nn: " <> show insets <> "\nFace: " <> show face <> "\n"
     threeSideRemainder     = if distancePPointToPLine (intersectionOf firstArc midArc) (eToPLine2 edge) /= distancePPointToPLine (intersectionOf midArc lastArc) (eToPLine2 edge)
                              then subRemains
                              else Nothing
     (subSides, subRemains) = if firstArcLonger
-                             then addLineSegsToFace d n (Face finalSide firstArc (slist []) midArc)
-                             else addLineSegsToFace d n (Face finalSide midArc   (slist []) lastArc)
+                             then addLineSegsToFace distance insets (Face finalSide firstArc (slist []) midArc)
+                             else addLineSegsToFace distance insets (Face finalSide midArc   (slist []) lastArc)
     firstArcLonger         = distancePPointToPLine (intersectionOf firstArc midArc) (eToPLine2 edge) > distancePPointToPLine (intersectionOf midArc lastArc) (eToPLine2 edge)
     ----------------------------------------------
     -- functions only used by a three-sided n-gon.
     ----------------------------------------------
-    twoSideRemainder       = if d * fromIntegral linesUntilEnd /= distanceUntilEnd
+    twoSideRemainder       = if distance * fromIntegral linesUntilEnd /= distanceUntilEnd
                              then Just [Face finalSide firstArc (slist []) lastArc]
                              else Nothing
 
