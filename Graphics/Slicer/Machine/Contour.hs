@@ -19,7 +19,7 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude (length, (>), ($), otherwise, Eq, (<>), show, error, (==), (&&), Bool(True, False), last, init, (++), (<), Show)
+import Prelude ((>), ($), otherwise, Eq, (<>), show, error, (==), (&&), Bool(True, False), last, init, (++), (<), Show)
 
 import Data.List (null, foldl')
 
@@ -33,7 +33,7 @@ import Graphics.Slicer.Math.Definitions (Contour, mapWithNeighbors)
 
 import Graphics.Slicer.Math.Line (LineSeg, pointsFromLineSegs, lineSegFromEndpoints, combineLineSegs)
 
-import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn, PCollinear, PParallel), plinesIntersectIn, translatePerp, eToPLine2, pToEPoint2, angleBetween)
+import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn, PCollinear, PParallel, PAntiParallel), plinesIntersectIn, translatePerp, eToPLine2, pToEPoint2, angleBetween)
 
 import Graphics.Slicer.Definitions(ℝ)
 
@@ -77,11 +77,8 @@ modifyContour pathWidth contour direction
         maybeLineSegs = mapWithNeighbors findLineSeg $ removeDegenerates $ linesOfContour contour
         -- Remove sequential parallel lines, collinear sequential lines, and lines that are too close to parallel.
         removeDegenerates :: [LineSeg] -> [LineSeg]
-        removeDegenerates lns
-          | length res == length lns = res
-          | otherwise                = removeDegenerates res
+        removeDegenerates lns = removeDegenerateEnds $ foldl' concatDegenerates [] lns
           where
-            res = removeDegenerateEnds $ foldl' concatDegenerates [] lns
             concatDegenerates xs x
               | null xs = [x]
               | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = init xs ++ maybeToList (combineLineSegs (last xs) x)
@@ -96,6 +93,7 @@ modifyContour pathWidth contour direction
               | angleBetween pl1 pl2 < (-0.999) = True
               | angleBetween pl1 pl2 >   0.999  = True
               | plinesIntersectIn pl1 pl2  == PParallel = True
+              | plinesIntersectIn pl1 pl2  == PAntiParallel = True
               | plinesIntersectIn pl1 pl2  == PCollinear = True
               | otherwise = False
         inwardAdjust l1 = translatePerp (eToPLine2 l1) (if direction == Inward then pathWidth else (-pathWidth))
