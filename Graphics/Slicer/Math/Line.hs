@@ -22,7 +22,7 @@
 -- for adding Generic and NFData to LineSeg.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Line (LineSeg(LineSeg), LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegsLooped, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs) where
+module Graphics.Slicer.Math.Line (LineSeg(LineSeg), LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegsLooped, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs, handleLineSegError) where
 
 import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), Eq, tail, (++), last, init, (<$>), Show, error, null, zipWith, (<>), show, Either(Left, Right))
 
@@ -95,12 +95,7 @@ makeLineSegs l = case l of
                    (_:_) -> res
   where
     res = zipWith consLineSeg (init l) (tail l)
-    consLineSeg p1 p2 = errorIfLeft $ lineSegFromEndpoints p1 p2
-    errorIfLeft :: Either LineSegError LineSeg -> LineSeg
-    errorIfLeft ln = case ln of
-      Left (LineSegFromPoint point) -> error $ "tried to construct a line segment from two identical points: " <> show point <> "\n" <> show l <> "\n"
-      Left EmptyList                -> error "tried to construct a line segment from an empty list."
-      Right                    line -> line
+    consLineSeg p1 p2 = handleLineSegError $ lineSegFromEndpoints p1 p2
 
 -- | Given a list of points (in order), construct line segments that go between them. make sure to construct a line segment from the last point back to the first.
 makeLineSegsLooped :: [Point2] -> [LineSeg]
@@ -113,10 +108,12 @@ makeLineSegsLooped l = case l of
                                        -- ok, do the work and loop it.
                                   else zipWith consLineSeg l (t ++ [h])
   where
-    consLineSeg p1 p2 = errorIfLeft $ lineSegFromEndpoints p1 p2
-    errorIfLeft :: Either LineSegError LineSeg -> LineSeg
-    errorIfLeft ln = case ln of
-      Left (LineSegFromPoint point) -> error $ "tried to construct a line segment from two identical points: " <> show point <> "\n" <> show l <> "\n"
+    consLineSeg p1 p2 = handleLineSegError $ lineSegFromEndpoints p1 p2
+
+-- | generic handler for the error conditions of lineSegFromEndpoints
+handleLineSegError :: Either LineSegError LineSeg -> LineSeg
+handleLineSegError ln = case ln of
+      Left (LineSegFromPoint point) -> error $ "tried to construct a line segment from two identical points: " <> show point <> "\n"
       Left EmptyList                -> error "tried to construct a line segment from an empty list."
       Right                    line -> line
 
