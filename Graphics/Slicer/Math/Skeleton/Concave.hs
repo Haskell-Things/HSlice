@@ -33,7 +33,7 @@ import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromJust)
 
 import Data.List (takeWhile, nub, sortBy)
 
-import Slist (slist)
+import Slist (slist, one, cons)
 
 import Graphics.Implicit.Definitions (ℝ)
 
@@ -45,12 +45,12 @@ import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, handle
 
 import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), eNodeToINode, noIntersection, intersectionOf, pPointOf, isCollinear, getPairs, isParallel)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), INodeSet(INodeSet), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), eNodeToINode, noIntersection, intersectionOf, pPointOf, isCollinear, getPairs, isParallel)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree)
 
 -- error type.
-data PartialNodes = PartialNodes [[INode]] String
+data PartialNodes = PartialNodes INodeSet String
   deriving (Show, Eq)
 
 -- Think: like Maybe, but min treats empty as greater than a value, rather than less.
@@ -80,30 +80,30 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
     getNodeTree initialGeneration = makeNodeTree initialGeneration $ res initialGeneration
       where
         -- | apply the recursive NodeTree solver.
-        res :: [ENode] -> [[INode]]
+        res :: [ENode] -> INodeSet
         res inGen = errorIfLeft (skeletonOfNodes inGen [])
 
     -- | Handle the recursive resolver failing.
-    errorIfLeft :: Either PartialNodes [[INode]] -> [[INode]]
+    errorIfLeft :: Either PartialNodes INodeSet -> INodeSet
     errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure <> "\ninSegs: " <> show inSegs <> "\nloop:" <> show loop <> "\n"
     errorIfLeft (Right val)    = val
 
     -- | Apply a recursive algorithm to solve the node set.
     --   FIXME: does not handle more than two point intersections of arcs properly.
-    skeletonOfNodes :: [ENode] -> [INode] -> Either PartialNodes [[INode]]
+    skeletonOfNodes :: [ENode] -> [INode] -> Either PartialNodes INodeSet
     skeletonOfNodes eNodes iNodes =
       case eNodes of
         [] -> case iNodes of
                 --  zero nodes == return emptyset. allows us to simplify our return loop.
-                [] -> Right []
-                [iNode] -> if not loop
-                           then Right [[iNode]] -- just hand back single node requests.
+                [] -> Right $ INodeSet $ slist []
+                [INode _ _ _ _] -> if not loop
+                           then Right $ INodeSet $ one iNodes -- just hand back single node requests.
                            else errorLen1 -- A one node loop makes no sense, reject.
                 [iNode1,iNode2] -> handleTwoNodes iNode1 iNode2
                 (_:_:_:_) -> handleThreeOrMoreNodes
         [eNode] -> case iNodes of
                      [] -> if not loop
-                           then Right [[eNodeToINode eNode]] -- just hand back single node requests.
+                           then Right $ INodeSet $ one [eNodeToINode eNode] -- just hand back single node requests.
                            else errorLen1  -- A one node loop makes no sense, reject.
                      [iNode] -> handleTwoNodes eNode iNode
                      (_:_:_) -> handleThreeOrMoreNodes
@@ -112,20 +112,22 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
                              (_:_) -> handleThreeOrMoreNodes
         (_:_:_:_) -> handleThreeOrMoreNodes
       where
-        errorLen1 = Left $ PartialNodes [iNodes] "NOMATCH - length 1?"
+        errorLen1 = Left $ PartialNodes (INodeSet $ one iNodes) "NOMATCH - length 1?"
         --   Handle the the case of two nodes.
         handleTwoNodes node1 node2 = if isCollinear (outOf node1) (outOf node2)
-                                     then Right [[makeCollinearPair node1 node2]]
+                                     then Right $ INodeSet $ one [makeCollinearPair node1 node2]
                                      else if intersectsInPoint node1 node2 && not loop
-                                          then Right [[averageNodes node1 node2]]
+                                          then Right $ INodeSet $ one [averageNodes node1 node2]
                                           else errorLen2
-        errorLen2 = Left $ PartialNodes [iNodes] "NOMATCH - length 2?"
+        errorLen2 = Left $ PartialNodes (INodeSet $ one iNodes) "NOMATCH - length 2?"
         --   Handle the the case of 3 or more nodes.
         handleThreeOrMoreNodes = if endsAtSamePoint
-                                 then Right [[makeINode (sortedPLines $ (outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]]
+                                 then Right $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]
                                  else if hasShortestPair
-                                      then Right $ averageOfShortestPairs : errorIfLeft (skeletonOfNodes remainingENodes (remainingINodes ++ averageOfShortestPairs))
+                                      then Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes remainingENodes (remainingINodes ++ averageOfShortestPairs)))
                                       else errorLen3
+          where
+            inodesOf (INodeSet set) = set
         errorLen3 = error $ "shortestPairDistance: " <> show shortestPairDistance
                     <> "\nePairDistance: " <> show shortestEPairDistance <> "\nshortestEPairs: " <> show (shortestPairs eNodes) <> "\nePairResults: " <> show (uncurry averageNodes <$> shortestPairs eNodes) <> "\n" <> show (isSomething shortestEPairDistance) <> "\n"
                     <> "\niPairDistance: " <> show shortestIPairDistance <> "\nshortestIPairs: " <> show (shortestPairs iNodes) <> "\niPairResults: " <> show (uncurry averageNodes <$> shortestPairs iNodes) <> "\n" <> show (isSomething shortestIPairDistance) <> "\n"
