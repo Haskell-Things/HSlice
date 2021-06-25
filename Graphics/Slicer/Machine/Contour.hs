@@ -55,15 +55,17 @@ data Direction =
   deriving (Eq, Show)
 
 -- | Generate a new contour that is a given amount smaller than the given contour.
+-- WARNING: uses unsafe modifyContour.
 shrinkContour :: ℝ -> [Contour] -> Contour -> Maybe Contour
 shrinkContour amount _ contour = modifyContour amount contour Inward
 
 -- | Generate a new contour that is a given amount larger than the given contour.
+-- WARNING: uses unsafe modifyContour.
 expandContour :: ℝ -> [Contour] -> Contour -> Maybe Contour
 expandContour amount _ contour = modifyContour amount contour Outward
 
 -- | Generate a new contour that is a given amount larger/smaller than the given contour.
--- WARNING: unsafe, generating results that may collide into other contours inside of this contour, or may wall off of a section, creating two contours?
+-- WARNING: unsafe, generating results that may collide into other contours inside of this contour, or may wall off of a section, creating what should be two contours.
 modifyContour :: ℝ -> Contour -> Direction -> Maybe Contour
 modifyContour pathWidth contour direction
   | null foundContour  = Nothing
@@ -79,19 +81,20 @@ modifyContour pathWidth contour direction
         removeDegenerates :: [LineSeg] -> [LineSeg]
         removeDegenerates lns = removeDegenerateEnds $ foldl' concatDegenerates [] lns
           where
-            concatDegenerates xs x
-              | null xs = [x]
-              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = init xs ++ maybeToList (combineLineSegs (last xs) x)
-              | otherwise = xs ++ [x]
             removeDegenerateEnds :: [LineSeg] -> [LineSeg]
             removeDegenerateEnds inSegs = case inSegs of
                                             [] -> []
                                             [l1] -> [l1]
                                             [l1,l2] -> [l1,l2]
                                             (l1:ls) -> if isDegenerate (inwardAdjust (last ls)) (inwardAdjust l1) then init ls ++ maybeToList (combineLineSegs (last ls) l1) else l1:ls
+            concatDegenerates :: [LineSeg] -> LineSeg -> [LineSeg]
+            concatDegenerates xs x
+              | null xs = [x]
+              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = init xs ++ maybeToList (combineLineSegs (last xs) x)
+              | otherwise = xs ++ [x]
             isDegenerate pl1 pl2
-              | angleBetween pl1 pl2 < (-0.999) = True
-              | angleBetween pl1 pl2 >   0.999  = True
+              | angleBetween pl1 pl2 < (-0.999999) = True
+              | angleBetween pl1 pl2 >   0.999999  = True
               | plinesIntersectIn pl1 pl2  == PParallel = True
               | plinesIntersectIn pl1 pl2  == PAntiParallel = True
               | plinesIntersectIn pl1 pl2  == PCollinear = True
