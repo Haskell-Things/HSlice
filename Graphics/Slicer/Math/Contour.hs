@@ -41,7 +41,7 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Contour(SafeContour), Point2(Point2), mapWithNeighbors, xOf, yOf)
 
-import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, makeLineSegsLooped, endpoint, midpoint)
+import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, makeLineSegsLooped, endpoint, midpoint, handleLineSegError)
 
 import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, HitStartPoint, HitEndPoint), PIntersection (PParallel, PAntiParallel, IntersectsIn), eToPPoint2, lineIsLeft, pointOnPerp, intersectsWith, plineFromEndpoints, pToEPoint2, PPoint2, PLine2, join2PPoint2)
 
@@ -280,9 +280,7 @@ makeSafeContour points = case points of
 
 -- find the first line segment in a contour.
 firstLineSegOfContour :: Contour -> LineSeg
-firstLineSegOfContour (SafeContour _ _ p1 p2 _ _) = case lineSegFromEndpoints p1 p2 of
-                                                    (Right v) -> v
-                                                    (Left _) -> error "wtf"
+firstLineSegOfContour (SafeContour _ _ p1 p2 _ _) = handleLineSegError $ lineSegFromEndpoints p1 p2
 
 -- find the first outer contour of a contourTreeSet, and return it as a contour.
 firstContourOfContourTreeSet :: ContourTreeSet -> Contour
