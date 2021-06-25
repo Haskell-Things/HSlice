@@ -37,7 +37,7 @@ import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PCollinear), plinesInters
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
-import Graphics.Slicer.Math.Contour (contourIntersections, linesOfContour)
+import Graphics.Slicer.Math.Contour (contourIntersections, lineSegsOfContour)
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
@@ -58,7 +58,7 @@ findStraightSkeleton contour holes = case foundCrashTree of
   Nothing -> Nothing
   (Just crashTree) -> if null holes
                       then case motorcyclesIn crashTree of
-                             (Slist _ 0) -> Just $ StraightSkeleton [[skeletonOfConcaveRegion (linesOfContour contour) True]] []
+                             (Slist _ 0) -> Just $ StraightSkeleton [[skeletonOfConcaveRegion (lineSegsOfContour contour) True]] []
                              -- Use the algorithm from Christopher Tscherne's master's thesis.
                              (Slist [inMC] 1) -> applyTscherne contour [CellDivide (DividingMotorcycles inMC (Slist [] 0)) maybeOpposingENode]
                              (Slist [firstMC,secondMC] 2) -> if lastCrashType == Just HeadOn
@@ -111,7 +111,7 @@ findStraightSkeleton contour holes = case foundCrashTree of
 --   This function is meant to be used on the exterior contour.
 -- FIXME: merge this with the same logic in Concave.
 concaveENodes :: Contour -> [ENode]
-concaveENodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
+concaveENodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower concavePLines $ lineSegsOfContour contour)
   where
     onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe ENode
     onlyNodes ((seg1, seg2), Just pLine) = Just $ ENode (seg1,seg2) pLine

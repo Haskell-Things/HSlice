@@ -45,7 +45,7 @@ import Graphics.Slicer.Math.Definitions (Contour)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
 
-import Graphics.Slicer.Math.Contour (linesOfContour)
+import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.PGA (PIntersection(PCollinear), plinesIntersectIn, eToPPoint2)
 
@@ -154,13 +154,13 @@ cellAfter contour motorcycle = skeletonOfConcaveRegion (gatherLineSegs contour m
       -- .. or by starting at the stop segment, and stopping after the segment the motorcycle hits
       else closedSide
         where
-          openSide   = drop stopSegmentIndex (linesOfContour c) ++ take startSegmentIndex (linesOfContour c)
-          closedSide = take (startSegmentIndex - stopSegmentIndex) $ drop stopSegmentIndex $ linesOfContour c
-          startSegmentIndex = segIndex outSeg (linesOfContour c)
+          openSide   = drop stopSegmentIndex (lineSegsOfContour c) ++ take startSegmentIndex (lineSegsOfContour c)
+          closedSide = take (startSegmentIndex - stopSegmentIndex) $ drop stopSegmentIndex $ lineSegsOfContour c
+          startSegmentIndex = segIndex outSeg (lineSegsOfContour c)
           motorcycleIntersection = motorcycleIntersectsAt c m
           -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the first of the two segments (from the beginning of the contour).
           motorcycleInSegment  = fst motorcycleIntersection
-          stopSegmentIndex = segIndex motorcycleOutSegment (linesOfContour c)
+          stopSegmentIndex = segIndex motorcycleOutSegment (lineSegsOfContour c)
           -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the last of the two segments (from the beginning of the contour).
           motorcycleOutSegment = uncurry fromMaybe motorcycleIntersection
 
@@ -177,13 +177,13 @@ cellBefore contour motorcycle = skeletonOfConcaveRegion (gatherLineSegs contour 
       -- .. or by starting at the stop segment, and stopping after the segment the motorcycle hits
       else closedSide
         where
-          openSide   = drop startSegmentIndex (linesOfContour c) ++ take stopSegmentIndex (linesOfContour c)
-          closedSide = take (stopSegmentIndex - startSegmentIndex) $ drop startSegmentIndex $ linesOfContour c
-          startSegmentIndex = segIndex outSeg (linesOfContour c)
+          openSide   = drop startSegmentIndex (lineSegsOfContour c) ++ take stopSegmentIndex (lineSegsOfContour c)
+          closedSide = take (stopSegmentIndex - startSegmentIndex) $ drop startSegmentIndex $ lineSegsOfContour c
+          startSegmentIndex = segIndex outSeg (lineSegsOfContour c)
           motorcycleIntersection = motorcycleIntersectsAt c m
           -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the first of the two segments (from the beginning of the contour).
           motorcycleInSegment  = fst motorcycleIntersection
-          stopSegmentIndex = 1 + segIndex motorcycleInSegment (linesOfContour c)
+          stopSegmentIndex = 1 + segIndex motorcycleInSegment (lineSegsOfContour c)
 
 -- | Get the index of a specific segment, in a list of segments.
 segIndex :: LineSeg -> [LineSeg] -> Int
@@ -191,7 +191,7 @@ segIndex seg segs = fromMaybe (error "cannot find item") $ elemIndex seg segs
 
 -- | Search a contour starting at the beginning, and return the first of the two line segments given
 findSegFromStart :: Contour -> LineSeg -> LineSeg -> LineSeg
-findSegFromStart c seg1 seg2 = case catMaybes (foundSeg seg1 seg2 <$> linesOfContour c) of
+findSegFromStart c seg1 seg2 = case catMaybes (foundSeg seg1 seg2 <$> lineSegsOfContour c) of
                                  [] -> error "could not find requested segment."
                                  [a] -> a
                                  (a:_) -> a

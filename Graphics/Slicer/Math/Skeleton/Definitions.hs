@@ -41,7 +41,7 @@ import Slist.Type (Slist(Slist))
 
 import Slist (len, cons, slist)
 
-import Graphics.Slicer.Math.Contour (linesOfContour)
+import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
 
@@ -204,7 +204,7 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
 
 -- Get pairs of lines from the contour, including one pair that is the last line paired with the first.
 linePairs :: Contour -> [(LineSeg, LineSeg)]
-linePairs c = mapWithFollower (,) $ linesOfContour c
+linePairs c = mapWithFollower (,) $ lineSegsOfContour c
 
 -- | Get the output of the given nodetree. fails if the nodetree has no output.
 finalPLine :: NodeTree -> PLine2

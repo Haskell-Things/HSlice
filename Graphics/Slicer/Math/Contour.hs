@@ -21,17 +21,21 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 
-module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, contourIntersections, contourIntersectionsNonTotal, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, linesOfContour, firstContourOfContourTreeSet) where
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, contourIntersections, contourIntersectionsNonTotal, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, firstContourOfContourTreeSet, lineSegsOfContour) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, maximum, minimum, min, zip, Either(Left, Right), (-))
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, maximum, minimum, min, zip, Either(Left, Right), (-), (++))
 
-import Data.List(tail, last, head, partition, reverse, sortBy)
+import Data.List(last, head, partition, reverse, sortBy)
+
+import Data.List as DL (tail)
 
 import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
 
 import Data.Either (fromRight)
 
-import Slist (len, size, slist)
+import Slist (len, size, slist, uncons, safeLast, zipWith)
+
+import Slist as SL (tail)
 
 import Slist.Type (Slist(Slist))
 
@@ -41,7 +45,7 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Contour(SafeContour), Point2(Point2), mapWithNeighbors, xOf, yOf)
 
-import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, makeLineSegsLooped, endpoint, midpoint, handleLineSegError)
+import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, endpoint, midpoint, handleLineSegError)
 
 import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, HitStartPoint, HitEndPoint), PIntersection (PParallel, PAntiParallel, IntersectsIn), eToPPoint2, lineIsLeft, pointOnPerp, intersectsWith, plineFromEndpoints, pToEPoint2, PPoint2, PLine2, join2PPoint2)
 
@@ -101,8 +105,8 @@ getLoops' segs workingLoop =
     (possibleConts, nonConts) = partition connects segs
     (possibleBackConts, nonBackConts) = partition connectsBackwards segs
     (next, unused)
-      | not $ null possibleConts     = (head possibleConts, tail possibleConts <> nonConts)
-      | not $ null possibleBackConts = (reverse $ head possibleBackConts, tail possibleBackConts <> nonBackConts)
+      | not $ null possibleConts     = (head possibleConts, DL.tail possibleConts <> nonConts)
+      | not $ null possibleBackConts = (reverse $ head possibleBackConts, DL.tail possibleBackConts <> nonBackConts)
       | otherwise = error $ "unclosed loop in paths given: \nWorking: " <> show workingLoop <> "\nRemainder:" <> show nonConts <> "\n"
   in
     if null next
@@ -174,7 +178,7 @@ contourContainsContour parent@(SafeContour minPoint1 _ _ _ _ _) child@(SafeConto
     noIntersections = length $ getContourLineSegIntersections parent $ lineSegToEdge $ innerPointOf child
     lineSegToEdge p = fromRight (error "cannot construct lineToEdge") $ lineSegFromEndpoints p outsidePointOfPair
     getContourLineSegIntersections :: Contour -> LineSeg -> [Point2]
-    getContourLineSegIntersections contour line = mapMaybe (saneIntersection . intersectsWith (Left line) . Left) $ linesOfContour contour
+    getContourLineSegIntersections contour line = mapMaybe (saneIntersection . intersectsWith (Left line) . Left) $ lineSegsOfContour contour
     saneIntersection :: Either Intersection PIntersection -> Maybe Point2
     saneIntersection (Left NoIntersection)         = Nothing
     saneIntersection (Right (IntersectsIn ppoint)) = Just $ pToEPoint2 ppoint
@@ -233,7 +237,7 @@ contourIntersections contour points = foundIntersections
     pl0 (Right (pstart, pend)) = join2PPoint2 pstart pend
     -- a filter for results that make sense.
     getIntersections :: PLine2 -> Contour -> [(LineSeg, Maybe LineSeg, PPoint2)]
-    getIntersections l1 c = catMaybes $ mapWithNeighbors saneIntersection $ zip (linesOfContour contour) $ intersectsWith (Right l1) . Left <$> linesOfContour contour
+    getIntersections l1 c = catMaybes $ mapWithNeighbors saneIntersection $ zip (lineSegsOfContour contour) $ intersectsWith (Right l1) . Left <$> lineSegsOfContour contour
       where
         saneIntersection :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg, PPoint2)
         saneIntersection _ (seg,Right (IntersectsIn ppoint)) _ = Just (seg, Nothing, ppoint)
@@ -251,6 +255,21 @@ pointsOfContour :: Contour -> [Point2]
 pointsOfContour (SafeContour _ _ p1 p2 p3 pts@(Slist vals _))
   | size pts == Infinity = error "cannot handle infinite contours."
   | otherwise            = p1:p2:p3:vals
+
+lineSegsOfContour :: Contour -> [LineSeg]
+lineSegsOfContour (SafeContour _ _ p1 p2 p3 pts) = [consLineSeg p1 p2,
+                                                    consLineSeg p2 p3] ++ consSegsWithPoints p3 pts p1 
+  where
+    consLineSeg point1 point2 = handleLineSegError $ lineSegFromEndpoints point1 point2
+    consSegsWithPoints pointStart points pointEnd =
+      case uncons points of
+        Nothing -> [consLineSeg pointStart pointEnd]
+        (Just (headVal,tailVals)) -> consLineSeg pointStart headVal :
+                                   case safeLast tailVals of
+                                     Nothing -> [consLineSeg headVal pointEnd]
+                                     (Just lastVal) -> consSegsBetween points ++ [consLineSeg lastVal pointEnd]
+      where
+        consSegsBetween myPoints = (\(Slist vals _)  -> vals) $ zipWith consLineSeg myPoints (SL.tail points)
 
 numPointsOfContour :: Contour -> Int
 numPointsOfContour (SafeContour _ _ _ _ _ pts) = 3 + len pts
@@ -286,6 +305,4 @@ firstLineSegOfContour (SafeContour _ _ p1 p2 _ _) = handleLineSegError $ lineSeg
 firstContourOfContourTreeSet :: ContourTreeSet -> Contour
 firstContourOfContourTreeSet (ContourTreeSet (ContourTree contour _) _) = contour
 
-linesOfContour :: Contour -> [LineSeg]
-linesOfContour contour = makeLineSegsLooped $ pointsOfContour contour
-
+  

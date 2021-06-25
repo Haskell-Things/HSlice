@@ -22,9 +22,9 @@
 -- for adding Generic and NFData to LineSeg.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.Line (LineSeg(LineSeg), LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegsLooped, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs, handleLineSegError) where
+module Graphics.Slicer.Math.Line (LineSeg(LineSeg), LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs, handleLineSegError) where
 
-import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), Eq, tail, (++), last, init, (<$>), Show, error, null, zipWith, (<>), show, Either(Left, Right))
+import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), Eq, tail, last, init, (<$>), Show, error, null, zipWith, (<>), show, Either(Left, Right))
 
 import Data.List (nub)
 
@@ -38,7 +38,7 @@ import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2, addPoints, scalePoint, zOf, flatten, (~=))
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2, addPoints, scalePoint, zOf, flatten)
 
 -- Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
@@ -46,6 +46,7 @@ import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2, addPoints, scal
 data LineSeg = LineSeg { _point :: Point2, _distanceToEnd :: Point2 }
   deriving (Generic, NFData, Show, Eq)
 
+-- | Possible errors from lineSegFromEndpoints.
 data LineSegError = LineSegFromPoint Point2
                   | EmptyList
   deriving (Eq, Show)
@@ -55,6 +56,13 @@ lineSegFromEndpoints :: Point2 -> Point2 -> Either LineSegError LineSeg
 lineSegFromEndpoints p1 p2
   | p1 == p2 = Left $ LineSegFromPoint p1
   | otherwise = Right $ LineSeg p1 (addPoints (scalePoint (-1) p1) p2)
+
+-- | generic handler for the error conditions of lineSegFromEndpoints
+handleLineSegError :: Either LineSegError LineSeg -> LineSeg
+handleLineSegError ln = case ln of
+      Left (LineSegFromPoint point) -> error $ "tried to construct a line segment from two identical points: " <> show point <> "\n"
+      Left EmptyList                -> error "tried to construct a line segment from an empty list."
+      Right                    line -> line
 
 -- | Get the endpoint of a line segment.
 endpoint :: LineSeg -> Point2
@@ -96,26 +104,6 @@ makeLineSegs l = case l of
   where
     res = zipWith consLineSeg (init l) (tail l)
     consLineSeg p1 p2 = handleLineSegError $ lineSegFromEndpoints p1 p2
-
--- | Given a list of points (in order), construct line segments that go between them. make sure to construct a line segment from the last point back to the first.
-makeLineSegsLooped :: [Point2] -> [LineSeg]
-makeLineSegsLooped l = case l of
-                         [] -> error "tried to makeLineSegs a list with no points."
-                         [p] -> error $ "tried to makeLineSegs a list with only one point: " <> show p <> "\n"
-                         (h:t) -> if h ~= last t
-                                     -- already looped, use makeLines.
-                                  then makeLineSegs l
-                                       -- ok, do the work and loop it.
-                                  else zipWith consLineSeg l (t ++ [h])
-  where
-    consLineSeg p1 p2 = handleLineSegError $ lineSegFromEndpoints p1 p2
-
--- | generic handler for the error conditions of lineSegFromEndpoints
-handleLineSegError :: Either LineSegError LineSeg -> LineSeg
-handleLineSegError ln = case ln of
-      Left (LineSegFromPoint point) -> error $ "tried to construct a line segment from two identical points: " <> show point <> "\n"
-      Left EmptyList                -> error "tried to construct a line segment from an empty list."
-      Right                    line -> line
 
 -- | Find the point where a line segment intersects the plane at a given z height.
 --   Note that this evaluates to Nothing in the case that there is no point in the line segment that Z value, or if the line segment is z aligned.

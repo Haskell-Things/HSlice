@@ -27,7 +27,7 @@ import Data.Maybe (Maybe(Just, Nothing), catMaybes, maybeToList)
 
 import Data.Either (fromRight)
 
-import Graphics.Slicer.Math.Contour (linesOfContour, makeSafeContour)
+import Graphics.Slicer.Math.Contour (lineSegsOfContour, makeSafeContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, mapWithNeighbors)
 
@@ -43,7 +43,7 @@ import Graphics.Slicer.Definitions(ℝ)
 
 -- | Contour optimizer. Merges line segments that are collinear.
 cleanContour :: Contour -> Maybe Contour
-cleanContour contour = Just $ makeSafeContour $ fromRight (error "no lines left") $ pointsFromLineSegs $ combineConsecutiveLineSegs $ linesOfContour contour
+cleanContour contour = Just $ makeSafeContour $ fromRight (error "no lines left") $ pointsFromLineSegs $ combineConsecutiveLineSegs $ lineSegsOfContour contour
 
 ---------------------------------------------------------------
 -------------------- Contour Modifiers ------------------------
@@ -76,7 +76,7 @@ modifyContour pathWidth contour direction
       where
         -- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.
         -- FIXME: draw a line before, and after the intersection. return two lines?
-        maybeLineSegs = mapWithNeighbors findLineSeg $ removeDegenerates $ linesOfContour contour
+        maybeLineSegs = mapWithNeighbors findLineSeg $ removeDegenerates $ lineSegsOfContour contour
         -- Remove sequential parallel lines, collinear sequential lines, and lines that are too close to parallel.
         removeDegenerates :: [LineSeg] -> [LineSeg]
         removeDegenerates lns = removeDegenerateEnds $ foldl' concatDegenerates [] lns
