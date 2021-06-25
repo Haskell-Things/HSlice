@@ -41,7 +41,7 @@ import Graphics.Slicer.Math.Definitions (Point2, mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints)
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, handleLineSegError)
 
 import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft)
 
@@ -293,11 +293,7 @@ towardIntersection p1 pl1 in1
   | otherwise                                             = False
   where
     constructedLineSeg :: LineSeg
-    constructedLineSeg = foundLineSeg maybeConstructedLineSeg
-      where
-      foundLineSeg (Left a)  = error $ "encountered " <> show a <> "error."
-      foundLineSeg (Right a) = a
-      maybeConstructedLineSeg = lineSegFromEndpoints p1 (pToEPoint2 in1)
+    constructedLineSeg = handleLineSegError $ lineSegFromEndpoints p1 (pToEPoint2 in1)
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'acute' direction.
 --   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
