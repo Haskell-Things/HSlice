@@ -21,7 +21,7 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 
-module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, contourIntersections, contourIntersectionsNonTotal, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, firstContourOfContourTreeSet, lineSegsOfContour) where
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, contourIntersections, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, firstContourOfContourTreeSet, lineSegsOfContour) where
 
 import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, maximum, minimum, min, zip, Either(Left, Right), (-), (++))
 
@@ -98,9 +98,8 @@ getLoops' segs workingLoop =
     connectsBackwards [] = False
     connectsBackwards [_] = False
     connectsBackwards (_:xs) = last xs == presEnd workingLoop
+    connects [] = False     -- Handle the empty case.
     connects (x:_) = x == presEnd workingLoop
-    -- Handle the empty case.
-    connects [] = False
     -- divide our set into sequences that connect, and sequences that don't.
     (possibleConts, nonConts) = partition connects segs
     (possibleBackConts, nonBackConts) = partition connectsBackwards segs
@@ -219,12 +218,6 @@ innerContourPoint distance contour@(SafeContour minPoint _ _ _ _ _) l
       otherPerpPoint = pointOnPerp l (midpoint l) (-distance)
       outsidePoint   = Point2 (xOf minPoint - 1 , yOf minPoint - 1)
       numIntersections = length $ contourIntersections contour (Left (pointOnPerp l (midpoint l) 0.00001, outsidePoint))
-
--- | Non-total convenience function; use 'contourIntersections' if you can.
-contourIntersectionsNonTotal :: Contour -> Either Point2 PPoint2 -> Either Point2 PPoint2 -> [(LineSeg, Maybe LineSeg, PPoint2)]
-contourIntersectionsNonTotal contour (Left srcPoint) (Left dstPoint) = contourIntersections contour (Left (srcPoint, dstPoint))
-contourIntersectionsNonTotal contour (Right srcPoint) (Right dstPoint) = contourIntersections contour (Right (srcPoint, dstPoint))
-contourIntersectionsNonTotal _ srcBad dstBad = error ("contourIntersectionsUnsafe: bad arguments: " <> show (srcBad, dstBad))
 
 -- | return the intersections with a given contour when traveling a straight line from srcPoint to dstPoint.
 --   Not for use against line segments that are a part of the contour.
