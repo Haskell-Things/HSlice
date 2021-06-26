@@ -23,9 +23,11 @@
 
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (Bool(True), ($), (<$>), (==), error, length, (&&), null, filter, zip, Either(Right), (>), even, last)
+import Prelude (Bool(True), ($), (<$>), (==), error, length, (&&), null, filter, zip, Either(Right), (>), even)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
+
+import Slist (safeLast)
 
 import Slist.Type (Slist(Slist))
 
@@ -41,7 +43,7 @@ import Graphics.Slicer.Math.Contour (contourIntersections, lineSegsOfContour)
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Motorcycles (CrashTree(CrashTree), Collision(HeadOn), Crash, crashMotorcycles, collisionResult)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (CrashTree(CrashTree), CollisionType(HeadOn), Collision, crashMotorcycles, collisionResult)
 
 import Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne)
 
@@ -93,8 +95,10 @@ findStraightSkeleton contour holes = case foundCrashTree of
                                       else Nothing
                       Nothing -> Nothing
         where
-          lastCrash :: Maybe CrashTree -> Maybe Crash
-          lastCrash (Just (CrashTree _ _ crashes)) = Just $ last $ last crashes
+          lastCrash :: Maybe CrashTree -> Maybe Collision
+          lastCrash (Just (CrashTree _ _ crashes)) = case safeLast crashes of
+                                                       Nothing -> Nothing
+                                                       (Just crash) -> Just crash
           lastCrash _ = Nothing
 
     ---------------------------------------------------------
