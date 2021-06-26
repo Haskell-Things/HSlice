@@ -89,7 +89,7 @@ readFacet f = do
         case foundPoints of
           [] -> error "no points found."
           [point] -> error $ "only one point found: " <> show point <> "\n"
-          [_,_] -> error "only two points found."
+          [_p1,_p2] -> error "only two points found."
           [_,_,_] -> case foundNormals of
                        [] -> error "found no normal."
                        [foundNormal] -> facetFromPointsAndNormal foundPoints foundNormal

@@ -31,7 +31,7 @@ import Data.Maybe (Maybe(Just, Nothing), catMaybes)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Contour (linesOfContour)
+import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(SafeContour), distance, xOf, yOf, roundToFifth, mapWithNeighbors)
 
@@ -71,7 +71,7 @@ infillLineSegInside contour childContours line
           filterTooShort [a] = [a]
           filterTooShort (a:b:xs) = if roundToFifth (distance a b) == 0 then filterTooShort xs else a:filterTooShort (b:xs)
           getLineSegIntersections :: PLine2 -> Contour -> [Point2]
-          getLineSegIntersections myline c = saneIntersections $ zip (linesOfContour c) $ intersectsWith (Right myline) . Left <$> linesOfContour c
+          getLineSegIntersections myline c = saneIntersections $ zip (lineSegsOfContour c) $ intersectsWith (Right myline) . Left <$> lineSegsOfContour c
             where
               -- FIXME: why were we snapping to grid here?
               saneIntersections :: [(LineSeg, Either Intersection PIntersection)] -> [Point2]

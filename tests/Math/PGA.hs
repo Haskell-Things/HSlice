@@ -21,7 +21,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), error, Either(Right), sqrt)
+import Prelude (($), Bool(True, False), (<$>), error, sqrt)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith)
@@ -48,7 +48,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVa
 -- Our 2D Projective Geometric Algebra library.
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, distancePPointToPLine, pPointsOnSameSideOfPLine)
 
-import Graphics.Slicer.Math.Line (makeLineSegsLooped, pointsFromLineSegs, LineSeg(LineSeg))
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, makeSafeContour)
@@ -98,8 +98,8 @@ contourSpec = do
 lineSpec :: Spec
 lineSpec = do
   describe "Contours (math/line)" $ do
-    it "contours converted from points to lines then back to points give the input list" $
-      pointsFromLineSegs (makeLineSegsLooped cp1) --> Right cp1
+    it "contours converted from pints to lines then back to points give the input list" $
+      pointsOfContour (makeSafeContour cp1) --> cp1
   where
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
 

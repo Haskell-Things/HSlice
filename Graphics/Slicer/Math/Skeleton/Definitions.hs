@@ -41,7 +41,7 @@ import Slist.Type (Slist(Slist))
 
 import Slist (len, cons, slist, isEmpty, safeLast, init)
 
-import Graphics.Slicer.Math.Contour (linesOfContour)
+import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
 
@@ -120,7 +120,7 @@ instance Pointable INode where
 -- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior or the exterior of a contour.
 --   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.
 --   FIXME: Note that a new motorcycle may be created in the case of degenerate polygons... with it's inSegs being two other motorcycles.
-data Motorcycle = Motorcycle { _inCSegs :: (LineSeg, LineSeg), _outPline :: PLine2 }
+data Motorcycle = Motorcycle { _inCSegs :: !(LineSeg, LineSeg), _outPline :: !PLine2 }
   deriving Eq
   deriving stock Show
 
@@ -208,7 +208,7 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
 
 -- Get pairs of lines from the contour, including one pair that is the last line paired with the first.
 linePairs :: Contour -> [(LineSeg, LineSeg)]
-linePairs c = mapWithFollower (,) $ linesOfContour c
+linePairs c = mapWithFollower (,) $ lineSegsOfContour c
 
 -- | Get the output of the given nodetree. fails if the nodetree has no output.
 finalPLine :: NodeTree -> PLine2

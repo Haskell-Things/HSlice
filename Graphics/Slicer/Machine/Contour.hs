@@ -19,7 +19,7 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude (length, (>), ($), otherwise, Eq, (<>), show, error, (==), (&&), Bool(True, False), last, init, (++), (<), Show)
+import Prelude ((>), ($), otherwise, Eq, (<>), show, error, (==), (&&), Bool(True, False), last, init, (++), (<), Show)
 
 import Data.List (null, foldl')
 
@@ -27,13 +27,13 @@ import Data.Maybe (Maybe(Just, Nothing), catMaybes, maybeToList)
 
 import Data.Either (fromRight)
 
-import Graphics.Slicer.Math.Contour (linesOfContour, makeSafeContour)
+import Graphics.Slicer.Math.Contour (lineSegsOfContour, makeSafeContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, addPoints, mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Contour, mapWithNeighbors)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), pointsFromLineSegs, lineSegFromEndpoints, endpoint)
+import Graphics.Slicer.Math.Line (LineSeg, pointsFromLineSegs, lineSegFromEndpoints, combineLineSegs)
 
-import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn, PCollinear, PParallel), plinesIntersectIn, translatePerp, eToPLine2, pToEPoint2, angleBetween)
+import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn, PCollinear, PParallel, PAntiParallel), plinesIntersectIn, translatePerp, eToPLine2, pToEPoint2, angleBetween)
 
 import Graphics.Slicer.Definitions(ℝ)
 
@@ -43,7 +43,7 @@ import Graphics.Slicer.Definitions(ℝ)
 
 -- | Contour optimizer. Merges line segments that are collinear.
 cleanContour :: Contour -> Maybe Contour
-cleanContour contour = Just $ makeSafeContour $ fromRight (error "no lines left") $ pointsFromLineSegs $ combineConsecutiveLineSegs $ linesOfContour contour
+cleanContour contour = Just $ makeSafeContour $ fromRight (error "no lines left") $ pointsFromLineSegs $ combineConsecutiveLineSegs $ lineSegsOfContour contour
 
 ---------------------------------------------------------------
 -------------------- Contour Modifiers ------------------------
@@ -55,15 +55,17 @@ data Direction =
   deriving (Eq, Show)
 
 -- | Generate a new contour that is a given amount smaller than the given contour.
+-- WARNING: uses unsafe modifyContour.
 shrinkContour :: ℝ -> [Contour] -> Contour -> Maybe Contour
 shrinkContour amount _ contour = modifyContour amount contour Inward
 
 -- | Generate a new contour that is a given amount larger than the given contour.
+-- WARNING: uses unsafe modifyContour.
 expandContour :: ℝ -> [Contour] -> Contour -> Maybe Contour
 expandContour amount _ contour = modifyContour amount contour Outward
 
 -- | Generate a new contour that is a given amount larger/smaller than the given contour.
--- WARNING: unsafe, generating results that may collide into other contours inside of this contour, or may wall off of a section, creating two contours?
+-- WARNING: unsafe, generating results that may collide into other contours inside of this contour, or may wall off of a section, creating what should be two contours.
 modifyContour :: ℝ -> Contour -> Direction -> Maybe Contour
 modifyContour pathWidth contour direction
   | null foundContour  = Nothing
@@ -74,34 +76,27 @@ modifyContour pathWidth contour direction
       where
         -- FIXME: if the currently drawn line hits the current or previous contour on a line other than the line before or after the parent, you have a pinch. shorten the current line.
         -- FIXME: draw a line before, and after the intersection. return two lines?
-        maybeLineSegs = mapWithNeighbors findLineSeg $ removeDegenerates $ linesOfContour contour
+        maybeLineSegs = mapWithNeighbors findLineSeg $ removeDegenerates $ lineSegsOfContour contour
         -- Remove sequential parallel lines, collinear sequential lines, and lines that are too close to parallel.
         removeDegenerates :: [LineSeg] -> [LineSeg]
-        removeDegenerates lns
-          | length res == length lns = res
-          | otherwise                = removeDegenerates res
+        removeDegenerates lns = removeDegenerateEnds $ foldl' concatDegenerates [] lns
           where
-            res = removeDegenerateEnds $ foldl' concatDegenerates [] lns
-            concatDegenerates xs x
-              | null xs = [x]
-              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = init xs ++ maybeToList (combineLineSegs (last xs) x)
-              | otherwise = xs ++ [x]
             removeDegenerateEnds :: [LineSeg] -> [LineSeg]
             removeDegenerateEnds inSegs = case inSegs of
                                             [] -> []
                                             [l1] -> [l1]
                                             [l1,l2] -> [l1,l2]
                                             (l1:ls) -> if isDegenerate (inwardAdjust (last ls)) (inwardAdjust l1) then init ls ++ maybeToList (combineLineSegs (last ls) l1) else l1:ls
-            -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
-            -- if p2 == p3 and the lines are really close to parallel
-            combineLineSegs :: LineSeg -> LineSeg -> Maybe LineSeg
-            combineLineSegs l1@(LineSeg p _) l2@(LineSeg p1 s1) = if endpoint l2 == p -- If line 2 ends where line 1 begins:
-                                                                  then Nothing -- handle a contour that loops back on itsself.
-                                                                  else Just $ fromRight (error $ "cannot combine lines: " <> show l1 <> "\n" <> show l2 <> "\n") $ lineSegFromEndpoints p (addPoints p1 s1)
+            concatDegenerates :: [LineSeg] -> LineSeg -> [LineSeg]
+            concatDegenerates xs x
+              | null xs = [x]
+              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = init xs ++ maybeToList (combineLineSegs (last xs) x)
+              | otherwise = xs ++ [x]
             isDegenerate pl1 pl2
-              | angleBetween pl1 pl2 < (-0.999) = True
-              | angleBetween pl1 pl2 >   0.999  = True
+              | angleBetween pl1 pl2 < (-0.999999) = True
+              | angleBetween pl1 pl2 >   0.999999  = True
               | plinesIntersectIn pl1 pl2  == PParallel = True
+              | plinesIntersectIn pl1 pl2  == PAntiParallel = True
               | plinesIntersectIn pl1 pl2  == PCollinear = True
               | otherwise = False
         inwardAdjust l1 = translatePerp (eToPLine2 l1) (if direction == Inward then pathWidth else (-pathWidth))

@@ -28,8 +28,6 @@ module Graphics.Slicer.Math.Skeleton.Line (addInset, addInfill) where
 
 import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (++), (>), min, Bool(True, False), head, fst, init, tail, last, maybe, snd)
 
-import Data.Either (Either (Left, Right))
-
 import Data.List (sortOn, dropWhile, takeWhile, transpose)
 
 import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromMaybe)
@@ -42,7 +40,7 @@ import Graphics.Slicer.Math.Contour (makeSafeContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, (~=), mapWithFollower, scalePoint, addPoints)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, LineSegError(LineSegFromPoint), endpoint)
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, endpoint, handleLineSegError)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (intersectionOf)
 
@@ -81,12 +79,12 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     linesToRender          = maybe linesUntilEnd (min linesUntilEnd) insets
 
     -- | The line segments we are placing.
-    foundLineSegs          = [ errorIfLeft $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf newSide firstArc) (pToEPoint2 $ intersectionOf newSide lastArc) | newSide <- newSides ]
+    foundLineSegs          = [ handleLineSegError $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf newSide firstArc) (pToEPoint2 $ intersectionOf newSide lastArc) | newSide <- newSides ]
       where
         newSides = [ translatePerp (eToPLine2 edge) $ translateDir (-(distance+(distance * fromIntegral segmentNum))) | segmentNum <- [0..linesToRender-1] ]
 
     -- | The line where we are no longer able to fill this face. from the firstArc to the lastArc, along the point that the lines we place stop.
-    finalSide              = errorIfLeft $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf finalLine firstArc) (pToEPoint2 $ intersectionOf finalLine lastArc)
+    finalSide              = handleLineSegError $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf finalLine firstArc) (pToEPoint2 $ intersectionOf finalLine lastArc)
       where
         finalLine = translatePerp (eToPLine2 edge) $ translateDir (distance * fromIntegral linesToRender)
 
@@ -102,13 +100,6 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
                                                else distancePPointToPLine (intersectionOf oneArc lastArc) (eToPLine2 edge)
                          (Slist _ _) -> closestArcDistance
 
-    -- | Generate an error if a line segment fails to construct.
-    errorIfLeft :: Either LineSegError LineSeg -> LineSeg
-    errorIfLeft lnSeg      = case lnSeg of
-      Left (LineSegFromPoint point) -> error $ "tried to construct a line segment from two identical points: " <> show point <> "\n"
-      Right                 lineSeg -> lineSeg
-      _                             -> error "unknown error"
-
     -----------------------------------------------------------
     -- functions only used by n-gons with more than four sides.
     -----------------------------------------------------------
@@ -119,7 +110,10 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     -- | Find the closest point where two of our arcs intersect, relative to our side.
     arcIntersections = init $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf a b) (eToPLine2 edge), (a, b))) $ [firstArc] ++ rawMidArcs ++ [lastArc]
     findClosestArc :: (ℝ, (PLine2, PLine2))
-    findClosestArc         = head $ sortOn fst arcIntersections
+    findClosestArc         = case sortOn fst arcIntersections of
+                               [] -> error "empty arcIntersections?"
+                               [pair] -> pair
+                               (pair:_) -> pair
     closestArcDistance     = fst findClosestArc
     closestArc             = (\(_,(b,_)) -> b) findClosestArc
     closestArcFollower     = (\(_,(_,c)) -> c) findClosestArc

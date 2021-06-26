@@ -23,9 +23,11 @@
 
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (Bool(True), ($), (<$>), (==), error, length, (&&), null, filter, zip, Either(Right), (>), even, last)
+import Prelude (Bool(True), ($), (<$>), (==), error, (&&), null, filter, zip, Either(Right), (>), even)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
+
+import Slist (safeLast)
 
 import Slist.Type (Slist(Slist))
 
@@ -37,11 +39,11 @@ import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PCollinear), plinesInters
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
-import Graphics.Slicer.Math.Contour (contourIntersections, linesOfContour)
+import Graphics.Slicer.Math.Contour (contourIntersectionCount, lineSegsOfContour)
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Motorcycles (CrashTree(CrashTree), Collision(HeadOn), Crash, crashMotorcycles, collisionResult)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (CrashTree(CrashTree), CollisionType(HeadOn), Collision, crashMotorcycles, collisionResult)
 
 import Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne)
 
@@ -58,7 +60,7 @@ findStraightSkeleton contour holes = case foundCrashTree of
   Nothing -> Nothing
   (Just crashTree) -> if null holes
                       then case motorcyclesIn crashTree of
-                             (Slist _ 0) -> Just $ StraightSkeleton [[skeletonOfConcaveRegion (linesOfContour contour) True]] []
+                             (Slist _ 0) -> Just $ StraightSkeleton [[skeletonOfConcaveRegion (lineSegsOfContour contour) True]] []
                              -- Use the algorithm from Christopher Tscherne's master's thesis.
                              (Slist [inMC] 1) -> applyTscherne contour [CellDivide (DividingMotorcycles inMC (Slist [] 0)) maybeOpposingENode]
                              (Slist [firstMC,secondMC] 2) -> if lastCrashType == Just HeadOn
@@ -74,10 +76,10 @@ findStraightSkeleton contour holes = case foundCrashTree of
     maybeOpposingENode = case opposingNodes of
                          [] -> Nothing
                          [oneNode] -> Just oneNode
-                         (_:_) -> error "more than one opposing exterior node. impossible situation."
+                         (_:_) -> error "more than one opposing exterior node. cannot yet handle this situation."
       where
         opposingNodes :: [ENode]
-        opposingNodes = filter (\eNode -> enoughIntersections $ length (contourIntersections contour (Right (pPointOf eNode, pPointOf dividingMotorcycle))))
+        opposingNodes = filter (\eNode -> enoughIntersections $ contourIntersectionCount contour (Right (pPointOf eNode, pPointOf dividingMotorcycle)))
                         $ filter (\eNode -> plinesIntersectIn (outOf eNode) (outOf dividingMotorcycle) == PCollinear) $ concaveENodes contour
           where
             enoughIntersections n = n > 0 && even n
@@ -93,8 +95,10 @@ findStraightSkeleton contour holes = case foundCrashTree of
                                       else Nothing
                       Nothing -> Nothing
         where
-          lastCrash :: Maybe CrashTree -> Maybe Crash
-          lastCrash (Just (CrashTree _ _ crashes)) = Just $ last $ last crashes
+          lastCrash :: Maybe CrashTree -> Maybe Collision
+          lastCrash (Just (CrashTree _ _ crashes)) = case safeLast crashes of
+                                                       Nothing -> Nothing
+                                                       (Just crash) -> Just crash
           lastCrash _ = Nothing
 
     ---------------------------------------------------------
@@ -111,7 +115,7 @@ findStraightSkeleton contour holes = case foundCrashTree of
 --   This function is meant to be used on the exterior contour.
 -- FIXME: merge this with the same logic in Concave.
 concaveENodes :: Contour -> [ENode]
-concaveENodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
+concaveENodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower concavePLines $ lineSegsOfContour contour)
   where
     onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe ENode
     onlyNodes ((seg1, seg2), Just pLine) = Just $ ENode (seg1,seg2) pLine

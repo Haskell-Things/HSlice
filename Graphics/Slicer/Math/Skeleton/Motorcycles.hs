@@ -24,7 +24,7 @@
 -- inherit instances when deriving.
 {-# LANGUAGE DerivingStrategies #-}
 
-module Graphics.Slicer.Math.Skeleton.Motorcycles (Collision(HeadOn), CrashTree(CrashTree), motorcycleToENode, Crash(Crash), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles) where
+module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles) where
 
 import Prelude (Bool(True, False), Either(Left,Right), Eq, error, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, null)
 
@@ -38,7 +38,7 @@ import Slist as SL (filter)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.Contour (linesOfContour)
+import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
@@ -51,19 +51,17 @@ import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
 -- | The collision of two motorcycles. one lives, and one doesn't, unless it's a head on collision, in which case both die, and there is no survivor.
-data Crash = Crash { _inMotorcycles :: Slist Motorcycle, _survivor :: Maybe Motorcycle, _collisionType :: Collision}
+data Collision = Collision { _inMotorcycles :: !(Slist Motorcycle), _survivor :: !(Maybe Motorcycle), collisionResult :: !CollisionType }
   deriving (Eq)
 
--- | the type of collision. only normal collisions (motorcycle to the other motorcycle's path) are survivable, and then only by the motorcycle who's path was collided with.
-data Collision = Normal | HeadOn | SideSwipe
+-- | the type of collision.
+-- only normal collisions (motorcycle intersects the other motorcycle's path) are survivable, and then only by the motorcycle who's path was collided with.
+data CollisionType = Normal | HeadOn | SideSwipe
   deriving (Eq)
 
 -- | the resulting node graph for a given contour.
-data CrashTree = CrashTree { _motorcycles :: Slist Motorcycle, _survivors :: Slist Motorcycle, _crashes :: [[Crash]] }
+data CrashTree = CrashTree { _motorcycles :: !(Slist Motorcycle), _survivors :: !(Slist Motorcycle), _crashes :: !(Slist Collision) }
   deriving (Eq)
-
-collisionResult :: Crash -> Collision
-collisionResult (Crash _ _ collision) = collision
 
 -- | convert a Motorcycle to an ENode
 motorcycleToENode :: Motorcycle -> ENode
@@ -71,7 +69,7 @@ motorcycleToENode (Motorcycle segs mcpath) = ENode segs mcpath
 
 crashMotorcycles :: Contour -> [Contour] -> Maybe CrashTree
 crashMotorcycles contour holes
-  | null holes = getCrashTree (slist firstMotorcycles) [] [] False
+  | null holes = getCrashTree (slist firstMotorcycles) [] (slist []) False
   | otherwise = Nothing
   where
     firstMotorcycles
@@ -83,18 +81,18 @@ crashMotorcycles contour holes
 
     -- Function meant to be recursed, to give us a CrashTree. when it's complete...
     -- For now, just cover the cases we know what to do with.
-    getCrashTree :: Slist Motorcycle -> [Motorcycle] -> [[Crash]] -> Bool -> Maybe CrashTree
+    getCrashTree :: Slist Motorcycle -> [Motorcycle] -> Slist Collision -> Bool -> Maybe CrashTree
     getCrashTree inMotorcycles crashedMotorcycles inCrashes hasHoles
       | hasHoles = error "do not support holes yet"
       -- We're done.
       | null findSurvivors = Just $ CrashTree inMotorcycles findSurvivors inCrashes
       | null crashedMotorcycles = case inMotorcycles of
                                     -- there is no-one to collide with.
-                                    (Slist [] _) -> Just $ CrashTree inMotorcycles inMotorcycles []
-                                    (Slist _ 1) -> Just $ CrashTree inMotorcycles inMotorcycles []
+                                    (Slist [] _) -> Just $ CrashTree inMotorcycles inMotorcycles (slist [])
+                                    (Slist _ 1) -> Just $ CrashTree inMotorcycles inMotorcycles (slist [])
                                   -- One crash, no survivors.
                                     (Slist [firstMC, secondMC] 2) -> if crashOf firstMC secondMC == Just HeadOn
-                                                                     then Just $ CrashTree inMotorcycles (slist []) [[Crash inMotorcycles Nothing HeadOn]]
+                                                                     then Just $ CrashTree inMotorcycles (slist []) (slist $ [Collision inMotorcycles Nothing HeadOn])
                                                                      else Nothing
                                     (Slist (_:_) _) -> Nothing
       -- Note that to solve this case, we will have to have a concept of speed of the motorcycle.
@@ -111,7 +109,7 @@ crashMotorcycles contour holes
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
 --   This function is meant to be used on the exterior contour.
 convexMotorcycles :: Contour -> [Motorcycle]
-convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower convexPLines $ linesOfContour contour)
+convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower convexPLines $ lineSegsOfContour contour)
   where
     onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
     onlyMotorcycles ((seg1, seg2), maybePLine) = case maybePLine of
@@ -132,7 +130,7 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs conto
 -- FIXME: why does this look so different from the previous function?
 {-
 concaveMotorcycles :: Contour -> [Motorcycle]
-concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower concavePLines $ linesOfContour contour)
+concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs contour) (mapWithFollower concavePLines $ lineSegsOfContour contour)
   where
     onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
     onlyMotorcycles ((seg1, seg2), maybePLine)
@@ -140,31 +138,33 @@ concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs cont
       | otherwise         = Nothing
 -}
 
--- | Find where a motorcycle intersects a contour, if the motorcycle is emitted from between the two given segments.
+-- | Find where a motorcycle intersects a contour.
 --   If the motorcycle lands between two segments, return the second segment, as well.
 motorcycleIntersectsAt :: Contour -> Motorcycle -> (LineSeg, Maybe LineSeg)
-motorcycleIntersectsAt contour motorcycle@(Motorcycle (inSeg,outSeg) _) = case getMotorcycleIntersections motorcycle contour of
+motorcycleIntersectsAt contour motorcycle@(Motorcycle (inSeg,outSeg) _) = case intersections of
                                                                             [] -> error "no intersections?"
-                                                                            [(_,_)] -> error "not enough intersections?"
-                                                                            [_,_] -> case foundSegEvents of
-                                                                                       [] -> error "no foundSegEvents?"
-                                                                                       [res] -> res
-                                                                                       (_:_) -> error "too many foundSegEvents?"
+                                                                            [a] -> error $ "not enough intersections: " <> show a <> "\n"
+                                                                            [_a,_b] -> foundSegEvents intersections
                                                                             (_:_) -> error "too many intersections?"
   where
-    foundSegEvents = L.filter fun $ getMotorcycleIntersections motorcycle contour
+    intersections = getMotorcycleIntersections motorcycle contour
+    -- find where the motorcycle intersects the contour, by filtering the possibilities.
+    foundSegEvents :: [(LineSeg, Maybe LineSeg)] -> (LineSeg, Maybe LineSeg)
+    foundSegEvents myIntersections = case L.filter fun myIntersections of
+                       [] -> error "no found segment."
+                       [a] -> a
+                       (_:_) -> error "too many intersections?"
                      where
                        -- make sure neither of these segments are inSeg or outSeg
                        fun (seg,maybeSeg) = (seg /= inSeg && seg /= outSeg)
                                             && (case maybeSeg of
                                                   (Just isSeg) -> isSeg /= inSeg && isSeg /= outSeg
                                                   Nothing -> True)
-
-    -- find one of the two segments given, returning the one closest to the head of the given contour.
+    -- get all possible intersections between the motorcycle and the contour.
     getMotorcycleIntersections :: Motorcycle -> Contour -> [(LineSeg, Maybe LineSeg)]
     getMotorcycleIntersections m c = catMaybes $ mapWithNeighbors saneIntersections $ zip contourLines $ intersectsWith (Right $ outOf m) . Left <$> contourLines
       where
-        contourLines = linesOfContour c
+        contourLines = lineSegsOfContour c
         saneIntersections :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg)
         saneIntersections  _ (seg, Right (IntersectsIn _))      _ = Just (seg, Nothing)
         saneIntersections  _ (_  , Left  NoIntersection)        _ = Nothing
