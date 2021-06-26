@@ -27,7 +27,7 @@ import Prelude (Bool(True), ($), (<$>), (==), error, (&&), null, filter, zip, Ei
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
-import Slist (safeLast)
+import Slist (safeLast, slist)
 
 import Slist.Type (Slist(Slist))
 
@@ -60,7 +60,7 @@ findStraightSkeleton contour holes = case foundCrashTree of
   Nothing -> Nothing
   (Just crashTree) -> if null holes
                       then case motorcyclesIn crashTree of
-                             (Slist _ 0) -> Just $ StraightSkeleton [[skeletonOfConcaveRegion (lineSegsOfContour contour) True]] []
+                             (Slist _ 0) -> Just $ StraightSkeleton [[skeletonOfConcaveRegion (lineSegsOfContour contour) True]] (slist [])
                              -- Use the algorithm from Christopher Tscherne's master's thesis.
                              (Slist [inMC] 1) -> applyTscherne contour [CellDivide (DividingMotorcycles inMC (Slist [] 0)) maybeOpposingENode]
                              (Slist [firstMC,secondMC] 2) -> if lastCrashType == Just HeadOn

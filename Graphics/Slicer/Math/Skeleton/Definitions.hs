@@ -63,7 +63,7 @@ class Arcable a where
   outOf :: a -> PLine2
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
-data ENode = ENode { _inSegs :: (LineSeg, LineSeg), _arcOut :: PLine2 }
+data ENode = ENode { _inSegs :: !(LineSeg, LineSeg), _arcOut :: !PLine2 }
   deriving Eq
   deriving stock Show
 
@@ -79,7 +79,7 @@ instance Pointable ENode where
   ePointOf (ENode (_, LineSeg point _) _) = point
 
 -- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
-data INode = INode { _firstInArc :: PLine2, _secondInArc :: PLine2, _moreInArcs :: Slist PLine2, _outArc :: Maybe PLine2 }
+data INode = INode { _firstInArc :: !PLine2, _secondInArc :: !PLine2, _moreInArcs :: !(Slist PLine2), _outArc :: !(Maybe PLine2) }
   deriving Eq
   deriving stock Show
 
@@ -135,27 +135,32 @@ instance Pointable Motorcycle where
   pPointOf a = eToPPoint2 $ ePointOf a
   ePointOf (Motorcycle (_, LineSeg point _) _) = point
 
-data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: Motorcycle, moreMotorcycles :: Slist Motorcycle}
+-- | The motorcycles that are involved in dividing two cells.
+data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle, moreMotorcycles :: !(Slist Motorcycle) }
   deriving Eq
   deriving stock Show
 
--- the border dividing two motorcycle cells.
--- note that if there is an ENode, it's anticolinnear to the last motorcycle in _divMotorcycles.
-data CellDivide = CellDivide { _divMotorcycles :: DividingMotorcycles, _divENode :: Maybe ENode }
+-- | the border dividing two cells of a contour.
+-- note that if there is an ENode that is part of the division, it's anticolinnear to the last motorcycle in _divMotorcycles.
+data CellDivide = CellDivide { _divMotorcycles :: !DividingMotorcycles, _divENode :: !(Maybe ENode) }
   deriving Eq
   deriving stock Show
 
+-- | The exterior nodes of a contour or a cell of a contour.
 data ENodeSet = ENodeSet { _firstENode :: ENode, _moreENodes :: Slist ENode }
   deriving Eq
   deriving stock Show
 
+-- | a set of Interior nodes that are intersections of ENodes or other INodes.
+-- nodes are divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation always contains just one node.
+-- Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.
+-- The last generation may or may not have an outArc.
+-- FIXME: move last generation into structure type?
 newtype INodeSet = INodeSet (Slist [INode])
   deriving Eq
   deriving stock Show
 
--- | A set of set of nodes, divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation contains just one node.
---   Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.
---   The last generation may or may not have an outArc.
+-- | The complete graph of exterior nodes, and their interior intersection. note this may be for a cell, a contour, or the border between two cells.
 data NodeTree = NodeTree { _eNodes :: ENodeSet, _iNodes :: INodeSet }
   deriving Eq
   deriving stock Show
@@ -167,7 +172,7 @@ newtype Spine = Spine { _spineArcs :: NonEmpty PLine2 }
   deriving stock Show
 
 -- | The straight skeleton of a contour.
-data StraightSkeleton = StraightSkeleton { _nodeSets :: [[NodeTree]], _spineNodes :: [Spine] }
+data StraightSkeleton = StraightSkeleton { _nodeSets :: ![[NodeTree]], _spineNodes :: Slist Spine }
   deriving Eq
   deriving stock Show
 
@@ -206,7 +211,7 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
     saneIntersection PAntiParallel    = error $ "cannot get the intersection of antiparallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
     saneIntersection (IntersectsIn point) = point
 
--- Get pairs of lines from the contour, including one pair that is the last line paired with the first.
+-- | Get pairs of lines from the contour, including one pair that is the last line paired with the first.
 linePairs :: Contour -> [(LineSeg, LineSeg)]
 linePairs c = mapWithFollower (,) $ lineSegsOfContour c
 

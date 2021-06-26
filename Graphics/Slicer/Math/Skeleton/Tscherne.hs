@@ -106,7 +106,7 @@ applyTscherne contour cellDivisions =
 
     -- Add a set of cells together, to create a straight skeleton. The straight skeleton should have it's NodeTrees in order.
     addMirrorCells :: NodeTree -> NodeTree -> CellDivide -> StraightSkeleton
-    addMirrorCells cell1 cell2 division = StraightSkeleton [sortNodeTrees $ cell1 : cell2 : nodetreesFromDivision division] []
+    addMirrorCells cell1 cell2 division = StraightSkeleton [sortNodeTrees $ cell1 : cell2 : nodetreesFromDivision division] (slist [])
       where
         nodetreesFromDivision :: CellDivide -> [NodeTree]
         nodetreesFromDivision cellDivision@(CellDivide motorcycles maybeENode) = case motorcycles of
