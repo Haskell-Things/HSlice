@@ -219,32 +219,32 @@ innerContourPoint distance contour@(SafeContour minPoint _ _ _ _ _) l
       outsidePoint   = Point2 (xOf minPoint - 1 , yOf minPoint - 1)
       numIntersections = contourIntersectionCount contour (Left (pointOnPerp l (midpoint l) 0.00001, outsidePoint))
 
+-- | return the number of intersections with a given contour when traveling in a straight line from srcPoint to dstPoint.
+-- Not for use against line segments that overlap and are collinear with one of the line segments are a part of the contour.
 contourIntersectionCount :: Contour -> Either (Point2, Point2) (PPoint2, PPoint2) -> Int
 contourIntersectionCount contour points = length $ contourIntersections contour points
-
--- | return the intersections with a given contour when traveling a straight line from srcPoint to dstPoint.
---   Not for use against line segments that are a part of the contour.
-contourIntersections :: Contour -> Either (Point2, Point2) (PPoint2, PPoint2) -> [(LineSeg, Maybe LineSeg, PPoint2)]
-contourIntersections contour points = foundIntersections
   where
-    foundIntersections = getIntersections (pl0 points) contour
-    -- The line we are checking for intersections along.
-    pl0 (Left (lstart, lend)) = plineFromEndpoints lstart lend
-    pl0 (Right (pstart, pend)) = join2PPoint2 pstart pend
-    -- a filter for results that make sense.
-    getIntersections :: PLine2 -> Contour -> [(LineSeg, Maybe LineSeg, PPoint2)]
-    getIntersections l1 c = catMaybes $ mapWithNeighbors saneIntersection $ zip (lineSegsOfContour contour) $ intersectsWith (Right l1) . Left <$> lineSegsOfContour contour
+    -- return the intersections with a given contour when traveling a straight line from srcPoint to dstPoint.
+    contourIntersections :: Contour -> Either (Point2, Point2) (PPoint2, PPoint2) -> [(LineSeg, Maybe LineSeg, PPoint2)]
+    contourIntersections contour points = getIntersections (pl0 points) contour
       where
-        saneIntersection :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg, PPoint2)
-        saneIntersection _ (seg,Right (IntersectsIn ppoint)) _ = Just (seg, Nothing, ppoint)
-        saneIntersection _ (_,Left NoIntersection)         _ = Nothing
-        saneIntersection _ (_,Right PParallel)             _ = Nothing
-        saneIntersection _ (_,Right PAntiParallel)         _ = Nothing
-        saneIntersection  _                              (seg , Left (HitStartPoint _ point)) (seg2 , Left (HitEndPoint   _ _)) = Just (seg, Just seg2, eToPPoint2 point)
-        saneIntersection (_  , Left (HitStartPoint _ _)) (_   , Left (HitEndPoint   _ _))      _                                = Nothing
-        saneIntersection  _                              (_   , Left (HitEndPoint   _ _))     (_    , Left (HitStartPoint _ _)) = Nothing
-        saneIntersection (seg, Left (HitEndPoint   _ _)) (seg2, Left (HitStartPoint _ point))  _                                = Just (seg, Just seg2, eToPPoint2 point)
-        saneIntersection res1 res2 res3 = error $ "insane result of intersecting a line (" <> show l1 <> ") with a contour: " <> show c <> "\n" <> show res1 <> "\n" <> show res2 <> "\n" <> show res3 <> "\n"
+        -- The line we are checking for intersections along.
+        pl0 (Left (lstart, lend)) = plineFromEndpoints lstart lend
+        pl0 (Right (pstart, pend)) = join2PPoint2 pstart pend
+        -- a filter for results that make sense.
+        getIntersections :: PLine2 -> Contour -> [(LineSeg, Maybe LineSeg, PPoint2)]
+        getIntersections l1 c = catMaybes $ mapWithNeighbors saneIntersection $ zip (lineSegsOfContour contour) $ intersectsWith (Right l1) . Left <$> lineSegsOfContour contour
+          where
+            saneIntersection :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg, PPoint2)
+            saneIntersection _ (seg,Right (IntersectsIn ppoint)) _ = Just (seg, Nothing, ppoint)
+            saneIntersection _ (_,Left NoIntersection)         _ = Nothing
+            saneIntersection _ (_,Right PParallel)             _ = Nothing
+            saneIntersection _ (_,Right PAntiParallel)         _ = Nothing
+            saneIntersection  _                              (seg , Left (HitStartPoint _ point)) (seg2 , Left (HitEndPoint   _ _)) = Just (seg, Just seg2, eToPPoint2 point)
+            saneIntersection (_  , Left (HitStartPoint _ _)) (_   , Left (HitEndPoint   _ _))      _                                = Nothing
+            saneIntersection  _                              (_   , Left (HitEndPoint   _ _))     (_    , Left (HitStartPoint _ _)) = Nothing
+            saneIntersection (seg, Left (HitEndPoint   _ _)) (seg2, Left (HitStartPoint _ point))  _                                = Just (seg, Just seg2, eToPPoint2 point)
+            saneIntersection res1 res2 res3 = error $ "insane result of intersecting a line (" <> show l1 <> ") with a contour: " <> show c <> "\n" <> show res1 <> "\n" <> show res2 <> "\n" <> show res3 <> "\n"
 
 -- Utility functions for contours. moving here for migration.
 pointsOfContour :: Contour -> [Point2]
