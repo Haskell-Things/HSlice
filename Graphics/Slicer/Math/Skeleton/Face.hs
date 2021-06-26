@@ -24,13 +24,13 @@
  -}
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf, lastSegOf, firstSegOf, lastENodeOf, firstENodeOf) where
 
-import Prelude ((==), otherwise, (<$>), ($), (.), length, (/=), error, (<>), show, Eq, Show, (<>), (++), Bool, (||), take, filter, init, null, tail, concat, reverse)
+import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), (++), Bool, (||), take, filter, init, null, tail, concat, reverse)
 
 import Prelude as P (last)
 
 import Data.List (dropWhile)
 
-import Data.Maybe(isNothing, fromJust)
+import Data.Maybe(isNothing, fromJust, fromMaybe)
 
 import Slist.Type (Slist(Slist))
 
@@ -128,20 +128,24 @@ facesOf (StraightSkeleton nodeLists spine)
           where
             -- cover the space occupied by all of the ancestors of this node with a series of faces.
             areaBeneath :: ENodeSet -> INodeSet -> INode -> [Face]
-            areaBeneath eNodeList myINodeSet@(INodeSet myGenerations) target@(INode firstArc secondArc (Slist rawMoreArcs _) _) =
+            areaBeneath eNodeList myINodeSet@(INodeSet myGenerations) target =
               case myGenerations of
                 (Slist [] _) -> if hasArc target
-                                then init result
-                                else result
+                                then init resultAsTriangles
+                                else resultAsTriangles
                 (Slist [oneGeneration] _) -> if hasArc target
                                              then errorHasArc
                                              else concat $ mapWithFollower (\a b -> areaBeneath eNodeList (ancestorsOf myINodeSet) a ++ [areaBetween eNodeList target a b]) oneGeneration
                 (Slist (_:_) _) -> errorTooMany
               where
-                result = mapWithFollower makeTriangleFace $ fromJust . findENodeByOutput eNodeList <$> inArcs
+                -- create triangles from every pair of arcs of this inode, in order. assumes that all of the arcs are connected to ENodes.
+                resultAsTriangles = mapWithFollower makeTriangleFace $ eNodesOfINode target
+                -- All of the ENodes coresponding to a node's arc.
+                eNodesOfINode myINode = fromMaybe (error $ "failed to find an ENode for an arc of inode: " <> show myINode <> "\n") <$> (findENodeByOutput eNodeList <$> inArcsOf myINode)
+                -- All of a node's arcs.
+                inArcsOf (INode firstArc secondArc (Slist rawMoreArcs _) _)= firstArc : secondArc : rawMoreArcs
                 errorHasArc = error $ "Has Arc: " <> show nodeTree <> "\n" <> show target <> "\n" <> show (len myGenerations) <> "\n"
                 errorTooMany = error $ "Too Many: " <> show nodeTree <> "\n" <> show target <> "\n" <> show (len myGenerations) <> "\n"
-                inArcs = firstArc : secondArc : rawMoreArcs
                 -- | make a face from two nodes. the nodes must be composed of line segments on one side, and follow each other.
                 makeTriangleFace :: ENode -> ENode -> Face
                 makeTriangleFace node1 node2 = makeFace node1 [] node2
