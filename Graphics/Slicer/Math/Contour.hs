@@ -254,7 +254,7 @@ pointsOfContour (SafeContour _ _ p1 p2 p3 pts@(Slist vals _))
 
 lineSegsOfContour :: Contour -> [LineSeg]
 lineSegsOfContour (SafeContour _ _ p1 p2 p3 pts) = [consLineSeg p1 p2,
-                                                    consLineSeg p2 p3] ++ consSegsWithPoints p3 pts p1 
+                                                    consLineSeg p2 p3] ++ consSegsWithPoints p3 pts p1
   where
     consLineSeg point1 point2 = handleLineSegError $ lineSegFromEndpoints point1 point2
     consSegsWithPoints pointStart points pointEnd =

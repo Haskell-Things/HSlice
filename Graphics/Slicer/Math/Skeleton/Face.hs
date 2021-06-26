@@ -55,7 +55,7 @@ import Graphics.Slicer.Math.PGA (PLine2)
 -- | A Face:
 --   A portion of a contour, with a real side, and arcs (line segments between nodes) dividing it from other faces.
 --   Faces have no holes, and their arcs and nodes (line segments and points) are generated from a StraightSkeleton of a Contour.
-data Face = Face { _edge :: LineSeg, _firstArc :: PLine2, _arcs :: Slist PLine2, _lastArc :: PLine2 }
+data Face = Face { _edge :: !LineSeg, _firstArc :: !PLine2, _arcs :: !(Slist PLine2), _lastArc :: !PLine2 }
   deriving Eq
   deriving stock Show
 

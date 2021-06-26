@@ -120,7 +120,7 @@ instance Pointable INode where
 -- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior or the exterior of a contour.
 --   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.
 --   FIXME: Note that a new motorcycle may be created in the case of degenerate polygons... with it's inSegs being two other motorcycles.
-data Motorcycle = Motorcycle { _inCSegs :: (LineSeg, LineSeg), _outPline :: PLine2 }
+data Motorcycle = Motorcycle { _inCSegs :: !(LineSeg, LineSeg), _outPline :: !PLine2 }
   deriving Eq
   deriving stock Show
 
