@@ -302,4 +302,3 @@ firstLineSegOfContour (SafeContour _ _ p1 p2 _ _) = handleLineSegError $ lineSeg
 firstContourOfContourTreeSet :: ContourTreeSet -> Contour
 firstContourOfContourTreeSet (ContourTreeSet (ContourTree contour _) _) = contour
 
-  

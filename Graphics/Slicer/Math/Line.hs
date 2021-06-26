@@ -86,7 +86,6 @@ combineLineSegs l1@(LineSeg p _) l2@(LineSeg p1 s1) = if endpoint l2 == p -- If 
                                                       then Nothing -- handle a contour that loops back on itsself.
                                                       else Just $ fromRight (error $ "cannot combine lines: " <> show l1 <> "\n" <> show l2 <> "\n") $ lineSegFromEndpoints p (addPoints p1 s1)
 
-
 -- | Get the midpoint of a line segment
 midpoint :: LineSeg -> Point2
 midpoint (LineSeg p s) = addPoints p (scalePoint 0.5 s)
