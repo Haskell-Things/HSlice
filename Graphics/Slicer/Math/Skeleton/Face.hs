@@ -30,7 +30,7 @@ import Prelude as P (last)
 
 import Data.List (dropWhile)
 
-import Data.Maybe(isNothing, fromJust, fromMaybe)
+import Data.Maybe(isNothing, fromMaybe)
 
 import Slist.Type (Slist(Slist))
 
@@ -169,11 +169,11 @@ facesOf (StraightSkeleton nodeLists spine)
 
                 -- find the first immediate child of the given node.
                 firstDescendent :: ENodeSet -> INode -> ENode
-                firstDescendent myNodeSets myParent = fromJust $ findENodeByOutput myNodeSets $ firstPLineOf myParent
+                firstDescendent myNodeSets myParent = fromMaybe (error "could not find ENode for firstPLineOf myParent?") $ findENodeByOutput myNodeSets $ firstPLineOf myParent
 
                 -- find the last immediate child of the given node.
                 lastDescendent :: ENodeSet -> INode -> ENode
-                lastDescendent myNodeSets myParent = fromJust $ findENodeByOutput myNodeSets $ lastPLineOf myParent
+                lastDescendent myNodeSets myParent = fromMaybe (error "could not find ENode for lastPLineOf myParent?") $ findENodeByOutput myNodeSets $ lastPLineOf myParent
 
                 firstPLineOf :: INode -> PLine2
                 firstPLineOf (INode a _ _ _) = a
