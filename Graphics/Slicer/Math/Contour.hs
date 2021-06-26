@@ -21,7 +21,7 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 
-module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, contourIntersections, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, firstContourOfContourTreeSet, lineSegsOfContour) where
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, firstContourOfContourTreeSet, lineSegsOfContour, contourIntersectionCount) where
 
 import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, maximum, minimum, min, zip, Either(Left, Right), (-), (++))
 
@@ -217,7 +217,10 @@ innerContourPoint distance contour@(SafeContour minPoint _ _ _ _ _) l
       perpPoint      = pointOnPerp l (midpoint l) distance
       otherPerpPoint = pointOnPerp l (midpoint l) (-distance)
       outsidePoint   = Point2 (xOf minPoint - 1 , yOf minPoint - 1)
-      numIntersections = length $ contourIntersections contour (Left (pointOnPerp l (midpoint l) 0.00001, outsidePoint))
+      numIntersections = contourIntersectionCount contour (Left (pointOnPerp l (midpoint l) 0.00001, outsidePoint))
+
+contourIntersectionCount :: Contour -> Either (Point2, Point2) (PPoint2, PPoint2) -> Int
+contourIntersectionCount contour points = length $ contourIntersections contour points
 
 -- | return the intersections with a given contour when traveling a straight line from srcPoint to dstPoint.
 --   Not for use against line segments that are a part of the contour.

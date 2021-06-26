@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (Bool(True), ($), (<$>), (==), error, length, (&&), null, filter, zip, Either(Right), (>), even)
+import Prelude (Bool(True), ($), (<$>), (==), error, (&&), null, filter, zip, Either(Right), (>), even)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
@@ -39,7 +39,7 @@ import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PCollinear), plinesInters
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
-import Graphics.Slicer.Math.Contour (contourIntersections, lineSegsOfContour)
+import Graphics.Slicer.Math.Contour (contourIntersectionCount, lineSegsOfContour)
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
@@ -76,10 +76,10 @@ findStraightSkeleton contour holes = case foundCrashTree of
     maybeOpposingENode = case opposingNodes of
                          [] -> Nothing
                          [oneNode] -> Just oneNode
-                         (_:_) -> error "more than one opposing exterior node. impossible situation."
+                         (_:_) -> error "more than one opposing exterior node. cannot yet handle this situation."
       where
         opposingNodes :: [ENode]
-        opposingNodes = filter (\eNode -> enoughIntersections $ length (contourIntersections contour (Right (pPointOf eNode, pPointOf dividingMotorcycle))))
+        opposingNodes = filter (\eNode -> enoughIntersections $ contourIntersectionCount contour (Right (pPointOf eNode, pPointOf dividingMotorcycle)))
                         $ filter (\eNode -> plinesIntersectIn (outOf eNode) (outOf dividingMotorcycle) == PCollinear) $ concaveENodes contour
           where
             enoughIntersections n = n > 0 && even n
