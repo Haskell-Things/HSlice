@@ -6,7 +6,7 @@ on:
 
 jobs:
   ormolu:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - uses: "actions/checkout@v1"
 
@@ -48,4 +48,4 @@ jobs:
         cabal:
           - '3.2'
         ghc:
-          - '8.10.1'
+          - '8.10.4'
