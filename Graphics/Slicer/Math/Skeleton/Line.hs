@@ -32,6 +32,8 @@ import Data.List (sortOn, dropWhile, takeWhile, transpose)
 
 import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromMaybe)
 
+import Safe (lastMay, initSafe)
+
 import Slist (slist, len)
 
 import Slist.Type (Slist(Slist))
@@ -168,7 +170,12 @@ addInset insets distance faceSet
       | endpoint l2 ~= s1 = averagePoints (endpoint l2) s1
       | otherwise = error $ "out of order lineSegs generated from faces: " <> show faceSet <> "\n" <> show lineSegSets <> "\n"
     averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
-    buildContour points = makeSafeContour $ last points : init points
+    buildContour points = case points of
+                            [] -> error "trying to build an empty contour?"
+                            [a] -> error $ "not enough items to construct a contour: " <> show a <> "\n"
+                            (a:b:c) -> case lastMay c of
+                                         Nothing -> error $ "not enough items to construct a contour: " <> show a <> " " <> show b <> "\n"
+                                         (Just lastPoint) -> makeSafeContour $ lastPoint:a:b:initSafe c
     lineSegSets = fst <$> res
     remainingFaces = concat $ catMaybes $ snd <$> res
     res = addLineSegsToFace distance (Just 1) <$> faceSet
