@@ -31,7 +31,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, eNodeToINode, Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf) where
 
-import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, (>), (&&), any, fst, and, (||), (<>), show)
+import Prelude (Eq, Show, Bool(True, False), otherwise, ($), (<$>), (==), (++), error, (>), (&&), any, fst, and, (||), (<>), show)
 
 import Data.List.NonEmpty (NonEmpty)
 
@@ -110,7 +110,9 @@ instance Pointable INode where
                         [a] -> a
                         (a:_) -> a
     -- Allow the pebbles to vote.
-    | otherwise = fst $ last $ count_ results
+    | otherwise = case safeLast (slist $ count_ results) of
+                    Nothing -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
+                    (Just a) -> fst a
     where
       results = intersectionsOfPairs allPLines
       allPointsSame = and $ mapWithFollower (==) (intersectionsOfPairs allPLines)
