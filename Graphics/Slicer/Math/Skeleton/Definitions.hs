@@ -27,9 +27,11 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
+-- | Common types and functions used in the code responsible for generating straight skeletons.
+
 module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, eNodeToINode, Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isParallel, intersectionOf, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf) where
 
-import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, (>), (&&), any, head, fst, and, (||), (<>), show)
+import Prelude (Eq, Show, Bool(True, False), otherwise, ($), last, (<$>), (==), (++), error, (>), (&&), any, fst, and, (||), (<>), show)
 
 import Data.List.NonEmpty (NonEmpty)
 
@@ -37,9 +39,9 @@ import Data.List.Unique (count_)
 
 import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust)
 
-import Slist.Type (Slist(Slist))
-
 import Slist (len, cons, slist, isEmpty, safeLast, init)
+
+import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
@@ -103,10 +105,14 @@ instance Pointable INode where
           saneIntersect _                = False
   -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? angle based, etc?
   pPointOf iNode@(INode firstPLine secondPLine morePLines _)
-    | allPointsSame = head $ intersectionsOfPairs allPLines
+    | allPointsSame = case results of
+                        [] -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
+                        [a] -> a
+                        (a:_) -> a
     -- Allow the pebbles to vote.
-    | otherwise = fst $ last $ count_ $ intersectionsOfPairs allPLines
+    | otherwise = fst $ last $ count_ results
     where
+      results = intersectionsOfPairs allPLines
       allPointsSame = and $ mapWithFollower (==) (intersectionsOfPairs allPLines)
       allPLines = if hasArc iNode
                   then cons (outOf iNode) $ cons firstPLine $ cons secondPLine morePLines
@@ -147,7 +153,7 @@ data CellDivide = CellDivide { _divMotorcycles :: !DividingMotorcycles, _divENod
   deriving stock Show
 
 -- | The exterior nodes of a contour or a cell of a contour.
-data ENodeSet = ENodeSet { _firstENode :: ENode, _moreENodes :: Slist ENode }
+data ENodeSet = ENodeSet { _firstENode :: !ENode, _moreENodes :: !(Slist ENode) }
   deriving Eq
   deriving stock Show
 
@@ -161,7 +167,7 @@ newtype INodeSet = INodeSet (Slist [INode])
   deriving stock Show
 
 -- | The complete graph of exterior nodes, and their interior intersection. note this may be for a cell, a contour, or the border between two cells.
-data NodeTree = NodeTree { _eNodes :: ENodeSet, _iNodes :: INodeSet }
+data NodeTree = NodeTree { _eNodes :: !ENodeSet, _iNodes :: !INodeSet }
   deriving Eq
   deriving stock Show
 
@@ -172,7 +178,7 @@ newtype Spine = Spine { _spineArcs :: NonEmpty PLine2 }
   deriving stock Show
 
 -- | The straight skeleton of a contour.
-data StraightSkeleton = StraightSkeleton { _nodeSets :: ![[NodeTree]], _spineNodes :: Slist Spine }
+data StraightSkeleton = StraightSkeleton { _nodeSets :: ![[NodeTree]], _spineNodes :: !(Slist Spine) }
   deriving Eq
   deriving stock Show
 
@@ -220,9 +226,10 @@ finalPLine :: NodeTree -> PLine2
 finalPLine (NodeTree (ENodeSet firstENode moreENodes) (INodeSet generations))
   | isEmpty generations && len moreENodes == 0 = outOf firstENode
   | isEmpty generations = error "cannot have final PLine of nodetree with more than one ENode, and no generations!\n"
-  | otherwise = outOf $ last $ case safeLast generations of
-                                 Nothing -> error "either infinite, or empty list"
-                                 (Just val) -> val
+  | otherwise = outOf $ case safeLast generations of
+                          Nothing -> error "either infinite, or empty list"
+                          (Just [val]) -> val
+                          (Just _) -> error "too many items in final generation of INodeSet."
 
 -- | in a NodeTree, the last generation is always a single item. retrieve this item.
 finalINodeOf :: NodeTree -> INode
