@@ -312,7 +312,7 @@ getInsideArc _ pline1 _ pline2@(PLine2 pv2)
 makeINode :: [PLine2] -> Maybe PLine2 -> INode
 makeINode pLines maybeOut = case pLines of
                               [] -> error "tried to construct a broken INode"
-                              [_] -> error "tried to construct a broken INode"
+                              [onePLine] -> error $ "tried to construct a broken INode from one PLine2: " <> show onePLine <> "\n"
                               [first,second] -> INode first second (slist []) maybeOut
                               (first:second:more) -> INode first second (slist more) maybeOut
 
