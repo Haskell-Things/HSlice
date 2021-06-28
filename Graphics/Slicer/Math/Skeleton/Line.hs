@@ -23,7 +23,7 @@
 -- |  functions for for applying inset line segments to a series of faces, and for adding infill to a face.
 module Graphics.Slicer.Math.Skeleton.Line (addInset, addInfill) where
 
-import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (++), (>), min, Bool(True, False), head, fst, init, tail, last, maybe, snd)
+import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (++), (>), min, Bool(True, False), fst, maybe, snd)
 
 import Data.List (sortOn, dropWhile, takeWhile, transpose)
 
@@ -107,7 +107,7 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
                        [] -> error "no remains for an nSideRemainder?"
 
     -- | Find the closest point where two of our arcs intersect, relative to our side.
-    arcIntersections = init $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf a b) (eToPLine2 edge), (a, b))) $ [firstArc] ++ rawMidArcs ++ [lastArc]
+    arcIntersections = initSafe $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf a b) (eToPLine2 edge), (a, b))) $ [firstArc] ++ rawMidArcs ++ [lastArc]
     findClosestArc :: (ℝ, (PLine2, PLine2))
     findClosestArc         = case sortOn fst arcIntersections of
                                [] -> error "empty arcIntersections?"
@@ -120,13 +120,21 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     untilArc               = if closestArc == firstArc
                              then [firstArc]
                              else takeWhile (/= closestArcFollower) $ rawMidArcs ++ [lastArc]
+        -- Return all of the arcs after the closest arc.
     afterArc               = dropWhile (/= closestArcFollower) $ rawMidArcs ++ [lastArc]
     (sides1, remains1)     = if closestArc == firstArc
-                             then ([],Nothing)
-                             else addLineSegsToFace distance insets (Face finalSide firstArc (slist $ tail $ init untilArc) closestArc)
-    (sides2, remains2)     = if closestArc == last rawMidArcs
-                             then ([],Nothing)
-                             else addLineSegsToFace distance insets (Face finalSide (head afterArc) (slist $ init $ tail afterArc) lastArc)
+                             then noResult
+                             else result firstArc untilArc
+    (sides2, remains2)     = case lastMay rawMidArcs of
+                               Nothing -> noResult
+                               (Just a) -> if closestArc == a
+                                           then noResult
+                                           else result closestArcFollower afterArc
+    noResult = ([],Nothing)
+    result begin arcs = case arcs of
+                          [] -> error "unpossible!"
+                          [_oneArc] -> addLineSegsToFace distance insets (Face finalSide begin (slist []) lastArc)
+                          (_oneArc:manyArcs) -> addLineSegsToFace distance insets (Face finalSide begin (slist $ initSafe manyArcs) lastArc)
     ---------------------------------------------
     -- functions only used by a four-sided n-gon.
     ---------------------------------------------
