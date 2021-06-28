@@ -19,11 +19,8 @@
 -- inherit instances when deriving.
 {-# LANGUAGE DerivingStrategies #-}
 
-{-
- - This file contains two things that should probably be in separate files:
- - code for applying inset line segments to a series of faces, and
- - code to and infill to faces.
- -}
+
+-- |  functions for for applying inset line segments to a series of faces, and for adding infill to a face.
 module Graphics.Slicer.Math.Skeleton.Line (addInset, addInfill) where
 
 import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (++), (>), min, Bool(True, False), head, fst, init, tail, last, maybe, snd)
@@ -40,7 +37,7 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (makeSafeContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, (~=), mapWithFollower, scalePoint, addPoints)
+import Graphics.Slicer.Math.Definitions (Contour, (~=), mapWithFollower, mapWithPredecessor, scalePoint, addPoints)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, endpoint, handleLineSegError)
 
@@ -159,7 +156,7 @@ addInset insets distance faceSet
   | insets == 1 = ([reconstructedContour], remainingFaces)
   | otherwise = error "cannot handle more than one inset yet."
   where
-    reconstructedContour = case (cleanContour $ buildContour $ mapWithFollower recoveryFun (concat $ transpose lineSegSets)) of
+    reconstructedContour = case (cleanContour $ makeSafeContour $ mapWithPredecessor recoveryFun (concat $ transpose lineSegSets)) of
                              (Just v) -> v
                              Nothing -> error $ "failed to inset:"
     recoveryFun l1@(LineSeg s1 _) l2@(LineSeg s2 _)
@@ -170,12 +167,6 @@ addInset insets distance faceSet
       | endpoint l2 ~= s1 = averagePoints (endpoint l2) s1
       | otherwise = error $ "out of order lineSegs generated from faces: " <> show faceSet <> "\n" <> show lineSegSets <> "\n"
     averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
-    buildContour points = case points of
-                            [] -> error "trying to build an empty contour?"
-                            [a] -> error $ "not enough items to construct a contour: " <> show a <> "\n"
-                            (a:b:c) -> case lastMay c of
-                                         Nothing -> error $ "not enough items to construct a contour: " <> show a <> " " <> show b <> "\n"
-                                         (Just lastPoint) -> makeSafeContour $ lastPoint:a:b:initSafe c
     lineSegSets = fst <$> res
     remainingFaces = concat $ catMaybes $ snd <$> res
     res = addLineSegsToFace distance (Just 1) <$> faceSet

@@ -22,7 +22,7 @@
 
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
-module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(SafeContour), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower) where
+module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(SafeContour), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor) where
 
 import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, Int, null, zipWith3, take, length, drop, cycle, (.), (-), zipWith)
 
@@ -144,3 +144,12 @@ mapWithFollower  f l
     rotateList n list = take (length list + 1) . drop n $ cycle list
     z = rotateList 1 l
 
+-- | like map, only with previous, and current item, and wrapping around so the first entry gets the last entry as previous.
+mapWithPredecessor :: (a -> a -> b) -> [a] -> [b]
+mapWithPredecessor  f l
+  | null l = []
+  | otherwise = withStrategy (parList rpar) $ x `pseq` zipWith f x l
+  where
+    rotateList :: Int -> [a] -> [a]
+    rotateList n list = take (length list + 1) . drop n $ cycle list
+    x = rotateList (length l - 1) l
