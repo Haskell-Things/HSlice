@@ -32,6 +32,8 @@ import Data.List (dropWhile)
 
 import Data.Maybe(isNothing, fromMaybe)
 
+import Safe (initSafe)
+
 import Slist.Type (Slist(Slist))
 
 import Slist (slist, cons, isEmpty, len)
@@ -131,7 +133,7 @@ facesOf (StraightSkeleton nodeLists spine)
             areaBeneath eNodeList myINodeSet@(INodeSet myGenerations) target =
               case myGenerations of
                 (Slist [] _) -> if hasArc target
-                                then init resultAsTriangles
+                                then initSafe resultAsTriangles
                                 else resultAsTriangles
                 (Slist [oneGeneration] _) -> if hasArc target
                                              then errorHasArc
