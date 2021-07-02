@@ -19,12 +19,10 @@
 -- inherit instances when deriving.
 {-# LANGUAGE DerivingStrategies #-}
 
-{-
- - This file contains code for creating a series of faces, covering a straight skeleton.
- -}
-module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf, lastSegOf, firstSegOf, lastENodeOf, firstENodeOf) where
+-- | This file contains code for creating a series of Faces, covering a straight skeleton.
+module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
-import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), (++), Bool, (||), take, filter, init, null, tail, concat, reverse)
+import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), (++), Bool, (||), take, filter, null, tail, concat, reverse)
 
 import Prelude as P (last)
 
@@ -104,14 +102,16 @@ facesOf (StraightSkeleton nodeLists spine)
         intraNodeFace :: NodeTree -> NodeTree -> Face
         intraNodeFace nodeTree1 nodeTree2
           | nodeTree1 == nodeTree2          = error $ "two identical nodes given.\n" <> show nodeTree1 <> "\n"
-          | nodeTree1 `isRightOf` nodeTree2 = if P.last (firstPLinesOf nodeTree2) == P.last (lastPLinesOf nodeTree1)
-                                              then makeFace (lastENodeOf nodeTree2) (init (firstPLinesOf nodeTree2) ++ tail (reverse $ init $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
-                                              else makeFace (lastENodeOf nodeTree2) (init (firstPLinesOf nodeTree2) ++       reverse  (init $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
-          | nodeTree1 `isLeftOf` nodeTree2  = if P.last (lastPLinesOf nodeTree1) == P.last (firstPLinesOf nodeTree2)
-                                              then makeFace (firstENodeOf nodeTree1) (init (lastPLinesOf nodeTree1) ++ tail (reverse $ init $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
-                                              else makeFace (firstENodeOf nodeTree1) (init (lastPLinesOf nodeTree1) ++       reverse  (init $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
+          | nodeTree1 `isRightOf` nodeTree2 = if nodeTree2 `follows` nodeTree1
+                                              then makeFace (lastENodeOf nodeTree2) (initSafe (firstPLinesOf nodeTree2) ++ tail (reverse $ initSafe $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
+                                              else makeFace (lastENodeOf nodeTree2) (initSafe (firstPLinesOf nodeTree2) ++       reverse  (initSafe $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
+          | nodeTree1 `isLeftOf` nodeTree2  = if nodeTree1 `follows` nodeTree2
+                                              then makeFace (firstENodeOf nodeTree1) (initSafe (lastPLinesOf nodeTree1) ++ tail (reverse $ initSafe $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
+                                              else makeFace (firstENodeOf nodeTree1) (initSafe (lastPLinesOf nodeTree1) ++       reverse  (initSafe $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
           | otherwise = error $ "Two NodeTrees given that are not neighbors: " <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
           where
+            follows :: NodeTree -> NodeTree -> Bool
+            follows nt1 nt2 = (P.last $ firstPLinesOf nt1) == (P.last $ lastPLinesOf nt2)
             isLeftOf :: NodeTree -> NodeTree -> Bool
             isLeftOf nt1 nt2 = firstSegOf nt1 == lastSegOf nt2
             isRightOf :: NodeTree -> NodeTree -> Bool
