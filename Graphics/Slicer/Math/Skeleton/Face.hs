@@ -22,7 +22,7 @@
 -- | This file contains code for creating a series of Faces, covering a straight skeleton.
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
-import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), (++), Bool, (||), take, filter, null, tail, concat, reverse)
+import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), (++), Bool, (||), take, filter, null, concat)
 
 import Prelude as P (last)
 
@@ -34,7 +34,7 @@ import Safe (initSafe)
 
 import Slist.Type (Slist(Slist))
 
-import Slist (slist, cons, isEmpty, len)
+import Slist (slist, cons, isEmpty, len, one, init, tail, reverse)
 
 import Slist as SL (last)
 
@@ -65,7 +65,7 @@ orderedFacesOf :: LineSeg -> StraightSkeleton -> [Face]
 orderedFacesOf start skeleton = facesFromIndex start $ facesOf skeleton
   where
     facesFromIndex :: LineSeg -> [Face] -> [Face]
-    facesFromIndex targetSeg rawFaces = take (length rawFaces) $ dropWhile (\(Face a _ _ _) -> a /= targetSeg) $ rawFaces ++ rawFaces
+    facesFromIndex targetSeg rawFaces = take (length rawFaces) $ dropWhile (\(Face a _ _ _) -> a /= targetSeg) $ rawFaces <> rawFaces
 
 -- | take a straight skeleton, and create faces from it.
 facesOf :: StraightSkeleton -> [Face]
@@ -101,25 +101,25 @@ facesOf (StraightSkeleton nodeLists spine)
         -- Create a single face for the space between two NodeTrees. like areaBetween, but for two separate NodeTrees.
         intraNodeFace :: NodeTree -> NodeTree -> Face
         intraNodeFace nodeTree1 nodeTree2
-          | nodeTree1 == nodeTree2          = error $ "two identical nodes given.\n" <> show nodeTree1 <> "\n"
-          | nodeTree1 `isRightOf` nodeTree2 = if nodeTree2 `follows` nodeTree1
-                                              then makeFace (lastENodeOf nodeTree2) (initSafe (firstPLinesOf nodeTree2) ++ tail (reverse $ initSafe $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
-                                              else makeFace (lastENodeOf nodeTree2) (initSafe (firstPLinesOf nodeTree2) ++       reverse  (initSafe $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
           | nodeTree1 `isLeftOf` nodeTree2  = if nodeTree1 `follows` nodeTree2
-                                              then makeFace (firstENodeOf nodeTree1) (initSafe (lastPLinesOf nodeTree1) ++ tail (reverse $ initSafe $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
-                                              else makeFace (firstENodeOf nodeTree1) (initSafe (lastPLinesOf nodeTree1) ++       reverse  (initSafe $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
+                                              then makeFace (firstENodeOf nodeTree1) ((init $ lastPLinesOf nodeTree1) <> tail (tail $ reverse $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
+                                              else makeFace (firstENodeOf nodeTree1) ((init $ lastPLinesOf nodeTree1) <>       tail  (reverse $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
+          | nodeTree1 `isRightOf` nodeTree2 = if nodeTree2 `follows` nodeTree1
+                                              then makeFace (lastENodeOf nodeTree2) ((init $ firstPLinesOf nodeTree2) <> tail (tail $ reverse $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
+                                              else makeFace (lastENodeOf nodeTree2) ((init $ firstPLinesOf nodeTree2) <>       tail  (reverse $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
+          | nodeTree1 == nodeTree2          = error $ "two identical nodes given.\n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
           | otherwise = error $ "Two NodeTrees given that are not neighbors: " <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
           where
             follows :: NodeTree -> NodeTree -> Bool
-            follows nt1 nt2 = (P.last $ firstPLinesOf nt1) == (P.last $ lastPLinesOf nt2)
+            follows nt1 nt2 = (SL.last $ firstPLinesOf nt1) == (SL.last $ lastPLinesOf nt2)
             isLeftOf :: NodeTree -> NodeTree -> Bool
             isLeftOf nt1 nt2 = firstSegOf nt1 == lastSegOf nt2
             isRightOf :: NodeTree -> NodeTree -> Bool
             isRightOf nt1 nt2 = lastSegOf nt1 == firstSegOf nt2
-            lastPLinesOf :: NodeTree -> [PLine2]
-            lastPLinesOf nodeTree = (\(a,_,_) -> a) $ pathLast nodeTree
-            firstPLinesOf :: NodeTree -> [PLine2]
-            firstPLinesOf nodeTree = (\(a,_,_) -> a) $ pathFirst nodeTree
+            lastPLinesOf :: NodeTree -> Slist PLine2
+            lastPLinesOf nodeTree = slist $ (\(a,_,_) -> a) $ pathLast nodeTree
+            firstPLinesOf :: NodeTree -> Slist PLine2
+            firstPLinesOf nodeTree = slist $ (\(a,_,_) -> a) $ pathFirst nodeTree
 
         -- | Create a set of faces from a nodetree.
         -- FIXME: doesn't handle more than one generation deep, yet.
@@ -150,14 +150,14 @@ facesOf (StraightSkeleton nodeLists spine)
                 errorTooMany = error $ "Too Many: " <> show nodeTree <> "\n" <> show target <> "\n" <> show (len myGenerations) <> "\n"
                 -- | make a face from two nodes. the nodes must be composed of line segments on one side, and follow each other.
                 makeTriangleFace :: ENode -> ENode -> Face
-                makeTriangleFace node1 node2 = makeFace node1 [] node2
+                makeTriangleFace node1 node2 = makeFace node1 (Slist [] 0) node2
 
             -- cover the space between the last path of the first node and the first path of the second node with a single Face. It is assumed that both nodes have the same parent.
             areaBetween :: ENodeSet -> INode -> INode -> INode -> Face
             areaBetween eNodeList@(ENodeSet firstENode moreENodes) parent iNode1 iNode2
               -- Handle the case where we are creating a face across the open end of the contour.
-              | lastDescendent eNodeList iNode1 /= SL.last (cons firstENode moreENodes) = makeFace (lastDescendent eNodeList iNode1) [lastPLineOf parent] (findMatchingDescendent eNodeList iNode2 $ lastDescendent eNodeList iNode1)
-              | otherwise                                                               = makeFace (firstDescendent eNodeList iNode1) [firstPLineOf parent] (findMatchingDescendent eNodeList iNode2 $ firstDescendent eNodeList iNode1)
+              | lastDescendent eNodeList iNode1 /= SL.last (cons firstENode moreENodes) = makeFace (lastDescendent eNodeList iNode1) (one $ lastPLineOf parent) (findMatchingDescendent eNodeList iNode2 $ lastDescendent eNodeList iNode1)
+              | otherwise                                                               = makeFace (firstDescendent eNodeList iNode1) (one $ firstPLineOf parent) (findMatchingDescendent eNodeList iNode2 $ firstDescendent eNodeList iNode1)
               where
                 -- | using the set of all first generation nodes, a second generation node, and a first generation node, find out which one of the first generation children of the given second generation node shares a side with the first generation node.
                 findMatchingDescendent :: ENodeSet -> INode -> ENode -> ENode
@@ -183,9 +183,9 @@ facesOf (StraightSkeleton nodeLists spine)
                 lastPLineOf (INode _firstPLine secondPLine morePLines _) = SL.last (cons secondPLine morePLines)
 
     -- | make a face from two nodes, and a set of arcs. the nodes must be composed of line segments on one side, and follow each other.
-    makeFace :: ENode -> [PLine2] -> ENode -> Face
+    makeFace :: ENode -> Slist PLine2 -> ENode -> Face
     makeFace node1@(ENode (seg1,seg2) pline1) arcs node2@(ENode (seg3,seg4) pline2)
-      | seg2 == seg3 = Face seg2 pline2 (slist arcs) pline1
-      | seg1 == seg4 = Face seg1 pline1 (slist arcs) pline2
+      | seg2 == seg3 = Face seg2 pline2 arcs pline1
+      | seg1 == seg4 = Face seg1 pline1 arcs pline2
       | otherwise = error $ "cannot make a face from nodes that are not neighbors: \n" <> show node1 <> "\n" <> show node2 <> "\n"
 
