@@ -16,14 +16,13 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- The purpose of this file is to hold our geometric algebra library. -}
-
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
+-- | Our geometric algebra library.
 module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, unlikeVecPair) where
 
-import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), otherwise, ($), (++), head, tail, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), error, flip, (||), elem, notElem, and)
+import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), otherwise, ($), (++), filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), error, flip, (||), elem, notElem, and)
 
 import GHC.Generics (Generic)
 
@@ -42,14 +41,14 @@ import Graphics.Slicer.Orphans ()
 -- | The geometric numbers.
 -- We must derive Ord so we can sort the terms during simplification.
 data GNum =
-    GEMinus Fastℕ -- squared equal to -1 -- associated with rotation
-  | GEZero  Fastℕ -- squared equal to  0 -- associated with translations
-  | GEPlus  Fastℕ -- squared equal to +1 -- associated with space/time or hyperbolic rotations
+    GEMinus !Fastℕ -- squared equal to -1 -- associated with rotation
+  | GEZero  !Fastℕ -- squared equal to  0 -- associated with translations
+  | GEPlus  !Fastℕ -- squared equal to +1 -- associated with space/time or hyperbolic rotations
   | G0            -- A scalar type. short lived.
   deriving (Eq, Generic, NFData, Show, Ord)
 
 -- | A value in geometric algebra.
-data GVal = GVal { _real :: ℝ, _basis :: [GNum] }
+data GVal = GVal { _real :: !ℝ, _basis :: ![GNum] }
   deriving (Eq, Generic, NFData, Show)
 
 -- When sorting gvals, sort the basis, THEN sort the multiplier.
@@ -143,9 +142,10 @@ likeVecPair a b
 
 -- | Generate the like product of a vector pair.
 likeVecPair' :: GVec -> GVec -> GVec
-likeVecPair' vec1 vec2 = if null results
-                         then GVec []
-                         else GVec $ foldl' addVal [head results] $ tail results
+likeVecPair' vec1 vec2 = case results of
+                           [] -> GVec []
+                           [oneRes] -> GVec [oneRes]
+                           (h:t) -> GVec $ foldl' addVal [h] t
   where
     results = likeVecPair'' vec1 vec2
     -- cycle through one list, and generate a pair with the second list when the two basis vectors are the same.
@@ -161,9 +161,10 @@ likeVecPair' vec1 vec2 = if null results
 
 -- | Generate the unlike product of a vector pair.
 unlikeVecPair :: GVec -> GVec -> GVec
-unlikeVecPair vec1 vec2 = if null results
-                          then GVec []
-                          else GVec $ foldl' addVal [head results] $ tail results
+unlikeVecPair vec1 vec2 = case results of
+                            [] -> GVec []
+                            [oneRes] -> GVec [oneRes]
+                            (h:t) -> GVec $ foldl' addVal [h] t
   where
     results = unlikeVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list when the two basis vectors are not the same.
@@ -179,9 +180,10 @@ unlikeVecPair vec1 vec2 = if null results
 
 -- | Generate the reductive product of a vector pair.
 reduceVecPair :: GVec -> GVec -> GVec
-reduceVecPair vec1 vec2 = if null results
-                           then GVec []
-                           else GVec $ foldl' addVal [head results] $ tail results
+reduceVecPair vec1 vec2 = case results of
+                            [] -> GVec []
+                            [oneRes] -> GVec [oneRes]
+                            (h:t) -> GVec $ foldl' addVal [h] t
   where
     results = reduceVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list.
@@ -212,9 +214,10 @@ reduceVecPair vec1 vec2 = if null results
 
 -- | Generate the geometric product of a vector pair.
 mulVecPair :: GVec -> GVec -> GVec
-mulVecPair vec1 vec2 = if null results
-                         then GVec []
-                         else GVec $ foldl' addVal [head results] $ tail results
+mulVecPair vec1 vec2 = case results of
+                         [] -> GVec []
+                         [oneRes] -> GVec [oneRes]
+                         (h:t) -> GVec $ foldl' addVal [h] t
   where
     results = mulVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list.
@@ -263,19 +266,19 @@ stripPairs = withoutPairs
     withoutPairs val@(GVal _ [])  = val
     withoutPairs val@(GVal _ [_])  = val
     withoutPairs val@(GVal r ((GEPlus a):(GEPlus b):xs))
-      | a == b && not (null xs)  = withoutPairs $ GVal r xs
-      | a == b && null xs        = GVal r [G0]
-      | a /= b && not (null xs)  = prependI (GEPlus a) $ withoutPairs $ GVal r (GEPlus b:xs)
-      | a /= b && null xs        = val
+      | a == b && null xs = GVal r [G0]
+      | a == b            = withoutPairs $ GVal r xs
+      | a /= b && null xs = val
+      | a /= b            = prependI (GEPlus a) $ withoutPairs $ GVal r (GEPlus b:xs)
     withoutPairs val@(GVal r ((GEMinus a):(GEMinus b):xs))
-      | a == b && not (null xs)  = withoutPairs $ GVal (-r) xs
-      | a == b && null xs        = GVal (-r) [G0]
-      | a /= b && not (null xs)  = prependI (GEMinus a) $ withoutPairs $ GVal r (GEMinus b:xs)
-      | a /= b && null xs        = val
+      | a == b && null xs = GVal (-r) [G0]
+      | a == b            = withoutPairs $ GVal (-r) xs
+      | a /= b && null xs = val
+      | a /= b            = prependI (GEMinus a) $ withoutPairs $ GVal r (GEMinus b:xs)
     withoutPairs val@(GVal r ((GEZero a):(GEZero b):xs))
-      | a == b                   = GVal 0 [G0]
-      | a /= b && not (null xs)  = prependI (GEZero a) $ withoutPairs $ GVal r (GEZero b:xs)
-      | a /= b && null xs        = val
+      | a == b            = GVal 0 [G0]
+      | a /= b && null xs = val
+      | a /= b            = prependI (GEZero a) $ withoutPairs $ GVal r (GEZero b:xs)
     withoutPairs (GVal r (a:b:xs)) = prependI a $ withoutPairs $ GVal r (b:xs)
     prependI :: GNum -> GVal -> GVal
     prependI num (GVal r [G0]) = GVal r [num]
@@ -283,26 +286,32 @@ stripPairs = withoutPairs
 
 -- | Our "like" operator. unicode point u+23a3.
 (⎣) :: GVec -> GVec -> GVec
+infixl 9 ⎣
 (⎣) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (likeVecPair v1 v2)
 
 -- | Our "unlike" operator. unicode point u+23a4.
 (⎤) :: GVec -> GVec -> GVec
+infixl 9 ⎤
 (⎤) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (unlikeVecPair v1 v2)
 
 -- | Our "reductive" operator.
 (⨅) :: GVec -> GVec -> GVec
+infixl 9 ⨅
 (⨅) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (reduceVecPair v1 v2)
 
 -- | A wedge operator. gets the wedge product of the two arguments. note that wedge = reductive minus unlike.
 (∧) :: GVec -> GVec -> GVec
+infixl 9 ∧
 (∧) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (subVecPair (reduceVecPair v1 v2) (unlikeVecPair v1 v2))
 
 -- | A dot operator. gets the dot product of the two arguments. note that dot = reductive plus like.
 (⋅) :: GVec -> GVec -> GVec
+infixl 9 ⋅
 (⋅) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (addVecPair (reduceVecPair v1 v2) (likeVecPair v1 v2))
 
 -- | A geometric product operator. Gets the geometric product of the two arguments.
 (•) :: GVec -> GVec -> GVec
+infixl 9 •
 (•) vec1 vec2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (mulVecPair vec1 vec2)
 
 -- | Simplify a GVec, and return any scalar component.
