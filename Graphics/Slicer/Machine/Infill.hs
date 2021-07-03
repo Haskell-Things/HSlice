@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringLineSegsVertical) where
 
-import Prelude ((+), (<$>), ($), filter, (>), head, (.), flip, (*), sqrt, (-), (<>), show, error, otherwise, (==), length, concat, not, null, (!!), odd, Either (Left, Right), zip)
+import Prelude ((+), (<$>), ($), (.), flip, (*), sqrt, (-), (<>), Ordering(EQ, GT, LT), show, error, otherwise, (==), length, concat, not, null, (!!), odd, Either (Left, Right), zip, fromIntegral, ceiling, (/), floor, Integer, compare)
 
 import Data.List.Ordered (sort)
 
@@ -100,7 +100,6 @@ infillLineSegInside contour childContours line
                   saneIntersection r1 r2 r3 = error $ "insane result of intersecting a line (" <> show myline <> ") with a contour " <> show c <> "\n" <> show r1 <> "\n" <> show r2 <> "\n" <> show r3 <> "\n"
 
 -- Generate lines covering the entire contour, where each one is aligned with a +1 slope, which is to say, lines parallel to a line where x = y.
--- FIXME: assumes we're in positive space.
 coveringLineSegsPositive :: Contour -> ℝ -> [PLine2]
 coveringLineSegsPositive (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
     where
@@ -110,13 +109,15 @@ coveringLineSegsPositive (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 
       yMin = yOf minPoint
       yMax = yOf maxPoint
       xMinRaw = xOf minPoint
-      xMin = head $ filter (> xMinRaw) [0, lss..]
+      xMin = case xMinRaw `compare` 0 of
+        GT -> lss * fromIntegral (ceiling (xMinRaw / lss) :: Integer)
+        LT -> lss * fromIntegral (floor (xMinRaw / lss) :: Integer)
+        EQ -> 0
       xMax = xOf maxPoint
       -- line spacing, taking into account the slope.
       lss = sqrt $ ls*ls+ls*ls
 
 -- Generate lines covering the entire contour, where each one is aligned with a -1 slope, which is to say, lines parallel to a line where x = -y.
--- FIXME: assumes we're in positive space.
 coveringLineSegsNegative :: Contour -> ℝ -> [PLine2]
 coveringLineSegsNegative (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
     where
@@ -124,7 +125,10 @@ coveringLineSegsNegative (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 
       f v = Point2 (v+yDiff,0)
       yDiff = xMin + yMin
       yMinRaw = yOf minPoint
-      yMin = head $ filter (> yMinRaw) [0, lss..]
+      yMin = case yMinRaw `compare` 0 of
+        GT -> lss * fromIntegral (ceiling (yMinRaw / lss) :: Integer)
+        LT -> lss * fromIntegral (floor (yMinRaw / lss) :: Integer)
+        EQ -> 0
       yMax = yOf maxPoint
       xMin = xOf minPoint
       xMax = xOf maxPoint
@@ -132,24 +136,28 @@ coveringLineSegsNegative (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 
       lss = sqrt $ ls*ls+ls*ls
 
 -- Generate lines covering the entire contour, where each line is aligned with the Y axis, which is to say, parallel to the Y basis vector.
--- FIXME: assumes we're in positive space.
 coveringLineSegsVertical :: Contour -> ℝ -> [PLine2]
 coveringLineSegsVertical (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 . flip LineSeg slope . f <$> [xMin,xMin+ls..xMax]
     where
       slope = Point2 (0,1)
       f v = Point2 (v,0)
       xMinRaw = xOf minPoint
-      xMin = head $ filter (> xMinRaw) [0, ls..]
+      xMin = case xMinRaw `compare` 0 of
+        GT -> ls * fromIntegral (ceiling (xMinRaw / ls) :: Integer)
+        LT -> ls * fromIntegral (floor (xMinRaw / ls) :: Integer)
+        EQ -> 0
       xMax = xOf maxPoint
 
 -- Generate lines covering the entire contour, where each line is aligned with the X axis, which is to say, parallel to the X basis vector.
--- FIXME: assumes we're in positive space.
 coveringLineSegsHorizontal :: Contour -> ℝ -> [PLine2]
 coveringLineSegsHorizontal (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 . flip LineSeg slope . f <$> [yMin,yMin+ls..yMax]
     where
       slope = Point2 (1,0)
       f v = Point2 (0,v)
       yMinRaw = yOf minPoint
-      yMin = head $ filter (> yMinRaw) [0, ls..]
+      yMin = case yMinRaw `compare` 0 of
+        GT -> ls * fromIntegral (ceiling (yMinRaw / ls) :: Integer)
+        LT -> ls * fromIntegral (floor (yMinRaw / ls) :: Integer)
+        EQ -> 0
       yMax = yOf maxPoint
 
