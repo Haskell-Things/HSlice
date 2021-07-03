@@ -22,7 +22,7 @@
 -- | This file contains code for creating a series of Faces, covering a straight skeleton.
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
-import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), (++), Bool, (||), take, filter, null, concat)
+import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), Bool, (||), take, filter, null, concat)
 
 import Prelude as P (last)
 
@@ -89,15 +89,15 @@ facesOf (StraightSkeleton nodeLists spine)
         rawFaces = case nodeTrees of
                      [] -> error "Impossible. cannot happen."
                      [a] -> facesOfNodeTree a
-                     [firstNodeTree, secondNodeTree] -> findFacesRecurse nodeTrees ++ [intraNodeFace secondNodeTree firstNodeTree]
-                     (firstNodeTree:_:lastNodeTrees) -> findFacesRecurse nodeTrees ++ [intraNodeFace (P.last lastNodeTrees) firstNodeTree]
+                     [firstNodeTree, secondNodeTree] -> findFacesRecurse nodeTrees <> [intraNodeFace secondNodeTree firstNodeTree]
+                     (firstNodeTree:lastNodeTrees) -> findFacesRecurse nodeTrees <> [intraNodeFace (P.last lastNodeTrees) firstNodeTree]
         -- Recursively find faces.
         findFacesRecurse :: [NodeTree] -> [Face]
         findFacesRecurse myNodeTrees = case myNodeTrees of
                                          [] -> error "Impossible. cannot happen."
                                          [tree1] -> facesOfNodeTree tree1
-                                         [tree1,tree2] -> facesOfNodeTree tree2 ++ (intraNodeFace tree1 tree2 : facesOfNodeTree tree1)
-                                         (tree1:tree2:xs) -> findFacesRecurse (tree2:xs) ++ (intraNodeFace tree1 tree2 : facesOfNodeTree tree1)
+                                         [tree1,tree2] -> facesOfNodeTree tree2 <> (intraNodeFace tree1 tree2 : facesOfNodeTree tree1)
+                                         (tree1:tree2:xs) -> findFacesRecurse (tree2:xs) <> (intraNodeFace tree1 tree2 : facesOfNodeTree tree1)
         -- Create a single face for the space between two NodeTrees. like areaBetween, but for two separate NodeTrees.
         intraNodeFace :: NodeTree -> NodeTree -> Face
         intraNodeFace nodeTree1 nodeTree2
@@ -137,7 +137,7 @@ facesOf (StraightSkeleton nodeLists spine)
                                 else resultAsTriangles
                 (Slist [oneGeneration] _) -> if hasArc target
                                              then errorHasArc
-                                             else concat $ mapWithFollower (\a b -> areaBeneath eNodeList (ancestorsOf myINodeSet) a ++ [areaBetween eNodeList target a b]) oneGeneration
+                                             else concat $ mapWithFollower (\a b -> areaBeneath eNodeList (ancestorsOf myINodeSet) a <> [areaBetween eNodeList target a b]) oneGeneration
                 (Slist (_:_) _) -> errorTooMany
               where
                 -- create triangles from every pair of arcs of this inode, in order. assumes that all of the arcs are connected to ENodes.
