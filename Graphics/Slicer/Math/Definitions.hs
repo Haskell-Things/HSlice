@@ -17,11 +17,9 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- The purpose of this file is to hold the definitions of the data
-   structures used when performing slicing related math. -}
-
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
+-- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
 module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(SafeContour), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor) where
 
 import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, Int, null, zipWith3, take, length, drop, cycle, (.), (-), zipWith)
@@ -110,7 +108,7 @@ instance SpacePoint Point3 where
 
 -- | a list of points around a (2d) shape.
 -- Note that the minPoint and maxPoint define a bounding box for the contour that it does not spill out of.
-data Contour = SafeContour { _minPoint :: Point2, _maxPoint :: Point2, _firstPoint :: Point2, _secondPoint :: Point2, _thirdPoint :: Point2 , morePoints :: (Slist Point2) }
+data Contour = SafeContour { _minPoint :: !Point2, _maxPoint :: !Point2, _firstPoint :: !Point2, _secondPoint :: !Point2, _thirdPoint :: !Point2 , morePoints :: !(Slist Point2) }
   deriving (Eq, Generic, NFData, Show)
 
 -- | round a value
