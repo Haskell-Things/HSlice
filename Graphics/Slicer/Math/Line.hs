@@ -17,16 +17,13 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- The purpose of this file is to hold line based arithmatic. -}
-
 -- for adding Generic and NFData to LineSeg.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
+-- | The purpose of this file is to hold line based arithmatic. really, we used to have a linear algebra implementation here, before we moved to PGA.
 module Graphics.Slicer.Math.Line (LineSeg(LineSeg), LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs, handleLineSegError) where
 
-import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), Eq, tail, last, init, (<$>), Show, error, null, zipWith, (<>), show, Either(Left, Right))
-
-import Data.List (nub)
+import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), Eq, last, init, (<$>), Show, error, null, zipWith, (<>), show, Either(Left, Right))
 
 import Data.Either (fromRight)
 
@@ -43,11 +40,11 @@ import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2, addPoints, scal
 -- Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
 -- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
-data LineSeg = LineSeg { _point :: Point2, _distanceToEnd :: Point2 }
+data LineSeg = LineSeg { _point :: !Point2, _distanceToEnd :: !Point2 }
   deriving (Generic, NFData, Show, Eq)
 
 -- | Possible errors from lineSegFromEndpoints.
-data LineSegError = LineSegFromPoint Point2
+data LineSegError = LineSegFromPoint !Point2
                   | EmptyList
   deriving (Eq, Show)
 
@@ -75,9 +72,8 @@ pointsFromLineSegs lineSegs
   | otherwise = Right $ makePoints lineSegs
   where
     makePoints ls = last (endpointsOf ls) : init (endpointsOf ls)
-    -- FIXME: nub should not be necessary here.
     endpointsOf :: [LineSeg] -> [Point2]
-    endpointsOf ls = nub $ endpoint <$> ls
+    endpointsOf ls = endpoint <$> ls
 
 -- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
 -- if p2 == p3 and the lines are really close to parallel
@@ -96,12 +92,11 @@ flipLineSeg l@(LineSeg _ s) = LineSeg (endpoint l) (scalePoint (-1) s)
 
 -- | Given a list of points (in order), construct line segments that go between them.
 makeLineSegs :: [Point2] -> [LineSeg]
-makeLineSegs l = case l of
-                   [] -> error "tried to makeLineSegs a list with no points."
-                   [p] -> error $ "tried to makeLineSegs a list with only one point: " <> show p <> "\n"
-                   (_:_) -> res
+makeLineSegs points = case points of
+                        [] -> error "tried to makeLineSegs a list with no points."
+                        [p] -> error $ "tried to makeLineSegs a list with only one point: " <> show p <> "\n"
+                        (_h:t) -> zipWith consLineSeg points t
   where
-    res = zipWith consLineSeg (init l) (tail l)
     consLineSeg p1 p2 = handleLineSegError $ lineSegFromEndpoints p1 p2
 
 -- | Find the point where a line segment intersects the plane at a given z height.
