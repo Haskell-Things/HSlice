@@ -17,14 +17,13 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- The purpose of this file is to hold facet based arithmatic. -}
-
 -- for adding Generic and NFData to Facet.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
+-- | The purpose of this file is to hold facet based arithmatic. really for if we need a better 'admesh' while debugging ImplicitCAD.
 module Graphics.Slicer.Math.Facet (Facet(Facet), sidesOf, shiftFacet, facetIntersects) where
 
-import Prelude (Eq, (<$>), ($), error, (==), length, head, (&&), Show)
+import Prelude (Eq, (<$>), ($), error, (==), (&&), Show)
 
 import Data.List.Extra(nubOrd)
 
@@ -42,25 +41,26 @@ import Graphics.Slicer.Math.Definitions (Point2, Point3, addPoints, flatten, zOf
 
 import Graphics.Slicer.Math.Line (pointAtZValue)
 
-data Facet = Facet {_sides :: ((Point3, Point3),(Point3, Point3),(Point3, Point3)), _normal :: Point3}
+data Facet = Facet {_sides :: !((Point3, Point3),(Point3, Point3),(Point3, Point3)), _normal :: !Point3}
   deriving (Eq, Generic, NFData, Show)
 
--- Shift a facet by the vector p
+-- | Shift a facet by the vector p
 shiftFacet :: Point3 -> Facet -> Facet
 shiftFacet p (Facet (s1,s2,s3) n1) = Facet (bimap (addPoints p) (addPoints p) s1,
                                             bimap (addPoints p) (addPoints p) s2,
                                             bimap (addPoints p) (addPoints p) s3
                                            ) n1
 
--- allow us to use mapping functions against the tuple of sides.
+-- | allow us to use mapping functions against the tuple of sides.
 sidesOf :: Facet -> [(Point3,Point3)]
 sidesOf (Facet (a,b,c) _) = [a,b,c]
 
--- determine where a facet intersects a plane at a given z value
+-- | determine where a facet intersects a plane at a given z value
 facetIntersects :: ℝ -> Facet -> Maybe (Point2,Point2)
-facetIntersects v f = if length matchingEdge == 1
-                      then Just $ head matchingEdge
-                      else trimIntersections $ nubOrd $ catMaybes intersections
+facetIntersects v f = case matchingEdge of
+                        [] -> Nothing
+                        [oneEdge] ->Just oneEdge
+                        (_:_) -> trimIntersections $ nubOrd $ catMaybes intersections
   where
     matchingEdge = catMaybes $ edgeOnPlane <$> sidesOf f
     edgeOnPlane :: (Point3,Point3) -> Maybe (Point2,Point2)
