@@ -125,8 +125,10 @@ getContours pointPairs = maybeFlipContour <$> foundContours
     contourLongEnough :: [[Point2]] -> Maybe [[Point2]]
     contourLongEnough pts = case pts of
                               (_:_:_:_) -> Just pts
+                              -- NOTE: returning nothing here, even though this is an error condition, and a sign that the input file is insane?
+                              [] -> Nothing
                               -- NOTE: returning nothing here, even though this is an error condition, and a sign that the input file has two triangles that intersect. should not happen.
-                              _ -> Nothing -- error $ "fragment insufficient to be a contour found: " <> show pts <> "\n"
+                              (_:_) -> Nothing
     foundContourSets :: [[[Point2]]]
     foundContourSets = getLoops $ (\(a,b) -> [a,b]) <$> sortPairs pointPairs
       where
@@ -140,11 +142,11 @@ getContours pointPairs = maybeFlipContour <$> foundContours
       | otherwise = makeSafeContour $ reverse $ pointsOfContour contour
 
 -- | A contour tree. A contour, which contains a list of contours that are cut out of the first contour, each of them contaiting a list of contours of positive space.. ad infinatum.
-data ContourTree = ContourTree { _parentContour :: Contour, _childContours :: Slist ContourTreeSet}
+data ContourTree = ContourTree { _parentContour :: !Contour, _childContours :: !(Slist ContourTreeSet) }
   deriving (Show)
 
 -- | A set of contour trees.
-data ContourTreeSet = ContourTreeSet { _firstContourTree :: ContourTree, _moreContourTrees :: Slist ContourTree}
+data ContourTreeSet = ContourTreeSet { _firstContourTree :: !ContourTree, _moreContourTrees :: !(Slist ContourTree)}
   deriving (Show)
 
 -- | Contstruct a set of contour trees. that is to say, a set of contours, containing a set of contours that is negative space, containing a set of contours that is positive space..
