@@ -37,6 +37,8 @@ import Data.List.Ordered (sort, foldt)
 
 import Data.Maybe (Maybe(Just, Nothing), maybeToList)
 
+import Data.Set (Set, singleton, fromList, elems)
+
 import Safe (lastMay, initSafe)
 
 import Graphics.Slicer.Definitions (ℝ)
@@ -102,9 +104,9 @@ dualAngle :: PLine2 -> PLine2 -> ℝ
 dualAngle line1@(PLine2 lvec1) line2@(PLine2 lvec2) = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
   where
     (PPoint2 iPointVec) = canonicalizePPoint2 $ meet2PLine2 line1 line2
-    motor = addVecPair (lvec1•gaI) (GVec [GVal 1 [G0]])
-    antiMotor = addVecPair (lvec1•gaI) (GVec [GVal (-1) [G0]])
-    gaI = GVec [GVal 1 [GEZero 1, GEPlus 1, GEPlus 2]]
+    motor = addVecPair (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
+    antiMotor = addVecPair (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
+    gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
 
 -- | Find out where two lines intersect, returning a projective point. Note that this should only be used when you can guarantee these are not collinear.
 intersectionOf :: PLine2 -> PLine2 -> PPoint2
@@ -122,7 +124,7 @@ angleBetween pl1 pl2 = scalarPart $ pv1 ⎣ pv2
 translatePerp :: PLine2 -> ℝ -> PLine2
 translatePerp pLine@(PLine2 rawPLine) d = PLine2 $ addVecPair m rawPLine
   where
-    m = GVec [GVal (d*normOfPLine2 pLine) [GEZero 1]]
+    m = GVec [GVal (d*normOfPLine2 pLine) (singleton (GEZero 1))]
 
 -- | Find the unsigned distance between a point and a line.
 distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
@@ -269,9 +271,9 @@ pointOnPerp line point d = case ppointToPoint2 (canonicalizePPoint2 $ PPoint2 $ 
     (PLine2 lvec)  = normalizePLine2 $ eToPLine2 line
     (PPoint2 pvec) = canonicalizePPoint2 $ eToPPoint2 point
     perpLine       = lvec ⨅ pvec
-    motor = addVecPair (perpLine • gaI) (GVec [GVal 1 [G0]])
+    motor = addVecPair (perpLine • gaI) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
-    gaI = GVec [GVal (d/2) [GEZero 1, GEPlus 1, GEPlus 2]]
+    gaI = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
 
 ------------------------------------------------
 ----- And now draw the rest of the algebra -----
@@ -290,7 +292,6 @@ newtype PLine2 = PLine2 GVec
 (∨) a b = dual2DGVec $ GVec $ foldl' addVal [] res
   where
     (GVec res) = dual2DGVec a ⎤  dual2DGVec b
-
 infixl 9 ∨
 
 -- | a typed join function. join two points, returning a line.
@@ -316,7 +317,7 @@ _meet2PPoint2 pp1 pp2 = pv1 ⎤ pv2
 
 -- | Create a projective point from a euclidian point.
 eToPPoint2 :: Point2 -> PPoint2
-eToPPoint2 (Point2 (x,y)) = PPoint2 $ GVec $ foldl' addVal [GVal 1 [GEPlus 1, GEPlus 2]] [ GVal (-x) [GEZero 1, GEPlus 2], GVal y [GEZero 1, GEPlus 1] ]
+eToPPoint2 (Point2 (x,y)) = PPoint2 $ GVec $ foldl' addVal [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (-x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
 
 -- | Create a euclidian point from a projective point.
 pToEPoint2 :: PPoint2 -> Point2
@@ -326,8 +327,8 @@ pToEPoint2 (PPoint2 (GVec pPoint)) = Point2 (negate $ valOf 0 $ getVals [GEZero 
 _idealPPoint2 :: PPoint2 -> PPoint2
 _idealPPoint2 (PPoint2 (GVec vals)) = PPoint2 $ GVec $ foldl' addVal []
                                      [
-                                       GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] vals) [GEZero 1, GEPlus 1]
-                                     , GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] vals) [GEZero 1, GEPlus 2]
+                                       GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] vals) (fromList [GEZero 1, GEPlus 1])
+                                     , GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 2])
                                      ]
 
 -- | Create a euclidian point from a projective point.
@@ -346,7 +347,7 @@ eToPLine2 (LineSeg startPoint@(Point2 (x1,y1)) (Point2 (x,y))) = plineFromEndpoi
 
 -- | Create a projective line from a pair of euclidian points.
 plineFromEndpoints :: Point2 -> Point2 -> PLine2
-plineFromEndpoints (Point2 (x1,y1)) (Point2 (x2,y2)) = PLine2 $ GVec $ foldl' addVal [] [ GVal c [GEZero 1], GVal a [GEPlus 1], GVal b [GEPlus 2] ]
+plineFromEndpoints (Point2 (x1,y1)) (Point2 (x2,y2)) = PLine2 $ GVec $ foldl' addVal [] [ GVal c (singleton (GEZero 1)), GVal a (singleton (GEPlus 1)), GVal b (singleton (GEPlus 2)) ]
   where
     a=y2-y1
     b=x1-x2
@@ -363,14 +364,14 @@ dualPLine2 (PLine2 vec) = dual2DGVec vec
 reverse :: GVec -> GVec
 reverse vec = GVec $ foldl' addVal []
               [
-                GVal           realVal                                                [G0]
-              , GVal (         valOf 0 $ getVals [GEZero 1] vals)                     [GEZero 1]
-              , GVal (         valOf 0 $ getVals [GEPlus 1] vals)                     [GEPlus 1]
-              , GVal (         valOf 0 $ getVals [GEPlus 2] vals)                     [GEPlus 2]
-              , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 1] vals)           [GEZero 1, GEPlus 1]
-              , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] vals)           [GEZero 1, GEPlus 2]
-              , GVal (negate $ valOf 0 $ getVals [GEPlus 1, GEPlus 2] vals)           [GEPlus 1, GEPlus 2]
-              , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals) [GEZero 1, GEPlus 1, GEPlus 2]
+                GVal           realVal                                                (singleton G0)
+              , GVal (         valOf 0 $ getVals [GEZero 1] vals)                     (singleton (GEZero 1))
+              , GVal (         valOf 0 $ getVals [GEPlus 1] vals)                     (singleton (GEPlus 1))
+              , GVal (         valOf 0 $ getVals [GEPlus 2] vals)                     (singleton (GEPlus 2))
+              , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 1] vals)           (fromList [GEZero 1, GEPlus 1])
+              , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] vals)           (fromList [GEZero 1, GEPlus 2])
+              , GVal (negate $ valOf 0 $ getVals [GEPlus 1, GEPlus 2] vals)           (fromList [GEPlus 1, GEPlus 2])
+              , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 1, GEPlus 2])
               ]
   where
     realVal     = scalarPart vec
@@ -379,34 +380,43 @@ reverse vec = GVec $ foldl' addVal []
 dual2DGVec :: GVec -> GVec
 dual2DGVec vec = GVec $ foldl' addVal []
                  [
-                   GVal           realVal                                                [GEZero 1, GEPlus 1, GEPlus 2]
-                 , GVal (         valOf 0 $ getVals [GEZero 1] vals)                     [GEPlus 1, GEPlus 2]
-                 , GVal (negate $ valOf 0 $ getVals [GEPlus 1] vals)                     [GEZero 1, GEPlus 2]
-                 , GVal (         valOf 0 $ getVals [GEPlus 2] vals)                     [GEZero 1, GEPlus 1]
-                 , GVal (         valOf 0 $ getVals [GEZero 1, GEPlus 1] vals)           [GEPlus 2]
-                 , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] vals)           [GEPlus 1]
-                 , GVal (         valOf 0 $ getVals [GEPlus 1, GEPlus 2] vals)           [GEZero 1]
-                 , GVal (         valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals) [G0]
+                   GVal           realVal                                                (fromList [GEZero 1, GEPlus 1, GEPlus 2])
+                 , GVal (         valOf 0 $ getVals [GEZero 1] vals)                     (fromList [GEPlus 1, GEPlus 2])
+                 , GVal (negate $ valOf 0 $ getVals [GEPlus 1] vals)                     (fromList [GEZero 1, GEPlus 2])
+                 , GVal (         valOf 0 $ getVals [GEPlus 2] vals)                     (fromList [GEZero 1, GEPlus 1])
+                 , GVal (         valOf 0 $ getVals [GEZero 1, GEPlus 1] vals)           (singleton (GEPlus 2))
+                 , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] vals)           (singleton (GEPlus 1))
+                 , GVal (         valOf 0 $ getVals [GEPlus 1, GEPlus 2] vals)           (singleton (GEZero 1))
+                 , GVal (         valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals) (singleton G0)
                  ]
   where
     realVal     = scalarPart vec
     (GVec vals) = vectorPart vec
 
 -- | perform basis coersion. ensure all of the required '0' components exist. required before using basis sensitive raw operators.
-forceBasis :: [[GNum]] -> GVec -> GVec
+forceBasis :: [Set GNum] -> GVec -> GVec
 forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
   where
-    forceVal has needs = GVal (valOf 0 $ getVals needs has) needs
+    forceVal :: [GVal] -> Set GNum -> GVal
+    forceVal has needs = GVal (valOf 0 $ getVals (elems needs) has) needs
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a PLine2.
 forcePLine2Basis :: PLine2 -> PLine2
-forcePLine2Basis ln@(PLine2 (GVec [GVal _ [GEZero 1], GVal _ [GEPlus 1], GVal _ [GEPlus 2]])) = ln
-forcePLine2Basis (PLine2 pvec)                                                                = PLine2 $ forceBasis [[GEZero 1], [GEPlus 1], [GEPlus 2]] pvec
+forcePLine2Basis ln@(PLine2 pvec@(GVec [GVal _ gnum1, GVal _ gnum2, GVal _ gnum3]))
+  | gnum1 == (singleton (GEZero 1)) &&
+    gnum2 == (singleton (GEPlus 1)) &&
+    gnum3 == (singleton (GEPlus 2))    = ln
+  | otherwise                          = PLine2 $ forceBasis [(singleton (GEZero 1)), (singleton (GEPlus 1)), (singleton (GEPlus 2))] pvec
+forcePLine2Basis (PLine2 pvec)         = PLine2 $ forceBasis [(singleton (GEZero 1)), (singleton (GEPlus 1)), (singleton (GEPlus 2))] pvec
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a PPoint2.
 forcePPoint2Basis :: PPoint2 -> PPoint2
-forcePPoint2Basis pt@(PPoint2 (GVec [GVal _ [GEZero 1, GEPlus 1], GVal _ [GEZero 1, GEPlus 2], GVal _ [GEPlus 1, GEPlus 2]])) = pt
-forcePPoint2Basis (PPoint2 pvec)                                                                                              = PPoint2 $ forceBasis [[GEZero 1, GEPlus 1], [GEZero 1, GEPlus 2], [GEPlus 1, GEPlus 2]] pvec
+forcePPoint2Basis pt@(PPoint2 pvec@(GVec [GVal _ gnum1, GVal _ gnum2, GVal _ gnum3]))
+  | gnum1 == fromList [GEZero 1, GEPlus 1] &&
+    gnum2 == fromList [GEZero 1, GEPlus 2] &&
+    gnum3 == fromList [GEPlus 1, GEPlus 2]    = pt
+  | otherwise                                 = PPoint2 $ forceBasis [(fromList [GEZero 1, GEPlus 1]), (fromList [GEZero 1, GEPlus 2]), (fromList [GEPlus 1, GEPlus 2])] pvec
+forcePPoint2Basis (PPoint2 pvec)              = PPoint2 $ forceBasis [(fromList [GEZero 1, GEPlus 1]), (fromList [GEZero 1, GEPlus 2]), (fromList [GEPlus 1, GEPlus 2])] pvec
 
 -- | Normalization of euclidian points is really just cannonicalization.
 canonicalizePPoint2 :: PPoint2 -> PPoint2
@@ -435,8 +445,8 @@ sqNormOfPLine2 (PLine2 (GVec vals)) = a*a+b*b
 flipPLine2 :: PLine2 -> PLine2
 flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl' addVal []
                                   [
-                                    GVal (negate $ valOf 0 $ getVals [GEZero 1] vals) [GEZero 1]
-                                  , GVal (negate $ valOf 0 $ getVals [GEPlus 1] vals) [GEPlus 1]
-                                  , GVal (negate $ valOf 0 $ getVals [GEPlus 2] vals) [GEPlus 2]
+                                    GVal (negate $ valOf 0 $ getVals [GEZero 1] vals) (singleton (GEZero 1))
+                                  , GVal (negate $ valOf 0 $ getVals [GEPlus 1] vals) (singleton (GEPlus 1))
+                                  , GVal (negate $ valOf 0 $ getVals [GEPlus 2] vals) (singleton (GEPlus 2))
                                   ]
 

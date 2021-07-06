@@ -67,6 +67,7 @@ Library
     Build-depends:
                     base
                   , bytestring
+                  , containers
                   , data-ordlist
                   , deepseq
                   , double-conversion
@@ -148,6 +149,7 @@ Test-suite test-hslice
     Hs-source-dirs: tests
     Build-depends:
                     base
+                  , containers
                   , hspec
                   , hslice
                   , slist
