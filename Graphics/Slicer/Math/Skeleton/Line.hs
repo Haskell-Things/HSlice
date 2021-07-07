@@ -19,8 +19,7 @@
 -- inherit instances when deriving.
 {-# LANGUAGE DerivingStrategies #-}
 
-
--- |  functions for for applying inset line segments to a series of faces, and for adding infill to a face.
+-- | Functions for for applying inset line segments to a series of faces, and for adding infill to a face.
 module Graphics.Slicer.Math.Skeleton.Line (addInset, addInfill) where
 
 import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (++), (>), min, Bool(True, False), fst, maybe, snd)
