@@ -237,7 +237,6 @@ mulVecPair vec1 vec2 = results
             simplifyVal v (GEMinus _) = Right $ GVal (-v) (singleton G0)
             simplifyVal _ (GEZero _) = Right $ GVal 0 (singleton G0)
 
-
 -- | For a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
 sortBasis :: GRVal -> GRVal
 sortBasis (GRVal r i) = if shouldFlip then GRVal (-r) basis else GRVal r basis
@@ -264,7 +263,7 @@ sortBasis (GRVal r i) = if shouldFlip then GRVal (-r) basis else GRVal r basis
                                then (not $ flipOf $ sortBasis'' (a:xs), b: basisOf (sortBasis'' (a:xs)))
                                else (      flipOf $ sortBasis'' (b:xs), a: basisOf (sortBasis'' (b:xs)))
 
--- | in many situations, we can end up with vectors that have multiple occurances of the same basis vector. strip these out, negating the real part as appropriate.
+-- | for a multi-basis value with each basis wedged against one another, where they are in ascending order, we can end up with vectors that have multiple occurances of the same basis vector. strip these out, negating the real part as appropriate.
 stripPairs :: GRVal -> GRVal
 stripPairs = withoutPairs
   where
