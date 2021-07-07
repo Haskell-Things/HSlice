@@ -73,7 +73,6 @@ instance Ord GVal where
 newtype GVec = GVec [GVal]
   deriving (Eq, Generic, NFData, Show, Ord)
 
-
 -- | Extract a value from a vector.
 getVals :: [GNum] -> [GVal] -> Maybe GVal
 getVals nums vs = case matches of
@@ -265,7 +264,6 @@ sortBasis (GRVal r i) = if shouldFlip then GRVal (-r) basis else GRVal r basis
                                then (not $ flipOf $ sortBasis'' (a:xs), b: basisOf (sortBasis'' (a:xs)))
                                else (      flipOf $ sortBasis'' (b:xs), a: basisOf (sortBasis'' (b:xs)))
 
-
 -- | in many situations, we can end up with vectors that have multiple occurances of the same basis vector. strip these out, negating the real part as appropriate.
 stripPairs :: GRVal -> GRVal
 stripPairs = withoutPairs
@@ -285,7 +283,7 @@ stripPairs = withoutPairs
       | a /= b            = prependI (GEMinus a) $ withoutPairs $ GRVal r (GEMinus b:xs)
     withoutPairs (GRVal r is@((GEZero a):(GEZero b):xs))
       | a == b            = GRVal 0 [G0]
-      | a /= b && null xs = GRVal r is 
+      | a /= b && null xs = GRVal r is
       | a /= b            = prependI (GEZero a) $ withoutPairs $ GRVal r (GEZero b:xs)
     withoutPairs (GRVal r (a:b:xs)) = prependI a $ withoutPairs $ GRVal r (b:xs)
     prependI :: GNum -> GRVal -> GRVal
@@ -328,7 +326,7 @@ infixl 9 ∧
 -- | A dot operator. gets the dot product of the two arguments. note that dot = reductive plus like.
 (⋅) :: GVec -> GVec -> GVec
 infixl 9 ⋅
-(⋅) v1 v2 = GVec $ foldl' addVal (postProcessFilter <$> likeVecPair v1 v2) (postProcess <$> reduceVecPair v1 v2) 
+(⋅) v1 v2 = GVec $ foldl' addVal (postProcessFilter <$> likeVecPair v1 v2) (postProcess <$> reduceVecPair v1 v2)
 
 -- | A geometric product operator. Gets the geometric product of the two arguments.
 (•) :: GVec -> GVec -> GVec
