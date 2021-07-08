@@ -34,9 +34,13 @@ import Data.Either (Either(Left, Right))
 
 import Data.List (foldl')
 
+import Data.List.NonEmpty (NonEmpty((:|)), fromList, toList, cons)
+
 import Data.List.Ordered (sort, insertSet)
 
 import Data.Maybe (Maybe(Just, Nothing))
+
+-- FIXME: move to Data.Set.NonEmpty
 
 import Data.Set (Set, singleton, delete, disjoint, elems, size, elemAt, fromAscList)
 
@@ -60,7 +64,7 @@ data GVal = GVal { _real :: !ℝ, _basis :: !(Set GNum) }
   deriving (Eq, Generic, NFData, Show)
 
 -- | A value in geometric algebra, in need of reduction. this may have duplicat members, or members out of order.
-data GRVal = GRVal { _r :: !ℝ, _i :: ![GNum] }
+data GRVal = GRVal { _r :: !ℝ, _i :: !(NonEmpty GNum) }
   deriving (Eq, Generic, NFData, Show)
 
 -- When sorting gvals, sort the basis, THEN sort the multiplier.
@@ -167,7 +171,7 @@ likeVecPair' vec1 vec2 = results
           where
             mulLikePair (GVal r1 i) (GVal r2 _)
               | size i == 1 = simplifyVal (r1*r2) (elemAt 0 i)
-              | otherwise = Left $ GRVal (r1*r2) ((elems i) <> (elems i))
+              | otherwise = Left $ GRVal (r1*r2) ((fromList $ elems i) <> (fromList $ elems i))
               where
                 simplifyVal v G0 = Right $ GVal v (singleton G0)
                 simplifyVal v (GEPlus _) = Right $ GVal v (singleton G0)
@@ -175,18 +179,21 @@ likeVecPair' vec1 vec2 = results
                 simplifyVal _ (GEZero _) = Right $ GVal 0 (singleton G0)
 
 -- | Generate the unlike product of a vector pair.
-unlikeVecPair :: GVec -> GVec -> [GRVal]
+unlikeVecPair :: GVec -> GVec -> [Either GRVal GVal]
 unlikeVecPair vec1 vec2 = results
   where
     results = unlikeVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list when the two basis vectors are not the same.
-    unlikeVecPair' :: GVec -> GVec -> [GRVal]
+    unlikeVecPair' :: GVec -> GVec -> [Either GRVal GVal]
     unlikeVecPair' (GVec v1) (GVec v2) = concatMap (multiplyUnlike v1) v2
       where
-        multiplyUnlike :: [GVal] -> GVal -> [GRVal]
+        multiplyUnlike :: [GVal] -> GVal -> [Either GRVal GVal]
         multiplyUnlike vals val@(GVal _ i) = mulUnlikePair val <$> P.filter (\(GVal _ i2) -> i2 /= i) vals
           where
-            mulUnlikePair (GVal r1 i1) (GVal r2 i2) = sortBasis $ GRVal (r1*r2) ((elems $ filterG0 i1) <> (elems $ filterG0 i2))
+            mulUnlikePair (GVal r1 i1) (GVal r2 i2)
+              | i1 == singleton G0 = Right $ GVal (r1*r2) (filterG0 i2)
+              | i2 == singleton G0 = Right $ GVal (r1*r2) (filterG0 i1)
+              | otherwise = Left $ GRVal (r1*r2) ((fromList $ elems $ filterG0 i1) <> (fromList $ elems $ filterG0 i2))
               where
                 filterG0 :: Set GNum -> Set GNum
                 filterG0 xs = delete G0 xs
@@ -210,7 +217,7 @@ reduceVecPair vec1 vec2 = results
             isGEZero _          = False
             common :: Set GNum -> Set GNum -> Bool
             common a b = not $ disjoint a b
-            mulReducingPair (GVal r1 i1) (GVal r2 i2) = sortBasis $ GRVal (r1*r2) ((elems $ filterG0 i1) <> (elems $ filterG0 i2))
+            mulReducingPair (GVal r1 i1) (GVal r2 i2) = GRVal (r1*r2) ((fromList $ elems $ filterG0 i1) <> (fromList $ elems $ filterG0 i2))
               where
                 filterG0 :: Set GNum -> Set GNum
                 filterG0 xs = delete G0 xs
@@ -228,7 +235,9 @@ mulVecPair vec1 vec2 = results
         mulvals vals val = mulValPair val <$> vals
         mulValPair (GVal r1 i1) (GVal r2 i2)
           | i1 == i2 && size i1 == 1 = simplifyVal (r1*r2) (elemAt 0 i1)
-          | otherwise                = Left $ GRVal (r1*r2) ((elems $ filterG0 i1) <> (elems $ filterG0 i2))
+          | i1 == (singleton G0)     = Right $ GVal (r1*r2) i2
+          | i2 == (singleton G0)     = Right $ GVal (r1*r2) i1
+          | otherwise                = Left $ GRVal (r1*r2) ((fromList $ elems $ filterG0 i1) <> (fromList $ elems $ filterG0 i2))
           where
             filterG0 :: Set GNum -> Set GNum
             filterG0 xs = delete G0 xs
@@ -243,7 +252,7 @@ sortBasis (GRVal r i) = if shouldFlip then GRVal (-r) basis else GRVal r basis
   where
     (shouldFlip, basis) = sortBasis' i
     -- sort a set of wedged basis vectors. must return an ideal result, along with wehther the associated real value should be flipped or not.
-    sortBasis'  :: [GNum] -> (Bool, [GNum])
+    sortBasis'  :: NonEmpty GNum -> (Bool, NonEmpty GNum)
     sortBasis' thisBasis
       -- If the basis part of calling sortBasis'' once vs calling sortBasis'' twice doesn't change, we are done sorting.
       | basisOf sortOnce == basisOf recurseTwice = sortOnce
@@ -251,44 +260,43 @@ sortBasis (GRVal r i) = if shouldFlip then GRVal (-r) basis else GRVal r basis
       | otherwise                                = recurseTwice
       where
         sortOnce = sortBasis'' thisBasis
+        recurseTwice :: (Bool, NonEmpty GNum)
         recurseTwice = (flipOf (sortBasis'' $ basisOf sortOnce) /= flipOf sortOnce, basisOf $ sortBasis'' $ basisOf sortOnce)
         basisOf = snd
         flipOf  = fst
         -- sort a set of wedged basis vectors. may not provide an ideal result, but should return a better result, along with whether the associated real value should be flipped or not.
-        sortBasis'' :: [GNum] -> (Bool, [GNum])
-        sortBasis'' []       = (False,[])
-        sortBasis'' [a]      = (False,[a])
-        sortBasis'' [a,b]    = if a > b then (True, b:[a]) else (False, a:[b])
-        sortBasis'' (a:b:xs) = if a > b
-                               then (not $ flipOf $ sortBasis'' (a:xs), b: basisOf (sortBasis'' (a:xs)))
-                               else (      flipOf $ sortBasis'' (b:xs), a: basisOf (sortBasis'' (b:xs)))
+        sortBasis'' :: NonEmpty GNum -> (Bool, NonEmpty GNum)
+        sortBasis'' (a:|[])     = (False,a:|[])
+        sortBasis'' (a:|[b])    = if a > b then (True, b:|[a]) else (False, a:|[b])
+        sortBasis'' (a:|(b:xs)) = if a > b
+                               then (not $ flipOf $ sortBasis'' (a:|xs), b `cons` basisOf (sortBasis'' (a:|xs)))
+                               else (      flipOf $ sortBasis'' (b:|xs), a `cons` basisOf (sortBasis'' (b:|xs)))
 
 -- | for a multi-basis value with each basis wedged against one another, where they are in ascending order, we can end up with vectors that have multiple occurances of the same basis vector. strip these out, negating the real part as appropriate.
 stripPairs :: GRVal -> GRVal
 stripPairs = withoutPairs
   where
     withoutPairs :: GRVal -> GRVal
-    withoutPairs (GRVal r [])  = GRVal r []
-    withoutPairs (GRVal r [oneI])  = GRVal r [oneI]
-    withoutPairs (GRVal r is@((GEPlus a):(GEPlus b):xs))
-      | a == b && null xs = GRVal r [G0]
-      | a == b            = withoutPairs $ GRVal r xs
+    withoutPairs (GRVal r (oneI:|[]))  = GRVal r (oneI:|[])
+    withoutPairs (GRVal r is@((GEPlus a):|(GEPlus b):xs))
+      | a == b && null xs = GRVal r (G0:|[])
+      | a == b            = withoutPairs $ GRVal r (fromList xs)
       | a /= b && null xs = GRVal r is
-      | a /= b            = prependI (GEPlus a) $ withoutPairs $ GRVal r (GEPlus b:xs)
-    withoutPairs (GRVal r is@((GEMinus a):(GEMinus b):xs))
-      | a == b && null xs = GRVal (-r) [G0]
-      | a == b            = withoutPairs $ GRVal (-r) xs
+      | a /= b            = prependI (GEPlus a) $ withoutPairs $ GRVal r (GEPlus b:|xs)
+    withoutPairs (GRVal r is@((GEMinus a):|(GEMinus b):xs))
+      | a == b && null xs = GRVal (-r) (G0:|[])
+      | a == b            = withoutPairs $ GRVal (-r) (fromList xs)
       | a /= b && null xs = GRVal r is
-      | a /= b            = prependI (GEMinus a) $ withoutPairs $ GRVal r (GEMinus b:xs)
-    withoutPairs (GRVal r is@((GEZero a):(GEZero b):xs))
-      | a == b            = GRVal 0 [G0]
+      | a /= b            = prependI (GEMinus a) $ withoutPairs $ GRVal r (GEMinus b:|xs)
+    withoutPairs (GRVal r is@((GEZero a):|(GEZero b):xs))
+      | a == b            = GRVal 0 (G0:|[])
       | a /= b && null xs = GRVal r is
-      | a /= b            = prependI (GEZero a) $ withoutPairs $ GRVal r (GEZero b:xs)
-    withoutPairs (GRVal r (a:b:xs)) = prependI a $ withoutPairs $ GRVal r (b:xs)
+      | a /= b            = prependI (GEZero a) $ withoutPairs $ GRVal r (GEZero b:|xs)
+    withoutPairs (GRVal r (a:|b:xs)) = prependI a $ withoutPairs $ GRVal r (b:|xs)
     prependI :: GNum -> GRVal -> GRVal
-    prependI num (GRVal r nums) = if nums == [G0]
-                                  then GRVal r [num]
-                                  else GRVal r (num:nums)
+    prependI num (GRVal r nums) = if nums == (G0:|[])
+                                  then GRVal r (num:|[])
+                                  else GRVal r (num `cons` nums)
 
 -- | a post processor, to clean up a GRVal into a GVal.
 postProcess :: GRVal -> GVal
@@ -300,7 +308,7 @@ postProcessFilter (Right gval) = gval
 postProcessFilter (Left grval) = grValToGVal $ stripPairs $ sortBasis $ grval
 
 grValToGVal :: GRVal -> GVal
-grValToGVal (GRVal r i) = GVal r (fromAscList i)
+grValToGVal (GRVal r i) = GVal r (fromAscList (toList i))
 
 -- | Our "like" operator. unicode point u+23a3.
 (⎣) :: GVec -> GVec -> GVec
@@ -310,7 +318,7 @@ infixl 9 ⎣
 -- | Our "unlike" operator. unicode point u+23a4.
 (⎤) :: GVec -> GVec -> GVec
 infixl 9 ⎤
-(⎤) v1 v2 = GVec $ foldl' addVal [] $ postProcess <$> unlikeVecPair v1 v2
+(⎤) v1 v2 = GVec $ foldl' addVal [] $ postProcessFilter <$> unlikeVecPair v1 v2
 
 -- | Our "reductive" operator.
 (⨅) :: GVec -> GVec -> GVec
@@ -320,7 +328,7 @@ infixl 9 ⨅
 -- | A wedge operator. gets the wedge product of the two arguments. note that wedge = reductive minus unlike.
 (∧) :: GVec -> GVec -> GVec
 infixl 9 ∧
-(∧) v1 v2 = GVec $ foldl' addVal [] $ (\(GVec a) -> a) (subVecPair (GVec $ postProcess <$> reduceVecPair v1 v2) (GVec $ postProcess <$> unlikeVecPair v1 v2))
+(∧) v1 v2 = GVec $ foldl' addVal [] $ (\(GVec a) -> a) (subVecPair (GVec $ postProcess <$> reduceVecPair v1 v2) (GVec $ postProcessFilter <$> unlikeVecPair v1 v2))
 
 -- | A dot operator. gets the dot product of the two arguments. note that dot = reductive plus like.
 (⋅) :: GVec -> GVec -> GVec
