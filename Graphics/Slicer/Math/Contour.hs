@@ -23,11 +23,9 @@
 
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, firstContourOfContourTreeSet, lineSegsOfContour, contourIntersectionCount) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, maximum, minimum, min, zip, Either(Left, Right), (-), (++))
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), (++))
 
 import Data.List(last, head, partition, reverse, sortBy)
-
-import Data.List as DL (tail)
 
 import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
 
@@ -101,12 +99,13 @@ getLoops' segs workingLoop =
     connects [] = False     -- Handle the empty case.
     connects (x:_) = x == presEnd workingLoop
     -- divide our set into sequences that connect, and sequences that don't.
-    (possibleConts, nonConts) = partition connects segs
+    (possibleForwardConts, nonForwardConts) = partition connects segs
     (possibleBackConts, nonBackConts) = partition connectsBackwards segs
-    (next, unused)
-      | not $ null possibleConts     = (head possibleConts, DL.tail possibleConts <> nonConts)
-      | not $ null possibleBackConts = (reverse $ head possibleBackConts, DL.tail possibleBackConts <> nonBackConts)
-      | otherwise = error $ "unclosed loop in paths given: \nWorking: " <> show workingLoop <> "\nRemainder:" <> show nonConts <> "\n"
+    (next, unused) = case possibleForwardConts of
+                       (hf:tf) -> (hf, tf <> nonForwardConts)
+                       [] -> case possibleBackConts of
+                               (hb:tb) -> (reverse hb, tb <> nonBackConts)
+                               [] -> error $ "unclosed loop in paths given: \nWorking: " <> show workingLoop <> "\nRemainder:" <> show nonForwardConts <> "\n"
   in
     if null next
     then workingLoop : getLoops' segs []
