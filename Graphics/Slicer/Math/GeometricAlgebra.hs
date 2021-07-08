@@ -42,7 +42,7 @@ import Data.Maybe (Maybe(Just, Nothing))
 
 -- FIXME: move to Data.Set.NonEmpty
 
-import Data.Set (Set, singleton, delete, disjoint, elems, size, elemAt, fromAscList)
+import Data.Set (Set, singleton, disjoint, elems, size, elemAt, fromAscList)
 
 import Data.Set as S (filter)
 
@@ -178,7 +178,7 @@ likeVecPair' vec1 vec2 = results
                 simplifyVal v (GEMinus _) = Right $ GVal (-v) (singleton G0)
                 simplifyVal _ (GEZero _) = Right $ GVal 0 (singleton G0)
 
--- | Generate the unlike product of a vector pair.
+-- | Generate the unlike product of a vector pair. multiply only the values in the basis vector sets that are not the same between the two GVecs.
 unlikeVecPair :: GVec -> GVec -> [Either GRVal GVal]
 unlikeVecPair vec1 vec2 = results
   where
@@ -191,12 +191,9 @@ unlikeVecPair vec1 vec2 = results
         multiplyUnlike vals val@(GVal _ i) = mulUnlikePair val <$> P.filter (\(GVal _ i2) -> i2 /= i) vals
           where
             mulUnlikePair (GVal r1 i1) (GVal r2 i2)
-              | i1 == singleton G0 = Right $ GVal (r1*r2) (filterG0 i2)
-              | i2 == singleton G0 = Right $ GVal (r1*r2) (filterG0 i1)
-              | otherwise = Left $ GRVal (r1*r2) ((fromList $ elems $ filterG0 i1) <> (fromList $ elems $ filterG0 i2))
-              where
-                filterG0 :: Set GNum -> Set GNum
-                filterG0 xs = delete G0 xs
+              | i1 == singleton G0 = Right $ GVal (r1*r2) i2
+              | i2 == singleton G0 = Right $ GVal (r1*r2) i1
+              | otherwise = Left $ GRVal (r1*r2) ((fromList $ elems i1) <> (fromList $ elems i2))
 
 -- | Generate the reductive product of a vector pair.
 reduceVecPair :: GVec -> GVec -> [GRVal]
@@ -217,10 +214,7 @@ reduceVecPair vec1 vec2 = results
             isGEZero _          = False
             common :: Set GNum -> Set GNum -> Bool
             common a b = not $ disjoint a b
-            mulReducingPair (GVal r1 i1) (GVal r2 i2) = GRVal (r1*r2) ((fromList $ elems $ filterG0 i1) <> (fromList $ elems $ filterG0 i2))
-              where
-                filterG0 :: Set GNum -> Set GNum
-                filterG0 xs = delete G0 xs
+            mulReducingPair (GVal r1 i1) (GVal r2 i2) = GRVal (r1*r2) ((fromList $ elems i1) <> (fromList $ elems i2))
 
 -- | Generate the geometric product of a vector pair.
 mulVecPair :: GVec -> GVec -> [Either GRVal GVal]
@@ -237,10 +231,8 @@ mulVecPair vec1 vec2 = results
           | i1 == i2 && size i1 == 1 = simplifyVal (r1*r2) (elemAt 0 i1)
           | i1 == (singleton G0)     = Right $ GVal (r1*r2) i2
           | i2 == (singleton G0)     = Right $ GVal (r1*r2) i1
-          | otherwise                = Left $ GRVal (r1*r2) ((fromList $ elems $ filterG0 i1) <> (fromList $ elems $ filterG0 i2))
+          | otherwise                = Left $ GRVal (r1*r2) ((fromList $ elems i1) <> (fromList $ elems i2))
           where
-            filterG0 :: Set GNum -> Set GNum
-            filterG0 xs = delete G0 xs
             simplifyVal v G0 = Right $ GVal v (singleton G0)
             simplifyVal v (GEPlus _) = Right $ GVal v (singleton G0)
             simplifyVal v (GEMinus _) = Right $ GVal (-v) (singleton G0)
