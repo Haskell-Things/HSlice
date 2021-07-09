@@ -50,7 +50,7 @@ module Graphics.Slicer.Math.Ganja (toGanja, dumpGanja, dumpGanjas) where
 
 import Prelude (String, (<>), (++), (<$>), ($), (>=), concat, error, fst, show, snd, zip)
 
-import Data.Maybe(isJust, fromJust, Maybe(Nothing))
+import Data.Maybe(maybeToList, Maybe(Nothing))
 
 import Numeric(showFFloat)
 
@@ -163,7 +163,7 @@ instance GanjaAble INode where
         where
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> zip allPLines allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
-          allPLines    =   firstPLine:secondPLine:rawMorePLines ++ (if isJust outPLine then [fromJust outPLine] else [])
+          allPLines    =   firstPLine:secondPLine:rawMorePLines ++ (maybeToList outPLine)
 
 instance GanjaAble Contour where
   toGanja contour varname = (invars, inrefs)

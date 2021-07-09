@@ -23,11 +23,11 @@
 
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, firstContourOfContourTreeSet, lineSegsOfContour, contourIntersectionCount) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, not, compare, maximum, minimum, min, zip, Either(Left, Right), (-), (++))
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), (++))
 
 import Data.List(last, head, partition, reverse, sortBy)
 
-import Data.List as DL (tail)
+import Data.List.Extra (unsnoc)
 
 import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
 
@@ -86,31 +86,38 @@ getLoops' (x:xs) [] = getLoops' xs [x]
 -- | A loop is finished if its start and end are the same.
 -- Return it and start searching for another loop.
 getLoops' segs workingLoop
-  | head (head workingLoop) == last (last workingLoop) = workingLoop : getLoops' segs []
+  | head (head workingLoop) == presEnd workingLoop = workingLoop : getLoops' segs []
 
 -- | Finally, we search for pieces that can continue the working loop,
 -- | and stick one on if we find it.
 -- Otherwise... something is really screwed up.
 getLoops' segs workingLoop =
   let
-    presEnd :: [[a]] -> a
-    presEnd = last . last
     connectsBackwards [] = False
     connectsBackwards [_] = False
     connectsBackwards (_:xs) = last xs == presEnd workingLoop
     connects [] = False     -- Handle the empty case.
     connects (x:_) = x == presEnd workingLoop
     -- divide our set into sequences that connect, and sequences that don't.
-    (possibleConts, nonConts) = partition connects segs
+    (possibleForwardConts, nonForwardConts) = partition connects segs
     (possibleBackConts, nonBackConts) = partition connectsBackwards segs
-    (next, unused)
-      | not $ null possibleConts     = (head possibleConts, DL.tail possibleConts <> nonConts)
-      | not $ null possibleBackConts = (reverse $ head possibleBackConts, DL.tail possibleBackConts <> nonBackConts)
-      | otherwise = error $ "unclosed loop in paths given: \nWorking: " <> show workingLoop <> "\nRemainder:" <> show nonConts <> "\n"
+    (next, unused) = case possibleForwardConts of
+                       (hf:tf) -> (hf, tf <> nonForwardConts)
+                       [] -> case possibleBackConts of
+                               (hb:tb) -> (reverse hb, tb <> nonBackConts)
+                               [] -> error $ "unclosed loop in paths given: \nWorking: " <> show workingLoop <> "\nRemainder:" <> show nonForwardConts <> "\n"
   in
     if null next
     then workingLoop : getLoops' segs []
     else getLoops' unused (workingLoop <> [next])
+
+-- | get the end of a working loop.
+presEnd :: [[a]] -> a
+presEnd a = case unsnoc a of
+              Nothing -> error "impossible!"
+              (Just (_,b)) -> case unsnoc b of
+                                Nothing -> error "more impossible!"
+                                (Just (_,c)) -> c
 
 -- | Turn pairs of points into lists of points in sequence.
 --   The point pairs are the beginning and end of a line segment.
@@ -125,8 +132,10 @@ getContours pointPairs = maybeFlipContour <$> foundContours
     contourLongEnough :: [[Point2]] -> Maybe [[Point2]]
     contourLongEnough pts = case pts of
                               (_:_:_:_) -> Just pts
+                              -- NOTE: returning nothing here, even though this is an error condition, and a sign that the input file is insane?
+                              [] -> Nothing
                               -- NOTE: returning nothing here, even though this is an error condition, and a sign that the input file has two triangles that intersect. should not happen.
-                              _ -> Nothing -- error $ "fragment insufficient to be a contour found: " <> show pts <> "\n"
+                              (_:_) -> Nothing
     foundContourSets :: [[[Point2]]]
     foundContourSets = getLoops $ (\(a,b) -> [a,b]) <$> sortPairs pointPairs
       where
@@ -140,11 +149,11 @@ getContours pointPairs = maybeFlipContour <$> foundContours
       | otherwise = makeSafeContour $ reverse $ pointsOfContour contour
 
 -- | A contour tree. A contour, which contains a list of contours that are cut out of the first contour, each of them contaiting a list of contours of positive space.. ad infinatum.
-data ContourTree = ContourTree { _parentContour :: Contour, _childContours :: Slist ContourTreeSet}
+data ContourTree = ContourTree { _parentContour :: !Contour, _childContours :: !(Slist ContourTreeSet) }
   deriving (Show)
 
 -- | A set of contour trees.
-data ContourTreeSet = ContourTreeSet { _firstContourTree :: ContourTree, _moreContourTrees :: Slist ContourTree}
+data ContourTreeSet = ContourTreeSet { _firstContourTree :: !ContourTree, _moreContourTrees :: !(Slist ContourTree)}
   deriving (Show)
 
 -- | Contstruct a set of contour trees. that is to say, a set of contours, containing a set of contours that is negative space, containing a set of contours that is positive space..

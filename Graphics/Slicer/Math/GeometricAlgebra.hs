@@ -16,24 +16,33 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- The purpose of this file is to hold our geometric algebra library. -}
-
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, mulVecPair, reduceVecPair, unlikeVecPair) where
+-- | Our geometric algebra library.
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, reduceVecPair, unlikeVecPair) where
 
-import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), otherwise, ($), (++), head, tail, filter, not, (>), (*), concatMap, (<$>), null, fst, snd, sum, (&&), (/), Bool(True, False), error, flip, (||), elem, notElem, and)
+import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&))
+
+import Prelude as P (filter)
 
 import GHC.Generics (Generic)
 
 import Control.DeepSeq (NFData)
 
+import Data.Either (Either(Left, Right))
+
 import Data.List (foldl')
+
+import Data.List.NonEmpty (NonEmpty((:|)), toList, cons, nonEmpty)
 
 import Data.List.Ordered (sort, insertSet)
 
 import Data.Maybe (Maybe(Just, Nothing))
+
+import Data.Set (Set, singleton, disjoint, elems, size, elemAt, fromAscList)
+
+import Data.Set as S (filter)
 
 import Graphics.Slicer.Definitions (ℝ, Fastℕ)
 
@@ -42,14 +51,18 @@ import Graphics.Slicer.Orphans ()
 -- | The geometric numbers.
 -- We must derive Ord so we can sort the terms during simplification.
 data GNum =
-    GEMinus Fastℕ -- squared equal to -1 -- associated with rotation
-  | GEZero  Fastℕ -- squared equal to  0 -- associated with translations
-  | GEPlus  Fastℕ -- squared equal to +1 -- associated with space/time or hyperbolic rotations
+    GEMinus !Fastℕ -- squared equal to -1 -- associated with rotation
+  | GEZero  !Fastℕ -- squared equal to  0 -- associated with translations
+  | GEPlus  !Fastℕ -- squared equal to +1 -- associated with space/time or hyperbolic rotations
   | G0            -- A scalar type. short lived.
   deriving (Eq, Generic, NFData, Show, Ord)
 
 -- | A value in geometric algebra.
-data GVal = GVal { _real :: ℝ, _basis :: [GNum] }
+data GVal = GVal { _real :: !ℝ, _basis :: !(Set GNum) }
+  deriving (Eq, Generic, NFData, Show)
+
+-- | A value in geometric algebra, in need of reduction. this may have duplicat members, or members out of order.
+data GRVal = GRVal { _r :: !ℝ, _i :: !(NonEmpty GNum) }
   deriving (Eq, Generic, NFData, Show)
 
 -- When sorting gvals, sort the basis, THEN sort the multiplier.
@@ -69,7 +82,7 @@ getVals nums vs = case matches of
                     [oneMatch] -> Just oneMatch
                     multiMatch@(_:_) -> error $ "found multiple candidates" <> show multiMatch <> " when using getVals on " <> show vs <> "when searching for " <> show nums <> "\n"
   where
-    matches = filter (\(GVal _ n) -> n == nums) vs
+    matches = P.filter (\(GVal _ n) -> n == (fromAscList nums)) vs
 
 -- | Return the value of a vector, OR a given value, if the vector requested is not found.
 valOf :: ℝ -> Maybe GVal -> ℝ
@@ -97,15 +110,17 @@ subValPair v1@(GVal r1 i1) (GVal r2 i2)
 addVal :: [GVal] -> GVal -> [GVal]
 addVal dst src@(GVal r1 _)
   | r1 == 0 = dst
-  | not $ null $ sameBasis src dst = if sum (rOf <$> sameBasis src dst) == (-r1)
-                                     then diffBasis src dst
-                                     else insertSet (GVal (r1 + sum (rOf <$> sameBasis src dst)) $ iOf src) $ diffBasis src dst
-  | otherwise                      = insertSet src dst
+  | dst == [] = [src]
+  | otherwise = case sameBasis src dst of
+                  [] -> insertSet src dst
+                  (_:_) -> if sum (rOf <$> sameBasis src dst) == (-r1)
+                           then diffBasis src dst
+                           else insertSet (GVal (r1 + sum (rOf <$> sameBasis src dst)) $ iOf src) $ diffBasis src dst
   where
     sameBasis :: GVal -> [GVal] -> [GVal]
-    sameBasis val vals = filter (\(GVal _ i) -> i == iOf val) vals
+    sameBasis val vals = P.filter (\(GVal _ i) -> i == iOf val) vals
     diffBasis :: GVal -> [GVal] -> [GVal]
-    diffBasis val vals = filter (\(GVal _ i) -> i /= iOf val) vals
+    diffBasis val vals = P.filter (\(GVal _ i) -> i /= iOf val) vals
     iOf (GVal _ i) = i
     rOf (GVal r _) = r
 
@@ -136,106 +151,113 @@ divVecScalar (GVec vals) s = GVec $ divVal s <$> vals
 
 -- | Calculate the like product of a vector pair.
 -- actually a wrapper to make use of the fact that gvec1 `likeVecPair` gvec2 == gvec2 `likeVecPair` gvec1.
-likeVecPair :: GVec -> GVec -> GVec
+likeVecPair :: GVec -> GVec -> [Either GRVal GVal]
 likeVecPair a b
   | a > b     = likeVecPair' a b
   | otherwise = likeVecPair' b a
 
--- | Generate the like product of a vector pair.
-likeVecPair' :: GVec -> GVec -> GVec
-likeVecPair' vec1 vec2 = if null results
-                         then GVec []
-                         else GVec $ foldl' addVal [head results] $ tail results
+-- | Generate the like product of a vector pair. multiply only the values in the basis vector sets that are common between the two GVecs.
+likeVecPair' :: GVec -> GVec -> [Either GRVal GVal]
+likeVecPair' vec1 vec2 = results
   where
     results = likeVecPair'' vec1 vec2
     -- cycle through one list, and generate a pair with the second list when the two basis vectors are the same.
-    likeVecPair'' :: GVec -> GVec -> [GVal]
+    likeVecPair'' :: GVec -> GVec -> [Either GRVal GVal]
     likeVecPair'' (GVec v1) (GVec v2) = concatMap (multiplyLike v1) v2
       where
-        multiplyLike :: [GVal] -> GVal -> [GVal]
-        multiplyLike vals val@(GVal _ i1) = mulLikePair val <$> filter (\(GVal _ i2) -> i2 == i1) vals
+        multiplyLike :: [GVal] -> GVal -> [Either GRVal GVal]
+        multiplyLike vals val@(GVal _ i1) = mulLikePair val <$> P.filter (\(GVal _ i2) -> i2 == i1) vals
           where
             mulLikePair (GVal r1 i) (GVal r2 _)
-              | i == [G0] = GVal (r1*r2) [G0]
-              | otherwise  = sortBasis $ GVal (r1*r2) (i ++ i)
+              | size i == 1 = simplifyVal (r1*r2) (elemAt 0 i)
+              | otherwise = case nonEmpty (elems i) of
+                              (Just newi) -> Left $ GRVal (r1*r2) (newi <> newi)
+                              Nothing -> error "empty set?"
+              where
+                simplifyVal v G0 = Right $ GVal v (singleton G0)
+                simplifyVal v (GEPlus _) = Right $ GVal v (singleton G0)
+                simplifyVal v (GEMinus _) = Right $ GVal (-v) (singleton G0)
+                simplifyVal _ (GEZero _) = Right $ GVal 0 (singleton G0)
 
--- | Generate the unlike product of a vector pair.
-unlikeVecPair :: GVec -> GVec -> GVec
-unlikeVecPair vec1 vec2 = if null results
-                          then GVec []
-                          else GVec $ foldl' addVal [head results] $ tail results
+-- | Generate the unlike product of a vector pair. multiply only the values in the basis vector sets that are not the same between the two GVecs.
+unlikeVecPair :: GVec -> GVec -> [Either GRVal GVal]
+unlikeVecPair vec1 vec2 = results
   where
     results = unlikeVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list when the two basis vectors are not the same.
-    unlikeVecPair' :: GVec -> GVec -> [GVal]
+    unlikeVecPair' :: GVec -> GVec -> [Either GRVal GVal]
     unlikeVecPair' (GVec v1) (GVec v2) = concatMap (multiplyUnlike v1) v2
       where
-        multiplyUnlike :: [GVal] -> GVal -> [GVal]
-        multiplyUnlike vals val@(GVal _ i) = mulUnlikePair val <$> filter (\(GVal _ i2) -> i2 /= i) vals
+        multiplyUnlike :: [GVal] -> GVal -> [Either GRVal GVal]
+        multiplyUnlike vals val@(GVal _ i) = mulUnlikePair val <$> P.filter (\(GVal _ i2) -> i2 /= i) vals
           where
-            mulUnlikePair (GVal r1 i1) (GVal r2 i2) = sortBasis $ GVal (r1*r2) (filterG0 i1 ++ filterG0 i2)
-              where
-                filterG0 xs = filter (/= G0) xs
+            mulUnlikePair (GVal r1 i1) (GVal r2 i2)
+              | i1 == singleton G0 = Right $ GVal (r1*r2) i2
+              | i2 == singleton G0 = Right $ GVal (r1*r2) i1
+              | otherwise = case nonEmpty (elems i1) of
+                              Nothing -> error "empty set?"
+                              (Just newI1) -> case nonEmpty (elems i2) of
+                                                Nothing -> error "empty set?"
+                                                (Just newI2) -> Left $ GRVal (r1*r2) (newI1 <> newI2)
 
 -- | Generate the reductive product of a vector pair.
-reduceVecPair :: GVec -> GVec -> GVec
-reduceVecPair vec1 vec2 = if null results
-                           then GVec []
-                           else GVec $ foldl' addVal [head results] $ tail results
+reduceVecPair :: GVec -> GVec -> [GRVal]
+reduceVecPair vec1 vec2 = results
   where
     results = reduceVecPair' vec1 vec2
-    -- cycle through one list of vectors, and generate a pair with the second list.
-    reduceVecPair' :: GVec -> GVec -> [GVal]
+    -- cycle through one list of vectors, and generate a pair with the second list. multiplies only the values where one set has some common vectors with the other set, but they do not have identical sets.
+    reduceVecPair' :: GVec -> GVec -> [GRVal]
     reduceVecPair' (GVec v1) (GVec v2) = concatMap (multiplyReducing v1) v2
       where
-        multiplyReducing :: [GVal] -> GVal -> [GVal]
-        multiplyReducing vals val@(GVal _ i) = flip mulReducingPair val <$> filter (\(GVal _ i2) -> i2 `common` i) (filter (\(GVal _ i2) -> i2 `hasDifferentZeros` i) $ filter (\(GVal _ i2) -> i2 /= i) vals)
+        multiplyReducing :: [GVal] -> GVal -> [GRVal]
+        multiplyReducing vals val@(GVal _ i) = flip mulReducingPair val <$> P.filter (\(GVal _ i2) -> i2 `common` i) (P.filter (\(GVal _ i2) -> i2 `hasDifferentZeros` i) $ P.filter (\(GVal _ i2) -> i2 /= i) vals)
           where
-            hasDifferentZeros :: [GNum] -> [GNum] -> Bool
-            hasDifferentZeros [] _ = error "empty [GNum]"
-            hasDifferentZeros [a] nums = containsZero nums a
-            hasDifferentZeros nums1 nums2 = and $ containsZero nums2 <$> filter isGEZero nums1
+            hasDifferentZeros :: Set GNum -> Set GNum -> Bool
+            hasDifferentZeros nums1 nums2 = disjoint (S.filter isGEZero nums1) (S.filter isGEZero nums2)
             isGEZero :: GNum -> Bool
             isGEZero (GEZero _) = True
             isGEZero _          = False
-            containsZero :: [GNum] -> GNum -> Bool
-            containsZero gnums zero = not $ isGEZero zero && zero `elem` gnums
-            common :: [GNum] -> [GNum] -> Bool
-            common a b = contains a b || contains b a
-            contains :: [GNum] -> [GNum] -> Bool
-            contains []       _    = error "empty [GNum]"
-            contains [a]   nums = a `elem` nums
-            contains (a:b:xs) nums = a `notElem` nums && contains (b:xs) nums
-            mulReducingPair (GVal r1 i1) (GVal r2 i2) = sortBasis $ GVal (r1*r2) (filterG0 i1 ++ filterG0 i2)
-              where
-                filterG0 xs = filter (/= G0) xs
+            common :: Set GNum -> Set GNum -> Bool
+            common a b = not $ disjoint a b
+            mulReducingPair (GVal r1 i1) (GVal r2 i2) = case nonEmpty (elems i1) of
+                                                          Nothing -> error "empty set?"
+                                                          (Just newI1) -> case nonEmpty (elems i2) of
+                                                                            Nothing -> error "empty set?"
+                                                                            (Just newI2) -> GRVal (r1*r2) (newI1 <> newI2)
 
 -- | Generate the geometric product of a vector pair.
-mulVecPair :: GVec -> GVec -> GVec
-mulVecPair vec1 vec2 = if null results
-                         then GVec []
-                         else GVec $ foldl' addVal [head results] $ tail results
+mulVecPair :: GVec -> GVec -> [Either GRVal GVal]
+mulVecPair vec1 vec2 = results
   where
     results = mulVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list.
-    mulVecPair' :: GVec -> GVec -> [GVal]
+    mulVecPair' :: GVec -> GVec -> [Either GRVal GVal]
     mulVecPair' (GVec v1) (GVec v2) = concatMap (mulvals v2) v1
       where
-        mulvals :: [GVal] -> GVal -> [GVal]
+        mulvals :: [GVal] -> GVal -> [Either GRVal GVal]
         mulvals vals val = mulValPair val <$> vals
         mulValPair (GVal r1 i1) (GVal r2 i2)
-          | i1 == [G0] && i2 == [G0] = GVal (r1*r2) [G0]
-          | otherwise                = sortBasis $ GVal (r1*r2) (filterG0 i1 ++ filterG0 i2)
+          | i1 == i2 && size i1 == 1 = simplifyVal (r1*r2) (elemAt 0 i1)
+          | i1 == (singleton G0)     = Right $ GVal (r1*r2) i2
+          | i2 == (singleton G0)     = Right $ GVal (r1*r2) i1
+          | otherwise = case nonEmpty (elems i1) of
+                          Nothing -> error "empty set?"
+                          (Just newI1) -> case nonEmpty (elems i2) of
+                                            Nothing -> error "empty set?"
+                                            (Just newI2) -> Left $ GRVal (r1*r2) (newI1 <> newI2)
           where
-            filterG0 xs = filter (/= G0) xs
+            simplifyVal v G0 = Right $ GVal v (singleton G0)
+            simplifyVal v (GEPlus _) = Right $ GVal v (singleton G0)
+            simplifyVal v (GEMinus _) = Right $ GVal (-v) (singleton G0)
+            simplifyVal _ (GEZero _) = Right $ GVal 0 (singleton G0)
 
 -- | For a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
-sortBasis :: GVal -> GVal
-sortBasis (GVal r i) = if shouldFlip then GVal (-r) basis else GVal r basis
+sortBasis :: GRVal -> GRVal
+sortBasis (GRVal r i) = if shouldFlip then GRVal (-r) basis else GRVal r basis
   where
     (shouldFlip, basis) = sortBasis' i
     -- sort a set of wedged basis vectors. must return an ideal result, along with wehther the associated real value should be flipped or not.
-    sortBasis'  :: [GNum] -> (Bool, [GNum])
+    sortBasis'  :: NonEmpty GNum -> (Bool, NonEmpty GNum)
     sortBasis' thisBasis
       -- If the basis part of calling sortBasis'' once vs calling sortBasis'' twice doesn't change, we are done sorting.
       | basisOf sortOnce == basisOf recurseTwice = sortOnce
@@ -243,80 +265,102 @@ sortBasis (GVal r i) = if shouldFlip then GVal (-r) basis else GVal r basis
       | otherwise                                = recurseTwice
       where
         sortOnce = sortBasis'' thisBasis
+        recurseTwice :: (Bool, NonEmpty GNum)
         recurseTwice = (flipOf (sortBasis'' $ basisOf sortOnce) /= flipOf sortOnce, basisOf $ sortBasis'' $ basisOf sortOnce)
         basisOf = snd
         flipOf  = fst
         -- sort a set of wedged basis vectors. may not provide an ideal result, but should return a better result, along with whether the associated real value should be flipped or not.
-        sortBasis'' :: [GNum] -> (Bool, [GNum])
-        sortBasis'' []       = (False,[])
-        sortBasis'' [a]      = (False,[a])
-        sortBasis'' [a,b]    = if a > b then (True, b:[a]) else (False, a:[b])
-        sortBasis'' (a:b:xs) = if a > b
-                               then (not $ flipOf $ sortBasis'' (a:xs), b: basisOf (sortBasis'' (a:xs)))
-                               else (      flipOf $ sortBasis'' (b:xs), a: basisOf (sortBasis'' (b:xs)))
+        sortBasis'' :: NonEmpty GNum -> (Bool, NonEmpty GNum)
+        sortBasis'' (a:|[])     = (False,a:|[])
+        sortBasis'' (a:|[b])    = if a > b then (True, b:|[a]) else (False, a:|[b])
+        sortBasis'' (a:|(b:xs)) = if a > b
+                               then (not $ flipOf $ sortBasis'' (a:|xs), b `cons` basisOf (sortBasis'' (a:|xs)))
+                               else (      flipOf $ sortBasis'' (b:|xs), a `cons` basisOf (sortBasis'' (b:|xs)))
 
--- | in many situations, we can end up with vectors that have multiple occurances of the same basis vector. strip these out, negating the real part as appropriate.
-stripPairs :: GVal -> GVal
+-- | for a multi-basis value with each basis wedged against one another, where they are in ascending order, we can end up with vectors that have multiple occurances of the same basis vector. strip these out, negating the real part as appropriate.
+stripPairs :: GRVal -> GRVal
 stripPairs = withoutPairs
   where
-    withoutPairs :: GVal -> GVal
-    withoutPairs val@(GVal _ [])  = val
-    withoutPairs val@(GVal _ [_])  = val
-    withoutPairs val@(GVal r ((GEPlus a):(GEPlus b):xs))
-      | a == b && not (null xs)  = withoutPairs $ GVal r xs
-      | a == b && null xs        = GVal r [G0]
-      | a /= b && not (null xs)  = prependI (GEPlus a) $ withoutPairs $ GVal r (GEPlus b:xs)
-      | a /= b && null xs        = val
-    withoutPairs val@(GVal r ((GEMinus a):(GEMinus b):xs))
-      | a == b && not (null xs)  = withoutPairs $ GVal (-r) xs
-      | a == b && null xs        = GVal (-r) [G0]
-      | a /= b && not (null xs)  = prependI (GEMinus a) $ withoutPairs $ GVal r (GEMinus b:xs)
-      | a /= b && null xs        = val
-    withoutPairs val@(GVal r ((GEZero a):(GEZero b):xs))
-      | a == b                   = GVal 0 [G0]
-      | a /= b && not (null xs)  = prependI (GEZero a) $ withoutPairs $ GVal r (GEZero b:xs)
-      | a /= b && null xs        = val
-    withoutPairs (GVal r (a:b:xs)) = prependI a $ withoutPairs $ GVal r (b:xs)
-    prependI :: GNum -> GVal -> GVal
-    prependI num (GVal r [G0]) = GVal r [num]
-    prependI num (GVal r nums) = GVal r (num:nums)
+    withoutPairs :: GRVal -> GRVal
+    withoutPairs (GRVal r (oneI:|[]))  = GRVal r (oneI:|[])
+    withoutPairs (GRVal r is@((GEPlus a):|(GEPlus b):xs))
+      | a == b = case nonEmpty xs of
+                   Nothing -> GRVal r (G0:|[])
+                   (Just vals) -> withoutPairs $ GRVal r vals
+      | a /= b = case nonEmpty xs of
+                   Nothing -> GRVal r is
+                   (Just _) -> prependI (GEPlus a) $ withoutPairs $ GRVal r (GEPlus b:|xs)
+    withoutPairs (GRVal r is@((GEMinus a):|(GEMinus b):xs))
+      | a == b = case nonEmpty xs of
+                   Nothing -> GRVal (-r) (G0:|[])
+                   (Just vals) -> withoutPairs $ GRVal (-r) vals
+      | a /= b = case nonEmpty xs of
+                   Nothing -> GRVal r is
+                   (Just _) -> prependI (GEMinus a) $ withoutPairs $ GRVal r (GEMinus b:|xs)
+    withoutPairs (GRVal r is@((GEZero a):|(GEZero b):xs))
+      | a == b = GRVal 0 (G0:|[])
+      | a /= b = case nonEmpty xs of
+                   Nothing -> GRVal r is
+                   (Just _) -> prependI (GEZero a) $ withoutPairs $ GRVal r (GEZero b:|xs)
+    withoutPairs (GRVal r (a:|b:xs)) = prependI a $ withoutPairs $ GRVal r (b:|xs)
+    prependI :: GNum -> GRVal -> GRVal
+    prependI num (GRVal r nums) = if nums == (G0:|[])
+                                  then GRVal r (num:|[])
+                                  else GRVal r (num `cons` nums)
+
+-- | a post processor, to clean up a GRVal into a GVal.
+postProcess :: GRVal -> GVal
+postProcess val = grValToGVal $ stripPairs $ sortBasis val
+
+-- | a post processor, to clean up a GRVal into a GVal. may be given a GVal, in which case it short circuits.
+postProcessFilter :: (Either GRVal GVal) -> GVal
+postProcessFilter (Right gval) = gval
+postProcessFilter (Left grval) = grValToGVal $ stripPairs $ sortBasis $ grval
+
+-- Convert a GRval to a GVal. only to be used in postProcess and postProcessFilter.
+grValToGVal :: GRVal -> GVal
+grValToGVal (GRVal r i) = GVal r (fromAscList (toList i))
 
 -- | Our "like" operator. unicode point u+23a3.
 (⎣) :: GVec -> GVec -> GVec
-(⎣) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (likeVecPair v1 v2)
+infixl 9 ⎣
+(⎣) v1 v2 = GVec $ postProcessFilter <$> likeVecPair v1 v2
 
 -- | Our "unlike" operator. unicode point u+23a4.
 (⎤) :: GVec -> GVec -> GVec
-(⎤) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (unlikeVecPair v1 v2)
+infixl 9 ⎤
+(⎤) v1 v2 = GVec $ foldl' addVal [] $ postProcessFilter <$> unlikeVecPair v1 v2
 
 -- | Our "reductive" operator.
 (⨅) :: GVec -> GVec -> GVec
-(⨅) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (reduceVecPair v1 v2)
+infixl 9 ⨅
+(⨅) v1 v2 = GVec $ foldl' addVal [] $ postProcess <$> reduceVecPair v1 v2
 
 -- | A wedge operator. gets the wedge product of the two arguments. note that wedge = reductive minus unlike.
 (∧) :: GVec -> GVec -> GVec
-(∧) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (subVecPair (reduceVecPair v1 v2) (unlikeVecPair v1 v2))
+infixl 9 ∧
+(∧) v1 v2 = GVec $ foldl' addVal [] $ (\(GVec a) -> a) (subVecPair (GVec $ postProcess <$> reduceVecPair v1 v2) (GVec $ postProcessFilter <$> unlikeVecPair v1 v2))
 
 -- | A dot operator. gets the dot product of the two arguments. note that dot = reductive plus like.
 (⋅) :: GVec -> GVec -> GVec
-(⋅) v1 v2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (addVecPair (reduceVecPair v1 v2) (likeVecPair v1 v2))
+infixl 9 ⋅
+(⋅) v1 v2 = GVec $ foldl' addVal (postProcessFilter <$> likeVecPair v1 v2) (postProcess <$> reduceVecPair v1 v2)
 
 -- | A geometric product operator. Gets the geometric product of the two arguments.
 (•) :: GVec -> GVec -> GVec
-(•) vec1 vec2 = GVec $ foldl' addVal [] $ stripPairs <$> (\(GVec a) -> a) (mulVecPair vec1 vec2)
+infixl 9 •
+(•) vec1 vec2 = GVec $ foldl' addVal [] $ postProcessFilter <$> mulVecPair vec1 vec2
 
 -- | Simplify a GVec, and return any scalar component.
 scalarPart :: GVec -> ℝ
 scalarPart (GVec gVals) = sum $ realValue <$> vals
   where
-    vals = stripPairs <$> gVals
-    realValue (GVal r [G0]) = r
-    realValue _ = 0
+    vals = gVals
+    realValue (GVal r gnums) = if gnums == singleton G0 then r else 0
 
 -- | Simplify a GVec, and return any component that is not a scalar.
 vectorPart :: GVec -> GVec
-vectorPart (GVec gVals) = GVec $ foldl' addVal [] $ filter noRealValue vals
+vectorPart (GVec gVals) = GVec $ foldl' addVal [] $ P.filter noRealValue vals
   where
-    vals = stripPairs <$> gVals
-    noRealValue (GVal _ [G0]) = False
-    noRealValue _ = True
+    vals = gVals
+    noRealValue (GVal _ gnums) = gnums /= singleton G0

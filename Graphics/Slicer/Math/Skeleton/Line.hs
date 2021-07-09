@@ -19,18 +19,16 @@
 -- inherit instances when deriving.
 {-# LANGUAGE DerivingStrategies #-}
 
-{-
- - This file contains two things that should probably be in separate files:
- - code for applying inset line segments to a series of faces, and
- - code to and infill to faces.
- -}
+-- | Functions for for applying inset line segments to a series of faces, and for adding infill to a face.
 module Graphics.Slicer.Math.Skeleton.Line (addInset, addInfill) where
 
-import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (++), (>), min, Bool(True, False), head, fst, init, tail, last, maybe, snd)
+import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (++), (>), min, Bool(True, False), fst, maybe, snd)
 
 import Data.List (sortOn, dropWhile, takeWhile, transpose)
 
 import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromMaybe)
+
+import Safe (lastMay, initSafe)
 
 import Slist (slist, len)
 
@@ -38,7 +36,7 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (makeSafeContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, (~=), mapWithFollower, scalePoint, addPoints)
+import Graphics.Slicer.Math.Definitions (Contour, (~=), mapWithFollower, mapWithPredecessor, scalePoint, addPoints)
 
 import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, endpoint, handleLineSegError)
 
@@ -108,7 +106,7 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
                        [] -> error "no remains for an nSideRemainder?"
 
     -- | Find the closest point where two of our arcs intersect, relative to our side.
-    arcIntersections = init $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf a b) (eToPLine2 edge), (a, b))) $ [firstArc] ++ rawMidArcs ++ [lastArc]
+    arcIntersections = initSafe $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf a b) (eToPLine2 edge), (a, b))) $ [firstArc] ++ rawMidArcs ++ [lastArc]
     findClosestArc :: (ℝ, (PLine2, PLine2))
     findClosestArc         = case sortOn fst arcIntersections of
                                [] -> error "empty arcIntersections?"
@@ -121,13 +119,21 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     untilArc               = if closestArc == firstArc
                              then [firstArc]
                              else takeWhile (/= closestArcFollower) $ rawMidArcs ++ [lastArc]
+        -- Return all of the arcs after the closest arc.
     afterArc               = dropWhile (/= closestArcFollower) $ rawMidArcs ++ [lastArc]
     (sides1, remains1)     = if closestArc == firstArc
-                             then ([],Nothing)
-                             else addLineSegsToFace distance insets (Face finalSide firstArc (slist $ tail $ init untilArc) closestArc)
-    (sides2, remains2)     = if closestArc == last rawMidArcs
-                             then ([],Nothing)
-                             else addLineSegsToFace distance insets (Face finalSide (head afterArc) (slist $ init $ tail afterArc) lastArc)
+                             then noResult
+                             else result firstArc untilArc
+    (sides2, remains2)     = case lastMay rawMidArcs of
+                               Nothing -> noResult
+                               (Just a) -> if closestArc == a
+                                           then noResult
+                                           else result closestArcFollower afterArc
+    noResult = ([],Nothing)
+    result begin arcs = case arcs of
+                          [] -> error "unpossible!"
+                          [_oneArc] -> addLineSegsToFace distance insets (Face finalSide begin (slist []) lastArc)
+                          (_oneArc:manyArcs) -> addLineSegsToFace distance insets (Face finalSide begin (slist $ initSafe manyArcs) lastArc)
     ---------------------------------------------
     -- functions only used by a four-sided n-gon.
     ---------------------------------------------
@@ -157,7 +163,7 @@ addInset insets distance faceSet
   | insets == 1 = ([reconstructedContour], remainingFaces)
   | otherwise = error "cannot handle more than one inset yet."
   where
-    reconstructedContour = case (cleanContour $ buildContour $ mapWithFollower recoveryFun (concat $ transpose lineSegSets)) of
+    reconstructedContour = case (cleanContour $ makeSafeContour $ mapWithPredecessor recoveryFun (concat $ transpose lineSegSets)) of
                              (Just v) -> v
                              Nothing -> error $ "failed to inset:"
     recoveryFun l1@(LineSeg s1 _) l2@(LineSeg s2 _)
@@ -168,7 +174,6 @@ addInset insets distance faceSet
       | endpoint l2 ~= s1 = averagePoints (endpoint l2) s1
       | otherwise = error $ "out of order lineSegs generated from faces: " <> show faceSet <> "\n" <> show lineSegSets <> "\n"
     averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
-    buildContour points = makeSafeContour $ last points : init points
     lineSegSets = fst <$> res
     remainingFaces = concat $ catMaybes $ snd <$> res
     res = addLineSegsToFace distance (Just 1) <$> faceSet

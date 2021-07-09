@@ -67,6 +67,7 @@ Library
     Build-depends:
                     base
                   , bytestring
+                  , containers
                   , data-ordlist
                   , deepseq
                   , double-conversion
@@ -74,6 +75,7 @@ Library
                   , implicit
                   , mtl
                   , parallel
+                  , safe
                   , slist >=0.2.0.0
                   , Unique
                   , utf8-string
@@ -119,6 +121,7 @@ Executable extcuraengine
     Build-depends:
                     base
                   , bytestring
+                  , extra
                   , hslice
                   , implicit
                   , mtl
@@ -147,6 +150,7 @@ Test-suite test-hslice
     Hs-source-dirs: tests
     Build-depends:
                     base
+                  , containers
                   , hspec
                   , hslice
                   , slist

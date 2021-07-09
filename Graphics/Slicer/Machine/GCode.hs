@@ -27,7 +27,7 @@ module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWal
 
 import GHC.Generics (Generic)
 
-import Prelude (Eq, Int, ($), zipWith, concat, head, last, (<>), show, error, (++), otherwise, (==), length, (/=), fst, pi, (/), (*), pure, toRational, (.), fromRational, (<$>), (+), div, Bool)
+import Prelude (Eq, Int, Rational, ($), zipWith, concat, (<>), show, error, (++), otherwise, (==), length, fst, pi, (/), (*), pure, toRational, fromRational, (+), div, Bool)
 
 import Data.ByteString (ByteString)
 
@@ -38,6 +38,10 @@ import Control.Parallel.Strategies (using, rseq, parListChunk)
 import Data.ByteString.UTF8 (fromString)
 
 import Data.Double.Conversion.ByteString (toFixed)
+
+import Data.List.Extra (unsnoc)
+
+import Data.Maybe ( Maybe(Just, Nothing) )
 
 import Control.DeepSeq (NFData)
 
@@ -84,27 +88,30 @@ data RawExtrude = RawExtrude { _pathLength :: !ℝ, _pathWidth :: !ℝ, _pathHei
 -- | Calculate the extrusion values for all of the GCodes that extrude.
 cookExtrusions :: Extruder -> [GCode] -> Fastℕ -> StateM [GCode]
 cookExtrusions extruder gcodes threads = do
-  currentPos <- fromRational <$> getEPos
+  currentPos <- getEPos
   let
     ePoses = [currentPos+amount | amount <- accumulateValues extrusionAmounts]
     extrusionAmounts = [calculateExtrusion gcode | gcode <- gcodes] `using` parListChunk (div (length gcodes) (fromFastℕ threads)) rseq
-  setEPos . toRational $ last ePoses
+    finalEPos = case unsnoc ePoses of
+                   Nothing -> currentPos
+                   (Just (_,lastPos)) -> lastPos
+  setEPos finalEPos
   pure $ applyExtrusions gcodes ePoses
   where
-    applyExtrusions :: [GCode] -> [ℝ] -> [GCode]
+    applyExtrusions :: [GCode] -> [Rational] -> [GCode]
     applyExtrusions = zipWith applyExtrusion
-    applyExtrusion :: GCode -> ℝ -> GCode
-    applyExtrusion (GCRawExtrude2 startPoint stopPoint _) ePos = GCExtrude2 startPoint stopPoint ePos
-    applyExtrusion (GCRawExtrude3 startPoint stopPoint _) ePos = GCExtrude3 startPoint stopPoint ePos
+    applyExtrusion :: GCode -> Rational -> GCode
+    applyExtrusion (GCRawExtrude2 startPoint stopPoint _) ePos = GCExtrude2 startPoint stopPoint (fromRational ePos)
+    applyExtrusion (GCRawExtrude3 startPoint stopPoint _) ePos = GCExtrude3 startPoint stopPoint (fromRational ePos)
     -- FIXME: should these two generate warnings?
-    applyExtrusion (GCExtrude2 startPoint stopPoint _) ePos = GCExtrude2 startPoint stopPoint ePos
-    applyExtrusion (GCExtrude3 startPoint stopPoint _) ePos = GCExtrude3 startPoint stopPoint ePos
+    applyExtrusion (GCExtrude2 startPoint stopPoint _) ePos = GCExtrude2 startPoint stopPoint (fromRational ePos)
+    applyExtrusion (GCExtrude3 startPoint stopPoint _) ePos = GCExtrude3 startPoint stopPoint (fromRational ePos)
     applyExtrusion gcode _ = gcode
-    calculateExtrusion :: GCode -> ℝ
+    calculateExtrusion :: GCode -> Rational
     calculateExtrusion (GCRawExtrude2 _ _ (RawExtrude pathLength pathWidth pathHeight)) =
-      pathWidth * pathHeight * (2 / filamentDia) * pathLength / pi
+      (toRational pathWidth) * (toRational pathHeight) * (2 / (toRational filamentDia)) * (toRational pathLength) / (toRational (pi::ℝ))
     calculateExtrusion (GCRawExtrude3 _ _ (RawExtrude pathLength pathWidth pathHeight)) =
-      pathWidth * pathHeight * (2 / filamentDia) * pathLength / pi
+      (toRational pathWidth) * (toRational pathHeight) * (2 / (toRational filamentDia)) * (toRational pathLength) / (toRational (pi::ℝ))
     calculateExtrusion _ = 0
     filamentDia = filamentWidth extruder
 
@@ -132,17 +139,19 @@ posIze pos
   | pos == 0 = "0"
   | otherwise = fst $ spanEnd (== '.') $ fst $ spanEnd (== '0') $ toFixed 5 pos
 
-(~/=) :: ℝ -> ℝ -> Bool
-(~/=) a b = roundToFifth a /= roundToFifth b
+-- | Operator for determining whether two values are unequal, after being converted to gcode.
+(~==) :: ℝ -> ℝ -> Bool
+infixl 9 ~==
+(~==) a b = roundToFifth a == roundToFifth b
 
 -- | Render a GCode into a piece of text, ready to print. Only handles 'cooked' gcode, that has had extrusion values calculated.
 gcodeToText :: GCode -> ByteString
-gcodeToText (GCFeedRate f (GCMove2 (x1,y1) (x2,y2))) = "G0 F" <> posIze f <> " " <> (if x1 ~/= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 ~/= y2 then "Y" <> posIze y2 <> " " else "")
+gcodeToText (GCFeedRate f (GCMove2 (x1,y1) (x2,y2))) = "G0 F" <> posIze f <> " " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ")
 gcodeToText (GCFeedRate f wtf) = error "applying feedrate " <> posIze f <> " to something other than a GCmove2: " <> gcodeToText wtf
-gcodeToText (GCMove2 (x1,y1) (x2,y2)) = "G0 " <> (if x1 ~/= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 ~/= y2 then "Y" <> posIze y2 <> " " else "")
-gcodeToText (GCMove3 (x1,y1,z1) (x2,y2,z2)) = "G0 " <> (if x1 ~/= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 ~/= y2 then "Y" <> posIze y2 <> " " else "") <> (if z1 ~/= z2 then "Z" <> posIze z2 else "")
-gcodeToText (GCExtrude2 (x1,y1) (x2,y2) e) = "G1 " <> (if x1 ~/= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 ~/= y2 then "Y" <> posIze y2 <> " " else "") <> "E" <> posIze e
-gcodeToText (GCExtrude3 (x1,y1,z1) (x2,y2,z2) e) = "G1 " <> (if x1 ~/= x2 then "X" <> posIze x2 <> " " else "") <> (if y1 ~/= y2 then "Y" <> posIze y2 <> " " else "") <> (if z1 ~/= z2 then "Z" <> posIze z2 <> " " else "") <> "E" <> posIze e
+gcodeToText (GCMove2 (x1,y1) (x2,y2)) = "G0 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ")
+gcodeToText (GCMove3 (x1,y1,z1) (x2,y2,z2)) = "G0 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2)
+gcodeToText (GCExtrude2 (x1,y1) (x2,y2) e) = "G1 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> "E" <> posIze e
+gcodeToText (GCExtrude3 (x1,y1,z1) (x2,y2,z2) e) = "G1 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2 <> " ") <> "E" <> posIze e
 gcodeToText GCRawExtrude2 {} = error "Attempting to generate gcode for a 2D extrude command that has not yet been cooked."
 gcodeToText GCRawExtrude3 {} = error "Attempting to generate gcode for a 3D extrude command that has not yet been cooked."
 -- The current layer count, where 1 == the bottom layer of the object being printed. rafts are represented as negative layers.
@@ -164,7 +173,9 @@ gcodeForContour lh pathWidth contour =
     [] -> error "impossible"
     [_a] -> error "also impossible"
     [_a,_b] -> error "more impossible"
-    (headPoints:tailPoints) -> zipWith (make2DExtrudeGCode lh pathWidth) contourPoints tailPoints ++ [make2DExtrudeGCode lh pathWidth (last contourPoints) headPoints]
+    (headPoint:tailPoints) -> case unsnoc tailPoints of
+                                Nothing -> error "impossibleer"
+                                (Just (_,lastPoint)) -> zipWith (make2DExtrudeGCode lh pathWidth) contourPoints tailPoints ++ [make2DExtrudeGCode lh pathWidth lastPoint headPoint]
   where
     contourPoints = pointsOfContour contour
 
@@ -178,9 +189,11 @@ gcodeForInfill lh pathWidth lineGroups =
   where
     -- FIXME: this should be a single gcode. why are we getting empty line groups given to us?
     moveBetweenLineSegGroups :: [LineSeg] -> [LineSeg] -> [GCode]
-    moveBetweenLineSegGroups [] g2 = error $ "given empty line group?\n" <> show g2 <> "\n"
-    moveBetweenLineSegGroups g1 [] = error $ "line group empty when finding line group following " <> show g1 <> "\n"
-    moveBetweenLineSegGroups g1 g2 = [moveBetween (last g1) (head g2)]
+    moveBetweenLineSegGroups g1 g2 = case unsnoc g1 of
+                                       Nothing -> error $ "given empty line group?\n" <> show g2 <> "\n"
+                                       (Just (_,lastg1)) -> case g2 of
+                                                              [] -> error $ "line group empty when finding line group following " <> show g1 <> "\n"
+                                                              (firstg2:_) -> [moveBetween (lastg1) (firstg2)]
     renderLineSegGroup :: [LineSeg] -> [GCode]
     renderLineSegGroup lineSegSet = case lineSegSet of
                                       [] -> []

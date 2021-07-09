@@ -27,11 +27,13 @@
 {-# LANGUAGE TupleSections #-}
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, makeFirstENodes, averageNodes) where
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (<$>), (==), (++), error, (&&), head, fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, init, id)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (<$>), (==), (++), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromJust)
+import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
-import Data.List (takeWhile, nub, sortBy)
+import Data.List (takeWhile, sortBy)
+
+import Data.List.Extra (unsnoc)
 
 import Slist (slist, one, cons)
 
@@ -49,17 +51,23 @@ import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), IN
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree)
 
--- error type.
-data PartialNodes = PartialNodes INodeSet String
+-- | error type.
+data PartialNodes = PartialNodes !INodeSet !String
   deriving (Show, Eq)
 
--- Think: like Maybe, but min treats empty as greater than a value, rather than less.
-data Topped x = Something x | Empty
+-- | Think: like Maybe, but min treats empty as greater than a value, rather than less.
+data Topped x = Something !x | Empty
   deriving (Show, Ord, Eq)
 
+-- | whether a Topped has contents or not.
 isSomething :: Topped a -> Bool
 isSomething (Something _) = True
 isSomething Empty         = False
+
+justToSomething :: Maybe a -> Topped a
+justToSomething val = case val of
+                        Nothing -> Empty
+                        (Just a) -> Something a
 
 -- | Recurse on a set of nodes until we have a complete NodeTree.
 --   Only works on a sequnce of concave line segments, when there are no holes in the effected area.
@@ -143,10 +151,11 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
           where
             firstCollinearNodes nodePairs = fst <$> nodePairs
             -- find the nodes that do not have a collinear pair.
+            -- FIXME: is there a better way do do this with Ord?
             nonCollinearNodes :: (Eq a) => [a] -> [(a,a)] -> [a]
             nonCollinearNodes myNodes nodePairs = filter (\a -> notElem a $ allCollinearNodes nodePairs) myNodes
               where
-                allCollinearNodes myNodePairs = nub $ (fst <$> myNodePairs) ++ (snd <$> myNodePairs)
+                allCollinearNodes myNodePairs = (fst <$> myNodePairs) ++ (snd <$> myNodePairs)
 
         -- | make sure we have a potential intersection between two nodes to work with.
         hasShortestPair :: Bool
@@ -193,19 +202,20 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
         shortestPairDistance = min (min shortestEPairDistance shortestMixedPairDistance) (min shortestIPairDistance shortestMixedPairDistance)
         shortestIPairDistance = case shortestPairs iNodes of
                                   [] -> Empty
-                                  (firstPair:_) -> Something $ fromJust $ uncurry distanceToIntersection firstPair
+                                  (firstPair:_) -> justToSomething $ uncurry distanceToIntersection firstPair
         shortestEPairDistance = case shortestPairs eNodes of
                                   [] -> Empty
-                                  (firstPair:_) -> Something $ fromJust $ uncurry distanceToIntersection firstPair
+                                  (firstPair:_) -> justToSomething $ uncurry distanceToIntersection firstPair
         shortestMixedPairDistance = case shortestMixedPairs of
                                       [] -> Empty
-                                      (firstPair:_) -> Something $ fromJust $ uncurry distanceToIntersection firstPair
+                                      (firstPair:_) -> justToSomething $ uncurry distanceToIntersection firstPair
 
         -- | get the list of sorted pairs of intersecting nodes.
         shortestPairs :: (Arcable a, Pointable a, Show a) => [a] -> [(a, a)]
-        shortestPairs myNodes
-          | null myNodes = []
-          | otherwise    = takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection (head $ nodePairsSortedByDistance myNodes)) (nodePairsSortedByDistance myNodes)
+        shortestPairs myNodes = case nodePairsSortedByDistance myNodes of
+                                  [] -> []
+                                  [onePair] -> [onePair]
+                                  (pair:morePairs) -> pair : takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection pair) morePairs
           where
             -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
             nodePairsSortedByDistance :: (Arcable a, Pointable a, Show a) => [a] -> [(a, a)]
@@ -213,9 +223,10 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
 
         -- | get the pairs of intersecting nodes of differing types that we might be putting into this generation.
         shortestMixedPairs :: [(ENode, INode)]
-        shortestMixedPairs
-          | null iNodes || null eNodes = []
-          | otherwise = takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection (head nodePairsSortedByDistance)) nodePairsSortedByDistance
+        shortestMixedPairs = case nodePairsSortedByDistance of
+                               [] -> []
+                               [onePair] -> [onePair]
+                               (pair:morePairs) -> pair : takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection pair) morePairs
           where
             -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
             nodePairsSortedByDistance :: [(ENode, INode)]
@@ -312,15 +323,19 @@ getInsideArc _ pline1 _ pline2@(PLine2 pv2)
 makeINode :: [PLine2] -> Maybe PLine2 -> INode
 makeINode pLines maybeOut = case pLines of
                               [] -> error "tried to construct a broken INode"
-                              [_] -> error "tried to construct a broken INode"
+                              [onePLine] -> error $ "tried to construct a broken INode from one PLine2: " <> show onePLine <> "\n"
                               [first,second] -> INode first second (slist []) maybeOut
                               (first:second:more) -> INode first second (slist more) maybeOut
 
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
 makeFirstENodes :: [LineSeg] -> [ENode]
-makeFirstENodes segs
-  | null segs = error "got empty list at makeENodes.\n"
-  | otherwise = init $ mapWithFollower makeFirstENode segs
+makeFirstENodes segs = case segs of
+                         [] -> error "got empty list at makeENodes.\n"
+                         [a] -> error $ "not enough line segments at makeFirstENodes: " <> show a <> "\n"
+                         [a,b] -> [makeFirstENode a b]
+                         (xs) -> case unsnoc $ mapWithFollower makeFirstENode xs of
+                                   Nothing -> error "impossible!"
+                                   Just (i,_) -> i
 
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
 makeFirstENodesLooped :: [LineSeg] -> [ENode]

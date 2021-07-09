@@ -47,7 +47,9 @@ import Data.String (String)
 
 import Data.Bool(Bool(True, False), otherwise)
 
-import Data.List (length, zip, zipWith, maximum, minimum, last, concat)
+import Data.List (length, zip, zipWith, maximum, minimum, concat)
+
+import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe, mapMaybe)
 
@@ -266,7 +268,10 @@ sliceObject :: Printer -> Print -> [([Contour], Fastℕ)] -> StateM [GCode]
 sliceObject printer@(Printer _ _ extruder) print allLayers =
   cookExtrusions extruder (concat slicedLayers) threads
   where
-    slicedLayers = [sliceLayer printer print slicingPlan (layer == last allLayers) layer | layer <- allLayers] `using` parListChunk (div (length allLayers) (fromFastℕ threads)) rdeepseq
+    slicedLayers = [sliceLayer printer print slicingPlan (isLastLayer layer) layer | layer <- allLayers] `using` parListChunk (div (length allLayers) (fromFastℕ threads)) rdeepseq
+    isLastLayer layer = case unsnoc allLayers of
+                          Nothing -> error "impossible!"
+                          Just (_,l) -> l == layer
     -- Hack: start to use types to explain how to slice.
     slicingPlan = Everywhere (Extrude (ZLayers,SkeletonFailThrough))
 
@@ -316,7 +321,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
               travelBetweenContours src headContour
               <> drawOuterContour headContour
               <> (concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) childContours tailContours)
-              <> travelBetweenContours (last tailContours) dest
+              <> travelBetweenContours (lastContourOf tailContours) dest
           renderChildInnerContours src dest = case childContoursInnerWalls of
             [] -> travelBetweenContours src dest
             [headContour] ->
@@ -327,7 +332,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
               travelBetweenContours src headContour
               <> drawInnerContour headContour
               <> (concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) childContoursInnerWalls tailContours)
-              <> travelBetweenContours (last tailContours) dest
+              <> travelBetweenContours (lastContourOf tailContours) dest
           outsideContour = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*0.5)
           outsideContourInnerWall = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*1.5)
           outsideContourSkeleton = findStraightSkeleton outsideContourRaw insideContoursRaw
@@ -362,6 +367,10 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
 --                             Nothing -> error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
                                Nothing -> Nothing
       allContours = makeContourTreeSet layerContours
+      lastContourOf contours =
+        case unsnoc contours of
+        Nothing -> error "no last contour."
+        Just (_,l) -> l
       layerEnd = if isLastLayer then [] else travelToLayerChange
       layerStart = [GCMarkLayerStart layerNumber]
       -- FIXME: make travel gcode from the previous contour's last position?
