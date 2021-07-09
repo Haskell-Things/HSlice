@@ -113,9 +113,9 @@ addVal dst src@(GVal r1 _)
   | dst == [] = [src]
   | otherwise = case sameBasis src dst of
                   [] -> insertSet src dst
-                  (_:_) if sum (rOf <$> sameBasis src dst) == (-r1)
-                        then diffBasis src dst
-                        else insertSet (GVal (r1 + sum (rOf <$> sameBasis src dst)) $ iOf src) $ diffBasis src dst
+                  (_:_) -> if sum (rOf <$> sameBasis src dst) == (-r1)
+                           then diffBasis src dst
+                           else insertSet (GVal (r1 + sum (rOf <$> sameBasis src dst)) $ iOf src) $ diffBasis src dst
   where
     sameBasis :: GVal -> [GVal] -> [GVal]
     sameBasis val vals = P.filter (\(GVal _ i) -> i == iOf val) vals
