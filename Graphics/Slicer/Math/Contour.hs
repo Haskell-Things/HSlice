@@ -27,6 +27,8 @@ import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, 
 
 import Data.List(last, head, partition, reverse, sortBy)
 
+import Data.List.Extra (unsnoc)
+
 import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
 
 import Data.Either (fromRight)
@@ -84,15 +86,13 @@ getLoops' (x:xs) [] = getLoops' xs [x]
 -- | A loop is finished if its start and end are the same.
 -- Return it and start searching for another loop.
 getLoops' segs workingLoop
-  | head (head workingLoop) == last (last workingLoop) = workingLoop : getLoops' segs []
+  | head (head workingLoop) == presEnd workingLoop = workingLoop : getLoops' segs []
 
 -- | Finally, we search for pieces that can continue the working loop,
 -- | and stick one on if we find it.
 -- Otherwise... something is really screwed up.
 getLoops' segs workingLoop =
   let
-    presEnd :: [[a]] -> a
-    presEnd = last . last
     connectsBackwards [] = False
     connectsBackwards [_] = False
     connectsBackwards (_:xs) = last xs == presEnd workingLoop
@@ -110,6 +110,14 @@ getLoops' segs workingLoop =
     if null next
     then workingLoop : getLoops' segs []
     else getLoops' unused (workingLoop <> [next])
+
+-- | get the end of a working loop.
+presEnd :: [[a]] -> a
+presEnd a = case unsnoc a of
+              Nothing -> error "impossible!"
+              (Just (_,b)) -> case unsnoc b of
+                                Nothing -> error "more impossible!"
+                                (Just (_,c)) -> c
 
 -- | Turn pairs of points into lists of points in sequence.
 --   The point pairs are the beginning and end of a line segment.

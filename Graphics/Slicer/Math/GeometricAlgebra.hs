@@ -34,13 +34,11 @@ import Data.Either (Either(Left, Right))
 
 import Data.List (foldl')
 
-import Data.List.NonEmpty (NonEmpty((:|)), fromList, toList, cons)
+import Data.List.NonEmpty (NonEmpty((:|)), toList, cons, nonEmpty)
 
 import Data.List.Ordered (sort, insertSet)
 
 import Data.Maybe (Maybe(Just, Nothing))
-
--- FIXME: move to Data.Set.NonEmpty
 
 import Data.Set (Set, singleton, disjoint, elems, size, elemAt, fromAscList)
 
@@ -171,7 +169,9 @@ likeVecPair' vec1 vec2 = results
           where
             mulLikePair (GVal r1 i) (GVal r2 _)
               | size i == 1 = simplifyVal (r1*r2) (elemAt 0 i)
-              | otherwise = Left $ GRVal (r1*r2) ((fromList $ elems i) <> (fromList $ elems i))
+              | otherwise = case nonEmpty (elems i) of
+                              (Just newi) -> Left $ GRVal (r1*r2) (newi <> newi)
+                              Nothing -> error "empty set?"
               where
                 simplifyVal v G0 = Right $ GVal v (singleton G0)
                 simplifyVal v (GEPlus _) = Right $ GVal v (singleton G0)
@@ -193,14 +193,18 @@ unlikeVecPair vec1 vec2 = results
             mulUnlikePair (GVal r1 i1) (GVal r2 i2)
               | i1 == singleton G0 = Right $ GVal (r1*r2) i2
               | i2 == singleton G0 = Right $ GVal (r1*r2) i1
-              | otherwise = Left $ GRVal (r1*r2) ((fromList $ elems i1) <> (fromList $ elems i2))
+              | otherwise = case nonEmpty (elems i1) of
+                              Nothing -> error "empty set?"
+                              (Just newI1) -> case nonEmpty (elems i2) of
+                                                Nothing -> error "empty set?"
+                                                (Just newI2) -> Left $ GRVal (r1*r2) (newI1 <> newI2)
 
 -- | Generate the reductive product of a vector pair.
 reduceVecPair :: GVec -> GVec -> [GRVal]
 reduceVecPair vec1 vec2 = results
   where
     results = reduceVecPair' vec1 vec2
-    -- cycle through one list of vectors, and generate a pair with the second list.
+    -- cycle through one list of vectors, and generate a pair with the second list. multiplies only the values where one set has some common vectors with the other set, but they do not have identical sets.
     reduceVecPair' :: GVec -> GVec -> [GRVal]
     reduceVecPair' (GVec v1) (GVec v2) = concatMap (multiplyReducing v1) v2
       where
@@ -214,7 +218,11 @@ reduceVecPair vec1 vec2 = results
             isGEZero _          = False
             common :: Set GNum -> Set GNum -> Bool
             common a b = not $ disjoint a b
-            mulReducingPair (GVal r1 i1) (GVal r2 i2) = GRVal (r1*r2) ((fromList $ elems i1) <> (fromList $ elems i2))
+            mulReducingPair (GVal r1 i1) (GVal r2 i2) = case nonEmpty (elems i1) of
+                                                          Nothing -> error "empty set?"
+                                                          (Just newI1) -> case nonEmpty (elems i2) of
+                                                                            Nothing -> error "empty set?"
+                                                                            (Just newI2) -> GRVal (r1*r2) (newI1 <> newI2)
 
 -- | Generate the geometric product of a vector pair.
 mulVecPair :: GVec -> GVec -> [Either GRVal GVal]
@@ -231,7 +239,11 @@ mulVecPair vec1 vec2 = results
           | i1 == i2 && size i1 == 1 = simplifyVal (r1*r2) (elemAt 0 i1)
           | i1 == (singleton G0)     = Right $ GVal (r1*r2) i2
           | i2 == (singleton G0)     = Right $ GVal (r1*r2) i1
-          | otherwise                = Left $ GRVal (r1*r2) ((fromList $ elems i1) <> (fromList $ elems i2))
+          | otherwise = case nonEmpty (elems i1) of
+                          Nothing -> error "empty set?"
+                          (Just newI1) -> case nonEmpty (elems i2) of
+                                            Nothing -> error "empty set?"
+                                            (Just newI2) -> Left $ GRVal (r1*r2) (newI1 <> newI2)
           where
             simplifyVal v G0 = Right $ GVal v (singleton G0)
             simplifyVal v (GEPlus _) = Right $ GVal v (singleton G0)
@@ -271,15 +283,19 @@ stripPairs = withoutPairs
     withoutPairs :: GRVal -> GRVal
     withoutPairs (GRVal r (oneI:|[]))  = GRVal r (oneI:|[])
     withoutPairs (GRVal r is@((GEPlus a):|(GEPlus b):xs))
-      | a == b && null xs = GRVal r (G0:|[])
-      | a == b            = withoutPairs $ GRVal r (fromList xs)
-      | a /= b && null xs = GRVal r is
-      | a /= b            = prependI (GEPlus a) $ withoutPairs $ GRVal r (GEPlus b:|xs)
+      | a == b = case nonEmpty xs of
+                   Nothing -> GRVal r (G0:|[])
+                   (Just vals) -> withoutPairs $ GRVal r vals
+      | a /= b = case nonEmpty xs of
+                   Nothing -> GRVal r is
+                   (Just _) -> prependI (GEPlus a) $ withoutPairs $ GRVal r (GEPlus b:|xs)
     withoutPairs (GRVal r is@((GEMinus a):|(GEMinus b):xs))
-      | a == b && null xs = GRVal (-r) (G0:|[])
-      | a == b            = withoutPairs $ GRVal (-r) (fromList xs)
-      | a /= b && null xs = GRVal r is
-      | a /= b            = prependI (GEMinus a) $ withoutPairs $ GRVal r (GEMinus b:|xs)
+      | a == b = case nonEmpty xs of
+                   Nothing -> GRVal (-r) (G0:|[])
+                   (Just vals) -> withoutPairs $ GRVal (-r) vals
+      | a /= b = case nonEmpty xs of
+                   Nothing -> GRVal r is
+                   (Just _) -> prependI (GEMinus a) $ withoutPairs $ GRVal r (GEMinus b:|xs)
     withoutPairs (GRVal r is@((GEZero a):|(GEZero b):xs))
       | a == b            = GRVal 0 (G0:|[])
       | a /= b && null xs = GRVal r is

@@ -19,13 +19,15 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude ((>), ($), otherwise, Eq, (<>), show, error, (==), (&&), Bool(True, False), last, init, (++), (<), Show)
+import Prelude ((>), ($), otherwise, Eq, (<>), show, error, (==), (&&), Bool(True, False), (++), (<), Show)
+
+import Data.Either (fromRight)
 
 import Data.List (null, foldl')
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, maybeToList)
+import Data.List.Extra (unsnoc)
 
-import Data.Either (fromRight)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, maybeToList)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour, makeSafeContour)
 
@@ -86,12 +88,17 @@ modifyContour pathWidth contour direction
                                             [] -> []
                                             [l1] -> [l1]
                                             [l1,l2] -> [l1,l2]
-                                            (l1:ls) -> if isDegenerate (inwardAdjust (last ls)) (inwardAdjust l1) then init ls ++ maybeToList (combineLineSegs (last ls) l1) else l1:ls
+                                            (firstSeg:moreSegs) -> case unsnoc moreSegs of
+                                                                     Nothing -> error "impossible."
+                                                                     (Just (middleSegs,lastSeg)) -> if isDegenerate (inwardAdjust lastSeg) (inwardAdjust firstSeg)
+                                                                                                    then middleSegs ++ maybeToList (combineLineSegs (lastSeg) firstSeg)
+                                                                                                    else inSegs
             concatDegenerates :: [LineSeg] -> LineSeg -> [LineSeg]
-            concatDegenerates xs x
-              | null xs = [x]
-              | isDegenerate (inwardAdjust (last xs)) (inwardAdjust x) = init xs ++ maybeToList (combineLineSegs (last xs) x)
-              | otherwise = xs ++ [x]
+            concatDegenerates inSegs oneSeg = case unsnoc inSegs of
+                                       Nothing -> [oneSeg]
+                                       (Just (middleSegs,lastSeg)) -> middleSegs ++ if isDegenerate (inwardAdjust lastSeg) (inwardAdjust oneSeg)
+                                                                                    then maybeToList (combineLineSegs lastSeg oneSeg)
+                                                                                    else [lastSeg,oneSeg]
             isDegenerate pl1 pl2
               | angleBetween pl1 pl2 < (-0.999999) = True
               | angleBetween pl1 pl2 >   0.999999  = True
