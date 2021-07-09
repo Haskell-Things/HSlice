@@ -22,13 +22,19 @@
 -- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
 module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(SafeContour), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor) where
 
-import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, Int, null, zipWith3, take, length, drop, cycle, (.), (-), zipWith)
+import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, Int, null, zipWith3, zipWith, (<>), error)
 
 import Control.DeepSeq (NFData)
 
 import Control.Parallel.Strategies (withStrategy, parList, rpar)
 
 import Control.Parallel (par, pseq)
+
+import Data.List (uncons)
+
+import Data.List.Extra (unsnoc)
+
+import Data.Maybe (Maybe (Just, Nothing))
 
 import GHC.Generics (Generic)
 
@@ -123,31 +129,37 @@ roundPoint2 (Point2 (x1,y1)) = Point2 (roundToFifth x1, roundToFifth y1)
 
 -- | like map, only with previous, current, and next item, and wrapping around so the first entry gets the last entry as previous, and vica versa.
 mapWithNeighbors :: (a -> a -> a -> b) -> [a] -> [b]
-mapWithNeighbors  f l
+mapWithNeighbors f l
   | null l = []
   | otherwise = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
   where
-    rotateList :: Int -> [a] -> [a]
-    rotateList n list = take (length list + 1) . drop n $ cycle list
-    x = rotateList (length l - 1) l
-    z = rotateList 1 l
+    z = zs <> [fz]
+    (fz, zs) = case uncons l of
+                 Nothing -> error "empty input list"
+                 (Just (_,[])) -> error "too short of a list."
+                 (Just vs) -> vs
+    x = lx:xs
+    (xs, lx) = case unsnoc l of
+                 Nothing -> error "Empty input list"
+                 (Just ([],_)) -> error "too short of a list."
+                 (Just vs) -> vs
 
 -- | like map, only with current, and next item, and wrapping around so the last entry gets the first entry as next.
 mapWithFollower :: (a -> a -> b) -> [a] -> [b]
-mapWithFollower  f l
-  | null l = []
-  | otherwise = withStrategy (parList rpar) $ z `pseq` zipWith f l z
+mapWithFollower f l = withStrategy (parList rpar) $ z `pseq` zipWith f l z
   where
-    rotateList :: Int -> [a] -> [a]
-    rotateList n list = take (length list + 1) . drop n $ cycle list
-    z = rotateList 1 l
+    z = zs <> [fz]
+    (fz, zs) = case uncons l of
+                 Nothing -> error "empty input list"
+                 (Just (_,[])) -> error "too short of a list."
+                 (Just vs) -> vs
 
 -- | like map, only with previous, and current item, and wrapping around so the first entry gets the last entry as previous.
 mapWithPredecessor :: (a -> a -> b) -> [a] -> [b]
-mapWithPredecessor  f l
-  | null l = []
-  | otherwise = withStrategy (parList rpar) $ x `pseq` zipWith f x l
+mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` zipWith f x l
   where
-    rotateList :: Int -> [a] -> [a]
-    rotateList n list = take (length list + 1) . drop n $ cycle list
-    x = rotateList (length l - 1) l
+    x = lx:xs
+    (xs, lx) = case unsnoc l of
+                 Nothing -> error "Empty input list"
+                 (Just ([],_)) -> error "too short of a list."
+                 (Just vs) -> vs
