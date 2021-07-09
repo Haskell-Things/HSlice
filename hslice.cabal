@@ -121,6 +121,7 @@ Executable extcuraengine
     Build-depends:
                     base
                   , bytestring
+                  , extra
                   , hslice
                   , implicit
                   , mtl
