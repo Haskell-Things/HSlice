@@ -27,11 +27,13 @@
 {-# LANGUAGE TupleSections #-}
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, makeFirstENodes, averageNodes) where
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (<$>), (==), (++), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, init, id)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (<$>), (==), (++), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
 import Data.List (takeWhile, sortBy)
+
+import Data.List.Extra (unsnoc)
 
 import Slist (slist, one, cons)
 
@@ -331,7 +333,9 @@ makeFirstENodes segs = case segs of
                          [] -> error "got empty list at makeENodes.\n"
                          [a] -> error $ "not enough line segments at makeFirstENodes: " <> show a <> "\n"
                          [a,b] -> [makeFirstENode a b]
-                         (xs) -> init $ mapWithFollower makeFirstENode xs
+                         (xs) -> case unsnoc $ mapWithFollower makeFirstENode xs of
+                                   Nothing -> error "impossible!"
+                                   Just (i,_) -> i
 
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
 makeFirstENodesLooped :: [LineSeg] -> [ENode]
