@@ -22,7 +22,7 @@
 -- | Our geometric algebra library.
 module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, reduceVecPair, unlikeVecPair) where
 
-import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), null, sum, (&&), (/), Bool(True, False), error, flip, (&&))
+import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&))
 
 import Prelude as P (filter)
 
@@ -111,10 +111,11 @@ addVal :: [GVal] -> GVal -> [GVal]
 addVal dst src@(GVal r1 _)
   | r1 == 0 = dst
   | dst == [] = [src]
-  | not $ null $ sameBasis src dst = if sum (rOf <$> sameBasis src dst) == (-r1)
-                                     then diffBasis src dst
-                                     else insertSet (GVal (r1 + sum (rOf <$> sameBasis src dst)) $ iOf src) $ diffBasis src dst
-  | otherwise                      = insertSet src dst
+  | otherwise = case sameBasis src dst of
+                  [] -> insertSet src dst
+                  (_:_) if sum (rOf <$> sameBasis src dst) == (-r1)
+                        then diffBasis src dst
+                        else insertSet (GVal (r1 + sum (rOf <$> sameBasis src dst)) $ iOf src) $ diffBasis src dst
   where
     sameBasis :: GVal -> [GVal] -> [GVal]
     sameBasis val vals = P.filter (\(GVal _ i) -> i == iOf val) vals
@@ -297,9 +298,10 @@ stripPairs = withoutPairs
                    Nothing -> GRVal r is
                    (Just _) -> prependI (GEMinus a) $ withoutPairs $ GRVal r (GEMinus b:|xs)
     withoutPairs (GRVal r is@((GEZero a):|(GEZero b):xs))
-      | a == b            = GRVal 0 (G0:|[])
-      | a /= b && null xs = GRVal r is
-      | a /= b            = prependI (GEZero a) $ withoutPairs $ GRVal r (GEZero b:|xs)
+      | a == b = GRVal 0 (G0:|[])
+      | a /= b = case nonEmpty xs of
+                   Nothing -> GRVal r is
+                   (Just _) -> prependI (GEZero a) $ withoutPairs $ GRVal r (GEZero b:|xs)
     withoutPairs (GRVal r (a:|b:xs)) = prependI a $ withoutPairs $ GRVal r (b:|xs)
     prependI :: GNum -> GRVal -> GRVal
     prependI num (GRVal r nums) = if nums == (G0:|[])
@@ -315,6 +317,7 @@ postProcessFilter :: (Either GRVal GVal) -> GVal
 postProcessFilter (Right gval) = gval
 postProcessFilter (Left grval) = grValToGVal $ stripPairs $ sortBasis $ grval
 
+-- Convert a GRval to a GVal. only to be used in postProcess and postProcessFilter.
 grValToGVal :: GRVal -> GVal
 grValToGVal (GRVal r i) = GVal r (fromAscList (toList i))
 
