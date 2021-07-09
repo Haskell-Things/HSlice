@@ -22,12 +22,10 @@
 
 module Graphics.Slicer.Math.Slicer (accumulateValues) where
 
-import Prelude ((+))
-
-import Graphics.Slicer.Definitions (ℝ)
+import Prelude ((+), Num)
 
 -- Take absolute values, turn into a vector of rising values
-accumulateValues :: [ℝ] -> [ℝ]
+accumulateValues :: Num a => [a] -> [a]
 accumulateValues [] = []
 accumulateValues [a] = [a]
 accumulateValues (a:b:cs) = a : accumulateValues (a + b : cs)
