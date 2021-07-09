@@ -24,11 +24,11 @@ module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) 
 
 import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), Bool, (||), take, filter, null, concat)
 
-import Prelude as P (last)
-
 import Data.List (dropWhile)
 
-import Data.Maybe(isNothing, fromMaybe)
+import Data.List.Extra (unsnoc)
+
+import Data.Maybe (isNothing, fromMaybe, Maybe(Just, Nothing))
 
 import Safe (initSafe)
 
@@ -90,7 +90,9 @@ facesOf (StraightSkeleton nodeLists spine)
                      [] -> error "Impossible. cannot happen."
                      [a] -> facesOfNodeTree a
                      [firstNodeTree, secondNodeTree] -> findFacesRecurse nodeTrees <> [intraNodeFace secondNodeTree firstNodeTree]
-                     (firstNodeTree:lastNodeTrees) -> findFacesRecurse nodeTrees <> [intraNodeFace (P.last lastNodeTrees) firstNodeTree]
+                     (firstNodeTree:moreNodeTrees) -> case unsnoc moreNodeTrees of
+                                                        Nothing -> error "empty node tree?"
+                                                        Just (_,lastNodeTree) -> findFacesRecurse nodeTrees <> [intraNodeFace lastNodeTree firstNodeTree]
         -- Recursively find faces.
         findFacesRecurse :: [NodeTree] -> [Face]
         findFacesRecurse myNodeTrees = case myNodeTrees of
