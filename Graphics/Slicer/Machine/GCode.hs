@@ -27,7 +27,7 @@ module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWal
 
 import GHC.Generics (Generic)
 
-import Prelude (Eq, Int, ($), zipWith, concat, head, last, (<>), show, error, (++), otherwise, (==), length, (/=), fst, pi, (/), (*), pure, toRational, (.), fromRational, (<$>), (+), div, Bool)
+import Prelude (Eq, Int, ($), zipWith, concat, head, last, (<>), show, error, (++), otherwise, (==), length, (/=), fst, pi, (/), (*), pure, toRational, (.), fromRational, (<$>), (+), div, Bool, Rational)
 
 import Data.ByteString (ByteString)
 
@@ -39,11 +39,15 @@ import Data.ByteString.UTF8 (fromString)
 
 import Data.Double.Conversion.ByteString (toFixed)
 
+import Data.List.Extra (unsnoc)
+
+import Data.Maybe ( Maybe(Just, Nothing) )
+
 import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions(ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ)
 
-import Graphics.Slicer.Math.Contour (pointsOfContour)
+import Graphics.Slicer.Math.Contour (pointsOfContour, lastPointOfContour)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour, distance, roundToFifth)
 
@@ -84,27 +88,30 @@ data RawExtrude = RawExtrude { _pathLength :: !ℝ, _pathWidth :: !ℝ, _pathHei
 -- | Calculate the extrusion values for all of the GCodes that extrude.
 cookExtrusions :: Extruder -> [GCode] -> Fastℕ -> StateM [GCode]
 cookExtrusions extruder gcodes threads = do
-  currentPos <- fromRational <$> getEPos
+  currentPos <- getEPos
   let
     ePoses = [currentPos+amount | amount <- accumulateValues extrusionAmounts]
     extrusionAmounts = [calculateExtrusion gcode | gcode <- gcodes] `using` parListChunk (div (length gcodes) (fromFastℕ threads)) rseq
-  setEPos . toRational $ last ePoses
+    finalEPos = case unsnoc ePoses of
+                   Nothing -> currentPos
+                   (Just (_,lastPos)) -> lastPos
+  setEPos finalEPos
   pure $ applyExtrusions gcodes ePoses
   where
-    applyExtrusions :: [GCode] -> [ℝ] -> [GCode]
+    applyExtrusions :: [GCode] -> [Rational] -> [GCode]
     applyExtrusions = zipWith applyExtrusion
-    applyExtrusion :: GCode -> ℝ -> GCode
-    applyExtrusion (GCRawExtrude2 startPoint stopPoint _) ePos = GCExtrude2 startPoint stopPoint ePos
-    applyExtrusion (GCRawExtrude3 startPoint stopPoint _) ePos = GCExtrude3 startPoint stopPoint ePos
+    applyExtrusion :: GCode -> Rational -> GCode
+    applyExtrusion (GCRawExtrude2 startPoint stopPoint _) ePos = GCExtrude2 startPoint stopPoint (fromRational ePos)
+    applyExtrusion (GCRawExtrude3 startPoint stopPoint _) ePos = GCExtrude3 startPoint stopPoint (fromRational ePos)
     -- FIXME: should these two generate warnings?
-    applyExtrusion (GCExtrude2 startPoint stopPoint _) ePos = GCExtrude2 startPoint stopPoint ePos
-    applyExtrusion (GCExtrude3 startPoint stopPoint _) ePos = GCExtrude3 startPoint stopPoint ePos
+    applyExtrusion (GCExtrude2 startPoint stopPoint _) ePos = GCExtrude2 startPoint stopPoint (fromRational ePos)
+    applyExtrusion (GCExtrude3 startPoint stopPoint _) ePos = GCExtrude3 startPoint stopPoint (fromRational ePos)
     applyExtrusion gcode _ = gcode
-    calculateExtrusion :: GCode -> ℝ
+    calculateExtrusion :: GCode -> Rational
     calculateExtrusion (GCRawExtrude2 _ _ (RawExtrude pathLength pathWidth pathHeight)) =
-      pathWidth * pathHeight * (2 / filamentDia) * pathLength / pi
+      (toRational pathWidth) * (toRational pathHeight) * (2 / (toRational filamentDia)) * (toRational pathLength) / (toRational (pi::ℝ))
     calculateExtrusion (GCRawExtrude3 _ _ (RawExtrude pathLength pathWidth pathHeight)) =
-      pathWidth * pathHeight * (2 / filamentDia) * pathLength / pi
+      (toRational pathWidth) * (toRational pathHeight) * (2 / (toRational filamentDia)) * (toRational pathLength) / (toRational (pi::ℝ))
     calculateExtrusion _ = 0
     filamentDia = filamentWidth extruder
 
@@ -164,7 +171,7 @@ gcodeForContour lh pathWidth contour =
     [] -> error "impossible"
     [_a] -> error "also impossible"
     [_a,_b] -> error "more impossible"
-    (headPoints:tailPoints) -> zipWith (make2DExtrudeGCode lh pathWidth) contourPoints tailPoints ++ [make2DExtrudeGCode lh pathWidth (last contourPoints) headPoints]
+    (headPoints:tailPoints) -> zipWith (make2DExtrudeGCode lh pathWidth) contourPoints tailPoints ++ [make2DExtrudeGCode lh pathWidth (lastPointOfContour contour) headPoints]
   where
     contourPoints = pointsOfContour contour
 
