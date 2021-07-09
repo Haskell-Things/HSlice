@@ -51,7 +51,7 @@ import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
 -- | The collision of two motorcycles. one lives, and one doesn't, unless it's a head on collision, in which case both die, and there is no survivor.
-data Collision = Collision { _inMotorcycles :: !(Slist Motorcycle), _survivor :: !(Maybe Motorcycle), collisionResult :: !CollisionType }
+data Collision = Collision { _inMotorcycles :: !(Motorcycle, Motorcycle, Slist Motorcycle), _survivor :: !(Maybe Motorcycle), collisionResult :: !CollisionType }
   deriving (Eq)
 
 -- | the type of collision.
@@ -92,7 +92,7 @@ crashMotorcycles contour holes
                                     (Slist _ 1) -> Just $ CrashTree inMotorcycles inMotorcycles (slist [])
                                   -- One crash, no survivors.
                                     (Slist [firstMC, secondMC] 2) -> if crashOf firstMC secondMC == Just HeadOn
-                                                                     then Just $ CrashTree inMotorcycles (slist []) (slist $ [Collision inMotorcycles Nothing HeadOn])
+                                                                     then Just $ CrashTree inMotorcycles (slist []) (slist $ [Collision (firstMC, secondMC, (slist [])) Nothing HeadOn])
                                                                      else Nothing
                                     (Slist (_:_) _) -> Nothing
       -- Note that to solve this case, we will have to have a concept of speed of the motorcycle.
