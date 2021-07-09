@@ -23,9 +23,11 @@
 -- | The purpose of this file is to hold line based arithmatic. really, we used to have a linear algebra implementation here, before we moved to PGA.
 module Graphics.Slicer.Math.Line (LineSeg(LineSeg), LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs, handleLineSegError) where
 
-import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), Eq, last, init, (<$>), Show, error, null, zipWith, (<>), show, Either(Left, Right))
+import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), Eq, (<$>), Show, error, zipWith, (<>), show, Either(Left, Right))
 
 import Data.Either (fromRight)
+
+import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe(Just, Nothing))
 
@@ -67,11 +69,10 @@ endpoint (LineSeg p s) = addPoints p s
 
 -- | Take a list of line segments, connected at their end points, and generate a list of the points in order.
 pointsFromLineSegs :: [LineSeg] -> Either LineSegError [Point2]
-pointsFromLineSegs lineSegs
-  | null lineSegs = Left EmptyList
-  | otherwise = Right $ makePoints lineSegs
+pointsFromLineSegs lineSegs =  case unsnoc $ endpointsOf lineSegs of
+                                 Nothing -> Left EmptyList
+                                 Just (i,l) -> Right $ l: i
   where
-    makePoints ls = last (endpointsOf ls) : init (endpointsOf ls)
     endpointsOf :: [LineSeg] -> [Point2]
     endpointsOf ls = endpoint <$> ls
 
