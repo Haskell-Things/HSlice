@@ -185,9 +185,11 @@ gcodeForInfill lh pathWidth lineGroups =
   where
     -- FIXME: this should be a single gcode. why are we getting empty line groups given to us?
     moveBetweenLineSegGroups :: [LineSeg] -> [LineSeg] -> [GCode]
-    moveBetweenLineSegGroups [] g2 = error $ "given empty line group?\n" <> show g2 <> "\n"
-    moveBetweenLineSegGroups g1 [] = error $ "line group empty when finding line group following " <> show g1 <> "\n"
-    moveBetweenLineSegGroups g1 g2 = [moveBetween (last g1) (head g2)]
+    moveBetweenLineSegGroups g1 g2 = case unsnoc g1 of
+                                       Nothing -> error $ "given empty line group?\n" <> show g2 <> "\n"
+                                       (Just (_,lastg1)) -> case g2 of
+                                                              [] -> error $ "line group empty when finding line group following " <> show g1 <> "\n"
+                                                              (firstg2:_) -> [moveBetween (lastg1) (firstg2)]
     renderLineSegGroup :: [LineSeg] -> [GCode]
     renderLineSegGroup lineSegSet = case lineSegSet of
                                       [] -> []
