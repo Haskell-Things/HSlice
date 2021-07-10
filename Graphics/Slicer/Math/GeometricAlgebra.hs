@@ -22,7 +22,7 @@
 -- | Our geometric algebra library.
 module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, reduceVecPair, unlikeVecPair) where
 
-import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&))
+import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null)
 
 import Prelude as P (filter)
 
@@ -82,7 +82,7 @@ getVals nums vs = case matches of
                     [oneMatch] -> Just oneMatch
                     multiMatch@(_:_) -> error $ "found multiple candidates" <> show multiMatch <> " when using getVals on " <> show vs <> "when searching for " <> show nums <> "\n"
   where
-    matches = P.filter (\(GVal _ n) -> n == (fromAscList nums)) vs
+    matches = P.filter (\(GVal _ n) -> n == fromAscList nums) vs
 
 -- | Return the value of a vector, OR a given value, if the vector requested is not found.
 valOf :: ℝ -> Maybe GVal -> ℝ
@@ -110,7 +110,7 @@ subValPair v1@(GVal r1 i1) (GVal r2 i2)
 addVal :: [GVal] -> GVal -> [GVal]
 addVal dst src@(GVal r1 _)
   | r1 == 0 = dst
-  | dst == [] = [src]
+  | null dst = [src]
   | otherwise = case sameBasis src dst of
                   [] -> insertSet src dst
                   (_:_) -> if sum (rOf <$> sameBasis src dst) == (-r1)
@@ -238,8 +238,8 @@ mulVecPair vec1 vec2 = results
         mulvals vals val = mulValPair val <$> vals
         mulValPair (GVal r1 i1) (GVal r2 i2)
           | i1 == i2 && size i1 == 1 = simplifyVal (r1*r2) (elemAt 0 i1)
-          | i1 == (singleton G0)     = Right $ GVal (r1*r2) i2
-          | i2 == (singleton G0)     = Right $ GVal (r1*r2) i1
+          | i1 == singleton G0       = Right $ GVal (r1*r2) i2
+          | i2 == singleton G0       = Right $ GVal (r1*r2) i1
           | otherwise = case nonEmpty (elems i1) of
                           Nothing -> error "empty set?"
                           (Just newI1) -> case nonEmpty (elems i2) of
@@ -313,9 +313,9 @@ postProcess :: GRVal -> GVal
 postProcess val = grValToGVal $ stripPairs $ sortBasis val
 
 -- | a post processor, to clean up a GRVal into a GVal. may be given a GVal, in which case it short circuits.
-postProcessFilter :: (Either GRVal GVal) -> GVal
+postProcessFilter :: Either GRVal GVal -> GVal
 postProcessFilter (Right gval) = gval
-postProcessFilter (Left grval) = grValToGVal $ stripPairs $ sortBasis $ grval
+postProcessFilter (Left grval) = grValToGVal $ stripPairs $ sortBasis grval
 
 -- Convert a GRval to a GVal. only to be used in postProcess and postProcessFilter.
 grValToGVal :: GRVal -> GVal

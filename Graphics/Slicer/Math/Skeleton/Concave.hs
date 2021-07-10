@@ -104,7 +104,7 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
         [] -> case iNodes of
                 --  zero nodes == return emptyset. allows us to simplify our return loop.
                 [] -> Right $ INodeSet $ slist []
-                [INode _ _ _ _] -> if not loop
+                [INode {}] -> if not loop
                            then Right $ INodeSet $ one iNodes -- just hand back single node requests.
                            else errorLen1 -- A one node loop makes no sense, reject.
                 [iNode1,iNode2] -> handleTwoNodes iNode1 iNode2
@@ -122,18 +122,16 @@ skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
       where
         errorLen1 = Left $ PartialNodes (INodeSet $ one iNodes) "NOMATCH - length 1?"
         --   Handle the the case of two nodes.
-        handleTwoNodes node1 node2 = if isCollinear (outOf node1) (outOf node2)
-                                     then Right $ INodeSet $ one [makeCollinearPair node1 node2]
-                                     else if intersectsInPoint node1 node2 && not loop
-                                          then Right $ INodeSet $ one [averageNodes node1 node2]
-                                          else errorLen2
+        handleTwoNodes node1 node2
+          | isCollinear (outOf node1) (outOf node2) = Right $ INodeSet $ one [makeCollinearPair node1 node2]
+          | intersectsInPoint node1 node2 && not loop = Right $ INodeSet $ one [averageNodes node1 node2]
+          | otherwise = errorLen2
         errorLen2 = Left $ PartialNodes (INodeSet $ one iNodes) "NOMATCH - length 2?"
         --   Handle the the case of 3 or more nodes.
-        handleThreeOrMoreNodes = if endsAtSamePoint
-                                 then Right $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]
-                                 else if hasShortestPair
-                                      then Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes remainingENodes (remainingINodes ++ averageOfShortestPairs)))
-                                      else errorLen3
+        handleThreeOrMoreNodes
+          | endsAtSamePoint = Right $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]
+          | hasShortestPair = Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes remainingENodes (remainingINodes ++ averageOfShortestPairs)))
+          | otherwise = errorLen3
           where
             inodesOf (INodeSet set) = set
         errorLen3 = error $ "shortestPairDistance: " <> show shortestPairDistance
@@ -280,7 +278,7 @@ sortedPair n1 n2 = sortedPLines [outOf n1, outOf n2]
 
 -- Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
 sortedPLines :: [PLine2] -> [PLine2]
-sortedPLines nodes = sortBy (\n1 n2 -> if (n1 `pLineIsLeft` n2) == Just True then LT else GT) nodes
+sortedPLines = sortBy (\n1 n2 -> if (n1 `pLineIsLeft` n2) == Just True then LT else GT)
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
 --   Note: we normalize our output lines, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
@@ -333,9 +331,9 @@ makeFirstENodes segs = case segs of
                          [] -> error "got empty list at makeENodes.\n"
                          [a] -> error $ "not enough line segments at makeFirstENodes: " <> show a <> "\n"
                          [a,b] -> [makeFirstENode a b]
-                         (xs) -> case unsnoc $ mapWithFollower makeFirstENode xs of
-                                   Nothing -> error "impossible!"
-                                   Just (i,_) -> i
+                         xs -> case unsnoc $ mapWithFollower makeFirstENode xs of
+                                 Nothing -> error "impossible!"
+                                 Just (i,_) -> i
 
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
 makeFirstENodesLooped :: [LineSeg] -> [ENode]

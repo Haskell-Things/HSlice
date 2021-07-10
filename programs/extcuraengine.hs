@@ -320,7 +320,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
             (headContour:tailContours) ->
               travelBetweenContours src headContour
               <> drawOuterContour headContour
-              <> (concat $ zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) childContours tailContours)
+              <> concat (zipWith (\f l -> travelBetweenContours f l <> drawOuterContour l) childContours tailContours)
               <> travelBetweenContours (lastContourOf tailContours) dest
           renderChildInnerContours src dest = case childContoursInnerWalls of
             [] -> travelBetweenContours src dest
@@ -331,7 +331,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
             (headContour:tailContours) ->
               travelBetweenContours src headContour
               <> drawInnerContour headContour
-              <> (concat $ zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) childContoursInnerWalls tailContours)
+              <> concat (zipWith (\f l -> travelBetweenContours f l <> drawInnerContour l) childContoursInnerWalls tailContours)
               <> travelBetweenContours (lastContourOf tailContours) dest
           outsideContour = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*0.5)
           outsideContourInnerWall = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*1.5)

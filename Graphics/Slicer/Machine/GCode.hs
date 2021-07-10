@@ -23,6 +23,7 @@
 -- for NFData.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
+-- | code for generating GCode.
 module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart, GCMarkSupportStart), cookExtrusions, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText) where
 
 import GHC.Generics (Generic)
@@ -47,7 +48,7 @@ import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions(ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ)
 
-import Graphics.Slicer.Math.Contour (pointsOfContour)
+import Graphics.Slicer.Math.Contour (pointsOfContour, lastPointOfContour)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour, distance, roundToFifth)
 
@@ -109,9 +110,9 @@ cookExtrusions extruder gcodes threads = do
     applyExtrusion gcode _ = gcode
     calculateExtrusion :: GCode -> Rational
     calculateExtrusion (GCRawExtrude2 _ _ (RawExtrude pathLength pathWidth pathHeight)) =
-      (toRational pathWidth) * (toRational pathHeight) * (2 / (toRational filamentDia)) * (toRational pathLength) / (toRational (pi::ℝ))
+      (toRational pathWidth) * (toRational pathHeight) * (2 / toRational filamentDia) * (toRational pathLength) / toRational (pi::ℝ)
     calculateExtrusion (GCRawExtrude3 _ _ (RawExtrude pathLength pathWidth pathHeight)) =
-      (toRational pathWidth) * (toRational pathHeight) * (2 / (toRational filamentDia)) * (toRational pathLength) / (toRational (pi::ℝ))
+      (toRational pathWidth) * (toRational pathHeight) * (2 / toRational filamentDia) * (toRational pathLength) / toRational (pi::ℝ)
     calculateExtrusion _ = 0
     filamentDia = filamentWidth extruder
 
@@ -173,9 +174,7 @@ gcodeForContour lh pathWidth contour =
     [] -> error "impossible"
     [_a] -> error "also impossible"
     [_a,_b] -> error "more impossible"
-    (headPoint:tailPoints) -> case unsnoc tailPoints of
-                                Nothing -> error "impossibleer"
-                                (Just (_,lastPoint)) -> zipWith (make2DExtrudeGCode lh pathWidth) contourPoints tailPoints ++ [make2DExtrudeGCode lh pathWidth lastPoint headPoint]
+    (headPoint:tailPoints) -> zipWith (make2DExtrudeGCode lh pathWidth) contourPoints tailPoints ++ [make2DExtrudeGCode lh pathWidth (lastPointOfContour contour) headPoint]
   where
     contourPoints = pointsOfContour contour
 
@@ -193,7 +192,7 @@ gcodeForInfill lh pathWidth lineGroups =
                                        Nothing -> error $ "given empty line group?\n" <> show g2 <> "\n"
                                        (Just (_,lastg1)) -> case g2 of
                                                               [] -> error $ "line group empty when finding line group following " <> show g1 <> "\n"
-                                                              (firstg2:_) -> [moveBetween (lastg1) (firstg2)]
+                                                              (firstg2:_) -> [moveBetween lastg1 firstg2]
     renderLineSegGroup :: [LineSeg] -> [GCode]
     renderLineSegGroup lineSegSet = case lineSegSet of
                                       [] -> []

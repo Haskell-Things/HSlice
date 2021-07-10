@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PolyKinds #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -35,7 +33,7 @@ instance NFData a => NFData (Slist a) where
   rnf (Slist vals n) = rnf vals `seq` rnf n
 
 instance NFData Size where
-  rnf (Infinity) = ()
+  rnf Infinity = ()
   rnf (Size n) = seq n ()
 
 -- FIXME: move this to the proper place in ImplicitCAD.

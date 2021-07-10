@@ -104,16 +104,16 @@ facesOf (StraightSkeleton nodeLists spine)
         intraNodeFace :: NodeTree -> NodeTree -> Face
         intraNodeFace nodeTree1 nodeTree2
           | nodeTree1 `isLeftOf` nodeTree2  = if nodeTree1 `follows` nodeTree2
-                                              then makeFace (firstENodeOf nodeTree1) ((init $ lastPLinesOf nodeTree1) <> tail (tail $ reverse $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
-                                              else makeFace (firstENodeOf nodeTree1) ((init $ lastPLinesOf nodeTree1) <>       tail  (reverse $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
+                                              then makeFace (firstENodeOf nodeTree1) (init (lastPLinesOf nodeTree1) <> tail (tail $ reverse $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
+                                              else makeFace (firstENodeOf nodeTree1) (init (lastPLinesOf nodeTree1) <>       tail  (reverse $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
           | nodeTree1 `isRightOf` nodeTree2 = if nodeTree2 `follows` nodeTree1
-                                              then makeFace (lastENodeOf nodeTree2) ((init $ firstPLinesOf nodeTree2) <> tail (tail $ reverse $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
-                                              else makeFace (lastENodeOf nodeTree2) ((init $ firstPLinesOf nodeTree2) <>       tail  (reverse $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
+                                              then makeFace (lastENodeOf nodeTree2) (init (firstPLinesOf nodeTree2) <> tail (tail $ reverse $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
+                                              else makeFace (lastENodeOf nodeTree2) (init (firstPLinesOf nodeTree2) <>       tail  (reverse $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
           | nodeTree1 == nodeTree2          = error $ "two identical nodes given.\n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
           | otherwise = error $ "Two NodeTrees given that are not neighbors: " <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
           where
             follows :: NodeTree -> NodeTree -> Bool
-            follows nt1 nt2 = (SL.last $ firstPLinesOf nt1) == (SL.last $ lastPLinesOf nt2)
+            follows nt1 nt2 = SL.last (firstPLinesOf nt1) == SL.last (lastPLinesOf nt2)
             isLeftOf :: NodeTree -> NodeTree -> Bool
             isLeftOf nt1 nt2 = firstSegOf nt1 == lastSegOf nt2
             isRightOf :: NodeTree -> NodeTree -> Bool
