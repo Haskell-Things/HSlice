@@ -21,6 +21,7 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
+-- | container for orphan instances. these should go in their appropriate upstreams.
 module Graphics.Slicer.Orphans () where
 
 import Control.DeepSeq (NFData (rnf))
@@ -36,6 +37,6 @@ instance NFData Size where
   rnf Infinity = ()
   rnf (Size n) = seq n ()
 
--- FIXME: move this to the proper place in ImplicitCAD.
+-- | FIXME: move this to the proper place in ImplicitCAD.
 instance NFData Fastℕ where
   rnf a = seq a ()

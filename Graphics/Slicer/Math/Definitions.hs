@@ -22,7 +22,7 @@
 -- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
 module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(SafeContour), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor) where
 
-import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, null, zipWith3, zipWith, (<>), error)
+import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, zipWith, (<>), error)
 
 import Control.DeepSeq (NFData)
 
@@ -44,22 +44,23 @@ import Graphics.Slicer.Definitions (ℝ, ℝ2, ℝ3, Fastℕ)
 
 import Graphics.Slicer.Orphans ()
 
--- A single Point in 2D or 3D linear space.
+-- | A single Point in 3D linear space.
 newtype Point3 = Point3 ℝ3
   deriving (Eq, Generic, NFData, Show)
 
+-- | A single Point on a 2D plane.
 newtype Point2 = Point2 ℝ2
   deriving (Eq, Generic, NFData, Show)
 
 -- | A typeclass containing our basic linear algebra functions.
 class LinAlg p where
-  -- Distance between two points. needed for the equivilence instance of line, and to determine amount of extrusion.
+  -- | Distance between two points. needed for the equivilence instance of line, and to determine amount of extrusion.
   distance   :: p -> p -> ℝ
-  -- Add the coordinates of two points
+  -- | Add the coordinates of two points
   addPoints  :: p -> p -> p
-  -- Scale the coordinates of a point by s
+  -- | Scale the coordinates of a point by s
   scalePoint :: ℝ -> p -> p
-  -- Are these points the same point, after rounding for printing?
+  -- | Are these points the same point, after rounding for printing?
   (~=)       :: p -> p -> Bool
 
 -- | perform linear algebra on 3D points.
@@ -80,8 +81,11 @@ instance LinAlg Point2 where
   scalePoint val (Point2 (a,b)) = Point2 (val*a ,val*b)
   (~=) p1 p2 = roundPoint2 p1 == roundPoint2 p2
 
+-- | functions for working on points as if they are in a 2D plane.
 class PlanePoint p where
+  -- | The x value of a point in a plane.
   xOf :: p -> ℝ
+  -- | The Y value of a point in a plane.
   yOf :: p -> ℝ
 
 instance Ord Point2 where
@@ -104,8 +108,11 @@ instance PlanePoint Point2 where
   yOf (Point2 (_,y))   = y
   {-# INLINABLE yOf #-}
 
+-- | functions for working on points in 3D space.
 class SpacePoint p where
+  -- | The Z value of a point in a 3D space.
   zOf :: p -> ℝ
+  -- | A function converting the point into a 2D point along a Z aligned plane.
   flatten :: p -> Point2
 
 instance SpacePoint Point3 where
@@ -121,16 +128,18 @@ data Contour = SafeContour { _minPoint :: !Point2, _maxPoint :: !Point2, _firstP
 roundToFifth :: ℝ -> ℝ
 roundToFifth a = fromIntegral (round (100000 * a) :: Fastℕ) / 100000
 
--- | round a point
+-- | round a point (3d)
 roundPoint3 :: Point3 -> Point3
 roundPoint3 (Point3 (x1,y1,z1)) = Point3 (roundToFifth x1, roundToFifth y1, roundToFifth z1)
+
+
+-- | round a point (2d)
 roundPoint2 :: Point2 -> Point2
 roundPoint2 (Point2 (x1,y1)) = Point2 (roundToFifth x1, roundToFifth y1)
 
 -- | like map, only with previous, current, and next item, and wrapping around so the first entry gets the last entry as previous, and vica versa.
 mapWithNeighbors :: (a -> a -> a -> b) -> [a] -> [b]
 mapWithNeighbors f l
-  | null l = []
   | otherwise = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
   where
     z = zs <> [fz]

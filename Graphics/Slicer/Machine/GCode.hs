@@ -110,9 +110,9 @@ cookExtrusions extruder gcodes threads = do
     applyExtrusion gcode _ = gcode
     calculateExtrusion :: GCode -> Rational
     calculateExtrusion (GCRawExtrude2 _ _ (RawExtrude pathLength pathWidth pathHeight)) =
-      (toRational pathWidth) * (toRational pathHeight) * (2 / toRational filamentDia) * (toRational pathLength) / toRational (pi::ℝ)
+      toRational $ pathWidth * pathHeight * (2 / filamentDia) * pathLength / pi
     calculateExtrusion (GCRawExtrude3 _ _ (RawExtrude pathLength pathWidth pathHeight)) =
-      (toRational pathWidth) * (toRational pathHeight) * (2 / toRational filamentDia) * (toRational pathLength) / toRational (pi::ℝ)
+      toRational $ pathWidth * pathHeight * (2 / filamentDia) * pathLength / pi
     calculateExtrusion _ = 0
     filamentDia = filamentWidth extruder
 
