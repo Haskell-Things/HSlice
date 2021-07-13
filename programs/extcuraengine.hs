@@ -282,16 +282,20 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
     travelToContour :: Contour -> [GCode]
     travelToContour contour = [make3DTravelGCode (Point3 (0,0,0)) (raise $ firstPointOfContour contour)]
     travelBetweenContours :: Contour -> Contour -> [GCode]
-    travelBetweenContours source dest = [make2DTravelGCode (lastPointOfContour source) $ firstPointOfContour dest]
+    travelBetweenContours source dest = [make2DTravelGCode (firstPointOfContour source) $ firstPointOfContour dest]
     travelFromContourToInfill :: Contour -> [[LineSeg]] -> [GCode]
     travelFromContourToInfill source lines = if firstPointOfInfill lines /= Nothing then [addFeedRate infillSpeed $ make2DTravelGCode (lastPointOfContour source) $ fromMaybe (Point2 (0,0)) $ firstPointOfInfill lines] else []
     renderContourTreeSet :: ContourTreeSet -> [GCode]
     renderContourTreeSet (ContourTreeSet firstContourTree moreContourTrees) = renderContourTree firstContourTree <> concat (renderContourTree <$> moreContourTrees)
       where
         renderContourTree :: ContourTree -> [GCode]
-        renderContourTree (ContourTree firstContour subContours) = renderSurface firstContour (interiorContours subContours)
+        renderContourTree (ContourTree firstContour subContours) = renderSurface firstContour (interiorContours subContours) <> renderSubTrees subContours
         interiorContours :: Slist ContourTreeSet -> [Contour]
         interiorContours (Slist treeSets _) = firstContourOfContourTreeSet <$> treeSets
+        renderSubTrees :: Slist ContourTreeSet -> [GCode]
+        renderSubTrees (Slist subContours _) = concat $ concat [renderContourTreeSet <$> (innerContourTreesOfContourTreeSet contourTree) | contourTree <- subContours]
+        innerContourTreesOfContourTreeSet :: ContourTreeSet -> [ContourTreeSet]
+        innerContourTreesOfContourTreeSet (ContourTreeSet (ContourTree _ (Slist innerTrees _)) _) = innerTrees
     renderSurface :: Contour -> [Contour] -> [GCode]
     renderSurface outsideContourRaw insideContoursRaw
       | outerWallBeforeInner == True =
