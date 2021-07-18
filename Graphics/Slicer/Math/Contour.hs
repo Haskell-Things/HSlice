@@ -21,6 +21,7 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 
+-- | functions for handling contours.
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, firstContourOfContourTreeSet, lineSegsOfContour, contourIntersectionCount) where
 
 import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), (++))
@@ -210,11 +211,11 @@ followingLineSeg x = followingLineSegLooped x x
     followingLineSegLooped [a] (b:_) l1 = if a == l1 then b else followingLineSegLooped [a] [] l1
     followingLineSegLooped (a:b:xs) set l1 = if a == l1 then b else followingLineSegLooped (b:xs) set l1
 
--- | Check if the left hand side of this line in toward the inside of the contour it is a part of.
+-- | Check if the left hand side of a line segmnt is toward the inside of the contour it is a part of.
 insideIsLeft :: Contour -> LineSeg -> Bool
 insideIsLeft contour lineSegment = lineIsLeft lineSecondHalf lineToInside == Just True
   where
-    lineSecondHalf = fromRight (error "cannot construct SecondHalf") $ lineSegFromEndpoints (midpoint lineSegment) (endpoint lineSegment)
+    lineSecondHalf = fromRight (error $ "cannot construct SecondHalf" <> show lineSegment <> "\n" <> show contour <> "/n") $ lineSegFromEndpoints (midpoint lineSegment) (endpoint lineSegment)
     lineToInside = fromRight (error "cannot construct lineToInside") $ lineSegFromEndpoints (midpoint lineSegment) $ innerContourPoint 0.00001 contour lineSegment
 
 -- | Find a point on the interior of the given contour, on the perpendicular bisector of the given line, a given distance from the line.
