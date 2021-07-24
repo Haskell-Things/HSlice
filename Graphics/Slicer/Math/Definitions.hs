@@ -132,7 +132,6 @@ roundToFifth a = fromIntegral (round (100000 * a) :: Fastℕ) / 100000
 roundPoint3 :: Point3 -> Point3
 roundPoint3 (Point3 (x1,y1,z1)) = Point3 (roundToFifth x1, roundToFifth y1, roundToFifth z1)
 
-
 -- | round a point (2d)
 roundPoint2 :: Point2 -> Point2
 roundPoint2 (Point2 (x1,y1)) = Point2 (roundToFifth x1, roundToFifth y1)
