@@ -163,9 +163,9 @@ addInset insets distance faceSet
   | insets == 1 = ([reconstructedContour], remainingFaces)
   | otherwise = error "cannot handle more than one inset yet."
   where
-    reconstructedContour = case (cleanContour $ makeSafeContour $ mapWithPredecessor recoveryFun (concat $ transpose lineSegSets)) of
+    reconstructedContour = case cleanContour $ makeSafeContour $ mapWithPredecessor recoveryFun (concat $ transpose lineSegSets) of
                              (Just v) -> v
-                             Nothing -> error $ "failed to inset:"
+                             Nothing -> error $ "failed to inset:" <> show faceSet <> "\n"
     recoveryFun l1@(LineSeg s1 _) l2@(LineSeg s2 _)
       | endpoint l1 == s2 = endpoint l1
       | endpoint l2 == s1 = endpoint l2

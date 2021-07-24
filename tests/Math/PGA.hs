@@ -172,7 +172,7 @@ geomAlgSpec = do
     it "multiplies a (multi)vector by a scalar (mulScalarVec)" $
       mulScalarVec 2 (GVec [GVal 1 (singleton (GEPlus 1))]) --> GVec [GVal 2 (singleton (GEPlus 1))]
     it "multiplies a (multi)vector by a scalar (G0)" $
-      (GVec [GVal 2 (singleton G0)]) • (GVec [GVal 1 (singleton (GEPlus 1))]) --> GVec [GVal 2 (singleton (GEPlus 1))]
+      GVec [GVal 2 (singleton G0)] • GVec [GVal 1 (singleton (GEPlus 1))] --> GVec [GVal 2 (singleton (GEPlus 1))]
     -- 2e1/2 = e1
     it "divides a (multi)vector by a scalar" $
       divVecScalar (GVec [GVal 2 (singleton (GEPlus 1))]) 2 --> GVec [GVal 1 (singleton (GEPlus 1))]

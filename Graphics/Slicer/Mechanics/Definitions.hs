@@ -32,5 +32,5 @@ data Extruder =
 
 -- The shape of the 3d printer's bed.
 -- FIXME: replace these with Zones.
-data Bed =
-  RectBed !ℝ2 -- Width and Depth of the build plate, with the front left surface being 0,0,0.
+newtype Bed =
+  RectBed ℝ2 -- Width and Depth of the build plate, with the front left surface being 0,0,0.

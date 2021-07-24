@@ -34,10 +34,10 @@ findNeighbors facet@(Facet (s1,s2,s3) _) facets = FacetWithNeighbors facet (find
   where
     findOtherFacetWithSide :: (Point3,Point3) -> Facet -> [Facet] -> Facet
     findOtherFacetWithSide side target fs = case res of
-                                              [] -> error $ "no res? impossible?"
+                                              [] -> error "no res? impossible?"
                                               [a] -> error $ "only found self when looking for facet matching: " <> show a <> "\n"
                                               [_a,_b] -> case filter (/= target) res of
-                                                         [] -> error $ "impossible"
+                                                         [] -> error "impossible"
                                                          [a] -> a
                                                          (a:bs) -> error $ "too many members: " <> show a <> "\n" <> show bs <> "\n"
                                               (a:bs) -> error $ "more edges found than possible: " <> show a <> "\n" <> show bs <> "\n"

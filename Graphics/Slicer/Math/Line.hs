@@ -39,7 +39,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2, addPoints, scalePoint, zOf, flatten)
 
--- Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
+-- | Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
 -- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
 data LineSeg = LineSeg { _point :: !Point2, _distanceToEnd :: !Point2 }
@@ -76,8 +76,7 @@ pointsFromLineSegs lineSegs =  case unsnoc $ endpointsOf lineSegs of
     endpointsOf :: [LineSeg] -> [Point2]
     endpointsOf ls = endpoint <$> ls
 
--- Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). We really only want to call this
--- if p2 == p3 and the lines are really close to parallel
+-- | Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). Only call this if p2 == p3 and the lines are really close to parallel
 combineLineSegs :: LineSeg -> LineSeg -> Maybe LineSeg
 combineLineSegs l1@(LineSeg p _) l2@(LineSeg p1 s1) = if endpoint l2 == p -- If line 2 ends where line 1 begins:
                                                       then Nothing -- handle a contour that loops back on itsself.

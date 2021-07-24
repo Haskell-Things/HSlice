@@ -24,9 +24,11 @@
 -- | functions for handling contours.
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makeSafeContour, firstContourOfContourTreeSet, lineSegsOfContour, contourIntersectionCount) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), (++))
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), (++), (>))
 
-import Data.List(last, head, partition, reverse, sortBy)
+import Data.List(head, partition, reverse, sortBy)
+
+import Data.List as DL (last)
 
 import Data.List.Extra (unsnoc)
 
@@ -36,7 +38,7 @@ import Data.Either (fromRight)
 
 import Slist (len, size, slist, uncons, safeLast, zipWith)
 
-import Slist as SL (tail)
+import Slist as SL (tail, last)
 
 import Slist.Type (Slist(Slist))
 
@@ -96,7 +98,7 @@ getLoops' segs workingLoop =
   let
     connectsBackwards [] = False
     connectsBackwards [_] = False
-    connectsBackwards (_:xs) = last xs == presEnd workingLoop
+    connectsBackwards (_:xs) = DL.last xs == presEnd workingLoop
     connects [] = False     -- Handle the empty case.
     connects (x:_) = x == presEnd workingLoop
     -- divide our set into sequences that connect, and sequences that don't.
@@ -146,7 +148,7 @@ getContours pointPairs = maybeFlipContour <$> foundContours
     -- make sure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
     maybeFlipContour :: Contour -> Contour
     maybeFlipContour contour
-      | insideIsLeft contour $ (firstLineSegOfContour contour) = contour
+      | insideIsLeft contour (firstLineSegOfContour contour) = contour
       | otherwise = makeSafeContour $ reverse $ pointsOfContour contour
 
 -- | A contour tree. A contour, which contains a list of contours that are cut out of the first contour, each of them contaiting a list of contours of positive space.. ad infinatum.
@@ -166,7 +168,7 @@ makeContourTreeSet contours =
     (_:_) ->
       case contoursWithoutParents contours of
         [] -> error $ "impossible: contours given, but no top level contours found?" <> show contours <> "\n"
-        [oneContour] -> ContourTreeSet (ContourTree oneContour (slist [makeContourTreeSet $ filter (\a -> a /= oneContour) contours])) (slist [])
+        [oneContour] -> ContourTreeSet (ContourTree oneContour (slist [makeContourTreeSet $ filter (/= oneContour) contours])) (slist [])
         (headParent:tailParents) -> ContourTreeSet (ContourTree headParent (slist $ recurseIfNotEmpty contours headParent))
                                                    (slist [ContourTree foundContour (slist $ recurseIfNotEmpty contours foundContour) | foundContour <- tailParents])
   where
@@ -183,7 +185,7 @@ makeContourTreeSet contours =
 contourContainsContour :: Contour -> Contour -> Bool
 contourContainsContour parent@(SafeContour minPoint1 _ _ _ _ _) child@(SafeContour minPoint2 _ _ _ _ _) = odd noIntersections
   where
-    outsidePointOfPair = Point2 ((min (xOf minPoint1) (xOf minPoint2))-1,(min (yOf minPoint1) (yOf minPoint2))-1)
+    outsidePointOfPair = Point2 (min (xOf minPoint1) (xOf minPoint2) - 1,min (yOf minPoint1) (yOf minPoint2) - 1)
     noIntersections = length $ getContourLineSegIntersections parent $ lineSegToEdge $ innerPointOf child
     lineSegToEdge p = fromRight (error "cannot construct lineToEdge") $ lineSegFromEndpoints p outsidePointOfPair
     getContourLineSegIntersections :: Contour -> LineSeg -> [Point2]
@@ -287,7 +289,9 @@ justOneContourFrom (contours, _) = error $ "received multiple contours when we e
 -- | Find the last point in a contour.
 -- since contours are a big loop, the first point IS the last point.
 lastPointOfContour :: Contour -> Point2
-lastPointOfContour a = firstPointOfContour a
+lastPointOfContour (SafeContour _ _ _ _ p3 pts)
+  | len pts > 0 = SL.last pts
+  | otherwise = p3
 
 -- | Find the first point in a contour.
 firstPointOfContour :: Contour -> Point2
@@ -301,8 +305,8 @@ makeSafeContour points = case points of
                            [p1,p2] -> error $ "tried to create a contour with only two points:\n" <> show p1 <> "\n" <> show p2 <> "\n"
                            (p1:p2:p3:pts) -> SafeContour pL pH p1 p2 p3 (slist pts)
   where
-    pL = Point2 ((minimum $ xOf <$> points), (minimum $ yOf <$> points))
-    pH = Point2 ((maximum $ xOf <$> points), (maximum $ yOf <$> points))
+    pL = Point2 (minimum $ xOf <$> points, minimum $ yOf <$> points)
+    pH = Point2 (maximum $ xOf <$> points, maximum $ yOf <$> points)
 
 -- | find the first line segment of a contour.
 firstLineSegOfContour :: Contour -> LineSeg

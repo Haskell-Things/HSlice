@@ -403,11 +403,11 @@ forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
 -- | runtime basis coersion. ensure all of the '0' components exist on a PLine2.
 forcePLine2Basis :: PLine2 -> PLine2
 forcePLine2Basis ln@(PLine2 pvec@(GVec [GVal _ gnum1, GVal _ gnum2, GVal _ gnum3]))
-  | gnum1 == (singleton (GEZero 1)) &&
-    gnum2 == (singleton (GEPlus 1)) &&
-    gnum3 == (singleton (GEPlus 2))    = ln
-  | otherwise                          = PLine2 $ forceBasis [(singleton (GEZero 1)), (singleton (GEPlus 1)), (singleton (GEPlus 2))] pvec
-forcePLine2Basis (PLine2 pvec)         = PLine2 $ forceBasis [(singleton (GEZero 1)), (singleton (GEPlus 1)), (singleton (GEPlus 2))] pvec
+  | gnum1 == singleton (GEZero 1) &&
+    gnum2 == singleton (GEPlus 1) &&
+    gnum3 == singleton (GEPlus 2)    = ln
+  | otherwise                        = PLine2 $ forceBasis [singleton (GEZero 1), singleton (GEPlus 1), singleton (GEPlus 2)] pvec
+forcePLine2Basis (PLine2 pvec)       = PLine2 $ forceBasis [singleton (GEZero 1), singleton (GEPlus 1), singleton (GEPlus 2)] pvec
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a PPoint2.
 forcePPoint2Basis :: PPoint2 -> PPoint2
@@ -415,8 +415,8 @@ forcePPoint2Basis pt@(PPoint2 pvec@(GVec [GVal _ gnum1, GVal _ gnum2, GVal _ gnu
   | gnum1 == fromList [GEZero 1, GEPlus 1] &&
     gnum2 == fromList [GEZero 1, GEPlus 2] &&
     gnum3 == fromList [GEPlus 1, GEPlus 2]    = pt
-  | otherwise                                 = PPoint2 $ forceBasis [(fromList [GEZero 1, GEPlus 1]), (fromList [GEZero 1, GEPlus 2]), (fromList [GEPlus 1, GEPlus 2])] pvec
-forcePPoint2Basis (PPoint2 pvec)              = PPoint2 $ forceBasis [(fromList [GEZero 1, GEPlus 1]), (fromList [GEZero 1, GEPlus 2]), (fromList [GEPlus 1, GEPlus 2])] pvec
+  | otherwise                                 = PPoint2 $ forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] pvec
+forcePPoint2Basis (PPoint2 pvec)              = PPoint2 $ forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] pvec
 
 -- | Normalization of euclidian points is really just cannonicalization.
 canonicalizePPoint2 :: PPoint2 -> PPoint2

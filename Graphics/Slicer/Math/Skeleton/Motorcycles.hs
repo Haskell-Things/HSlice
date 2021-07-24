@@ -92,7 +92,7 @@ crashMotorcycles contour holes
                                     (Slist _ 1) -> Just $ CrashTree inMotorcycles inMotorcycles (slist [])
                                   -- One crash, no survivors.
                                     (Slist [firstMC, secondMC] 2) -> if crashOf firstMC secondMC == Just HeadOn
-                                                                     then Just $ CrashTree inMotorcycles (slist []) (slist $ [Collision (firstMC, secondMC, (slist [])) Nothing HeadOn])
+                                                                     then Just $ CrashTree inMotorcycles (slist []) (slist [Collision (firstMC, secondMC,slist []) Nothing HeadOn])
                                                                      else Nothing
                                     (Slist (_:_) _) -> Nothing
       -- Note that to solve this case, we will have to have a concept of speed of the motorcycle.

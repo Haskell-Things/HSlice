@@ -91,7 +91,7 @@ modifyContour pathWidth contour direction
                                             (firstSeg:moreSegs) -> case unsnoc moreSegs of
                                                                      Nothing -> error "impossible."
                                                                      (Just (middleSegs,lastSeg)) -> if isDegenerate (inwardAdjust lastSeg) (inwardAdjust firstSeg)
-                                                                                                    then middleSegs ++ maybeToList (combineLineSegs (lastSeg) firstSeg)
+                                                                                                    then middleSegs ++ maybeToList (combineLineSegs lastSeg firstSeg)
                                                                                                     else inSegs
             concatDegenerates :: [LineSeg] -> LineSeg -> [LineSeg]
             concatDegenerates inSegs oneSeg = case unsnoc inSegs of

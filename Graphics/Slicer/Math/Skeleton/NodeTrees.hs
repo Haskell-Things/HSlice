@@ -88,8 +88,8 @@ pathTo nodeTree@(NodeTree eNodeList@(ENodeSet firstENode _) iNodeSet@(INodeSet g
                                                      Nothing -> case myGenerations of
                                                                   (Slist [] _) -> myError
                                                                   (Slist ([]:_) _) -> myError
-                                                                  (Slist ((INode _ _ _ _:[]):_) _) -> myError
-                                                                  (Slist ((INode _ _ _ _:_):_) _) ->  case iNodeOnLowerLevel of
+                                                                  (Slist [INode {} :_] _) -> myError
+                                                                  (Slist ((INode {} :_):_) _) ->  case iNodeOnLowerLevel of
                                                                                         (Just (resINodeSet,resINode)) -> pathInner (ancestorsOf resINodeSet) myENodeSet resINode
                                                                                         Nothing -> myError
 
@@ -120,7 +120,7 @@ findINodeByOutput iNodeSet@(INodeSet generations) plineOut recurse
                   [] -> if recurse
                         then case generations of
                                (Slist [] _) -> Nothing
-                               (Slist [(INode _ _ _ _:_)] _) -> Nothing
+                               (Slist [INode {} :_] _) -> Nothing
                                (Slist (_:_) _) -> findINodeByOutput (ancestorsOf iNodeSet) plineOut recurse
                         else Nothing
                   [iNode] -> Just (iNodeSet, iNode)

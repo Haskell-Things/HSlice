@@ -186,6 +186,7 @@ instance GanjaAble Face where
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
           allPLines    = toGanja <$> ([firstArc] ++ arcs ++ [lastArc])
 
+-- | Create a single program, covering a series of objects.
 dumpGanjas :: [String -> (String, String)] -> String
 dumpGanjas [] = error "no items to dump."
 dumpGanjas [f] = ganjaHeader <> vars <> ganjaFooterStart <> refs <> ganjaFooterEnd
@@ -198,15 +199,21 @@ dumpGanjas xs = ganjaHeader <> vars <> ganjaFooterStart <> refs <> ganjaFooterEn
         res          = (\(a,b) -> a b) <$> zip xs allStrings
         allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
 
+-- | create a single program for a single object.
 dumpGanja :: (GanjaAble a) => a -> String
 dumpGanja target = ganjaHeader <> vars <> ganjaFooterStart <> refs <> ganjaFooterEnd
   where
     (vars, refs) = toGanja target "a"
 
+-- | the headaer at the beginning of all programs.
 ganjaHeader :: String
 ganjaHeader = "Algebra(2,0,1,()=>{\n  var line = (a,b,c)=>a*1e1 + b*1e2 + c*1e0;\n  var point = (x,y)=>!(1e0 + x*1e1 + y*1e2);\n"
+
+-- | the beginning of the footer section.
 ganjaFooterStart :: String
 ganjaFooterStart = "  document.body.appendChild(this.graph([\n"
+
+-- | the end of the footer.
 ganjaFooterEnd :: String
 ganjaFooterEnd = "  ],{\n"
                  <> "    grid: true,\n"
