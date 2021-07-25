@@ -38,7 +38,7 @@ import Data.Either (fromRight)
 
 import Slist (len, size, slist, uncons, safeLast, zipWith)
 
-import Slist as SL (tail, last)
+import Slist as SL (last)
 
 import Slist.Type (Slist(Slist))
 
@@ -273,9 +273,9 @@ lineSegsOfContour (SafeContour _ _ p1 p2 p3 pts) = [consLineSeg p1 p2,
         (Just (headVal,tailVals)) -> consLineSeg pointStart headVal :
                                    case safeLast tailVals of
                                      Nothing -> [consLineSeg headVal pointEnd]
-                                     (Just lastVal) -> consSegsBetween points ++ [consLineSeg lastVal pointEnd]
+                                     (Just lastVal) -> consSegsBetween points tailVals ++ [consLineSeg lastVal pointEnd]
       where
-        consSegsBetween myPoints = (\(Slist vals _)  -> vals) $ zipWith consLineSeg myPoints (SL.tail points)
+        consSegsBetween myPoints myTailVals = (\(Slist vals _)  -> vals) $ zipWith consLineSeg myPoints myTailVals
 
 -- | return the number of points in a contour.
 numPointsOfContour :: Contour -> Int
