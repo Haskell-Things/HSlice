@@ -20,7 +20,7 @@
 --    a Straight Skeleton of a contour, with a set of sub-contours cut out of it.
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (Bool(True), ($), (<$>), (==), error, (&&), null, filter, zip, Either(Right), (>), even, not)
+import Prelude (($), (<$>), (==), error, (&&), null, filter, zip, Either(Right), (>), even, not)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
@@ -30,16 +30,15 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
-
 import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PCollinear), plinesIntersectIn)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
 import Graphics.Slicer.Math.Contour (contourIntersectionCount, lineSegsOfContour)
 
-import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
+import Graphics.Slicer.Math.Skeleton.Cells (simpleNodeTreeOfCell, contourToCell)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, linePairs, outOf, pPointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, linePairs, outOf, pPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Motorcycles (CrashTree(CrashTree), CollisionType(HeadOn), Collision, crashMotorcycles, collisionResult)
 
@@ -64,9 +63,9 @@ findStraightSkeleton contour holes =
       (Just crashTree) -> if not $ null holes
                           then Nothing
                           else case motorcyclesIn crashTree of
-                                 (Slist _ 0) -> Just $ StraightSkeleton [[skeletonOfConcaveRegion (lineSegsOfContour contour) True]] (slist [])
+                                 -- Simple case. convert the whole contour to a cell, and use the simple solver on it.
+                                 (Slist _ 0) -> Just $ StraightSkeleton [[simpleNodeTreeOfCell $ contourToCell contour]] (slist [])
                                  -- Divide into cells, and walk the tree.
-                                 
                                  -- Use the algorithm from Christopher Tscherne's master's thesis.
                                  (Slist [inMC] 1) -> applyTscherne contour [CellDivide (DividingMotorcycles inMC (Slist [] 0)) (maybeOpposingENodeOf crashTree)]
                                  (Slist [firstMC,secondMC] 2) -> if lastCrashType crashTree == Just HeadOn

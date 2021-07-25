@@ -31,7 +31,7 @@ import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, O
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
-import Data.List (takeWhile, sortBy)
+import Data.List (takeWhile, sortBy, last, head)
 
 import Data.List.Extra (unsnoc)
 
@@ -43,7 +43,7 @@ import Graphics.Slicer.Math.Definitions (Point2, mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, handleLineSegError)
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, handleLineSegError, endpoint)
 
 import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft)
 
@@ -71,9 +71,14 @@ justToSomething val = case val of
 
 -- | Recurse on a set of nodes until we have a complete NodeTree.
 --   Only works on a sequnce of concave line segments, when there are no holes in the effected area.
-skeletonOfConcaveRegion :: [LineSeg] -> Bool -> NodeTree
-skeletonOfConcaveRegion inSegs loop = getNodeTree (firstENodes inSegs loop)
+skeletonOfConcaveRegion :: [LineSeg] -> NodeTree
+skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
   where
+    -- are the incoming line segments a loop?
+    loop = endpoint (last inSegs) == startPoint (head inSegs)
+      where
+        startPoint (LineSeg p1 _) = p1
+
     -- Generate the first generation of nodes, from the passed in line segments.
     -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
     firstENodes :: [LineSeg] -> Bool -> [ENode]
