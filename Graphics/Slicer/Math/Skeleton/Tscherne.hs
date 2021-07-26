@@ -53,7 +53,7 @@ applyTscherne :: Contour -> [CellDivide] -> Maybe StraightSkeleton
 applyTscherne contour cellDivisions =
   case cellDivisions of
     [] -> Nothing
-    [oneDivision] -> if cellsDoNotOverlap (cellAfter contour oneDivision, oneDivision) (cellBefore contour oneDivision, oneDivision)
+    [oneDivision] -> if nodeTreesDoNotOverlap (cellAfter contour oneDivision) (cellBefore contour oneDivision) oneDivision
                      then Just $ addMirrorCells (cellAfter contour oneDivision) (cellBefore contour oneDivision) oneDivision
                      else errorIncomplete
     (_:_) -> Nothing
@@ -63,58 +63,59 @@ applyTscherne contour cellDivisions =
                       show contour  <> "\n" <>
                       show cellDivisions <> "\n"
 
-    -- Check whether the NodeTrees of two cells have an effect on each other.
-    cellsDoNotOverlap :: (NodeTree, CellDivide) -> (NodeTree, CellDivide) -> Bool
-    cellsDoNotOverlap (cell1,cellDivision1@(CellDivide motorcycles1 _)) (cell2,cellDivision2)
-      -- Only works when the CellDivide is simple enough that it is symetrical (a line).
-      | cellDivision1 == cellDivision2 = case motorcycles1 of
-                                           (DividingMotorcycles _ (Slist [] 0)) -> res
-                                           (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> motorcyclesAreCollinear firstMotorcycle secondMotorcycle && res
-                                           (DividingMotorcycles _ (Slist _ _)) -> False
-      | otherwise = False
+-- | Add a set of cells together, to create a straight skeleton. The straight skeleton should have it's NodeTrees in order.
+addMirrorCells :: NodeTree -> NodeTree -> CellDivide -> StraightSkeleton
+addMirrorCells cell1 cell2 division = StraightSkeleton [sortNodeTrees $ cell1 : cell2 : nodetreesFromDivision division] (slist [])
+  where
+    nodetreesFromDivision :: CellDivide -> [NodeTree]
+    nodetreesFromDivision cellDivision@(CellDivide motorcycles maybeENode) = case motorcycles of
+                                                                               (DividingMotorcycles _ (Slist [] 0)) -> res
+                                                                               (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreCollinear firstMotorcycle secondMotorcycle
+                                                                                                                                                     then res
+                                                                                                                                                     else errorOut
+                                                                               (DividingMotorcycles _ (Slist _ _)) -> errorOut
       where
-        res = null (crossoverENodes cell1 cellDivision1) &&
-              null (crossoverENodes cell2 cellDivision2) &&
-              cellOutsIntersect cell1 cell2 cellDivision1
+        res = case maybeENode of
+                (Just eNode) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist []), makeNodeTree [eNode] (INodeSet $ slist [])]
+                Nothing -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist [])]
+        errorOut = error "tried to add two cells with a non-bilateral cellDivide"
 
-    -- Check that the outputs of the cells collide at the same point at the division between the two cells.
-    cellOutsIntersect cell1 cell2 (CellDivide motorcycles _) = case motorcycles of
-                                                                 (DividingMotorcycles m (Slist _ 0)) -> plinesIntersectIn (finalPLine cell1) (outOf m) == plinesIntersectIn (finalPLine cell2) (outOf m)
-                                                                 (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet check outpoint intersections of more than one motorcycle."
+-- | Check whether the NodeTrees of two cells have an effect on each other.
+nodeTreesDoNotOverlap :: NodeTree -> NodeTree -> CellDivide -> Bool
+nodeTreesDoNotOverlap nodeTree1 nodeTree2 cellDivide@(CellDivide motorcycles1 _) = case motorcycles1 of
+                                                                                     (DividingMotorcycles _ (Slist [] 0)) -> res
+                                                                                     (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> motorcyclesAreCollinear firstMotorcycle secondMotorcycle && res
+                                                                                     (DividingMotorcycles _ (Slist _ _)) -> False
+  where
+    res = null (crossoverENodes nodeTree1 cellDivide) &&
+          null (crossoverENodes nodeTree2 cellDivide) &&
+          outsIntersect nodeTree1 nodeTree2 cellDivide
 
-    -- given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
-    crossoverENodes :: NodeTree -> CellDivide -> [ENode]
-    crossoverENodes nodeTree@(NodeTree (ENodeSet firstENode (Slist moreRawNodes _)) _) cellDivision = filter (\a -> Just False `elem` (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)) (firstENode:moreRawNodes)
+-- | Check that the outputs of the NodeTrees collide at the same point at the division between the two cells the NodeTrees correspond to.
+outsIntersect :: NodeTree -> NodeTree -> CellDivide -> Bool
+outsIntersect nodeTree1 nodeTree2 (CellDivide motorcycles _) = case motorcycles of
+                                                             (DividingMotorcycles m (Slist _ 0)) -> plinesIntersectIn (finalPLine nodeTree1) (outOf m) == plinesIntersectIn (finalPLine nodeTree2) (outOf m)
+                                                             (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet check outpoint intersections of more than one motorcycle."
+
+-- | Given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
+crossoverENodes :: NodeTree -> CellDivide -> [ENode]
+crossoverENodes nodeTree@(NodeTree (ENodeSet firstENode (Slist moreRawNodes _)) _) cellDivision = filter (\a -> Just False `elem` (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)) (firstENode:moreRawNodes)
+  where
+    pointOnSide = eToPPoint2 $ pointInCell nodeTree cellDivision
+    pointInCell cell (CellDivide (DividingMotorcycles m _) _)
+      | firstSegOf cell == lastCSegOf m = endpoint $ firstSegOf cell
+      | lastSegOf cell == firstCSegOf m = startPoint $ lastSegOf cell
+      | otherwise = error $ "unhandled case: " <> show cell <> "\n" <> show m <> "\n" <> show (lastSegOf cell) <> "\n" <> show (firstSegOf cell) <> "\n"
       where
-        pointOnSide = eToPPoint2 $ pointInCell nodeTree cellDivision
-        pointInCell cell (CellDivide (DividingMotorcycles m _) _)
-          | firstSegOf cell == lastCSegOf m = endpoint $ firstSegOf cell
-          | lastSegOf cell == firstCSegOf m = startPoint $ lastSegOf cell
-          | otherwise = error $ "unhandled case: " <> show cell <> "\n" <> show m <> "\n" <> show contour <> "\n" <> show cellDivisions <> "\n" <> show (lastSegOf cell) <> "\n" <> show (firstSegOf cell) <> "\n"
-          where
-            startPoint (LineSeg a _) = a
-            firstCSegOf (Motorcycle (seg1,_) _) = seg1
-            lastCSegOf (Motorcycle (_, seg2) _) = seg2
+        startPoint (LineSeg a _) = a
+        firstCSegOf (Motorcycle (seg1,_) _) = seg1
+        lastCSegOf (Motorcycle (_, seg2) _) = seg2
 
-    -- Add a set of cells together, to create a straight skeleton. The straight skeleton should have it's NodeTrees in order.
-    addMirrorCells :: NodeTree -> NodeTree -> CellDivide -> StraightSkeleton
-    addMirrorCells cell1 cell2 division = StraightSkeleton [sortNodeTrees $ cell1 : cell2 : nodetreesFromDivision division] (slist [])
-      where
-        nodetreesFromDivision :: CellDivide -> [NodeTree]
-        nodetreesFromDivision cellDivision@(CellDivide motorcycles maybeENode) = case motorcycles of
-                                                                                   (DividingMotorcycles _ (Slist [] 0)) -> res
-                                                                                   (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreCollinear firstMotorcycle secondMotorcycle
-                                                                                                                                                         then res
-                                                                                                                                                         else errorOut
-                                                                                   (DividingMotorcycles _ (Slist _ _)) -> errorOut
-            where
-              res = case maybeENode of
-                      (Just eNode) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist []), makeNodeTree [eNode] (INodeSet $ slist [])]
-                      Nothing -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist [])]
-              errorOut = error "tried to add two cells with a non-bilateral cellDivide"
+-- | Return the total set of motorcycles in the given CellDivide
+motorcyclesInDivision :: CellDivide -> [Motorcycle]
+motorcyclesInDivision (CellDivide (DividingMotorcycles a (Slist b _)) _) = a : b
 
-    -- check if the output of two motorcycles are collinear with each other.
-    motorcyclesAreCollinear motorcycle1 motorcycle2 = plinesIntersectIn (outOf motorcycle1) (outOf motorcycle2) == PCollinear
-
-    motorcyclesInDivision (CellDivide (DividingMotorcycles a (Slist b _)) _) = a : b
+-- | Check if the output of two motorcycles are collinear with each other.
+motorcyclesAreCollinear :: Motorcycle -> Motorcycle -> Bool
+motorcyclesAreCollinear motorcycle1 motorcycle2 = plinesIntersectIn (outOf motorcycle1) (outOf motorcycle2) == PCollinear
 
