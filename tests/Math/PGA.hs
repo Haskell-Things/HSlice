@@ -62,7 +62,7 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
 -- Our Facet library.
 import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeFirstENodes, averageNodes)
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet))
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles))
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles)
@@ -383,11 +383,11 @@ facetSpec = do
       convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (PLine2 (GVec [GVal (-2.0) (singleton (GEPlus 1))]))]
   describe "Straight Skeletons (skeleton/Tscherne)" $ do
     it "finds the straight skeleton of the left side of our first simple shape." $
-      cellAfter c0 c0m1 --> cellAfter c4 c4m1
+      cellAfter c0 c0w --> cellAfter c4 c4w
     it "finds the straight skeleton of the right side of our first simple shape." $
-      cellBefore c0 c0m1 --> cellBefore c4 c4m1
+      cellBefore c0 c0w --> cellBefore c4 c4w
     it "finds the straight skeleton of the left side of our first simple shape." $
-      cellAfter c1 c1m1 -->
+      cellAfter c1 c1w -->
       makeNodeTree [ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0,-2.0)))
                       (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                ,ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0)))
@@ -400,7 +400,7 @@ facetSpec = do
                   (Just (PLine2 (GVec [GVal 0.4870636221857319 (singleton (GEZero 1)), GVal 0.19509032201612836 (singleton (GEPlus 1)), GVal (-0.9807852804032305) (singleton (GEPlus 2))])))
                  ] ] 1))
     it "finds the straight skeleton of the right side of our first simple shape." $
-      cellBefore c1 c1m1 -->
+      cellBefore c1 c1w -->
       makeNodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
                       (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal 0.9238795325112867 (singleton (GEPlus 1)), GVal 0.3826834323650897 (singleton (GEPlus 2))]))
                ,ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
@@ -414,7 +414,7 @@ facetSpec = do
                  ]
                ] 1))
     it "finds the straight skeleton of the left side of our second simple shape." $
-      cellAfter c2 c2m1 -->
+      cellAfter c2 c2w -->
       makeNodeTree [ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
                       (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                ,ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0)))
@@ -428,7 +428,7 @@ facetSpec = do
                  ]
                ] 1))
     it "finds the straight skeleton of the right side of our second simple shape." $
-      cellBefore c2 c2m1 -->
+      cellBefore c2 c2w -->
       makeNodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
                       (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal (-0.3826834323650897) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
                ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
@@ -442,7 +442,7 @@ facetSpec = do
                  ]
                ] 1))
     it "finds the straight skeleton of the left side of our third simple shape." $
-      cellAfter c3 c3m1 -->
+      cellAfter c3 c3w -->
       makeNodeTree [ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
                       (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
                ,ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0)))
@@ -456,7 +456,7 @@ facetSpec = do
                  ]
                ] 1))
     it "finds the straight skeleton of the right side of our third simple shape." $
-      cellBefore c3 c3m1  -->
+      cellBefore c3 c3w  -->
       makeNodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
                       (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal (-0.9238795325112867) (singleton (GEPlus 1)), GVal (-0.3826834323650897) (singleton (GEPlus 2))]))
                ,ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
@@ -470,7 +470,7 @@ facetSpec = do
                  ]
                ] 1))
     it "finds the straight skeleton of the left side of our fourth simple shape." $
-      cellAfter c4 c4m1 -->
+      cellAfter c4 c4w -->
       makeNodeTree [ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
                       (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
                ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)))
@@ -484,7 +484,7 @@ facetSpec = do
                  ]
                ] 1))
     it "finds the straight skeleton of the right side of our fourth simple shape." $
-      cellBefore c4 c4m1 -->
+      cellBefore c4 c4w -->
       makeNodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
                       (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal  (-0.9238795325112867) (singleton (GEPlus 2))]))
                ,ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
@@ -842,15 +842,15 @@ facetSpec = do
       --
       c0 = makeSafeContour [Point2 (0,0), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       c0l0 = LineSeg (Point2 (0,0)) (Point2 (-1,-1))
-      c0m1 = Motorcycle (LineSeg (Point2 (-1,1)) (Point2 (1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,-1))) (PLine2 (GVec [GVal 2.0 (singleton (GEPlus 2))]))
+      c0w = CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (-1,1)) (Point2 (1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,-1))) (PLine2 (GVec [GVal 2.0 (singleton (GEPlus 2))]))) (slist [])) Nothing
       c1 = makeSafeContour [Point2 (-1,-1), Point2 (0,0), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
-      c1m1 = Motorcycle (LineSeg (Point2 (-1,-1)) (Point2 (1,1)), LineSeg (Point2 (0,0)) (Point2 (1,-1))) (PLine2 (GVec [GVal (-2.0) (singleton (GEPlus 1))]))
+      c1w = CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (-1,-1)) (Point2 (1,1)), LineSeg (Point2 (0,0)) (Point2 (1,-1))) (PLine2 (GVec [GVal (-2.0) (singleton (GEPlus 1))]))) (slist [])) Nothing
       c2 = makeSafeContour [Point2 (-1,-1), Point2 (1,-1), Point2 (0,0), Point2 (1,1), Point2 (-1,1)]
-      c2m1 = Motorcycle (LineSeg (Point2 (1,-1)) (Point2 (-1,1)), LineSeg (Point2 (0,0)) (Point2 (1,1))) (PLine2 (GVec [GVal (-2.0) (singleton (GEPlus 2))]))
+      c2w = CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (1,-1)) (Point2 (-1,1)), LineSeg (Point2 (0,0)) (Point2 (1,1))) (PLine2 (GVec [GVal (-2.0) (singleton (GEPlus 2))]))) (slist [])) Nothing
       c3 = makeSafeContour [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (0,0), Point2 (-1,1)]
-      c3m1 = Motorcycle (LineSeg (Point2 (1,1)) (Point2 (-1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,1))) (PLine2 (GVec [GVal 2.0 (singleton (GEPlus 1))]))
+      c3w = CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (1,1)) (Point2 (-1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,1))) (PLine2 (GVec [GVal 2.0 (singleton (GEPlus 1))]))) (slist [])) Nothing
       c4 = makeSafeContour [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
-      c4m1 = Motorcycle (LineSeg (Point2 (-1,1)) (Point2 (1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,-1))) (PLine2 (GVec [GVal 2.0 (singleton (GEPlus 2))]))
+      c4w = CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (-1,1)) (Point2 (1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,-1))) (PLine2 (GVec [GVal 2.0 (singleton (GEPlus 2))]))) (slist [])) Nothing
       c5 = makeSafeContour [Point2 (-1,-1), Point2 (1,-1), Point2 (2,0), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
       c6 = makeSafeContour [Point2 (-1,-1), Point2 (-0.5,-1), Point2 (0,0), Point2 (0.5,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       -- The next corners are part of a square around the origin with a piece missing: (think: c2 from above)

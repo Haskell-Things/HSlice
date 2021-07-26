@@ -20,19 +20,19 @@
 --    a contour into cells.
 module Graphics.Slicer.Math.Skeleton.Cells (cellAfter, cellBefore, contourToCell, simpleNodeTreeOfCell) where
 
-import Prelude (Eq, otherwise, ($), (<$>), (==), (++), error, fst, uncurry, (+), Int, drop, take, (-), error, (&&))
+import Prelude (Eq, otherwise, ($), (<$>), (==), (++), error, fst, uncurry, (+), Int, drop, take, (-), error)
 
 import Data.List (elemIndex)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromMaybe)
 
-import Slist (slist, len)
+import Slist (slist)
 
 import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (NodeTree, Motorcycle(Motorcycle), Cell(Cell))
+import Graphics.Slicer.Math.Skeleton.Definitions (NodeTree, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles))
 
 import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleIntersectsAt)
 
@@ -48,8 +48,8 @@ contourToCell contour = Cell (slist $ lineSegsOfContour contour, Nothing) (Slist
 
 -- | get a naieve node tree for a given cell. can give incorrect results for a cell with a cell wall, in some cases.
 simpleNodeTreeOfCell :: Cell -> NodeTree
-simpleNodeTreeOfCell (Cell ((Slist leftWall _),rightWall) cellWalls)
-  | len cellWalls == 0 && rightWall == Nothing = skeletonOfConcaveRegion leftWall
+simpleNodeTreeOfCell (Cell ((Slist leftWall _),rightWall) _)
+  | rightWall == Nothing = skeletonOfConcaveRegion leftWall
   | otherwise = error "unsupported."
 
 -- A flag for which side of a dividing motorcycle to cut a cell from, the side after or before the start of the motorcycle.
@@ -58,17 +58,17 @@ data Side = SideAfter
   deriving (Eq)
 
 -- | Calculate a partial straight skeleton for the motorcycle cell that is on the left side of the point that a motorcycle\'s path starts at, ending where the motorcycle intersects the contour.
-cellAfter :: Contour -> Motorcycle -> NodeTree
-cellAfter contour motorcycle = simpleNodeTreeOfCell $ createCellFromMotorcycle contour motorcycle SideAfter
+cellAfter :: Contour -> CellDivide -> NodeTree
+cellAfter contour cellDivide = simpleNodeTreeOfCell $ createCellFromStraightWall contour cellDivide SideAfter
 
 -- | Calculate a partial straight skeleton for the motorcycle cell that is on the right side of the point that a motorcycle\'s path starts at, ending where the motorcycle intersects the contour.
-cellBefore :: Contour -> Motorcycle -> NodeTree
-cellBefore contour motorcycle = simpleNodeTreeOfCell $ createCellFromMotorcycle contour motorcycle SideBefore
+cellBefore :: Contour -> CellDivide -> NodeTree
+cellBefore contour cellDivide = simpleNodeTreeOfCell $ createCellFromStraightWall contour cellDivide SideBefore
 
 -- | use a single motorcycle to cut a section of a contour out, converting it to a cell.
 -- | FIXME: what about the cell wall?
-createCellFromMotorcycle :: Contour -> Motorcycle -> Side -> Cell
-createCellFromMotorcycle contour motorcycle@(Motorcycle (_,outSeg) _) side = Cell (slist $ gatherLineSegs side, Nothing) (Slist [] 0)
+createCellFromStraightWall :: Contour -> CellDivide -> Side -> Cell
+createCellFromStraightWall contour cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _) _) _) side = Cell (slist $ gatherLineSegs side, Nothing) (Slist [cellDivide] 1)
   where
     contourSegs = lineSegsOfContour contour
     startSegmentIndex = segIndex outSeg contourSegs
@@ -83,7 +83,8 @@ createCellFromMotorcycle contour motorcycle@(Motorcycle (_,outSeg) _) side = Cel
     beforeOpenSide   = drop startSegmentIndex contourSegs ++ take beforeStopSegmentIndex contourSegs
     beforeClosedSide = take (beforeStopSegmentIndex - startSegmentIndex) $ drop startSegmentIndex contourSegs
     beforeStopSegmentIndex = 1 + segIndex motorcycleInSegment contourSegs
-    -- Return the line segments we're responsible for straight skeletoning.
+
+    -- |  Return the line segments we're responsible for straight skeletoning.
     gatherLineSegs :: Side -> [LineSeg]
     gatherLineSegs s =
       case s of
@@ -97,6 +98,7 @@ createCellFromMotorcycle contour motorcycle@(Motorcycle (_,outSeg) _) side = Cel
                       then beforeOpenSide
                       -- .. or by starting at the stop segment, and stopping after the segment the motorcycle hits
                       else beforeClosedSide
+
     -- | Get the index of a specific segment, in a list of segments.
     segIndex :: LineSeg -> [LineSeg] -> Int
     segIndex seg segs = fromMaybe (error "cannot find item") $ elemIndex seg segs

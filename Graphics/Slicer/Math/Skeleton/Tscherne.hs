@@ -53,20 +53,16 @@ applyTscherne :: Contour -> [CellDivide] -> Maybe StraightSkeleton
 applyTscherne contour cellDivisions =
   case cellDivisions of
     [] -> Nothing
-    [oneDivision] -> if cellsDoNotOverlap (leftSide, oneDivision) (rightSide, oneDivision)
-                     then Just $ addMirrorCells leftSide rightSide oneDivision
+    [oneDivision] -> if cellsDoNotOverlap (cellAfter contour oneDivision, oneDivision) (cellBefore contour oneDivision, oneDivision)
+                     then Just $ addMirrorCells (cellAfter contour oneDivision) (cellBefore contour oneDivision) oneDivision
                      else errorIncomplete
     (_:_) -> Nothing
   where
     -- FIXME: ok, can't cheat. apply the full algorithm.
     errorIncomplete = error $ "failing to apply Tscherne's method.\n" <>
-                      show (finalPLine leftSide) <> "\n" <>
-                      show (finalPLine rightSide) <> "\n" <>
-                      show leftSide <> "\n" <>
-                      show rightSide <> "\n" <>
                       show contour  <> "\n" <>
-                      show cellDivisions  <> "\n" <>
-                      show dividingMotorcycle <> "\n"
+                      show cellDivisions <> "\n"
+
     -- Check whether the NodeTrees of two cells have an effect on each other.
     cellsDoNotOverlap :: (NodeTree, CellDivide) -> (NodeTree, CellDivide) -> Bool
     cellsDoNotOverlap (cell1,cellDivision1@(CellDivide motorcycles1 _)) (cell2,cellDivision2)
@@ -120,22 +116,5 @@ applyTscherne contour cellDivisions =
     -- check if the output of two motorcycles are collinear with each other.
     motorcyclesAreCollinear motorcycle1 motorcycle2 = plinesIntersectIn (outOf motorcycle1) (outOf motorcycle2) == PCollinear
 
-    motorcyclesFromDivision (CellDivide m _) = m
-
     motorcyclesInDivision (CellDivide (DividingMotorcycles a (Slist b _)) _) = a : b
-
-    -------------------------------------------------------------------------------------
-    -- Functions used when we have two cells, and one dividing motorcycle between them --
-    -------------------------------------------------------------------------------------
-
-    leftSide  = cellAfter contour dividingMotorcycle
-    rightSide = cellBefore contour dividingMotorcycle
-    dividingMotorcycle = case motorcyclesFromDivision cellDivision of
-                           (DividingMotorcycles a (Slist _ 0)) -> a
-                           (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet handle more than one dividing motorcycle."
-      where
-        cellDivision = case cellDivisions of
-                         [] -> error "no cellDivision to work with."
-                         [a] -> a
-                         (_:_) -> error "cannot yet handle more that one cell division point."
 
