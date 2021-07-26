@@ -18,9 +18,9 @@
 
 -- |  This file contains the entry point for the logic and routines required for dividing
 --    a contour into cells.
-module Graphics.Slicer.Math.Skeleton.Cells (cellAfter, cellBefore, contourToCell, simpleNodeTreeOfCell) where
+module Graphics.Slicer.Math.Skeleton.Cells (cellAfter, cellBefore, contourToCell, simpleNodeTreeOfCell, nodeTreesDoNotOverlap, addMirrorNodeTrees) where
 
-import Prelude (Eq, otherwise, ($), (<$>), (==), (++), error, fst, uncurry, (+), Int, drop, take, (-), error)
+import Prelude (Bool(False), Eq, elem, filter, null, otherwise, ($), (<$>), (==), (++), error, fst, uncurry, (+), Int, drop, take, (-), error, (<>), show, (&&))
 
 import Data.List (elemIndex)
 
@@ -32,15 +32,19 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (NodeTree, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles))
+import Graphics.Slicer.Math.Skeleton.Definitions (ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), StraightSkeleton, ENode, finalPLine, outOf)
 
-import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleIntersectsAt)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleIntersectsAt, motorcyclesInDivision, intersectionSameSide, motorcyclesAreCollinear, motorcycleToENode)
+
+import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeTree, sortNodeTrees)
+
+import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Contour)
 
-import Graphics.Slicer.Math.Line (LineSeg)
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
 
-import Graphics.Slicer.Math.Contour (lineSegsOfContour)
+import Graphics.Slicer.Math.PGA (eToPPoint2, plinesIntersectIn)
 
 -- | When there are no motorcycles, and there are no holes, we can just treat the whole contour as a single cell. This does the conversion.
 contourToCell :: Contour -> Cell
@@ -114,3 +118,52 @@ createCellFromStraightWall contour cellDivide@(CellDivide (DividingMotorcycles m
           | sn == s1  = Just s1
           | sn == s2  = Just s2
           | otherwise = Nothing
+
+-- | Add a pair of NodeTrees together, to create a straight skeleton. The straight skeleton should have it's NodeTrees in order.
+addMirrorNodeTrees :: NodeTree -> NodeTree -> CellDivide -> StraightSkeleton
+addMirrorNodeTrees nodeTree1 nodeTree2 division = StraightSkeleton [sortNodeTrees $ nodeTree1 : nodeTree2 : nodetreesFromDivision division] (slist [])
+  where
+    nodetreesFromDivision :: CellDivide -> [NodeTree]
+    nodetreesFromDivision cellDivision@(CellDivide motorcycles maybeENode) = case motorcycles of
+                                                                               (DividingMotorcycles _ (Slist [] 0)) -> res
+                                                                               (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreCollinear firstMotorcycle secondMotorcycle
+                                                                                                                                                     then res
+                                                                                                                                                     else errorOut
+                                                                               (DividingMotorcycles _ (Slist _ _)) -> errorOut
+      where
+        res = case maybeENode of
+                (Just eNode) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist []), makeNodeTree [eNode] (INodeSet $ slist [])]
+                Nothing -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist [])]
+        errorOut = error "tried to add two NodeTrees with a non-bilateral cellDivide"
+
+
+-- | Check whether the NodeTrees of two cells have an effect on each other.
+nodeTreesDoNotOverlap :: NodeTree -> NodeTree -> CellDivide -> Bool
+nodeTreesDoNotOverlap nodeTree1 nodeTree2 cellDivide@(CellDivide motorcycles1 _) = case motorcycles1 of
+                                                                                     (DividingMotorcycles _ (Slist [] 0)) -> res
+                                                                                     (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> motorcyclesAreCollinear firstMotorcycle secondMotorcycle && res
+                                                                                     (DividingMotorcycles _ (Slist _ _)) -> False
+  where
+    res = null (crossoverENodes nodeTree1 cellDivide) &&
+          null (crossoverENodes nodeTree2 cellDivide) &&
+          lastOutsIntersect nodeTree1 nodeTree2 cellDivide
+
+-- | Check that the outputs of the NodeTrees collide at the same point at the division between the two cells the NodeTrees correspond to.
+lastOutsIntersect :: NodeTree -> NodeTree -> CellDivide -> Bool
+lastOutsIntersect nodeTree1 nodeTree2 (CellDivide motorcycles _) = case motorcycles of
+                                                                     (DividingMotorcycles m (Slist _ 0)) -> plinesIntersectIn (finalPLine nodeTree1) (outOf m) == plinesIntersectIn (finalPLine nodeTree2) (outOf m)
+                                                                     (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet check outpoint intersections of more than one motorcycle."
+
+-- | Given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
+crossoverENodes :: NodeTree -> CellDivide -> [ENode]
+crossoverENodes nodeTree@(NodeTree (ENodeSet firstENode (Slist moreRawNodes _)) _) cellDivision = filter (\a -> Just False `elem` (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)) (firstENode:moreRawNodes)
+  where
+    pointOnSide = eToPPoint2 $ pointInCell nodeTree cellDivision
+    pointInCell cell (CellDivide (DividingMotorcycles m _) _)
+      | firstSegOf cell == lastCSegOf m = endpoint $ firstSegOf cell
+      | lastSegOf cell == firstCSegOf m = startPoint $ lastSegOf cell
+      | otherwise = error $ "unhandled case: " <> show cell <> "\n" <> show m <> "\n" <> show (lastSegOf cell) <> "\n" <> show (firstSegOf cell) <> "\n"
+      where
+        startPoint (LineSeg a _) = a
+        firstCSegOf (Motorcycle (seg1,_) _) = seg1
+        lastCSegOf (Motorcycle (_, seg2) _) = seg2

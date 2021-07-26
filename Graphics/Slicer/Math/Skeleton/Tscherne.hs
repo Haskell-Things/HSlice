@@ -25,21 +25,13 @@
 -- | Christopher Tscherne\'s algorithm from his master\'s thesis.
 module Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne, cellAfter, cellBefore) where
 
-import Prelude (($), (<$>), error, (<>), show)
+import Prelude (($), error, (<>), show)
 
 import Data.Maybe( Maybe(Just,Nothing))
 
-import Slist (slist)
+import Graphics.Slicer.Math.Skeleton.Cells (cellBefore, cellAfter, nodeTreesDoNotOverlap, addMirrorNodeTrees)
 
-import Slist.Type (Slist(Slist))
-
-import Graphics.Slicer.Math.Skeleton.Cells (cellBefore, cellAfter)
-
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), INodeSet (INodeSet), CellDivide(CellDivide), DividingMotorcycles (DividingMotorcycles), NodeTree)
-
-import Graphics.Slicer.Math.Skeleton.NodeTrees (sortNodeTrees, makeNodeTree, nodeTreesDoNotOverlap)
-
-import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleToENode, motorcyclesAreCollinear, motorcyclesInDivision)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton, CellDivide)
 
 import Graphics.Slicer.Math.Definitions (Contour)
 
@@ -50,7 +42,7 @@ applyTscherne contour cellDivisions =
   case cellDivisions of
     [] -> Nothing
     [oneDivision] -> if nodeTreesDoNotOverlap (cellAfter contour oneDivision) (cellBefore contour oneDivision) oneDivision
-                     then Just $ addMirrorCells (cellAfter contour oneDivision) (cellBefore contour oneDivision) oneDivision
+                     then Just $ addMirrorNodeTrees (cellAfter contour oneDivision) (cellBefore contour oneDivision) oneDivision
                      else errorIncomplete
     (_:_) -> Nothing
   where
@@ -58,22 +50,4 @@ applyTscherne contour cellDivisions =
     errorIncomplete = error $ "failing to apply Tscherne's method.\n" <>
                       show contour  <> "\n" <>
                       show cellDivisions <> "\n"
-
--- | Add a set of cells together, to create a straight skeleton. The straight skeleton should have it's NodeTrees in order.
-addMirrorCells :: NodeTree -> NodeTree -> CellDivide -> StraightSkeleton
-addMirrorCells cell1 cell2 division = StraightSkeleton [sortNodeTrees $ cell1 : cell2 : nodetreesFromDivision division] (slist [])
-  where
-    nodetreesFromDivision :: CellDivide -> [NodeTree]
-    nodetreesFromDivision cellDivision@(CellDivide motorcycles maybeENode) = case motorcycles of
-                                                                               (DividingMotorcycles _ (Slist [] 0)) -> res
-                                                                               (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreCollinear firstMotorcycle secondMotorcycle
-                                                                                                                                                     then res
-                                                                                                                                                     else errorOut
-                                                                               (DividingMotorcycles _ (Slist _ _)) -> errorOut
-      where
-        res = case maybeENode of
-                (Just eNode) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist []), makeNodeTree [eNode] (INodeSet $ slist [])]
-                Nothing -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist [])]
-        errorOut = error "tried to add two cells with a non-bilateral cellDivide"
-
 
