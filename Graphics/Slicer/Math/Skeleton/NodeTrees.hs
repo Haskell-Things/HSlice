@@ -18,9 +18,9 @@
 
 {- Purpose of this file: to hold utility functions for working with NodeTrees. -}
 
-module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, sortNodeTrees, makeNodeTree) where
+module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, sortNodeTrees, makeNodeTree, nodeTreesDoNotOverlap, lastOutsIntersect, crossoverENodes) where
 
-import Prelude (Bool(True,False), Ordering(LT,GT), (==), otherwise, snd, ($), error, (<>), show, (<>))
+import Prelude (Bool(True,False), Ordering(LT,GT), (==), otherwise, snd, ($), error, (<>), show, (<>), (&&), null, elem, (<$>))
 
 import Prelude as P (filter)
 
@@ -34,11 +34,13 @@ import Slist (slist, cons, isEmpty)
 
 import Slist as SL (filter, last)
 
-import Graphics.Slicer.Math.Line (LineSeg)
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf, ancestorsOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Motorcycle(Motorcycle), finalINodeOf, ancestorsOf, finalPLine)
 
-import Graphics.Slicer.Math.PGA (PLine2, pLineIsLeft)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcyclesAreCollinear, intersectionSameSide, motorcyclesInDivision)
+
+import Graphics.Slicer.Math.PGA (PLine2, pLineIsLeft, plinesIntersectIn, eToPPoint2)
 
 lastSegOf :: NodeTree -> LineSeg
 lastSegOf nodeTree = (\(ENode (_,outSeg) _) -> outSeg) (lastENodeOf nodeTree)
@@ -134,3 +136,35 @@ makeNodeTree eNodes iNodeSet = case eNodes of
                                   [] -> error "not enough nodes to make a nodeTree"
                                   [eNode] -> NodeTree (ENodeSet eNode (slist [])) iNodeSet
                                   (eNode:moreENodes) -> NodeTree (ENodeSet eNode (slist moreENodes)) iNodeSet
+
+-- | Check whether the NodeTrees of two cells have an effect on each other.
+nodeTreesDoNotOverlap :: NodeTree -> NodeTree -> CellDivide -> Bool
+nodeTreesDoNotOverlap nodeTree1 nodeTree2 cellDivide@(CellDivide motorcycles1 _) = case motorcycles1 of
+                                                                                     (DividingMotorcycles _ (Slist [] 0)) -> res
+                                                                                     (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> motorcyclesAreCollinear firstMotorcycle secondMotorcycle && res
+                                                                                     (DividingMotorcycles _ (Slist _ _)) -> False
+  where
+    res = null (crossoverENodes nodeTree1 cellDivide) &&
+          null (crossoverENodes nodeTree2 cellDivide) &&
+          lastOutsIntersect nodeTree1 nodeTree2 cellDivide
+
+-- | Check that the outputs of the NodeTrees collide at the same point at the division between the two cells the NodeTrees correspond to.
+lastOutsIntersect :: NodeTree -> NodeTree -> CellDivide -> Bool
+lastOutsIntersect nodeTree1 nodeTree2 (CellDivide motorcycles _) = case motorcycles of
+                                                                     (DividingMotorcycles m (Slist _ 0)) -> plinesIntersectIn (finalPLine nodeTree1) (outOf m) == plinesIntersectIn (finalPLine nodeTree2) (outOf m)
+                                                                     (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet check outpoint intersections of more than one motorcycle."
+
+-- | Given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
+crossoverENodes :: NodeTree -> CellDivide -> [ENode]
+crossoverENodes nodeTree@(NodeTree (ENodeSet firstENode (Slist moreRawNodes _)) _) cellDivision = P.filter (\a -> Just False `elem` (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)) (firstENode:moreRawNodes)
+  where
+    pointOnSide = eToPPoint2 $ pointInCell nodeTree cellDivision
+    pointInCell cell (CellDivide (DividingMotorcycles m _) _)
+      | firstSegOf cell == lastCSegOf m = endpoint $ firstSegOf cell
+      | lastSegOf cell == firstCSegOf m = startPoint $ lastSegOf cell
+      | otherwise = error $ "unhandled case: " <> show cell <> "\n" <> show m <> "\n" <> show (lastSegOf cell) <> "\n" <> show (firstSegOf cell) <> "\n"
+      where
+        startPoint (LineSeg a _) = a
+        firstCSegOf (Motorcycle (seg1,_) _) = seg1
+        lastCSegOf (Motorcycle (_, seg2) _) = seg2
+

@@ -25,7 +25,7 @@
 -- | Christopher Tscherne\'s algorithm from his master\'s thesis.
 module Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne, cellAfter, cellBefore) where
 
-import Prelude (Bool(False), elem, otherwise, ($), (<$>), (==), error, (&&), (<>), show, null, filter)
+import Prelude (($), (<$>), error, (<>), show)
 
 import Data.Maybe( Maybe(Just,Nothing))
 
@@ -35,17 +35,13 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Skeleton.Cells (cellBefore, cellAfter)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, INodeSet (INodeSet), NodeTree(NodeTree), Motorcycle(Motorcycle), CellDivide(CellDivide), DividingMotorcycles (DividingMotorcycles), ENodeSet(ENodeSet), finalPLine, outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), INodeSet (INodeSet), CellDivide(CellDivide), DividingMotorcycles (DividingMotorcycles), NodeTree)
 
-import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, firstSegOf, sortNodeTrees, makeNodeTree)
+import Graphics.Slicer.Math.Skeleton.NodeTrees (sortNodeTrees, makeNodeTree, nodeTreesDoNotOverlap)
 
-import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleToENode, intersectionSameSide)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleToENode, motorcyclesAreCollinear, motorcyclesInDivision)
 
 import Graphics.Slicer.Math.Definitions (Contour)
-
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
-
-import Graphics.Slicer.Math.PGA (PIntersection(PCollinear), plinesIntersectIn, eToPPoint2)
 
 -- | Use observations from christopher tscherne\'s masters thesis to cover the corner cases that do not require the whole algorithm.
 -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point
@@ -80,42 +76,4 @@ addMirrorCells cell1 cell2 division = StraightSkeleton [sortNodeTrees $ cell1 : 
                 Nothing -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist [])]
         errorOut = error "tried to add two cells with a non-bilateral cellDivide"
 
--- | Check whether the NodeTrees of two cells have an effect on each other.
-nodeTreesDoNotOverlap :: NodeTree -> NodeTree -> CellDivide -> Bool
-nodeTreesDoNotOverlap nodeTree1 nodeTree2 cellDivide@(CellDivide motorcycles1 _) = case motorcycles1 of
-                                                                                     (DividingMotorcycles _ (Slist [] 0)) -> res
-                                                                                     (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> motorcyclesAreCollinear firstMotorcycle secondMotorcycle && res
-                                                                                     (DividingMotorcycles _ (Slist _ _)) -> False
-  where
-    res = null (crossoverENodes nodeTree1 cellDivide) &&
-          null (crossoverENodes nodeTree2 cellDivide) &&
-          outsIntersect nodeTree1 nodeTree2 cellDivide
-
--- | Check that the outputs of the NodeTrees collide at the same point at the division between the two cells the NodeTrees correspond to.
-outsIntersect :: NodeTree -> NodeTree -> CellDivide -> Bool
-outsIntersect nodeTree1 nodeTree2 (CellDivide motorcycles _) = case motorcycles of
-                                                             (DividingMotorcycles m (Slist _ 0)) -> plinesIntersectIn (finalPLine nodeTree1) (outOf m) == plinesIntersectIn (finalPLine nodeTree2) (outOf m)
-                                                             (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet check outpoint intersections of more than one motorcycle."
-
--- | Given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
-crossoverENodes :: NodeTree -> CellDivide -> [ENode]
-crossoverENodes nodeTree@(NodeTree (ENodeSet firstENode (Slist moreRawNodes _)) _) cellDivision = filter (\a -> Just False `elem` (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)) (firstENode:moreRawNodes)
-  where
-    pointOnSide = eToPPoint2 $ pointInCell nodeTree cellDivision
-    pointInCell cell (CellDivide (DividingMotorcycles m _) _)
-      | firstSegOf cell == lastCSegOf m = endpoint $ firstSegOf cell
-      | lastSegOf cell == firstCSegOf m = startPoint $ lastSegOf cell
-      | otherwise = error $ "unhandled case: " <> show cell <> "\n" <> show m <> "\n" <> show (lastSegOf cell) <> "\n" <> show (firstSegOf cell) <> "\n"
-      where
-        startPoint (LineSeg a _) = a
-        firstCSegOf (Motorcycle (seg1,_) _) = seg1
-        lastCSegOf (Motorcycle (_, seg2) _) = seg2
-
--- | Return the total set of motorcycles in the given CellDivide
-motorcyclesInDivision :: CellDivide -> [Motorcycle]
-motorcyclesInDivision (CellDivide (DividingMotorcycles a (Slist b _)) _) = a : b
-
--- | Check if the output of two motorcycles are collinear with each other.
-motorcyclesAreCollinear :: Motorcycle -> Motorcycle -> Bool
-motorcyclesAreCollinear motorcycle1 motorcycle2 = plinesIntersectIn (outOf motorcycle1) (outOf motorcycle2) == PCollinear
 

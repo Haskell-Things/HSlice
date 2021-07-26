@@ -24,7 +24,7 @@
 -- inherit instances when deriving.
 {-# LANGUAGE DerivingStrategies #-}
 
-module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles) where
+module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles, motorcyclesAreCollinear, motorcyclesInDivision) where
 
 import Prelude (Bool(True, False), Either(Left,Right), Eq, error, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, null)
 
@@ -42,11 +42,11 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
-import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, lineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith)
+import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, lineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel,PCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith, plinesIntersectIn)
 
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower, mapWithNeighbors)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), linePairs, pPointOf, isCollinear, outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), linePairs, pPointOf, isCollinear, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles))
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -180,4 +180,12 @@ motorcycleIntersectsAt contour motorcycle@(Motorcycle (inSeg,outSeg) _) = case i
 --   Assumes the starting point of the second line segment is a point on the path.
 intersectionSameSide :: PPoint2 -> ENode -> Motorcycle -> Maybe Bool
 intersectionSameSide pointOnSide node (Motorcycle _ path) = pPointsOnSameSideOfPLine (pPointOf node) pointOnSide path
+
+-- | Check if the output of two motorcycles are collinear with each other.
+motorcyclesAreCollinear :: Motorcycle -> Motorcycle -> Bool
+motorcyclesAreCollinear motorcycle1 motorcycle2 = plinesIntersectIn (outOf motorcycle1) (outOf motorcycle2) == PCollinear
+
+-- | Return the total set of motorcycles in the given CellDivide
+motorcyclesInDivision :: CellDivide -> [Motorcycle]
+motorcyclesInDivision (CellDivide (DividingMotorcycles a (Slist b _)) _) = a : b
 
