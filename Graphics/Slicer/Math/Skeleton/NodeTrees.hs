@@ -16,8 +16,7 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- Purpose of this file: to hold utility functions for working with NodeTrees. -}
-
+-- | utility functions for working with NodeTrees.
 module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, sortNodeTrees, makeNodeTree) where
 
 import Prelude (Bool(True,False), Ordering(LT,GT), (==), otherwise, snd, ($), error, (<>), show, (<>))
