@@ -38,13 +38,7 @@ import Graphics.Slicer.Math.Definitions (Contour)
 -- | Use observations from christopher tscherne\'s masters thesis to cover the corner cases that do not require the whole algorithm.
 -- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point
 applyTscherne :: Contour -> [CellDivide] -> Maybe StraightSkeleton
-applyTscherne contour cellDivisions =
-  case cellDivisions of
-    [] -> Nothing
-    [oneDivision] -> if nodeTreesDoNotOverlap (cellAfter contour oneDivision) (cellBefore contour oneDivision) oneDivision
-                     then Just $ addMirrorNodeTrees (cellAfter contour oneDivision) (cellBefore contour oneDivision) oneDivision
-                     else errorIncomplete
-    (_:_) -> Nothing
+applyTscherne contour cellDivisions = errorIncomplete
   where
     -- FIXME: ok, can't cheat. apply the full algorithm.
     errorIncomplete = error $ "failing to apply Tscherne's method.\n" <>

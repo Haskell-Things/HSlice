@@ -36,7 +36,7 @@ import Graphics.Slicer.Math.Line (LineSeg)
 
 import Graphics.Slicer.Math.Contour (contourIntersectionCount, lineSegsOfContour)
 
-import Graphics.Slicer.Math.Skeleton.Cells (simpleNodeTreeOfCell, contourToCell)
+import Graphics.Slicer.Math.Skeleton.Cells (cellBefore, cellAfter, nodeTreesDoNotOverlap, addMirrorNodeTrees, simpleNodeTreeOfCell, contourToCell)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, linePairs, outOf, pPointOf)
 
@@ -65,16 +65,28 @@ findStraightSkeleton contour holes =
                           else case motorcyclesIn crashTree of
                                  -- Simple case. convert the whole contour to a cell, and use the simple solver on it.
                                  (Slist _ 0) -> Just $ StraightSkeleton [[simpleNodeTreeOfCell $ contourToCell contour]] (slist [])
+                                 (Slist [inMC] 1) -> if nodeTreesDoNotOverlap (cellAfter contour division) (cellBefore contour division) division
+                                                     then -- Use simple NodeTrees.
+                                                       Just $ addMirrorNodeTrees (cellAfter contour division) (cellBefore contour division) division
+                                                     else -- Use the algorithm from Christopher Tscherne's master's thesis.
+                                                       applyTscherne contour [division]
+                                   where
+                                     division = oneMCDivision crashTree inMC
                                  -- Divide into cells, and walk the tree.
-                                 -- Use the algorithm from Christopher Tscherne's master's thesis.
-                                 (Slist [inMC] 1) -> applyTscherne contour [CellDivide (DividingMotorcycles inMC (Slist [] 0)) (maybeOpposingENodeOf crashTree)]
-                                 (Slist [firstMC,secondMC] 2) -> if lastCrashType crashTree == Just HeadOn
-                                                                 then applyTscherne contour [CellDivide (DividingMotorcycles firstMC (Slist [secondMC] 1)) (maybeOpposingENodeOf crashTree)]
-                                                                 else Nothing
+                                 (Slist [firstMC,secondMC] 2) -> if lastCrashType crashTree == Just HeadOn && nodeTreesDoNotOverlap (cellAfter contour division) (cellBefore contour division) division
+                                                                 then -- Use simple NodeTrees.
+                                                                   Just $ addMirrorNodeTrees (cellAfter contour division) (cellBefore contour division) division
+                                                                 else -- Use the algorithm from Christopher Tscherne's master's thesis.
+                                                                   applyTscherne contour [division]
+                                   where
+                                     division = twoMCDivision crashTree firstMC secondMC
                                  (Slist _ _) -> Nothing
   where
     motorcyclesIn (CrashTree motorcycles _ _) = motorcycles
-    
+    oneMCDivision crashTree inMC = CellDivide (DividingMotorcycles inMC (Slist [] 0)) (maybeOpposingENodeOf crashTree)
+    twoMCDivision crashTree firstMC secondMC = if lastCrashType crashTree == Just HeadOn
+                                               then CellDivide (DividingMotorcycles firstMC (Slist [secondMC] 1)) (maybeOpposingENodeOf crashTree)
+                                               else error "given two motorcycles that do not crash head on."
 
     -- | find nodes or motorcycles where the arc coresponding to them is collinear with the dividing Motorcycle.
     maybeOpposingENodeOf crashTree = case opposingNodes crashTree of
