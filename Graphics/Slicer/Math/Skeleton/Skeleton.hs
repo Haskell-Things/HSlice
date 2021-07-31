@@ -30,7 +30,7 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
-import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PCollinear), plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PAntiCollinear), plinesIntersectIn)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
@@ -96,7 +96,7 @@ findStraightSkeleton contour holes =
       where
         opposingNodes :: CrashTree -> [ENode]
         opposingNodes myCrashTree = filter (\eNode -> enoughIntersections $ contourIntersectionCount contour (Right (pPointOf eNode, pPointOf $ dividingMotorcycle myCrashTree)))
-                                           $ filter (\eNode -> plinesIntersectIn (outOf eNode) (outOf $ dividingMotorcycle myCrashTree) == PCollinear) $ concaveENodes contour
+                                           $ filter (\eNode -> plinesIntersectIn (outOf eNode) (outOf $ dividingMotorcycle myCrashTree) == PAntiCollinear) $ concaveENodes contour
           where
             enoughIntersections n = n > 0 && even n
 

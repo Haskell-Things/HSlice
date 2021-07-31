@@ -34,7 +34,7 @@ import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), StraightSkeleton, ENode, finalPLine, outOf)
 
-import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleIntersectsAt, motorcyclesInDivision, intersectionSameSide, motorcyclesAreCollinear, motorcycleToENode)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (motorcycleIntersectsAt, motorcyclesInDivision, intersectionSameSide, motorcyclesAreAntiCollinear, motorcycleToENode)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeTree, sortNodeTrees)
 
@@ -126,7 +126,7 @@ addMirrorNodeTrees nodeTree1 nodeTree2 division = StraightSkeleton [sortNodeTree
     nodetreesFromDivision :: CellDivide -> [NodeTree]
     nodetreesFromDivision cellDivision@(CellDivide motorcycles maybeENode) = case motorcycles of
                                                                                (DividingMotorcycles _ (Slist [] 0)) -> res
-                                                                               (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreCollinear firstMotorcycle secondMotorcycle
+                                                                               (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreAntiCollinear firstMotorcycle secondMotorcycle
                                                                                                                                                      then res
                                                                                                                                                      else errorOut
                                                                                (DividingMotorcycles _ (Slist _ _)) -> errorOut
@@ -141,7 +141,7 @@ addMirrorNodeTrees nodeTree1 nodeTree2 division = StraightSkeleton [sortNodeTree
 nodeTreesDoNotOverlap :: NodeTree -> NodeTree -> CellDivide -> Bool
 nodeTreesDoNotOverlap nodeTree1 nodeTree2 cellDivide@(CellDivide motorcycles1 _) = case motorcycles1 of
                                                                                      (DividingMotorcycles _ (Slist [] 0)) -> res
-                                                                                     (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> motorcyclesAreCollinear firstMotorcycle secondMotorcycle && res
+                                                                                     (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> motorcyclesAreAntiCollinear firstMotorcycle secondMotorcycle && res
                                                                                      (DividingMotorcycles _ (Slist _ _)) -> False
   where
     res = null (crossoverENodes nodeTree1 cellDivide) &&

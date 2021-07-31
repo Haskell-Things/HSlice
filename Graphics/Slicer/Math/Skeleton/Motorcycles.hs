@@ -24,9 +24,9 @@
 -- inherit instances when deriving.
 {-# LANGUAGE DerivingStrategies #-}
 
-module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles, motorcyclesAreCollinear, motorcyclesInDivision) where
+module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles, motorcyclesAreAntiCollinear, motorcyclesInDivision) where
 
-import Prelude (Bool(True, False), Either(Left,Right), Eq, error, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, null)
+import Prelude (Bool(True, False), Either(Left,Right), Eq, Show, error, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, null)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
@@ -42,26 +42,26 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Line (LineSeg)
 
-import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, lineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel,PCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, lineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel,PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith, plinesIntersectIn)
 
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower, mapWithNeighbors)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), linePairs, pPointOf, isCollinear, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles))
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), linePairs, pPointOf, isAntiCollinear, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles))
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
 -- | The collision of two motorcycles. one lives, and one doesn't, unless it's a head on collision, in which case both die, and there is no survivor.
 data Collision = Collision { _inMotorcycles :: !(Motorcycle, Motorcycle, Slist Motorcycle), _survivor :: !(Maybe Motorcycle), collisionResult :: !CollisionType }
-  deriving (Eq)
+  deriving (Eq, Show)
 
 -- | the type of collision.
 -- only normal collisions (motorcycle intersects the other motorcycle's path) are survivable, and then only by the motorcycle who's path was collided with.
 data CollisionType = Normal | HeadOn | SideSwipe
-  deriving (Eq)
+  deriving (Eq, Show)
 
 -- | the resulting node graph for a given contour.
 data CrashTree = CrashTree { _motorcycles :: !(Slist Motorcycle), _survivors :: !(Slist Motorcycle), _crashes :: !(Slist Collision) }
-  deriving (Eq)
+  deriving (Eq, Show)
 
 -- | convert a Motorcycle to an ENode
 motorcycleToENode :: Motorcycle -> ENode
@@ -87,12 +87,13 @@ crashMotorcycles contour holes
       -- We're done.
       | null findSurvivors = Just $ CrashTree inMotorcycles findSurvivors inCrashes
       | null crashedMotorcycles = case inMotorcycles of
-                                    -- there is no-one to collide with.
-                                    (Slist [] _) -> Just $ CrashTree inMotorcycles inMotorcycles (slist [])
-                                    (Slist _ 1) -> Just $ CrashTree inMotorcycles inMotorcycles (slist [])
-                                  -- One crash, no survivors.
-                                    (Slist [firstMC, secondMC] 2) -> if crashOf firstMC secondMC == Just HeadOn
-                                                                     then Just $ CrashTree inMotorcycles (slist []) (slist [Collision (firstMC, secondMC,slist []) Nothing HeadOn])
+                                    (Slist [] _) -> -- there is no-one to collide with.
+                                      Just $ CrashTree inMotorcycles inMotorcycles (slist [])
+                                    (Slist _ 1) -> -- There is only one motorcycle.
+                                      Just $ CrashTree inMotorcycles inMotorcycles (slist [])
+                                    (Slist [firstMC, secondMC] 2) -> if crashOf [] firstMC secondMC == Just HeadOn
+                                                                     then -- One crash, no survivors, and no way the contour can be between the motorcycles.
+                                                                       Just $ CrashTree inMotorcycles (slist []) (slist [Collision (firstMC, secondMC,slist []) Nothing HeadOn])
                                                                      else Nothing
                                     (Slist (_:_) _) -> Nothing
       -- Note that to solve this case, we will have to have a concept of speed of the motorcycle.
@@ -101,9 +102,13 @@ crashMotorcycles contour holes
           -- determine the set of motorcycles have not yet had a crash.
           findSurvivors = SL.filter (`notElem` crashedMotorcycles) inMotorcycles
 
-          -- Crash two motorcycles.
-          crashOf mot1 mot2@(Motorcycle (seg1, seg2) _)
-            | isCollinear (outOf mot1) (outOf mot2) && motorcycleIntersectsAt contour mot1 == (seg1, Just seg2) = Just HeadOn
+          -- Crash just two motorcycles.
+          -- FIXME: incorrect result if there are more than two motorcycles.
+          crashOf :: [Motorcycle] -> Motorcycle -> Motorcycle -> Maybe CollisionType
+          crashOf otherMotorcycles mot1 mot2@(Motorcycle (seg1, seg2) _)
+            | isAntiCollinear (outOf mot1) (outOf mot2) = if motorcycleIntersectsAt contour mot1 == (seg1, Just seg2) && otherMotorcycles == []
+                                                      then Just HeadOn
+                                                      else Nothing
             | otherwise = Nothing
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
@@ -115,7 +120,7 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs conto
     onlyMotorcycles ((seg1, seg2), maybePLine) = case maybePLine of
                                                    (Just pLine) -> Just $ Motorcycle (seg1, seg2) $ flipPLine2 pLine
                                                    Nothing -> Nothing
-    -- | Examine two line segments that are part of a Contour, and determine if they are convex toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
+    -- | Examine two line segments that are part of a Contour, and determine if they are convex from the perspective of the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior.
     convexPLines :: LineSeg -> LineSeg -> Maybe PLine2
     convexPLines seg1 seg2
       | Just True == lineIsLeft seg1 seg2  = Nothing
@@ -181,9 +186,9 @@ motorcycleIntersectsAt contour motorcycle@(Motorcycle (inSeg,outSeg) _) = case i
 intersectionSameSide :: PPoint2 -> ENode -> Motorcycle -> Maybe Bool
 intersectionSameSide pointOnSide node (Motorcycle _ path) = pPointsOnSameSideOfPLine (pPointOf node) pointOnSide path
 
--- | Check if the output of two motorcycles are collinear with each other.
-motorcyclesAreCollinear :: Motorcycle -> Motorcycle -> Bool
-motorcyclesAreCollinear motorcycle1 motorcycle2 = plinesIntersectIn (outOf motorcycle1) (outOf motorcycle2) == PCollinear
+-- | Check if the output of two motorcycles are anti-collinear with each other.
+motorcyclesAreAntiCollinear :: Motorcycle -> Motorcycle -> Bool
+motorcyclesAreAntiCollinear motorcycle1 motorcycle2 = plinesIntersectIn (outOf motorcycle1) (outOf motorcycle2) == PAntiCollinear
 
 -- | Return the total set of motorcycles in the given CellDivide
 motorcyclesInDivision :: CellDivide -> [Motorcycle]

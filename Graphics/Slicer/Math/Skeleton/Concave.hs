@@ -47,7 +47,7 @@ import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, handle
 
 import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), INodeSet(INodeSet), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), eNodeToINode, noIntersection, intersectionOf, pPointOf, isCollinear, getPairs, isParallel)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), INodeSet(INodeSet), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), eNodeToINode, noIntersection, intersectionOf, pPointOf, isAntiCollinear, isCollinear, getPairs, isParallel)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree)
 
@@ -127,11 +127,14 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
       where
         errorLen1 = Left $ PartialNodes (INodeSet $ one iNodes) "NOMATCH - length 1?"
         --   Handle the the case of two nodes.
+        handleTwoNodes :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Either PartialNodes INodeSet
         handleTwoNodes node1 node2
-          | isCollinear (outOf node1) (outOf node2) = Right $ INodeSet $ one [makeCollinearPair node1 node2]
+          | isAntiCollinear (outOf node1) (outOf node2) = Right $ INodeSet $ one [makeAntiCollinearPair node1 node2]
+          | isCollinear (outOf node1) (outOf node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
           | intersectsInPoint node1 node2 && not loop = Right $ INodeSet $ one [averageNodes node1 node2]
           | otherwise = errorLen2
         errorLen2 = Left $ PartialNodes (INodeSet $ one iNodes) "NOMATCH - length 2?"
+
         --   Handle the the case of 3 or more nodes.
         handleThreeOrMoreNodes
           | endsAtSamePoint = Right $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]
@@ -147,26 +150,27 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
 
         -- | When a set of nodes end in the same point, we may need to create a Node with all of the nodes as input. This checks for that case.
         endsAtSamePoint :: Bool
-        endsAtSamePoint = and $ mapWithFollower (==) $ mapWithFollower intersectionOf ((outOf <$> nonCollinearNodes eNodes (collinearNodePairsOf eNodes)
-                                                                                               ++ firstCollinearNodes (collinearNodePairsOf eNodes)) ++
-                                                                                       (outOf <$> nonCollinearNodes iNodes (collinearNodePairsOf iNodes)
-                                                                                               ++ firstCollinearNodes (collinearNodePairsOf iNodes)))
+        endsAtSamePoint = and $ mapWithFollower (==) $ mapWithFollower intersectionOf ((outOf <$> nonAntiCollinearNodes eNodes (antiCollinearNodePairsOf eNodes)
+                                                                                               ++ firstAntiCollinearNodes (antiCollinearNodePairsOf eNodes)) ++
+                                                                                       (outOf <$> nonAntiCollinearNodes iNodes (antiCollinearNodePairsOf iNodes)
+                                                                                               ++ firstAntiCollinearNodes (antiCollinearNodePairsOf iNodes)))
           where
-            firstCollinearNodes nodePairs = fst <$> nodePairs
-            -- find the nodes that do not have a collinear pair.
+            -- since anti-collinear nodes end at the same point, only count one of them.
+            firstAntiCollinearNodes nodePairs = fst <$> nodePairs
+            -- find the nodes that do not have an anti-collinear pair.
             -- FIXME: is there a better way do do this with Ord?
-            nonCollinearNodes :: (Eq a) => [a] -> [(a,a)] -> [a]
-            nonCollinearNodes myNodes nodePairs = filter (\a -> notElem a $ allCollinearNodes nodePairs) myNodes
+            nonAntiCollinearNodes :: (Eq a) => [a] -> [(a,a)] -> [a]
+            nonAntiCollinearNodes myNodes nodePairs = filter (\a -> notElem a $ allAntiCollinearNodes nodePairs) myNodes
               where
-                allCollinearNodes myNodePairs = (fst <$> myNodePairs) ++ (snd <$> myNodePairs)
+                allAntiCollinearNodes myNodePairs = (fst <$> myNodePairs) ++ (snd <$> myNodePairs)
 
         -- | make sure we have a potential intersection between two nodes to work with.
         hasShortestPair :: Bool
         hasShortestPair = not $ null (intersectingNodePairsOf eNodes) && null (intersectingNodePairsOf iNodes) && null intersectingMixedNodePairs
 
         -- | make sure we have a potential intersection between two nodes to work with.
-        makeCollinearPair :: (Arcable a, Arcable b) => a -> b -> INode
-        makeCollinearPair node1 node2 = makeINode (sortedPair node1 node2) Nothing
+        makeAntiCollinearPair :: (Arcable a, Arcable b) => a -> b -> INode
+        makeAntiCollinearPair node1 node2 = makeINode (sortedPair node1 node2) Nothing
 
         -- | determine the exterior nodes available for calculation during the next recurse.
         remainingENodes :: [ENode]
@@ -246,13 +250,13 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
         intersectingNodePairsOf :: (Arcable a, Show a) => [a] -> [(a, a)]
         intersectingNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
 
-        -- | find nodes that have output segments that are collinear with one another.
-        collinearNodePairsOf :: (Arcable a) => [a] -> [(a, a)]
-        collinearNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if outSegsCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
+        -- | find nodes that have output segments that are antiCollinear with one another.
+        antiCollinearNodePairsOf :: (Arcable a) => [a] -> [(a, a)]
+        antiCollinearNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if outSegsAntiCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
           where
-            outSegsCollinear :: (Arcable a) => a -> a -> Bool
-            outSegsCollinear node1 node2
-              | hasArc node1 && hasArc node2 = isCollinear (outOf node1) (outOf node2)
+            outSegsAntiCollinear :: (Arcable a) => a -> a -> Bool
+            outSegsAntiCollinear node1 node2
+              | hasArc node1 && hasArc node2 = isAntiCollinear (outOf node1) (outOf node2)
               | otherwise = False
 
         -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
@@ -275,6 +279,7 @@ averageNodes n1 n2
   | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | isParallel  (outOf n1) (outOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | isCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
+  | isAntiCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (ePointOf n1) (outOf n1) (ePointOf n2) (outOf n2)
 
 -- take a pair of arcables, and return their outOf, in a sorted order.
