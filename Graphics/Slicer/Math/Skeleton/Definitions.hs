@@ -204,7 +204,7 @@ eNodeToINode (ENode (seg1, seg2) arc) = INode (eToPLine2 seg1) (eToPLine2 seg2) 
 
 -- | check if two lines cannot intersect.
 noIntersection :: PLine2 -> PLine2 -> Bool
-noIntersection pline1 pline2 = isCollinear pline1 pline2 || isParallel pline1 pline2
+noIntersection pline1 pline2 = isCollinear pline1 pline2 || isParallel pline1 pline2 || isAntiCollinear pline1 pline2 || isAntiParallel pline1 pline2
 
 -- | check if two lines are really the same line.
 isCollinear :: PLine2 -> PLine2 -> Bool
@@ -216,8 +216,11 @@ isAntiCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiCollinea
 
 -- | check if two lines are parallel.
 isParallel :: PLine2 -> PLine2 -> Bool
-isParallel pline1 pline2 =    plinesIntersectIn pline1 pline2 == PParallel
-                           || plinesIntersectIn pline1 pline2 == PAntiParallel
+isParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PParallel
+
+-- | check if two lines are anti-parallel.
+isAntiParallel :: PLine2 -> PLine2 -> Bool
+isAntiParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiParallel
 
 -- | Get the intersection point of two lines we know have an intersection point.
 intersectionOf :: PLine2 -> PLine2 -> PPoint2
