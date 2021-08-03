@@ -26,7 +26,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles, motorcyclesAreAntiCollinear, motorcyclesInDivision) where
 
-import Prelude (Bool(True, False), Either(Left,Right), Eq, Show, error, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, null)
+import Prelude (Bool(True, False), Either(Left,Right), Eq, Show, Ordering (EQ, GT, LT), error, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, compare, null, (<))
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
@@ -40,13 +40,13 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Line (LineSeg)
+import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, handleLineSegError)
 
-import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, lineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel,PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, lineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel,PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith, plinesIntersectIn, pToEPoint2, distanceBetweenPPoints, angleBetween)
 
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower, mapWithNeighbors)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), linePairs, pPointOf, isAntiCollinear, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles))
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), linePairs, pPointOf, intersectionOf, isAntiCollinear, noIntersection, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), ePointOf)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -56,7 +56,10 @@ data Collision = Collision { _inMotorcycles :: !(Motorcycle, Motorcycle, Slist M
 
 -- | the type of collision.
 -- only normal collisions (motorcycle intersects the other motorcycle's path) are survivable, and then only by the motorcycle who's path was collided with.
-data CollisionType = Normal | HeadOn | SideSwipe
+data CollisionType =
+  Normal -- a motorcycle runs into the path of another motorcycle.
+  | HeadOn -- two motorcycles are anti-parallel, and don't intersect the contour at any point other than each other's origin.
+  | SideSwipe -- two motorcycles arrive at the same time, in the same location.
   deriving (Eq, Show)
 
 -- | the resulting node graph for a given contour.
@@ -91,10 +94,11 @@ crashMotorcycles contour holes
                                       Just $ CrashTree inMotorcycles inMotorcycles (slist [])
                                     (Slist _ 1) -> -- There is only one motorcycle.
                                       Just $ CrashTree inMotorcycles inMotorcycles (slist [])
-                                    (Slist [firstMC, secondMC] 2) -> if crashOf [] firstMC secondMC == Just HeadOn
-                                                                     then -- One crash, no survivors, and no way the contour can be between the motorcycles.
-                                                                       Just $ CrashTree inMotorcycles (slist []) (slist [Collision (firstMC, secondMC,slist []) Nothing HeadOn])
-                                                                     else Nothing
+                                    (Slist [firstMC, secondMC] 2) -> case crashOf contour [] firstMC secondMC of
+                                                                       Just collision ->
+                                                                         Just $ CrashTree inMotorcycles (slist []) (slist [collision])
+                                                                       Nothing ->
+                                                                         Just $ CrashTree inMotorcycles inMotorcycles (slist [])
                                     (Slist (_:_) _) -> Nothing
       -- Note that to solve this case, we will have to have a concept of speed of the motorcycle.
       | otherwise = Nothing
@@ -102,14 +106,43 @@ crashMotorcycles contour holes
           -- determine the set of motorcycles have not yet had a crash.
           findSurvivors = SL.filter (`notElem` crashedMotorcycles) inMotorcycles
 
-          -- Crash just two motorcycles.
-          -- FIXME: incorrect result if there are more than two motorcycles.
-          crashOf :: [Motorcycle] -> Motorcycle -> Motorcycle -> Maybe CollisionType
-          crashOf otherMotorcycles mot1 mot2@(Motorcycle (seg1, seg2) _)
-            | isAntiCollinear (outOf mot1) (outOf mot2) = if motorcycleIntersectsAt contour mot1 == (seg1, Just seg2) && otherMotorcycles == []
-                                                      then Just HeadOn
-                                                      else Nothing
-            | otherwise = Nothing
+          -- Crash just two motorcycles. Returns Nothing when the motorcycles can't collide.
+          crashOf :: Contour -> [Motorcycle] -> Motorcycle -> Motorcycle -> Maybe Collision
+          crashOf myContour _ mot1 mot2@(Motorcycle (inSeg2, outSeg2) _)
+            | isAntiCollinear (outOf mot1) (outOf mot2) && motorcycleIntersectsAt contour mot1 == (inSeg2, Just outSeg2) = -- If we have a clear path between mot1 and the origin of mot2
+                Just $ Collision (mot1,mot2, slist []) Nothing HeadOn
+            | noIntersection (outOf mot1) (outOf mot2) = Nothing
+            | intersectionIsBehind mot1 = Nothing
+            | intersectionIsBehind mot2 = Nothing
+            | otherwise = case motorcycleIntersectsContour mot1 intersectionPPoint of
+                            True -> Nothing
+                            False -> case motorcycleIntersectsContour mot2 intersectionPPoint of
+                                       True -> Nothing
+                                       False -> case distanceBetweenPPoints (pPointOf mot1) intersectionPPoint `compare` distanceBetweenPPoints (pPointOf mot2) intersectionPPoint of
+                                                  GT -> Just $ Collision (mot1, mot2, slist []) (Just mot2) Normal
+                                                  LT -> Just $ Collision (mot1, mot2, slist []) (Just mot1) Normal
+                                                  EQ -> Just $ Collision (mot1, mot2, slist []) (Just mot1) SideSwipe
+              where
+                intersectionPPoint = intersectionOf (outOf mot1) (outOf mot2)
+                intersectionIsBehind m = angleBetween (outOf m) (eToPLine2 $ lineSegToIntersection m) < 0
+                lineSegToIntersection m = handleLineSegError $ lineSegFromEndpoints (ePointOf m) (pToEPoint2 intersectionPPoint)
+                motorcycleIntersectsContour motorcycle@(Motorcycle (inSeg, outSeg) _) intersectionPoint =
+                  case catMaybes ( mapWithNeighbors saneIntersections $ zip contourLines $ intersectsWith (Left inSeg) . Left <$> contourLines) of
+                    [] -> False
+                    (_:_) -> True
+                  where
+                    segOfMotorcycle = handleLineSegError $ lineSegFromEndpoints (ePointOf motorcycle) (pToEPoint2 intersectionPoint)
+                    contourLines = L.filter (\a -> a /= inSeg && a /= outSeg) $ lineSegsOfContour myContour
+                    saneIntersections :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg)
+                    saneIntersections  _ (seg, Right (IntersectsIn _))      _ = Just (seg, Nothing)
+                    saneIntersections  _ (_  , Left  NoIntersection)        _ = Nothing
+                    saneIntersections  _ (_  , Right PParallel)             _ = Nothing
+                    saneIntersections  _ (_  , Right PAntiParallel)         _ = Nothing
+                    saneIntersections  _                              (seg , Left (HitStartPoint _ _)) (seg2 , Left (HitEndPoint   _ _)) = Just (seg, Just seg2)
+                    saneIntersections (_  , Left (HitStartPoint _ _)) (_   , Left (HitEndPoint   _ _))  _                                = Nothing
+                    saneIntersections  _                              (_   , Left (HitEndPoint   _ _)) (_    , Left (HitStartPoint _ _)) = Nothing
+                    saneIntersections (seg, Left (HitEndPoint   _ _)) (seg2, Left (HitStartPoint _ _))  _                                = Just (seg, Just seg2)
+                    saneIntersections l1 l2 l3 = error $ "insane result of saneIntersections:\n" <> show l1 <> "\n" <> show l2 <> "\n" <> show l3 <> "\n" <> show contourLines <> "\n" <> show segOfMotorcycle <> "\n" <> show motorcycle <> "\n"
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
 --   This function is meant to be used on the exterior contour.
@@ -146,30 +179,17 @@ concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs cont
 -- | Find where a motorcycle intersects a contour.
 --   If the motorcycle lands between two segments, return the second segment, as well.
 motorcycleIntersectsAt :: Contour -> Motorcycle -> (LineSeg, Maybe LineSeg)
-motorcycleIntersectsAt contour motorcycle@(Motorcycle (inSeg,outSeg) _) = case intersections of
-                                                                            [] -> error "no intersections?"
-                                                                            [a] -> error $ "not enough intersections: " <> show a <> "\n"
-                                                                            [_a,_b] -> foundSegEvents intersections
-                                                                            (_:_) -> error "too many intersections?"
+motorcycleIntersectsAt contour motorcycle = case intersections of
+                                              [] -> error "no intersections?"
+                                              [a] -> a
+                                              (_:_) -> error "too many intersections?"
   where
     intersections = getMotorcycleIntersections motorcycle contour
-    -- find where the motorcycle intersects the contour, by filtering the possibilities.
-    foundSegEvents :: [(LineSeg, Maybe LineSeg)] -> (LineSeg, Maybe LineSeg)
-    foundSegEvents myIntersections = case L.filter fun myIntersections of
-                       [] -> error "no found segment."
-                       [a] -> a
-                       (_:_) -> error "too many intersections?"
-                     where
-                       -- make sure neither of these segments are inSeg or outSeg
-                       fun (seg,maybeSeg) = (seg /= inSeg && seg /= outSeg)
-                                            && (case maybeSeg of
-                                                  (Just isSeg) -> isSeg /= inSeg && isSeg /= outSeg
-                                                  Nothing -> True)
     -- get all possible intersections between the motorcycle and the contour.
     getMotorcycleIntersections :: Motorcycle -> Contour -> [(LineSeg, Maybe LineSeg)]
-    getMotorcycleIntersections m c = catMaybes $ mapWithNeighbors saneIntersections $ zip contourLines $ intersectsWith (Right $ outOf m) . Left <$> contourLines
+    getMotorcycleIntersections m@(Motorcycle (s1,s2) _) c = catMaybes $ mapWithNeighbors saneIntersections $ zip contourLines $ intersectsWith (Right $ outOf m) . Left <$> contourLines
       where
-        contourLines = lineSegsOfContour c
+        contourLines = L.filter (\a -> a /= s1 && a /= s2) $ lineSegsOfContour c
         saneIntersections :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg)
         saneIntersections  _ (seg, Right (IntersectsIn _))      _ = Just (seg, Nothing)
         saneIntersections  _ (_  , Left  NoIntersection)        _ = Nothing

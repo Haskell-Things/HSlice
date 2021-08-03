@@ -35,12 +35,14 @@ import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton, CellDivide)
 
 import Graphics.Slicer.Math.Definitions (Contour)
 
--- | Use observations from christopher tscherne\'s masters thesis to cover the corner cases that do not require the whole algorithm.
--- If the two sides do not have an influence on one another, and the last line out of the two sides intersects the motorcycle at the same point
+-- | Implement the algorithm from christopher Tscherne's masters thesis.
 applyTscherne :: Contour -> [CellDivide] -> Maybe StraightSkeleton
-applyTscherne contour cellDivisions = errorIncomplete
+applyTscherne contour cellDivisions =
+  case cellDivisions of
+    [] -> error "you do not need to applyTscherne if there is only one cell."
+    [oneDivision] -> error "you do not need to applyTscherne if there is only one division.. right?."
+    (_:_) -> Nothing
   where
-    -- FIXME: ok, can't cheat. apply the full algorithm.
     errorIncomplete = error $ "failing to apply Tscherne's method.\n" <>
                       show contour  <> "\n" <>
                       show cellDivisions <> "\n"
