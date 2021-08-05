@@ -151,7 +151,7 @@ data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle,
 -- data CellTree = CellTree { 
 
 -- A concave region of a contour.
-data Cell = Cell { _sides :: (Slist LineSeg, Maybe (Slist LineSeg)), _walls :: Slist CellDivide }
+data Cell = Cell { _sides :: (Slist ([LineSeg], Maybe CellDivide))}
 
 -- | the border dividing two cells of a contour.
 -- note that if there is an ENode that is part of the division, it's anticolinnear to the last motorcycle in _divMotorcycles.

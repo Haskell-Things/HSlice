@@ -48,13 +48,12 @@ import Graphics.Slicer.Math.PGA (eToPPoint2, plinesIntersectIn)
 
 -- | When there are no motorcycles, and there are no holes, we can just treat the whole contour as a single cell. This does the conversion.
 contourToCell :: Contour -> Cell
-contourToCell contour = Cell (slist $ lineSegsOfContour contour, Nothing) (Slist [] 0)
+contourToCell contour = Cell (slist [(lineSegsOfContour contour, Nothing)])
 
 -- | get a naieve node tree for a given cell. can give incorrect results for a cell with a cell wall, in some cases.
 simpleNodeTreeOfCell :: Cell -> NodeTree
-simpleNodeTreeOfCell (Cell ((Slist leftWall _),rightWall) _)
-  | rightWall == Nothing = skeletonOfConcaveRegion leftWall
-  | otherwise = error "unsupported."
+simpleNodeTreeOfCell (Cell (Slist [(extSegs, _)] _)) = skeletonOfConcaveRegion extSegs
+simpleNodeTreeOfCell _ = error "unsupported."
 
 -- A flag for which side of a dividing motorcycle to cut a cell from, the side after or before the start of the motorcycle.
 data Side = SideAfter
@@ -72,7 +71,7 @@ cellBefore contour cellDivide = simpleNodeTreeOfCell $ createCellFromStraightWal
 -- | use a single motorcycle to cut a section of a contour out, converting it to a cell.
 -- | FIXME: what about the cell wall?
 createCellFromStraightWall :: Contour -> CellDivide -> Side -> Cell
-createCellFromStraightWall contour cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _) _) _) side = Cell (slist $ gatherLineSegs side, Nothing) (Slist [cellDivide] 1)
+createCellFromStraightWall contour cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _) _) _) side = Cell (slist [(gatherLineSegs side, Just cellDivide)])
   where
     contourSegs = lineSegsOfContour contour
     startSegmentIndex = segIndex outSeg contourSegs
@@ -135,7 +134,6 @@ addMirrorNodeTrees nodeTree1 nodeTree2 division = StraightSkeleton [sortNodeTree
                 (Just eNode) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist []), makeNodeTree [eNode] (INodeSet $ slist [])]
                 Nothing -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist [])]
         errorOut = error "tried to add two NodeTrees with a non-bilateral cellDivide"
-
 
 -- | Check whether the NodeTrees of two cells have an effect on each other.
 nodeTreesDoNotOverlap :: NodeTree -> NodeTree -> CellDivide -> Bool
