@@ -70,6 +70,9 @@ data CrashTree = CrashTree { _motorcycles :: !(Slist Motorcycle), _survivors :: 
 motorcycleToENode :: Motorcycle -> ENode
 motorcycleToENode (Motorcycle segs mcpath) = ENode segs mcpath
 
+
+-- | Create a crash tree for all of the motorcycles in the given contour, with the given holes.
+-- FIXME: may fail, returning Nothing.
 crashMotorcycles :: Contour -> [Contour] -> Maybe CrashTree
 crashMotorcycles contour holes
   | null holes = getCrashTree (slist firstMotorcycles) [] (slist []) False
@@ -127,12 +130,22 @@ crashMotorcycles contour holes
                 intersectionIsBehind m = angleBetween (outOf m) (eToPLine2 $ lineSegToIntersection m) < 0
                 lineSegToIntersection m = handleLineSegError $ lineSegFromEndpoints (ePointOf m) (pToEPoint2 intersectionPPoint)
                 motorcycleIntersectsContour motorcycle@(Motorcycle (inSeg, outSeg) _) intersectionPoint =
-                  case catMaybes ( mapWithNeighbors saneIntersections $ zip contourLines $ intersectsWith (Left inSeg) . Left <$> contourLines) of
+                  case foundSegEvents $ catMaybes ( mapWithNeighbors saneIntersections $ zip contourLines $ intersectsWith (Left inSeg) . Left <$> contourLines) of
                     [] -> False
                     (_:_) -> True
                   where
+                    foundSegEvents :: [(LineSeg, Maybe LineSeg)] -> [(LineSeg, Maybe LineSeg)]
+                    foundSegEvents myIntersections
+                      | null (L.filter fun myIntersections) = error $ "no remaining segment, after removing motorcycle's inSeg and OutSeg.\nReceived: " <> show myIntersections <> "\n"
+                      | otherwise = L.filter fun myIntersections
+                      where
+                        -- make sure neither of these segments are inSeg or outSeg
+                        fun (seg,maybeSeg) = (seg /= inSeg && seg /= outSeg)
+                                             && (case maybeSeg of
+                                                   (Just isSeg) -> isSeg /= inSeg && isSeg /= outSeg
+                                                   Nothing -> True)
                     segOfMotorcycle = handleLineSegError $ lineSegFromEndpoints (ePointOf motorcycle) (pToEPoint2 intersectionPoint)
-                    contourLines = L.filter (\a -> a /= inSeg && a /= outSeg) $ lineSegsOfContour myContour
+                    contourLines = lineSegsOfContour myContour
                     saneIntersections :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg)
                     saneIntersections  _ (seg, Right (IntersectsIn _))      _ = Just (seg, Nothing)
                     saneIntersections  _ (_  , Left  NoIntersection)        _ = Nothing
@@ -187,9 +200,19 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
     intersections = getMotorcycleIntersections motorcycle contour
     -- get all possible intersections between the motorcycle and the contour.
     getMotorcycleIntersections :: Motorcycle -> Contour -> [(LineSeg, Maybe LineSeg)]
-    getMotorcycleIntersections m@(Motorcycle (s1,s2) _) c = catMaybes $ mapWithNeighbors saneIntersections $ zip contourLines $ intersectsWith (Right $ outOf m) . Left <$> contourLines
+    getMotorcycleIntersections m@(Motorcycle (inSeg, outSeg) _) c = foundSegEvents $ catMaybes $ mapWithNeighbors saneIntersections $ zip contourLines $ intersectsWith (Right $ outOf m) . Left <$> contourLines
       where
-        contourLines = L.filter (\a -> a /= s1 && a /= s2) $ lineSegsOfContour c
+        foundSegEvents :: [(LineSeg, Maybe LineSeg)] -> [(LineSeg, Maybe LineSeg)]
+        foundSegEvents myIntersections
+          | null (L.filter fun myIntersections) = error $ "no remaining segment, after removing motorcycle's inSeg and OutSeg.\nReceived: " <> show myIntersections <> "\n"
+          | otherwise = L.filter fun myIntersections
+          where
+            -- make sure neither of these segments are inSeg or outSeg
+            fun (seg,maybeSeg) = (seg /= inSeg && seg /= outSeg)
+                                 && (case maybeSeg of
+                                       (Just isSeg) -> isSeg /= inSeg && isSeg /= outSeg
+                                       Nothing -> True)
+        contourLines = lineSegsOfContour c
         saneIntersections :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg)
         saneIntersections  _ (seg, Right (IntersectsIn _))      _ = Just (seg, Nothing)
         saneIntersections  _ (_  , Left  NoIntersection)        _ = Nothing
