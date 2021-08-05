@@ -27,9 +27,9 @@ module Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne, cellAfter, cellBef
 
 import Prelude (($), error, (<>), show)
 
-import Data.Maybe( Maybe(Just,Nothing))
+import Data.Maybe( Maybe(Nothing))
 
-import Graphics.Slicer.Math.Skeleton.Cells (cellBefore, cellAfter, nodeTreesDoNotOverlap, addMirrorNodeTrees)
+import Graphics.Slicer.Math.Skeleton.Cells (cellBefore, cellAfter)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton, CellDivide)
 
@@ -37,13 +37,11 @@ import Graphics.Slicer.Math.Definitions (Contour)
 
 -- | Implement the algorithm from christopher Tscherne's masters thesis.
 applyTscherne :: Contour -> [CellDivide] -> Maybe StraightSkeleton
-applyTscherne contour cellDivisions =
+applyTscherne _ cellDivisions =
   case cellDivisions of
     [] -> error "you do not need to applyTscherne if there is only one cell."
-    [oneDivision] -> error "you do not need to applyTscherne if there is only one division.. right?."
+    [oneDivision] -> error $ "you do not need to applyTscherne if there is only one division.. right?.\n" <> show oneDivision <> "\n"
     (_:_) -> Nothing
-  where
-    errorIncomplete = error $ "failing to apply Tscherne's method.\n" <>
-                      show contour  <> "\n" <>
-                      show cellDivisions <> "\n"
+--  where
+--    errorIncomplete = error $ "failing to apply Tscherne's method.\n" <> show contour  <> "\n" <> show cellDivisions <> "\n"
 
