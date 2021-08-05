@@ -85,7 +85,7 @@ findStraightSkeleton contour holes =
     motorcyclesIn (CrashTree motorcycles _ _) = motorcycles
     oneMCDivision crashTree inMC = CellDivide (DividingMotorcycles inMC (Slist [] 0)) (maybeOpposingENodeOf crashTree)
     twoMCDivision crashTree firstMC secondMC = if lastCrashType crashTree == Just HeadOn
-                                               then CellDivide (DividingMotorcycles firstMC (Slist [secondMC] 1)) (maybeOpposingENodeOf crashTree)
+                                               then CellDivide (DividingMotorcycles firstMC (Slist [secondMC] 1)) Nothing
                                                else error "given two motorcycles that do not crash head on."
 
     -- | find nodes or motorcycles where the arc coresponding to them is collinear with the dividing Motorcycle.
