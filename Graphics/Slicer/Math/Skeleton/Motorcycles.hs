@@ -40,11 +40,11 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Line (LineSeg, lineSegFromEndpoints, handleLineSegError)
+import Graphics.Slicer.Math.Line (lineSegFromEndpoints, handleLineSegError)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, lineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel,PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith, plinesIntersectIn, pToEPoint2, distanceBetweenPPoints, angleBetween)
 
-import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower, mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithFollower, mapWithNeighbors)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), linePairs, pPointOf, intersectionOf, isAntiCollinear, noIntersection, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), ePointOf)
 

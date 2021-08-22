@@ -45,11 +45,9 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
-
 import Graphics.Slicer.Math.PGA (pToEPoint2, PPoint2, plinesIntersectIn, PIntersection(PCollinear,PAntiCollinear, IntersectsIn,PParallel,PAntiParallel), eToPPoint2, flipPLine2, lineIsLeft, PLine2(PLine2), eToPLine2)
 
-import Graphics.Slicer.Math.Definitions (Contour, Point2, mapWithFollower)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 

@@ -40,9 +40,9 @@ import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeT
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg))
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
+import Graphics.Slicer.Math.Line (endpoint)
 
 import Graphics.Slicer.Math.PGA (eToPPoint2, plinesIntersectIn)
 

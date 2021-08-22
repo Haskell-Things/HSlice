@@ -42,7 +42,7 @@ import Slist (slist)
 import Graphics.Slicer (ℝ)
 
 -- A euclidian point.
-import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(SafeContour), roundPoint2)
+import Graphics.Slicer.Math.Definitions(LineSeg(LineSeg), Point2(Point2), Contour(PointContour, LineSegContour), roundPoint2)
 
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣))
@@ -50,10 +50,8 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVa
 -- Our 2D Projective Geometric Algebra library.
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, distancePPointToPLine, pPointsOnSameSideOfPLine)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
-
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, makeSafeContour)
+import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, lineSegsOfContour, pointsOfContour, numPointsOfContour, justOneContourFrom, makePointContour, makeLineSegContour)
 
 import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
 
@@ -93,15 +91,15 @@ contourSpec = do
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
     oocl1 = [(Point2 (1,0), Point2 (0,0)), (Point2 (0,1), Point2 (1,1)), (Point2 (0,0), Point2 (0,1)), (Point2 (1,1), Point2 (1,0))]
     cl1 = [(Point2 (0,0), Point2 (0,1)), (Point2 (0,1), Point2 (1,1)), (Point2 (1,1), Point2 (1,0)), (Point2 (1,0), Point2 (0,0))]
-    c1 = makeSafeContour cp1
-    c2 = makeSafeContour [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
-    c3 = makeSafeContour [Point2 (3,0), Point2 (3,1), Point2 (2,1), Point2 (2,0)]
+    c1 = makePointContour cp1
+    c2 = makePointContour [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
+    c3 = makePointContour [Point2 (3,0), Point2 (3,1), Point2 (2,1), Point2 (2,0)]
 
 lineSpec :: Spec
 lineSpec = do
   describe "Contours (math/line)" $ do
     it "contours converted from pints to lines then back to points give the input list" $
-      pointsOfContour (makeSafeContour cp1) --> cp1
+      pointsOfContour (makePointContour cp1) --> cp1
   where
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
 
@@ -111,7 +109,7 @@ linearAlgSpec = do
     it "a contour mechanically shrunk has the same amount of points as the input contour" $
       numPointsOfContour (fromMaybe (error "got Nothing") $ shrinkContour 0.1 [] c1) --> numPointsOfContour c1
     it "a contour mechanically shrunk by zero is the same as the input contour" $
-      shrinkContour 0 [] c1 --> Just c1
+      shrinkContour 0 [] c1 --> Just cs1
     it "a contour mechanically expanded has the same amount of points as the input contour" $
       numPointsOfContour (fromMaybe (error "got Nothing") $ expandContour 0.1 [] c1) --> numPointsOfContour c1
     it "a contour mechanically shrunk and expanded is about equal to where it started" $
@@ -130,8 +128,9 @@ linearAlgSpec = do
       roundPoint2 <$> pointsOfContour (fromMaybe (error "got Nothing") $ expandContour 0.1 [] $ justOneContourFrom $ addInset 1 0.1 $ orderedFacesOf c2l1 $ fromMaybe (error "got Nothing") $ findStraightSkeleton c2 []) --> roundPoint2 <$> pointsOfContour c2
   where
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
-    c1 = makeSafeContour cp1
-    c2 = makeSafeContour [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
+    c1 = makePointContour cp1
+    cs1 = makeLineSegContour (lineSegsOfContour c1)
+    c2 = makePointContour [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
     c2l1 = LineSeg (Point2 (0.75,0.25)) (Point2 (0,0.5))
 
 geomAlgSpec :: Spec
@@ -863,12 +862,11 @@ facetSpec = do
   describe "insets (Skeleton/Line)" $ do
     it "insets a triangle" $
       addInset 1 0.25 (facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton triangle [])
-      --> ([SafeContour (Point2 (0.4330127018922193,0.25))
-                        (Point2 (1.5669872981077808,1.2320508075688772))
-                        (Point2 (1.0,1.2320508075688772))
-                        (Point2 (0.4330127018922193,0.25))
-                        (Point2 (1.5669872981077808,0.2500000000000001))
-                        (Slist [] (Size 0))]
+      --> ([LineSegContour (Point2 (0.4330127018922193,0.25))
+                           (Point2 (1.5669872981077808,1.2320508075688772))
+                           (LineSeg (Point2 (1.0,1.2320508075688772)) (Point2 (-0.5669872981077807,-0.9820508075688772)))
+                           (LineSeg (Point2 (0.4330127018922193,0.25)) (Point2 (1.1339745962155616,1.1102230246251565e-16)))
+                           (Slist [LineSeg (Point2 (1.5669872981077808,0.2500000000000001)) (Point2 (-0.5669872981077808,0.9820508075688771))] (Size 1))]
           ,[Face (LineSeg (Point2 (-0.43301270189221935,-0.25000000000000006)) (Point2 (1.4330127018922194,2.482050807568877)))
                  (PLine2 (GVec [GVal 0.5000000000000001 (singleton (GEPlus 1)), GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
                  (slist [])
@@ -888,20 +886,20 @@ facetSpec = do
       --    \ |
       --    /_|
       --
-      c0 = makeSafeContour [Point2 (0,0), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
+      c0 = makePointContour [Point2 (0,0), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       c0l0 = LineSeg (Point2 (0,0)) (Point2 (-1,-1))
       c0w = CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (-1,1)) (Point2 (1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,-1))) (PLine2 (GVec [GVal 2.0 (singleton (GEPlus 2))]))) (slist [])) Nothing
-      c1 = makeSafeContour [Point2 (-1,-1), Point2 (0,0), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
+      c1 = makePointContour [Point2 (-1,-1), Point2 (0,0), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       c1w = CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (-1,-1)) (Point2 (1,1)), LineSeg (Point2 (0,0)) (Point2 (1,-1))) (PLine2 (GVec [GVal (-2.0) (singleton (GEPlus 1))]))) (slist [])) Nothing
-      c2 = makeSafeContour [Point2 (-1,-1), Point2 (1,-1), Point2 (0,0), Point2 (1,1), Point2 (-1,1)]
+      c2 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (0,0), Point2 (1,1), Point2 (-1,1)]
       c2w = CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (1,-1)) (Point2 (-1,1)), LineSeg (Point2 (0,0)) (Point2 (1,1))) (PLine2 (GVec [GVal (-2.0) (singleton (GEPlus 2))]))) (slist [])) Nothing
-      c3 = makeSafeContour [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (0,0), Point2 (-1,1)]
+      c3 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (0,0), Point2 (-1,1)]
       c3w = CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (1,1)) (Point2 (-1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,1))) (PLine2 (GVec [GVal 2.0 (singleton (GEPlus 1))]))) (slist [])) Nothing
-      c4 = makeSafeContour [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
+      c4 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
       c4w = CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (-1,1)) (Point2 (1,-1)), LineSeg (Point2 (0,0)) (Point2 (-1,-1))) (PLine2 (GVec [GVal 2.0 (singleton (GEPlus 2))]))) (slist [])) Nothing
-      c5 = makeSafeContour [Point2 (-1,-1), Point2 (1,-1), Point2 (2,0), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
-      c6 = makeSafeContour [Point2 (-1,-1), Point2 (-0.5,-1), Point2 (0,0), Point2 (0.5,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
-      c7 = makeSafeContour [Point2 (0,-1), Point2 (1,-1), Point2 (1,1), Point2 (0.5,1), Point2 (0.5,0), Point2 (0,1), Point2 (-1,1), Point2 (-1,0), Point2 (0,0)]
+      c5 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (2,0), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
+      c6 = makePointContour [Point2 (-1,-1), Point2 (-0.5,-1), Point2 (0,0), Point2 (0.5,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
+      c7 = makePointContour [Point2 (0,-1), Point2 (1,-1), Point2 (1,1), Point2 (0.5,1), Point2 (0.5,0), Point2 (0,1), Point2 (-1,1), Point2 (-1,0), Point2 (0,0)]
       -- The next corners are part of a square around the origin with a piece missing: (think: c2 from above)
       --    __  <-- corner 1
       --   | /
@@ -919,9 +917,9 @@ facetSpec = do
       corner4 = [ LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))]
       corner4E1 = ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)),LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))) (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
       -- A simple triangle.
-      triangle = makeSafeContour [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
+      triangle = makePointContour [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
       trianglel0 = LineSeg (Point2 (2,0)) (Point2 (-1.0,sqrt 3))
       -- A simple square.
-      square = makeSafeContour [Point2 (-1,1), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1)]
+      square = makePointContour [Point2 (-1,1), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1)]
       -- A simple rectangle.
-      rectangle = makeSafeContour [Point2 (-2,1), Point2 (-2,-1), Point2 (1,-1), Point2 (1,1)]
+      rectangle = makePointContour [Point2 (-2,1), Point2 (-2,-1), Point2 (1,-1), Point2 (1,1)]

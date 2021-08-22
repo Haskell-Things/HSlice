@@ -28,11 +28,9 @@ import Slist (safeLast, slist)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithFollower)
 
 import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PAntiCollinear), plinesIntersectIn)
-
-import Graphics.Slicer.Math.Line (LineSeg)
 
 import Graphics.Slicer.Math.Contour (contourIntersectionCount, lineSegsOfContour)
 

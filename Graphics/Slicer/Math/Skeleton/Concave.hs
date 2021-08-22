@@ -39,11 +39,11 @@ import Slist (slist, one, cons)
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2, mapWithFollower)
+import Graphics.Slicer.Math.Definitions (LineSeg(LineSeg), Point2, mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, handleLineSegError, endpoint)
+import Graphics.Slicer.Math.Line (lineSegFromEndpoints, handleLineSegError, endpoint)
 
 import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft)
 

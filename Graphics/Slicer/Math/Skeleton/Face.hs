@@ -38,9 +38,7 @@ import Slist (slist, cons, isEmpty, len, one, init, tail, reverse)
 
 import Slist as SL (last)
 
-import Graphics.Slicer.Math.Definitions (mapWithFollower)
-
-import Graphics.Slicer.Math.Line (LineSeg)
+import Graphics.Slicer.Math.Definitions (LineSeg, mapWithFollower)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc), finalINodeOf, finalOutOf, ancestorsOf)
 
