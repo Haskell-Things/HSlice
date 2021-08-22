@@ -29,7 +29,7 @@
 
 -- | Common types and functions used in the code responsible for generating straight skeletons.
 
-module Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, eNodeToINode, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isAntiCollinear, isParallel, intersectionOf, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf) where
+module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, eNodeToINode, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isAntiCollinear, isParallel, intersectionOf, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf) where
 
 import Prelude (Eq, Show, Bool(True, False), otherwise, ($), (<$>), (==), (++), error, (>), (&&), any, fst, and, (||), (<>), show)
 
@@ -156,6 +156,11 @@ data Cell = Cell { _sides :: (Slist ([LineSeg], Maybe CellDivide))}
 -- | the border dividing two cells of a contour.
 -- note that if there is an ENode that is part of the division, it's anticolinnear to the last motorcycle in _divMotorcycles.
 data CellDivide = CellDivide { _divMotorcycles :: !DividingMotorcycles, _divENode :: !(Maybe ENode) }
+  deriving Eq
+  deriving stock Show
+
+-- The part of a contour that remains once we trim a concave section from it.
+data RemainingContour = RemainingContour (Slist (Contour, Maybe CellDivide))
   deriving Eq
   deriving stock Show
 

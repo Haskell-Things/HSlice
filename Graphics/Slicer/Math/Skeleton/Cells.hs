@@ -23,7 +23,7 @@
 --    a contour into cells.
 module Graphics.Slicer.Math.Skeleton.Cells (RemainingContour, cellAfter, cellBefore, findOneCellOfContour, simpleNodeTreeOfCell, nodeTreesDoNotOverlap, addMirrorNodeTrees, findDivisions) where
 
-import Prelude (Bool(False), Eq, Show, Ordering(LT, GT, EQ), elem, filter, null, otherwise, ($), (<$>), (==), (++), error, (+), Int, drop, take, (-), error, (<>), show, (&&), compare, (/=), (||), (<), fst, snd)
+import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), elem, filter, null, otherwise, ($), (<$>), (==), (++), error, (+), Int, drop, take, (-), error, (<>), show, (&&), compare, (/=), (||), (<), fst, snd)
 
 import Data.Either(Either(Left, Right))
 
@@ -37,7 +37,7 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), StraightSkeleton, ENode, ePointOf, finalPLine, intersectionOf, outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), StraightSkeleton, ENode, ePointOf, finalPLine, intersectionOf, outOf)
 
 import Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleIntersectsAt, motorcyclesInDivision, intersectionSameSide, lastCrashType, motorcyclesAreAntiCollinear, motorcycleToENode)
 
@@ -71,11 +71,6 @@ cellAfter contour cellDivide = simpleNodeTreeOfCell $ createCellFromStraightWall
 -- | Calculate a partial straight skeleton for the motorcycle cell that is on the right side of the point that a motorcycle\'s path starts at, ending where the motorcycle intersects the contour.
 cellBefore :: Contour -> CellDivide -> NodeTree
 cellBefore contour cellDivide = simpleNodeTreeOfCell $ createCellFromStraightWall contour cellDivide SideBefore
-
--- The part of a contour that remains once we trim a concave section from it.
-data RemainingContour = RemainingContour (Slist (Contour, Maybe CellDivide))
-  deriving Eq
-  deriving stock Show
 
 -- | find the divisions of a given contour. Divisions are points where motorcycles cross the contour.
 findDivisions :: Contour -> CrashTree -> [CellDivide]
