@@ -43,11 +43,11 @@ import Safe (lastMay, initSafe)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
+import Graphics.Slicer.Math.Definitions(Point2(Point2), LineSeg(LineSeg), addPoints)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (•), addVal, addVecPair, divVecScalar, getVals, scalarPart, valOf, vectorPart)
 
-import Graphics.Slicer.Math.Line(LineSeg(LineSeg), combineLineSegs)
+import Graphics.Slicer.Math.Line(combineLineSegs)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -102,7 +102,7 @@ dualAngle line1 line2 = valOf 0 $ getVals [GEZero 1, GEZero 1, GEPlus 1, GEPlus 
     (PPoint2 dnpl2) = forcePPoint2Basis $ PPoint2 npl2
 -}
 
--- Return a value that is positive when a line points to the "left" of the other given line, and negative when "right".
+-- Return the cosine of the angle between the two lines. results in a value that is positive when a line points to the "left" of the other given line, and negative when "right".
 dualAngle :: PLine2 -> PLine2 -> ℝ
 dualAngle line1@(PLine2 lvec1) line2@(PLine2 lvec2) = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
   where
@@ -115,7 +115,7 @@ dualAngle line1@(PLine2 lvec1) line2@(PLine2 lvec2) = valOf 0 $ getVals [GEZero 
 intersectionOf :: PLine2 -> PLine2 -> PPoint2
 intersectionOf pl1 pl2 = canonicalizePPoint2 $ meet2PLine2 pl1 pl2
 
--- | Find the sin () of the angle of intersection of two PLines.
+-- Return the sine of the angle between the two lines. results in a value that is positive when a line points in the same direction of the other given line, and negative when pointing backwards.
 angleBetween :: PLine2 -> PLine2 -> ℝ
 angleBetween pl1 pl2 = scalarPart $ pv1 ⎣ pv2
   where

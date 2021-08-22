@@ -82,11 +82,11 @@ import Graphics.Slicer.Formats.STL.Definitions (trianglesFromSTL)
 
 import Graphics.Slicer.Math.Contour (firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, ContourTreeSet(ContourTreeSet), makeContourTreeSet, firstContourOfContourTreeSet)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), xOf, yOf, zOf)
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), LineSeg(LineSeg), xOf, yOf, zOf)
 
 import Graphics.Slicer.Math.Tri (Tri, sidesOf, shiftTri, triIntersects)
 
-import Graphics.Slicer.Math.Line (flipLineSeg, LineSeg(LineSeg))
+import Graphics.Slicer.Math.Line (flipLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton)
 

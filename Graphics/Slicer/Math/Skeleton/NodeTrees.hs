@@ -33,7 +33,7 @@ import Slist (slist, cons, isEmpty)
 
 import Slist as SL (filter, last)
 
-import Graphics.Slicer.Math.Line (LineSeg)
+import Graphics.Slicer.Math.Definitions (LineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf, ancestorsOf)
 

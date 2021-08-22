@@ -29,11 +29,11 @@ import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, maybeToList)
 
-import Graphics.Slicer.Math.Contour (lineSegsOfContour, makeSafeContour)
+import Graphics.Slicer.Math.Contour (lineSegsOfContour, makeLineSegContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithNeighbors)
 
-import Graphics.Slicer.Math.Line (LineSeg, pointsFromLineSegs, lineSegFromEndpoints, combineLineSegs)
+import Graphics.Slicer.Math.Line (lineSegFromEndpoints, combineLineSegs)
 
 import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn, PCollinear, PParallel, PAntiParallel), plinesIntersectIn, translatePerp, eToPLine2, pToEPoint2, angleBetween)
 
@@ -45,7 +45,7 @@ import Graphics.Slicer.Definitions(ℝ)
 
 -- | Contour optimizer. Merges line segments that are collinear.
 cleanContour :: Contour -> Maybe Contour
-cleanContour contour = Just $ makeSafeContour $ fromRight (error "no lines left") $ pointsFromLineSegs $ combineConsecutiveLineSegs $ lineSegsOfContour contour
+cleanContour contour = Just $ makeLineSegContour $ combineConsecutiveLineSegs $ lineSegsOfContour contour
 
 ---------------------------------------------------------------
 -------------------- Contour Modifiers ------------------------
@@ -71,7 +71,7 @@ expandContour amount _ contour = modifyContour amount contour Outward
 modifyContour :: ℝ -> Contour -> Direction -> Maybe Contour
 modifyContour pathWidth contour direction
   | null foundContour  = Nothing
-  | otherwise          = Just $ makeSafeContour $ fromRight (error "found contour is empty") $ pointsFromLineSegs foundContour
+  | otherwise          = Just $ makeLineSegContour foundContour
   where
     -- FIXME: implement me. we need this to handle further interior contours, and only check against the contour they are inside of.
     foundContour = catMaybes maybeLineSegs

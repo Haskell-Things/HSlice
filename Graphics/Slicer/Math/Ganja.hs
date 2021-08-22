@@ -58,11 +58,11 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (pointsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, mapWithFollower)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), Contour, mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
+import Graphics.Slicer.Math.Line (endpoint)
 
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2))
 

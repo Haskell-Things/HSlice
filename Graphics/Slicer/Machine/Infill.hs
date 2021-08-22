@@ -33,9 +33,9 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour(SafeContour), distance, xOf, yOf, roundToFifth, mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg(LineSeg), distance, minMaxPoints, xOf, yOf, roundToFifth, mapWithNeighbors)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), makeLineSegs)
+import Graphics.Slicer.Math.Line (makeLineSegs)
 
 import Graphics.Slicer.Math.PGA (Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PParallel, PAntiParallel, PCollinear, IntersectsIn), PLine2, pToEPoint2, intersectsWith, eToPLine2)
 
@@ -101,8 +101,9 @@ infillLineSegInside contour childContours line
 
 -- Generate lines covering the entire contour, where each one is aligned with a +1 slope, which is to say, lines parallel to a line where x = y.
 coveringLineSegsPositive :: Contour -> ℝ -> [PLine2]
-coveringLineSegsPositive (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
+coveringLineSegsPositive contour ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
     where
+      (minPoint, maxPoint) = minMaxPoints contour
       slope = Point2 (1,1)
       f v = Point2 (v-xDiff,0)
       xDiff = -(xMin - yMax)
@@ -119,8 +120,9 @@ coveringLineSegsPositive (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 
 
 -- Generate lines covering the entire contour, where each one is aligned with a -1 slope, which is to say, lines parallel to a line where x = -y.
 coveringLineSegsNegative :: Contour -> ℝ -> [PLine2]
-coveringLineSegsNegative (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
+coveringLineSegsNegative contour ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
     where
+      (minPoint, maxPoint) = minMaxPoints contour
       slope =  Point2 (1,-1)
       f v = Point2 (v+yDiff,0)
       yDiff = xMin + yMin
@@ -137,8 +139,9 @@ coveringLineSegsNegative (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 
 
 -- Generate lines covering the entire contour, where each line is aligned with the Y axis, which is to say, parallel to the Y basis vector.
 coveringLineSegsVertical :: Contour -> ℝ -> [PLine2]
-coveringLineSegsVertical (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 . flip LineSeg slope . f <$> [xMin,xMin+ls..xMax]
+coveringLineSegsVertical contour ls = eToPLine2 . flip LineSeg slope . f <$> [xMin,xMin+ls..xMax]
     where
+      (minPoint, maxPoint) = minMaxPoints contour
       slope = Point2 (0,1)
       f v = Point2 (v,0)
       xMinRaw = xOf minPoint
@@ -150,8 +153,9 @@ coveringLineSegsVertical (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 
 
 -- Generate lines covering the entire contour, where each line is aligned with the X axis, which is to say, parallel to the X basis vector.
 coveringLineSegsHorizontal :: Contour -> ℝ -> [PLine2]
-coveringLineSegsHorizontal (SafeContour minPoint maxPoint _ _ _ _) ls = eToPLine2 . flip LineSeg slope . f <$> [yMin,yMin+ls..yMax]
+coveringLineSegsHorizontal contour ls = eToPLine2 . flip LineSeg slope . f <$> [yMin,yMin+ls..yMax]
     where
+      (minPoint, maxPoint) = minMaxPoints contour
       slope = Point2 (1,0)
       f v = Point2 (0,v)
       yMinRaw = yOf minPoint
