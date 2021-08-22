@@ -150,6 +150,8 @@ data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle,
 
 -- A concave region of a contour.
 data Cell = Cell { _sides :: (Slist ([LineSeg], Maybe CellDivide))}
+  deriving Eq
+  deriving stock Show
 
 -- | the border dividing two cells of a contour.
 -- note that if there is an ENode that is part of the division, it's anticolinnear to the last motorcycle in _divMotorcycles.

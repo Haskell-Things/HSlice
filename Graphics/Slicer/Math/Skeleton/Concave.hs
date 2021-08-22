@@ -26,8 +26,8 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, makeFirstENodes, averageNodes) where
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (<$>), (==), (++), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id)
+module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, makeENodes, averageNodes, eNodesOfOutsideContour) where
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (<$>), (==), (++), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id, zip)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
@@ -39,7 +39,9 @@ import Slist (slist, one, cons)
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (LineSeg(LineSeg), Point2, mapWithFollower)
+import Graphics.Slicer.Math.Contour (lineSegsOfContour)
+
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -47,7 +49,7 @@ import Graphics.Slicer.Math.Line (lineSegFromEndpoints, handleLineSegError, endp
 
 import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), INodeSet(INodeSet), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), eNodeToINode, noIntersection, intersectionOf, pPointOf, isAntiCollinear, isCollinear, getPairs, isParallel)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), INodeSet(INodeSet), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, pPointOf, isAntiCollinear, isCollinear, getPairs, isParallel, linePairs)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree)
 
@@ -83,8 +85,8 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
     -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
     firstENodes :: [LineSeg] -> Bool -> [ENode]
     firstENodes firstSegs segsInLoop
-      | segsInLoop = makeFirstENodesLooped firstSegs
-      | otherwise  = makeFirstENodes firstSegs
+      | segsInLoop = makeENodesLooped firstSegs
+      | otherwise  = makeENodes firstSegs
 
     -- | get a NodeTree from a set of generations of nodes.
     -- FIXME: geometry may require more than one NodeTree, or may require spines, which are still a concept in flux.
@@ -271,22 +273,22 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
           | hasArc node1 && hasArc node2 = not $ noIntersection (outOf node1) (outOf node2)
           | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
 
--- | For a given set of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
+-- | For a given par of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
 --   Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
 averageNodes :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> INode
 averageNodes n1 n2
   | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
-  | isParallel  (outOf n1) (outOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
+  | isParallel (outOf n1) (outOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | isCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | isAntiCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (ePointOf n1) (outOf n1) (ePointOf n2) (outOf n2)
 
--- take a pair of arcables, and return their outOf, in a sorted order.
+-- | take a pair of arcables, and return their outOf, in a sorted order.
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [PLine2]
 sortedPair n1 n2 = sortedPLines [outOf n1, outOf n2]
 
--- Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
+-- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
 sortedPLines :: [PLine2] -> [PLine2]
 sortedPLines = sortBy (\n1 n2 -> if (n1 `pLineIsLeft` n2) == Just True then LT else GT)
 
@@ -297,10 +299,10 @@ getOutsideArc :: Point2 -> PLine2 -> Point2 -> PLine2 -> PLine2
 getOutsideArc point1 pline1 point2 pline2
   | pline1 == pline2 = error "need to be able to return two PLines."
   | noIntersection pline1 pline2 = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
-  | l1TowardPoint && l2TowardPoint = flipPLine2 $ getInsideArc point1 pline1 (pToEPoint2 $ intersectionOf pline1 pline2) (flipPLine2 pline2)
-  | l1TowardPoint                  = flipPLine2 $ getInsideArc point1 pline1 point2 pline2
-  | l2TowardPoint                  = getInsideArc point2 pline2 point1 pline1
-  | otherwise                      = getInsideArc (pToEPoint2 $ intersectionOf pline1 pline2) (flipPLine2 pline2) point1 pline1
+  | l1TowardPoint && l2TowardPoint = flipPLine2 $ getInsideArc pline1 (flipPLine2 pline2)
+  | l1TowardPoint                  = flipPLine2 $ getInsideArc pline1 pline2
+  | l2TowardPoint                  = getInsideArc pline2 pline1
+  | otherwise                      = getInsideArc (flipPLine2 pline2) pline1
     where
       l1TowardPoint = towardIntersection point1 pline1 (intersectionOf pline1 pline2)
       l2TowardPoint = towardIntersection point2 pline2 (intersectionOf pline1 pline2)
@@ -319,8 +321,8 @@ towardIntersection p1 pl1 in1
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'acute' direction.
 --   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
 --   Note that we know that the inside is to the right of the first line given, and that the first line points toward the intersection.
-getInsideArc :: Point2 -> PLine2 -> Point2 -> PLine2 -> PLine2
-getInsideArc _ pline1 _ pline2@(PLine2 pv2)
+getInsideArc :: PLine2 -> PLine2 -> PLine2
+getInsideArc pline1 pline2@(PLine2 pv2)
   | pline1 == pline2 = error "need to be able to return two PLines."
   | noIntersection pline1 pline2 = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
   | otherwise = normalizePLine2 $ PLine2 $ addVecPair flippedPV1 pv2
@@ -336,29 +338,38 @@ makeINode pLines maybeOut = case pLines of
                               (first:second:more) -> INode first second (slist more) maybeOut
 
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
-makeFirstENodes :: [LineSeg] -> [ENode]
-makeFirstENodes segs = case segs of
+makeENodes :: [LineSeg] -> [ENode]
+makeENodes segs = case segs of
                          [] -> error "got empty list at makeENodes.\n"
-                         [a] -> error $ "not enough line segments at makeFirstENodes: " <> show a <> "\n"
-                         [a,b] -> [makeFirstENode a b]
-                         xs -> case unsnoc $ mapWithFollower makeFirstENode xs of
+                         [a] -> error $ "not enough line segments at makeENodes: " <> show a <> "\n"
+                         [a,b] -> [makeENode a b]
+                         xs -> case unsnoc $ mapWithFollower makeENode xs of
                                  Nothing -> error "impossible!"
                                  Just (i,_) -> i
 
+-- | Find the non-reflex virtexes of a contour, and create ENodes from them.
+--   This function is meant to be used on an exterior contour.
+eNodesOfOutsideContour :: Contour -> [ENode]
+eNodesOfOutsideContour contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower concavePLines $ lineSegsOfContour contour)
+  where
+    onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe ENode
+    onlyNodes ((seg1, seg2), Just _) = Just $ makeENode seg1 seg2
+    onlyNodes ((_, _), Nothing) = Nothing
+
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
-makeFirstENodesLooped :: [LineSeg] -> [ENode]
-makeFirstENodesLooped segs
-  | null segs = error "got empty list at makeFirstNodes.\n"
-  | otherwise = mapWithFollower makeFirstENode segs
+makeENodesLooped :: [LineSeg] -> [ENode]
+makeENodesLooped segs
+  | null segs = error "got empty list at makeNodes.\n"
+  | otherwise = mapWithFollower makeENode segs
 
 -- | Make a first generation node.
-makeFirstENode :: LineSeg -> LineSeg -> ENode
-makeFirstENode seg1 seg2 = ENode (seg1,seg2) $ getFirstArc seg1 seg2
+makeENode :: LineSeg -> LineSeg -> ENode
+makeENode seg1 seg2 = ENode (seg1,seg2) $ getFirstArc seg1 seg2
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the two given line segments.
 --   Note that we normalize the output of eToPLine2, because by default, it does not output normalized lines.
 getFirstArc :: LineSeg -> LineSeg -> PLine2
-getFirstArc seg1@(LineSeg start1 _) seg2@(LineSeg start2 _) = getInsideArc start1 (normalizePLine2 $ eToPLine2 seg1) start2 (normalizePLine2 $ eToPLine2 seg2)
+getFirstArc seg1 seg2 = getInsideArc (normalizePLine2 $ eToPLine2 seg1) (normalizePLine2 $ eToPLine2 seg2)
 
 -- | Find the reflex virtexes of a contour, and draw Nodes from them.
 --   This function is for use on interior contours.

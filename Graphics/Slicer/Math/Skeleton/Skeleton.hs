@@ -20,25 +20,21 @@
 --    a Straight Skeleton of a contour, with a set of sub-contours cut out of it.
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (($), (<$>), (==), error, (&&), null, filter, zip, Either(Right), (>), even, not)
+import Prelude (($), (==), (<>), error, (&&), null, not, show)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes)
+import Data.Maybe (Maybe(Just, Nothing))
 
-import Slist (safeLast, slist)
+import Slist (slist)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithFollower)
+import Graphics.Slicer.Math.Definitions (Contour)
 
-import Graphics.Slicer.Math.PGA (PLine2, PIntersection(PAntiCollinear), plinesIntersectIn)
+import Graphics.Slicer.Math.Skeleton.Cells (cellBefore, cellAfter, nodeTreesDoNotOverlap, addMirrorNodeTrees, simpleNodeTreeOfCell, findOneCellOfContour, findDivisions)
 
-import Graphics.Slicer.Math.Contour (contourIntersectionCount, lineSegsOfContour)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton))
 
-import Graphics.Slicer.Math.Skeleton.Cells (cellBefore, cellAfter, nodeTreesDoNotOverlap, addMirrorNodeTrees, simpleNodeTreeOfCell, contourToCell)
-
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, linePairs, outOf, pPointOf)
-
-import Graphics.Slicer.Math.Skeleton.Motorcycles (CrashTree(CrashTree), CollisionType(HeadOn), Collision, crashMotorcycles, collisionResult)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (CrashTree(CrashTree), CollisionType(HeadOn), crashMotorcycles, lastCrashType)
 
 import Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne)
 
@@ -54,7 +50,6 @@ findStraightSkeleton :: Contour -> [Contour] -> Maybe StraightSkeleton
 findStraightSkeleton contour holes =
   let
     foundCrashTree = crashMotorcycles contour holes
---    cells = cellsOf contour holes foundCrashTree
   in
     case foundCrashTree of
       Nothing -> Nothing
@@ -62,74 +57,27 @@ findStraightSkeleton contour holes =
                           then Nothing
                           else case motorcyclesIn crashTree of
                                  -- Simple case. convert the whole contour to a cell, and use the simple solver on it.
-                                 (Slist _ 0) -> Just $ StraightSkeleton [[simpleNodeTreeOfCell $ contourToCell contour]] (slist [])
-                                 (Slist [inMC] 1) -> if nodeTreesDoNotOverlap (cellAfter contour division) (cellBefore contour division) division
+                                 (Slist _ 0) -> Just $ StraightSkeleton [[simpleNodeTreeOfCell singleCell]] (slist [])
+                                   where
+                                     (singleCell,_,_,_) = findOneCellOfContour contour []
+                                 (Slist _ 1) -> if nodeTreesDoNotOverlap (cellAfter contour division) (cellBefore contour division) division
                                                      then -- Use simple NodeTrees.
                                                        Just $ addMirrorNodeTrees (cellAfter contour division) (cellBefore contour division) division
                                                      else -- Use the algorithm from Christopher Tscherne's master's thesis.
-                                                       applyTscherne contour [division]
-                                   where
-                                     division = oneMCDivision crashTree inMC
+                                                       applyTscherne contour divisions
                                  -- Divide into cells, and walk the tree.
-                                 (Slist [firstMC,secondMC] 2) -> if lastCrashType crashTree == Just HeadOn && nodeTreesDoNotOverlap (cellAfter contour division) (cellBefore contour division) division
+                                 (Slist _ 2) -> if lastCrashType crashTree == Just HeadOn && nodeTreesDoNotOverlap (cellAfter contour division) (cellBefore contour division) division
                                                                  then -- Use simple NodeTrees.
                                                                    Just $ addMirrorNodeTrees (cellAfter contour division) (cellBefore contour division) division
                                                                  else -- Use the algorithm from Christopher Tscherne's master's thesis.
-                                                                   applyTscherne contour [division]
-                                   where
-                                     division = twoMCDivision crashTree firstMC secondMC
+                                                                   applyTscherne contour divisions
                                  (Slist _ _) -> Nothing
+        where
+          division = case divisions of
+                       [] -> error "wtf"
+                       [a] -> a
+                       (xs) -> error $ "too many divisions." <> show xs <> show "\n"
+          divisions = findDivisions contour crashTree
   where
     motorcyclesIn (CrashTree motorcycles _ _) = motorcycles
-    oneMCDivision crashTree inMC = CellDivide (DividingMotorcycles inMC (Slist [] 0)) (maybeOpposingENodeOf crashTree)
-    twoMCDivision crashTree firstMC secondMC = if lastCrashType crashTree == Just HeadOn
-                                               then CellDivide (DividingMotorcycles firstMC (Slist [secondMC] 1)) Nothing
-                                               else error "given two motorcycles that do not crash head on."
-
-    -- | find nodes or motorcycles where the arc coresponding to them is collinear with the dividing Motorcycle.
-    maybeOpposingENodeOf crashTree = case opposingNodes crashTree of
-                                       [] -> Nothing
-                                       [oneNode] -> Just oneNode
-                                       (_:_) -> error "more than one opposing exterior node. cannot yet handle this situation."
-      where
-        opposingNodes :: CrashTree -> [ENode]
-        opposingNodes myCrashTree = filter (\eNode -> enoughIntersections $ contourIntersectionCount contour (Right (pPointOf eNode, pPointOf $ dividingMotorcycle myCrashTree)))
-                                           $ filter (\eNode -> plinesIntersectIn (outOf eNode) (outOf $ dividingMotorcycle myCrashTree) == PAntiCollinear) $ concaveENodes contour
-          where
-            enoughIntersections n = n > 0 && even n
-
-    ------------------------------------------------------
-    -- routines used when two motorcycles have been found.
-    ------------------------------------------------------
-
-    -- Determine the type of the last crash that occured. only useful when we're dealing with two motorcycles, and want to find out if we can treat them like one motorcycle.
-    lastCrashType :: CrashTree -> Maybe CollisionType
-    lastCrashType crashTree = case lastCrash crashTree of
-                                (Just crash) -> if collisionResult crash == HeadOn
-                                                then Just HeadOn
-                                                else Nothing
-                                Nothing -> Nothing
-      where
-          lastCrash :: CrashTree -> Maybe Collision
-          lastCrash (CrashTree _ _ crashes) = case safeLast crashes of
-                                                Nothing -> Nothing
-                                                (Just crash) -> Just crash
-
-    ---------------------------------------------------------
-    -- routines used when a single motorcycle has been found.
-    ---------------------------------------------------------
-    -- when we have just a single dividing motorcycle, we can use tscherneCheat.
-    dividingMotorcycle crashTree = case motorcyclesIn crashTree of
-                                     (Slist [inMC] 1) -> inMC
-                                     (Slist _ _) -> error "cannot handle anything but one motorcycle."
-
--- | Find the non-reflex virtexes of a contour, and create ENodes from them.
---   This function is meant to be used on the exterior contour.
--- FIXME: merge this with the same logic in Concave.
-concaveENodes :: Contour -> [ENode]
-concaveENodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower concavePLines $ lineSegsOfContour contour)
-  where
-    onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe ENode
-    onlyNodes ((seg1, seg2), Just pLine) = Just $ ENode (seg1,seg2) pLine
-    onlyNodes ((_, _), Nothing) = Nothing
 
