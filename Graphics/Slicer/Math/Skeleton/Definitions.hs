@@ -160,7 +160,7 @@ data CellDivide = CellDivide { _divMotorcycles :: !DividingMotorcycles, _divENod
   deriving stock Show
 
 -- The part of a contour that remains once we trim a concave section from it.
-data RemainingContour = RemainingContour (Slist (Contour, Maybe CellDivide))
+data RemainingContour = RemainingContour (Slist (Contour, [CellDivide]))
   deriving Eq
   deriving stock Show
 

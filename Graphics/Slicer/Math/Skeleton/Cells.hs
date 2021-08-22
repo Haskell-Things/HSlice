@@ -115,11 +115,11 @@ findOneCellOfContour contour divides = case divides of
                                            (contourFromCell, Nothing, Nothing, [])
                                          [oneDivide] -> (createCellFromStraightWall contour oneDivide (openSide oneDivide),
                                                          Just oneDivide,
-                                                         Just [findContourRemainder contour oneDivide],
+                                                         Just [findContourRemainder contour oneDivide [oneDivide]],
                                                          [])
                                          _ -> (createCellFromStraightWall contour closestDivide (openSide closestDivide),
                                                Just closestDivide,
-                                               Just [findContourRemainder contour closestDivide],
+                                               Just [findContourRemainder contour closestDivide divides],
                                                [])
                                            where
                                              closestDivide = if snd (head divideClosestSorted) == snd (head divideFurthestSorted)
@@ -150,11 +150,11 @@ findOneCellOfContour contour divides = case divides of
                                            then (endSegOfDivide myContour divide, divide)
                                            else (startSegOfDivide myContour divide, divide)
 
--- | use a single straight divinion to cut the portion of a contour remaining after a cell has been cut out.
-findContourRemainder :: Contour -> CellDivide -> RemainingContour
-findContourRemainder contour divide
-  | startBeforeEnd = RemainingContour $ slist $ [(makeLineSegContour $ takeWhileInclusive (\seg -> seg /= endSegOfDivide contour divide) $ dropWhile (\seg -> seg /= startSegOfDivide contour divide) contourSegs, Nothing)]
-  | otherwise = RemainingContour $ slist $ [(makeLineSegContour $ takeWhileInclusive (\seg -> seg /= startSegOfDivide contour divide) contourSegs ++ dropWhile (\seg -> seg /= endSegOfDivide contour divide) contourSegs, Nothing)]
+-- | use a single straight division to cut the portion of a contour remaining after a cell has been cut out.
+findContourRemainder :: Contour -> CellDivide -> [CellDivide] -> RemainingContour
+findContourRemainder contour divide divides
+  | startBeforeEnd = RemainingContour $ slist $ [(makeLineSegContour $ takeWhileInclusive (\seg -> seg /= endSegOfDivide contour divide) $ dropWhile (\seg -> seg /= startSegOfDivide contour divide) contourSegs, remainingDivides)]
+  | otherwise = RemainingContour $ slist $ [(makeLineSegContour $ takeWhileInclusive (\seg -> seg /= startSegOfDivide contour divide) contourSegs ++ dropWhile (\seg -> seg /= endSegOfDivide contour divide) contourSegs, remainingDivides)]
   where
     startBeforeEnd = elemIndex (startSegOfDivide contour divide) contourSegs `compare` elemIndex (endSegOfDivide contour divide) contourSegs == LT
     takeWhileInclusive :: (a -> Bool) -> [a] -> [a]
@@ -163,6 +163,7 @@ findContourRemainder contour divide
                                       then takeWhileInclusive p xs
                                       else []
     contourSegs = lineSegsOfContour contour
+    remainingDivides = filter (\d -> d /= divide) divides
 
 -- Get the segment the divide intersects that is closest to the beginning of the list of a contour's line segments.
 startSegOfDivide :: Contour -> CellDivide -> LineSeg

@@ -707,8 +707,12 @@ facetSpec = do
                                                               ,LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-1.0))
                                                               ,LineSeg (Point2 (-1.0,0.0)) (Point2 (1.0,0.0))
                                                               ,LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0))] (Size 11))
-                                                       , Nothing)])]),
-                       [])
+                                                       , [CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (-1.0,0.0)) (Point2 (1.0,0.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0)))
+                                                                                          (PLine2 (GVec [GVal 1.0 (fromList [GEPlus 1]),GVal (-1.0) (fromList [GEPlus 2])])))
+                                                                                          (slist []))
+                                                                                          Nothing])])
+                             ])
+        ,[])
     it "finds the straight skeleton of our seventh simple shape." $
       findStraightSkeleton c7 [] --> Just (StraightSkeleton [[ makeNodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (0.5,-1.0)), LineSeg (Point2 (0.5,-1.0)) (Point2 (0.5,0.0)))
                                                                               (PLine2 (GVec [GVal (-0.9510565162951536) (singleton (GEZero 1)), GVal 0.8506508083520399 (singleton (GEPlus 1)), GVal (-0.5257311121191337) (singleton (GEPlus 2))]))
