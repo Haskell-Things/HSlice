@@ -104,7 +104,6 @@ findENodeByOutput (ENodeSet firstENode moreENodes) plineOut = case nodesMatching
   where
     nodesMatching = SL.filter (\(ENode _ a) -> a == plineOut) (cons firstENode moreENodes)
 
-
 -- | Sort a set of nodeTrees. they should come out in order, so that the last segment of a preceeding NodeTree stops at the first segment of the current NodeTree.
 --   Really, compares them to a line going negative on the Y axis, and sorts by the returned value.
 sortNodeTrees :: [NodeTree] -> [NodeTree]
