@@ -20,7 +20,7 @@
 
 module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, sortNodeTrees, makeNodeTree) where
 
-import Prelude (Bool(True,False), Ordering(LT,GT), (==), otherwise, snd, ($), error, (<>), show, (<>))
+import Prelude (Bool(True,False), (==), compare, otherwise, snd, ($), error, (<>), show, (>))
 
 import Prelude as P (filter)
 
@@ -30,15 +30,17 @@ import Data.Maybe( Maybe(Just, Nothing), isJust)
 
 import Slist.Type (Slist(Slist))
 
-import Slist (slist, cons, isEmpty)
+import Slist (cons, isEmpty, len, slist)
 
 import Slist as SL (filter, last)
 
-import Graphics.Slicer.Math.Line (LineSeg)
+import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
+
+import Graphics.Slicer.Math.Definitions (Point2(Point2))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf, ancestorsOf)
 
-import Graphics.Slicer.Math.PGA (PLine2, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (PLine2, angleBetween, eToPLine2)
 
 lastSegOf :: NodeTree -> LineSeg
 lastSegOf nodeTree = (\(ENode (_,outSeg) _) -> outSeg) (lastENodeOf nodeTree)
@@ -52,7 +54,7 @@ lastENodeOf nodeTree = (\(_,_,c) -> c) $ pathLast nodeTree
 firstENodeOf :: NodeTree -> ENode
 firstENodeOf nodeTree = (\(_,_,c) -> c) $ pathFirst nodeTree
 
--- whether to follow the first or the last node in a branch, when branching in pathTo.
+-- | whether to follow the first or the last node in a branch, when branching in pathTo.
 data Direction = Head
                | Last
 
@@ -102,15 +104,22 @@ findENodeByOutput (ENodeSet firstENode moreENodes) plineOut = case nodesMatching
   where
     nodesMatching = SL.filter (\(ENode _ a) -> a == plineOut) (cons firstENode moreENodes)
 
--- Sort a set of nodeTrees. they should come out in order, so that the last segment of a preceeding NodeTree stops at the first segment of the current NodeTree
+-- | Sort a set of nodeTrees. they should come out in order, so that the last segment of a preceeding NodeTree stops at the first segment of the current NodeTree.
+--   Really, compares them to a line going negative on the Y axis, and sorts by the returned value.
 sortNodeTrees :: [NodeTree] -> [NodeTree]
-sortNodeTrees = sortBy compareNodeTrees
+sortNodeTrees nodes = sortBy compareNodeTrees nodes
   where
-    compareNodeTrees nt1 nt2 = if outOf (lastENodeOf nt1) `pLineIsLeft` outOf (firstENodeOf nt2) == Just True
-                               then LT
-                               else GT
+    compareNodeTrees nt1 nt2 = angleBetween referencePLine2 (outOfFinalNode nt1) `compare` angleBetween referencePLine2 (outOfFinalNode nt2)
+    -- Our reference pline. negative on the Y axis.
+    referencePLine2 = eToPLine2 $ LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0))
+    outOfFinalNode :: NodeTree -> PLine2
+    outOfFinalNode nt@(NodeTree (ENodeSet firstENode _) (INodeSet iNodes))
+      | len iNodes > 0 = outOf $ finalINodeOf nt
+      | otherwise = outOf $ firstENode
 
--- dependent utility functions. used by internal components. not exported.
+-----------------------------------------------------------------------------
+-- dependent utility functions. used by internal components. not exported. --
+-----------------------------------------------------------------------------
 
 -- | Find a node with an output of the PLine given. Check the most recent generation, and if recurse is set, check backwards.
 findINodeByOutput :: INodeSet -> PLine2 -> Bool -> Maybe (INodeSet,INode)
