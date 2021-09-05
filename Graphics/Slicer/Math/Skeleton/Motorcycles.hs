@@ -24,9 +24,9 @@
 -- inherit instances when deriving.
 {-# LANGUAGE DerivingStrategies #-}
 
-module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles, lastCrashType, motorcyclesAreAntiCollinear, motorcyclesInDivision) where
+module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles, lastCrashType, motorcyclesAreAntiCollinear, motorcyclesInDivision, motorcycleMightIntersectWith) where
 
-import Prelude (Bool(True, False), Either(Left,Right), Eq, Show, Ordering (EQ, GT, LT), error, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, compare, null, (<), (>))
+import Prelude (Bool(True, False), Either(Left,Right), Eq, Show, Ordering (EQ, GT, LT), error, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, compare, null, (<), (>), (++))
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromMaybe)
 
@@ -42,13 +42,13 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), mapWithFollower, mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, mapWithNeighbors)
 
 import Graphics.Slicer.Math.Line (lineSegFromEndpoints, handleLineSegError)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, lineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel,PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith, plinesIntersectIn, pToEPoint2, distanceBetweenPPoints, angleBetween, eToPPoint2, normalizePLine2)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), linePairs, pPointOf, intersectionOf, isAntiCollinear, noIntersection, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), ePointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), Pointable, ENode(ENode), linePairs, pPointOf, intersectionOf, isAntiCollinear, noIntersection, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), ePointOf)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -203,6 +203,88 @@ concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs cont
       | otherwise         = Nothing
 -}
 
+-- | Find where a motorcycle intersects a set of line segments, if it does.
+motorcycleMightIntersectWith :: [LineSeg] -> Motorcycle -> Maybe (LineSeg, Either Point2 PPoint2)
+motorcycleMightIntersectWith lineSegs motorcycle
+  | null lineSegs = Nothing
+  | otherwise = case intersections of
+                  [] -> Nothing
+                  [a] -> filterIntersection a
+                  (_:_) -> if len results > 0
+                           then Just $ head results
+                           else Nothing
+  where
+    intersections = getMotorcycleIntersections motorcycle lineSegs
+    results :: Slist (LineSeg, Either Point2 PPoint2)
+    results = slist $ sortByDistance $ catMaybes $ filterIntersection <$> intersections
+    sortByDistance :: [(LineSeg, Either Point2 PPoint2)] -> [(LineSeg, Either Point2 PPoint2)]
+    sortByDistance ints = sortBy compareDistances ints
+    compareDistances :: (LineSeg, Either Point2 PPoint2) -> (LineSeg, Either Point2 PPoint2) -> Ordering
+    compareDistances i1 i2 = case i1 of
+                               (_, Right intersectionPPoint1) ->
+                                 case i2 of
+                                   (_, Right intersectionPPoint2) ->
+                                     distanceBetweenPPoints (pPointOf motorcycle) intersectionPPoint1 `compare` distanceBetweenPPoints (pPointOf motorcycle) intersectionPPoint2
+                                   (_, Left intersectionPoint2) ->
+                                     distanceBetweenPPoints (pPointOf motorcycle) intersectionPPoint1 `compare` distanceBetweenPPoints (pPointOf motorcycle) (eToPPoint2 intersectionPoint2)
+                               (_, Left intersectionPoint1) ->
+                                 case i2 of
+                                   (_, Right intersectionPPoint2) ->
+                                     distanceBetweenPPoints (pPointOf motorcycle) (eToPPoint2 intersectionPoint1) `compare` distanceBetweenPPoints (pPointOf motorcycle) intersectionPPoint2
+                                   (_, Left intersectionPoint2) ->
+                                     distanceBetweenPPoints (pPointOf motorcycle) (eToPPoint2 intersectionPoint1) `compare` distanceBetweenPPoints (pPointOf motorcycle) (eToPPoint2 intersectionPoint2)
+    filterIntersection :: (LineSeg, Either Point2 PPoint2) -> Maybe (LineSeg, Either Point2 PPoint2)
+    filterIntersection intersection = case intersection of
+                                        (_, Right intersectionPPoint) -> if intersectionPPointIsBehind intersectionPPoint
+                                                                         then Nothing
+                                                                         else Just intersection
+                                        (_, Left (intersectionPoint)) -> if intersectionPointIsBehind intersectionPoint
+                                                                         then Nothing
+                                                                         else Just intersection
+      where
+        intersectionPointIsBehind point = angleBetween (outOf motorcycle) (eToPLine2 $ lineSegToIntersection point) < 0
+        intersectionPPointIsBehind pPoint = angleBetween (outOf motorcycle) (eToPLine2 $ lineSegToIntersectionP pPoint) < 0
+        lineSegToIntersection myPoint = handleLineSegError $ lineSegFromEndpoints (ePointOf motorcycle) myPoint
+        lineSegToIntersectionP myPPoint = handleLineSegError $ lineSegFromEndpoints (ePointOf motorcycle) (pToEPoint2 myPPoint)
+    -- | get all possible intersections between the motorcycle and the contour.
+    getMotorcycleIntersections :: Motorcycle -> [LineSeg] -> [(LineSeg, Either Point2 PPoint2)]
+    getMotorcycleIntersections m@(Motorcycle (inSeg, outSeg) _) segs = stripInSegOutSeg $ catMaybes $ mapWithNeighbors saneIntersections $ shortCircuit $ zip bufferedLineSegs $ mightIntersect <$> bufferedLineSegs
+      where
+        bufferedLineSegs :: [Maybe LineSeg]
+        bufferedLineSegs = Nothing : (Just <$> segs) ++ [Nothing]
+        mightIntersect :: Maybe LineSeg -> Maybe (Either Intersection PIntersection)
+        mightIntersect maybeSeg = case maybeSeg of
+                                    Nothing -> Nothing
+                                    (Just seg) -> Just $ intersectsWith (Right $ outOf m) $ Left seg
+        shortCircuit :: [(Maybe LineSeg, Maybe (Either Intersection PIntersection))] -> [Maybe (LineSeg, Either Intersection PIntersection)]
+        shortCircuit items = shortCircuitItem <$> items
+          where
+            shortCircuitItem (Nothing, Nothing) = Nothing
+            shortCircuitItem (Just seg, Just intersection) = Just (seg, intersection)
+            shortCircuitItem item = error $ "cannot short circuit item: " <> show item <> "\n" 
+        stripInSegOutSeg :: [(LineSeg, Either Point2 PPoint2)] -> [(LineSeg, Either Point2 PPoint2)]
+        stripInSegOutSeg myIntersections = L.filter fun myIntersections
+          where
+            -- make sure neither of these segments are inSeg or outSeg
+            fun (seg,_) = (seg /= inSeg && seg /= outSeg)
+        saneIntersections :: Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Point2 PPoint2)
+        saneIntersections  _ (Just (seg, Right (IntersectsIn p)))      _ = Just (seg, Right p)
+        saneIntersections  _ (Just (_  , Left  NoIntersection))        _ = Nothing
+        saneIntersections  _ (Just (_  , Right PParallel))             _ = Nothing
+        saneIntersections  _ (Just (_  , Right PAntiParallel))         _ = Nothing
+        saneIntersections  _                                      (Just (seg , Left (HitStartPoint _ _)))  (Just (_    , Left (HitEndPoint   _ pt))) = Just (seg, Left pt)
+        saneIntersections (Just (_  , Left (HitStartPoint _ _ ))) (Just (_   , Left (HitEndPoint   _ _)))   _                                        = Nothing
+        saneIntersections  _                                      (Just (_   , Left (HitEndPoint   _ _)))  (Just (_    , Left (HitStartPoint _ _)))  = Nothing
+        saneIntersections (Just (_ , Left (HitEndPoint    _ pt))) (Just (seg , Left (HitStartPoint _ _)))   _                                        = Just (seg, Left pt)
+        saneIntersections  _                                      Nothing                                   _                                        = Nothing
+        saneIntersections (Just (_  , Left NoIntersection))       (Just (seg , Left (HitEndPoint  _ pt)))   Nothing                                  = Just (seg, Left pt)
+        saneIntersections  Nothing                                (Just (seg , Left (HitEndPoint  _ pt)))  (Just (_ , Left NoIntersection))          = Just (seg, Left pt)
+        saneIntersections  Nothing                                (Just (seg , Left (HitStartPoint _ pt))) (Just (_ , Left NoIntersection))          = Just (seg, Left pt)
+        saneIntersections  Nothing                                (Just (seg , Left (HitStartPoint _ pt)))  Nothing                                  = Just (seg, Left pt)
+        saneIntersections  Nothing                                (Just (seg , Left (HitEndPoint  _ pt)))   Nothing                                  = Just (seg, Left pt)
+        saneIntersections l1 l2 l3 = error $ "insane result of saneIntersections:\n" <> show l1 <> "\n" <> show l2 <> "\n" <> show l3 <> "\n"
+
+
 -- | Find where a motorcycle intersects a contour.
 --   If the motorcycle lands between two segments, return the second line segment, otherwise return the PPoint2 of the intersection with the first LineSeg.
 motorcycleIntersectsAt :: Contour -> Motorcycle -> (LineSeg, Either LineSeg PPoint2)
@@ -245,10 +327,10 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
     intersections = getMotorcycleIntersections motorcycle contour
     -- get all possible intersections between the motorcycle and the contour.
     getMotorcycleIntersections :: Motorcycle -> Contour -> [(LineSeg, Either LineSeg PPoint2)]
-    getMotorcycleIntersections m@(Motorcycle (inSeg, outSeg) _) c = foundSegEvents $ catMaybes $ mapWithNeighbors saneIntersections $ zip contourLines $ intersectsWith (Right $ outOf m) . Left <$> contourLines
+    getMotorcycleIntersections m@(Motorcycle (inSeg, outSeg) _) c = stripInSegOutSeg $ catMaybes $ mapWithNeighbors saneIntersections $ zip contourLines $ intersectsWith (Right $ outOf m) . Left <$> contourLines
       where
-        foundSegEvents :: [(LineSeg, Either LineSeg PPoint2)] -> [(LineSeg, Either LineSeg PPoint2)]
-        foundSegEvents myIntersections
+        stripInSegOutSeg :: [(LineSeg, Either LineSeg PPoint2)] -> [(LineSeg, Either LineSeg PPoint2)]
+        stripInSegOutSeg myIntersections
           | null (L.filter fun myIntersections) = error $ "no remaining segment, after removing motorcycle's inSeg and OutSeg.\nReceived: " <> show myIntersections <> "\n"
           | otherwise = L.filter fun myIntersections
           where
@@ -271,7 +353,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
 
 -- | Determine if a node is on one side of a motorcycle, or the other.
 --   Assumes the starting point of the second line segment is a point on the path.
-intersectionSameSide :: PPoint2 -> ENode -> Motorcycle -> Maybe Bool
+intersectionSameSide :: (Pointable a) => PPoint2 -> a -> Motorcycle -> Maybe Bool
 intersectionSameSide pointOnSide node (Motorcycle _ path) = pPointsOnSameSideOfPLine (pPointOf node) pointOnSide path
 
 -- | Check if the output of two motorcycles are anti-collinear with each other.

@@ -20,21 +20,21 @@
 --    a Straight Skeleton of a contour, with a set of sub-contours cut out of it.
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (($), (==), (<>), error, (&&), null, not, show)
+import Prelude (($), (<>), (<$>), error, null, not, show, head)
 
-import Data.Maybe (Maybe(Just, Nothing))
+import Data.Either (Either(Left, Right), lefts, rights)
+
+import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
 
 import Slist (slist)
 
-import Slist.Type (Slist(Slist))
-
 import Graphics.Slicer.Math.Definitions (Contour)
 
-import Graphics.Slicer.Math.Skeleton.Cells (cellBefore, cellAfter, nodeTreesDoNotOverlap, addMirrorNodeTrees, simpleNodeTreeOfCell, findOneCellOfContour, findDivisions)
+import Graphics.Slicer.Math.Skeleton.Cells (addNodeTreesOnDivide, getNodeTreeOfCell, findFirstCellOfContour, findNextCell, findDivisions)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton))
 
-import Graphics.Slicer.Math.Skeleton.Motorcycles (CrashTree(CrashTree), CollisionType(HeadOn), crashMotorcycles, lastCrashType)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
 
 import Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne)
 
@@ -55,29 +55,24 @@ findStraightSkeleton contour holes =
       Nothing -> Nothing
       (Just crashTree) -> if not $ null holes
                           then Nothing
-                          else case motorcyclesIn crashTree of
+                          else case divisions of
                                  -- Simple case. convert the whole contour to a cell, and use the simple solver on it.
-                                 (Slist _ 0) -> Just $ StraightSkeleton [[simpleNodeTreeOfCell singleCell]] (slist [])
+                                 [] -> Just $ StraightSkeleton [[res]] (slist [])
                                    where
-                                     (singleCell,_,_,_) = findOneCellOfContour contour []
-                                 (Slist _ 1) -> if nodeTreesDoNotOverlap (cellAfter contour division) (cellBefore contour division) division
-                                                     then -- Use simple NodeTrees.
-                                                       Just $ addMirrorNodeTrees (cellAfter contour division) (cellBefore contour division) division
-                                                     else -- Use the algorithm from Christopher Tscherne's master's thesis.
-                                                       applyTscherne contour divisions
-                                 -- Divide into cells, and walk the tree.
-                                 (Slist _ 2) -> if lastCrashType crashTree == Just HeadOn && nodeTreesDoNotOverlap (cellAfter contour division) (cellBefore contour division) division
-                                                                 then -- Use simple NodeTrees.
-                                                                   Just $ addMirrorNodeTrees (cellAfter contour division) (cellBefore contour division) division
-                                                                 else -- Use the algorithm from Christopher Tscherne's master's thesis.
-                                                                   applyTscherne contour divisions
-                                 (Slist _ _) -> Nothing
+                                     res = case getNodeTreeOfCell singleCell of
+                                             (Right nodetree) -> nodetree
+                                             (Left _) -> error "unpossible."
+                                     (singleCell,_,_) = fromMaybe (error "this should never fail?") $ findFirstCellOfContour contour []
+                                 [division] -> if null (lefts $ getNodeTreeOfCell <$> cells)
+                                               then Just $ addNodeTreesOnDivide firstNodeTree secondNodeTree division
+                                               else applyTscherne contour divisions
+                                   where
+                                     [firstNodeTree, secondNodeTree] = rights $ getNodeTreeOfCell <$> cells
+                                     cells = [firstCell, secondCell]
+                                     (Just (secondCell,_,_)) = findNextCell (head remainder)
+                                     remainder = fromMaybe (error $ "no remainder?\n" <> show firstCell <> "\n") maybeRemainder
+                                     (Just (firstCell,_,maybeRemainder)) = findFirstCellOfContour contour [division]
+                                 (_:_) -> Nothing
         where
-          division = case divisions of
-                       [] -> error "wtf"
-                       [a] -> a
-                       (xs) -> error $ "too many divisions." <> show xs <> show "\n"
           divisions = findDivisions contour crashTree
-  where
-    motorcyclesIn (CrashTree motorcycles _ _) = motorcycles
 

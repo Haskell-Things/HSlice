@@ -149,7 +149,7 @@ data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle,
 -- data CellTree = CellTree { 
 
 -- A concave region of a contour.
-data Cell = Cell { _sides :: (Slist ([LineSeg], Maybe CellDivide))}
+data Cell = Cell { _sides :: (Slist (Slist LineSeg, Maybe CellDivide))}
   deriving Eq
   deriving stock Show
 
@@ -160,7 +160,7 @@ data CellDivide = CellDivide { _divMotorcycles :: !DividingMotorcycles, _divENod
   deriving stock Show
 
 -- The part of a contour that remains once we trim a concave section from it.
-data RemainingContour = RemainingContour (Slist (Contour, [CellDivide]))
+data RemainingContour = RemainingContour (Slist (Slist LineSeg, [CellDivide]))
   deriving Eq
   deriving stock Show
 
