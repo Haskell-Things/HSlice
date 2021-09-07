@@ -104,6 +104,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                                         intersectionPPoint = intersectionOf (outOf firstMC) (outOf secondMC)
                                         intersectionIsBehind m = angleBetween (outOf m) (eToPLine2 $ lineSegToIntersection m) < 0
                                         lineSegToIntersection m = handleLineSegError $ lineSegFromEndpoints (ePointOf m) (pToEPoint2 intersectionPPoint)
+                                    (Slist (_:_) _) -> error "too many motorcycles."
   where
     motorcyclesIn (CrashTree motorcycles _ _) = motorcycles
     -- | find enodes where the arc coresponding to them is collinear with the dividing Motorcycle.
