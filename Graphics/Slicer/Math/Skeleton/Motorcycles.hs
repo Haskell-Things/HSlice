@@ -72,7 +72,6 @@ data CrashTree = CrashTree { _motorcycles :: !(Slist Motorcycle), _survivors :: 
 motorcycleToENode :: Motorcycle -> ENode
 motorcycleToENode (Motorcycle segs mcpath) = ENode segs mcpath
 
-
 -- | Create a crash tree for all of the motorcycles in the given contour, with the given holes.
 -- FIXME: may fail, returning Nothing.
 crashMotorcycles :: Contour -> [Contour] -> Maybe CrashTree
@@ -261,7 +260,7 @@ motorcycleMightIntersectWith lineSegs motorcycle
           where
             shortCircuitItem (Nothing, Nothing) = Nothing
             shortCircuitItem (Just seg, Just intersection) = Just (seg, intersection)
-            shortCircuitItem item = error $ "cannot short circuit item: " <> show item <> "\n" 
+            shortCircuitItem item = error $ "cannot short circuit item: " <> show item <> "\n"
         stripInSegOutSeg :: [(LineSeg, Either Point2 PPoint2)] -> [(LineSeg, Either Point2 PPoint2)]
         stripInSegOutSeg myIntersections = L.filter fun myIntersections
           where
@@ -318,7 +317,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                                                          else Just intersection
                                         (_, Left (LineSeg intersectionPoint _)) -> if intersectionPointIsBehind intersectionPoint
                                                                                    then Nothing
-                                                                                   else Just intersection   
+                                                                                   else Just intersection
       where
         intersectionPointIsBehind point = angleBetween (outOf motorcycle) (eToPLine2 $ lineSegToIntersection point) < 0
         intersectionPPointIsBehind pPoint = angleBetween (outOf motorcycle) (eToPLine2 $ lineSegToIntersectionP pPoint) < 0

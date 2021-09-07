@@ -146,8 +146,6 @@ data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle,
   deriving Eq
   deriving stock Show
 
--- data CellTree = CellTree { 
-
 -- A concave region of a contour.
 data Cell = Cell { _sides :: (Slist (Slist LineSeg, Maybe CellDivide))}
   deriving Eq

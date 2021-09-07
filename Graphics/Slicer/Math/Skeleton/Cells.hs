@@ -57,7 +57,6 @@ import Graphics.Slicer.Math.Line (endpoint, handleLineSegError, lineSegFromEndpo
 
 import Graphics.Slicer.Math.PGA (PPoint2, PIntersection(PAntiCollinear), angleBetween, eToPLine2, eToPPoint2, pToEPoint2, plinesIntersectIn)
 
-
 data UnsupportedReason = INodeCrossesDivide [CellDivide]
   deriving (Show, Eq)
 
@@ -269,7 +268,7 @@ findRemainder (Cell (Slist [(lineSegs, (Just divide))] 1)) contourSegs divides
             | y == mySeg = Just x
             | otherwise = segBefore mySeg (y:xs)
     atOrAround seg@(LineSeg start _) = case endOfDivide [seg] divide of
-                                         Nothing -> error $ "missed!\n" <> show seg <> "\n" <> show divide <> "\n" 
+                                         Nothing -> error $ "missed!\n" <> show seg <> "\n" <> show divide <> "\n"
                                          (Just (_, Left pt)) -> if pt == start
                                                                 then Before
                                                                 else After
@@ -297,7 +296,11 @@ endOfDivide lineSegs (CellDivide (DividingMotorcycles m ms) maybeENode)
                     Nothing -> motorcycleMightIntersectWith lineSegs m
                     (Just eNode@(ENode (startSeg,_) _)) -> Just (startSeg, Left $ ePointOf eNode)
   -- FIXME: yes, this is woefully incomplete.
-  | otherwise = error "also no."
+  | len ms == 1 && maybeENode == Nothing = Just (startSegOfMotorcycle $ SL.head ms, Left $ ePointOf $ SL.head ms)
+  | otherwise = error "impossible situation finding the end of a straight divide."
+  where
+    startSegOfMotorcycle :: Motorcycle -> LineSeg
+    startSegOfMotorcycle (Motorcycle (startSeg, _) _) = startSeg
 
 -- | use a single straight division to cut a section of a contour out, converting it to a cell.
 createCellFromStraightWall :: Contour -> CellDivide -> Side -> Cell

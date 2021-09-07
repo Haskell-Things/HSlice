@@ -140,5 +140,3 @@ makeNodeTree eNodes iNodeSet = case eNodes of
                                   [] -> error "not enough nodes to make a nodeTree"
                                   [eNode] -> NodeTree (ENodeSet eNode (slist [])) iNodeSet
                                   (eNode:moreENodes) -> NodeTree (ENodeSet eNode (slist moreENodes)) iNodeSet
-
-
