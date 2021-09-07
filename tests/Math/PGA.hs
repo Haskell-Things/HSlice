@@ -69,7 +69,6 @@ import Graphics.Slicer.Math.Skeleton.Line (addInset)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
-import Graphics.Slicer.Math.Skeleton.Tscherne (cellAfter, cellBefore)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->))
@@ -384,38 +383,6 @@ facetSpec = do
     it "finds one convex motorcycle in a simple shape" $
       convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (PLine2 (GVec [GVal 1.414213562373095 (singleton (GEPlus 1))]))]
   describe "Straight Skeletons (skeleton/Tscherne)" $ do
-    it "make sure the straight skeleton of the left side of our first simple shape is the same as our fifth." $
-      cellAfter c0 c0w --> cellAfter c4 c4w
-    it "make sure the straight skeleton of the right side of our first simple shape is the same as our fifth." $
-      cellBefore c0 c0w --> cellBefore c4 c4w
-    it "finds the straight skeleton of the left side of our first simple shape (old)." $
-      cellBefore c0 c0w -->
-      makeNodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
-                          (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal  (-0.9238795325112867) (singleton (GEPlus 2))]))
-                   ,ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
-                          (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                   ]
-                   (INodeSet (slist [
-                                     [INode (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal  (-0.9238795325112867) (singleton (GEPlus 2))]))
-                                            (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                            (slist [])
-                                            (Just (PLine2 (GVec [GVal (-0.4870636221857319) (singleton (GEZero 1)), GVal 0.9807852804032305 (singleton (GEPlus 1)), GVal (-0.19509032201612836) (singleton (GEPlus 2))])))
-                                     ]
-                                    ]))
-    it "finds the straight skeleton of the right side of our first simple shape (old)." $
-      cellAfter c0 c0w -->
-      makeNodeTree [ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
-                          (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                   ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)))
-                          (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal (-0.3826834323650897) (singleton (GEPlus 1)), GVal  (-0.9238795325112867) (singleton (GEPlus 2))]))
-                   ]
-                   (INodeSet (slist [
-                                     [INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                       (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal (-0.3826834323650897) (singleton (GEPlus 1)), GVal  (-0.9238795325112867) (singleton (GEPlus 2))]))
-                                       (slist [])
-                                       (Just (PLine2 (GVec [GVal 0.4870636221857319 (singleton (GEZero 1)), GVal (-0.9807852804032305) (singleton (GEPlus 1)), GVal (-0.19509032201612836) (singleton (GEPlus 2))])))
-                                     ]
-                                    ]))
     it "finds the first cell of our first simple shape." $
       cellFrom (findFirstCellOfContour c0 (findDivisions c0 $ fromJust $ crashMotorcycles c0 [])) -->
         Cell (slist [(slist [
@@ -477,147 +444,6 @@ facetSpec = do
                               , LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0))
                               , LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0))
                               ],Nothing)])
-    it "finds the straight skeleton from the first cell of our first simple shape (old vs new)." $
-      getNodeTreeOfCell (cellFrom (findFirstCellOfContour c0 (findDivisions c0 $ fromJust $ crashMotorcycles c0 []))) -->
-      Right (cellBefore c0 c0w)
-    it "finds the straight skeleton from the first cell of our second simple shape (old vs new)." $
-      getNodeTreeOfCell (cellFrom (findFirstCellOfContour c1 (findDivisions c1 $ fromJust $ crashMotorcycles c1 []))) -->
-      Right (cellAfter c1 c1w)
-    it "finds the straight skeleton from the first cell of our third simple shape (old vs new)." $
-      getNodeTreeOfCell (cellFrom (findFirstCellOfContour c2 (findDivisions c2 $ fromJust $ crashMotorcycles c2 []))) -->
-      Right (cellAfter c2 c2w)
-    it "finds the straight skeleton from the first cell of our fourth simple shape (old vs new)." $
-      getNodeTreeOfCell (cellFrom (findFirstCellOfContour c3 (findDivisions c3 $ fromJust $ crashMotorcycles c3 []))) -->
-      Right (cellBefore c3 c3w)
-    it "finds the straight skeleton from the first cell of our fifth simple shape (old vs new)." $
-      getNodeTreeOfCell (cellFrom (findFirstCellOfContour c4 (findDivisions c4 $ fromJust $ crashMotorcycles c4 []))) -->
-      Right (cellBefore c4 c4w)
-    it "finds the straight skeleton of second cell of our first simple shape (old vs new)." $
-      getNodeTreeOfCell (cellFrom $ findNextCell $ head $ fromJust $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []) -->
-      Right (cellAfter c0 c0w)
-    it "finds the straight skeleton of second cell of our second simple shape (old vs new)." $
-      getNodeTreeOfCell (cellFrom $ findNextCell $ head $ fromJust $ remainderFrom $ findFirstCellOfContour c1 $ findDivisions c1 $ fromJust $ crashMotorcycles c1 []) -->
-      Right (cellBefore c1 c1w)
-    it "finds the straight skeleton of second cell of our third simple shape (old vs new)." $
-      getNodeTreeOfCell (cellFrom $ findNextCell $ head $ fromJust $ remainderFrom $ findFirstCellOfContour c2 $ findDivisions c2 $ fromJust $ crashMotorcycles c2 []) -->
-      Right (cellBefore c2 c2w)
-    it "finds the straight skeleton of second cell of our fourth simple shape (old vs new)." $
-      getNodeTreeOfCell (cellFrom $ findNextCell $ head $ fromJust $ remainderFrom $ findFirstCellOfContour c3 $ findDivisions c3 $ fromJust $ crashMotorcycles c3 []) -->
-      Right (cellAfter c3 c3w)
-    it "finds the straight skeleton of second cell of our fifth simple shape (old vs new)." $
-      getNodeTreeOfCell (cellFrom $ findNextCell $ head $ fromJust $ remainderFrom $ findFirstCellOfContour c4 $ findDivisions c4 $ fromJust $ crashMotorcycles c4 []) -->
-      Right (cellAfter c4 c4w)
-    it "finds the straight skeleton of the left side of our second simple shape." $
-      cellAfter c1 c1w -->
-      makeNodeTree [ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0,-2.0)))
-                      (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-               ,ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0)))
-                      (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.9238795325112867 (singleton (GEPlus 1)), GVal (-0.3826834323650897) (singleton (GEPlus 2))]))
-               ]
-               (INodeSet (Slist [
-                 [INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                        (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.9238795325112867 (singleton (GEPlus 1)), GVal (-0.3826834323650897) (singleton (GEPlus 2))]))
-                        (slist [])
-                  (Just (PLine2 (GVec [GVal 0.4870636221857319 (singleton (GEZero 1)), GVal 0.19509032201612836 (singleton (GEPlus 1)), GVal (-0.9807852804032305) (singleton (GEPlus 2))])))
-                 ] ] 1))
-    it "finds the straight skeleton of the left side of our third simple shape." $
-      cellAfter c2 c2w -->
-      makeNodeTree [ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
-                      (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-               ,ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0)))
-                      (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
-               ]
-               (INodeSet (Slist [
-                 [INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                        (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
-                        (slist [])
-                  (Just (PLine2 (GVec [GVal 0.4870636221857319 (singleton (GEZero 1)), GVal 0.9807852804032305 (singleton (GEPlus 1)), GVal 0.19509032201612836 (singleton (GEPlus 2))])))
-                 ]
-               ] 1))
-    it "finds the straight skeleton of the left side of our fourth simple shape." $
-      cellAfter c3 c3w -->
-      makeNodeTree [ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
-                      (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-               ,ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0)))
-                      (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal (-0.9238795325112867) (singleton (GEPlus 1)), GVal 0.3826834323650897 (singleton (GEPlus 2))]))
-               ]
-               (INodeSet (Slist [
-                 [INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                        (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal (-0.9238795325112867) (singleton (GEPlus 1)), GVal 0.3826834323650897 (singleton (GEPlus 2))]))
-                        (slist [])
-                  (Just (PLine2 (GVec [GVal 0.4870636221857319 (singleton (GEZero 1)), GVal (-0.19509032201612836) (singleton (GEPlus 1)), GVal 0.9807852804032305 (singleton (GEPlus 2))])))
-                 ]
-               ] 1))
-    it "finds the straight skeleton of the left side of our fifth simple shape." $
-      cellAfter c4 c4w -->
-      makeNodeTree [ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
-                      (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-               ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)))
-                      (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal (-0.3826834323650897) (singleton (GEPlus 1)), GVal  (-0.9238795325112867) (singleton (GEPlus 2))]))
-               ]
-               (INodeSet (Slist [
-                 [INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                        (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal (-0.3826834323650897) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]))
-                        (slist [])
-                  (Just (PLine2 (GVec [GVal 0.4870636221857319 (singleton (GEZero 1)), GVal (-0.9807852804032305) (singleton (GEPlus 1)), GVal (-0.19509032201612836) (singleton (GEPlus 2))])))
-                 ]
-               ] 1))
-    it "finds the straight skeleton of the right side of our second simple shape." $
-      cellBefore c1 c1w -->
-      makeNodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
-                      (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal 0.9238795325112867 (singleton (GEPlus 1)), GVal 0.3826834323650897 (singleton (GEPlus 2))]))
-               ,ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
-                      (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-               ]
-               (INodeSet (Slist [
-                 [INode (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal 0.9238795325112867 (singleton (GEPlus 1)), GVal 0.3826834323650897 (singleton (GEPlus 2))]))
-                        (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                        (slist [])
-                  (Just (PLine2 (GVec [GVal (-0.4870636221857319) (singleton (GEZero 1)), GVal 0.19509032201612836 (singleton (GEPlus 1)), GVal 0.9807852804032305 (singleton (GEPlus 2))])))
-                 ]
-               ] 1))
-    it "finds the straight skeleton of the right side of our third simple shape." $
-      cellBefore c2 c2w -->
-      makeNodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
-                      (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal (-0.3826834323650897) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
-               ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
-                      (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-               ]
-               (INodeSet (Slist [
-                 [INode (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal (-0.3826834323650897) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
-                        (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                        (slist [])
-                  (Just (PLine2 (GVec [GVal (-0.4870636221857319) (singleton (GEZero 1)), GVal (-0.9807852804032305) (singleton (GEPlus 1)), GVal 0.19509032201612836 (singleton (GEPlus 2))])))
-                 ]
-               ] 1))
-    it "finds the straight skeleton of the right side of our fourth simple shape." $
-      cellBefore c3 c3w -->
-      makeNodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
-                      (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal (-0.9238795325112867) (singleton (GEPlus 1)), GVal (-0.3826834323650897) (singleton (GEPlus 2))]))
-               ,ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
-                      (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-               ]
-               (INodeSet (Slist [
-                 [INode (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal (-0.9238795325112867) (singleton (GEPlus 1)), GVal (-0.3826834323650897) (singleton (GEPlus 2))]))
-                        (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                        (slist [])
-                  (Just (PLine2 (GVec [GVal (-0.4870636221857319) (singleton (GEZero 1)), GVal (-0.19509032201612836) (singleton (GEPlus 1)), GVal (-0.9807852804032305) (singleton (GEPlus 2))])))
-                 ]
-               ] 1))
-    it "finds the straight skeleton of the right side of our fifth simple shape." $
-      cellBefore c4 c4w -->
-      makeNodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
-                      (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal  (-0.9238795325112867) (singleton (GEPlus 2))]))
-               ,ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
-                      (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-               ]
-               (INodeSet (Slist [
-                 [INode (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]))
-                        (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                        (slist [])
-                  (Just (PLine2 (GVec [GVal (-0.4870636221857319) (singleton (GEZero 1)), GVal 0.9807852804032305 (singleton (GEPlus 1)), GVal (-0.19509032201612836) (singleton (GEPlus 2))])))
-                 ]
-               ] 1))
   describe "Straight Skeleton (Skeleton/Skeleton)" $ do
     it "finds the straight skeleton of our first simple shape." $
       findStraightSkeleton c0 [] -->

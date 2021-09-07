@@ -23,13 +23,11 @@
 -}
 
 -- | Christopher Tscherne\'s algorithm from his master\'s thesis.
-module Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne, cellAfter, cellBefore) where
+module Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne) where
 
 import Prelude (($), error, (<>), show)
 
 import Data.Maybe( Maybe(Nothing))
-
-import Graphics.Slicer.Math.Skeleton.Cells (cellBefore, cellAfter)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton, CellDivide)
 
