@@ -283,7 +283,6 @@ motorcycleMightIntersectWith lineSegs motorcycle
         saneIntersections  Nothing                                (Just (seg , Left (HitEndPoint  _ pt)))   Nothing                                  = Just (seg, Left pt)
         saneIntersections l1 l2 l3 = error $ "insane result of saneIntersections:\n" <> show l1 <> "\n" <> show l2 <> "\n" <> show l3 <> "\n"
 
-
 -- | Find where a motorcycle intersects a contour.
 --   If the motorcycle lands between two segments, return the second line segment, otherwise return the PPoint2 of the intersection with the first LineSeg.
 motorcycleIntersectsAt :: Contour -> Motorcycle -> (LineSeg, Either LineSeg PPoint2)
@@ -291,7 +290,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                               [] -> error "no intersections?"
                                               [a] -> fromMaybe (error $ "eliminated my only option\n" <> show a
                                                                ) $ filterIntersection a
-                                              manyIntersections@(_:_) -> if len res > 0 then head res else error $ "no options: " <> show (len res) <> "\n" <> show res <> "\n" 
+                                              manyIntersections@(_:_) -> if len res > 0 then head res else error $ "no options: " <> show (len res) <> "\n" <> show res <> "\n"
                                                 where
                                                   res = slist $ sortByDistance $ catMaybes $ filterIntersection <$> manyIntersections
                                                   sortByDistance ints = sortBy compareDistances ints
