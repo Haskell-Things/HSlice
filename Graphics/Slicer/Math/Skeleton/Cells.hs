@@ -231,10 +231,6 @@ findRemainder (Cell (Slist [(lineSegs, (Just divide))] _)) contourSegList divide
   | lineSegs == (slist []) = error "given an empty cell?"
   | startBeforeEnd = RemainingContour $ slist $ [(remainingSegsForward (last lineSegs) (head lineSegs), remainingDivides)]
   | otherwise = RemainingContour $ slist $ [(remainingSegsBackward (head lineSegs) (last lineSegs), remainingDivides)]
-    --if (pointOfFirstMotorcycle divide) == endpoint (fromMaybe (error "empty list. wth?") $ safeLast lineSegs)
-      --          then error $ "no" -- show $ RemainingContour $ slist $ [(remainingSegsForward (last lineSegs) (head lineSegs), remainingDivides)]
-        --        else error $ show (pointOfFirstMotorcycle divide) -- <> "\n" <> show (endpoint (head lineSegs)) <> show lineSegs <> "\n" <> show contourSegs <> "\n"
---                else 
   where
     remainingSegsForward trimStart trimEnd = case atOrAround trimEnd of
                                                Before ->
