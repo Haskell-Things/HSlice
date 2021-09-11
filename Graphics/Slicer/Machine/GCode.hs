@@ -50,9 +50,9 @@ import Graphics.Slicer.Definitions(ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ)
 
 import Graphics.Slicer.Math.Contour (pointsOfContour, lastPointOfContour)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour, distance, roundToFifth)
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour, LineSeg(LineSeg), distance, roundToFifth)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), endpoint)
+import Graphics.Slicer.Math.Line (endpoint)
 
 import Graphics.Slicer.Math.Slicer (accumulateValues)
 

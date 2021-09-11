@@ -20,7 +20,7 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
 -- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
-module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(SafeContour), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor) where
+module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints) where
 
 import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, zipWith, (<>), error)
 
@@ -119,10 +119,23 @@ instance SpacePoint Point3 where
   zOf (Point3 (_,_,z)) = z
   flatten (Point3 (x,y,_)) = Point2 (x,y)
 
+-- | Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
+-- it should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
+-- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
+data LineSeg = LineSeg { _point :: !Point2, _distanceToEnd :: !Point2 }
+  deriving (Generic, NFData, Show, Eq)
+
 -- | a list of points around a (2d) shape.
 -- Note that the minPoint and maxPoint define a bounding box for the contour that it does not spill out of.
-data Contour = SafeContour { _minPoint :: !Point2, _maxPoint :: !Point2, _firstPoint :: !Point2, _secondPoint :: !Point2, _thirdPoint :: !Point2 , morePoints :: !(Slist Point2) }
+data Contour = PointContour { _minPoint :: !Point2, _maxPoint :: !Point2, _firstPoint :: !Point2, _secondPoint :: !Point2, _thirdPoint :: !Point2 , morePoints :: !(Slist Point2) }
+             | LineSegContour { _myMinPoint :: !Point2, _myMaxPoint :: !Point2, _firstSeg :: !LineSeg, _secondSeg :: !LineSeg, moreSegs :: !(Slist LineSeg) }
   deriving (Eq, Generic, NFData, Show)
+
+-- | find the minimum point and maximum point of a given contour.
+minMaxPoints :: Contour -> (Point2, Point2)
+minMaxPoints contour = case contour of
+                         (PointContour foundMinPoint foundMaxPoint _ _ _ _) -> (foundMinPoint, foundMaxPoint)
+                         (LineSegContour foundMinPoint foundMaxPoint _ _ _) -> (foundMinPoint, foundMaxPoint)
 
 -- | round a value
 roundToFifth :: ℝ -> ℝ

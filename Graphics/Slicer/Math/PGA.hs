@@ -21,7 +21,7 @@
 
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, meet2PLine2, forcePLine2Basis) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, meet2PLine2, forcePLine2Basis) where
 
 import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (++), (<$>), otherwise, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error)
 
@@ -43,11 +43,11 @@ import Safe (lastMay, initSafe)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions(Point2(Point2), addPoints)
+import Graphics.Slicer.Math.Definitions(Point2(Point2), LineSeg(LineSeg), addPoints)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (•), addVal, addVecPair, divVecScalar, getVals, scalarPart, valOf, vectorPart)
 
-import Graphics.Slicer.Math.Line(LineSeg(LineSeg), combineLineSegs)
+import Graphics.Slicer.Math.Line(combineLineSegs)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -58,6 +58,7 @@ import Graphics.Slicer.Math.Line(LineSeg(LineSeg), combineLineSegs)
 -- | The Projective result of line intersection in 2 dimensions.
 data PIntersection =
   PCollinear
+  | PAntiCollinear
   | PParallel
   | PAntiParallel
   | IntersectsIn !PPoint2
@@ -66,7 +67,9 @@ data PIntersection =
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
 plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
 plinesIntersectIn pl1 pl2
-  | meet2PLine2 pl1 pl2    == PPoint2 (GVec []) = PCollinear
+  | meet2PLine2 pl1 pl2    == PPoint2 (GVec []) = if angleBetween pl1 pl2 > 0
+                                                  then PCollinear
+                                                  else PAntiCollinear
   | scalarPart (pr1 ⎣ pr2) <   1+fudgeFactor &&
     scalarPart (pr1 ⎣ pr2) >   1-fudgeFactor    = PParallel
   | scalarPart (pr1 ⎣ pr2) <  -1+fudgeFactor &&
@@ -99,7 +102,7 @@ dualAngle line1 line2 = valOf 0 $ getVals [GEZero 1, GEZero 1, GEPlus 1, GEPlus 
     (PPoint2 dnpl2) = forcePPoint2Basis $ PPoint2 npl2
 -}
 
--- Return a value that is positive when a line points to the "left" of the other given line, and negative when "right".
+-- Return the cosine of the angle between the two lines. results in a value that is positive when a line points to the "left" of the other given line, and negative when "right".
 dualAngle :: PLine2 -> PLine2 -> ℝ
 dualAngle line1@(PLine2 lvec1) line2@(PLine2 lvec2) = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
   where
@@ -112,7 +115,7 @@ dualAngle line1@(PLine2 lvec1) line2@(PLine2 lvec2) = valOf 0 $ getVals [GEZero 
 intersectionOf :: PLine2 -> PLine2 -> PPoint2
 intersectionOf pl1 pl2 = canonicalizePPoint2 $ meet2PLine2 pl1 pl2
 
--- | Find the sin () of the angle of intersection of two PLines.
+-- Return the sine of the angle between the two lines. results in a value that is positive when a line points in the same direction of the other given line, and negative when pointing backwards.
 angleBetween :: PLine2 -> PLine2 -> ℝ
 angleBetween pl1 pl2 = scalarPart $ pv1 ⎣ pv2
   where
@@ -182,7 +185,9 @@ intersectsWith (Right pl1) (Left l1)   =         lineIntersectsPLine l1  pl1
 -- | Check if/where two line segments intersect.
 lineIntersection :: LineSeg -> LineSeg -> Either Intersection PIntersection
 lineIntersection l1@(LineSeg p1 s1) l2@(LineSeg p2 s2)
-  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])         = Right PCollinear
+  | meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])         = Right $ if angleBetween (eToPLine2 l1) (eToPLine2 l2) > 0
+                                                                                     then PCollinear
+                                                                                     else PAntiCollinear
   | hasIntersection && intersection == p1 = Left $ HitStartPoint l1 intersection
   | hasIntersection && intersection == addPoints p1 s1 = Left $ HitEndPoint l1 intersection
   | hasIntersection && intersection == p2 = Left $ HitStartPoint l2 intersection
@@ -200,7 +205,9 @@ lineIntersection l1@(LineSeg p1 s1) l2@(LineSeg p2 s2)
 -- Check if/where lines/line segments intersect.
 lineIntersectsPLine :: LineSeg -> PLine2 -> Either Intersection PIntersection
 lineIntersectsPLine l1@(LineSeg p1 s1) pl1
-  | meet2PLine2 (eToPLine2 l1) pl1 == PPoint2 (GVec [])          = Right PCollinear
+  | meet2PLine2 (eToPLine2 l1) pl1 == PPoint2 (GVec [])          = Right $ if angleBetween (eToPLine2 l1) pl1 > 0
+                                                                           then PCollinear
+                                                                           else PAntiCollinear
   | onSegment l1 intersection && intersection == p1              = Left $ HitStartPoint l1 intersection
   | onSegment l1 intersection && intersection == addPoints p1 s1 = Left $ HitEndPoint l1 intersection
   | onSegment l1 intersection = Right $ IntersectsIn rawIntersection

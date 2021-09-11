@@ -34,11 +34,11 @@ import Slist (slist, len)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.Contour (makeSafeContour)
+import Graphics.Slicer.Math.Contour (makePointContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, (~=), mapWithFollower, mapWithPredecessor, scalePoint, addPoints)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), (~=), mapWithFollower, mapWithPredecessor, scalePoint, addPoints)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg), lineSegFromEndpoints, endpoint, handleLineSegError)
+import Graphics.Slicer.Math.Line (lineSegFromEndpoints, endpoint, handleLineSegError)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (intersectionOf)
 
@@ -163,7 +163,7 @@ addInset insets distance faceSet
   | insets == 1 = ([reconstructedContour], remainingFaces)
   | otherwise = error "cannot handle more than one inset yet."
   where
-    reconstructedContour = case cleanContour $ makeSafeContour $ mapWithPredecessor recoveryFun (concat $ transpose lineSegSets) of
+    reconstructedContour = case cleanContour $ makePointContour $ mapWithPredecessor recoveryFun (concat $ transpose lineSegSets) of
                              (Just v) -> v
                              Nothing -> error $ "failed to inset:" <> show faceSet <> "\n"
     recoveryFun l1@(LineSeg s1 _) l2@(LineSeg s2 _)

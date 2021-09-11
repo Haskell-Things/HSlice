@@ -20,8 +20,8 @@
 -- for adding Generic and NFData to LineSeg.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
--- | The purpose of this file is to hold line based arithmatic. really, we used to have a linear algebra implementation here, before we moved to PGA.
-module Graphics.Slicer.Math.Line (LineSeg(LineSeg), LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs, handleLineSegError) where
+-- | The purpose of this file is to hold line segment arithmatic. really, we used to have a linear algebra implementation here, before we moved to PGA.
+module Graphics.Slicer.Math.Line (LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs, handleLineSegError) where
 
 import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), Eq, (<$>), Show, error, zipWith, (<>), show, Either(Left, Right))
 
@@ -31,19 +31,9 @@ import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe(Just, Nothing))
 
-import GHC.Generics (Generic)
-
-import Control.DeepSeq (NFData)
-
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2, addPoints, scalePoint, zOf, flatten)
-
--- | Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
--- t should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
--- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
-data LineSeg = LineSeg { _point :: !Point2, _distanceToEnd :: !Point2 }
-  deriving (Generic, NFData, Show, Eq)
+import Graphics.Slicer.Math.Definitions (Point3(Point3), LineSeg(LineSeg), Point2, addPoints, scalePoint, zOf, flatten)
 
 -- | Possible errors from lineSegFromEndpoints.
 data LineSegError = LineSegFromPoint !Point2

@@ -16,17 +16,16 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- Purpose of this file: to hold utility functions for working with NodeTrees. -}
-
+-- | utility functions for working with NodeTrees.
 module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, sortNodeTrees, makeNodeTree) where
 
-import Prelude (Bool(True,False), (==), compare, otherwise, snd, ($), error, (<>), show, (>))
+import Prelude (Bool(True,False), Ordering (EQ, LT, GT), (==), compare, otherwise, snd, ($), error, (<>), show, (>))
 
 import Prelude as P (filter)
 
 import Data.List (sortBy)
 
-import Data.Maybe( Maybe(Just, Nothing), isJust)
+import Data.Maybe( Maybe(Just, Nothing), fromMaybe, isJust)
 
 import Slist.Type (Slist(Slist))
 
@@ -34,13 +33,11 @@ import Slist (cons, isEmpty, len, slist)
 
 import Slist as SL (filter, last)
 
-import Graphics.Slicer.Math.Line (LineSeg(LineSeg))
-
-import Graphics.Slicer.Math.Definitions (Point2(Point2))
+import Graphics.Slicer.Math.Definitions (LineSeg(LineSeg), Point2(Point2))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf, ancestorsOf)
 
-import Graphics.Slicer.Math.PGA (PLine2, angleBetween, eToPLine2)
+import Graphics.Slicer.Math.PGA (PLine2, angleBetween, eToPLine2, pLineIsLeft)
 
 lastSegOf :: NodeTree -> LineSeg
 lastSegOf nodeTree = (\(ENode (_,outSeg) _) -> outSeg) (lastENodeOf nodeTree)
@@ -109,7 +106,12 @@ findENodeByOutput (ENodeSet firstENode moreENodes) plineOut = case nodesMatching
 sortNodeTrees :: [NodeTree] -> [NodeTree]
 sortNodeTrees nodes = sortBy compareNodeTrees nodes
   where
-    compareNodeTrees nt1 nt2 = angleBetween referencePLine2 (outOfFinalNode nt1) `compare` angleBetween referencePLine2 (outOfFinalNode nt2)
+    compareNodeTrees nt1 nt2 = case angleBetween referencePLine2 (outOfFinalNode nt1) `compare` angleBetween referencePLine2 (outOfFinalNode nt2) of
+                                 LT -> LT
+                                 GT -> GT
+                                 EQ -> if fromMaybe (error $ "impossible" ) $ pLineIsLeft referencePLine2 (outOfFinalNode nt1)
+                                       then LT
+                                       else GT
     -- Our reference pline. negative on the Y axis.
     referencePLine2 = eToPLine2 $ LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0))
     outOfFinalNode :: NodeTree -> PLine2
