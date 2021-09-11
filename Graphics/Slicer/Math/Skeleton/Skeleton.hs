@@ -62,16 +62,16 @@ findStraightSkeleton contour holes =
                                      res = case getNodeTreeOfCell singleCell of
                                              (Right nodetree) -> nodetree
                                              (Left _) -> error "unpossible."
-                                     (singleCell,_,_) = fromMaybe (error "this should never fail?") $ findFirstCellOfContour contour []
+                                     (singleCell,_) = fromMaybe (error "this should never fail?") $ findFirstCellOfContour contour []
                                  [division] -> if null (lefts $ getNodeTreeOfCell <$> cells)
                                                then Just $ addNodeTreesOnDivide firstNodeTree secondNodeTree division
                                                else applyTscherne contour divisions
                                    where
                                      [firstNodeTree, secondNodeTree] = rights $ getNodeTreeOfCell <$> cells
                                      cells = [firstCell, secondCell]
-                                     (Just (secondCell,_,_)) = findNextCell (head remainder)
+                                     (Just (secondCell,_)) = findNextCell (head remainder)
                                      remainder = fromMaybe (error $ "no remainder?\n" <> show firstCell <> "\n") maybeRemainder
-                                     (Just (firstCell,_,maybeRemainder)) = findFirstCellOfContour contour [division]
+                                     (Just (firstCell,maybeRemainder)) = findFirstCellOfContour contour [division]
                                  (_:_) -> Nothing
         where
           divisions = findDivisions contour crashTree
