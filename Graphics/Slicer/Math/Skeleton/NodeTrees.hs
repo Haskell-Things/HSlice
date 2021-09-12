@@ -104,12 +104,12 @@ findENodeByOutput (ENodeSet firstENode moreENodes) plineOut = case nodesMatching
 -- | Sort a set of nodeTrees. they should come out in order, so that the last segment of a preceeding NodeTree stops at the first segment of the current NodeTree.
 --   Really, compares them to a line going negative on the Y axis, and sorts by the returned value.
 sortNodeTrees :: [NodeTree] -> [NodeTree]
-sortNodeTrees nodes = sortBy compareNodeTrees nodes
+sortNodeTrees = sortBy compareNodeTrees
   where
     compareNodeTrees nt1 nt2 = case angleBetween referencePLine2 (outOfFinalNode nt1) `compare` angleBetween referencePLine2 (outOfFinalNode nt2) of
                                  LT -> LT
                                  GT -> GT
-                                 EQ -> if fromMaybe (error $ "impossible" ) $ pLineIsLeft referencePLine2 (outOfFinalNode nt1)
+                                 EQ -> if fromMaybe (error "impossible" ) $ pLineIsLeft referencePLine2 (outOfFinalNode nt1)
                                        then LT
                                        else GT
     -- Our reference pline. negative on the Y axis.
@@ -117,7 +117,7 @@ sortNodeTrees nodes = sortBy compareNodeTrees nodes
     outOfFinalNode :: NodeTree -> PLine2
     outOfFinalNode nt@(NodeTree (ENodeSet firstENode _) (INodeSet iNodes))
       | len iNodes > 0 = outOf $ finalINodeOf nt
-      | otherwise = outOf $ firstENode
+      | otherwise = outOf firstENode
 
 -----------------------------------------------------------------------------
 -- dependent utility functions. used by internal components. not exported. --

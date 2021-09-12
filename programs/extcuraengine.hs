@@ -293,7 +293,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
         interiorContours :: Slist ContourTreeSet -> [Contour]
         interiorContours (Slist treeSets _) = firstContourOfContourTreeSet <$> treeSets
         renderSubTrees :: Slist ContourTreeSet -> [GCode]
-        renderSubTrees (Slist subContours _) = concat $ concat [renderContourTreeSet <$> (innerContourTreesOfContourTreeSet contourTree) | contourTree <- subContours]
+        renderSubTrees (Slist subContours _) = concat $ concat [renderContourTreeSet <$> innerContourTreesOfContourTreeSet contourTree | contourTree <- subContours]
         innerContourTreesOfContourTreeSet :: ContourTreeSet -> [ContourTreeSet]
         innerContourTreesOfContourTreeSet (ContourTreeSet (ContourTree _ (Slist innerTrees _)) _) = innerTrees
     renderSurface :: Contour -> [Contour] -> [GCode]

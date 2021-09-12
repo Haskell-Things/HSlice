@@ -262,7 +262,7 @@ pointsOfContour (PointContour _ _ p1 p2 p3 pts@(Slist vals _))
   | otherwise            = p1:p2:p3:vals
 pointsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
   | size moreLines == Infinity = error "cannot handle infinite contours."
-  | otherwise                  = (startPoint l1):(startPoint l2):(startPoint <$> lns)
+  | otherwise                  = startPoint l1:startPoint l2:(startPoint <$> lns)
   where
     startPoint (LineSeg start _) = start
 
@@ -350,7 +350,7 @@ makeLineSegContour lineSegs = case lineSegs of
     pH = Point2 (maximum $ xOf <$> allPoints, maximum $ yOf <$> allPoints)
     allPoints = case lineSegs of
                   [] -> error "tried to create an empty contour"
-                  (x:xs) -> (startPoint x):(endpoint x):(endpoint <$> xs)
+                  (x:xs) -> startPoint x:endpoint x:(endpoint <$> xs)
     startPoint (LineSeg start _) = start
 
 -- | find the first line segment of a contour.

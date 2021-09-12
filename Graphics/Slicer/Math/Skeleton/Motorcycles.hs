@@ -26,7 +26,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles, lastCrashType, motorcyclesAreAntiCollinear, motorcyclesInDivision, motorcycleMightIntersectWith) where
 
-import Prelude (Bool(True, False), Either(Left,Right), Eq, Show, Ordering (EQ, GT, LT), error, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, compare, null, (<), (>), (++))
+import Prelude (Bool(True, False), Either(Left,Right), Eq, Show, Ordering (EQ, GT, LT), any, error, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, compare, not, null, (<), (>), (++), (||))
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromMaybe)
 
@@ -113,19 +113,18 @@ crashMotorcycles contour holes
           -- Crash just two motorcycles. Returns Nothing when the motorcycles can't collide.
           crashOf :: Contour -> [Motorcycle] -> Motorcycle -> Motorcycle -> Maybe Collision
           crashOf myContour _ mot1 mot2@(Motorcycle (inSeg2, outSeg2) _)
-            | isAntiCollinear (outOf mot1) (outOf mot2) && motorcycleIntersectsAt contour mot1 == (inSeg2, Left outSeg2) = -- If we have a clear path between mot1 and the origin of mot2
-                Just $ Collision (mot1,mot2, slist []) Nothing HeadOn
+            -- If we have a clear path between mot1 and the origin of mot2
+            | isAntiCollinear (outOf mot1) (outOf mot2) && motorcycleIntersectsAt contour mot1 == (inSeg2, Left outSeg2) = Just $ Collision (mot1,mot2, slist []) Nothing HeadOn
             | noIntersection (outOf mot1) (outOf mot2) = Nothing
             | intersectionIsBehind mot1 = Nothing
             | intersectionIsBehind mot2 = Nothing
-            | otherwise = case motorcycleIntersectsContour mot1 intersectionPPoint of
-                            True -> Nothing
-                            False -> case motorcycleIntersectsContour mot2 intersectionPPoint of
-                                       True -> Nothing
-                                       False -> case distanceBetweenPPoints (pPointOf mot1) intersectionPPoint `compare` distanceBetweenPPoints (pPointOf mot2) intersectionPPoint of
-                                                  GT -> Just $ Collision (mot1, mot2, slist []) (Just mot2) Normal
-                                                  LT -> Just $ Collision (mot1, mot2, slist []) (Just mot1) Normal
-                                                  EQ -> Just $ Collision (mot1, mot2, slist []) (Just mot1) SideSwipe
+            | otherwise = if motorcycleIntersectsContour mot1 intersectionPPoint
+                             || motorcycleIntersectsContour mot2 intersectionPPoint
+                          then Nothing
+                          else case distanceBetweenPPoints (pPointOf mot1) intersectionPPoint `compare` distanceBetweenPPoints (pPointOf mot2) intersectionPPoint of
+                                 GT -> Just $ Collision (mot1, mot2, slist []) (Just mot2) Normal
+                                 LT -> Just $ Collision (mot1, mot2, slist []) (Just mot1) Normal
+                                 EQ -> Just $ Collision (mot1, mot2, slist []) (Just mot1) SideSwipe
               where
                 intersectionPPoint = intersectionOf (outOf mot1) (outOf mot2)
                 intersectionIsBehind m = angleBetween (outOf m) (eToPLine2 $ lineSegToIntersection m) < 0
@@ -137,7 +136,7 @@ crashMotorcycles contour holes
                   where
                     foundSegEvents :: [(LineSeg, Maybe LineSeg, Maybe PPoint2)] -> [(LineSeg, Maybe LineSeg, Maybe PPoint2)]
                     foundSegEvents myIntersections
-                      | null (L.filter fun myIntersections) = error $ "no remaining segment, after removing motorcycle's inSeg and OutSeg.\nReceived: " <> show myIntersections <> "\n"
+                      | not (any fun myIntersections) = error $ "no remaining segment, after removing motorcycle's inSeg and OutSeg.\nReceived: " <> show myIntersections <> "\n"
                       | otherwise = L.filter fun myIntersections
                       where
                         -- make sure neither of these segments are inSeg or outSeg
@@ -165,7 +164,7 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs conto
   where
     onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
     onlyMotorcycles ((seg1, seg2), maybePLine) = case maybePLine of
-                                                   (Just pLine) -> Just $ Motorcycle (seg1, seg2) $ pLine
+                                                   (Just pLine) -> Just $ Motorcycle (seg1, seg2) pLine
                                                    Nothing -> Nothing
     -- | Examine two line segments that are part of a Contour, and determine if they are convex from the perspective of the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior.
     --   Note that we know that the inside is to the left of the first line given, and that the first line points toward the intersection.
@@ -237,9 +236,9 @@ motorcycleMightIntersectWith lineSegs motorcycle
                                         (_, Right intersectionPPoint) -> if intersectionPPointIsBehind intersectionPPoint
                                                                          then Nothing
                                                                          else Just intersection
-                                        (_, Left (intersectionPoint)) -> if intersectionPointIsBehind intersectionPoint
-                                                                         then Nothing
-                                                                         else Just intersection
+                                        (_, Left intersectionPoint) -> if intersectionPointIsBehind intersectionPoint
+                                                                       then Nothing
+                                                                       else Just intersection
       where
         intersectionPointIsBehind point = angleBetween (outOf motorcycle) (eToPLine2 $ lineSegToIntersection point) < 0
         intersectionPPointIsBehind pPoint = angleBetween (outOf motorcycle) (eToPLine2 $ lineSegToIntersectionP pPoint) < 0
@@ -265,7 +264,7 @@ motorcycleMightIntersectWith lineSegs motorcycle
         stripInSegOutSeg myIntersections = L.filter fun myIntersections
           where
             -- make sure neither of these segments are inSeg or outSeg
-            fun (seg,_) = (seg /= inSeg && seg /= outSeg)
+            fun (seg,_) = seg /= inSeg && seg /= outSeg
         saneIntersections :: Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Point2 PPoint2)
         saneIntersections  _ (Just (seg, Right (IntersectsIn p)))      _ = Just (seg, Right p)
         saneIntersections  _ (Just (_  , Left  NoIntersection))        _ = Nothing
@@ -329,7 +328,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
       where
         stripInSegOutSeg :: [(LineSeg, Either LineSeg PPoint2)] -> [(LineSeg, Either LineSeg PPoint2)]
         stripInSegOutSeg myIntersections
-          | null (L.filter fun myIntersections) = error $ "no remaining segment, after removing motorcycle's inSeg and OutSeg.\nReceived: " <> show myIntersections <> "\n"
+          | not (any fun myIntersections) = error $ "no remaining segment, after removing motorcycle's inSeg and OutSeg.\nReceived: " <> show myIntersections <> "\n"
           | otherwise = L.filter fun myIntersections
           where
             -- make sure neither of these segments are inSeg or outSeg

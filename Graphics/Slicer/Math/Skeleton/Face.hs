@@ -103,18 +103,19 @@ facesOf (StraightSkeleton nodeLists spine)
 intraNodeFace :: NodeTree -> NodeTree -> Face
 intraNodeFace nodeTree1 nodeTree2
   | nodeTree1 `isLeftOf` nodeTree2  = if nodeTree1 `follows` nodeTree2
-                                      then fromMaybe (error $ "cannot make a face from nodes that are not neighbors: \n") $
+                                      then fromMaybe errNodesNotNeighbors $
                                              makeFace (firstENodeOf nodeTree1) (init (lastPLinesOf nodeTree1) <> tail (tail $ reverse $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
-                                      else fromMaybe (error $ "cannot make a face from nodes that are not neighbors: \n") $
+                                      else fromMaybe errNodesNotNeighbors $
                                              makeFace (firstENodeOf nodeTree1) (init (lastPLinesOf nodeTree1) <>       tail  (reverse $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
   | nodeTree1 `isRightOf` nodeTree2 = if nodeTree2 `follows` nodeTree1
-                                      then fromMaybe (error $ "cannot make a face from nodes that are not neighbors: \n") $
+                                      then fromMaybe errNodesNotNeighbors $
                                              makeFace (lastENodeOf nodeTree2) (init (firstPLinesOf nodeTree2) <> tail (tail $ reverse $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
-                                      else fromMaybe (error $ "cannot make a face from nodes that are not neighbors: \n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n") $
+                                      else fromMaybe errNodesNotNeighbors $
                                              makeFace (firstENodeOf nodeTree2) (init (firstPLinesOf nodeTree2) <>       tail  (reverse $ lastPLinesOf nodeTree1)) (lastENodeOf nodeTree1)
   | nodeTree1 == nodeTree2          = error $ "two identical nodes given.\n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
   | otherwise = error $ "Two NodeTrees given that are not neighbors: " <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
   where
+    errNodesNotNeighbors = error $ "cannot make a face from nodes that are not neighbors: \n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
     follows :: NodeTree -> NodeTree -> Bool
     follows nt1 nt2 = SL.last (firstPLinesOf nt1) == SL.last (lastPLinesOf nt2)
     isLeftOf :: NodeTree -> NodeTree -> Bool
@@ -158,12 +159,13 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
 areaBetween :: ENodeSet -> INode -> INode -> INode -> Face
 areaBetween eNodeList@(ENodeSet firstENode moreENodes) parent iNode1 iNode2
   -- Handle the case where we are creating a face across the open end of the contour.
-  | lastDescendent eNodeList iNode1 /= SL.last (cons firstENode moreENodes) = fromMaybe (error $ "cannot make a face from nodes that are not neighbors: \n") $
+  | lastDescendent eNodeList iNode1 /= SL.last (cons firstENode moreENodes) = fromMaybe errNodesNotNeighbors $
                                                                                 makeFace (lastDescendent eNodeList iNode1) (one $ lastPLineOf parent) (findMatchingDescendent eNodeList iNode2 $ lastDescendent eNodeList iNode1)
-  | otherwise                                                               = fromMaybe (error $ "cannot make a face from nodes that are not neighbors: \n") $
+  | otherwise                                                               = fromMaybe errNodesNotNeighbors $
                                                                                 makeFace (firstDescendent eNodeList iNode1) (one $ firstPLineOf parent) (findMatchingDescendent eNodeList iNode2 $ firstDescendent eNodeList iNode1)
   where
     -- | using the set of all first generation nodes, a second generation node, and a first generation node, find out which one of the first generation children of the given second generation node shares a side with the first generation node.
+    errNodesNotNeighbors = error $ "cannot make a face from nodes that are not neighbors: \n" <> show eNodeList <> "\n" <> show parent <> "\n" <> show iNode1 <> "\n" <> show iNode2 <> "\n"
     findMatchingDescendent :: ENodeSet -> INode -> ENode -> ENode
     findMatchingDescendent eNodes myParent (ENode (seg1,seg2) _) =
       case res of

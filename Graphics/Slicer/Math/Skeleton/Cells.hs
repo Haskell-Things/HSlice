@@ -29,13 +29,13 @@ import Data.Either(Either(Left, Right))
 
 import Data.List (elemIndex, sortBy, dropWhile, takeWhile)
 
-import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
+import Data.Maybe (Maybe(Just, Nothing), fromMaybe, isNothing)
 
 import Slist (head, last, len, slist, safeLast)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion)
+import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, skeletonOfConcaveRegion)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), StraightSkeleton, INode, ePointOf, finalPLine, intersectionOf, outOf)
 
@@ -45,7 +45,6 @@ import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeT
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2)
 
@@ -53,15 +52,15 @@ import Graphics.Slicer.Math.Line (endpoint, handleLineSegError, lineSegFromEndpo
 
 import Graphics.Slicer.Math.PGA (PPoint2, PIntersection(PAntiCollinear), angleBetween, distanceBetweenPPoints, eToPLine2, eToPPoint2, pToEPoint2, plinesIntersectIn)
 
-data UnsupportedReason = INodeCrossesDivide [CellDivide]
+newtype UnsupportedReason = INodeCrossesDivide [CellDivide]
   deriving (Show, Eq)
 
 -- | get a naieve node tree for a given cell.
 -- Warning: in the cases where the cell has nodes outside of the cell wall, you must use tscherne's algorithm to merge two cells.
 getNodeTreeOfCell :: Cell -> Either UnsupportedReason NodeTree
-getNodeTreeOfCell (Cell (Slist [((Slist extSegs _), Nothing)] _)) = Right $ skeletonOfConcaveRegion extSegs
-getNodeTreeOfCell (Cell (Slist [((Slist extSegs _), Just divide)] _))
-  | null $ crossoverINodes res divide = Right $ res
+getNodeTreeOfCell (Cell (Slist [(Slist extSegs _, Nothing)] _)) = Right $ skeletonOfConcaveRegion extSegs
+getNodeTreeOfCell (Cell (Slist [(Slist extSegs _, Just divide)] _))
+  | null $ crossoverINodes res divide = Right res
   | otherwise = Left $ INodeCrossesDivide [divide]
   where
     res = skeletonOfConcaveRegion extSegs
@@ -103,64 +102,48 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
 -- | Find a single Cell of the given contour. always finds the cell on the 'open end' of the contour.
 findFirstCellOfContour :: Contour -> [CellDivide] -> Maybe (Cell, Maybe [RemainingContour])
-findFirstCellOfContour contour divides = case divides of
-                                         [] -> -- When there are no motorcycles, and there are no holes, we can just treat the whole contour as a single cell. This does the conversion.
-                                           Just (contourFromCell, Nothing)
-                                         [oneDivide] ->
-                                           Just ( cell
-                                                , Just [findRemainder cell contourSegs divides]
-                                                )
-                                           where
-                                             cell = createCellFromStraightWalls (slist [lineSegsOfContour contour]) [oneDivide]
-                                         _ ->
-                                           Just ( cell
-                                                , Just [findRemainder cell contourSegs divides]
-                                                )
-                                           where
-                                             cell = createCellFromStraightWalls (slist [lineSegsOfContour contour]) [closestDivide]
-                                             closestDivide = if snd (head divideClosestSorted) == snd (head divideFurthestSorted)
-                                                             then snd $ head divideClosestSorted
-                                                             else error $ "ugh\n" <> show divideClosestSorted <> "\n" <> show divideFurthestSorted <> "\n"
+findFirstCellOfContour contour divides =
+  case divides of
+    [] -> -- When there are no motorcycles, and there are no holes, we can just treat the whole contour as a single cell. This does the conversion.
+      Just (contourFromCell, Nothing)
+    [oneDivide] ->
+      Just ( cell
+           , Just [findRemainder cell contourSegs divides]
+           )
+      where
+        cell = createCellFromStraightWalls (slist [lineSegsOfContour contour]) [oneDivide]
+    _ ->
+      Just ( cell
+           , Just [findRemainder cell contourSegs divides]
+           )
+      where
+        cell = createCellFromStraightWalls (slist [lineSegsOfContour contour]) [closestDivide]
+        closestDivide = if snd (head divideClosestSorted) == snd (head divideFurthestSorted)
+                        then snd $ head divideClosestSorted
+                        else error $ "ugh\n" <> show divideClosestSorted <> "\n" <> show divideFurthestSorted <> "\n"
   where
     -- | convert a single contour to a single cell.
     contourFromCell = Cell (slist [(slist contourSegs, Nothing)])
     contourSegs = lineSegsOfContour contour
-    divideClosestSorted = slist $ sortBy (\div1 div2 -> case elemIndex (fst $ fst div1) contourSegs `compare` elemIndex (fst $ fst div2) contourSegs of
+    divideClosestSorted = slist $ sortBy compareDivides $ closestSegOfDivide contour <$> divides
+    divideFurthestSorted = slist $ sortBy compareDivides $ furthestSegOfDivide contour <$> divides
+    compareDivides :: ((LineSeg, Either Point2 PPoint2), CellDivide) -> ((LineSeg, Either Point2 PPoint2), CellDivide) -> Ordering
+    compareDivides div1 div2 = case elemIndex (fst $ fst div1) contourSegs `compare` elemIndex (fst $ fst div2) contourSegs of
                                                          LT -> LT
                                                          GT -> GT
                                                          EQ -> distanceBetweenPPoints (startPPoint $ fst $ fst div1) (toPPoint2 $ snd $ fst div1) `compare` distanceBetweenPPoints (startPPoint $ fst $ fst div2) (toPPoint2 $ snd $ fst div2)
-                                        ) $ closestSegOfDivide contour <$> divides
-    divideFurthestSorted = slist $ sortBy (\div1 div2 -> case elemIndex (fst $ fst div1) contourSegs `compare` elemIndex (fst $ fst div2) contourSegs of
-                                                         LT -> LT
-                                                         GT -> GT
-                                                         EQ -> distanceBetweenPPoints (startPPoint $ fst $ fst div1) (toPPoint2 $ snd $ fst div1) `compare` distanceBetweenPPoints (startPPoint $ fst $ fst div2) (toPPoint2 $ snd $ fst div2)
-                                        ) $ furthestSegOfDivide contour <$> divides
-    closestSegOfDivide myContour divide = if elemIndex (fst $ startIntersect) contourSegs < elemIndex (fst $ stopIntersect) contourSegs
-                                          then (startIntersect, divide)
-                                          else (stopIntersect, divide)
-      where
-        startIntersect = contourStartOfDivide myContour divide
-        stopIntersect = contourEndOfDivide myContour divide
-    furthestSegOfDivide myContour divide = if elemIndex (fst $ startIntersect) contourSegs < elemIndex (fst $ stopIntersect) contourSegs
-                                           then (stopIntersect, divide)
-                                           else (startIntersect, divide)
-      where
-        startIntersect = contourStartOfDivide myContour divide
-        stopIntersect = contourEndOfDivide myContour divide
+    closestSegOfDivide myContour divide = if elemIndex (fst $ startIntersect myContour divide) contourSegs < elemIndex (fst $ stopIntersect myContour divide) contourSegs
+                                          then (startIntersect myContour divide, divide)
+                                          else (stopIntersect myContour divide, divide)
+    furthestSegOfDivide myContour divide = if elemIndex (fst $ startIntersect myContour divide) contourSegs < elemIndex (fst $ stopIntersect myContour divide) contourSegs
+                                           then (stopIntersect myContour divide, divide)
+                                           else (startIntersect myContour divide, divide)
+    startIntersect myContour divide = startOfDivide (lineSegsOfContour myContour) divide
+    stopIntersect myContour divide = endOfDivide (lineSegsOfContour myContour) divide
     toPPoint2 :: Either Point2 PPoint2 -> PPoint2
     toPPoint2 (Left point2) = eToPPoint2 point2
     toPPoint2 (Right ppoint2) = ppoint2
     startPPoint (LineSeg start _) = eToPPoint2 start
-
--- Get the segment the divide intersects that is closest to the beginning of the list of a contour's line segments.
-contourStartOfDivide :: Contour -> CellDivide -> (LineSeg, Either Point2 PPoint2)
-contourStartOfDivide _ (CellDivide (DividingMotorcycles (Motorcycle (inSeg, (LineSeg start _)) _) _) _) = (inSeg, Left start)
-
--- Get the segment the divide intersects that is closest to the end of the list of a contour's line segments.
-contourEndOfDivide :: Contour -> CellDivide -> (LineSeg, Either Point2 PPoint2)
-contourEndOfDivide contour divide = res
-      where
-        (Just res) = endOfDivide (lineSegsOfContour contour) divide
 
 -- | Find a single Cell of the given contour. always finds the cell on the 'open end' of the contour.
 -- FIXME: implement all of these!
@@ -172,51 +155,40 @@ findNextCell (RemainingContour (Slist [(Slist lineSegs _, divides)] _) ) =
     [] -> -- When there are no motorcycles, and there are no holes, we can just treat the whole contour as a single cell. This does the conversion.
       Just (contourFromCell, Nothing)
     [oneDivide] ->
-      Just (cell
-           ,Just [findRemainder cell lineSegs divides]
-           )
+      Just (cell, Just [findRemainder cell lineSegs divides])
       where
         cell = createCellFromStraightWalls (slist [lineSegs]) [oneDivide]
     _ ->
-      Just (cell
-           ,Just [findRemainder cell lineSegs divides]
-           )
+      Just (cell, Just [findRemainder cell lineSegs divides])
       where
         cell = createCellFromStraightWalls (slist [lineSegs]) [closestDivide]
-        closestDivide = if fst (fst $ head divideClosestSorted) == fst ( fst $ head divideFurthestSorted)
-                        then snd $ head divideClosestSorted
-                        else error $ "ugh\n" <> show divideClosestSorted <> "\n" <> show divideFurthestSorted <> "\n"
   where
     -- | convert a single contour to a single cell.
     contourFromCell = Cell (slist [(slist lineSegs, Nothing)])
-    divideClosestSorted = slist $ sortBy (\div1 div2 -> case elemIndex (fst $ fst div1) lineSegs `compare` elemIndex (fst $ fst div2) lineSegs of
+    closestDivide = if fst (fst $ head divideClosestSorted) == fst ( fst $ head divideFurthestSorted)
+                    then snd $ head divideClosestSorted
+                    else error $ "Divide collision:\n" <> show divideClosestSorted <> "\n" <> show divideFurthestSorted <> "\n"
+    divideClosestSorted = slist $ sortBy compareDivides $ closestSegOfDivide lineSegs <$> divides
+    divideFurthestSorted = slist $ sortBy compareDivides $ furthestSegOfDivide lineSegs <$> divides
+    compareDivides :: ((LineSeg, Either Point2 PPoint2), CellDivide) -> ((LineSeg, Either Point2 PPoint2), CellDivide) -> Ordering
+    compareDivides div1 div2 = case elemIndex (fst $ fst div1) lineSegs `compare` elemIndex (fst $ fst div2) lineSegs of
                                                          LT -> LT
                                                          GT -> GT
                                                          EQ -> distanceBetweenPPoints (startPPoint $ fst $ fst div1) (toPPoint2 $ snd $ fst div1) `compare` distanceBetweenPPoints (startPPoint $ fst $ fst div2) (toPPoint2 $ snd $ fst div2)
-                                        ) $ closestSegOfDivide lineSegs <$> divides
-    divideFurthestSorted = slist $ sortBy (\div1 div2 -> case elemIndex (fst $ fst div1) lineSegs `compare` elemIndex (fst $ fst div2) lineSegs of
-                                                         LT -> LT
-                                                         GT -> GT
-                                                         EQ -> distanceBetweenPPoints (startPPoint $ fst $ fst div1) (toPPoint2 $ snd $ fst div1) `compare` distanceBetweenPPoints (startPPoint $ fst $ fst div2) (toPPoint2 $ snd $ fst div2)
-                                        ) $ furthestSegOfDivide lineSegs <$> divides
     closestSegOfDivide :: [LineSeg] -> CellDivide -> ((LineSeg, Either Point2 PPoint2), CellDivide)
-    closestSegOfDivide segSet divide = if elemIndex (fst startSeg) lineSegs < elemIndex (fst endSeg) lineSegs
-                                       then (startSeg, divide)
-                                       else (endSeg, divide)
-      where
-        startSeg = segSetStartOfDivide segSet divide
-        endSeg = segSetEndOfDivide segSet divide
+    closestSegOfDivide myLineSegs divide = if elemIndex (fst $ startIntersect divide) myLineSegs < elemIndex (fst $ endIntersect divide) lineSegs
+                                           then (startIntersect divide, divide)
+                                           else (endIntersect divide, divide)
     furthestSegOfDivide :: [LineSeg] -> CellDivide -> ((LineSeg, Either Point2 PPoint2), CellDivide)
-    furthestSegOfDivide segSet divide = if elemIndex (fst endSeg) lineSegs < elemIndex (fst startSeg) lineSegs
-                                       then (endSeg, divide)
-                                       else (startSeg, divide)
-      where
-        startSeg = segSetStartOfDivide segSet divide
-        endSeg = segSetEndOfDivide segSet divide
+    furthestSegOfDivide myLineSegs divide = if elemIndex (fst $ endIntersect divide) myLineSegs < elemIndex (fst $ startIntersect divide) lineSegs
+                                            then (endIntersect divide, divide)
+                                            else (startIntersect divide, divide)
+    startIntersect divide = startOfDivide lineSegs divide
+    endIntersect divide = endOfDivide lineSegs divide
     toPPoint2 :: Either Point2 PPoint2 -> PPoint2
     toPPoint2 (Left point2) = eToPPoint2 point2
     toPPoint2 (Right ppoint2) = ppoint2
-    startPPoint (LineSeg start _) = eToPPoint2 start
+    startPPoint (LineSeg a _) = eToPPoint2 a
 
 data AtOrAround = At
                 | Before
@@ -227,25 +199,25 @@ findRemainder :: Cell -> [LineSeg] -> [CellDivide] -> RemainingContour
 findRemainder (Cell (Slist [] _)) _ _ = error "not enough"
 findRemainder (Cell (Slist (_:_:_) _)) _ _ = error "too much"
 findRemainder (Cell (Slist [(_, Nothing)] _)) _ _ = error "nonsensical"
-findRemainder (Cell (Slist [(lineSegs, (Just divide))] _)) contourSegList divides
-  | lineSegs == (slist []) = error "given an empty cell?"
-  | startBeforeEnd = RemainingContour $ slist $ [(remainingSegsForward (last lineSegs) (head lineSegs), remainingDivides)]
-  | otherwise = RemainingContour $ slist $ [(remainingSegsBackward (head lineSegs) (last lineSegs), remainingDivides)]
+findRemainder (Cell (Slist [(lineSegs, Just divide)] _)) contourSegList divides
+  | lineSegs == slist [] = error "given an empty cell?"
+  | startBeforeEnd = RemainingContour $ slist [(remainingSegsForward (last lineSegs) (head lineSegs), remainingDivides)]
+  | otherwise = RemainingContour $ slist [(remainingSegsBackward (head lineSegs) (last lineSegs), remainingDivides)]
   where
     remainingSegsForward trimStart trimEnd = case atOrAround trimEnd of
                                                Before ->
-                                                 slist $ takeWhile (\a -> a /= trimEnd)                                $ dropWhile (\a -> a /= segmentAfter trimStart) (contourSegList ++ contourSegList)
+                                                 slist $ takeWhile (/= trimEnd)                                $ dropWhile (/= segmentAfter trimStart) (contourSegList ++ contourSegList)
                                                At ->
-                                                 slist $ takeWhile (\a -> a /= segmentAfter trimEnd)                   $ dropWhile (\a -> a /= segmentAfter trimStart) (contourSegList ++ contourSegList)
+                                                 slist $ takeWhile (/= segmentAfter trimEnd)                   $ dropWhile (/= segmentAfter trimStart) (contourSegList ++ contourSegList)
                                                After ->
-                                                 slist $ takeWhile (\a -> a /= (segmentAfter $ segmentAfter trimEnd))  $ dropWhile (\a -> a /= segmentAfter trimStart) (contourSegList ++ contourSegList)
+                                                 slist $ takeWhile (/= (segmentAfter $ segmentAfter trimEnd))  $ dropWhile (/= segmentAfter trimStart) (contourSegList ++ contourSegList)
     remainingSegsBackward trimStart trimEnd = case atOrAround trimEnd of
                                                 Before ->
-                                                  slist $ takeWhile (\a -> a /= trimStart) $ dropWhile (\a -> a /= segmentBefore trimEnd) (contourSegList ++ contourSegList)
+                                                  slist $ takeWhile (/= trimStart) $ dropWhile (/= segmentBefore trimEnd) (contourSegList ++ contourSegList)
                                                 At ->
-                                                  slist $ takeWhile (\a -> a /= trimStart) $ dropWhile (\a -> a /= trimEnd) (contourSegList ++ contourSegList)
+                                                  slist $ takeWhile (/= trimStart) $ dropWhile (/= trimEnd) (contourSegList ++ contourSegList)
                                                 After ->
-                                                  slist $ takeWhile (\a -> a /= trimStart) $ dropWhile (\a -> a /= segmentAfter trimEnd) (contourSegList ++ contourSegList)
+                                                  slist $ takeWhile (/= trimStart) $ dropWhile (/= segmentAfter trimEnd) (contourSegList ++ contourSegList)
     segmentAfter seg = fromMaybe (head contourSegs) $ segAfter seg contourSegList
       where
         segAfter _ [] = Nothing
@@ -253,26 +225,23 @@ findRemainder (Cell (Slist [(lineSegs, (Just divide))] _)) contourSegList divide
         segAfter mySeg (x:y:xs)
             | x == mySeg = Just y
             | otherwise = segAfter mySeg (y:xs)
-    segmentBefore seg = fromMaybe (fromMaybe (error $ "empty list?" ) $ safeLast contourSegs) $ segBefore seg contourSegList
+    segmentBefore seg = fromMaybe (fromMaybe (error "empty list?" ) $ safeLast contourSegs) $ segBefore seg contourSegList
       where
         segBefore _ [] = Nothing
         segBefore _ [_] = Nothing
         segBefore mySeg (x:y:xs)
             | y == mySeg = Just x
             | otherwise = segBefore mySeg (y:xs)
-    atOrAround seg@(LineSeg start _) = case endOfDivide [seg] divide of
+    atOrAround seg@(LineSeg start _) = case maybeEndOfDivide [seg] divide of
                                          Nothing -> error $ "missed!\n" <> show contourSegs <> "\n" <> show divide <> "\n" <> show lineSegs <> "\n" <> show seg <> "\n"
                                          (Just (_, Left pt)) -> if pt == start
                                                                 then Before
                                                                 else After
                                          (Just (_, Right _)) -> At
---    (Slist lineSegSet _) = lineSegs
     -- | use the found cell and the motorcycle to determine what direction the motorcycle is going.
-    startBeforeEnd = (pointOfFirstMotorcycle divide) == endpoint (fromMaybe (error "empty list. wth?") $ safeLast lineSegs) ||
-                     if (pointOfFirstMotorcycle divide) == startPoint (head lineSegs)
-                     then False
-                     else error $ "wtf" -- elemIndex (fst $ segSetStartOfDivide lineSegSet divide) contourSegList `compare` elemIndex (fst $ segSetEndOfDivide lineSegSet divide) contourSegList == LT
-    remainingDivides = filter (\d -> d /= divide) divides
+    startBeforeEnd = pointOfFirstMotorcycle divide == endpoint (fromMaybe (error "empty list. wth?") $ safeLast lineSegs) ||
+                     pointOfFirstMotorcycle divide /= startPoint (head lineSegs) && error "could not use input cell to determine motorcycle direction."
+    remainingDivides = filter (/= divide) divides
     pointOfFirstMotorcycle (CellDivide (DividingMotorcycles m _) _) = ePointOf m
     contourSegs = slist contourSegList
     startPoint (LineSeg a _) = a
@@ -285,13 +254,13 @@ createCellFromStraightWalls (Slist [] _) _ = error "empty slist."
 createCellFromStraightWalls (Slist (_:_:_) _) _ = error "too many segsets."
 createCellFromStraightWalls _ [] = error "no celldivide."
 createCellFromStraightWalls _ (_:_:_) = error "too many celldivides."
-createCellFromStraightWalls segSetSlist@(Slist [segSet] _) [cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _) _) _)] = Cell (slist [(slist $ gatherLineSegs, Just cellDivide)])
+createCellFromStraightWalls segSetSlist@(Slist [segSet] _) [cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _) _) _)] = Cell (slist [(slist gatherLineSegs, Just cellDivide)])
   where
     -- |  Return the line segments we're responsible for straight skeletoning.
     gatherLineSegs :: [LineSeg]
     gatherLineSegs = if startBeforeEnd then beforeOpenSide else afterOpenSide
       where
-        startBeforeEnd = elemIndex (fst $ segSetStartOfDivide segSet cellDivide) segSet `compare` elemIndex (fst $ segSetEndOfDivide segSet cellDivide) segSet == LT
+        startBeforeEnd = elemIndex (fst $ startOfDivide segSet cellDivide) segSet < elemIndex (fst $ endOfDivide segSet cellDivide) segSet
 
     -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the former of the two segments (from the beginning of the contour).
     (motorcycleInSegment, eitherMotorcycleOutPoint) = fromMaybe (error "no intersections?") $ motorcycleMightIntersectWith segSet motorcycle
@@ -299,15 +268,14 @@ createCellFromStraightWalls segSetSlist@(Slist [segSet] _) [cellDivide@(CellDivi
     motorcycleOutSegment = case eitherMotorcycleOutPoint of
                              (Left point2) -> if point2 == endpoint motorcycleInSegment
                                               then segmentAfter motorcycleInSegment
-                                              else if point2 == (startPoint motorcycleInSegment)
+                                              else if point2 == startPoint motorcycleInSegment
                                                    then motorcycleInSegment
                                                    else error $ show point2 <> "\n" <> show segSet <> "\n" <> show motorcycleInSegment
                              (Right _) -> motorcycleInSegment
-    afterOpenSide   = takeWhile (\a -> a /= outSeg)                             $ dropWhile (\a -> a /= motorcycleOutSegment) segSet
-    beforeOpenSide   = takeWhile (\a -> a /= segmentAfter motorcycleOutSegment) $ dropWhile (\a -> a /= outSeg) segSet
-
+    afterOpenSide = takeWhile (/= outSeg)                             $ dropWhile (/= motorcycleOutSegment) segSet
+    beforeOpenSide = takeWhile (/= segmentAfter motorcycleOutSegment) $ dropWhile (/= outSeg) segSet
     segmentAfter :: LineSeg -> LineSeg
-    segmentAfter seg = fromMaybe (head $ slist $ head $ segSetSlist) $ segAfter seg segSet
+    segmentAfter seg = fromMaybe (head $ slist $ head segSetSlist) $ segAfter seg segSet
       where
         segAfter _ [] = Nothing
         segAfter _ [_] = Nothing
@@ -317,21 +285,21 @@ createCellFromStraightWalls segSetSlist@(Slist [segSet] _) [cellDivide@(CellDivi
     startPoint (LineSeg a _) = a
 
 -- Get the segment the divide intersects that is closest to the beginning of the list of a contour's line segments.
-segSetStartOfDivide :: [LineSeg] -> CellDivide -> (LineSeg, Either Point2 PPoint2)
-segSetStartOfDivide _ (CellDivide (DividingMotorcycles (Motorcycle (inSeg, (LineSeg start _)) _) _) _) = (inSeg, Left start)
+startOfDivide :: [LineSeg] -> CellDivide -> (LineSeg, Either Point2 PPoint2)
+startOfDivide _ (CellDivide (DividingMotorcycles (Motorcycle (inSeg,LineSeg start _) _) _) _) = (inSeg, Left start)
 
 -- Get the segment the divide intersects that is closest to the end of the list of a contour's line segments.
-segSetEndOfDivide :: [LineSeg] -> CellDivide -> (LineSeg, Either Point2 PPoint2)
-segSetEndOfDivide segSet divide = fromMaybe (error "missed!") $ endOfDivide segSet divide
+endOfDivide :: [LineSeg] -> CellDivide -> (LineSeg, Either Point2 PPoint2)
+endOfDivide segSet divide = fromMaybe (error "missed!") $ maybeEndOfDivide segSet divide
 
 -- | Get the segment and location on the segment the given divide intersects that is closest to the end of the list of a contour's line segments.
-endOfDivide :: [LineSeg] -> CellDivide -> Maybe (LineSeg, Either Point2 PPoint2)
-endOfDivide lineSegs (CellDivide (DividingMotorcycles m ms) maybeENode)
+maybeEndOfDivide :: [LineSeg] -> CellDivide -> Maybe (LineSeg, Either Point2 PPoint2)
+maybeEndOfDivide lineSegs (CellDivide (DividingMotorcycles m ms) maybeENode)
   | len ms == 0 = case maybeENode of
                     Nothing -> motorcycleMightIntersectWith lineSegs m
                     (Just eNode@(ENode (startSeg,_) _)) -> Just (startSeg, Left $ ePointOf eNode)
   -- FIXME: yes, this is woefully incomplete.
-  | len ms == 1 && maybeENode == Nothing = Just (startSegOfMotorcycle $ head ms, Left $ ePointOf $ head ms)
+  | len ms == 1 && isNothing maybeENode = Just (startSegOfMotorcycle $ head ms, Left $ ePointOf $ head ms)
   | otherwise = error "impossible situation finding the end of a straight divide."
   where
     startSegOfMotorcycle :: Motorcycle -> LineSeg

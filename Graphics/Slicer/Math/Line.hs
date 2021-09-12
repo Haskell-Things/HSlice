@@ -17,9 +17,6 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
--- for adding Generic and NFData to LineSeg.
-{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
-
 -- | The purpose of this file is to hold line segment arithmatic. really, we used to have a linear algebra implementation here, before we moved to PGA.
 module Graphics.Slicer.Math.Line (LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs, handleLineSegError) where
 

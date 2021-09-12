@@ -151,12 +151,11 @@ roundPoint2 (Point2 (x1,y1)) = Point2 (roundToFifth x1, roundToFifth y1)
 
 -- | like map, only with previous, current, and next item, and wrapping around so the first entry gets the last entry as previous, and vica versa.
 mapWithNeighbors :: (a -> a -> a -> b) -> [a] -> [b]
-mapWithNeighbors f l
-  | otherwise = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
+mapWithNeighbors f l = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
   where
     z = zs <> [fz]
     (fz, zs) = case uncons l of
-                 Nothing -> error "empty input list"
+                 Nothing -> error "Empty input list"
                  (Just (_,[])) -> error "too short of a list."
                  (Just vs) -> vs
     x = lx:xs
@@ -171,7 +170,7 @@ mapWithFollower f l = withStrategy (parList rpar) $ z `pseq` zipWith f l z
   where
     z = zs <> [fz]
     (fz, zs) = case uncons l of
-                 Nothing -> error "empty input list"
+                 Nothing -> error "Empty input list"
                  (Just (_,[])) -> error "too short of a list."
                  (Just vs) -> vs
 

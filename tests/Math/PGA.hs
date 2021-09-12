@@ -793,9 +793,9 @@ facetSpec = do
                                                               ]))
                               ]] (slist []))
     it "finds the motorcycles of our eigth simple shape." $
-      convexMotorcycles c7 --> [Motorcycle ((LineSeg (Point2 (0.5,1.0)) (Point2 (0.0,-1.0))), (LineSeg (Point2 (0.5,0.0)) (Point2 (-0.5,1.0))))
+      convexMotorcycles c7 --> [Motorcycle (LineSeg (Point2 (0.5,1.0)) (Point2 (0.0,-1.0)), LineSeg (Point2 (0.5,0.0)) (Point2 (-0.5,1.0)))
                                            (PLine2 (GVec [GVal 0.9472135954999579 (singleton (GEZero 1)), GVal (-1.8944271909999157) (singleton (GEPlus 1)), GVal (-0.4472135954999579) (singleton (GEPlus 2))]))
-                               ,Motorcycle ((LineSeg (Point2 (-1.0,0.0)) (Point2 (1.0,0.0))), (LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0))))
+                               ,Motorcycle (LineSeg (Point2 (-1.0,0.0)) (Point2 (1.0,0.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0)))
                                            (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
                                ]
     it "finds a CrashTree of our eigth simple shape." $
@@ -812,7 +812,7 @@ facetSpec = do
                           , LineSeg (Point2 (0.5,1.0)) (Point2 (0.0,-1.0))
                           ]
                    ,
-                     Just (CellDivide (DividingMotorcycles (Motorcycle ((LineSeg (Point2 (0.5,1.0)) (Point2 (0.0,-1.0))), (LineSeg (Point2 (0.5,0.0)) (Point2 (-0.5,1.0))))
+                     Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (0.5,1.0)) (Point2 (0.0,-1.0)), LineSeg (Point2 (0.5,0.0)) (Point2 (-0.5,1.0)))
                                                             (PLine2 (GVec [GVal 0.9472135954999579 (singleton (GEZero 1)), GVal (-1.8944271909999157) (singleton (GEPlus 1)), GVal (-0.4472135954999579) (singleton (GEPlus 2))])))
                                                            (slist []))
                                       Nothing
@@ -1120,6 +1120,6 @@ facetSpec = do
       -- A simple rectangle.
       rectangle = makePointContour [Point2 (-2,1), Point2 (-2,-1), Point2 (1,-1), Point2 (1,1)]
       cellFrom (Just (a,_)) = a
-      cellFrom (Nothing) = error "whoops"
+      cellFrom Nothing = error "whoops"
       remainderFrom (Just (_,a)) = a
-      remainderFrom (Nothing) = error "whoops"
+      remainderFrom Nothing = error "whoops"
