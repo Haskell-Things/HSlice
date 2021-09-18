@@ -130,7 +130,7 @@ intraNodeFace nodeTree1 nodeTree2
 -- | Create a set of faces from a single nodetree.
 -- FIXME: doesn't handle more than one generation deep, yet.
 facesOfNodeTree :: NodeTree -> [Face]
-facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
+facesOfNodeTree nodeTree@(NodeTree (Just myENodes) iNodeSet@(INodeSet generations))
   | isEmpty generations = []
   | otherwise = areaBeneath myENodes (ancestorsOf iNodeSet) $ finalINodeOf nodeTree
   where

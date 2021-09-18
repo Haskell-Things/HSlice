@@ -177,7 +177,7 @@ newtype INodeSet = INodeSet (Slist [INode])
   deriving stock Show
 
 -- | The complete graph of exterior nodes, and their interior intersection. note this may be for a cell, a contour, or the border between two cells.
-data NodeTree = NodeTree { _eNodes :: !ENodeSet, _iNodes :: !INodeSet }
+data NodeTree = NodeTree { _eNodes :: !(Maybe ENodeSet), _iNodes :: !INodeSet }
   deriving Eq
   deriving stock Show
 
@@ -241,9 +241,15 @@ linePairs c = mapWithFollower (,) $ lineSegsOfContour c
 
 -- | Get the output of the given nodetree. fails if the nodetree has no output.
 finalPLine :: NodeTree -> PLine2
-finalPLine (NodeTree (ENodeSet firstENode moreENodes) (INodeSet generations))
+finalPLine (NodeTree (Just (ENodeSet firstENode moreENodes)) (INodeSet generations))
   | isEmpty generations && len moreENodes == 0 = outOf firstENode
-  | isEmpty generations = error "cannot have final PLine of nodetree with more than one ENode, and no generations!\n"
+  | isEmpty generations = error "cannot have final PLine of NodeTree with more than one ENode, and no generations!\n"
+  | otherwise = outOf $ case safeLast generations of
+                          Nothing -> error "either infinite, or empty list"
+                          (Just [val]) -> val
+                          (Just _) -> error "too many items in final generation of INodeSet."
+finalPLine (NodeTree (Nothing) (INodeSet generations))
+  | isEmpty generations = error "cannot have final PLine of a NodeTree that is completely empty!"
   | otherwise = outOf $ case safeLast generations of
                           Nothing -> error "either infinite, or empty list"
                           (Just [val]) -> val

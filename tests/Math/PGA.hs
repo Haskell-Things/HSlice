@@ -836,6 +836,26 @@ facetSpec = do
                                                                         (slist []))
                                                                         Nothing])]
                              )]
+    it "finds the second cell of our eigth simple shape." $
+      cellFrom (findNextCell $ head $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []) -->
+      Cell (slist [
+                   (slist [LineSeg (Point2 (0.5,0.0)) (Point2 (-0.5,1.0))],Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (-1.0,0.0)) (Point2 (1.0,0.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0)))
+                                                                                                                       (PLine2 (GVec [GVal 1.0 (fromList [GEPlus 1]),GVal (-1.0) (fromList [GEPlus 2])])))
+                                                                                      (slist []))
+                                                                                            Nothing)),
+                   (slist [ LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0))
+                          , LineSeg (Point2 (0.0,-1.0)) (Point2 (1.0,0.0))],Nothing)
+                  ])
+    it "finds the remainder of the second cell our eigth simple shape." $
+      remainderFrom (findNextCell $ head $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []) -->
+      Just [RemainingContour (slist [(slist [
+                                              LineSeg (Point2 (0.5,0.0)) (Point2 (-0.5,1.0))
+                                            , LineSeg (Point2 (0.0,1.0)) (Point2 (-1.0,0.0))
+                                            , LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-1.0))
+                                            , LineSeg (Point2 (-1.0,0.0)) (Point2 (1.0,0.0))
+                                            , LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0))
+                                            ]
+                                     , Nothing)])]
 {-    it "finds the straight skeleton of our eigth simple shape." $
       findStraightSkeleton c7 [] --> Just (StraightSkeleton [[ makeNodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (0.5,-1.0)), LineSeg (Point2 (0.5,-1.0)) (Point2 (0.5,0.0)))
                                                                               (PLine2 (GVec [GVal (-0.9510565162951536) (singleton (GEZero 1)), GVal 0.8506508083520399 (singleton (GEPlus 1)), GVal (-0.5257311121191337) (singleton (GEPlus 2))]))

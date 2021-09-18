@@ -66,7 +66,7 @@ getNodeTreeOfCell (Cell (Slist [(Slist extSegs _, Just divide)] _))
     res = skeletonOfConcaveRegion extSegs
 getNodeTreeOfCell _ = error "unsupported."
 
--- | find the divisions of a given contour. Divisions are points where motorcycles cross the contour.
+-- | find the divisions of a given contour without holes. Divisions are points where motorcycles cross the contour.
 findDivisions :: Contour -> CrashTree -> [CellDivide]
 findDivisions contour crashTree = case motorcyclesIn crashTree of
                                     (Slist [] _) -> []
@@ -99,7 +99,6 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
     opposingNodes :: Contour -> Motorcycle -> [ENode]
     opposingNodes c m = filter (\eNode -> plinesIntersectIn (outOf eNode) (outOf m) == PAntiCollinear) $ eNodesOfOutsideContour c
 
--- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
 -- | Find a single Cell of the given contour. always finds the cell on the 'open end' of the contour.
 findFirstCellOfContour :: Contour -> [CellDivide] -> Maybe (Cell, Maybe [RemainingContour])
 findFirstCellOfContour contour divides =
@@ -254,14 +253,27 @@ createCellFromStraightWalls (Slist [] _) _ = error "empty slist."
 createCellFromStraightWalls (Slist (_:_:_) _) _ = error "too many segsets."
 createCellFromStraightWalls _ [] = error "no celldivide."
 createCellFromStraightWalls _ (_:_:_) = error "too many celldivides."
-createCellFromStraightWalls segSetSlist@(Slist [segSet] _) [cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _) _) _)] = Cell (slist [(slist gatherLineSegs, Just cellDivide)])
+createCellFromStraightWalls segSetSlist@(Slist [segSet] _) [cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _) _) _)]
+  | len segSetSlist < 1 = error "recieved a single segment. unpossible."
+  | segsAreClosed (slist $ head segSetSlist) = Cell (slist [(slist gatherLineSegsAfterDivide, Just cellDivide)])
+  | otherwise = Cell (slist [(slist gatherLineSegsPreceedingDivide, Just cellDivide),
+                             (slist gatherLineSegsFollowingDivide, Nothing)])
   where
-    -- |  Return the line segments we're responsible for straight skeletoning.
-    gatherLineSegs :: [LineSeg]
-    gatherLineSegs = if startBeforeEnd then beforeOpenSide else afterOpenSide
-      where
-        startBeforeEnd = elemIndex (fst $ startOfDivide segSet cellDivide) segSet < elemIndex (fst $ endOfDivide segSet cellDivide) segSet
-
+    segsAreClosed mySegs = startPoint (head mySegs) == endpoint (last mySegs)
+    -- |  Return the line segments preceeding the first divide, from the opening.
+    gatherLineSegsPreceedingDivide = if startBeforeEnd
+                                     then takeWhile (/= outSeg) segSet
+                                     else  takeWhile (/= segmentAfter motorcycleOutSegment) segSet
+    -- |  Return the line segments following the first divide, toward the opening.
+    gatherLineSegsFollowingDivide = if startBeforeEnd
+                                    then dropWhile (/= motorcycleOutSegment) segSet
+                                    else dropWhile (/= outSeg) segSet
+    -- |  Return the line segments after the first divide.
+    gatherLineSegsAfterDivide = if startBeforeEnd
+                                then takeWhile (/= segmentAfter motorcycleOutSegment) $ dropWhile (/= outSeg) segSet
+                                else takeWhile (/= outSeg)                            $ dropWhile (/= motorcycleOutSegment) segSet
+    -- | determine the direction of a divide.
+    startBeforeEnd = elemIndex (fst $ startOfDivide segSet cellDivide) segSet < elemIndex (fst $ endOfDivide segSet cellDivide) segSet
     -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the former of the two segments (from the beginning of the contour).
     (motorcycleInSegment, eitherMotorcycleOutPoint) = fromMaybe (error "no intersections?") $ motorcycleMightIntersectWith segSet motorcycle
     -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the latter of the two segments (from the beginning of the contour).
@@ -272,8 +284,6 @@ createCellFromStraightWalls segSetSlist@(Slist [segSet] _) [cellDivide@(CellDivi
                                                    then motorcycleInSegment
                                                    else error $ show point2 <> "\n" <> show segSet <> "\n" <> show motorcycleInSegment
                              (Right _) -> motorcycleInSegment
-    afterOpenSide = takeWhile (/= outSeg)                             $ dropWhile (/= motorcycleOutSegment) segSet
-    beforeOpenSide = takeWhile (/= segmentAfter motorcycleOutSegment) $ dropWhile (/= outSeg) segSet
     segmentAfter :: LineSeg -> LineSeg
     segmentAfter seg = fromMaybe (head $ slist $ head segSetSlist) $ segAfter seg segSet
       where

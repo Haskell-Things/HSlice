@@ -202,7 +202,7 @@ contourContainsContour parent child = odd noIntersections
 contourContainedByContour :: Contour -> Contour -> Bool
 contourContainedByContour child parent = contourContainsContour parent child
 
--- Search the given sequential list of lines (assumedly generated from a contour), and return the line after this one.
+-- | Search the given sequential list of lines (assumedly generated from a contour), and return the line after this one.
 followingLineSeg :: [LineSeg] -> LineSeg -> LineSeg
 followingLineSeg x = followingLineSegLooped x x
   where
@@ -255,7 +255,7 @@ contourIntersectionCount contour endPoints = length $ getIntersections contour e
         saneIntersection (seg, Left (HitEndPoint   _ _)) (seg2, Left (HitStartPoint _ point))  _                                = Just (seg, Just seg2, eToPPoint2 point)
         saneIntersection res1 res2 res3 = error $ "insane result of intersecting a line (" <> show (lineFromPoints pts) <> ") with a contour: " <> show c <> "\n" <> show res1 <> "\n" <> show res2 <> "\n" <> show res3 <> "\n"
 
--- Utility functions for contours. moving here for migration.
+-- | return the contour as a list of points.
 pointsOfContour :: Contour -> [Point2]
 pointsOfContour (PointContour _ _ p1 p2 p3 pts@(Slist vals _))
   | size pts == Infinity = error "cannot handle infinite contours."

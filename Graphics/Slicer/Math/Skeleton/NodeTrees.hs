@@ -61,7 +61,8 @@ pathLast nodeTree = pathTo nodeTree Last
 
 -- | Find all of the Nodes and all of the arcs between the last item in the nodeTree and the node that is part of the original contour on the given side.
 pathTo :: NodeTree -> Direction -> ([PLine2], [INode], ENode)
-pathTo nodeTree@(NodeTree eNodeList@(ENodeSet firstENode _) iNodeSet@(INodeSet generations)) direction
+pathTo (NodeTree Nothing _) _ = error "unable to pathTo a Nodetree without ENodes."
+pathTo nodeTree@(NodeTree (Just eNodeList@(ENodeSet firstENode _)) iNodeSet@(INodeSet generations)) direction
   | isEmpty generations = ([outOf firstENode], [], firstENode)
   | otherwise = pathInner (ancestorsOf iNodeSet) eNodeList (finalINodeOf nodeTree)
   where
@@ -115,9 +116,12 @@ sortNodeTrees = sortBy compareNodeTrees
     -- Our reference pline. negative on the Y axis.
     referencePLine2 = eToPLine2 $ LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0))
     outOfFinalNode :: NodeTree -> PLine2
-    outOfFinalNode nt@(NodeTree (ENodeSet firstENode _) (INodeSet iNodes))
+    outOfFinalNode nt@(NodeTree eNodes (INodeSet iNodes))
       | len iNodes > 0 = outOf $ finalINodeOf nt
-      | otherwise = outOf firstENode
+      | otherwise = case eNodes of
+                      Nothing -> error "no nodes?"
+                      (Just (ENodeSet a (Slist [] _))) -> outOf a
+                      _ -> error "too many ENodes."
 
 -----------------------------------------------------------------------------
 -- dependent utility functions. used by internal components. not exported. --
@@ -143,5 +147,5 @@ findINodeByOutput iNodeSet@(INodeSet generations) plineOut recurse
 makeNodeTree :: [ENode] -> INodeSet -> NodeTree
 makeNodeTree eNodes iNodeSet = case eNodes of
                                   [] -> error "not enough nodes to make a nodeTree"
-                                  [eNode] -> NodeTree (ENodeSet eNode (slist [])) iNodeSet
-                                  (eNode:moreENodes) -> NodeTree (ENodeSet eNode (slist moreENodes)) iNodeSet
+                                  [eNode] -> NodeTree (Just $ ENodeSet eNode (slist [])) iNodeSet
+                                  (eNode:moreENodes) -> NodeTree (Just $ ENodeSet eNode (slist moreENodes)) iNodeSet
