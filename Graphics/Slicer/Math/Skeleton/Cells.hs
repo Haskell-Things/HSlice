@@ -196,13 +196,24 @@ data AtOrAround = At
 -- | use a single straight division to find the portion of a contour remaining after a cell has been cut out.
 findRemainder :: Cell -> [LineSeg] -> [CellDivide] -> RemainingContour
 findRemainder (Cell (Slist [] _)) _ _ = error "not enough"
-findRemainder (Cell (Slist (_:_:_) _)) _ _ = error "too much"
+findRemainder (Cell (Slist (_:_:_:_) _)) _ _ = error "too much"
 findRemainder (Cell (Slist [(_, Nothing)] _)) _ _ = error "nonsensical"
-findRemainder (Cell (Slist [(lineSegs, Just divide)] _)) contourSegList divides
-  | lineSegs == slist [] = error "given an empty cell?"
-  | startBeforeEnd = RemainingContour $ slist [(remainingSegsForward (last lineSegs) (head lineSegs), remainingDivides)]
-  | otherwise = RemainingContour $ slist [(remainingSegsBackward (head lineSegs) (last lineSegs), remainingDivides)]
+findRemainder (Cell segSets) contourSegList divides
+  | len segSets == 1 = if startBeforeEnd
+                       then RemainingContour $ slist [(remainingSegsForward (last $ firstSegSet) (head $ firstSegSet), remainingDivides)]
+                       else RemainingContour $ slist [(remainingSegsBackward (head $ firstSegSet) (last $ firstSegSet), remainingDivides)]
+  | len segSets == 2 = if startBeforeEnd
+                       then RemainingContour $ slist [(remainingSegsForward (last $ firstSegSet) (head $ lastSegSet), remainingDivides)]
+                       else RemainingContour $ slist [(remainingSegsBackward (head $ lastSegSet) (last $ firstSegSet), remainingDivides)]
   where
+    divide
+      | len segSets < 3 = divideOfSegSet $ head segSets
+    lastSegSet = lineSegsOfSegSet $ last segSets
+    firstSegSet = lineSegsOfSegSet $ head segSets
+    lineSegsOfSegSet :: (Slist LineSeg, Maybe CellDivide) -> Slist LineSeg
+    lineSegsOfSegSet = fst
+    divideOfSegSet :: (Slist LineSeg, Maybe CellDivide) -> CellDivide
+    divideOfSegSet (_, maybeCellDivide) = fromMaybe (error "no divide") maybeCellDivide 
     remainingSegsForward trimStart trimEnd = case atOrAround trimEnd of
                                                Before ->
                                                  slist $ takeWhile (/= trimEnd)                                $ dropWhile (/= segmentAfter trimStart) (contourSegList ++ contourSegList)
@@ -232,14 +243,17 @@ findRemainder (Cell (Slist [(lineSegs, Just divide)] _)) contourSegList divides
             | y == mySeg = Just x
             | otherwise = segBefore mySeg (y:xs)
     atOrAround seg@(LineSeg start _) = case maybeEndOfDivide [seg] divide of
-                                         Nothing -> error $ "missed!\n" <> show contourSegs <> "\n" <> show divide <> "\n" <> show lineSegs <> "\n" <> show seg <> "\n"
+                                         Nothing -> error $ "missed!\n" <> show contourSegs <> "\n" <> show divide <> "\n" <> show segSets <> "\n" <> show seg <> "\n"
                                          (Just (_, Left pt)) -> if pt == start
                                                                 then Before
                                                                 else After
                                          (Just (_, Right _)) -> At
     -- | use the found cell and the motorcycle to determine what direction the motorcycle is going.
-    startBeforeEnd = pointOfFirstMotorcycle divide == endpoint (fromMaybe (error "empty list. wth?") $ safeLast lineSegs) ||
-                     pointOfFirstMotorcycle divide /= startPoint (head lineSegs) && error "could not use input cell to determine motorcycle direction."
+    startBeforeEnd
+      | len segSets == 1 = pointOfFirstMotorcycle divide == endpoint (fromMaybe (error "empty list. wth?") $ safeLast firstSegSet) ||
+                           pointOfFirstMotorcycle divide /= startPoint (head firstSegSet) && error "could not use input cell to determine motorcycle direction."
+      | len segSets == 2 = pointOfFirstMotorcycle divide == endpoint (fromMaybe (error "empty list. wth?") $ safeLast firstSegSet) ||
+                           pointOfFirstMotorcycle divide /= startPoint (head lastSegSet) && error "could not use input cell to determine motorcycle direction."
     remainingDivides = filter (/= divide) divides
     pointOfFirstMotorcycle (CellDivide (DividingMotorcycles m _) _) = ePointOf m
     contourSegs = slist contourSegList
