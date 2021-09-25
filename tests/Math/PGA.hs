@@ -26,6 +26,8 @@ import Prelude (($), Bool(True, False), (<$>), error, head, sqrt)
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith)
 
+import Data.Either (Either(Right))
+
 import Data.List (foldl')
 
 import Data.Maybe (fromMaybe, Maybe(Just, Nothing), fromJust)
@@ -55,7 +57,7 @@ import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
 import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
 -- Our Facet library.
-import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
+import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell, getNodeTreeOfCell)
 import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENodes, averageNodes, eNodesOfOutsideContour)
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell))
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
@@ -352,31 +354,46 @@ facetSpec = do
       getFirstArc (LineSeg (Point2 (0,1.0)) (Point2 (0.0,-1.0))) (LineSeg (Point2 (0,0)) (Point2 (1.0,-1.0))) --> PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
     it "finds the inside arc of a 135 degree angle(to the right)" $
       getFirstArc (LineSeg (Point2 (0,1.0)) (Point2 (0.0,-1.0))) (LineSeg (Point2 (0,0)) (Point2 (-1.0,-1.0))) --> PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
-    it "finds the inside arc of a given pair of line segments (first corner of c2)" $
-      makeENodes corner1 --> [ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0)))
-                                    (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal (-0.3826834323650897) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
-                             ]
-    it "finds the inside arc of a given pair of line segments (second corner of c2)" $
-      makeENodes corner2 --> [ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)))
-                                    (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 2))]))
-                             ]
-    it "finds the inside arc of a given pair of line segments (third corner of c2)" $
-      makeENodes corner3 --> [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)))
-                                    (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
-                             ]
-    it "finds the inside arc of a given pair of line segments (fourth corner of c2)" $
-      makeENodes corner4 --> [ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0)))
-                                    (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                             ]
+    it "finds the inside arc of the first corner of c2" $
+      makeENodes c2c1 --> [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
+                                 (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal (-0.3826834323650897) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
+                          ]
+    it "finds the inside arc of the second corner of c2" $
+      makeENodes c2c2 --> [ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,-0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
+                                 (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                          ]
+    it "finds the inside arc of the third corner of c2" $
+      makeENodes c2c3 --> [ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
+                                 (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                          ]
+    it "finds the inside arc of the fourth corner of c2" $
+      makeENodes c2c4 --> [ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0)))
+                                 (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
+                          ]
     it "finds the arc resulting from a node at the intersection of the outArc of two nodes (corner3 and corner4 of c2)" $
-      averageNodes corner3E1 corner4E1 --> INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                                 (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
-                                                 (slist [])
+      averageNodes c2c3E1 c2c4E1 --> INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                           (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
+                                           (slist [])
                                            (Just (PLine2 (GVec [GVal 0.4870636221857319 (singleton (GEZero 1)), GVal 0.9807852804032305 (singleton (GEPlus 1)), GVal 0.19509032201612836 (singleton (GEPlus 2))])))
+    it "finds the outside arc of two PLines intersecting at 90 degrees (c2)" $
+      averageNodes c2c2E1 c2c3E1 --> INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                           (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                           (slist [])
+                                           (Just (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 2))])))
+    it "finds the outside arc of two PLines intersecting at 90 degrees (c2)" $
+      averageNodes c2c3E1 c2c2E1 --> INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                           (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                           (slist [])
+                                           (Just (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 2))])))
+    it "finds the outside arce of two PLines intersecting at 90 degrees (c7)" $
+      averageNodes c7c1E1 c7c2E1 --> INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+                                           (PLine2 (GVec [GVal (1.0606601717798212) (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                           (slist [])
+                                           (Just (PLine2 (GVec [GVal 0.75 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))])))
   describe "Motorcycles (Skeleton/Motorcycles)" $ do
     it "finds one convex motorcycle in a simple shape" $
       convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (PLine2 (GVec [GVal 1.414213562373095 (singleton (GEPlus 1))]))]
-  describe "Straight Skeletons (skeleton/Tscherne)" $ do
+  describe "Cells (Skeleton/Cells)" $ do
     it "finds the first cell of our first simple shape." $
       cellFrom (findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []) -->
         Cell (slist [(slist [
@@ -841,7 +858,7 @@ facetSpec = do
       Cell (slist [
                    (slist [LineSeg (Point2 (0.5,0.0)) (Point2 (-0.5,1.0))],Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (-1.0,0.0)) (Point2 (1.0,0.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0)))
                                                                                                                        (PLine2 (GVec [GVal 1.0 (fromList [GEPlus 1]),GVal (-1.0) (fromList [GEPlus 2])])))
-                                                                                      (slist []))
+                                                                                            (slist []))
                                                                                             Nothing)),
                    (slist [ LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0))
                           , LineSeg (Point2 (0.0,-1.0)) (Point2 (1.0,0.0))],Nothing)
@@ -856,6 +873,40 @@ facetSpec = do
                                             ]
                                      , [])]
                              )]
+    it "finds the third cell of our eigth simple shape." $
+      cellFrom (findNextCell $ head $ fromJust $ remainderFrom $ findNextCell $ head $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []) -->
+      Cell (slist [
+                   (slist [
+                                              LineSeg (Point2 (0.5,0.0)) (Point2 (-0.5,1.0))
+                                            , LineSeg (Point2 (0.0,1.0)) (Point2 (-1.0,0.0))
+                                            , LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-1.0))
+                                            , LineSeg (Point2 (-1.0,0.0)) (Point2 (1.0,0.0))
+                                            ], Nothing)
+                  ])
+    it "finds the NodeTree of the first cell of our eigth simple shape." $
+      getNodeTreeOfCell (cellFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []) -->
+      Right (makeNodeTree [ ENode (LineSeg (Point2 (0.0,-1.0)) (Point2 (1.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
+                                  (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+                          , ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-0.5,0.0)))
+                                  (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+                          , ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-0.5,0.0)), LineSeg (Point2 (0.5,1.0)) (Point2 (0.0,-1.0)))
+                                  (PLine2 (GVec [GVal 1.0606601717798212 (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                          ]
+                          (INodeSet (slist [
+                                            [ INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+                                                    (PLine2 (GVec [GVal 1.0606601717798212 (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                                    (slist [])
+                                              (Just (PLine2 (GVec [GVal 0.75 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))])))
+                                            ],
+                                            [INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+                                                    (PLine2 (GVec [GVal 0.75 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
+                                                    (slist [])
+                                              (Just (PLine2 (GVec [GVal 0.9799222236572825 (singleton (GEZero 1)), GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])))
+                                            ]
+                                           ]
+                                    )
+                          )
+            )
 {-    it "finds the straight skeleton of our eigth simple shape." $
       findStraightSkeleton c7 [] --> Just (StraightSkeleton [[ makeNodeTree [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (0.5,-1.0)), LineSeg (Point2 (0.5,-1.0)) (Point2 (0.5,0.0)))
                                                                               (PLine2 (GVec [GVal (-0.9510565162951536) (singleton (GEZero 1)), GVal 0.8506508083520399 (singleton (GEPlus 1)), GVal (-0.5257311121191337) (singleton (GEPlus 2))]))
@@ -1116,22 +1167,38 @@ facetSpec = do
       c5 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (2,0), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
       c6 = makePointContour [Point2 (-1,-1), Point2 (-0.5,-1), Point2 (0,0), Point2 (0.5,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       c7 = makePointContour [Point2 (0,-1), Point2 (1,-1), Point2 (1,1), Point2 (0.5,1), Point2 (0.5,0), Point2 (0,1), Point2 (-1,1), Point2 (-1,0), Point2 (0,0)]
-      -- The next corners are part of a square around the origin with a piece missing: (think: c2 from above)
+      -- The next corners are part of a 2x2 square around the origin with a piece missing: (c2 from above)
       --    __  <-- corner 1
       --   | /
       --   | \
       --   ~~~  <-- corner 3
       --   ^-- corner 4
-      -- the top side, and the entry to the convex angle of a 2x2 square around the origin, with a slice missing.
-      corner1 = [ LineSeg (Point2 (-1.0,1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0))]
-      -- the entry and the exit to the convex angle of a 2x2 square around the origin, with a slice missing.
-      corner2 = [ LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))]
-      -- the exit to the convex angle and the bottom of a 2x2 square around the origin, with a slice missing.
-      corner3 = [ LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))]
-      corner3E1 = ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)) ,LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0))) (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)),GVal 0.9238795325112867 (singleton (GEPlus 2))]))
-      -- the bottom and the left side of a 2x2 square around the origin, with a slice missing.
-      corner4 = [ LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))]
-      corner4E1 = ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (-2.0,0.0)),LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,2.0))) (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+      -- the exit of the convex angle and the top
+      c2c1 = [ LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0))]
+      -- the top and the left side.
+      c2c2 = [ LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0))]
+      c2c2E1 = ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)),LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
+                     (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+      -- the left and the bottom side.
+      c2c3 = [ LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0))]
+      c2c3E1 = ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)),LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
+                     (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+      -- the bottom and the entrance to the wedge.
+      c2c4 = [ LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0))]
+      -- the bottom and the entrance to the convex angle.
+      c2c4E1 = ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)) ,LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0)))
+                     (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)),GVal 0.9238795325112867 (singleton (GEPlus 2))]))
+      -- The next corners are part of a 2x2 square around the origin with a slice and a corner missing: (c7 from above)
+      --        v----- corner 2
+      --  ┌───┐ ┌─┐<-- corner 1
+      --  │    \│ │
+      --  └───┐   │
+      --      │   │
+      --      └───┘
+      c7c1E1 = ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-0.5,0.0)))
+                     (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+      c7c2E1 = ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-0.5,0.0)), LineSeg (Point2 (0.5,1.0)) (Point2 (0.0,-1.0)))
+                     (PLine2 (GVec [GVal (1.0606601717798212) (singleton (GEZero 1)),GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
       -- A simple triangle.
       triangle = makePointContour [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
       trianglel0 = LineSeg (Point2 (2,0)) (Point2 (-1.0,sqrt 3))
