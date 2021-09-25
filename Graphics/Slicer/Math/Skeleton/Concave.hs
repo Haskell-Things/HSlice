@@ -27,7 +27,7 @@
 {-# LANGUAGE TupleSections #-}
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, makeENodes, averageNodes, eNodesOfOutsideContour) where
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (<$>), (==), (++), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id, zip)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<$>), (==), (++), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id, zip)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
@@ -47,7 +47,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
 import Graphics.Slicer.Math.Line (lineSegFromEndpoints, handleLineSegError, endpoint)
 
-import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), INodeSet(INodeSet), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, pPointOf, isAntiCollinear, isCollinear, getPairs, isParallel, linePairs)
 
@@ -308,11 +308,11 @@ getOutsideArc point1 pline1 point2 pline2
       l2TowardPoint = towardIntersection point2 pline2 (intersectionOf pline1 pline2)
 
 -- Determine if the line segment formed by the two given points starts with the first point, or the second.
--- Note: PLine must be normalized.
+-- Note that due to numeric uncertainty, we cannot use Eq here, and must check the sign of the angle.
 towardIntersection :: Point2 -> PLine2 -> PPoint2 -> Bool
 towardIntersection p1 pl1 in1
   | p1 == pToEPoint2 in1                                  = False
-  | normalizePLine2 (eToPLine2 constructedLineSeg) == pl1 = True
+  | angleBetween (eToPLine2 constructedLineSeg) pl1 > 0   = True
   | otherwise                                             = False
   where
     constructedLineSeg :: LineSeg
