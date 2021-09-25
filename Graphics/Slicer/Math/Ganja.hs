@@ -48,17 +48,19 @@
  -}
 module Graphics.Slicer.Math.Ganja (toGanja, dumpGanja, dumpGanjas) where
 
-import Prelude (String, (<>), (++), (<$>), ($), (>=), concat, error, fst, show, snd, zip)
+import Prelude (String, (<>), (++), (<$>), ($), (>=), (==), concat, error, fst, otherwise, show, snd, zip)
 
-import Data.Maybe(maybeToList, Maybe(Nothing))
+import Data.Maybe (Maybe(Nothing), fromMaybe, isJust, maybeToList)
 
 import Numeric(showFFloat)
 
 import Slist.Type (Slist(Slist))
 
+import Slist (last)
+
 import Graphics.Slicer.Math.Contour (pointsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), Contour, mapWithFollower)
+import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg(LineSeg), mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf)
 
@@ -66,7 +68,7 @@ import Graphics.Slicer.Math.Line (endpoint)
 
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2))
 
-import Graphics.Slicer.Math.Skeleton.Definitions(ENode(ENode), INode(INode), Motorcycle(Motorcycle))
+import Graphics.Slicer.Math.Skeleton.Definitions(ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree))
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
@@ -185,6 +187,35 @@ instance GanjaAble Face where
           pairs        = zip (toGanja edge : allPLines) allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
           allPLines    = toGanja <$> ([firstArc] ++ arcs ++ [lastArc])
+
+instance GanjaAble NodeTree where
+  toGanja (NodeTree maybeENodeSet iNodeSet) varname = (invars, inrefs)
+    where
+      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+        where
+          res          = (\(a,b) -> a (varname <> b)) <$> pairs
+          pairs        = zip (allEdges ++ allINodes) allStrings
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
+          allEdges     = toGanja <$> (firstLine ++ remainingLines)
+          allINodes    = toGanja <$> iNodesOf iNodeSet
+          firstLine
+            | isJust maybeENodeSet = case fromMaybe (error "impossible, factor out") maybeENodeSet of
+                                       (ENodeSet firstNode (Slist [] _)) -> [inLine firstNode]
+                                       (ENodeSet firstNode otherNodes) -> if inLine firstNode == outLine (last otherNodes)
+                                                                          then []
+                                                                          else [inLine firstNode]
+            | otherwise = []
+            where
+              inLine (ENode (a,_) _) = a
+          remainingLines
+            | isJust maybeENodeSet = outLine <$> eNodesOf (fromMaybe (error "impossible, factor out") maybeENodeSet)
+            | otherwise = []
+            where
+              eNodesOf (ENodeSet first (Slist more _)) = first : more
+          outLine (ENode (_,a) _)  = a
+          iNodesOf :: INodeSet -> [INode]
+          iNodesOf (INodeSet (Slist inodes _)) = concat inodes
+
 
 -- | Create a single program, covering a series of objects.
 dumpGanjas :: [String -> (String, String)] -> String
