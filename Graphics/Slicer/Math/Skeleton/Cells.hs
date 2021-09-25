@@ -19,9 +19,12 @@
 -- for deriving stock.
 {-# LANGUAGE DerivingStrategies #-}
 
+-- for making (,thing) a function
+{-# LANGUAGE TupleSections #-}
+
 -- |  This file contains the entry point for the logic and routines required for dividing
 --    a contour into cells.
-module Graphics.Slicer.Math.Skeleton.Cells (RemainingContour, findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell, nodeTreesDoNotOverlap, addNodeTreesOnDivide) where
+module Graphics.Slicer.Math.Skeleton.Cells (RemainingContour, UnsupportedReason(INodeCrossesDivide), findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell, nodeTreesDoNotOverlap, addNodeTreesOnDivide) where
 
 import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, elem, filter, null, otherwise, ($), (<$>), (==), (++), error, (<>), show, (&&), compare, concat, (/=), (||), (<), fst, snd)
 
@@ -39,12 +42,13 @@ import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, skeletonOf
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), StraightSkeleton, INode, ePointOf, finalPLine, intersectionOf, outOf)
 
+import Graphics.Slicer.Math.Ganja (dumpGanja)
+
 import Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcyclesInDivision, intersectionSameSide, lastCrashType, motorcyclesAreAntiCollinear, motorcycleToENode, motorcycleMightIntersectWith)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeTree, sortNodeTrees)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
-
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2)
 
@@ -52,7 +56,7 @@ import Graphics.Slicer.Math.Line (endpoint, handleLineSegError, lineSegFromEndpo
 
 import Graphics.Slicer.Math.PGA (PPoint2, PIntersection(PAntiCollinear), angleBetween, distanceBetweenPPoints, eToPLine2, eToPPoint2, pToEPoint2, plinesIntersectIn)
 
-newtype UnsupportedReason = INodeCrossesDivide [CellDivide]
+data UnsupportedReason = INodeCrossesDivide [(INode,CellDivide)] NodeTree
   deriving (Show, Eq)
 
 -- | get a naieve node tree for a given cell.
@@ -61,7 +65,7 @@ getNodeTreeOfCell :: Cell -> Either UnsupportedReason NodeTree
 getNodeTreeOfCell (Cell (Slist [(Slist extSegs _, Nothing)] _)) = Right $ skeletonOfConcaveRegion extSegs
 getNodeTreeOfCell (Cell (Slist [(Slist extSegs _, Just divide)] _))
   | null $ crossoverINodes res divide = Right res
-  | otherwise = Left $ INodeCrossesDivide [divide]
+  | otherwise = Left $ INodeCrossesDivide ((,divide) <$> crossoverINodes res divide) (error $ dumpGanja res)
   where
     res = skeletonOfConcaveRegion extSegs
 getNodeTreeOfCell _ = error "unsupported."
@@ -213,14 +217,14 @@ findRemainder (Cell segSets) contourSegList divides
     lineSegsOfSegSet :: (Slist LineSeg, Maybe CellDivide) -> Slist LineSeg
     lineSegsOfSegSet = fst
     divideOfSegSet :: (Slist LineSeg, Maybe CellDivide) -> CellDivide
-    divideOfSegSet (_, maybeCellDivide) = fromMaybe (error "no divide") maybeCellDivide 
+    divideOfSegSet (_, maybeCellDivide) = fromMaybe (error "no divide") maybeCellDivide
     remainingSegsForward trimStart trimEnd = case atOrAround trimEnd of
                                                Before ->
-                                                 slist $ takeWhile (/= trimEnd)                                $ dropWhile (/= segmentAfter trimStart) (contourSegList ++ contourSegList)
+                                                 slist $ takeWhile (/= trimEnd)                               $ dropWhile (/= segmentAfter trimStart) (contourSegList ++ contourSegList)
                                                At ->
-                                                 slist $ takeWhile (/= segmentAfter trimEnd)                   $ dropWhile (/= segmentAfter trimStart) (contourSegList ++ contourSegList)
+                                                 slist $ takeWhile (/= segmentAfter trimEnd)                  $ dropWhile (/= segmentAfter trimStart) (contourSegList ++ contourSegList)
                                                After ->
-                                                 slist $ takeWhile (/= (segmentAfter $ segmentAfter trimEnd))  $ dropWhile (/= segmentAfter trimStart) (contourSegList ++ contourSegList)
+                                                 slist $ takeWhile (/= (segmentAfter $ segmentAfter trimEnd)) $ dropWhile (/= segmentAfter trimStart) (contourSegList ++ contourSegList)
     remainingSegsBackward trimStart trimEnd = case atOrAround trimEnd of
                                                 Before ->
                                                   slist $ takeWhile (/= trimStart) $ dropWhile (/= segmentBefore trimEnd) (contourSegList ++ contourSegList)

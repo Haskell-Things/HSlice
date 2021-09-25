@@ -20,7 +20,7 @@
 --    a Straight Skeleton of a contour, with a set of sub-contours cut out of it.
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (($), (<>), (<$>), error, null, not, show, head)
+import Prelude (($), (<>), (<$>), (.), error, null, not, show, head, fst, concat)
 
 import Data.Either (Either(Left, Right), lefts, rights)
 
@@ -30,7 +30,9 @@ import Slist (slist)
 
 import Graphics.Slicer.Math.Definitions (Contour)
 
-import Graphics.Slicer.Math.Skeleton.Cells (addNodeTreesOnDivide, getNodeTreeOfCell, findFirstCellOfContour, findNextCell, findDivisions)
+import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
+
+import Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason(INodeCrossesDivide), addNodeTreesOnDivide, getNodeTreeOfCell, findFirstCellOfContour, findNextCell, findDivisions)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton))
 
@@ -72,6 +74,17 @@ findStraightSkeleton contour holes =
                                      (Just (secondCell,_)) = findNextCell (head remainder)
                                      remainder = fromMaybe (error $ "no remainder?\n" <> show firstCell <> "\n") maybeRemainder
                                      (Just (firstCell,maybeRemainder)) = findFirstCellOfContour contour [division]
+                                 [div1,div2] ->if null (lefts $ getNodeTreeOfCell <$> cells)
+                                               then Just $ addNodeTreesOnDivide firstNodeTree secondNodeTree div1
+                                               else error $ show (dumpGanjas $ concat $ (\(INodeCrossesDivide vals _) -> toGanja.fst <$> vals) <$> lefts (getNodeTreeOfCell <$> cells)) <> "\n" <> show div1 <> "\n" <> show div2 <> "\n"
+                                   where
+                                     [firstNodeTree, secondNodeTree, thirdNodeTree] = rights $ getNodeTreeOfCell <$> cells
+                                     cells = [firstCell, secondCell, thirdCell]
+                                     firstRemainder = fromMaybe (error $ "no remainder?\n" <> show firstCell <> "\n") maybeFirstRemainder
+                                     secondRemainder = fromMaybe (error $ "no remainder?\n" <> show secondCell <> "\n") maybeSecondRemainder
+                                     (Just (thirdCell,_)) = findNextCell (head secondRemainder)
+                                     (Just (secondCell,maybeSecondRemainder)) = findNextCell (head firstRemainder)
+                                     (Just (firstCell,maybeFirstRemainder)) = findFirstCellOfContour contour [div1,div2]
                                  (_:_) -> Nothing
         where
           divisions = findDivisions contour crashTree
