@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.Definitions (Contour)
 
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
-import Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason(INodeCrossesDivide), addNodeTreesOnDivide, getNodeTreeOfCell, findFirstCellOfContour, findNextCell, findDivisions)
+import Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason(INodeCrossesDivide), addNodeTreesAlongDivide, getNodeTreeOfCell, findFirstCellOfContour, findNextCell, findDivisions)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton))
 
@@ -66,7 +66,7 @@ findStraightSkeleton contour holes =
                                              (Left _) -> error "unpossible."
                                      (singleCell,_) = fromMaybe (error "this should never fail?") $ findFirstCellOfContour contour []
                                  [division] -> if null (lefts $ getNodeTreeOfCell <$> cells)
-                                               then Just $ addNodeTreesOnDivide firstNodeTree secondNodeTree division
+                                               then Just $ StraightSkeleton [[addNodeTreesAlongDivide firstNodeTree secondNodeTree division]] (slist [])
                                                else applyTscherne contour divisions
                                    where
                                      [firstNodeTree, secondNodeTree] = rights $ getNodeTreeOfCell <$> cells
@@ -75,7 +75,7 @@ findStraightSkeleton contour holes =
                                      remainder = fromMaybe (error $ "no remainder?\n" <> show firstCell <> "\n") maybeRemainder
                                      (Just (firstCell,maybeRemainder)) = findFirstCellOfContour contour [division]
                                  [div1,div2] ->if null (lefts $ getNodeTreeOfCell <$> cells)
-                                               then Just $ addNodeTreesOnDivide firstNodeTree secondNodeTree div1
+                                               then Just $ StraightSkeleton [[addNodeTreesAlongDivide firstNodeTree secondNodeTree div1]] (slist [])
                                                else error $ show (dumpGanjas $ concat $ (\(INodeCrossesDivide vals _) -> toGanja.fst <$> vals) <$> lefts (getNodeTreeOfCell <$> cells)) <> "\n" <> show div1 <> "\n" <> show div2 <> "\n"
                                    where
                                      [firstNodeTree, secondNodeTree, thirdNodeTree] = rights $ getNodeTreeOfCell <$> cells
@@ -88,4 +88,3 @@ findStraightSkeleton contour holes =
                                  (_:_) -> Nothing
         where
           divisions = findDivisions contour crashTree
-
