@@ -130,9 +130,9 @@ intraNodeFace nodeTree1 nodeTree2
 -- | Create a set of faces from a single nodetree.
 -- FIXME: doesn't handle more than one generation deep, yet.
 facesOfNodeTree :: NodeTree -> [Face]
-facesOfNodeTree nodeTree@(NodeTree (Just myENodes) iNodeSet@(INodeSet generations))
+facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
   | isEmpty generations = []
-  | otherwise = areaBeneath myENodes (ancestorsOf iNodeSet) $ finalINodeOf nodeTree
+  | otherwise = areaBeneath myENodes (ancestorsOf iNodeSet) $ finalINodeOf iNodeSet
   where
     -- cover the space occupied by all of the ancestors of this node with a series of faces.
     areaBeneath :: ENodeSet -> INodeSet -> INode -> [Face]
@@ -157,7 +157,7 @@ facesOfNodeTree nodeTree@(NodeTree (Just myENodes) iNodeSet@(INodeSet generation
 
 -- | Create a face covering the space between the last path of the first node and the first path of the second node with a single Face. It is assumed that both nodes have the same parent.
 areaBetween :: ENodeSet -> INode -> INode -> INode -> Face
-areaBetween eNodeList@(ENodeSet firstENode moreENodes) parent iNode1 iNode2
+areaBetween eNodeList@(ENodeSet (Slist [(firstENode,moreENodes)] _)) parent iNode1 iNode2
   -- Handle the case where we are creating a face across the open end of the contour.
   | lastDescendent eNodeList iNode1 /= SL.last (cons firstENode moreENodes) = fromMaybe errNodesNotNeighbors $
                                                                                 makeFace (lastDescendent eNodeList iNode1) (one $ lastPLineOf parent) (findMatchingDescendent eNodeList iNode2 $ lastDescendent eNodeList iNode1)
