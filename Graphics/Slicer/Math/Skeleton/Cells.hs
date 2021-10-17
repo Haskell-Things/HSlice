@@ -24,7 +24,7 @@
 
 -- |  This file contains the entry point for the logic and routines required for dividing
 --    a contour into cells.
-module Graphics.Slicer.Math.Skeleton.Cells (RemainingContour, UnsupportedReason(INodeCrossesDivide), findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell, nodeTreesDoNotOverlap, addNodeTreesOnDivide) where
+module Graphics.Slicer.Math.Skeleton.Cells (RemainingContour, UnsupportedReason(INodeCrossesDivide), findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell, nodeTreesDoNotOverlap, addNodeTreesAlongDivide, nodeTreesFromDivision) where
 
 import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, elem, filter, null, otherwise, ($), (<$>), (==), (++), error, (<>), show, (&&), compare, concat, (/=), (||), (<), fst, snd)
 
@@ -40,13 +40,13 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), StraightSkeleton, INode, ePointOf, finalPLine, intersectionOf, outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, ePointOf, finalPLine, intersectionOf, outOf)
 
 import Graphics.Slicer.Math.Ganja (dumpGanja)
 
 import Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcyclesInDivision, intersectionSameSide, lastCrashType, motorcyclesAreAntiCollinear, motorcycleToENode, motorcycleMightIntersectWith)
 
-import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeTree, sortNodeTrees)
+import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeTree, mergeNodeTrees)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
@@ -209,9 +209,11 @@ findRemainder (Cell segSets) contourSegList divides
   | len segSets == 2 = if startBeforeEnd
                        then RemainingContour $ slist [(remainingSegsForward (last $ firstSegSet) (head $ lastSegSet), remainingDivides)]
                        else RemainingContour $ slist [(remainingSegsBackward (head $ lastSegSet) (last $ firstSegSet), remainingDivides)]
+  | otherwise = error "wtf"
   where
     divide
       | len segSets < 3 = divideOfSegSet $ head segSets
+      | otherwise = error "wtf"
     lastSegSet = lineSegsOfSegSet $ last segSets
     firstSegSet = lineSegsOfSegSet $ head segSets
     lineSegsOfSegSet :: (Slist LineSeg, Maybe CellDivide) -> Slist LineSeg
@@ -258,6 +260,7 @@ findRemainder (Cell segSets) contourSegList divides
                            pointOfFirstMotorcycle divide /= startPoint (head firstSegSet) && error "could not use input cell to determine motorcycle direction."
       | len segSets == 2 = pointOfFirstMotorcycle divide == endpoint (fromMaybe (error "empty list. wth?") $ safeLast firstSegSet) ||
                            pointOfFirstMotorcycle divide /= startPoint (head lastSegSet) && error "could not use input cell to determine motorcycle direction."
+      | otherwise = error "wtf"
     remainingDivides = filter (/= divide) divides
     pointOfFirstMotorcycle (CellDivide (DividingMotorcycles m _) _) = ePointOf m
     contourSegs = slist contourSegList
@@ -333,22 +336,24 @@ maybeEndOfDivide lineSegs (CellDivide (DividingMotorcycles m ms) maybeENode)
     startSegOfMotorcycle :: Motorcycle -> LineSeg
     startSegOfMotorcycle (Motorcycle (startSeg, _) _) = startSeg
 
--- | Add a pair of NodeTrees together along a Divide, to create a straight skeleton. The straight skeleton should have it's NodeTrees in order.
-addNodeTreesOnDivide :: NodeTree -> NodeTree -> CellDivide -> StraightSkeleton
-addNodeTreesOnDivide nodeTree1 nodeTree2 division = StraightSkeleton [sortNodeTrees $ nodeTree1 : nodeTree2 : nodetreesFromDivision division] (slist [])
+-- | Add a pair of NodeTrees together along a Divide, to create a new nodeTree.
+-- NOTE: since a division can generate two non-neighboring nodetrees, make sure to add them to a side first.
+addNodeTreesAlongDivide :: NodeTree -> NodeTree -> CellDivide -> NodeTree
+addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (nodeTree1:nodeTreesFromDivision division <> [nodeTree2])
+
+-- | Create the NodeTrees corresponding to the CellDivide given.
+nodeTreesFromDivision :: CellDivide -> [NodeTree]
+nodeTreesFromDivision cellDivision@(CellDivide motorcycles maybeENode) = case motorcycles of
+                                                                           (DividingMotorcycles _ (Slist [] 0)) -> res
+                                                                           (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreAntiCollinear firstMotorcycle secondMotorcycle
+                                                                                                                                                 then res
+                                                                                                                                                 else errorOut
+                                                                           (DividingMotorcycles _ (Slist _ _)) -> errorOut
   where
-    nodetreesFromDivision :: CellDivide -> [NodeTree]
-    nodetreesFromDivision cellDivision@(CellDivide motorcycles maybeENode) = case motorcycles of
-                                                                               (DividingMotorcycles _ (Slist [] 0)) -> res
-                                                                               (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreAntiCollinear firstMotorcycle secondMotorcycle
-                                                                                                                                                     then res
-                                                                                                                                                     else errorOut
-                                                                               (DividingMotorcycles _ (Slist _ _)) -> errorOut
-      where
-        res = case maybeENode of
-                (Just eNode) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist []), makeNodeTree [eNode] (INodeSet $ slist [])]
-                Nothing -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist [])]
-        errorOut = error "tried to add two NodeTrees with a non-bilateral cellDivide"
+    res = case maybeENode of
+            (Just eNode) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist []), makeNodeTree [eNode] (INodeSet $ slist [])]
+            Nothing -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist [])]
+    errorOut = error "tried to generate NodeTrees from a non-bilateral cellDivide"
 
 -- | Check whether the NodeTrees of two cells have an effect on each other.
 nodeTreesDoNotOverlap :: NodeTree -> NodeTree -> CellDivide -> Bool
