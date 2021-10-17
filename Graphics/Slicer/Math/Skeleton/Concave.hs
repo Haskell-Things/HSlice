@@ -27,15 +27,21 @@
 {-# LANGUAGE TupleSections #-}
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, makeENodes, averageNodes, eNodesOfOutsideContour) where
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<$>), (==), (++), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id, zip)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id, notElem, zip)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
-import Data.List (takeWhile, sortBy, last, head)
+import Data.List (takeWhile, sortBy)
+
+import Data.List as DL (head, last)
 
 import Data.List.Extra (unsnoc)
 
-import Slist (slist, one, cons)
+import Slist.Type (Slist(Slist))
+
+import Slist (slist, one, cons, len)
+
+import Slist as SL (head, tail, last)
 
 import Graphics.Implicit.Definitions (ℝ)
 
@@ -49,7 +55,7 @@ import Graphics.Slicer.Math.Line (lineSegFromEndpoints, handleLineSegError, endp
 
 import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), INodeSet(INodeSet), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, pPointOf, isAntiCollinear, isCollinear, getPairs, isParallel, linePairs)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), INodeSet(INodeSet), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, pPointOf, isAntiCollinear, getPairs, isCollinear, indexPLinesTo, isParallel, linePairs, makeINode, sortedPLines)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree)
 
@@ -77,7 +83,7 @@ skeletonOfConcaveRegion :: [LineSeg] -> NodeTree
 skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
   where
     -- are the incoming line segments a loop?
-    loop = endpoint (last inSegs) == startPoint (head inSegs)
+    loop = endpoint (DL.last inSegs) == startPoint (DL.head inSegs)
       where
         startPoint (LineSeg p1 _) = p1
 
@@ -96,8 +102,49 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
       where
         -- | apply the recursive NodeTree solver.
         res :: [ENode] -> INodeSet
-        res inGen = errorIfLeft (skeletonOfNodes inGen [])
-
+        res inGen = sortINodesByENodes $ errorIfLeft (skeletonOfNodes inGen [])
+          where
+            sortINodesByENodes (INodeSet generations)
+             | len generations == 0 = INodeSet generations
+             | len generations == 1 = INodeSet $ slist $ [[orderInsByENodes (DL.head $ SL.head generations)]]
+             | len generations == 2 = INodeSet $ slist $ [firstGenWithoutFlips] <> [[lastGen (rawSortGeneration $ SL.head generations) (DL.head $ SL.head $ SL.tail generations)]]
+              where
+                -- the first PLine in the input enode set.
+                firstPLine = outOf $ DL.head inGen
+                firstGenWithoutFlips = indexTo $ rawSortGeneration $ SL.head generations
+                lastGen :: [INode] -> INode -> INode
+                lastGen rawPriorGen oneInode = case flippedINodesOf rawPriorGen of
+                                                 Nothing -> oneInode
+                                                 (Just flippedINode) -> addINodeToParent flippedINode oneInode
+{-                nGenWithoutFlips rawPriorGen thisGen = if null $ flippedINodesOf rawPriorGen
+                                                       then indexTo $ rawSortGeneration thisGen
+                                                       else error $ "found flipped INode: " <> show (flippedINodesOf rawPriorGen) <> "\n"
+-}
+                -- force a list of nodes to start with the node closest to the firstPLine, but not before the firstPLine.
+                indexTo :: [INode] -> [INode]
+                indexTo iNodes = iNodesAfterPLine iNodes <> iNodesBeforePLine iNodes
+                  where
+                    -- nodes in the right order, after the divide.
+                    iNodesAfterPLine myINodes = filter (\a -> firstPLine `pLineIsLeft` firstInOf a /= Just False) myINodes
+                    iNodesBeforePLine myINodes = withoutFlippedINodes $ filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) myINodes
+                    withoutFlippedINodes maybeFlippedINodes = filter (\a -> a `notElem` (flippedINodesOf maybeFlippedINodes) ) maybeFlippedINodes
+                flippedINodesOf :: [INode] -> Maybe INode
+                flippedINodesOf inodes = case filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) inodes of
+                                           [] -> Nothing
+                                           [a] -> Just a
+                                           (xs) -> error $ "more than one flipped inode?" <> show xs <> "\n"
+                -- Sort a generation by the first in PLine.
+                rawSortGeneration = sortBy (\a b -> if firstInOf a `pLineIsLeft` firstInOf b == Just False then LT else GT)
+                firstInOf (INode firstIn _ _ _) = firstIn
+                lastInOf (INode _ secondIn moreIns _)
+                  | len moreIns == 0 = secondIn
+                  | otherwise = SL.last moreIns
+                orderInsByENodes (INode firstIn secondIn (Slist moreIn _) out) = makeINode (indexPLinesTo firstPLine $ sortedPLines $ firstIn:secondIn:moreIn) out
+                addINodeToParent inNode1@(INode firstIn1 secondIn1 (Slist moreIn1 _) (Just out1)) inNode2@(INode firstIn2 secondIn2 (Slist moreIn2 _) out2) =
+                  makeINode (indexPLinesTo firstPLine $ sortedPLines $ (firstIn1:secondIn1:moreIn1) <> (withoutPLine out1 $ firstIn2:secondIn2:moreIn2)) out2
+                  where
+                    withoutPLine :: PLine2 -> [PLine2] -> [PLine2]
+                    withoutPLine myPLine pLines = filter (\a -> a /= myPLine) pLines
     -- | Handle the recursive resolver failing.
     errorIfLeft :: Either PartialNodes INodeSet -> INodeSet
     errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure <> "\ninSegs: " <> show inSegs <> "\nloop:" <> show loop <> "\n"
@@ -139,8 +186,8 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
 
         --   Handle the the case of 3 or more nodes.
         handleThreeOrMoreNodes
-          | endsAtSamePoint = Right $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) ++ (outOf <$> iNodes)) Nothing]
-          | hasShortestPair = Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes remainingENodes (remainingINodes ++ averageOfShortestPairs)))
+          | endsAtSamePoint = Right $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) <> (outOf <$> iNodes)) Nothing]
+          | hasShortestPair = Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes remainingENodes (remainingINodes <> averageOfShortestPairs)))
           | otherwise = errorLen3
           where
             inodesOf (INodeSet set) = set
@@ -153,9 +200,9 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
         -- | When a set of nodes end in the same point, we may need to create a Node with all of the nodes as input. This checks for that case.
         endsAtSamePoint :: Bool
         endsAtSamePoint = and $ mapWithFollower (==) $ mapWithFollower intersectionOf ((outOf <$> nonAntiCollinearNodes eNodes (antiCollinearNodePairsOf eNodes)
-                                                                                               ++ firstAntiCollinearNodes (antiCollinearNodePairsOf eNodes)) ++
+                                                                                               <> firstAntiCollinearNodes (antiCollinearNodePairsOf eNodes)) <>
                                                                                        (outOf <$> nonAntiCollinearNodes iNodes (antiCollinearNodePairsOf iNodes)
-                                                                                               ++ firstAntiCollinearNodes (antiCollinearNodePairsOf iNodes)))
+                                                                                               <> firstAntiCollinearNodes (antiCollinearNodePairsOf iNodes)))
           where
             -- since anti-collinear nodes end at the same point, only count one of them.
             firstAntiCollinearNodes nodePairs = fst <$> nodePairs
@@ -164,7 +211,7 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
             nonAntiCollinearNodes :: (Eq a) => [a] -> [(a,a)] -> [a]
             nonAntiCollinearNodes myNodes nodePairs = filter (\a -> notElem a $ allAntiCollinearNodes nodePairs) myNodes
               where
-                allAntiCollinearNodes myNodePairs = (fst <$> myNodePairs) ++ (snd <$> myNodePairs)
+                allAntiCollinearNodes myNodePairs = (fst <$> myNodePairs) <> (snd <$> myNodePairs)
 
         -- | make sure we have a potential intersection between two nodes to work with.
         hasShortestPair :: Bool
@@ -180,7 +227,7 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
                            then filter (\a -> a `notElem` (fst <$> shortestMixedPairs))
                            else id) $
                           (if isSomething shortestEPairDistance && shortestPairDistance == shortestEPairDistance
-                           then filter (\a -> a `notElem` (fst <$> shortestPairs eNodes) ++ (snd <$> shortestPairs eNodes))
+                           then filter (\a -> a `notElem` (fst <$> shortestPairs eNodes) <> (snd <$> shortestPairs eNodes))
                            else id) eNodes
 
         -- | determine the interior nodes available for calculation during the next recurse.
@@ -189,13 +236,13 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
                            then filter (\a -> a `notElem` (snd <$> shortestMixedPairs))
                            else id) $
                           (if isSomething shortestIPairDistance && shortestPairDistance == shortestIPairDistance
-                           then filter (\a -> a `notElem` (fst <$> shortestPairs iNodes) ++ (snd <$> shortestPairs iNodes))
+                           then filter (\a -> a `notElem` (fst <$> shortestPairs iNodes) <> (snd <$> shortestPairs iNodes))
                            else id) iNodes
 
         -- | collect our set of result nodes.
         -- FIXME: these should have a specific order. what should it be?
         averageOfShortestPairs :: [INode]
-        averageOfShortestPairs = ePairsFound ++ mixedPairsFound ++ iPairsFound
+        averageOfShortestPairs = ePairsFound <> mixedPairsFound <> iPairsFound
           where
             ePairsFound = if isSomething shortestEPairDistance && shortestEPairDistance == shortestPairDistance
                           then uncurry averageNodes <$> shortestPairs eNodes
@@ -288,10 +335,6 @@ averageNodes n1 n2
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [PLine2]
 sortedPair n1 n2 = sortedPLines [outOf n1, outOf n2]
 
--- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
-sortedPLines :: [PLine2] -> [PLine2]
-sortedPLines = sortBy (\n1 n2 -> if (n1 `pLineIsLeft` n2) == Just True then LT else GT)
-
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
 --   Note: we normalize our output lines, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
 --   Note: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
@@ -328,14 +371,6 @@ getInsideArc pline1 pline2@(PLine2 pv2)
   | otherwise = normalizePLine2 $ PLine2 $ addVecPair flippedPV1 pv2
   where
       (PLine2 flippedPV1) = flipPLine2 pline1
-
--- | A smart constructor for INodes.
-makeINode :: [PLine2] -> Maybe PLine2 -> INode
-makeINode pLines maybeOut = case pLines of
-                              [] -> error "tried to construct a broken INode"
-                              [onePLine] -> error $ "tried to construct a broken INode from one PLine2: " <> show onePLine <> "\n"
-                              [first,second] -> INode first second (slist []) maybeOut
-                              (first:second:more) -> INode first second (slist more) maybeOut
 
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
 makeENodes :: [LineSeg] -> [ENode]
