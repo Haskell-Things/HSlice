@@ -50,13 +50,13 @@ module Graphics.Slicer.Math.Ganja (toGanja, dumpGanja, dumpGanjas) where
 
 import Prelude (String, (<>), (++), (<$>), ($), (>=), (==), concat, error, fst, otherwise, show, snd, zip)
 
-import Data.Maybe (Maybe(Nothing), fromMaybe, isJust, maybeToList)
+import Data.Maybe (Maybe(Nothing), maybeToList)
 
 import Numeric(showFFloat)
 
 import Slist.Type (Slist(Slist))
 
-import Slist (last)
+import Slist (last, len)
 
 import Graphics.Slicer.Math.Contour (pointsOfContour)
 
@@ -189,7 +189,7 @@ instance GanjaAble Face where
           allPLines    = toGanja <$> ([firstArc] ++ arcs ++ [lastArc])
 
 instance GanjaAble NodeTree where
-  toGanja (NodeTree maybeENodeSet iNodeSet) varname = (invars, inrefs)
+  toGanja (NodeTree (ENodeSet eNodeSides) iNodeSet) varname = (invars, inrefs)
     where
       (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
         where
@@ -199,19 +199,19 @@ instance GanjaAble NodeTree where
           allEdges     = toGanja <$> (firstLine ++ remainingLines)
           allINodes    = toGanja <$> iNodesOf iNodeSet
           firstLine
-            | isJust maybeENodeSet = case fromMaybe (error "impossible, factor out") maybeENodeSet of
-                                       (ENodeSet firstNode (Slist [] _)) -> [inLine firstNode]
-                                       (ENodeSet firstNode otherNodes) -> if inLine firstNode == outLine (last otherNodes)
-                                                                          then []
-                                                                          else [inLine firstNode]
-            | otherwise = []
+            | len eNodeSides == 0 = []
+            | otherwise = case eNodeSides of
+                            (Slist [(firstNode,(Slist [] _))] _) -> [inLine firstNode]
+                            (Slist [(firstNode,otherNodes)]_) -> if inLine firstNode == outLine (last otherNodes)
+                                                                 then []
+                                                                 else [inLine firstNode]
             where
               inLine (ENode (a,_) _) = a
           remainingLines
-            | isJust maybeENodeSet = outLine <$> eNodesOf (fromMaybe (error "impossible, factor out") maybeENodeSet)
-            | otherwise = []
+            | len eNodeSides == 0 = []
+            | otherwise = outLine <$> eNodesOf eNodeSides
             where
-              eNodesOf (ENodeSet first (Slist more _)) = first : more
+              eNodesOf (Slist [(first,(Slist more _))] _) = first : more
           outLine (ENode (_,a) _)  = a
           iNodesOf :: INodeSet -> [INode]
           iNodesOf (INodeSet (Slist inodes _)) = concat inodes
