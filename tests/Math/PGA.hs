@@ -21,10 +21,17 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), error, head, sqrt)
+import Prelude (($), Bool(True, False), (<$>), (==), error, head, sqrt, (/=))
 
 -- Hspec, for writing specs.
-import Test.Hspec (describe, Spec, it, pendingWith)
+import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
+
+-- QuickCheck, for writing properties.
+import Test.QuickCheck (property, NonZero(NonZero))
+
+import Test.QuickCheck.IO ()
+
+import Data.Coerce (coerce)
 
 import Data.Either (Either(Right), fromRight)
 
@@ -96,7 +103,7 @@ contourSpec = do
 lineSpec :: Spec
 lineSpec = do
   describe "Contours (math/line)" $ do
-    it "contours converted from pints to lines then back to points give the input list" $
+    it "contours converted from points to lines then back to points give the input list" $
       pointsOfContour (makePointContour cp1) --> cp1
   where
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
@@ -295,16 +302,44 @@ geomAlgSpec = do
                                  , GVec [GVal 1 (fromList [GEZero 1, GEPlus 2])] • GVec [GVal 1 (singleton (GEPlus 1))]
                                  ] --> GVec [GVal (-2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
 
+
+-- | A property test making sure that the scalar part of the little-dot product of two PPoints is always -1.
+prop_ScalarDotScalar :: ℝ -> ℝ -> ℝ -> ℝ -> Bool
+prop_ScalarDotScalar v1 v2 v3 v4 = scalarPart (rawPPoint2 (v1,v2) ⋅ rawPPoint2 (v3,v4)) == (-1)  
+  where
+    rawPPoint2 (x,y) = (\(PPoint2 v) -> v) $ eToPPoint2 (Point2 (x,y))
+
+-- | A property test making sure that the wedge product of two PLines along two different axises is always in e1e2.
+prop_TwoAxisAlignedLines :: (NonZero ℝ) -> (NonZero ℝ) -> (NonZero ℝ) -> (NonZero ℝ) -> Expectation
+prop_TwoAxisAlignedLines d1 d2 r1 r2 = (\(GVec gVals) -> bases gVals) ((\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 ((coerce d1),0)) (Point2 (coerce r1,0)))) ∧ (\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (0,coerce d2)) (Point2 (0,coerce r2))))) --> [fromList [GEPlus 1, GEPlus 2]]
+  where
+    bases gvals = (\(GVal _ base) -> base) <$> gvals
+
+-- | A property test making sure that the scalar part of the big-dot product of two identical PLines is not zero.
+prop_TwoOverlappingLinesScalar :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> Bool
+prop_TwoOverlappingLinesScalar x y dx dy = scalarPart (((\(PLine2 a) -> a) $ randomLine x y dx dy) • ((\(PLine2 a) -> a) $ randomLine x y dx dy)) /= 0
+
+-- | A property test for making sure that there is never a vector result of the big-dot product of two identical PLines.
+prop_TwoOverlappingLinesVector :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> Expectation
+prop_TwoOverlappingLinesVector x y dx dy = vectorPart (((\(PLine2 a) -> a) $ randomLine x y dx dy) • ((\(PLine2 a) -> a) $ randomLine x y dx dy)) --> GVec []
+  where
+
+-- | A helper function. constructs a random PLine.
+randomLine :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> PLine2
+randomLine x y dx dy = eToPLine2 $ LineSeg (Point2 (coerce x, coerce y)) (Point2 (coerce dx, coerce dy))
+
 proj2DGeomAlgSpec :: Spec
 proj2DGeomAlgSpec = do
   describe "Points (Math/PGA)" $
     -- ((1e0^1e1)+(-1e0^1e2)+(1e1+1e2))|((-1e0^1e1)+(1e0^1e2)+(1e1+1e2)) = -1
     it "the dot product of any two projective points is -1" $
-      scalarPart (rawPPoint2 (1,1) ⋅ rawPPoint2 (-1,-1)) --> (-1)
+      property prop_ScalarDotScalar
   describe "Lines (Math/PGA)" $ do
     -- (-2e2)*2e1 = 4e12
     it "the intersection of a line along the X axis and a line along the Y axis is the origin point" $
       (\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (-1,0)) (Point2 (2,0)))) ∧ (\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (0,-1)) (Point2 (0,2)))) --> GVec [GVal 4 (fromList [GEPlus 1, GEPlus 2])]
+    it "the intersection of two axis aligned lines is a multiple of e1e2" $
+      property prop_TwoAxisAlignedLines
     -- (-2e0+1e1)^(2e0-1e2) = -1e01+2e02-e12
     it "the intersection of a line two points above the X axis, and a line two points to the right of the Y axis is at (2,2) in the upper right quadrant" $
       vectorPart ((\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (2,0)) (Point2 (0,1)))) ∧ (\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (0,2)) (Point2 (1,0))))) -->
@@ -312,13 +347,16 @@ proj2DGeomAlgSpec = do
     -- (2e0+1e1-1e2)*(2e0+1e1-1e2) = 2
     it "the geometric product of two overlapping lines is only a Scalar" $
       scalarPart ((\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (-1,1)) (Point2 (1,1)))) • (\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (-1,1)) (Point2 (1,1))))) --> 2.0
+    it "the geometric product of any two overlapping lines is only a Scalar" $
+      property prop_TwoOverlappingLinesScalar
+    it "the geometric product of any two overlapping lines does not have produce a vector component" $
+      property prop_TwoOverlappingLinesVector
     it "A line constructed from a line segment is correct" $
       eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,1))) --> pl1
     it "A line constructed from by joining two points is correct" $
       join2PPoint2 (eToPPoint2 (Point2 (0,0))) (eToPPoint2 (Point2 (1,1))) --> pl1
   where
     pl1 = PLine2 $ GVec [GVal 1 (singleton (GEPlus 1)), GVal (-1) (singleton (GEPlus 2))]
-    rawPPoint2 (x,y) = (\(PPoint2 v) -> v) $ eToPPoint2 (Point2 (x,y))
 
 pgaSpec :: Spec
 pgaSpec = do
