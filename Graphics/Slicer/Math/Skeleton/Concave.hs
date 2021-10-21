@@ -41,7 +41,7 @@ import Slist.Type (Slist(Slist))
 
 import Slist (slist, one, cons, len)
 
-import Slist as SL (head, tail, last)
+import Slist as SL (head, tail)
 
 import Graphics.Implicit.Definitions (ℝ)
 
@@ -108,6 +108,7 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
              | len generations == 0 = INodeSet generations
              | len generations == 1 = INodeSet $ slist $ [[orderInsByENodes (DL.head $ SL.head generations)]]
              | len generations == 2 = INodeSet $ slist $ [firstGenWithoutFlips] <> [[lastGen (rawSortGeneration $ SL.head generations) (DL.head $ SL.head $ SL.tail generations)]]
+             | otherwise = error "too many generations?"
               where
                 -- the first PLine in the input enode set.
                 firstPLine = outOf $ DL.head inGen
@@ -122,12 +123,13 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
 -}
                 -- force a list of nodes to start with the node closest to the firstPLine, but not before the firstPLine.
                 indexTo :: [INode] -> [INode]
-                indexTo iNodes = iNodesAfterPLine iNodes <> iNodesBeforePLine iNodes
+                indexTo iNodes = iNodesBeforePLine iNodes <> iNodesAfterPLine iNodes
                   where
+                    iNodesBeforePLine myINodes = filter (\a -> firstPLine `pLineIsLeft` firstInOf a /= Just False) myINodes
                     -- nodes in the right order, after the divide.
-                    iNodesAfterPLine myINodes = filter (\a -> firstPLine `pLineIsLeft` firstInOf a /= Just False) myINodes
-                    iNodesBeforePLine myINodes = withoutFlippedINodes $ filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) myINodes
+                    iNodesAfterPLine myINodes = withoutFlippedINodes $ filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) myINodes
                     withoutFlippedINodes maybeFlippedINodes = filter (\a -> a `notElem` (flippedINodesOf maybeFlippedINodes) ) maybeFlippedINodes
+                -- FIXME: there's no way this is right.
                 flippedINodesOf :: [INode] -> Maybe INode
                 flippedINodesOf inodes = case filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) inodes of
                                            [] -> Nothing
@@ -136,11 +138,12 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
                 -- Sort a generation by the first in PLine.
                 rawSortGeneration = sortBy (\a b -> if firstInOf a `pLineIsLeft` firstInOf b == Just False then LT else GT)
                 firstInOf (INode firstIn _ _ _) = firstIn
-                lastInOf (INode _ secondIn moreIns _)
-                  | len moreIns == 0 = secondIn
-                  | otherwise = SL.last moreIns
+--                lastInOf (INode _ secondIn moreIns _)
+--                  | len moreIn == 0 = secondIn
+--                  | otherwise = SL.last moreIns
                 orderInsByENodes (INode firstIn secondIn (Slist moreIn _) out) = makeINode (indexPLinesTo firstPLine $ sortedPLines $ firstIn:secondIn:moreIn) out
-                addINodeToParent inNode1@(INode firstIn1 secondIn1 (Slist moreIn1 _) (Just out1)) inNode2@(INode firstIn2 secondIn2 (Slist moreIn2 _) out2) =
+                addINodeToParent (INode _ _ _ Nothing) _ = error "cannot merge an inode with no output!"
+                addINodeToParent (INode firstIn1 secondIn1 (Slist moreIn1 _) (Just out1)) (INode firstIn2 secondIn2 (Slist moreIn2 _) out2) =
                   makeINode (indexPLinesTo firstPLine $ sortedPLines $ (firstIn1:secondIn1:moreIn1) <> (withoutPLine out1 $ firstIn2:secondIn2:moreIn2)) out2
                   where
                     withoutPLine :: PLine2 -> [PLine2] -> [PLine2]
