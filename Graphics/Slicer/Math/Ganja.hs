@@ -198,20 +198,22 @@ instance GanjaAble NodeTree where
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
           allEdges     = toGanja <$> (firstLine ++ remainingLines)
           allINodes    = toGanja <$> iNodesOf iNodeSet
-          firstLine
-            | len eNodeSides == 0 = []
-            | otherwise = case eNodeSides of
-                            (Slist [(firstNode,(Slist [] _))] _) -> [inLine firstNode]
-                            (Slist [(firstNode,otherNodes)]_) -> if inLine firstNode == outLine (last otherNodes)
-                                                                 then []
-                                                                 else [inLine firstNode]
+          firstLine    = case eNodeSides of
+                           (Slist [] _) -> []
+                           (Slist [(firstNode,(Slist [] _))] _) -> [inLine firstNode]
+                           (Slist [(firstNode,otherNodes)]_)    -> if inLine firstNode == outLine (last otherNodes)
+                                                                   then []
+                                                                   else [inLine firstNode]
+                           _ -> error "too many sides."
             where
               inLine (ENode (a,_) _) = a
           remainingLines
             | len eNodeSides == 0 = []
             | otherwise = outLine <$> eNodesOf eNodeSides
             where
+              eNodesOf (Slist [] _) = error "no enodes?"
               eNodesOf (Slist [(first,(Slist more _))] _) = first : more
+              eNodesOf (Slist _ _) = error "too many sides?"
           outLine (ENode (_,a) _)  = a
           iNodesOf :: INodeSet -> [INode]
           iNodesOf (INodeSet (Slist inodes _)) = concat inodes
