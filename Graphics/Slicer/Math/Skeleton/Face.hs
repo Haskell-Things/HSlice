@@ -157,12 +157,14 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
 
 -- | Create a face covering the space between the last path of the first node and the first path of the second node with a single Face. It is assumed that both nodes have the same parent.
 areaBetween :: ENodeSet -> INode -> INode -> INode -> Face
+areaBetween (ENodeSet (Slist [] _)) _ _ _ = error "no sides?"
+areaBetween (ENodeSet (Slist (_:_:_) _)) _ _ _ = error "too many sides?"
 areaBetween eNodeList@(ENodeSet (Slist [(firstENode,moreENodes)] _)) parent iNode1 iNode2
   -- Handle the case where we are creating a face across the open end of the contour.
   | lastDescendent eNodeList iNode1 /= SL.last (cons firstENode moreENodes) = fromMaybe errNodesNotNeighbors $
-                                                                                makeFace (lastDescendent eNodeList iNode1) (one $ lastPLineOf parent) (findMatchingDescendent eNodeList iNode2 $ lastDescendent eNodeList iNode1)
+                                                                                makeFace (lastDescendent eNodeList iNode1) (one $ lastInOf parent) (findMatchingDescendent eNodeList iNode2 $ lastDescendent eNodeList iNode1)
   | otherwise                                                               = fromMaybe errNodesNotNeighbors $
-                                                                                makeFace (firstDescendent eNodeList iNode1) (one $ firstPLineOf parent) (findMatchingDescendent eNodeList iNode2 $ firstDescendent eNodeList iNode1)
+                                                                                makeFace (firstDescendent eNodeList iNode1) (one $ firstInOf parent) (findMatchingDescendent eNodeList iNode2 $ firstDescendent eNodeList iNode1)
   where
     -- | using the set of all first generation nodes, a second generation node, and a first generation node, find out which one of the first generation children of the given second generation node shares a side with the first generation node.
     errNodesNotNeighbors = error $ "cannot make a face from nodes that are not neighbors: \n" <> show eNodeList <> "\n" <> show parent <> "\n" <> show iNode1 <> "\n" <> show iNode2 <> "\n"
@@ -175,18 +177,23 @@ areaBetween eNodeList@(ENodeSet (Slist [(firstENode,moreENodes)] _)) parent iNod
       where
         res = filter (\(ENode (sseg1, sseg2) _) -> sseg2 == seg1 || sseg1 == seg2) [firstDescendent eNodes myParent, lastDescendent eNodes myParent]
 
-    -- find the first immediate child of the given node.
+    -- find the first immediate child of the given INode.
     firstDescendent :: ENodeSet -> INode -> ENode
-    firstDescendent myNodeSets myParent = fromMaybe (error "could not find ENode for firstPLineOf myParent?") $ findENodeByOutput myNodeSets $ firstPLineOf myParent
+    firstDescendent myNodeSets myParent = fromMaybe (error "could not find first ENode of myParent?") $ findENodeByOutput myNodeSets $ firstInOf myParent
 
-    -- find the last immediate child of the given node.
+    -- find the last immediate child of the given INode.
     lastDescendent :: ENodeSet -> INode -> ENode
-    lastDescendent myNodeSets myParent = fromMaybe (error "could not find ENode for lastPLineOf myParent?") $ findENodeByOutput myNodeSets $ lastPLineOf myParent
+    lastDescendent myNodeSets myParent = fromMaybe (error "could not find last ENode of myParent?") $ findENodeByOutput myNodeSets $ lastInOf myParent
 
-    firstPLineOf :: INode -> PLine2
-    firstPLineOf (INode a _ _ _) = a
-    lastPLineOf :: INode -> PLine2
-    lastPLineOf (INode _firstPLine secondPLine morePLines _) = SL.last (cons secondPLine morePLines)
+    -- find the first PLine of an INode.
+    firstInOf :: INode -> PLine2
+    firstInOf (INode a _ _ _) = a
+
+    -- find the last PLine of an INode.
+    lastInOf :: INode -> PLine2
+    lastInOf (INode _ secondPLine morePLines _)
+      | len morePLines == 0 = secondPLine
+      | otherwise           = SL.last morePLines
 
 -- | Construct a face from two nodes. the nodes must be composed of line segments on one side, and follow each other.
 makeTriangleFace :: ENode -> ENode -> Face
