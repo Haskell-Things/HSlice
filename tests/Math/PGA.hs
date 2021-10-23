@@ -21,13 +21,13 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), error, head, sqrt, (/=))
+import Prelude (($), Bool(True, False), (<$>), (==), error, head, sqrt, (/=), otherwise, abs)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
 
 -- QuickCheck, for writing properties.
-import Test.QuickCheck (property, NonZero(NonZero))
+import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive))
 
 import Test.QuickCheck.IO ()
 
@@ -317,16 +317,11 @@ prop_TwoAxisAlignedLines d1 d2 r1 r2 = (\(GVec gVals) -> bases gVals) ((\(PLine2
 
 -- | A property test making sure that the scalar part of the big-dot product of two identical PLines is not zero.
 prop_TwoOverlappingLinesScalar :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> Bool
-prop_TwoOverlappingLinesScalar x y dx dy = scalarPart (((\(PLine2 a) -> a) $ randomLine x y dx dy) • ((\(PLine2 a) -> a) $ randomLine x y dx dy)) /= 0
+prop_TwoOverlappingLinesScalar x y dx dy = scalarPart (((\(PLine2 a) -> a) $ randomPLine x y dx dy) • ((\(PLine2 a) -> a) $ randomPLine x y dx dy)) /= 0
 
 -- | A property test for making sure that there is never a vector result of the big-dot product of two identical PLines.
 prop_TwoOverlappingLinesVector :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> Expectation
-prop_TwoOverlappingLinesVector x y dx dy = vectorPart (((\(PLine2 a) -> a) $ randomLine x y dx dy) • ((\(PLine2 a) -> a) $ randomLine x y dx dy)) --> GVec []
-  where
-
--- | A helper function. constructs a random PLine.
-randomLine :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> PLine2
-randomLine x y dx dy = eToPLine2 $ LineSeg (Point2 (coerce x, coerce y)) (Point2 (coerce dx, coerce dy))
+prop_TwoOverlappingLinesVector x y dx dy = vectorPart (((\(PLine2 a) -> a) $ randomPLine x y dx dy) • ((\(PLine2 a) -> a) $ randomPLine x y dx dy)) --> GVec []
 
 proj2DGeomAlgSpec :: Spec
 proj2DGeomAlgSpec = do
@@ -358,26 +353,68 @@ proj2DGeomAlgSpec = do
   where
     pl1 = PLine2 $ GVec [GVal 1 (singleton (GEPlus 1)), GVal (-1) (singleton (GEPlus 2))]
 
+-- | A property test making sure a PPoint projected from an axis-aligned line is along the opposite axis.
+prop_AxisProjection :: (Positive ℝ) -> Bool -> Bool -> (Positive ℝ) -> Expectation
+prop_AxisProjection v xAxis whichDirection dv
+  | xAxis == True = if whichDirection == True
+                    then pointOnPerp (randomLineSeg 0 0 (coerce v) 0) (Point2 (0,0)) (coerce dv) --> Point2 (0,(coerce dv))
+                    else pointOnPerp (randomLineSeg 0 0 (-(coerce v)) 0) (Point2 (0,0)) (coerce dv) --> Point2 (0,-(coerce dv))
+  | otherwise = if whichDirection == True
+                then pointOnPerp (randomLineSeg 0 0 0 (coerce v)) (Point2 (0,0)) (coerce dv) --> Point2 (-(coerce dv),0)
+                else pointOnPerp (randomLineSeg 0 0 0 (-(coerce v))) (Point2 (0,0)) (coerce dv) --> Point2 ((coerce dv),0)
+
+-- | A property test making sure the distance between a point an an axis is equal to the corresponding euclidian component of the point.
+prop_DistanceToAxis :: (NonZero ℝ) -> (NonZero ℝ) -> Bool -> Expectation
+prop_DistanceToAxis v v2 xAxis
+  | xAxis == True = distancePPointToPLine (eToPPoint2 $ Point2 (coerce v2,coerce v)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> abs (coerce v)
+  | otherwise = distancePPointToPLine (eToPPoint2 $ Point2 (coerce v,coerce v2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> abs (coerce v)
+
+-- | A property test making sure two points on the same side of an axis show as being on the same side of the axis.
+prop_SameSideOfAxis :: (NonZero ℝ) -> (NonZero ℝ) -> (Positive ℝ) -> (Positive ℝ) -> Bool -> Bool -> Expectation
+prop_SameSideOfAxis v1 v2 p1 p2 xAxis positive
+  | xAxis == True = if positive
+                    then pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (coerce v1,coerce p1))) (eToPPoint2 (Point2 (coerce v2,coerce p2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,0)))) --> Just True
+                    else pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (coerce v1,-(coerce p1)))) (eToPPoint2 (Point2 (coerce v2,-(coerce p2)))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,0)))) --> Just True
+  | otherwise = if positive
+                then pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (coerce p1,coerce v1))) (eToPPoint2 (Point2 (coerce p2,coerce v2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (0,1)))) --> Just True
+                else pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (-(coerce p1),coerce v1))) (eToPPoint2 (Point2 (-(coerce p1),coerce v2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (0,1)))) --> Just True
+
+-- | A property test making sure that two points on opposite sides of an axis show as being on the opposite sides of the axis.
+prop_OtherSideOfAxis :: (NonZero ℝ) -> (NonZero ℝ) -> (Positive ℝ) -> (Positive ℝ) -> Bool -> Bool -> Expectation
+prop_OtherSideOfAxis v1 v2 p1 p2 xAxis positive
+  | xAxis == True = if positive
+                    then pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (coerce v1,coerce p1))) (eToPPoint2 (Point2 (coerce v2,-(coerce p2)))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,0)))) --> Just False
+                    else pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (coerce v1,-(coerce p1)))) (eToPPoint2 (Point2 (coerce v2,coerce p2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,0)))) --> Just False
+  | otherwise = if positive
+                then pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (coerce p1,coerce v1))) (eToPPoint2 (Point2 (-(coerce p2),coerce v2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (0,1)))) --> Just False
+                else pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (-(coerce p1),coerce v1))) (eToPPoint2 (Point2 (coerce p1,coerce v2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (0,1)))) --> Just False
+
+-- | A helper function. constructs a random PLine.
+randomPLine :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> PLine2
+randomPLine x y dx dy = eToPLine2 $ LineSeg (Point2 (coerce x, coerce y)) (Point2 (coerce dx, coerce dy))
+
+-- | A helper function. constructs a random LineSeg.
+-- FIXME: can construct 0 length segments, and fail.
+randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
+randomLineSeg x y dx dy = LineSeg (Point2 (coerce x, coerce y)) (Point2 (coerce dx, coerce dy))
+
 pgaSpec :: Spec
 pgaSpec = do
   describe "Translation (math/PGA)" $ do
     it "a translated line translated back is the same line" $
-      translatePerp (translatePerp (eToPLine2 l1) 1) (-1) --> eToPLine2 l1
+     translatePerp (translatePerp (eToPLine2 l1) 1) (-1) --> eToPLine2 l1
   describe "Projection (math/PGA)" $ do
-    it "a projection on the perpendicular bisector of an axis aligned line is on the other axis (1 of 2)" $
-      pointOnPerp (LineSeg (Point2 (0,0)) (Point2 (0,1))) (Point2 (0,0)) 1 --> Point2 (-1,0)
-    it "a projection on the perpendicular bisector of an axis aligned line is on the other axis (2 of 2)" $
-      pointOnPerp (LineSeg (Point2 (0,0)) (Point2 (1,0))) (Point2 (0,0)) 1 --> Point2 (0,1)
+    it "a projection on the perpendicular bisector of an axis aligned line is on the other axis" $
+      property prop_AxisProjection
   describe "Distance measurement (math/PGA)" $ do
-    it "the distance between a point at (1,1) and a line on the X axis is 1" $
-      distancePPointToPLine (eToPPoint2 $ Point2 (1,1)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> 1
-    it "the distance between a point at (2,2) and a line on the Y axis is 2" $
-      distancePPointToPLine (eToPPoint2 $ Point2 (2,2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (0,-1))) --> 2
+    it "the distance between a point at (x,y) and an axis is equal to x for the x axis, and y for the y axis" $
+      property prop_DistanceToAxis
   describe "Layout Inspection (math/PGA)" $ do
     it "two points on the same side of a line show as being on the same side of the line" $
-      pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (-1,0))) (eToPPoint2 (Point2 (-1,-1))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (0,1)))) --> Just True
+      property prop_SameSideOfAxis
     it "two points on different sides of a line show as being on different sides of a line" $
-      pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (-1,0))) (eToPPoint2 (Point2 (1,0))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (0,1)))) --> Just False
+      property prop_OtherSideOfAxis
+
   where
     l1 = LineSeg (Point2 (1,1)) (Point2 (2,2))
 
