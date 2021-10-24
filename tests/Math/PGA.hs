@@ -339,9 +339,6 @@ proj2DGeomAlgSpec = do
     it "the intersection of a line two points above the X axis, and a line two points to the right of the Y axis is at (2,2) in the upper right quadrant" $
       vectorPart ((\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (2,0)) (Point2 (0,1)))) ∧ (\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (0,2)) (Point2 (1,0))))) -->
       GVec [GVal (-2) (fromList [GEZero 1, GEPlus 1]), GVal 2 (fromList [GEZero 1, GEPlus 2]), GVal (-1) (fromList [GEPlus 1, GEPlus 2])]
-    -- (2e0+1e1-1e2)*(2e0+1e1-1e2) = 2
-    it "the geometric product of two overlapping lines is only a Scalar" $
-      scalarPart ((\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (-1,1)) (Point2 (1,1)))) • (\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (-1,1)) (Point2 (1,1))))) --> 2.0
     it "the geometric product of any two overlapping lines is only a Scalar" $
       property prop_TwoOverlappingLinesScalar
     it "the geometric product of any two overlapping lines does not have produce a vector component" $
@@ -419,42 +416,40 @@ pgaSpec = do
 
 -- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
-prop_AxisAlignedRightAngles :: Bool -> Bool -> (NonZero ℝ) -> Expectation
-prop_AxisAlignedRightAngles xPos yPos rawOffset
+prop_AxisAlignedRightAngles :: Bool -> Bool -> ℝ -> (Positive ℝ) -> Expectation
+prop_AxisAlignedRightAngles xPos yPos offset rawMagnitude
   | xPos == True && yPos == True =
-    getFirstArc (LineSeg (Point2 (offset,offset+1)) (Point2 (0,-1))) (LineSeg (Point2 (offset,offset)) (Point2 (1,0))) `angleBetween` PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
+    getFirstArc (LineSeg (Point2 (offset,offset+mag)) (Point2 (0,-mag))) (LineSeg (Point2 (offset,offset)) (Point2 (mag,0))) `angleBetween` PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
   | xPos == True =
-    getFirstArc (LineSeg (Point2 (offset,-(offset+1))) (Point2 (0,1))) (LineSeg (Point2 (offset,-offset)) (Point2 (1,0))) `angleBetween` PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
+    getFirstArc (LineSeg (Point2 (offset,-(offset+mag))) (Point2 (0,mag))) (LineSeg (Point2 (offset,-offset)) (Point2 (mag,0))) `angleBetween` PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
   | xPos == False && yPos == True =
-    getFirstArc (LineSeg (Point2 (-offset,offset+1)) (Point2 (0,-1))) (LineSeg (Point2 (-offset,offset)) (Point2 (-1,0))) `angleBetween` PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
+    getFirstArc (LineSeg (Point2 (-offset,offset+mag)) (Point2 (0,-mag))) (LineSeg (Point2 (-offset,offset)) (Point2 (-mag,0))) `angleBetween` PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
   | otherwise =
-    getFirstArc (LineSeg (Point2 (-offset,-(offset+1))) (Point2 (0,1))) (LineSeg (Point2 (-offset,-offset)) (Point2 (-1,0))) `angleBetween` PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
+    getFirstArc (LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (0,mag))) (LineSeg (Point2 (-offset,-offset)) (Point2 (-mag,0))) `angleBetween` PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
   where
-    offset :: ℝ
-    offset = coerce rawOffset
+    mag :: ℝ
+    mag = coerce rawMagnitude
 
 -- | ensure that a 135 degree angle with one side parallel with an axis and in the right place results in a line through the origin point.
 -- NOTE: hack, using angleBetween and >= to filter out minor numerical imprecision.
-prop_AxisAligned135DegreeAngles :: Bool -> Bool -> (NonZero ℝ) -> (Positive ℝ) -> Expectation
-prop_AxisAligned135DegreeAngles xPos yPos rawOffset rawMagnitude
+prop_AxisAligned135DegreeAngles :: Bool -> Bool -> ℝ -> (Positive ℝ) -> Bool
+prop_AxisAligned135DegreeAngles xPos yPos offset rawMagnitude
   | xPos == True && yPos == True =
-    getFirstArc (LineSeg (Point2 (offset,offset+mag)) (Point2 (0,-mag))) (LineSeg (Point2 (offset,offset)) (Point2 (mag,-mag))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
+    getFirstArc (LineSeg (Point2 (offset,offset+mag)) (Point2 (0,-mag))) (LineSeg (Point2 (offset,offset)) (Point2 (mag,-mag))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0
   | xPos == True =
-    getFirstArc (LineSeg (Point2 (offset,-(offset+mag))) (Point2 (0,mag))) (LineSeg (Point2 (offset,-offset)) (Point2 (mag,mag))) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
+    getFirstArc (LineSeg (Point2 (offset,-(offset+mag))) (Point2 (0,mag))) (LineSeg (Point2 (offset,-offset)) (Point2 (mag,mag))) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0
   | xPos == False && yPos == True =
-    getFirstArc (LineSeg (Point2 (-offset,offset+mag)) (Point2 (0,-mag))) (LineSeg (Point2 (-offset,offset)) (Point2 (-mag,-mag))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+    getFirstArc (LineSeg (Point2 (-offset,offset+mag)) (Point2 (0,-mag))) (LineSeg (Point2 (-offset,offset)) (Point2 (-mag,-mag))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0
   | otherwise =
-    getFirstArc (LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (0,mag))) (LineSeg (Point2 (-offset,-offset)) (Point2 (-mag,1))) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+    getFirstArc (LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (0,mag))) (LineSeg (Point2 (-offset,-offset)) (Point2 (-mag,mag))) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0
   where
-    offset :: ℝ
-    offset = coerce rawOffset
     mag :: ℝ
     mag = coerce rawMagnitude
 
 -- | ensure that a 45 degree angle with one side parallel with the X axis and in the right place results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
-prop_AxisAligned45DegreeAngles :: Bool -> Bool -> (NonZero ℝ) -> (Positive ℝ) -> Expectation
-prop_AxisAligned45DegreeAngles xPos yPos rawOffset rawMagnitude
+prop_AxisAligned45DegreeAngles :: Bool -> Bool -> ℝ -> (Positive ℝ) -> Expectation
+prop_AxisAligned45DegreeAngles xPos yPos offset rawMagnitude
   | xPos == True && yPos == True =
     getFirstArc (LineSeg (Point2 (offset+mag,offset+mag)) (Point2 (-mag,-mag))) (LineSeg (Point2 (offset,offset)) (Point2 (mag,0))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
   | xPos == True =
@@ -464,8 +459,6 @@ prop_AxisAligned45DegreeAngles xPos yPos rawOffset rawMagnitude
   | otherwise =
     getFirstArc (LineSeg (Point2 (-(offset+mag),-(offset+mag))) (Point2 (mag,mag))) (LineSeg (Point2 (-offset,-offset)) (Point2 (-mag,0))) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
   where
-    offset :: ℝ
-    offset = coerce rawOffset
     mag :: ℝ
     mag = coerce rawMagnitude
 
