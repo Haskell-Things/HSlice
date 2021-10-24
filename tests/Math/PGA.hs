@@ -21,7 +21,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), error, head, sqrt, (/=), otherwise, abs)
+import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, head, sqrt, (/=), otherwise, abs, (&&), (+))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
@@ -53,7 +53,7 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour),
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣))
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, distancePPointToPLine, pPointsOnSameSideOfPLine)
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, angleBetween, distancePPointToPLine, pPointsOnSameSideOfPLine)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour)
@@ -414,21 +414,70 @@ pgaSpec = do
       property prop_SameSideOfAxis
     it "two points on different sides of a line show as being on different sides of a line" $
       property prop_OtherSideOfAxis
-
   where
     l1 = LineSeg (Point2 (1,1)) (Point2 (2,2))
+
+-- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
+-- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
+prop_AxisAlignedRightAngles :: Bool -> Bool -> (NonZero ℝ) -> Expectation
+prop_AxisAlignedRightAngles xPos yPos rawOffset
+  | xPos == True && yPos == True =
+    getFirstArc (LineSeg (Point2 (offset,offset+1)) (Point2 (0,-1))) (LineSeg (Point2 (offset,offset)) (Point2 (1,0))) `angleBetween` PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
+  | xPos == True =
+    getFirstArc (LineSeg (Point2 (offset,-(offset+1))) (Point2 (0,1))) (LineSeg (Point2 (offset,-offset)) (Point2 (1,0))) `angleBetween` PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
+  | xPos == False && yPos == True =
+    getFirstArc (LineSeg (Point2 (-offset,offset+1)) (Point2 (0,-1))) (LineSeg (Point2 (-offset,offset)) (Point2 (-1,0))) `angleBetween` PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
+  | otherwise =
+    getFirstArc (LineSeg (Point2 (-offset,-(offset+1))) (Point2 (0,1))) (LineSeg (Point2 (-offset,-offset)) (Point2 (-1,0))) `angleBetween` PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
+  where
+    offset :: ℝ
+    offset = coerce rawOffset
+
+-- | ensure that a 135 degree angle with one side parallel with an axis and in the right place results in a line through the origin point.
+-- NOTE: hack, using angleBetween and >= to filter out minor numerical imprecision.
+prop_AxisAligned135DegreeAngles :: Bool -> Bool -> (NonZero ℝ) -> (Positive ℝ) -> Expectation
+prop_AxisAligned135DegreeAngles xPos yPos rawOffset rawMagnitude
+  | xPos == True && yPos == True =
+    getFirstArc (LineSeg (Point2 (offset,offset+mag)) (Point2 (0,-mag))) (LineSeg (Point2 (offset,offset)) (Point2 (mag,-mag))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
+  | xPos == True =
+    getFirstArc (LineSeg (Point2 (offset,-(offset+mag))) (Point2 (0,mag))) (LineSeg (Point2 (offset,-offset)) (Point2 (mag,mag))) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
+  | xPos == False && yPos == True =
+    getFirstArc (LineSeg (Point2 (-offset,offset+mag)) (Point2 (0,-mag))) (LineSeg (Point2 (-offset,offset)) (Point2 (-mag,-mag))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+  | otherwise =
+    getFirstArc (LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (0,mag))) (LineSeg (Point2 (-offset,-offset)) (Point2 (-mag,1))) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+  where
+    offset :: ℝ
+    offset = coerce rawOffset
+    mag :: ℝ
+    mag = coerce rawMagnitude
+
+-- | ensure that a 45 degree angle with one side parallel with the X axis and in the right place results in a line through the origin point.
+-- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
+prop_AxisAligned45DegreeAngles :: Bool -> Bool -> (NonZero ℝ) -> (Positive ℝ) -> Expectation
+prop_AxisAligned45DegreeAngles xPos yPos rawOffset rawMagnitude
+  | xPos == True && yPos == True =
+    getFirstArc (LineSeg (Point2 (offset+mag,offset+mag)) (Point2 (-mag,-mag))) (LineSeg (Point2 (offset,offset)) (Point2 (mag,0))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
+  | xPos == True =
+    getFirstArc (LineSeg (Point2 (offset+mag,-(offset+mag))) (Point2 (-mag,mag))) (LineSeg (Point2 (offset,-offset)) (Point2 (mag,0))) `angleBetween` PLine2 (GVec [GVal  (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
+  | xPos == False && yPos == True =
+    getFirstArc (LineSeg (Point2 (-(offset+mag),offset+mag)) (Point2 (mag,-mag))) (LineSeg (Point2 (-offset,offset)) (Point2 (-mag,0))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+  | otherwise =
+    getFirstArc (LineSeg (Point2 (-(offset+mag),-(offset+mag))) (Point2 (mag,mag))) (LineSeg (Point2 (-offset,-offset)) (Point2 (-mag,0))) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+  where
+    offset :: ℝ
+    offset = coerce rawOffset
+    mag :: ℝ
+    mag = coerce rawMagnitude
 
 facetSpec :: Spec
 facetSpec = do
   describe "Arcs (Skeleton/Concave)" $ do
-    it "finds the inside arc of a right degree angle(to the left)" $
-      getFirstArc (LineSeg (Point2 (0,1.0)) (Point2 (0.0,-1.0))) (LineSeg (Point2 (0,0)) (Point2 (1.0,0.0))) --> PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
-    it "finds the inside arc of a right degree angle(to the right)" $
-      getFirstArc (LineSeg (Point2 (0,1.0)) (Point2 (0.0,-1.0))) (LineSeg (Point2 (0,0)) (Point2 (-1.0,0.0))) --> PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
-    it "finds the inside arc of a 135 degree angle(to the left)" $
-      getFirstArc (LineSeg (Point2 (0,1.0)) (Point2 (0.0,-1.0))) (LineSeg (Point2 (0,0)) (Point2 (1.0,-1.0))) --> PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
-    it "finds the inside arc of a 135 degree angle(to the right)" $
-      getFirstArc (LineSeg (Point2 (0,1.0)) (Point2 (0.0,-1.0))) (LineSeg (Point2 (0,0)) (Point2 (-1.0,-1.0))) --> PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
+    it "finds the outside arcs of right angles with their sides parallel to the axises" $
+      property prop_AxisAlignedRightAngles
+    it "finds the outside arcs of 135 degree angles with one side parallel to an axis" $
+      property prop_AxisAligned135DegreeAngles
+    it "finds the outside arcs of 45 degree angles with one side parallel to an axis" $
+      property prop_AxisAligned45DegreeAngles
     it "finds the inside arc of the first corner of c2" $
       makeENodes c2c1 --> [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
                                  (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal (-0.3826834323650897) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
