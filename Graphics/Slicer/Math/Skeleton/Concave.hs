@@ -26,7 +26,8 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, makeENodes, averageNodes, eNodesOfOutsideContour) where
+module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, getOutsideArc, makeENodes, averageNodes, eNodesOfOutsideContour) where
+
 import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id, notElem, zip)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
@@ -339,6 +340,7 @@ sortedPair :: (Arcable a, Arcable b) => a -> b -> [PLine2]
 sortedPair n1 n2 = sortedPLines [outOf n1, outOf n2]
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
+--   Note: Ensure input line segments are normalised.
 --   Note: we normalize our output lines, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
 --   Note: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
 getOutsideArc :: Point2 -> PLine2 -> Point2 -> PLine2 -> PLine2

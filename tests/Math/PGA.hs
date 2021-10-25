@@ -65,7 +65,7 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
 -- Our Facet library.
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell, getNodeTreeOfCell, nodeTreesFromDivision)
-import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENodes, averageNodes, eNodesOfOutsideContour)
+import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENodes, averageNodes, eNodesOfOutsideContour, getOutsideArc)
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell))
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
@@ -367,14 +367,21 @@ prop_DistanceToAxis v v2 xAxis
   | otherwise = distancePPointToPLine (eToPPoint2 $ Point2 (coerce v,coerce v2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> abs (coerce v)
 
 -- | A property test making sure two points on the same side of an axis show as being on the same side of the axis.
-prop_SameSideOfAxis :: (NonZero ℝ) -> (NonZero ℝ) -> (Positive ℝ) -> (Positive ℝ) -> Bool -> Bool -> Expectation
-prop_SameSideOfAxis v1 v2 p1 p2 xAxis positive
-  | xAxis == True = if positive
-                    then pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (coerce v1,coerce p1))) (eToPPoint2 (Point2 (coerce v2,coerce p2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,0)))) --> Just True
-                    else pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (coerce v1,-(coerce p1)))) (eToPPoint2 (Point2 (coerce v2,-(coerce p2)))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,0)))) --> Just True
-  | otherwise = if positive
-                then pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (coerce p1,coerce v1))) (eToPPoint2 (Point2 (coerce p2,coerce v2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (0,1)))) --> Just True
-                else pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (-(coerce p1),coerce v1))) (eToPPoint2 (Point2 (-(coerce p1),coerce v2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (0,1)))) --> Just True
+prop_SameSideOfAxis :: (NonZero ℝ) -> (NonZero ℝ) -> (Positive ℝ) -> (Positive ℝ) -> (Positive ℝ) -> Bool -> Bool -> Expectation
+prop_SameSideOfAxis rawV1 rawV2 rawP1 rawP2 rawMagnitude xAxis positiveSide 
+  | xAxis == True = if positiveSide
+                    then pPointsOnSameSideOfPLine (eToPPoint2 $ Point2 (v1,p1)) (eToPPoint2 $ Point2 (v2,p2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (mag,0))) --> Just True
+                    else pPointsOnSameSideOfPLine (eToPPoint2 $ Point2 (v1,-p1)) (eToPPoint2 $ Point2 (v2,-p2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (mag,0))) --> Just True
+  | otherwise = if positiveSide
+                then pPointsOnSameSideOfPLine (eToPPoint2 $ Point2 (p1,v1)) (eToPPoint2 $ Point2 (p2,v2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> Just True
+                else pPointsOnSameSideOfPLine (eToPPoint2 $ Point2 (-p1,v1)) (eToPPoint2 $ Point2 (-p1,v2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> Just True
+  where
+    p1 = coerce rawP1
+    p2 = coerce rawP2
+    v1 = coerce rawV1
+    v2 = coerce rawV2
+    mag,p1,p2,v1,v2::ℝ
+    mag = coerce rawMagnitude
 
 -- | A property test making sure that two points on opposite sides of an axis show as being on the opposite sides of the axis.
 prop_OtherSideOfAxis :: (NonZero ℝ) -> (NonZero ℝ) -> (Positive ℝ) -> (Positive ℝ) -> Bool -> Bool -> Expectation
@@ -404,60 +411,92 @@ pgaSpec = do
     it "a projection on the perpendicular bisector of an axis aligned line is on the other axis" $
       property prop_AxisProjection
   describe "Distance measurement (math/PGA)" $ do
-    it "the distance between a point at (x,y) and an axis is equal to x for the x axis, and y for the y axis" $
+    it "the distance between a projective point at (x,y) and an axis is equal to x for the x axis, and y for the y axis" $
       property prop_DistanceToAxis
   describe "Layout Inspection (math/PGA)" $ do
-    it "two points on the same side of a line show as being on the same side of the line" $
+    it "two projective points on the same side of a line show as being on the same side of the line" $
       property prop_SameSideOfAxis
-    it "two points on different sides of a line show as being on different sides of a line" $
+    it "two projective points on different sides of a line show as being on different sides of a line" $
       property prop_OtherSideOfAxis
   where
     l1 = LineSeg (Point2 (1,1)) (Point2 (2,2))
 
 -- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
-prop_AxisAlignedRightAngles :: Bool -> Bool -> ℝ -> (Positive ℝ) -> Expectation
-prop_AxisAlignedRightAngles xPos yPos offset rawMagnitude
+prop_AxisAlignedRightAngles :: Bool -> Bool -> ℝ -> (Positive ℝ) -> (Positive ℝ) -> Expectation
+prop_AxisAlignedRightAngles xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos == True && yPos == True =
-    getFirstArc (LineSeg (Point2 (offset,offset+mag)) (Point2 (0,-mag))) (LineSeg (Point2 (offset,offset)) (Point2 (mag,0))) `angleBetween` PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
+    getFirstArc (LineSeg (Point2 (offset,offset+mag1)) (Point2 (0,-mag1))) (LineSeg (Point2 (offset,offset)) (Point2 (mag2,0))) `angleBetween` PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
   | xPos == True =
-    getFirstArc (LineSeg (Point2 (offset,-(offset+mag))) (Point2 (0,mag))) (LineSeg (Point2 (offset,-offset)) (Point2 (mag,0))) `angleBetween` PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
+    getFirstArc (LineSeg (Point2 (offset,-(offset+mag1))) (Point2 (0,mag1))) (LineSeg (Point2 (offset,-offset)) (Point2 (mag2,0))) `angleBetween` PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
   | xPos == False && yPos == True =
-    getFirstArc (LineSeg (Point2 (-offset,offset+mag)) (Point2 (0,-mag))) (LineSeg (Point2 (-offset,offset)) (Point2 (-mag,0))) `angleBetween` PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
+    getFirstArc (LineSeg (Point2 (-offset,offset+mag1)) (Point2 (0,-mag1))) (LineSeg (Point2 (-offset,offset)) (Point2 (-mag2,0))) `angleBetween` PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
   | otherwise =
-    getFirstArc (LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (0,mag))) (LineSeg (Point2 (-offset,-offset)) (Point2 (-mag,0))) `angleBetween` PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
+    getFirstArc (LineSeg (Point2 (-offset,-(offset+mag1))) (Point2 (0,mag1))) (LineSeg (Point2 (-offset,-offset)) (Point2 (-mag2,0))) `angleBetween` PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
   where
-    mag :: ℝ
-    mag = coerce rawMagnitude
+    mag1,mag2 :: ℝ
+    mag1 = coerce rawMagnitude1
+    mag2 = coerce rawMagnitude2
 
 -- | ensure that a 135 degree angle with one side parallel with an axis and in the right place results in a line through the origin point.
 -- NOTE: hack, using angleBetween and >= to filter out minor numerical imprecision.
-prop_AxisAligned135DegreeAngles :: Bool -> Bool -> ℝ -> (Positive ℝ) -> Bool
-prop_AxisAligned135DegreeAngles xPos yPos offset rawMagnitude
+prop_AxisAligned135DegreeAngles :: Bool -> Bool -> ℝ -> (Positive ℝ) -> (Positive ℝ) -> Bool
+prop_AxisAligned135DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos == True && yPos == True =
-    getFirstArc (LineSeg (Point2 (offset,offset+mag)) (Point2 (0,-mag))) (LineSeg (Point2 (offset,offset)) (Point2 (mag,-mag))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0
+    getFirstArc (LineSeg (Point2 (offset,offset+mag1)) (Point2 (0,-mag1))) (LineSeg (Point2 (offset,offset)) (Point2 (mag2,-mag2))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0
   | xPos == True =
-    getFirstArc (LineSeg (Point2 (offset,-(offset+mag))) (Point2 (0,mag))) (LineSeg (Point2 (offset,-offset)) (Point2 (mag,mag))) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0
+    getFirstArc (LineSeg (Point2 (offset,-(offset+mag1))) (Point2 (0,mag1))) (LineSeg (Point2 (offset,-offset)) (Point2 (mag2,mag2))) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0
   | xPos == False && yPos == True =
-    getFirstArc (LineSeg (Point2 (-offset,offset+mag)) (Point2 (0,-mag))) (LineSeg (Point2 (-offset,offset)) (Point2 (-mag,-mag))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0
+    getFirstArc (LineSeg (Point2 (-offset,offset+mag1)) (Point2 (0,-mag1))) (LineSeg (Point2 (-offset,offset)) (Point2 (-mag2,-mag2))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0
   | otherwise =
-    getFirstArc (LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (0,mag))) (LineSeg (Point2 (-offset,-offset)) (Point2 (-mag,mag))) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0
+    getFirstArc (LineSeg (Point2 (-offset,-(offset+mag1))) (Point2 (0,mag1))) (LineSeg (Point2 (-offset,-offset)) (Point2 (-mag2,mag2))) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0
   where
-    mag :: ℝ
-    mag = coerce rawMagnitude
+    mag1,mag2 :: ℝ
+    mag1 = coerce rawMagnitude1
+    mag2 = coerce rawMagnitude2
 
 -- | ensure that a 45 degree angle with one side parallel with the X axis and in the right place results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
-prop_AxisAligned45DegreeAngles :: Bool -> Bool -> ℝ -> (Positive ℝ) -> Expectation
-prop_AxisAligned45DegreeAngles xPos yPos offset rawMagnitude
+prop_AxisAligned45DegreeAngles :: Bool -> Bool -> ℝ -> (Positive ℝ) -> (Positive ℝ) -> Expectation
+prop_AxisAligned45DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos == True && yPos == True =
-    getFirstArc (LineSeg (Point2 (offset+mag,offset+mag)) (Point2 (-mag,-mag))) (LineSeg (Point2 (offset,offset)) (Point2 (mag,0))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
+    getFirstArc (LineSeg (Point2 (offset+mag1,offset+mag1)) (Point2 (-mag1,-mag1))) (LineSeg (Point2 (offset,offset)) (Point2 (mag2,0))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
   | xPos == True =
-    getFirstArc (LineSeg (Point2 (offset+mag,-(offset+mag))) (Point2 (-mag,mag))) (LineSeg (Point2 (offset,-offset)) (Point2 (mag,0))) `angleBetween` PLine2 (GVec [GVal  (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
+    getFirstArc (LineSeg (Point2 (offset+mag1,-(offset+mag1))) (Point2 (-mag1,mag1))) (LineSeg (Point2 (offset,-offset)) (Point2 (mag2,0))) `angleBetween` PLine2 (GVec [GVal  (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
   | xPos == False && yPos == True =
-    getFirstArc (LineSeg (Point2 (-(offset+mag),offset+mag)) (Point2 (mag,-mag))) (LineSeg (Point2 (-offset,offset)) (Point2 (-mag,0))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+    getFirstArc (LineSeg (Point2 (-(offset+mag1),offset+mag1)) (Point2 (mag1,-mag1))) (LineSeg (Point2 (-offset,offset)) (Point2 (-mag2,0))) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
   | otherwise =
-    getFirstArc (LineSeg (Point2 (-(offset+mag),-(offset+mag))) (Point2 (mag,mag))) (LineSeg (Point2 (-offset,-offset)) (Point2 (-mag,0))) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+    getFirstArc (LineSeg (Point2 (-(offset+mag1),-(offset+mag1))) (Point2 (mag1,mag1))) (LineSeg (Point2 (-offset,-offset)) (Point2 (-mag2,0))) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+  where
+    mag1,mag2 :: ℝ
+    mag1 = coerce rawMagnitude1
+    mag2 = coerce rawMagnitude2
+
+-- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
+-- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
+-- NOTE: we use only one magnitude, because getOutsideArc requires normalized inputs.
+prop_AxisAlignedRightAnglesOutside :: Bool -> Bool -> ℝ -> (Positive ℝ) -> Expectation
+prop_AxisAlignedRightAnglesOutside xPos yPos offset rawMagnitude
+  | xPos == True && yPos == True =
+    getOutsideArc (Point2 (offset,offset+mag)) (eToPLine2 $ LineSeg (Point2 (offset,offset+mag)) (Point2 (0,-mag)))
+                  (Point2 (offset+mag,offset)) (eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (-mag,0)))
+                  `angleBetween`
+                   PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
+  | xPos == True =
+    getOutsideArc (Point2 (offset,-(offset+mag))) (eToPLine2 $ LineSeg (Point2 (offset,-(offset+mag))) (Point2 (0,mag)))
+                  (Point2 (offset+mag,-offset)) (eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (-mag,0)))
+                  `angleBetween`
+                   PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
+  | xPos == False && yPos == True =
+    getOutsideArc (Point2 (-offset,offset+mag)) (eToPLine2 $ LineSeg (Point2 (-offset,offset+mag)) (Point2 (0,-mag)))
+                  (Point2 (-(offset+mag),offset)) (eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (mag,0)))
+                  `angleBetween`
+                   PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
+  | otherwise =
+    getOutsideArc (Point2 (-offset,-(offset+mag))) (eToPLine2 $ LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (0,mag)))
+                  (Point2 (-(offset+mag),-offset)) (eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (mag,0)))
+                  `angleBetween`
+                   PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
   where
     mag :: ℝ
     mag = coerce rawMagnitude
@@ -465,12 +504,14 @@ prop_AxisAligned45DegreeAngles xPos yPos offset rawMagnitude
 facetSpec :: Spec
 facetSpec = do
   describe "Arcs (Skeleton/Concave)" $ do
-    it "finds the outside arcs of right angles with their sides parallel to the axises" $
+    it "finds the inside arcs of right angles with their sides parallel to the axises" $
       property prop_AxisAlignedRightAngles
-    it "finds the outside arcs of 135 degree angles with one side parallel to an axis" $
+    it "finds the inside arcs of 135 degree angles with one side parallel to an axis" $
       property prop_AxisAligned135DegreeAngles
-    it "finds the outside arcs of 45 degree angles with one side parallel to an axis" $
+    it "finds the inside arcs of 45 degree angles with one side parallel to an axis" $
       property prop_AxisAligned45DegreeAngles
+    it "finds the outside arcs of right angles with their sides parallel to the axises" $
+      property prop_AxisAlignedRightAnglesOutside
     it "finds the inside arc of the first corner of c2" $
       makeENodes c2c1 --> [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
                                  (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal (-0.3826834323650897) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
