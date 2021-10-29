@@ -48,15 +48,15 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
-import Graphics.Slicer.Math.Line (lineSegFromEndpoints, handleLineSegError, endpoint)
+import Graphics.Slicer.Math.Line (endpoint)
 
-import Graphics.Slicer.Math.PGA (pToEPoint2, PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween)
+import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween, join2PPoint2)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), INodeSet(INodeSet), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, ePointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, pPointOf, isAntiCollinear, getPairs, isCollinear, indexPLinesTo, isParallel, linePairs, makeINode, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), INodeSet(INodeSet), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, isAntiCollinear, getPairs, isCollinear, indexPLinesTo, isParallel, linePairs, makeINode, sortedPLines)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree)
 
@@ -333,7 +333,7 @@ averageNodes n1 n2
   | isParallel (outOf n1) (outOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | isCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | isAntiCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
-  | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (ePointOf n1) (outOf n1) (ePointOf n2) (outOf n2)
+  | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (outOf n1) (pPointOf n2) (outOf n2)
 
 -- | take a pair of arcables, and return their outOf, in a sorted order.
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [PLine2]
@@ -343,8 +343,8 @@ sortedPair n1 n2 = sortedPLines [outOf n1, outOf n2]
 --   Note: Ensure input line segments are normalised.
 --   Note: we normalize our output lines, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
 --   Note: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
-getOutsideArc :: Point2 -> PLine2 -> Point2 -> PLine2 -> PLine2
-getOutsideArc point1 pline1 point2 pline2
+getOutsideArc :: PPoint2 -> PLine2 -> PPoint2 -> PLine2 -> PLine2
+getOutsideArc ppoint1 pline1 ppoint2 pline2
   | pline1 == pline2 = error "need to be able to return two PLines."
   | noIntersection pline1 pline2 = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
   | l1TowardPoint && l2TowardPoint = flipPLine2 $ getInsideArc pline1 (flipPLine2 pline2)
@@ -352,19 +352,18 @@ getOutsideArc point1 pline1 point2 pline2
   | l2TowardPoint                  = getInsideArc pline2 pline1
   | otherwise                      = getInsideArc (flipPLine2 pline2) pline1
     where
-      l1TowardPoint = towardIntersection point1 pline1 (intersectionOf pline1 pline2)
-      l2TowardPoint = towardIntersection point2 pline2 (intersectionOf pline1 pline2)
-
--- Determine if the line segment formed by the two given points starts with the first point, or the second.
--- Note that due to numeric uncertainty, we cannot use Eq here, and must check the sign of the angle.
-towardIntersection :: Point2 -> PLine2 -> PPoint2 -> Bool
-towardIntersection p1 pl1 in1
-  | p1 == pToEPoint2 in1                                  = False
-  | angleBetween (eToPLine2 constructedLineSeg) pl1 > 0   = True
-  | otherwise                                             = False
-  where
-    constructedLineSeg :: LineSeg
-    constructedLineSeg = handleLineSegError $ lineSegFromEndpoints p1 (pToEPoint2 in1)
+      l1TowardPoint = towardIntersection ppoint1 pline1 (intersectionOf pline1 pline2)
+      l2TowardPoint = towardIntersection ppoint2 pline2 (intersectionOf pline1 pline2)
+      -- Determine if the line segment formed by the two given points starts with the first point, or the second.
+      -- Note that due to numeric uncertainty, we should not rely on Eq here, and must check the sign of the angle.
+      -- FIXME: sometimes this breaks down, if pp1 and pl1 have distance between them?
+      towardIntersection :: PPoint2 -> PLine2 -> PPoint2 -> Bool
+      towardIntersection pp1 pl1 in1
+        | pp1 == in1                           = False
+        | angleBetween constructedLine pl1 > 0 = True
+        | otherwise                            = False
+        where
+          constructedLine = join2PPoint2 pp1 in1
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'acute' direction.
 --   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
