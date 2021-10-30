@@ -21,9 +21,9 @@
 
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, meet2PLine2, forcePLine2Basis) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, meet2PLine2, forcePLine2Basis, idealNormPPoint2) where
 
-import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (++), (<$>), otherwise, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error)
+import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (++), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error)
 
 import GHC.Generics (Generic)
 
@@ -67,9 +67,13 @@ data PIntersection =
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
 plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
 plinesIntersectIn pl1 pl2
-  | meet2PLine2 pl1 pl2    == PPoint2 (GVec []) = if angleBetween pl1 pl2 > 0
-                                                  then PCollinear
-                                                  else PAntiCollinear
+
+  | meet2PLine2 pl1 pl2 == PPoint2 (GVec [])
+  || (idealNormPPoint2 (meet2PLine2 pl1 pl2) < fudgeFactor
+     && (angleBetween pl1 pl2 >= 1 ||
+         angleBetween pl1 pl2 <= -1 ))          = if angleBetween pl1 pl2 > 0
+                                                           then PCollinear
+                                                           else PAntiCollinear
   | scalarPart (pr1 ⎣ pr2) <   1+fudgeFactor &&
     scalarPart (pr1 ⎣ pr2) >   1-fudgeFactor    = PParallel
   | scalarPart (pr1 ⎣ pr2) <  -1+fudgeFactor &&
@@ -429,9 +433,9 @@ forcePPoint2Basis (PPoint2 pvec)              = PPoint2 $ forceBasis [fromList [
 canonicalizePPoint2 :: PPoint2 -> PPoint2
 canonicalizePPoint2 (PPoint2 vec@(GVec vals)) = PPoint2 $ divVecScalar vec $ valOf 1 $ getVals [GEPlus 1, GEPlus 2] vals
 
--- | The idealized norm of a euclidian projective point.
-_idealNormPPoint2 :: PPoint2 -> ℝ
-_idealNormPPoint2 ppoint = sqrt (x*x+y*y)
+-- | The idealized norm of a projective point.
+idealNormPPoint2 :: PPoint2 -> ℝ
+idealNormPPoint2 ppoint = sqrt (x*x+y*y)
   where
     (Point2 (x,y)) = pToEPoint2 ppoint
 
