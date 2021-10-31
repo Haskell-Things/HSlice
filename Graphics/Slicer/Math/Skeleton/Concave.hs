@@ -28,9 +28,9 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, getOutsideArc, makeENodes, averageNodes, eNodesOfOutsideContour) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id, notElem, zip)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id, notElem, zip)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes)
+import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust)
 
 import Data.List (takeWhile, sortBy)
 
@@ -48,7 +48,7 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), mapWithFollower)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), mapWithFollower, distance)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -56,7 +56,7 @@ import Graphics.Slicer.Math.Line (endpoint)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween, join2PPoint2)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), INodeSet(INodeSet), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, isAntiCollinear, getPairs, isCollinear, indexPLinesTo, isParallel, linePairs, makeINode, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), INodeSet(INodeSet), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, getPairs, isCollinear, indexPLinesTo, isParallel, linePairs, makeINode, sortedPLines)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree)
 
@@ -81,12 +81,21 @@ justToSomething val = case val of
 -- | Recurse on a set of nodes until we have a complete NodeTree.
 --   Only works on a sequnce of concave line segments, when there are no holes in the effected area.
 skeletonOfConcaveRegion :: [LineSeg] -> NodeTree
-skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
+skeletonOfConcaveRegion inSegs
+  | loop == False && isJust (finalOutOf result) = result
+  | loop == True && finalOutOf result == Nothing = result
+  | otherwise = error $ "illegal nodeTree." <> show inSegs <> "\n" <> show result <> "\n"
   where
+    result = getNodeTree (firstENodes inSegs loop)
     -- are the incoming line segments a loop?
     loop = endpoint (DL.last inSegs) == startPoint (DL.head inSegs)
+           || distance (endpoint $ DL.last inSegs) (startPoint $ DL.head inSegs) < fudgeFactor
       where
         startPoint (LineSeg p1 _) = p1
+        -- Note: fudgefactor is to make up for Double being Double, and math not necessarilly being perfect.
+        fudgeFactor :: ℝ
+        fudgeFactor = 0.000000000000002
+
 
     -- Generate the first generation of nodes, from the passed in line segments.
     -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
@@ -103,12 +112,13 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
       where
         -- | apply the recursive NodeTree solver.
         res :: [ENode] -> INodeSet
-        res inGen = sortINodesByENodes $ errorIfLeft (skeletonOfNodes inGen [])
+        res inGen = INodeSet $ sortINodesByENodes $ errorIfLeft (skeletonOfNodes inGen [])
           where
             sortINodesByENodes (INodeSet generations)
-             | len generations == 0 = INodeSet generations
-             | len generations == 1 = INodeSet $ slist $ [[orderInsByENodes (DL.head $ SL.head generations)]]
-             | len generations == 2 = INodeSet $ slist $ [firstGenWithoutFlips] <> [[lastGen (rawSortGeneration $ SL.head generations) (DL.head $ SL.head $ SL.tail generations)]]
+             | len generations == 0 = generations
+             | len generations == 1 = slist $ [[orderInsByENodes (DL.head $ SL.head generations)]]
+             | len generations == 2 && firstGenWithoutFlips == [] = slist $ [[lastGen (rawSortGeneration $ SL.head generations) (DL.head $ SL.head $ SL.tail generations)]]
+             | len generations == 2 = slist $ [firstGenWithoutFlips] <> [[lastGen (rawSortGeneration $ SL.head generations) (DL.head $ SL.head $ SL.tail generations)]]
              | otherwise = error "too many generations?"
               where
                 -- the first PLine in the input enode set.
@@ -186,7 +196,8 @@ skeletonOfConcaveRegion inSegs = getNodeTree (firstENodes inSegs loop)
           | isCollinear (outOf node1) (outOf node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
           | intersectsInPoint node1 node2 && not loop = Right $ INodeSet $ one [averageNodes node1 node2]
           | otherwise = errorLen2
-        errorLen2 = Left $ PartialNodes (INodeSet $ one iNodes) "NOMATCH - length 2?"
+          where
+            errorLen2 = Left $ PartialNodes (INodeSet $ one iNodes) $ "NOMATCH - length 2?\n" <> show node1 <> "\n" <> show node2 <> "\n"
 
         --   Handle the the case of 3 or more nodes.
         handleThreeOrMoreNodes
