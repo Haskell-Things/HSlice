@@ -161,7 +161,7 @@ skeletonOfConcaveRegion inSegs
                     withoutPLine myPLine pLines = filter (\a -> a /= myPLine) pLines
     -- | Handle the recursive resolver failing.
     errorIfLeft :: Either PartialNodes INodeSet -> INodeSet
-    errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure <> "\ninSegs: " <> show inSegs <> "\nloop:" <> show loop <> "\n"
+    errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure <> "\ninSegs: " <> show inSegs <> "\n" <> show (firstENodes inSegs loop) <> "\nloop:" <> show loop <> "\n"
     errorIfLeft (Right val)    = val
 
     -- | Apply a recursive algorithm to solve the node set.
@@ -195,9 +195,16 @@ skeletonOfConcaveRegion inSegs
           | isAntiCollinear (outOf node1) (outOf node2) = Right $ INodeSet $ one [makeAntiCollinearPair node1 node2]
           | isCollinear (outOf node1) (outOf node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
           | intersectsInPoint node1 node2 && not loop = Right $ INodeSet $ one [averageNodes node1 node2]
+          | intersectsInPoint node1 node2 &&
+            (distanceBetweenPPoints (pPointOf node1) (intersectionOf (outOf node1) (outOf node2)) < fudgeFactor
+            || distanceBetweenPPoints (pPointOf node2) (intersectionOf (outOf node1) (outOf node2)) < fudgeFactor)
+            && loop = Right $ INodeSet $ one [makeINode (sortedPLines [outOf node1,outOf node2]) Nothing]
           | otherwise = errorLen2
           where
             errorLen2 = Left $ PartialNodes (INodeSet $ one iNodes) $ "NOMATCH - length 2?\n" <> show node1 <> "\n" <> show node2 <> "\n"
+            -- Note: fudgefactor is to make up for Double being Double, and math not necessarilly being perfect.
+            fudgeFactor :: ℝ
+            fudgeFactor = 0.000000000000002
 
         --   Handle the the case of 3 or more nodes.
         handleThreeOrMoreNodes
