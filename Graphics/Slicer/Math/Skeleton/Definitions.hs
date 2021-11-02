@@ -115,7 +115,10 @@ instance Pointable INode where
                     (Just a) -> fst a
     where
       results = intersectionsOfPairs allPLines
-      allPointsSame = and $ mapWithFollower (==) (intersectionsOfPairs allPLines)
+      allPointsSame = case intersectionsOfPairs allPLines of
+                        [] -> error $ "no intersection of pairs for " <> show allPLines
+                        [_] -> True
+                        points -> and $ mapWithFollower (==) points
       allPLines = if hasArc iNode
                   then cons (outOf iNode) $ cons firstPLine $ cons secondPLine morePLines
                   else cons firstPLine $ cons secondPLine morePLines

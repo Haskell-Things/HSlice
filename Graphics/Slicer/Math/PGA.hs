@@ -43,7 +43,7 @@ import Safe (lastMay, initSafe)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions(Point2(Point2), LineSeg(LineSeg), addPoints)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, fudgeFactor)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (•), addVal, addVecPair, divVecScalar, getVals, scalarPart, valOf, vectorPart)
 
@@ -82,9 +82,6 @@ plinesIntersectIn pl1 pl2
   where
     (PLine2 pr1) = forcePLine2Basis pl1
     (PLine2 pr2) = forcePLine2Basis pl2
-    -- Note: fudgefactor is to make up for Double being Double, and math not necessarilly being perfect.
-    fudgeFactor :: ℝ
-    fudgeFactor = 0.000000000000002
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: PLine2 -> PLine2 -> Maybe Bool

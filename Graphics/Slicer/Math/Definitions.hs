@@ -20,7 +20,7 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
 -- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
-module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints) where
+module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints, fudgeFactor) where
 
 import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, zipWith, (<>), error, show)
 
@@ -184,3 +184,7 @@ mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` zipWith f x l
                  Nothing -> error "Empty input list"
                  (Just ([],_)) -> error "too short of a list."
                  (Just vs) -> vs
+
+-- Note: fudgefactor is to make up for Double being Double, and math not necessarilly being perfect.
+fudgeFactor :: ℝ
+fudgeFactor = 0.000000000000002
