@@ -21,7 +21,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, head, sqrt, (/=), otherwise, abs, (&&), (+))
+import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, head, sqrt, (/=), otherwise, abs, (&&), (+), (>), show, length)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
@@ -49,11 +49,13 @@ import Graphics.Slicer (ℝ)
 -- A euclidian point.
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), roundPoint2)
 
+import Graphics.Slicer.Math.Line(flipLineSeg, handleLineSegError, lineSegFromEndpoints, endpoint, midpoint)
+
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣))
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, angleBetween, distancePPointToPLine, pPointsOnSameSideOfPLine)
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, angleBetween, distancePPointToPLine, normalizePLine2, pPointsOnSameSideOfPLine)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour)
@@ -66,7 +68,7 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 -- Our Facet library.
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell, getNodeTreeOfCell, nodeTreesFromDivision)
 import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENodes, averageNodes, eNodesOfOutsideContour, getOutsideArc)
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell))
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell), outOf)
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
@@ -74,7 +76,7 @@ import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree, mergeNodeTrees)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Our Utility library, for making these tests easier to read.
-import Math.Util ((-->))
+import Math.Util ((-->), (-/>))
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
@@ -302,7 +304,6 @@ geomAlgSpec = do
                                  , GVec [GVal 1 (fromList [GEZero 1, GEPlus 2])] • GVec [GVal 1 (singleton (GEPlus 1))]
                                  ] --> GVec [GVal (-2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
 
-
 -- | A property test making sure that the scalar part of the little-dot product of two PPoints is always -1.
 prop_ScalarDotScalar :: ℝ -> ℝ -> ℝ -> ℝ -> Bool
 prop_ScalarDotScalar v1 v2 v3 v4 = scalarPart (rawPPoint2 (v1,v2) ⋅ rawPPoint2 (v3,v4)) == (-1)  
@@ -478,56 +479,226 @@ prop_AxisAligned45DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
 prop_AxisAlignedRightAnglesOutside :: Bool -> Bool -> ℝ -> (Positive ℝ) -> Expectation
 prop_AxisAlignedRightAnglesOutside xPos yPos offset rawMagnitude
   | xPos == True && yPos == True =
-    getOutsideArc (Point2 (offset,offset+mag)) (eToPLine2 $ LineSeg (Point2 (offset,offset+mag)) (Point2 (0,-mag)))
-                  (Point2 (offset+mag,offset)) (eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (-mag,0)))
+    getOutsideArc (eToPPoint2 $ Point2 (offset,offset+mag)) (eToPLine2 $ LineSeg (Point2 (offset,offset+mag)) (Point2 (0,-mag)))
+                  (eToPPoint2 $ Point2 (offset+mag,offset)) (eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (-mag,0)))
                   `angleBetween`
                    PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
   | xPos == True =
-    getOutsideArc (Point2 (offset,-(offset+mag))) (eToPLine2 $ LineSeg (Point2 (offset,-(offset+mag))) (Point2 (0,mag)))
-                  (Point2 (offset+mag,-offset)) (eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (-mag,0)))
+    getOutsideArc (eToPPoint2 $ Point2 (offset,-(offset+mag))) (eToPLine2 $ LineSeg (Point2 (offset,-(offset+mag))) (Point2 (0,mag)))
+                  (eToPPoint2 $ Point2 (offset+mag,-offset)) (eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (-mag,0)))
                   `angleBetween`
                    PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
   | xPos == False && yPos == True =
-    getOutsideArc (Point2 (-offset,offset+mag)) (eToPLine2 $ LineSeg (Point2 (-offset,offset+mag)) (Point2 (0,-mag)))
-                  (Point2 (-(offset+mag),offset)) (eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (mag,0)))
+    getOutsideArc (eToPPoint2 $ Point2 (-offset,offset+mag)) (eToPLine2 $ LineSeg (Point2 (-offset,offset+mag)) (Point2 (0,-mag)))
+                  (eToPPoint2 $ Point2 (-(offset+mag),offset)) (eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (mag,0)))
                   `angleBetween`
                    PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
   | otherwise =
-    getOutsideArc (Point2 (-offset,-(offset+mag))) (eToPLine2 $ LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (0,mag)))
-                  (Point2 (-(offset+mag),-offset)) (eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (mag,0)))
+    getOutsideArc (eToPPoint2 $ Point2 (-offset,-(offset+mag))) (eToPLine2 $ LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (0,mag)))
+                  (eToPPoint2 $ Point2 (-(offset+mag),-offset)) (eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (mag,0)))
                   `angleBetween`
                    PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
   where
     mag :: ℝ
     mag = coerce rawMagnitude
 
+-- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
+-- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
+-- NOTE: we use only one magnitude, because getOutsideArc requires normalized inputs.
+-- NOTE: execrises the point-out-point-out path of getOutsideArc.
+prop_AxisAligned45DegreeAnglesOutside :: Bool -> Bool -> ℝ -> (Positive ℝ) -> Expectation
+prop_AxisAligned45DegreeAnglesOutside xPos yPos offset rawMagnitude
+  | xPos == True && yPos == True =
+    getOutsideArc (eToPPoint2 $ Point2 (offset+mag,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset+mag)) (Point2 (-mag,-mag)))
+                  (eToPPoint2 $ Point2 (offset+mag,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset+mag)) (Point2 (-mag,0)))
+                  `angleBetween`
+                   PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+  | xPos == True =
+    getOutsideArc (eToPPoint2 $ Point2 (offset+mag,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-(offset+mag))) (Point2 (-mag,mag)))
+                  (eToPPoint2 $ Point2 (offset+mag,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-(offset+mag))) (Point2 (-mag,0)))
+                  `angleBetween`
+                   PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+  | xPos == False && yPos == True =
+    getOutsideArc (eToPPoint2 $ Point2 (-(offset+mag),offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset+mag)) (Point2 (mag,-mag)))
+                  (eToPPoint2 $ Point2 (-(offset+mag),offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset+mag)) (Point2 (mag,0)))
+                  `angleBetween`
+                   PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
+  | otherwise =
+    getOutsideArc (eToPPoint2 $ Point2 (-(offset+mag),-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-(offset+mag))) (Point2 (mag,mag)))
+                  (eToPPoint2 $ Point2 (-(offset+mag),-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-(offset+mag))) (Point2 (mag,0)))
+                  `angleBetween`
+                   PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
+  where
+    mag :: ℝ
+    mag = coerce rawMagnitude
+
+-- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
+-- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
+-- NOTE: we use only one magnitude, because getOutsideArc requires normalized inputs.
+-- NOTE: execrises the point-out-point-out path of getOutsideArc.
+-- FIXME: expressing this with the second line in each of these pairs the other direction (head->tail vs tail->head) results in falsification?
+prop_AxisAligned135DegreeAnglesOutside :: Bool -> Bool -> (Positive ℝ) -> (Positive ℝ) -> Expectation
+prop_AxisAligned135DegreeAnglesOutside xPos yPos rawOffset rawMagnitude
+  | xPos == True && yPos == True =
+    getOutsideArc (eToPPoint2 $ Point2 (offset+mag,offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (-mag,0)))
+                  (eToPPoint2 $ Point2 (offset+mag,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset+mag)) (Point2 (-mag,-mag)))
+                  `angleBetween`
+                   PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+  | xPos == True =
+    getOutsideArc (eToPPoint2 $ Point2 (offset+mag,-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (-mag,0)))
+                  (eToPPoint2 $ Point2 (offset+mag,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-(offset+mag))) (Point2 (-mag,mag)))
+                  `angleBetween`
+                   PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+  | xPos == False && yPos == True =
+    getOutsideArc (eToPPoint2 $ Point2 (-(offset+mag),offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (mag,0)))
+                  (eToPPoint2 $ Point2 (-(offset+mag),offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset+mag)) (Point2 (mag,-mag)))
+                  `angleBetween`
+                   PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
+  | otherwise =
+    getOutsideArc (eToPPoint2 $ Point2 (-(offset+mag),-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (mag,0)))
+                  (eToPPoint2 $ Point2 (-(offset+mag),-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-(offset+mag))) (Point2 (mag,mag)))
+                  `angleBetween`
+                   PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
+  where
+    mag,offset :: ℝ
+    offset = coerce rawOffset
+    mag = coerce rawMagnitude
+
+-- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
+-- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
+prop_AxisAlignedRightAnglesInENode :: Bool -> Bool -> ℝ -> (Positive ℝ) -> (Positive ℝ) -> Expectation
+prop_AxisAlignedRightAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
+  | xPos == True && yPos == True =
+    outOf (head $ makeENodes [LineSeg (Point2 (offset,offset+mag1)) (Point2 (0,-mag1)),LineSeg (Point2 (offset,offset)) (Point2 (mag2,0))]) `angleBetween` PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
+  | xPos == True =
+    outOf (head $ makeENodes [LineSeg (Point2 (offset,-(offset+mag1))) (Point2 (0,mag1)),LineSeg (Point2 (offset,-offset)) (Point2 (mag2,0))]) `angleBetween` PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) --> 1.0000000000000002
+  | xPos == False && yPos == True =
+    outOf (head $ makeENodes [LineSeg (Point2 (-offset,offset+mag1)) (Point2 (0,-mag1)),LineSeg (Point2 (-offset,offset)) (Point2 (-mag2,0))]) `angleBetween` PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
+  | otherwise =
+    outOf (head $ makeENodes [LineSeg (Point2 (-offset,-(offset+mag1))) (Point2 (0,mag1)),LineSeg (Point2 (-offset,-offset)) (Point2 (-mag2,0))]) `angleBetween` PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) --> 1.0000000000000002
+  where
+    mag1,mag2 :: ℝ
+    mag1 = coerce rawMagnitude1
+    mag2 = coerce rawMagnitude2
+
+-- | ensure that a 135 degree angle with one side parallel with an axis and in the right place results in a line through the origin point.
+-- NOTE: hack, using angleBetween and >= to filter out minor numerical imprecision.
+prop_AxisAligned135DegreeAnglesInENode :: Bool -> Bool -> ℝ -> (Positive ℝ) -> (Positive ℝ) -> Bool
+prop_AxisAligned135DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
+  | xPos == True && yPos == True =
+    outOf (head $ makeENodes [LineSeg (Point2 (offset,offset+mag1)) (Point2 (0,-mag1)),LineSeg (Point2 (offset,offset)) (Point2 (mag2,-mag2))]) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0
+  | xPos == True =
+    outOf (head $ makeENodes [LineSeg (Point2 (offset,-(offset+mag1))) (Point2 (0,mag1)),LineSeg (Point2 (offset,-offset)) (Point2 (mag2,mag2))]) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0
+  | xPos == False && yPos == True =
+    outOf (head $ makeENodes [LineSeg (Point2 (-offset,offset+mag1)) (Point2 (0,-mag1)),LineSeg (Point2 (-offset,offset)) (Point2 (-mag2,-mag2))]) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0
+  | otherwise =
+    outOf (head $ makeENodes [LineSeg (Point2 (-offset,-(offset+mag1))) (Point2 (0,mag1)),LineSeg (Point2 (-offset,-offset)) (Point2 (-mag2,mag2))]) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0
+  where
+    mag1,mag2 :: ℝ
+    mag1 = coerce rawMagnitude1
+    mag2 = coerce rawMagnitude2
+
+-- | ensure that a 45 degree angle with one side parallel with the X axis and in the right place results in a line through the origin point.
+-- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
+prop_AxisAligned45DegreeAnglesInENode :: Bool -> Bool -> ℝ -> (Positive ℝ) -> (Positive ℝ) -> Expectation
+prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
+  | xPos == True && yPos == True =
+    outOf (head $ makeENodes [LineSeg (Point2 (offset+mag1,offset+mag1)) (Point2 (-mag1,-mag1)),LineSeg (Point2 (offset,offset)) (Point2 (mag2,0))]) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
+  | xPos == True =
+    outOf (head $ makeENodes [LineSeg (Point2 (offset+mag1,-(offset+mag1))) (Point2 (-mag1,mag1)),LineSeg (Point2 (offset,-offset)) (Point2 (mag2,0))]) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) --> 1.0
+  | xPos == False && yPos == True =
+    outOf (head $ makeENodes [LineSeg (Point2 (-(offset+mag1),offset+mag1)) (Point2 (mag1,-mag1)),LineSeg (Point2 (-offset,offset)) (Point2 (-mag2,0))]) `angleBetween` PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+  | otherwise =
+    outOf (head $ makeENodes [LineSeg (Point2 (-(offset+mag1),-(offset+mag1))) (Point2 (mag1,mag1)),LineSeg (Point2 (-offset,-offset)) (Point2 (-mag2,0))]) `angleBetween` PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) --> 1.0
+  where
+    mag1,mag2 :: ℝ
+    mag1 = coerce rawMagnitude1
+    mag2 = coerce rawMagnitude2
+
+prop_TriangleNoDivides :: ℝ -> ℝ -> (NonZero ℝ) -> ℝ -> (NonZero ℝ) -> ℝ -> Expectation
+prop_TriangleNoDivides x y rawDx dy rawOffAxis distanceFromMiddle = findDivisions triangle (fromMaybe (error $ show triangle) $ crashMotorcycles triangle []) --> []
+  where
+    triangle = makeLineSegContour $ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
+
+prop_TriangleHasStraightSkeleton :: ℝ -> ℝ -> (NonZero ℝ) -> ℝ -> (NonZero ℝ) -> ℝ -> Expectation
+prop_TriangleHasStraightSkeleton x y rawDx dy rawOffAxis distanceFromMiddle = findStraightSkeleton triangle [] -/> Nothing
+  where
+    triangle = makeLineSegContour $ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
+
+prop_TriangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> (NonZero ℝ) -> ℝ -> (NonZero ℝ) -> ℝ -> Bool
+prop_TriangleStraightSkeletonHasRightGenerationCount x y rawDx dy rawOffAxis distanceFromMiddle = generationsOf (findStraightSkeleton triangle []) == 1
+  where
+    triangle = makeLineSegContour $ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
+    generationsOf Nothing = 0
+    generationsOf (Just (StraightSkeleton [] _)) = 0
+    generationsOf (Just (StraightSkeleton [a] _)) = length a
+
+
+prop_TriangleCanPlaceFaces :: ℝ -> ℝ -> (NonZero ℝ) -> ℝ -> (NonZero ℝ) -> ℝ -> Expectation
+prop_TriangleCanPlaceFaces x y rawDx dy rawOffAxis distanceFromMiddle = facesOf (fromJust $ findStraightSkeleton triangle []) -/> []
+  where
+    triangle = makeLineSegContour $ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
+
+randomTriangle :: ℝ -> ℝ -> (NonZero ℝ) -> ℝ -> (NonZero ℝ) -> ℝ -> [LineSeg]
+randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
+  | offAxis > 0 && dx > 0 = wind
+  | offAxis > 0 = wind
+  | dx > 0 = unwind
+  | otherwise = unwind
+  where
+    unwind = [flippedFirstSeg, flippedSegOut, flippedSegIn]
+    wind = [firstSeg,segIn,segOut]
+    dx,offAxis :: ℝ
+    dx = coerce rawDx
+    offAxis = coerce rawOffAxis
+    startPoint (LineSeg p _) = p
+    crossX = pointOnPerp firstSeg (midpoint firstSeg) offAxis
+    lineX = handleLineSegError $ lineSegFromEndpoints (midpoint firstSeg) crossX
+    outsidePoint = pointOnPerp lineX crossX distanceFromMiddle
+    segIn = handleLineSegError $ lineSegFromEndpoints (endpoint firstSeg) (outsidePoint)
+    segOut = handleLineSegError $ lineSegFromEndpoints (outsidePoint) (startPoint firstSeg)
+    firstSeg
+      | dx > 0 && dy > 0 = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | dx > 0           = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | dy > 0           = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | otherwise        = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+    flippedSegIn = handleLineSegError $ lineSegFromEndpoints (outsidePoint) (endpoint firstSeg)
+    flippedSegOut = handleLineSegError $ lineSegFromEndpoints (startPoint firstSeg) (outsidePoint)
+    flippedFirstSeg
+      | dx > 0 && dy > 0 = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | dx > 0           = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | dy > 0           = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | otherwise        = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+
 facetSpec :: Spec
 facetSpec = do
   describe "Arcs (Skeleton/Concave)" $ do
-    it "finds the inside arcs of right angles with their sides parallel to the axises" $
+    it "finds the inside arcs of right angles with their sides parallel to the axises (raw)" $
       property prop_AxisAlignedRightAngles
-    it "finds the inside arcs of 135 degree angles with one side parallel to an axis" $
+    it "finds the inside arcs of 135 degree angles with one side parallel to an axis (raw)" $
       property prop_AxisAligned135DegreeAngles
-    it "finds the inside arcs of 45 degree angles with one side parallel to an axis" $
+    it "finds the inside arcs of 45 degree angles with one side parallel to an axis (raw)" $
       property prop_AxisAligned45DegreeAngles
     it "finds the outside arcs of right angles with their sides parallel to the axises" $
       property prop_AxisAlignedRightAnglesOutside
-    it "finds the inside arc of the first corner of c2" $
-      makeENodes c2c1 --> [ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
-                                 (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal (-0.3826834323650897) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
-                          ]
-    it "finds the inside arc of the second corner of c2" $
-      makeENodes c2c2 --> [ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,-0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
-                                 (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                          ]
-    it "finds the inside arc of the third corner of c2" $
-      makeENodes c2c3 --> [ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
-                                 (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                          ]
-    it "finds the inside arc of the fourth corner of c2" $
-      makeENodes c2c4 --> [ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0)))
-                                 (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
-                          ]
+    it "finds the outside arcs of 135 degree angles with their sides parallel to the axises" $
+      property prop_AxisAligned135DegreeAnglesOutside
+    it "finds the outside arcs of 45 degree angles with their sides parallel to the axises" $
+      property prop_AxisAligned45DegreeAnglesOutside
+    it "finds the inside arcs of right angles with their sides parallel to the axises (enode)" $
+      property prop_AxisAlignedRightAnglesInENode
+    it "finds the inside arcs of 135 degree angles with one side parallel to an axis (enode)" $
+      property prop_AxisAligned135DegreeAnglesInENode
+    it "finds the inside arcs of 45 degree angles with one side parallel to an axis (enode)" $
+      property prop_AxisAligned45DegreeAnglesInENode
+    it "finds no divides in a triangle" $
+      property prop_TriangleNoDivides
+    it "finds the straight skeleton of a triangle" $
+      property prop_TriangleHasStraightSkeleton
+    it "only generates one generation for a triangle" $
+      property prop_TriangleStraightSkeletonHasRightGenerationCount
+    it "places faces on the straight skeleton of a triangle" $
+      property prop_TriangleCanPlaceFaces
     it "finds the arc resulting from a node at the intersection of the outArc of two nodes (corner3 and corner4 of c2)" $
       averageNodes c2c3E1 c2c4E1 --> INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
@@ -1474,18 +1645,12 @@ facetSpec = do
       --   | \
       --   ~~~  <-- corner 3
       --   ^-- corner 4
-      -- the exit of the convex angle and the top
-      c2c1 = [ LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0))]
       -- the top and the left side.
-      c2c2 = [ LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0))]
       c2c2E1 = ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)),LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
                      (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
       -- the left and the bottom side.
-      c2c3 = [ LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0))]
       c2c3E1 = ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)),LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
                      (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-      -- the bottom and the entrance to the wedge.
-      c2c4 = [ LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0))]
       -- the bottom and the entrance to the convex angle.
       c2c4E1 = ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)) ,LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0)))
                      (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)),GVal 0.9238795325112867 (singleton (GEPlus 2))]))
