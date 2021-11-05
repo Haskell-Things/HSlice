@@ -67,7 +67,7 @@ orderedFacesOf start skeleton = facesFromIndex start $ facesOf skeleton
 
 -- | take a straight skeleton, and create faces from it.
 facesOf :: StraightSkeleton -> [Face]
-facesOf (StraightSkeleton nodeLists spine)
+facesOf straightSkeleton@(StraightSkeleton nodeLists spine)
   | null spine = case nodeLists of
                    [] -> nodeListError
                    [oneNodeList] -> findFaces oneNodeList
@@ -81,7 +81,7 @@ facesOf (StraightSkeleton nodeLists spine)
                             [] -> []
                             [oneNodeTree] -> if isNothing (finalOutOf oneNodeTree)
                                              then rawFaces
-                                             else error $ "Only one NodeTree given, and it has an output arc. Don't know how to continue: " <> show oneNodeTree <> "\n"
+                                             else error $ "Only one NodeTree given, and it has an output arc. Don't know how to continue: " <> show straightSkeleton <> "\n"
                             (_:_) -> rawFaces
       where
         rawFaces = case nodeTrees of
@@ -141,13 +141,18 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
         (Slist [] _) -> if hasArc target
                         then initSafe resultAsTriangles
                         else resultAsTriangles
+        (Slist [[]] _) -> error $ "got an empty generation.\n" <> show nodeTree
         (Slist [oneGeneration] _) -> if hasArc target
                                      then errorHasArc
                                      else concat $ mapWithFollower (\a b -> areaBeneath eNodeList (ancestorsOf myINodeSet) a <> [areaBetween eNodeList target a b]) oneGeneration
         (Slist (_:_) _) -> errorTooMany
       where
         -- create triangles from every pair of arcs of this inode, in order. assumes that all of the arcs are connected to ENodes.
-        resultAsTriangles = mapWithFollower makeTriangleFace $ eNodesOfINode target
+        resultAsTriangles
+          | res == [] = error $ "could not find any eNodes of INode: " <> show target
+          | otherwise = mapWithFollower makeTriangleFace res
+          where
+            res = eNodesOfINode target
         -- All of the ENodes coresponding to a node's arc.
         eNodesOfINode myINode = fromMaybe (error $ "failed to find an ENode for an arc of inode: " <> show myINode <> "\n") <$> (findENodeByOutput eNodeList <$> inArcsOf myINode)
         -- All of a node's arcs.
@@ -166,8 +171,10 @@ areaBetween eNodeList@(ENodeSet (Slist [(firstENode,moreENodes)] _)) parent iNod
   | otherwise                                                               = fromMaybe errNodesNotNeighbors $
                                                                                 makeFace (firstDescendent eNodeList iNode1) (one $ firstInOf parent) (findMatchingDescendent eNodeList iNode2 $ firstDescendent eNodeList iNode1)
   where
-    -- | using the set of all first generation nodes, a second generation node, and a first generation node, find out which one of the first generation children of the given second generation node shares a side with the first generation node.
+    -- our error condition.
     errNodesNotNeighbors = error $ "cannot make a face from nodes that are not neighbors: \n" <> show eNodeList <> "\n" <> show parent <> "\n" <> show iNode1 <> "\n" <> show iNode2 <> "\n"
+
+    -- | given all of the first generation nodes, an inode, and an enode, find out which one of the first generation children of the given second generation node shares a side with the first generation node.
     findMatchingDescendent :: ENodeSet -> INode -> ENode -> ENode
     findMatchingDescendent eNodes myParent (ENode (seg1,seg2) _) =
       case res of
