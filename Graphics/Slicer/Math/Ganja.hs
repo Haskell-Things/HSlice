@@ -68,7 +68,7 @@ import Graphics.Slicer.Math.Line (endpoint)
 
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2))
 
-import Graphics.Slicer.Math.Skeleton.Definitions(ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree))
+import Graphics.Slicer.Math.Skeleton.Definitions(ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton))
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
@@ -218,6 +218,8 @@ instance GanjaAble NodeTree where
           iNodesOf :: INodeSet -> [INode]
           iNodesOf (INodeSet (Slist inodes _)) = concat inodes
 
+instance GanjaAble StraightSkeleton where
+  toGanja (StraightSkeleton [[nodetree]] _) = toGanja nodetree
 
 -- | Create a single program, covering a series of objects.
 dumpGanjas :: [String -> (String, String)] -> String
