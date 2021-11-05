@@ -28,7 +28,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, getOutsideArc, makeENodes, averageNodes, eNodesOfOutsideContour) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id, notElem, zip, any)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id, notElem, zip, any, (*))
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust)
 
@@ -84,12 +84,12 @@ skeletonOfConcaveRegion :: [LineSeg] -> NodeTree
 skeletonOfConcaveRegion inSegs
   | loop == False && isJust (finalOutOf result) = result
   | loop == True && finalOutOf result == Nothing = result
-  | otherwise = error $ "illegal nodeTree." <> show inSegs <> "\n" <> show result <> "\n"
+  | otherwise = error $ "illegal nodeTree:" <> show inSegs <> "\n" <> show loop <> "\n" <> show result <> "\n"
   where
     result = getNodeTree (firstENodes inSegs loop)
     -- are the incoming line segments a loop?
     loop = endpoint (DL.last inSegs) == startPoint (DL.head inSegs)
-           || distance (endpoint $ DL.last inSegs) (startPoint $ DL.head inSegs) < fudgeFactor
+           || distance (endpoint $ DL.last inSegs) (startPoint $ DL.head inSegs) < (fudgeFactor*15)
       where
         startPoint (LineSeg p1 _) = p1
 
@@ -104,7 +104,7 @@ skeletonOfConcaveRegion inSegs
     -- FIXME: geometry may require more than one NodeTree, or may require spines, which are still a concept in flux.
     getNodeTree :: [ENode] -> NodeTree
     getNodeTree [] = error "no Nodes to generate a nodetree from?"
-    getNodeTree initialGeneration = makeNodeTree initialGeneration $ sortINodesByENodes (errorIfLeft (skeletonOfNodes loop initialGeneration [])) initialGeneration
+    getNodeTree initialGeneration = makeNodeTree initialGeneration $ sortINodesByENodes (errorIfLeft (skeletonOfNodes loop initialGeneration [])) initialGeneration loop
 
 -- | Handle the recursive resolver failing.
 errorIfLeft :: Either PartialNodes INodeSet -> INodeSet
@@ -219,18 +219,21 @@ addINodeToParent firstPLine (INode firstIn1 secondIn1 (Slist moreIn1 _) (Just ou
     withoutPLine :: PLine2 -> [PLine2] -> [PLine2]
     withoutPLine myPLine pLines = filter (\a -> a /= myPLine) pLines
 
-sortINodesByENodes :: INodeSet -> [ENode] -> INodeSet
-sortINodesByENodes (INodeSet generations) initialGeneration
+-- | place our inodes in a state such that the eNodes that the inodes point to are in the order of the given enode list.
+-- also attempts to merge the last generation into the prior generation, for node tree simplification.
+sortINodesByENodes :: INodeSet -> [ENode] -> Bool -> INodeSet
+sortINodesByENodes (INodeSet generations) initialGeneration loop
   | len generations == 0 = INodeSet generations
+  | len generations == 1 && hasArc (DL.head $ SL.head generations) && loop = error $ "illegal single generation:\n" <> show generations <> "\n" <> show initialGeneration <> "\n" <> show loop <> "\n"
   | len generations == 1 = INodeSet $ slist $ [[orderInsByENodes (DL.head $ SL.head generations)]]
   | len generations == 2 = INodeSet $ slist $ case firstGenWithoutFlips of
                                                 [] -> [[lastINode]]
                                                 [oneINode] -> -- if the second to last generation has just one item, check if we can collapse the last generation into it.
-                                                  if canPoint lastINode == False || distanceBetweenPPoints (pPointOf lastINode) (pPointOf oneINode) < fudgeFactor && hasENode lastINode
+                                                  if loop && hasENode lastINode
                                                   then [[addINodeToParent firstPLine oneINode lastINode]]
                                                   else [firstGenWithoutFlips] <> [[lastINode]]
                                                 _ -> [firstGenWithoutFlips] <> [[lastINode]]
-  | otherwise = error $ "too many generations?" <> show generations
+  | otherwise = error $ "too many generations?" <> show generations <> "\n" <> show initialGeneration <> "\n" <> show loop <> "\n"
   where
     lastINode = lastGen (rawSortGeneration $ SL.head generations) (DL.head $ SL.head $ SL.tail generations)
       where
@@ -274,37 +277,34 @@ skeletonOfNodes loop eNodes iNodes =
             [] -> -- zero nodes == return emptyset. allows us to simplify our return loop.
               Right $ INodeSet $ slist []
             [INode {}] ->
-              if not loop
-              then Right $ INodeSet $ one iNodes -- just hand back single node requests.
-              else errorLen1 -- A one node loop makes no sense, reject.
+              if loop
+              then errorLen1 -- A one node loop makes no sense, reject.
+              else Right $ INodeSet $ one iNodes -- just hand back single node requests.
             [iNode1,iNode2] -> handleTwoNodes iNode1 iNode2
-            (_:_:_:_) -> handleThreeOrMoreNodes
+            _ -> handleThreeOrMoreNodes
     [eNode] -> case iNodes of
                  [] ->
-                   if not loop
-                   then Right $ INodeSet $ one [eNodeToINode eNode] -- just hand back single node requests.
-                   else errorLen1  -- A one node loop makes no sense, reject.
+                   if loop
+                   then errorLen1 -- A one node loop makes no sense, reject.
+                   else Right $ INodeSet $ one [eNodeToINode eNode] -- just hand back single node requests.
                  [iNode] -> handleTwoNodes eNode iNode
-                 (_:_:_) -> handleThreeOrMoreNodes
+                 _ -> handleThreeOrMoreNodes
     [eNode1,eNode2] -> case iNodes of
                          [] -> handleTwoNodes eNode1 eNode2
-                         (_:_) -> handleThreeOrMoreNodes
-    (_:_:_:_) -> handleThreeOrMoreNodes
+                         _ -> handleThreeOrMoreNodes
+    _ -> handleThreeOrMoreNodes
   where
         errorLen1 = Left $ PartialNodes (INodeSet $ one iNodes) "NOMATCH - length 1?"
         --   Handle the the case of two nodes.
         handleTwoNodes :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Either PartialNodes INodeSet
         handleTwoNodes node1 node2
-          | isAntiCollinear (outOf node1) (outOf node2) = Right $ INodeSet $ one [makeAntiCollinearPair node1 node2]
           | isCollinear (outOf node1) (outOf node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
-          | intersectsInPoint node1 node2 && not loop = Right $ INodeSet $ one [averageNodes node1 node2]
-          | intersectsInPoint node1 node2 &&
-            (distanceBetweenPPoints (pPointOf node1) (intersectionOf (outOf node1) (outOf node2)) < fudgeFactor
-            || distanceBetweenPPoints (pPointOf node2) (intersectionOf (outOf node1) (outOf node2)) < fudgeFactor)
-            && loop = Right $ INodeSet $ one [makeINode (sortedPLines [outOf node1,outOf node2]) Nothing]
+          | isAntiCollinear (outOf node1) (outOf node2) && loop = Right $ INodeSet $ one [makeLastPair node1 node2]
+          | loop = Right $ INodeSet $ one [makeINode (sortedPLines [outOf node1,outOf node2]) Nothing]
+          | intersectsInPoint node1 node2 = Right $ INodeSet $ one [averageNodes node1 node2]
           | otherwise = errorLen2
           where
-            errorLen2 = Left $ PartialNodes (INodeSet $ one iNodes) $ "NOMATCH - length 2?\n" <> show node1 <> "\n" <> show node2 <> "\n"
+            errorLen2 = Left $ PartialNodes (INodeSet $ one iNodes) $ "NOMATCH - length 2?\n" <> show node1 <> "\n" <> show node2 <> "\n" <> show loop <> "\n" <> show eNodes <> "\n" <> show iNodes <> "\n"
 
         --   Handle the the case of 3 or more nodes.
         handleThreeOrMoreNodes
@@ -321,10 +321,10 @@ skeletonOfNodes loop eNodes iNodes =
 
         -- | When a set of nodes end in the same point, we may need to create a Node with all of the nodes as input. This checks for that case.
         endsAtSamePoint :: Bool
-        endsAtSamePoint = and $ mapWithFollower (==) $ mapWithFollower intersectionOf ((outOf <$> nonAntiCollinearNodes eNodes (antiCollinearNodePairsOf eNodes)
-                                                                                               <> firstAntiCollinearNodes (antiCollinearNodePairsOf eNodes)) <>
-                                                                                       (outOf <$> nonAntiCollinearNodes iNodes (antiCollinearNodePairsOf iNodes)
-                                                                                               <> firstAntiCollinearNodes (antiCollinearNodePairsOf iNodes)))
+        endsAtSamePoint = and $ mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor) $ mapWithFollower intersectionOf ((outOf <$> nonAntiCollinearNodes eNodes (antiCollinearNodePairsOf eNodes)
+                                                                                                                                             <> firstAntiCollinearNodes (antiCollinearNodePairsOf eNodes)) <>
+                                                                                                                                     (outOf <$> nonAntiCollinearNodes iNodes (antiCollinearNodePairsOf iNodes)
+                                                                                                                                             <> firstAntiCollinearNodes (antiCollinearNodePairsOf iNodes)))
           where
             -- since anti-collinear nodes end at the same point, only count one of them.
             firstAntiCollinearNodes nodePairs = fst <$> nodePairs
@@ -339,9 +339,9 @@ skeletonOfNodes loop eNodes iNodes =
         hasShortestPair :: Bool
         hasShortestPair = not $ null (intersectingNodePairsOf eNodes) && null (intersectingNodePairsOf iNodes) && null intersectingMixedNodePairs
 
-        -- | make sure we have a potential intersection between two nodes to work with.
-        makeAntiCollinearPair :: (Arcable a, Arcable b) => a -> b -> INode
-        makeAntiCollinearPair node1 node2 = makeINode (sortedPair node1 node2) Nothing
+        -- | construct the last pair of a closed concave region.
+        makeLastPair :: (Arcable a, Arcable b) => a -> b -> INode
+        makeLastPair node1 node2 = makeINode (sortedPair node1 node2) Nothing
 
         -- | determine the exterior nodes available for calculation during the next recurse.
         remainingENodes :: [ENode]
@@ -389,10 +389,13 @@ skeletonOfNodes loop eNodes iNodes =
                                       (firstPair:_) -> justToSomething $ uncurry distanceToIntersection firstPair
 
         -- | get the list of sorted pairs of intersecting nodes.
-        shortestPairs :: (Arcable a, Pointable a, Show a) => [a] -> [(a, a)]
+        shortestPairs :: (Arcable a, Pointable a, Show a, Eq a) => [a] -> [(a, a)]
         shortestPairs myNodes = case nodePairsSortedByDistance myNodes of
                                   [] -> []
                                   [onePair] -> [onePair]
+                                  [(a,b),(c,d)] -> if a == c || a == d || b == c || b == d
+                                                   then [(a,b)]
+                                                   else [(a,b),(c,d)]
                                   (pair:morePairs) -> pair : takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection pair) morePairs
           where
             -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
@@ -441,4 +444,3 @@ skeletonOfNodes loop eNodes iNodes =
         intersectsInPoint node1 node2
           | hasArc node1 && hasArc node2 = not $ noIntersection (outOf node1) (outOf node2)
           | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
-
