@@ -31,7 +31,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, eNodeToINode, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isAntiCollinear, isParallel, intersectionOf, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), (++), error, (>), (&&), any, fst, and, (||), (<>), show)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), (++), error, (>), (&&), any, fst, and, (||), (<>), show, (<))
 
 import Data.List (filter, sortBy)
 
@@ -47,9 +47,9 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.PGA (pToEPoint2, PPoint2, plinesIntersectIn, PIntersection(PCollinear,PAntiCollinear, IntersectsIn,PParallel,PAntiParallel), eToPPoint2, flipPLine2, lineIsLeft, PLine2(PLine2), eToPLine2, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (pToEPoint2, PPoint2, plinesIntersectIn, PIntersection(PCollinear,PAntiCollinear, IntersectsIn,PParallel,PAntiParallel), eToPPoint2, flipPLine2, lineIsLeft, PLine2(PLine2), eToPLine2, pLineIsLeft, distanceBetweenPPoints)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -118,7 +118,7 @@ instance Pointable INode where
       allPointsSame = case intersectionsOfPairs allPLines of
                         [] -> error $ "no intersection of pairs for " <> show allPLines
                         [_] -> True
-                        points -> and $ mapWithFollower (==) points
+                        points -> and $ mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor) points
       allPLines = if hasArc iNode
                   then cons (outOf iNode) $ cons firstPLine $ cons secondPLine morePLines
                   else cons firstPLine $ cons secondPLine morePLines
