@@ -20,13 +20,13 @@
 
 -- Utilities
 module Math.Util
-         ( (-->)
+         ( (-->), (-/>)
          ) where
 
 -- be explicit about where we get things from.
 import Prelude (Eq, Show)
 
-import Test.Hspec (Expectation, shouldBe)
+import Test.Hspec (Expectation, shouldBe, shouldNotBe)
 
 -- operators for expressions for "result of the left side should evaluate to the right side."
 
@@ -35,3 +35,9 @@ infixr 1 -->
 (-->) :: (Eq a,Show a) => a -> a -> Expectation
 (-->) res exp =
   res `shouldBe` exp
+
+infixr 1 -/>
+-- Expectation operator for comparing values.
+(-/>) :: (Eq a,Show a) => a -> a -> Expectation
+(-/>) res exp =
+  res `shouldNotBe` exp
