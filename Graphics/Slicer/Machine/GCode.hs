@@ -52,7 +52,7 @@ import Graphics.Slicer.Math.Contour (pointsOfContour, lastPointOfContour)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour, LineSeg(LineSeg), distance, roundToFifth)
 
-import Graphics.Slicer.Math.Line (endpoint)
+import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.Slicer (accumulateValues)
 
@@ -198,9 +198,9 @@ gcodeForInfill lh pathWidth lineGroups =
                                       [] -> []
                                       (headGroup:tailGroups) -> renderSegment headGroup : concat (zipWith (\ l1 l2 -> moveBetween l1 l2 : [renderSegment l2]) lineSegSet tailGroups)
     moveBetween :: LineSeg -> LineSeg -> GCode
-    moveBetween l1 (LineSeg startPointl2 _) = make2DTravelGCode (endpoint l1) startPointl2
+    moveBetween l1 (LineSeg startPointl2 _) = make2DTravelGCode (endPoint l1) startPointl2
     renderSegment :: LineSeg -> GCode
-    renderSegment ln@(LineSeg startPoint _) = make2DExtrudeGCode lh pathWidth startPoint $ endpoint ln
+    renderSegment ln@(LineSeg startPoint _) = make2DExtrudeGCode lh pathWidth startPoint $ endPoint ln
 
 ----------------------------------------------------
 ------------------ FIXED STRINGS -------------------

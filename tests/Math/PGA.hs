@@ -47,9 +47,9 @@ import Slist (slist)
 import Graphics.Slicer (ℝ)
 
 -- A euclidian point.
-import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), roundPoint2)
+import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), roundPoint2, startPoint, distance)
 
-import Graphics.Slicer.Math.Line(flipLineSeg, handleLineSegError, lineSegFromEndpoints, endpoint, midpoint)
+import Graphics.Slicer.Math.Line(flipLineSeg, handleLineSegError, lineSegFromEndpoints, endPoint, midPoint)
 
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣))
@@ -651,18 +651,17 @@ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
     dx,offAxis :: ℝ
     dx = coerce rawDx
     offAxis = coerce rawOffAxis
-    startPoint (LineSeg p _) = p
-    crossX = pointOnPerp firstSeg (midpoint firstSeg) offAxis
-    lineX = handleLineSegError $ lineSegFromEndpoints (midpoint firstSeg) crossX
+    crossX = pointOnPerp firstSeg (midPoint firstSeg) offAxis
+    lineX = handleLineSegError $ lineSegFromEndpoints (midPoint firstSeg) crossX
     outsidePoint = pointOnPerp lineX crossX distanceFromMiddle
-    segIn = handleLineSegError $ lineSegFromEndpoints (endpoint firstSeg) (outsidePoint)
+    segIn = handleLineSegError $ lineSegFromEndpoints (endPoint firstSeg) (outsidePoint)
     segOut = handleLineSegError $ lineSegFromEndpoints (outsidePoint) (startPoint firstSeg)
     firstSeg
       | dx > 0 && dy > 0 = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
       | dx > 0           = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
       | dy > 0           = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
       | otherwise        = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-    flippedSegIn = handleLineSegError $ lineSegFromEndpoints (outsidePoint) (endpoint firstSeg)
+    flippedSegIn = handleLineSegError $ lineSegFromEndpoints (outsidePoint) (endPoint firstSeg)
     flippedSegOut = handleLineSegError $ lineSegFromEndpoints (startPoint firstSeg) (outsidePoint)
     flippedFirstSeg
       | dx > 0 && dy > 0 = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))

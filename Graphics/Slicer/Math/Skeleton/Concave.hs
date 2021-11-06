@@ -48,11 +48,11 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), mapWithFollower, distance, fudgeFactor)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithFollower, distance, fudgeFactor, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
-import Graphics.Slicer.Math.Line (endpoint)
+import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween, join2PPoint2)
 
@@ -88,10 +88,8 @@ skeletonOfConcaveRegion inSegs
   where
     result = getNodeTree (firstENodes inSegs loop)
     -- are the incoming line segments a loop?
-    loop = endpoint (DL.last inSegs) == startPoint (DL.head inSegs)
-           || distance (endpoint $ DL.last inSegs) (startPoint $ DL.head inSegs) < (fudgeFactor*15)
-      where
-        startPoint (LineSeg p1 _) = p1
+    loop = endPoint (DL.last inSegs) == startPoint (DL.head inSegs)
+           || distance (endPoint $ DL.last inSegs) (startPoint $ DL.head inSegs) < (fudgeFactor*15)
 
     -- Generate the first generation of nodes, from the passed in line segments.
     -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
@@ -319,7 +317,7 @@ skeletonOfNodes loop eNodes iNodes =
                     <> "\nmixedPairDistance: " <> show shortestMixedPairDistance <> "\nshortestMixedPairs: " <> show shortestMixedPairs <> "\nMixedPairResults: " <> show (uncurry averageNodes <$> shortestMixedPairs) <> "\n" <> show (isSomething shortestMixedPairDistance) <> "\n" <> show (shortestEPairDistance == shortestPairDistance)
                     <> "\nresultingENodes: " <> show remainingENodes <> "\nresultingNodes: " <> show remainingINodes <> "\nthisGen: " <> show averageOfShortestPairs
 
-        -- | When a set of nodes end in the same point, we may need to create a Node with all of the nodes as input. This checks for that case.
+        -- | When all of our nodes end in the same point and we know this is a closed loop, we should create a Node with all of them as input. This checks for that case.
         endsAtSamePoint :: Bool
         endsAtSamePoint = and $ mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor) $ mapWithFollower intersectionOf ((outOf <$> nonAntiCollinearNodes eNodes (antiCollinearNodePairsOf eNodes)
                                                                                                                                              <> firstAntiCollinearNodes (antiCollinearNodePairsOf eNodes)) <>
@@ -328,7 +326,7 @@ skeletonOfNodes loop eNodes iNodes =
           where
             -- since anti-collinear nodes end at the same point, only count one of them.
             firstAntiCollinearNodes nodePairs = fst <$> nodePairs
-            -- find the nodes that do not have an anti-collinear pair.
+            -- find nodes that do not have an anti-collinear pair.
             -- FIXME: is there a better way do do this with Ord?
             nonAntiCollinearNodes :: (Eq a) => [a] -> [(a,a)] -> [a]
             nonAntiCollinearNodes myNodes nodePairs = filter (\a -> notElem a $ allAntiCollinearNodes nodePairs) myNodes

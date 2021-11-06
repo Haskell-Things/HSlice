@@ -46,9 +46,9 @@ import Slist.Size (Size(Infinity))
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg(LineSeg), mapWithNeighbors, minMaxPoints, xOf, yOf)
+import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, mapWithNeighbors, minMaxPoints, xOf, yOf, startPoint)
 
-import Graphics.Slicer.Math.Line (lineSegFromEndpoints, endpoint, midpoint, handleLineSegError)
+import Graphics.Slicer.Math.Line (lineSegFromEndpoints, endPoint, midPoint, handleLineSegError)
 
 import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, HitStartPoint, HitEndPoint), PIntersection (PParallel, PAntiParallel, IntersectsIn), eToPPoint2, lineIsLeft, pointOnPerp, intersectsWith, pToEPoint2, PPoint2, PLine2, join2PPoint2)
 
@@ -216,8 +216,8 @@ followingLineSeg x = followingLineSegLooped x x
 insideIsLeft :: Contour -> LineSeg -> Bool
 insideIsLeft contour lineSegment = lineIsLeft lineSecondHalf lineToInside == Just True
   where
-    lineSecondHalf = fromRight (error $ "cannot construct SecondHalf" <> show lineSegment <> "\n" <> show contour <> "/n") $ lineSegFromEndpoints (midpoint lineSegment) (endpoint lineSegment)
-    lineToInside = fromRight (error "cannot construct lineToInside") $ lineSegFromEndpoints (midpoint lineSegment) $ innerContourPoint 0.00001 contour lineSegment
+    lineSecondHalf = fromRight (error $ "cannot construct SecondHalf" <> show lineSegment <> "\n" <> show contour <> "/n") $ lineSegFromEndpoints (midPoint lineSegment) (endPoint lineSegment)
+    lineToInside = fromRight (error "cannot construct lineToInside") $ lineSegFromEndpoints (midPoint lineSegment) $ innerContourPoint 0.00001 contour lineSegment
 
 -- | Find a point on the interior of the given contour, on the perpendicular bisector of the given line segment, a given distance away from the line segment.
 innerContourPoint :: ℝ -> Contour -> LineSeg -> Point2
@@ -226,10 +226,10 @@ innerContourPoint distance contour l
     | otherwise            = otherPerpPoint
   where
     minPoint       = fst (minMaxPoints contour)
-    perpPoint      = pointOnPerp l (midpoint l) distance
-    otherPerpPoint = pointOnPerp l (midpoint l) (-distance)
+    perpPoint      = pointOnPerp l (midPoint l) distance
+    otherPerpPoint = pointOnPerp l (midPoint l) (-distance)
     outsidePoint   = Point2 (xOf minPoint - 1 , yOf minPoint - 1)
-    numIntersections = contourIntersectionCount contour (Left (pointOnPerp l (midpoint l) 0.00001, outsidePoint))
+    numIntersections = contourIntersectionCount contour (Left (pointOnPerp l (midPoint l) 0.00001, outsidePoint))
 
 -- | return the number of intersections with a given contour when traveling in a straight line from srcPoint to dstPoint.
 -- Not for use against line segments that overlap and are collinear with one of the line segments are a part of the contour.
@@ -263,8 +263,6 @@ pointsOfContour (PointContour _ _ p1 p2 p3 pts@(Slist vals _))
 pointsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
   | size moreLines == Infinity = error "cannot handle infinite contours."
   | otherwise                  = startPoint l1:startPoint l2:(startPoint <$> lns)
-  where
-    startPoint (LineSeg start _) = start
 
 -- | return the contour as a list of LineSegs.
 lineSegsOfContour :: Contour -> [LineSeg]
@@ -289,14 +287,12 @@ lineSegsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
 numPointsOfContour :: Contour -> Int
 numPointsOfContour (PointContour _ _ _ _ _ pts) = 3 + len pts
 numPointsOfContour (LineSegContour _ _ l1 l2 lns) = case safeLast lns of
-                                                     Nothing -> if startPoint l1 == endpoint l2
+                                                     Nothing -> if startPoint l1 == endPoint l2
                                                                 then error "2 point contour not legal"
                                                                 else 3
-                                                     (Just lastLine) -> if startPoint l1 == endpoint lastLine
+                                                     (Just lastLine) -> if startPoint l1 == endPoint lastLine
                                                                         then 2 + len lns
                                                                         else 3 + len lns
-  where
-    startPoint (LineSeg start _) = start
 
 -- | In an ideal world, only the test suite needs this.
 justOneContourFrom :: ([Contour], [_]) -> Contour
@@ -310,21 +306,17 @@ lastPointOfContour (PointContour _ _ _ _ p3 pts)
   | len pts > 0 = SL.last pts
   | otherwise = p3
 lastPointOfContour (LineSegContour _ _ l1 l2 lns) = case safeLast lns of
-                                                      Nothing -> if startPoint l1 == endpoint l2
+                                                      Nothing -> if startPoint l1 == endPoint l2
                                                                  then error "2 point contour not legal"
-                                                                 else endpoint l2
-                                                      (Just lastLine) -> if startPoint l1 == endpoint lastLine
+                                                                 else endPoint l2
+                                                      (Just lastLine) -> if startPoint l1 == endPoint lastLine
                                                                          then startPoint lastLine
-                                                                         else endpoint lastLine
-    where
-      startPoint (LineSeg start _) = start
+                                                                         else endPoint lastLine
 
 -- | Find the first point in a contour.
 firstPointOfContour :: Contour -> Point2
 firstPointOfContour (PointContour _ _ p1 _ _ _) = p1
 firstPointOfContour (LineSegContour _ _ l1 _ _) = startPoint l1
-    where
-      startPoint (LineSeg start _) = start
 
 -- | A constructor for a contour from a set of points.
 makePointContour :: [Point2] -> Contour
@@ -341,7 +333,7 @@ makeLineSegContour :: [LineSeg] -> Contour
 makeLineSegContour lineSegs = case lineSegs of
                                 [] -> error "tried to create an empty contour"
                                 [l] -> error $ "tried to create a contour with a single line: " <> show l <> "\n"
-                                [l1,l2] -> if startPoint l1 == endpoint l2
+                                [l1,l2] -> if startPoint l1 == endPoint l2
                                            then error $ "tried to create a contour with only two points:\n" <> show l1 <> "\n" <> show l2 <> "\n"
                                            else LineSegContour pL pH l1 l2 (slist [])
                                 (l1:l2:lns) -> LineSegContour pL pH l1 l2 (slist lns)
@@ -350,8 +342,7 @@ makeLineSegContour lineSegs = case lineSegs of
     pH = Point2 (maximum $ xOf <$> allPoints, maximum $ yOf <$> allPoints)
     allPoints = case lineSegs of
                   [] -> error "tried to create an empty contour"
-                  (x:xs) -> startPoint x:endpoint x:(endpoint <$> xs)
-    startPoint (LineSeg start _) = start
+                  (x:xs) -> startPoint x:endPoint x:(endPoint <$> xs)
 
 -- | find the first line segment of a contour.
 firstLineSegOfContour :: Contour -> LineSeg

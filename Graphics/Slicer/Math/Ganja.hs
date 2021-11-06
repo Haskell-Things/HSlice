@@ -64,7 +64,7 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg(LineSe
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf)
 
-import Graphics.Slicer.Math.Line (endpoint)
+import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2))
 
@@ -94,7 +94,7 @@ instance GanjaAble LineSeg where
     <> p2ref)
     where
       (p1var, p1ref) = toGanja p1 (varname <> "a")
-      (p2var, p2ref) = toGanja (endpoint l1) (varname <> "b")
+      (p2var, p2ref) = toGanja (endPoint l1) (varname <> "b")
 
 instance GanjaAble PPoint2 where
   toGanja (PPoint2 (GVec vals)) varname = (

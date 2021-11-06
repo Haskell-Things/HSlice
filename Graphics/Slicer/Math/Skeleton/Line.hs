@@ -38,7 +38,7 @@ import Graphics.Slicer.Math.Contour (makePointContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), (~=), mapWithFollower, mapWithPredecessor, scalePoint, addPoints)
 
-import Graphics.Slicer.Math.Line (lineSegFromEndpoints, endpoint, handleLineSegError)
+import Graphics.Slicer.Math.Line (lineSegFromEndpoints, endPoint, handleLineSegError)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (intersectionOf)
 
@@ -167,11 +167,11 @@ addInset insets distance faceSet
                              (Just v) -> v
                              Nothing -> error $ "failed to inset:" <> show faceSet <> "\n"
     recoveryFun l1@(LineSeg s1 _) l2@(LineSeg s2 _)
-      | endpoint l1 == s2 = endpoint l1
-      | endpoint l2 == s1 = endpoint l2
+      | endPoint l1 == s2 = endPoint l1
+      | endPoint l2 == s1 = endPoint l2
       -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
-      | endpoint l1 ~= s2 = averagePoints (endpoint l1) s1
-      | endpoint l2 ~= s1 = averagePoints (endpoint l2) s1
+      | endPoint l1 ~= s2 = averagePoints (endPoint l1) s1
+      | endPoint l2 ~= s1 = averagePoints (endPoint l2) s1
       | otherwise = error $ "out of order lineSegs generated from faces: " <> show faceSet <> "\n" <> show lineSegSets <> "\n"
     averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
     lineSegSets = fst <$> res
