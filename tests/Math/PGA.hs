@@ -669,6 +669,62 @@ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
       | dy > 0           = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
       | otherwise        = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
 
+prop_SquareNoDivides :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> Expectation
+prop_SquareNoDivides x y rawDx rawDy = findDivisions square (fromMaybe (error $ show square) $ crashMotorcycles square []) --> []
+  where
+    square = makeLineSegContour $ randomSquare x y rawDx rawDy
+
+prop_SquareHasStraightSkeleton :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> Expectation
+prop_SquareHasStraightSkeleton x y rawDx rawDy = findStraightSkeleton square [] -/> Nothing
+  where
+    square = makeLineSegContour $ randomSquare x y rawDx rawDy
+
+prop_SquareStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> Bool
+prop_SquareStraightSkeletonHasRightGenerationCount x y rawDx rawDy = generationsOf (findStraightSkeleton square []) == 1
+  where
+    square = makeLineSegContour $ randomSquare x y rawDx rawDy
+    generationsOf Nothing = 0
+    generationsOf (Just (StraightSkeleton [] _)) = 0
+    generationsOf (Just (StraightSkeleton [a] _)) = length a
+
+
+prop_SquareCanPlaceFaces :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> Expectation
+prop_SquareCanPlaceFaces x y rawDx rawDy = facesOf (fromMaybe (error $ show square) $ findStraightSkeleton square []) -/> []
+  where
+    square = makeLineSegContour $ randomSquare x y rawDx rawDy
+
+randomSquare :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> [LineSeg]
+randomSquare x y rawDx rawDy
+  | dx > 0 && dy > 0 = wind
+  | dy > 0 = wind
+  | dx > 0 = wind
+  | otherwise = wind
+  where
+    unwind = [flippedFirstSeg, flippedSegFrom, flippedSecondSeg, flippedSegTo]
+    wind = [firstSeg,segTo,secondSeg,segFrom]
+    dx,dy :: ℝ
+    dx = coerce rawDx
+    dy = coerce rawDy
+    offAxis = distance (startPoint firstSeg) (endPoint firstSeg)
+    secondSegStart = pointOnPerp firstSeg (endPoint firstSeg) offAxis
+    secondSegEnd = pointOnPerp firstSeg (startPoint firstSeg) offAxis
+    secondSeg = handleLineSegError $ lineSegFromEndpoints secondSegStart secondSegEnd
+    flippedSecondSeg = handleLineSegError $ lineSegFromEndpoints secondSegEnd secondSegStart
+    segTo = handleLineSegError $ lineSegFromEndpoints (endPoint firstSeg) (startPoint secondSeg)
+    segFrom = handleLineSegError $ lineSegFromEndpoints (endPoint secondSeg) (startPoint firstSeg)
+    flippedSegTo = handleLineSegError $ lineSegFromEndpoints (startPoint secondSeg) (endPoint firstSeg)
+    flippedSegFrom = handleLineSegError $ lineSegFromEndpoints (startPoint firstSeg) (endPoint secondSeg)
+    firstSeg
+      | dx > 0 && dy > 0 = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | dx > 0           = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | dy > 0           = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | otherwise        = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+    flippedFirstSeg
+      | dx > 0 && dy > 0 = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | dx > 0           = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | dy > 0           = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | otherwise        = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+
 facetSpec :: Spec
 facetSpec = do
   describe "Arcs (Skeleton/Concave)" $ do
@@ -698,6 +754,14 @@ facetSpec = do
       property prop_TriangleStraightSkeletonHasRightGenerationCount
     it "places faces on the straight skeleton of a triangle" $
       property prop_TriangleCanPlaceFaces
+    it "finds no divides in a square" $
+      property prop_SquareNoDivides
+    it "finds the straight skeleton of a square" $
+      property prop_SquareHasStraightSkeleton
+    it "only generates one generation for a square" $
+      property prop_SquareStraightSkeletonHasRightGenerationCount
+    it "places faces on the straight skeleton of a square" $
+      property prop_SquareCanPlaceFaces
     it "finds the arc resulting from a node at the intersection of the outArc of two nodes (corner3 and corner4 of c2)" $
       averageNodes c2c3E1 c2c4E1 --> INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
