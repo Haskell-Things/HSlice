@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween, join2PPoint2)
+import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, getPairs, isCollinear, indexPLinesTo, isParallel, linePairs, makeINode, sortedPLines)
 
@@ -423,12 +423,13 @@ skeletonOfNodes loop eNodes iNodes =
         intersectingNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
 
         -- | find nodes that have output segments that are antiCollinear with one another.
-        antiCollinearNodePairsOf :: (Arcable a) => [a] -> [(a, a)]
+        antiCollinearNodePairsOf :: (Pointable a, Arcable a) => [a] -> [(a, a)]
         antiCollinearNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if outSegsAntiCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
           where
-            outSegsAntiCollinear :: (Arcable a) => a -> a -> Bool
+            -- Note: distance is used here to get a better anticollinear than PGA has, because we have a point, and floating point hurts us.
+            outSegsAntiCollinear :: (Pointable a, Arcable a) => a -> a -> Bool
             outSegsAntiCollinear node1 node2
-              | hasArc node1 && hasArc node2 = isAntiCollinear (outOf node1) (outOf node2)
+              | hasArc node1 && hasArc node2 = isAntiCollinear (outOf node1) (outOf node2) || (canPoint node1 && distancePPointToPLine (pPointOf node1) (outOf node2) < fudgeFactor*30)
               | otherwise = False
 
         -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
