@@ -429,7 +429,7 @@ skeletonOfNodes loop eNodes iNodes =
             -- Note: distance is used here to get a better anticollinear than PGA has, because we have a point, and floating point hurts us.
             outSegsAntiCollinear :: (Pointable a, Arcable a) => a -> a -> Bool
             outSegsAntiCollinear node1 node2
-              | hasArc node1 && hasArc node2 = isAntiCollinear (outOf node1) (outOf node2) || (canPoint node1 && distancePPointToPLine (pPointOf node1) (outOf node2) < fudgeFactor*30)
+              | hasArc node1 && hasArc node2 = isAntiCollinear (outOf node1) (outOf node2) || (canPoint node1 && distancePPointToPLine (pPointOf node1) (outOf node2) < fudgeFactor*40)
               | otherwise = False
 
         -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
