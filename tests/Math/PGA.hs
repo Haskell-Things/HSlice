@@ -21,7 +21,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, head, sqrt, (/=), otherwise, abs, (&&), (+), (>), show, length)
+import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), (>), show, length, (<>))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
@@ -35,7 +35,7 @@ import Data.Coerce (coerce)
 
 import Data.Either (Either(Right), fromRight)
 
-import Data.List (foldl')
+import Data.List (foldl', tail, head)
 
 import Data.Maybe (fromMaybe, Maybe(Just, Nothing), fromJust)
 
@@ -625,19 +625,36 @@ prop_TriangleHasStraightSkeleton x y rawDx dy rawOffAxis distanceFromMiddle = fi
   where
     triangle = makeLineSegContour $ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
 
-prop_TriangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> (NonZero ℝ) -> ℝ -> (NonZero ℝ) -> ℝ -> Bool
-prop_TriangleStraightSkeletonHasRightGenerationCount x y rawDx dy rawOffAxis distanceFromMiddle = generationsOf (findStraightSkeleton triangle []) == 1
+prop_TriangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> (NonZero ℝ) -> ℝ -> (NonZero ℝ) -> ℝ -> Expectation
+prop_TriangleStraightSkeletonHasRightGenerationCount x y rawDx dy rawOffAxis distanceFromMiddle = generationsOf (findStraightSkeleton triangle []) --> 1
   where
     triangle = makeLineSegContour $ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
     generationsOf Nothing = 0
     generationsOf (Just (StraightSkeleton [] _)) = 0
     generationsOf (Just (StraightSkeleton [a] _)) = length a
-
+    generationsOf a = error $ "what is this?" <> show a <> "\n"
 
 prop_TriangleCanPlaceFaces :: ℝ -> ℝ -> (NonZero ℝ) -> ℝ -> (NonZero ℝ) -> ℝ -> Expectation
 prop_TriangleCanPlaceFaces x y rawDx dy rawOffAxis distanceFromMiddle = facesOf (fromJust $ findStraightSkeleton triangle []) -/> []
   where
     triangle = makeLineSegContour $ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
+
+prop_TriangleHasRightFaceCount :: ℝ -> ℝ -> (NonZero ℝ) -> ℝ -> (NonZero ℝ) -> ℝ -> Expectation
+prop_TriangleHasRightFaceCount x y rawDx dy rawOffAxis distanceFromMiddle = length (facesOf $ fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []) --> 3
+  where
+    triangle = makeLineSegContour $ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
+
+prop_TriangleFacesInOrder :: ℝ -> ℝ -> (NonZero ℝ) -> ℝ -> (NonZero ℝ) -> ℝ -> Expectation
+prop_TriangleFacesInOrder x y rawDx dy rawOffAxis distanceFromMiddle = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show triangleAsContour) $ findStraightSkeleton triangleAsContour []) --> triangle
+  where
+    triangleAsContour = makeLineSegContour triangle
+    triangle = randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
+    firstSeg = head triangle
+    edgesOf :: [Face] -> [LineSeg]
+    edgesOf faces = unwrap <$> faces
+      where
+        unwrap :: Face -> LineSeg
+        unwrap (Face edge _ _ _) = edge 
 
 randomTriangle :: ℝ -> ℝ -> (NonZero ℝ) -> ℝ -> (NonZero ℝ) -> ℝ -> [LineSeg]
 randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
@@ -679,19 +696,36 @@ prop_SquareHasStraightSkeleton x y rawDx rawDy = findStraightSkeleton square [] 
   where
     square = makeLineSegContour $ randomSquare x y rawDx rawDy
 
-prop_SquareStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> Bool
-prop_SquareStraightSkeletonHasRightGenerationCount x y rawDx rawDy = generationsOf (findStraightSkeleton square []) == 1
+prop_SquareStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> Expectation
+prop_SquareStraightSkeletonHasRightGenerationCount x y rawDx rawDy = generationsOf (findStraightSkeleton square []) --> 1
   where
     square = makeLineSegContour $ randomSquare x y rawDx rawDy
     generationsOf Nothing = 0
     generationsOf (Just (StraightSkeleton [] _)) = 0
     generationsOf (Just (StraightSkeleton [a] _)) = length a
-
+    generationsOf a = error $ "what is this?" <> show a <> "\n"
 
 prop_SquareCanPlaceFaces :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> Expectation
 prop_SquareCanPlaceFaces x y rawDx rawDy = facesOf (fromMaybe (error $ show square) $ findStraightSkeleton square []) -/> []
   where
     square = makeLineSegContour $ randomSquare x y rawDx rawDy
+
+prop_SquareHasRightFaceCount :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> Expectation
+prop_SquareHasRightFaceCount x y rawDx rawDy = length (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square []) --> 4
+  where
+    square = makeLineSegContour $ randomSquare x y rawDx rawDy
+
+prop_SquareFacesInOrder :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> Expectation
+prop_SquareFacesInOrder x y rawDx rawDy = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show squareAsContour) $ findStraightSkeleton squareAsContour []) --> square
+  where
+    squareAsContour = makeLineSegContour square
+    square = randomSquare x y rawDx rawDy
+    firstSeg = head square
+    edgesOf :: [Face] -> [LineSeg]
+    edgesOf faces = unwrap <$> faces
+      where
+        unwrap :: Face -> LineSeg
+        unwrap (Face edge _ _ _) = edge 
 
 randomSquare :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> [LineSeg]
 randomSquare x y rawDx rawDy
@@ -700,7 +734,6 @@ randomSquare x y rawDx rawDy
   | dx > 0 = wind
   | otherwise = wind
   where
-    unwind = [flippedFirstSeg, flippedSegFrom, flippedSecondSeg, flippedSegTo]
     wind = [firstSeg,segTo,secondSeg,segFrom]
     dx,dy :: ℝ
     dx = coerce rawDx
@@ -708,6 +741,60 @@ randomSquare x y rawDx rawDy
     offAxis = distance (startPoint firstSeg) (endPoint firstSeg)
     secondSegStart = pointOnPerp firstSeg (endPoint firstSeg) offAxis
     secondSegEnd = pointOnPerp firstSeg (startPoint firstSeg) offAxis
+    secondSeg = handleLineSegError $ lineSegFromEndpoints secondSegStart secondSegEnd
+    segTo = handleLineSegError $ lineSegFromEndpoints (endPoint firstSeg) (startPoint secondSeg)
+    segFrom = handleLineSegError $ lineSegFromEndpoints (endPoint secondSeg) (startPoint firstSeg)
+    firstSeg
+      | dx > 0 && dy > 0 = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | dx > 0           = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | dy > 0           = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+      | otherwise        = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+
+prop_RectangleNoDivides :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> (Positive ℝ) -> Expectation
+prop_RectangleNoDivides x y rawDx rawDy rawXYDiff = findDivisions rectangle (fromMaybe (error $ show rectangle) $ crashMotorcycles rectangle []) --> []
+  where
+    rectangle = makeLineSegContour $ randomRectangle x y rawDx rawDy rawXYDiff
+
+prop_RectangleHasStraightSkeleton :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> (Positive ℝ) -> Expectation
+prop_RectangleHasStraightSkeleton x y rawDx rawDy rawXYDiff = findStraightSkeleton rectangle [] -/> Nothing
+  where
+    rectangle = makeLineSegContour $ randomRectangle x y rawDx rawDy rawXYDiff
+
+prop_RectangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> (Positive ℝ) -> Expectation
+prop_RectangleStraightSkeletonHasRightGenerationCount x y rawDx rawDy rawXYDiff = generationsOf (findStraightSkeleton rectangle []) --> 1
+  where
+    rectangle = makeLineSegContour $ randomRectangle x y rawDx rawDy rawXYDiff
+    generationsOf Nothing = 0
+    generationsOf (Just (StraightSkeleton [] _)) = 0
+    generationsOf (Just (StraightSkeleton [a] _)) = length a
+    generationsOf a = error $ "what is this?" <> show a <> "\n"
+
+prop_RectangleCanPlaceFaces :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> (Positive ℝ) -> Expectation
+prop_RectangleCanPlaceFaces x y rawDx rawDy rawXYDiff = facesOf (fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []) -/> []
+  where
+    rectangle = makeLineSegContour $ randomRectangle x y rawDx rawDy rawXYDiff
+
+prop_RectangleHasRightFaceCount :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> (Positive ℝ) -> Expectation
+prop_RectangleHasRightFaceCount x y rawDx rawDy rawXYDiff = length (facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []) --> 4
+  where
+    rectangle = makeLineSegContour $ randomRectangle x y rawDx rawDy rawXYDiff
+
+randomRectangle :: ℝ -> ℝ -> (NonZero ℝ) -> (NonZero ℝ) -> (Positive ℝ) -> [LineSeg]
+randomRectangle x y rawDx rawDy rawXYDiff
+  | dx > 0 && dy > 0 = wind
+  | dy > 0 = wind
+  | dx > 0 = wind
+  | otherwise = wind
+  where
+    unwind = [flippedFirstSeg, flippedSegFrom, flippedSecondSeg, flippedSegTo]
+    wind = [firstSeg,segTo,secondSeg,segFrom]
+    dx,dy,xyDiff :: ℝ
+    dx = coerce rawDx
+    dy = coerce rawDy
+    xyDiff = coerce rawXYDiff
+    offAxis = distance (startPoint firstSeg) (endPoint firstSeg)
+    secondSegStart = pointOnPerp firstSeg (endPoint firstSeg) (offAxis+xyDiff)
+    secondSegEnd = pointOnPerp firstSeg (startPoint firstSeg) (offAxis+xyDiff)
     secondSeg = handleLineSegError $ lineSegFromEndpoints secondSegStart secondSegEnd
     flippedSecondSeg = handleLineSegError $ lineSegFromEndpoints secondSegEnd secondSegStart
     segTo = handleLineSegError $ lineSegFromEndpoints (endPoint firstSeg) (startPoint secondSeg)
@@ -748,20 +835,99 @@ facetSpec = do
       property prop_AxisAligned45DegreeAnglesInENode
     it "finds no divides in a triangle" $
       property prop_TriangleNoDivides
-    it "finds the straight skeleton of a triangle" $
+    it "finds the straight skeleton of a triangle (property)" $
       property prop_TriangleHasStraightSkeleton
+    it "finds the straight skeleton of a triangle (unit)" $
+      findStraightSkeleton triangle [] -->
+      Just (StraightSkeleton [[makeNodeTree [ENode (LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,1.7320508075688772)), LineSeg (Point2 (1.0,1.7320508075688772)) (Point2 (-1.0,-1.7320508075688772)))
+                                                   (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
+                                            ,ENode (LineSeg (Point2 (1.0,1.7320508075688772)) (Point2 (-1.0,-1.7320508075688772)), LineSeg (Point2 (0.0,0.0)) (Point2 (2.0,0.0)))
+                                                   (PLine2 (GVec [GVal 0.5000000000000001 (singleton (GEPlus 1)), GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
+                                            ,ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,1.7320508075688772)))
+                                                   (PLine2 (GVec [GVal (-1.0000000000000002) (singleton (GEZero 1)), GVal 0.5000000000000001 (singleton (GEPlus 1)), GVal 0.8660254037844387 (singleton (GEPlus 2))]))
+                                            ]
+                                            (INodeSet (slist [
+                                                              [INode (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
+                                                                     (PLine2 (GVec [GVal 0.5000000000000001 (singleton (GEPlus 1)),GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
+                                                                     (slist [PLine2 (GVec [GVal (-1.0000000000000002) (singleton (GEZero 1)), GVal 0.5000000000000001 (singleton (GEPlus 1)),GVal 0.8660254037844387 (singleton (GEPlus 2))])])
+                                                                     Nothing
+                                                              ]
+                                                             ]))
+                              ]] (slist []))
     it "only generates one generation for a triangle" $
       property prop_TriangleStraightSkeletonHasRightGenerationCount
     it "places faces on the straight skeleton of a triangle" $
       property prop_TriangleCanPlaceFaces
+    it "places faces on a triangle in the order the line segments were given" $
+      property prop_TriangleFacesInOrder
+    it "only finds three face triangles" $
+      property prop_TriangleHasRightFaceCount
     it "finds no divides in a square" $
       property prop_SquareNoDivides
-    it "finds the straight skeleton of a square" $
+    it "finds the straight skeleton of a square (property)" $
       property prop_SquareHasStraightSkeleton
+    it "finds the straight skeleton of a square (unit)" $
+      findStraightSkeleton square [] -->
+      Just (StraightSkeleton [[makeNodeTree [ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
+                                                   (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                            ,ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
+                                                   (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+                                            ,ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
+                                                   (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+                                            ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
+                                                   (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                            ]
+                                            (INodeSet (slist [
+                                                              [INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                                                     (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+                                                                     (slist [PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
+                                                                            ,PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])])
+                                                                     Nothing
+                                                              ]
+                                                             ]))
+                              ]] (slist []))
     it "only generates one generation for a square" $
       property prop_SquareStraightSkeletonHasRightGenerationCount
     it "places faces on the straight skeleton of a square" $
       property prop_SquareCanPlaceFaces
+    it "only finds four face squares" $
+      property prop_SquareHasRightFaceCount
+    it "places faces on a square in the order the line segments were given" $
+      property prop_TriangleFacesInOrder
+    it "finds no divides in a rectangle" $
+      property prop_RectangleNoDivides
+    it "finds the straight skeleton of a rectangle (property)" $
+      property prop_RectangleHasStraightSkeleton
+    it "finds the straight skeleton of a rectangle (unit)" $
+      findStraightSkeleton rectangle [] -->
+      Just (StraightSkeleton [[makeNodeTree [ENode (LineSeg (Point2 (-2.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-2.0,-1.0)) (Point2 (3.0,0.0)))
+                                                   (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                            ,ENode (LineSeg (Point2 (-2.0,-1.0)) (Point2 (3.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
+                                                   (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+                                            ,ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-3.0,0.0)))
+                                                   (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+                                            ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-3.0,0.0)), LineSeg (Point2 (-2.0,1.0)) (Point2 (0.0,-2.0)))
+                                                   (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                            ]
+                                            (INodeSet (slist [
+                                                              [INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+                                                                     (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+                                                                     (slist [])
+                                                                     (Just (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 2))])))
+                                                              ]
+                                                             ,[INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                                                     (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 2))]))
+                                                                     (slist [(PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))])
+                                                                     Nothing
+                                                              ]
+                                                             ]))
+                              ]] (slist []))
+    it "only generates one generation for a rectangle" $
+      property prop_RectangleStraightSkeletonHasRightGenerationCount
+    it "places faces on the straight skeleton of a rectangle" $
+      property prop_RectangleCanPlaceFaces
+    it "finds only four faces for any rectangle" $
+      property prop_RectangleHasRightFaceCount
     it "finds the arc resulting from a node at the intersection of the outArc of two nodes (corner3 and corner4 of c2)" $
       averageNodes c2c3E1 c2c4E1 --> INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
@@ -1488,67 +1654,6 @@ facetSpec = do
                                     )
                           )
             )
-    it "finds the straight skeleton of a triangle." $
-      findStraightSkeleton triangle [] -->
-      Just (StraightSkeleton [[makeNodeTree [ENode (LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,1.7320508075688772)), LineSeg (Point2 (1.0,1.7320508075688772)) (Point2 (-1.0,-1.7320508075688772)))
-                                                   (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
-                                            ,ENode (LineSeg (Point2 (1.0,1.7320508075688772)) (Point2 (-1.0,-1.7320508075688772)), LineSeg (Point2 (0.0,0.0)) (Point2 (2.0,0.0)))
-                                                   (PLine2 (GVec [GVal 0.5000000000000001 (singleton (GEPlus 1)), GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
-                                            ,ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,1.7320508075688772)))
-                                                   (PLine2 (GVec [GVal (-1.0000000000000002) (singleton (GEZero 1)), GVal 0.5000000000000001 (singleton (GEPlus 1)), GVal 0.8660254037844387 (singleton (GEPlus 2))]))
-                                            ]
-                                            (INodeSet (slist [
-                                                              [INode (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
-                                                                     (PLine2 (GVec [GVal 0.5000000000000001 (singleton (GEPlus 1)),GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
-                                                                     (slist [PLine2 (GVec [GVal (-1.0000000000000002) (singleton (GEZero 1)), GVal 0.5000000000000001 (singleton (GEPlus 1)),GVal 0.8660254037844387 (singleton (GEPlus 2))])])
-                                                                     Nothing
-                                                              ]
-                                                             ]))
-                              ]] (slist []))
-    it "finds the straight skeleton of a square." $
-      findStraightSkeleton square [] -->
-      Just (StraightSkeleton [[makeNodeTree [ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
-                                                   (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                            ,ENode (LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
-                                                   (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                            ,ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
-                                                   (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                            ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
-                                                   (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                            ]
-                                            (INodeSet (slist [
-                                                              [INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                                                     (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                                                     (slist [PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
-                                                                            ,PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])])
-                                                                     Nothing
-                                                              ]
-                                                             ]))
-                              ]] (slist []))
-    it "finds the straight skeleton of a rectangle." $
-      findStraightSkeleton rectangle [] -->
-      Just (StraightSkeleton [[makeNodeTree [ENode (LineSeg (Point2 (-2.0,1.0)) (Point2 (0.0,-2.0)), LineSeg (Point2 (-2.0,-1.0)) (Point2 (3.0,0.0)))
-                                                   (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                            ,ENode (LineSeg (Point2 (-2.0,-1.0)) (Point2 (3.0,0.0)), LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
-                                                   (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                            ,ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)), LineSeg (Point2 (1.0,1.0)) (Point2 (-3.0,0.0)))
-                                                   (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                            ,ENode (LineSeg (Point2 (1.0,1.0)) (Point2 (-3.0,0.0)), LineSeg (Point2 (-2.0,1.0)) (Point2 (0.0,-2.0)))
-                                                   (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                            ]
-                                            (INodeSet (slist [
-                                                              [INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                                                     (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                                                     (slist [])
-                                                                     (Just (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 2))])))
-                                                              ]
-                                                             ,[INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                                                     (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 2))]))
-                                                                     (slist [(PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))])
-                                                                     Nothing
-                                                              ]
-                                                             ]))
-                              ]] (slist []))
   describe "Faces (Skeleton/Face)" $ do
     it "finds faces from a straight skeleton (c0, default order)" $
       facesOf (fromMaybe (error "got Nothing") $ findStraightSkeleton c0 []) -->
