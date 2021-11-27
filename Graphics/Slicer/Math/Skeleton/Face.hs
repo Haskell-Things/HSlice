@@ -74,17 +74,11 @@ facesOf :: StraightSkeleton -> [Face]
 facesOf straightSkeleton@(StraightSkeleton nodeLists spine)
   | null spine = case nodeLists of
                    [] -> nodeListError
-                   [oneNodeList] -> if facesInOrder (res oneNodeList)
-                                    then res oneNodeList
-                                    else error $ "faces out of order!\n" <> show (edgesOf $ res oneNodeList) <> "\n" <> show oneNodeList <> "\n" 
+                   [oneNodeList] -> res oneNodeList
                    (_:_) -> nodeListError
   | otherwise = error "cannot yet handle spines, or more than one NodeList."
   where
     res nodeList = findFaces nodeList
-    facesInOrder :: [Face] -> Bool
-    facesInOrder faces
-      | length faces > 1 = and $ mapWithFollower (\a b -> distanceBetweenPPoints (eToPPoint2 $ endPoint a) (eToPPoint2 $ startPoint b) < fudgeFactor*10) (edgesOf faces)
-      | otherwise = True
     edgesOf :: [Face] -> [LineSeg]
     edgesOf faces = unwrap <$> faces
       where
