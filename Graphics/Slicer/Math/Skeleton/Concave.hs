@@ -30,19 +30,19 @@ module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstA
 
 import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id, notElem, zip, any, (*), (+))
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
+import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust, fromMaybe)
 
 import Data.List (takeWhile, sortBy, length)
 
-import Data.List as DL (head, last, tail, init)
+import Data.List as DL (head, last, tail)
 
 import Data.List.Extra (unsnoc)
 
 import Slist.Type (Slist(Slist))
 
-import Slist (slist, one, cons, len)
+import Slist (slist, one, cons, len, isEmpty, safeLast)
 
-import Slist as SL (head, last)
+import Slist as SL (head, last, tail, init)
 
 import Graphics.Implicit.Definitions (ℝ)
 
@@ -217,83 +217,131 @@ nodesAreAntiCollinear node1 node2
   | canPoint node2 && hasArc node1 = distancePPointToPLine (pPointOf node2) (outOf node1) < fudgeFactor*50
   | otherwise = False
 
--- | place our inodes in a state such that the eNodes that the inodes point to are in the order of the given enode list.
--- also performs node tree transforms:
--- transform #1: if a first generation inode connects the last and the first ENodes, remove it, and point to those enodes with the last INode.
-sortINodesByENodes :: INodeSet -> [ENode] -> Bool -> INodeSet
-sortINodesByENodes inGens@(INodeSet generations) initialGeneration loop
- | generationsIn res == 1 && inCountOf (onlyINodeOf res) > length initialGeneration = errorTooManyIns
- | initialGeneration /= (findENodesInOrder res) = errorInsWrongOrder
- | otherwise = res
+-- Walk the result tree, and find our enodes. Used to test the property that a walk of our result tree should result in the input ENodes in order.
+findENodesInOrder :: ENodeSet -> [[INode]] -> [ENode]
+findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generationList = findENodesRecursive generationList
   where
-    res = INodeSet $ slist $
-          case generations of
-            (Slist [] _) -> errorEmpty
-            (Slist [_] _) -> [[onlyINodeOf inGens]]
-            (Slist [_,_] _) ->
-              case flippedINodesOf rawFirstGeneration of
+    findENodesRecursive :: [[INode]] -> [ENode]
+    findENodesRecursive [] = []
+    findENodesRecursive myGens =
+      case unsnoc myGens of
+        Nothing -> []
+        (Just (ancestorGens,workingGen)) -> concat $ findENodesOfInRecursive <$> insOf (onlyINodeIn workingGen)
+          where
+            -- for a generation with only one inode, retrieve that inode.
+            onlyINodeIn :: [INode] -> INode
+            onlyINodeIn [oneItem] = oneItem
+            onlyINodeIn a = error $ "more than one inode: " <> show a <> "\n"
+            findENodesOfInRecursive :: PLine2 -> [ENode]
+            findENodesOfInRecursive myPLine
+              | isENode myPLine = [fromJust $ findENodeByOutput eNodeSet myPLine]
+              | otherwise = -- must be an Inode. recurse.
+                case unsnoc ancestorGens of
+                  Nothing -> []
+                  (Just (newAncestors, newLastGen)) -> findENodesRecursive $ newAncestors <> lastGenWithOnlyMyINode
+                    where
+                      -- strip the new last generation until it only contains the INode matching myPLine.
+                      lastGenWithOnlyMyINode :: [[INode]]
+                      lastGenWithOnlyMyINode = case filter (\a -> outOf a == myPLine) newLastGen of
+                                                 [] -> []
+                                                 a -> [[DL.head a]]
+              where
+                -- Determine if a PLine matches the output of an ENode.
+                isENode :: PLine2 -> Bool
+                isENode myPLine2 = isJust $ findENodeByOutput eNodeSet myPLine2
+
+-- | place our inodes in a state such that the eNodes that the inodes point to are in the order of the given enode list.
+-- also performs 'safe' node tree transforms:
+sortINodesByENodes :: INodeSet -> [ENode] -> Bool -> INodeSet
+sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
+ | generationsIn res == 1 && inCountOf (onlyINodeOf $ INodeSet $ resSlist rawGenerations) > length initialGeneration = errorTooManyIns
+ -- test for the property that a walk of the INodes we are returning results in our input ENode list.
+ | initialGeneration /= (findENodesInOrder (eNodeSetOf initialGeneration) res) = errorInsWrongOrder
+ | otherwise = INodeSet $ resSlist rawGenerations
+  where
+    res :: [[INode]]
+    res = unSlist $ resSlist rawGenerations
+      where
+        unSlist (Slist a _) = a
+    -- our first attempt at a recursive handler.
+    resSlist :: Slist [INode] -> Slist [INode]
+    resSlist generations
+     | isEmpty generations = errorEmpty
+     | len generations == 1 = -- nothing to do for a single INode.
+         (one [onlyINodeOf inGens])
+     | len generations == 2 =
+              case flippedINodeOf rawFirstGeneration of
                 Nothing ->
                   case rawFirstGeneration of
                     [] -> errorEmpty
-                    [oneINode] -> attemptLastOutRedirect oneINode rawLastINode
-                    v -> [indexTo $ sortGeneration v]
-                (Just _) ->
-                  case firstGenWithoutFlips of
+                    [oneINode] -> -- check if we should perform a tail pruning.
+                      if canPruneTail rawLastINode
+                      then pruneTail oneINode rawLastINode
+                      else if canFlipGenerations oneINode rawLastINode
+                           then flipINodePair oneINode rawLastINode
+                           else (one [orderInsByENodes oneINode]) <> (one [orderInsByENodes rawLastINode])   
+                    v -> (one $ indexTo $ sortGeneration v) <> (one [iNodeWithFlips rawLastINode])
+                (Just flippedINode) ->
+                  case genWithoutFlips rawFirstGeneration of
                     [] -> -- after transform #1, there is no first generation left. just return the second, after the transform.
-                      [[lastINodeWithFlips]]
+                      (one [iNodeWithFlips rawLastINode])
                     [oneINode] -> -- after transform #1, there is just one INode left.
-                      attemptLastOutRedirect oneINode rawLastINode
+                      if inCountOf rawLastINode == 2 && canMergeWith flippedINode rawLastINode
+                      then (one [orderInsByENodes oneINode]) <> (mergeWith flippedINode rawLastINode)
+                      else if canPruneTail rawLastINode
+                           then pruneTail oneINode rawLastINode
+                           else if canFlipGenerations oneINode rawLastINode
+                                then flipINodePair oneINode rawLastINode
+                                else (one [orderInsByENodes oneINode]) <> (one [orderInsByENodes rawLastINode])   
                     v ->
-                      [indexTo $ sortGeneration v] <> [[lastINodeWithFlips]]
-            (Slist (_:moreGens) _) -> firstAndMids <>
-                                      case secondToLastGen of
-                                        [] -> error "unpossible"
-                                        [oneINode] -> attemptTailFold oneINode lastINodeWithFlips
-                                        v -> [v] <> [[lastINodeWithFlips]]
-              where
-                -- | if the last generation is a straight line, and the second to last generation has just one INode, attempt to collapse the last generation into it.
-                attemptTailFold :: INode -> INode -> [[INode]]
-                attemptTailFold previousGen lastGen
-                  | loop && inCountOf lastGen == 2 = [[orderInsByENodes $ addINodeToParent previousGen lastGen]]
-                  | otherwise = [[previousGen]] <> [[lastGen]]
-                secondToLastGen = case unsnoc (DL.init moreGens) of
-                                    Nothing -> error "no last generation?"
-                                    Just (_,a) -> a
-                firstAndMids = case firstGenWithoutFlips of
-                                 [] -> midGens
-                                 _  -> [firstGenWithoutFlips] <> midGens
-                midGens = DL.init $ DL.init moreGens
-
-    -- Walk the result tree, and find our enodes. Used to test the property that a walk of our result tree should result in the input ENodes in order.
-    findENodesInOrder :: INodeSet -> [ENode]
-    findENodesInOrder (INodeSet (Slist resGens _)) = findENodesRecursive resGens
+                      (one $ indexTo $ sortGeneration v) <> (one [iNodeWithFlips rawLastINode])
+     | len generations == 3 =
+         case flippedINodeOf rawFirstGeneration of
+           Nothing ->
+             (one $ indexTo $ sortGeneration rawFirstGeneration) <> resSlist (slist $ [secondGen] <> [[rawLastINode]])
+           (Just flippedINode) ->
+             case genWithoutFlips rawFirstGeneration of
+               [] -> -- after transform #1, there is no first generation left. collapse our flipped inode into the next generation.
+                 resSlist (slist $ [flippedINode:secondGen] <> [[rawLastINode]])
+               [oneINode] ->
+                 error
+                 $ show oneINode <> "\n"
+                 <> show ((one [orderInsByENodes oneINode]) <> resSlist (slist $ [flippedINode:secondGen] <> [[rawLastINode]])) <> "\n"
+                 <> show initialGeneration <> "\n"
       where
-        findENodesRecursive :: [[INode]] -> [ENode]
-        findENodesRecursive [] = []
-        findENodesRecursive myGens =
-          case unsnoc myGens of
-            Nothing -> []
-            (Just (ancestorGens,workingGen)) -> concat $ findENodesOfInRecursive <$> insOf (onlyINodeIn workingGen)
-              where
-                findENodesOfInRecursive :: PLine2 -> [ENode]
-                findENodesOfInRecursive myPLine
-                  | isENode myPLine = [fromJust $ findENodeByOutput (eNodeSetOf initialGeneration) myPLine]
-                  | otherwise = -- must be an Inode. recurse.
-                    case unsnoc ancestorGens of
-                      Nothing -> []
-                      (Just (newAncestors, newLastGen)) -> findENodesRecursive $ newAncestors <> lastGenWithOnlyMyINode
-                        where
-                          -- strip the new last generation until it only contains the INode matching myPLine.
-                          lastGenWithOnlyMyINode :: [[INode]]
-                          lastGenWithOnlyMyINode = [[DL.head $ filter (\a -> outOf a == myPLine) newLastGen]]
-                  where
-                    -- Determine if a PLine matches the output of an ENode.
-                    isENode :: PLine2 -> Bool
-                    isENode myPLine2 = isJust $ findENodeByOutput (eNodeSetOf initialGeneration) myPLine2
+        -- the first generation, as given to us.
+        rawFirstGeneration = SL.head generations
+        -- the last generation, as given to us.
+        rawLastGeneration = SL.last generations
 
+        -- construct an INode including the inputs of the crossover node from the first generation merged, if it exists.
+        iNodeWithFlips iNode = lastGen (sortGeneration rawFirstGeneration) iNode
+          where
+            lastGen :: [INode] -> INode -> INode
+            lastGen firstGen oneINode = orderInsByENodes $ case flippedINodeOf firstGen of
+                                                             Nothing -> oneINode
+                                                             (Just flippedINode) -> addINodeToParent flippedINode oneINode
+
+        -- The last INode, as given to us.
+        rawLastINode :: INode
+        rawLastINode
+          | hasArc result && loop = errorIllegalLast
+          | otherwise = result
+          where
+            result = DL.head rawLastGeneration
+
+        secondToLastGen = fromMaybe (error "no second to last generation?") $ safeLast $ SL.init moreGens
+        firstAndMids = case genWithoutFlips rawFirstGeneration of
+                         [] -> midGens
+                         v  -> (one v) <> midGens
+        midGens = SL.init $ SL.tail generations
+        secondGen = SL.head $ SL.tail generations
+        moreGens = SL.tail generations
+
+    -- transform #1: if a first generation inode connects the last and the first ENodes, remove it, and point to those enodes with the last INode.
     -- Place the first generation in ENode order, and remove a 'flipped' node if it exists.
     -- NOTE: If one of the nodes is constructed from the first and last ENodes, we filter it out. it will be merged into the last generation.
-    firstGenWithoutFlips = indexTo $ sortGeneration rawFirstGeneration
+    genWithoutFlips myGeneration = indexTo $ sortGeneration myGeneration
 
     -- Force a list of INodes to start with the INode closest to the firstPLine, but not before the firstPLine.
     indexTo :: [INode] -> [INode]
@@ -302,85 +350,78 @@ sortINodesByENodes inGens@(INodeSet generations) initialGeneration loop
         iNodesBeforePLine myINodes = filter (\a -> firstPLine `pLineIsLeft` firstInOf a /= Just False) myINodes
         -- nodes in the right order, after the divide.
         iNodesAfterPLine myINodes = withoutFlippedINodes $ filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) myINodes
-        withoutFlippedINodes maybeFlippedINodes = filter (\a -> a `notElem` (flippedINodesOf maybeFlippedINodes) ) maybeFlippedINodes
+        withoutFlippedINodes maybeFlippedINodes = case flippedINodeOf maybeFlippedINodes of
+                                                    Nothing -> maybeFlippedINodes
+                                                    (Just a) -> filter (/= a) maybeFlippedINodes
 
     errorEmpty = error $ "empty INodeSet for nodes:\n" <> show initialGeneration <> "\nloop: " <> show loop <> "\n" 
 
-    errorTooManyIns = error $ "generating a single INode with more inputs than possible: " <> show (onlyINodeOf res) <> "\n"
-                           <> "generations:" <> show generations <> "\n"
-                           <> "ENodes:" <> show initialGeneration <> "\n"
-                           <> "lastINode resolves to a point: " <> show (canPoint $ rawLastINode) <> "\n"
-                           <> "rawLastINode" <> show rawLastINode <> "\n"
-                           <> "lastINode after adding flipped items from first generation: " <> show lastINodeWithFlips <> "\n"
+    errorTooManyIns = error $ "generating a single INode with more inputs than possible: " <> show res <> "\n"
+                           <> "rawGenerations:                 " <> show rawGenerations <> "\n"
+                           <> "ENodes:                         " <> show initialGeneration <> "\n"
 
     errorInsWrongOrder = error
                          $ "ENodes should be:  " <> show (outOf <$> initialGeneration) <> "\n"
-                         <> "ENode outs are:    " <> show (outOf <$> findENodesInOrder res) <> "\n"
-                         <> "given generations: " <> show generations <> "\n"
+                         <> "ENode outs are:    " <> show (outOf <$> findENodesInOrder (eNodeSetOf initialGeneration) res) <> "\n"
+                         <> "rawGenerations:    " <> show rawGenerations <> "\n"
                          <> "returned inodes:   " <> show res <> "\n"
-                         <> "rawFirstGeneration:" <> show (rawFirstGeneration) <> "\n"
-                         <> "rawLastINode:      " <> show rawLastINode <> "\n"
-                         <> "flippedInodes:     " <> show (flippedINodesOf rawFirstGeneration) <> "\n"
                          <> "loop:              " <> show loop <> "\n"
-                         <> "attemptLastOut:    " <> show (orderInsByENodes $ onlyINodeIn $ DL.head $ attemptLastOutRedirect (onlyINodeIn rawFirstGeneration) rawLastINode) <> "\n"
-                         <> "attemptLastOut:    " <> show (onlyINodeIn $ DL.head $ attemptLastOutRedirect (onlyINodeIn rawFirstGeneration) rawLastINode) <> "\n"
 
-    errorIllegalLast = error $ "illegal last generation:\n" <> show generations <> "\n" <> show initialGeneration <> "\n" <> show loop <> "\n"
+    errorIllegalLast = error
+                       $ "illegal last generation:\n"
+                       <> "rawGenerations:    " <> show rawGenerations <> "\n"
+                       <> "initialGeneration: " <> show initialGeneration <> "\n"
+                       <> "loop:              " <> show loop <> "\n"
 
-    -- for a generation with only one inode, retrieve that inode.
-    onlyINodeIn :: [INode] -> INode
-    onlyINodeIn [oneItem] = oneItem
-    onlyINodeIn a = error $ "more than one inode: " <> show a <> "\n"
+    -- if the object is closed, and the last generation consists of an INode that points to just one ENode and one INode, merge the last generation into the prior generation.
+    -- assuming that really, this should have been just another in to the previous generation.
+    canPruneTail lastGen = loop && hasENode lastGen && hasINode lastGen && inCountOf lastGen == 2
+    pruneTail :: INode -> INode -> Slist [INode]
+    pruneTail iNode1 iNode2 = (one [addINodeToParent iNode1 iNode2])
 
-    attemptLastOutRedirect :: INode -> INode -> [[INode]]
-    attemptLastOutRedirect previousGen lastGen
-      | loop && hasENode lastGen && inCountOf lastGen == 2 =
-        -- if the object is closed, and the last generation consists of an INode that points to just one ENode and one INode, merge the last generation into the prior generation.
-        -- assuming that really, this should have been just another in to the previous generation.
-        [[orderInsByENodes $ addINodeToParent previousGen lastGen]]
-      | loop && hasENode lastGen && iNodesIn lastGen && (flippedINodesOf [previousGen]) /= Nothing =
-        -- if the object is closed, and the first generation contains the pointers to the first and last ENodes, make the first generation the second, and the second into the first.
-        flipInodePair previousGen lastGen
-      | otherwise = [[orderInsByENodes previousGen]] <> [[orderInsByENodes lastGen]]
+    -- check to see if an INode can be merged with another INode. 
+    canMergeWith :: INode -> INode -> Bool
+    canMergeWith source@(INode _ _ _ maybeSourceOut) destination
+      | maybeSourceOut == Nothing = False
+      | hasIn destination (outOf source) = True
+      | otherwise = False
       where
-        -- determine if the given INode has a direct in from an ENode.
-        hasENode iNode = any (\a -> (findENodeByOutput (eNodeSetOf initialGeneration) a) /= Nothing) $ insOf iNode
-        iNodesIn iNode = any (\a -> (findENodeByOutput (eNodeSetOf initialGeneration) a) == Nothing) $ insOf iNode
-        flipInodePair iNode1 iNode2 = [[orderInsByENodes newINode1]] <> [[orderInsByENodes newINode2]]
-          where
-            newINode1 = makeINode (withoutConnectingPLine $ insOf iNode2) (Just newConnectingPLine)
-            newINode2 = makeINode ([newConnectingPLine] <> insOf iNode1) Nothing
-            newConnectingPLine = flipPLine2 oldConnectingPLine
-            oldConnectingPLine = DL.head $ filter (\a -> (findENodeByOutput (eNodeSetOf initialGeneration) a) == Nothing) $ insOf iNode2
-            withoutConnectingPLine myPLines = filter (/= oldConnectingPLine) $ myPLines
+        hasIn :: INode -> PLine2 -> Bool
+        hasIn iNode pLine2 = case filter (==pLine2) $ insOf iNode of
+                               [] -> False
+                               [_] -> True
+                               _ -> error "filter passed too many options."
+    -- Merge two INodes.
+    mergeWith :: INode -> INode -> Slist [INode]
+    mergeWith iNode1 iNode2 = (one [addINodeToParent iNode1 iNode2])
+
+    -- if the object is closed, and the first generation contains the pointers to the first and last ENodes, make the first generation the second, and the second into the first.
+    canFlipGenerations firstGen secondGen = loop && hasENode secondGen && hasINode secondGen && (flippedINodeOf [firstGen]) /= Nothing
+    -- determine if the given INode has a direct in from an ENode.
+    flipINodePair :: INode -> INode -> Slist [INode]
+    flipINodePair iNode1 iNode2@(INode _ _ _ maybeOut2) = (one [orderInsByENodes newINode1]) <> (one [orderInsByENodes newINode2])
+      where
+        newINode1 = makeINode (withoutConnectingPLine $ insOf iNode2) (Just newConnectingPLine)
+        newINode2 = makeINode ([newConnectingPLine] <> insOf iNode1) (maybeOut2) 
+        newConnectingPLine = flipPLine2 oldConnectingPLine
+        oldConnectingPLine = case filter (\a -> (findENodeByOutput (eNodeSetOf initialGeneration) a) == Nothing) $ insOf iNode2 of
+                               [] -> error "could not find old connecting PLine."
+                               [v] -> v
+                               _ -> error "filter passed too many connecting PLines."
+        withoutConnectingPLine myPLines = filter (/= oldConnectingPLine) $ myPLines
+
+    -- Determine if the given INode has a PLine that points to an ENode.
+    hasENode iNode = any (\a -> (findENodeByOutput (eNodeSetOf initialGeneration) a) /= Nothing) $ insOf iNode
+    -- Determine if the given INode has a PLine that points to another INode.
+    hasINode iNode = any (\a -> (findENodeByOutput (eNodeSetOf initialGeneration) a) == Nothing) $ insOf iNode
 
     -- Construct an ENodeSet
     eNodeSetOf :: [ENode] -> ENodeSet
     eNodeSetOf [] = error "cannot construct an empty ENodeSet"
     eNodeSetOf eNodes = ENodeSet (slist [(DL.head eNodes, slist (DL.tail eNodes))])
 
-    -- construct a final INode including the inputs of the crossover node from the first generation merged, if it exists.
-    lastINodeWithFlips = lastGen (sortGeneration rawFirstGeneration) rawLastINode
-      where
-        lastGen :: [INode] -> INode -> INode
-        lastGen firstGen oneINode = orderInsByENodes $ case flippedINodesOf firstGen of
-                                                         Nothing -> oneINode
-                                                         (Just flippedINode) -> addINodeToParent flippedINode oneINode
-
-    -- the first generation, as given to us.
-    rawFirstGeneration = SL.head generations
-
-    -- The last INode, as given to us.
-    rawLastINode :: INode
-    rawLastINode
-      | hasArc result && loop = errorIllegalLast
-      | otherwise = result
-      where
-        result = DL.head rawLastGeneration
-        rawLastGeneration = SL.last generations
-
     -- the number of generations.
-    generationsIn (INodeSet mySet) = len mySet
+    generationsIn mySet = len $ slist $ mySet
 
     -- how many input PLines does an INode have.
     inCountOf (INode _ _ (Slist moreIns _) _) = 2+length moreIns
@@ -394,7 +435,7 @@ sortINodesByENodes inGens@(INodeSet generations) initialGeneration loop
                     $ "not only inode!\n"
                     <> show a <> "\n"
                     <> show initialGeneration <> "\n"
-                    <> show generations <> "\n"
+                    <> show rawGenerations <> "\n"
 
     -- | Sort a generation by the first in PLine.
     sortGeneration :: [INode] -> [INode]
@@ -402,17 +443,16 @@ sortINodesByENodes inGens@(INodeSet generations) initialGeneration loop
 
     -- Find an inode connecting the first and last ENode, if it exists.
     -- FIXME: this functions, but i don't know why. :)
-    flippedINodesOf :: [INode] -> Maybe INode
-    flippedINodesOf inodes = case filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) inodes of
-                               [] -> Nothing
-                               [a] -> Just $ orderInsByENodes a
-                               (xs) -> error $ "more than one flipped inode?" <> show xs <> "\n"
+    flippedINodeOf :: [INode] -> Maybe INode
+    flippedINodeOf inodes = case filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) inodes of
+                              [] -> Nothing
+                              [a] -> Just a
+                              (xs) -> error
+                                      $ "more than one flipped inode?" <> show xs <> "\n"
+                                      <> show initialGeneration <> "\n"
 
     -- Return the first input to a given INode.
     firstInOf (INode firstIn _ _ _) = firstIn
-
-    -- Order the input nodes of an INode.
-    orderInsByENodes inode@(INode _ _ _ out) = makeINode (indexPLinesTo firstPLine $ sortedPLines $ indexPLinesTo firstPLine $ insOf inode) out
 
     -- the output PLine of the first ENode in the input ENode set.
     firstPLine = outOf firstENode
@@ -420,18 +460,22 @@ sortINodesByENodes inGens@(INodeSet generations) initialGeneration loop
         -- the first ENode given to us. for sorting uses.
         firstENode = DL.head initialGeneration
 
-    -- Produce a list of the inputs to a given INode.
-    insOf (INode firstIn secondIn (Slist moreIns _) _) = firstIn:secondIn:moreIns
-
     -- | add together a child and it's parent.
-    -- Note: you need to call orderInsByENodes on the result of this. we don't try to order here.
     addINodeToParent :: INode -> INode -> INode
     addINodeToParent (INode _ _ _ Nothing) _ = error "cannot merge a child inode with no output!"
-    addINodeToParent (INode firstIn1 secondIn1 (Slist moreIn1 _) (Just out1)) (INode firstIn2 secondIn2 (Slist moreIn2 _) out2) =
-      makeINode ((firstIn1:secondIn1:moreIn1) <> (withoutPLine out1 $ firstIn2:secondIn2:moreIn2)) out2
+    addINodeToParent iNode1@(INode _ _ _ (Just out1)) iNode2@(INode _ _ _ out2) =
+      orderInsByENodes $ makeINode ((insOf iNode1) <> (withoutPLine out1 $ insOf iNode2)) out2
       where
         withoutPLine :: PLine2 -> [PLine2] -> [PLine2]
-        withoutPLine myPLine pLines = filter (\a -> a /= myPLine) pLines
+        withoutPLine myPLine pLines = filter (/= myPLine) pLines
+
+    -- Order the input nodes of an INode.
+    orderInsByENodes :: INode -> INode
+    orderInsByENodes inode@(INode _ _ _ out) = makeINode (indexPLinesTo firstPLine $ sortedPLines $ indexPLinesTo firstPLine $ insOf inode) out
+
+-- Produce a list of the inputs to a given INode.
+insOf :: INode -> [PLine2]
+insOf (INode firstIn secondIn (Slist moreIns _) _) = firstIn:secondIn:moreIns
 
 
 
