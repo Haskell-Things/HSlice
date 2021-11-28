@@ -22,7 +22,7 @@
 -- | This file contains code for creating a series of Faces, covering a straight skeleton.
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
-import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), Bool(True, False), take, null, and, snd, (&&), (>), (<), (*))
+import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), Bool(True, False), take, null, and, snd, (&&))
 
 import Data.List (dropWhile)
 
@@ -40,15 +40,13 @@ import Slist (slist, cons, isEmpty, len, init, tail)
 
 import Slist as SL (last, reverse)
 
-import Graphics.Slicer.Math.Definitions (LineSeg, mapWithFollower, startPoint, fudgeFactor)
+import Graphics.Slicer.Math.Definitions (LineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc), finalINodeOf, finalOutOf, ancestorsOf)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, findENodeByOutput, findINodeByOutput, firstSegOf, lastENodeOf, firstENodeOf, pathFirst, pathLast)
 
-import Graphics.Slicer.Math.PGA (PLine2, distanceBetweenPPoints, eToPPoint2)
-
-import Graphics.Slicer.Math.Line (endPoint)
+import Graphics.Slicer.Math.PGA (PLine2)
 
 --------------------------------------------------------------------
 -------------------------- Face Placement --------------------------
@@ -79,11 +77,6 @@ facesOf straightSkeleton@(StraightSkeleton nodeLists spine)
   | otherwise = error "cannot yet handle spines, or more than one NodeList."
   where
     res nodeList = findFaces nodeList
-    edgesOf :: [Face] -> [LineSeg]
-    edgesOf faces = unwrap <$> faces
-      where
-        unwrap :: Face -> LineSeg
-        unwrap (Face edge _ _ _) = edge 
     nodeListError = error "cannot handle anything other than one NodeList in a straight skeleton."
     -- find all of the faces of a set of nodeTrees.
     findFaces :: [NodeTree] -> [Face]
