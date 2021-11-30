@@ -165,7 +165,7 @@ instance GanjaAble INode where
         where
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> zip allPLines allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
-          allPLines    =   firstPLine:secondPLine:rawMorePLines ++ (maybeToList outPLine)
+          allPLines    =   firstPLine:secondPLine:rawMorePLines ++ maybeToList outPLine
 
 instance GanjaAble Contour where
   toGanja contour varname = (invars, inrefs)
@@ -200,7 +200,7 @@ instance GanjaAble NodeTree where
           allINodes    = toGanja <$> iNodesOf iNodeSet
           firstLine    = case eNodeSides of
                            (Slist [] _) -> []
-                           (Slist [(firstNode,(Slist [] _))] _) -> [inLine firstNode]
+                           (Slist [(firstNode,Slist [] _)] _) -> [inLine firstNode]
                            (Slist [(firstNode,otherNodes)]_)    -> if inLine firstNode == outLine (last otherNodes)
                                                                    then []
                                                                    else [inLine firstNode]
@@ -212,7 +212,7 @@ instance GanjaAble NodeTree where
             | otherwise = outLine <$> eNodesOf eNodeSides
             where
               eNodesOf (Slist [] _) = error "no enodes?"
-              eNodesOf (Slist [(first,(Slist more _))] _) = first : more
+              eNodesOf (Slist [(first,Slist more _)] _) = first : more
               eNodesOf (Slist _ _) = error "too many sides?"
           outLine (ENode (_,a) _)  = a
           iNodesOf :: INodeSet -> [INode]

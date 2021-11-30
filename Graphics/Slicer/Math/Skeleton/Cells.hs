@@ -141,8 +141,10 @@ findFirstCellOfContour contour divides =
     furthestSegOfDivide myContour divide = if elemIndex (fst $ startIntersect myContour divide) contourSegs < elemIndex (fst $ stopIntersect myContour divide) contourSegs
                                            then (stopIntersect myContour divide, divide)
                                            else (startIntersect myContour divide, divide)
-    startIntersect myContour divide = startOfDivide (lineSegsOfContour myContour) divide
-    stopIntersect myContour divide = endOfDivide (lineSegsOfContour myContour) divide
+    startIntersect :: Contour -> CellDivide -> (LineSeg, Either Point2 PPoint2)
+    startIntersect myContour = startOfDivide (lineSegsOfContour myContour)
+    stopIntersect :: Contour -> CellDivide -> (LineSeg, Either Point2 PPoint2)
+    stopIntersect myContour = endOfDivide (lineSegsOfContour myContour)
     toPPoint2 :: Either Point2 PPoint2 -> PPoint2
     toPPoint2 (Left point2) = eToPPoint2 point2
     toPPoint2 (Right ppoint2) = ppoint2
@@ -186,8 +188,10 @@ findNextCell (RemainingContour (Slist [(Slist lineSegs _, divides)] _) ) =
     furthestSegOfDivide myLineSegs divide = if elemIndex (fst $ endIntersect divide) myLineSegs < elemIndex (fst $ startIntersect divide) lineSegs
                                             then (endIntersect divide, divide)
                                             else (startIntersect divide, divide)
-    startIntersect divide = startOfDivide lineSegs divide
-    endIntersect divide = endOfDivide lineSegs divide
+    startIntersect :: CellDivide -> (LineSeg, Either Point2 PPoint2)
+    startIntersect = startOfDivide lineSegs
+    endIntersect :: CellDivide -> (LineSeg, Either Point2 PPoint2)
+    endIntersect = endOfDivide lineSegs
     toPPoint2 :: Either Point2 PPoint2 -> PPoint2
     toPPoint2 (Left point2) = eToPPoint2 point2
     toPPoint2 (Right ppoint2) = ppoint2
@@ -204,11 +208,11 @@ findRemainder (Cell (Slist (_:_:_:_) _)) _ _ = error "too much"
 findRemainder (Cell (Slist [(_, Nothing)] _)) _ _ = error "nonsensical"
 findRemainder (Cell segSets) contourSegList divides
   | len segSets == 1 = if startBeforeEnd
-                       then RemainingContour $ slist [(remainingSegsForward (last $ firstSegSet) (head $ firstSegSet), remainingDivides)]
-                       else RemainingContour $ slist [(remainingSegsBackward (head $ firstSegSet) (last $ firstSegSet), remainingDivides)]
+                       then RemainingContour $ slist [(remainingSegsForward (last firstSegSet) (head firstSegSet), remainingDivides)]
+                       else RemainingContour $ slist [(remainingSegsBackward (head firstSegSet) (last firstSegSet), remainingDivides)]
   | len segSets == 2 = if startBeforeEnd
-                       then RemainingContour $ slist [(remainingSegsForward (last $ firstSegSet) (head $ lastSegSet), remainingDivides)]
-                       else RemainingContour $ slist [(remainingSegsBackward (head $ lastSegSet) (last $ firstSegSet), remainingDivides)]
+                       then RemainingContour $ slist [(remainingSegsForward (last firstSegSet) (head lastSegSet), remainingDivides)]
+                       else RemainingContour $ slist [(remainingSegsBackward (head lastSegSet) (last firstSegSet), remainingDivides)]
   | otherwise = error "wtf"
   where
     divide

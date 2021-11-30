@@ -142,7 +142,7 @@ getContours pointPairs = maybeFlipContour <$> foundContours
       where
         -- Sort the list to begin with, so that differently ordered input lists give the same output.
         sortPairs :: [(Point2,Point2)] -> [(Point2,Point2)]
-        sortPairs pairs = sortBy (\a b -> if fst a == fst b then compare (snd a) (snd b) else compare (fst a) (fst b)) pairs
+        sortPairs = sortBy (\a b -> if fst a == fst b then compare (snd a) (snd b) else compare (fst a) (fst b))
     -- make sure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
     maybeFlipContour :: Contour -> Contour
     maybeFlipContour contour

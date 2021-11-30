@@ -118,9 +118,9 @@ addVal dst src@(GVal r1 _)
                            else insertSet (GVal (r1 + sum (rOf <$> sameBasis src dst)) $ iOf src) $ diffBasis src dst
   where
     sameBasis :: GVal -> [GVal] -> [GVal]
-    sameBasis val vals = P.filter (\(GVal _ i) -> i == iOf val) vals
+    sameBasis val = P.filter (\(GVal _ i) -> i == iOf val)
     diffBasis :: GVal -> [GVal] -> [GVal]
-    diffBasis val vals = P.filter (\(GVal _ i) -> i /= iOf val) vals
+    diffBasis val = P.filter (\(GVal _ i) -> i /= iOf val)
     iOf (GVal _ i) = i
     rOf (GVal r _) = r
 

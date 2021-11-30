@@ -269,7 +269,7 @@ finalPLine (NodeTree _ iNodeSet)
 finalOutOf :: NodeTree -> Maybe PLine2
 finalOutOf (NodeTree eNodeSet iNodeSet)
   | hasNoINodes iNodeSet = case eNodeSet of
-                             (ENodeSet (Slist [(firstNode,(Slist [] _))] _)) -> Just $ outOf firstNode
+                             (ENodeSet (Slist [(firstNode,Slist [] _)] _)) -> Just $ outOf firstNode
                              _ -> Nothing
   | hasArc (finalINodeOf iNodeSet) = Just $ outOf $ finalINodeOf iNodeSet
   | otherwise = Nothing
@@ -319,5 +319,5 @@ sortedPLines = sortBy (\n1 n2 -> if (n1 `pLineIsLeft` n2) == Just True then LT e
 indexPLinesTo :: PLine2 -> [PLine2] -> [PLine2]
 indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesAfterIndex firstPLine pLines
   where
-    pLinesBeforeIndex myFirstPLine plines = filter (\a -> myFirstPLine `pLineIsLeft` a /= Just False) plines
-    pLinesAfterIndex myFirstPLine plines = filter (\a -> myFirstPLine `pLineIsLeft` a == Just False) plines
+    pLinesBeforeIndex myFirstPLine = filter (\a -> myFirstPLine `pLineIsLeft` a /= Just False)
+    pLinesAfterIndex myFirstPLine = filter (\a -> myFirstPLine `pLineIsLeft` a == Just False)

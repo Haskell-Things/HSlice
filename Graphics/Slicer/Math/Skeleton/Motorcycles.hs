@@ -216,7 +216,7 @@ motorcycleMightIntersectWith lineSegs motorcycle
     results :: Slist (LineSeg, Either Point2 PPoint2)
     results = slist $ sortByDistance $ catMaybes $ filterIntersection <$> intersections
     sortByDistance :: [(LineSeg, Either Point2 PPoint2)] -> [(LineSeg, Either Point2 PPoint2)]
-    sortByDistance ints = sortBy compareDistances ints
+    sortByDistance = sortBy compareDistances
     compareDistances :: (LineSeg, Either Point2 PPoint2) -> (LineSeg, Either Point2 PPoint2) -> Ordering
     compareDistances i1 i2 = case i1 of
                                (_, Right intersectionPPoint1) ->
@@ -261,7 +261,7 @@ motorcycleMightIntersectWith lineSegs motorcycle
             shortCircuitItem (Just seg, Just intersection) = Just (seg, intersection)
             shortCircuitItem item = error $ "cannot short circuit item: " <> show item <> "\n"
         stripInSegOutSeg :: [(LineSeg, Either Point2 PPoint2)] -> [(LineSeg, Either Point2 PPoint2)]
-        stripInSegOutSeg myIntersections = L.filter fun myIntersections
+        stripInSegOutSeg = L.filter fun
           where
             -- make sure neither of these segments are inSeg or outSeg
             fun (seg,_) = seg /= inSeg && seg /= outSeg
@@ -291,8 +291,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                                                ) $ filterIntersection a
                                               manyIntersections@(_:_) -> if len res > 0 then head res else error $ "no options: " <> show (len res) <> "\n" <> show res <> "\n"
                                                 where
-                                                  res = slist $ sortByDistance $ catMaybes $ filterIntersection <$> manyIntersections
-                                                  sortByDistance ints = sortBy compareDistances ints
+                                                  res = slist $ sortBy compareDistances $ catMaybes $ filterIntersection <$> manyIntersections
                                                   compareDistances :: (LineSeg, Either LineSeg PPoint2) -> (LineSeg, Either LineSeg PPoint2) -> Ordering
                                                   compareDistances i1 i2 = case i1 of
                                                                              (_, Right intersectionPPoint1) ->
