@@ -201,10 +201,10 @@ instance GanjaAble NodeTree where
           firstLine    = case eNodeSides of
                            (Slist [] _) -> []
                            (Slist [(firstNode,Slist [] _)] _) -> [inLine firstNode]
-                           (Slist [(firstNode,otherNodes)]_)    -> if inLine firstNode == outLine (last otherNodes)
-                                                                   then []
-                                                                   else [inLine firstNode]
-                           _ -> error "too many sides."
+                           (Slist [(firstNode,otherNodes)] _) -> if inLine firstNode == outLine (last otherNodes)
+                                                                 then []
+                                                                 else [inLine firstNode]
+                           (Slist _ _) -> error "too many sides."
             where
               inLine (ENode (a,_) _) = a
           remainingLines
@@ -219,7 +219,7 @@ instance GanjaAble NodeTree where
           iNodesOf (INodeSet (Slist inodes _)) = concat inodes
 
 instance GanjaAble StraightSkeleton where
-  toGanja (StraightSkeleton [[nodetree]] _) = toGanja nodetree
+  toGanja (StraightSkeleton (Slist [[nodetree]] _) _) = toGanja nodetree
 
 -- | Create a single program, covering a series of objects.
 dumpGanjas :: [String -> (String, String)] -> String

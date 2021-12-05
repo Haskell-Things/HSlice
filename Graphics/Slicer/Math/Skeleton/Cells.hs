@@ -56,7 +56,7 @@ import Graphics.Slicer.Math.Line (endPoint, handleLineSegError, lineSegFromEndpo
 
 import Graphics.Slicer.Math.PGA (PPoint2, PIntersection(PAntiCollinear), angleBetween, distanceBetweenPPoints, eToPLine2, eToPPoint2, pToEPoint2, plinesIntersectIn)
 
-data UnsupportedReason = INodeCrossesDivide [(INode,CellDivide)] NodeTree
+data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving (Show, Eq)
 
 -- | get a naieve node tree for a given cell.

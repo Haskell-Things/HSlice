@@ -158,7 +158,7 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
 --   Requires the faces are a closed set, AKA, a set of faces created from a contour.
 -- FIXME: unimplemented. basically, take the contour formed by the remainders of the faces, and squeeze in a line segment, if possible.
 -- FIXME: pretty insane when dealing with multiple insets at once. recurse into addLineSegsToFace maybe?
-addInset :: Fastℕ -> ℝ -> [Face] -> ([Contour], [Face])
+addInset :: Fastℕ -> ℝ -> Slist Face -> ([Contour], [Face])
 addInset insets distance faceSet
   | insets == 1 = ([reconstructedContour], remainingFaces)
   | otherwise = error "cannot handle more than one inset yet."
@@ -176,7 +176,7 @@ addInset insets distance faceSet
     averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
     lineSegSets = fst <$> res
     remainingFaces = concat $ catMaybes $ snd <$> res
-    res = addLineSegsToFace distance (Just 1) <$> faceSet
+    res = addLineSegsToFace distance (Just 1) <$> (\(Slist a _) -> a) faceSet
 
 -- | Add infill to the area of a set of faces that was not covered in lines.
 -- FIXME: unimplemented. basically, take the contour formed by the remainders of the faces, and squeeze in a line segment, if possible.

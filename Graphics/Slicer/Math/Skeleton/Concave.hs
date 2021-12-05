@@ -30,11 +30,9 @@ module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstA
 
 import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id, zip, any, (*), (+), Int, (.))
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, isNothing, fromJust, fromMaybe)
+import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, isNothing, fromMaybe)
 
-import Data.List (takeWhile, sortBy, length)
-
-import Data.List as DL (head, last, tail)
+import Data.List (takeWhile, sortBy)
 
 import Data.List.Extra (unsnoc)
 
@@ -89,9 +87,12 @@ skeletonOfConcaveRegion inSegs
   where
     result = getNodeTree (firstENodes inSegs loop)
     -- are the incoming line segments a loop?
-    loop = endPoint (DL.last inSegs) == startPoint (DL.head inSegs)
-           || distance (endPoint $ DL.last inSegs) (startPoint $ DL.head inSegs) < (fudgeFactor*15)
-
+    loop = endPoint lastSeg == startPoint firstSeg
+           || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
+      where
+        lastSeg = SL.last $ slist inSegs
+        firstSeg = SL.head $ slist inSegs
+        
     -- Generate the first generation of nodes, from the passed in line segments.
     -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
     firstENodes :: [LineSeg] -> Bool -> [ENode]
@@ -234,7 +235,7 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) = findENodesRecursive
             onlyINodeIn a = error $ "more than one inode: " <> show a <> "\n"
             findENodesOfInRecursive :: PLine2 -> [ENode]
             findENodesOfInRecursive myPLine
-              | isENode myPLine = [fromJust $ findENodeByOutput eNodeSet myPLine]
+              | isENode myPLine = [myENode]
               | otherwise = -- must be an INode. recurse.
                 case unsnoc ancestorGens of
                   Nothing -> []
@@ -244,8 +245,13 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) = findENodesRecursive
                       lastGenWithOnlyMyINode :: [[INode]]
                       lastGenWithOnlyMyINode = case filter (\a -> outOf a == myPLine) newLastGen of
                                                  [] -> []
-                                                 a -> [[DL.head a]]
+                                                 a -> [[first a]]
+                                                   where
+                                                     first :: [a] -> a
+                                                     first [] = error "found no INode?"
+                                                     first (a:_) = a
               where
+                myENode = fromMaybe (error "could not find ENode?") $ findENodeByOutput eNodeSet myPLine
                 -- Determine if a PLine matches the output of an ENode.
                 isENode :: PLine2 -> Bool
                 isENode myPLine2 = isJust $ findENodeByOutput eNodeSet myPLine2
@@ -254,9 +260,9 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) = findENodesRecursive
 -- also performs 'safe' node tree transforms:
 sortINodesByENodes :: INodeSet -> [ENode] -> Bool -> INodeSet
 sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
- | generationsIn res == 1 && inCountOf (onlyINodeOf $ INodeSet $ resSlist rawGenerations) > length initialGeneration = errorTooManyIns
+ | generationsIn res == 1 && inCountOf (onlyINodeOf $ INodeSet $ resSlist rawGenerations) > len (slist initialGeneration) = errorTooManyIns
  -- test for the property that a walk of the INodes we are returning results in our input ENode list.
- | initialGeneration /= findENodesInOrder (eNodeSetOf initialGeneration) res = errorInsWrongOrder
+ | initialGeneration /= findENodesInOrder (eNodeSetOf $ slist initialGeneration) res = errorInsWrongOrder
  | otherwise = INodeSet $ resSlist rawGenerations
   where
     res :: [[INode]]
@@ -330,7 +336,11 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
           | hasArc result && loop = errorIllegalLast
           | otherwise = result
           where
-            result = DL.head rawLastGeneration
+            result = first rawLastGeneration
+              where
+                first :: [a] -> a
+                first [] = error "no first of the last generation?"
+                first (a:_) = a
 
         secondToLastGen = fromMaybe (error "no second to last generation?") $ safeLast $ SL.init moreGens
         firstAndMids = case genWithoutFlips rawFirstGeneration of
@@ -365,7 +375,7 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
 
     errorInsWrongOrder = error
                          $ "ENodes should be:  " <> show (outOf <$> initialGeneration) <> "\n"
-                         <> "ENode outs are:    " <> show (outOf <$> findENodesInOrder (eNodeSetOf initialGeneration) res) <> "\n"
+                         <> "ENode outs are:    " <> show (outOf <$> findENodesInOrder (eNodeSetOf $ slist initialGeneration) res) <> "\n"
                          <> "rawGenerations:    " <> show rawGenerations <> "\n"
                          <> "returned inodes:   " <> show res <> "\n"
                          <> "loop:              " <> show loop <> "\n"
@@ -392,8 +402,8 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
         hasIn :: INode -> PLine2 -> Bool
         hasIn iNode pLine2 = case filter (==pLine2) $ insOf iNode of
                                [] -> False
-                               [_] -> True
-                               _ -> error "filter passed too many options."
+                               (_:[]) -> True
+                               (_:_) -> error "filter passed too many options."
     -- Merge two INodes.
     mergeWith :: INode -> INode -> Slist [INode]
     mergeWith iNode1 iNode2 = one [addINodeToParent iNode1 iNode2]
@@ -407,28 +417,29 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
         newINode1 = makeINode (withoutConnectingPLine $ insOf iNode2) (Just newConnectingPLine)
         newINode2 = makeINode ([newConnectingPLine] <> insOf iNode1) maybeOut2
         newConnectingPLine = flipPLine2 oldConnectingPLine
-        oldConnectingPLine = case filter (isNothing . findENodeByOutput (eNodeSetOf initialGeneration)) $ insOf iNode2 of
+        oldConnectingPLine = case filter (isNothing . findENodeByOutput (eNodeSetOf $ slist initialGeneration)) $ insOf iNode2 of
                                [] -> error "could not find old connecting PLine."
                                [v] -> v
-                               _ -> error "filter passed too many connecting PLines."
+                               (_:_) -> error "filter passed too many connecting PLines."
         withoutConnectingPLine = filter (/= oldConnectingPLine)
 
     -- Determine if the given INode has a PLine that points to an ENode.
-    hasENode iNode = any (isJust . findENodeByOutput (eNodeSetOf initialGeneration)) $ insOf iNode
+    hasENode iNode = any (isJust . findENodeByOutput (eNodeSetOf $ slist initialGeneration)) $ insOf iNode
     -- Determine if the given INode has a PLine that points to another INode.
-    hasINode iNode = any (isNothing . findENodeByOutput (eNodeSetOf initialGeneration)) $ insOf iNode
+    hasINode iNode = any (isNothing . findENodeByOutput (eNodeSetOf $ slist initialGeneration)) $ insOf iNode
 
     -- Construct an ENodeSet
-    eNodeSetOf :: [ENode] -> ENodeSet
-    eNodeSetOf [] = error "cannot construct an empty ENodeSet"
-    eNodeSetOf eNodes = ENodeSet (slist [(DL.head eNodes, slist (DL.tail eNodes))])
+    eNodeSetOf :: Slist ENode -> ENodeSet
+    eNodeSetOf eNodes
+      | null eNodes = error "cannot construct an empty ENodeSet"
+      | otherwise = ENodeSet (slist [(SL.head eNodes, SL.tail eNodes)])
 
     -- the number of generations.
     generationsIn :: [[INode]] -> Int
     generationsIn = len . slist
 
     -- how many input PLines does an INode have.
-    inCountOf (INode _ _ (Slist moreIns _) _) = 2+length moreIns
+    inCountOf (INode _ _ moreIns _) = 2+len moreIns
 
     -- the only inode of an INodeSet. must have one generation only.
     onlyINodeOf :: INodeSet -> INode
@@ -462,8 +473,11 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
     firstPLine = outOf firstENode
       where
         -- the first ENode given to us. for sorting uses.
-        firstENode = DL.head initialGeneration
-
+        firstENode = first initialGeneration
+          where
+            first :: [a] -> a
+            first [] = error "no first enode?"
+            first (a:_) = a
     -- | add together a child and it's parent.
     addINodeToParent :: INode -> INode -> INode
     addINodeToParent (INode _ _ _ Nothing) _ = error "cannot merge a child inode with no output!"
@@ -496,18 +510,18 @@ skeletonOfNodes loop eNodes iNodes =
               then errorLen1 -- A one node loop makes no sense, reject.
               else Right $ INodeSet $ one iNodes -- just hand back single node requests.
             [iNode1,iNode2] -> handleTwoNodes iNode1 iNode2
-            _ -> handleThreeOrMoreNodes
+            (_:_) -> handleThreeOrMoreNodes
     [eNode] -> case iNodes of
                  [] ->
                    if loop
                    then errorLen1 -- A one node loop makes no sense, reject.
                    else Right $ INodeSet $ one [eNodeToINode eNode] -- just hand back single node requests.
                  [iNode] -> handleTwoNodes eNode iNode
-                 _ -> handleThreeOrMoreNodes
+                 (_:_) -> handleThreeOrMoreNodes
     [eNode1,eNode2] -> case iNodes of
                          [] -> handleTwoNodes eNode1 eNode2
-                         _ -> handleThreeOrMoreNodes
-    _ -> handleThreeOrMoreNodes
+                         (_:_) -> handleThreeOrMoreNodes
+    (_:_:_:_) -> handleThreeOrMoreNodes
   where
     errorLen1 = Left $ PartialNodes (INodeSet $ one iNodes) "NOMATCH - length 1?"
     --   Handle the the case of two nodes.

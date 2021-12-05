@@ -20,7 +20,7 @@
 --    a Straight Skeleton of a contour, with a set of sub-contours cut out of it.
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (($), (<>), (<$>), (.), error, null, not, show, head, fst, concat)
+import Prelude (($), (<>), (<$>), (.), error, null, not, show, fst, concat)
 
 import Data.Either (Either(Left, Right), lefts, rights)
 
@@ -59,32 +59,37 @@ findStraightSkeleton contour holes =
                           then Nothing
                           else case divisions of
                                  -- Simple case. convert the whole contour to a cell, and use the simple solver on it.
-                                 [] -> Just $ StraightSkeleton [[res]] (slist [])
+                                 [] -> Just $ StraightSkeleton (slist [[res]]) (slist [])
                                    where
                                      res = case getNodeTreeOfCell singleCell of
                                              (Right nodetree) -> nodetree
                                              (Left _) -> error "unpossible."
                                      (singleCell,_) = fromMaybe (error "this should never fail?") $ findFirstCellOfContour contour []
                                  [division] -> if null (lefts $ getNodeTreeOfCell <$> cells)
-                                               then Just $ StraightSkeleton [[addNodeTreesAlongDivide firstNodeTree secondNodeTree division]] (slist [])
+                                               then Just $ StraightSkeleton (slist [[addNodeTreesAlongDivide firstNodeTree secondNodeTree division]]) (slist [])
                                                else applyTscherne contour divisions
                                    where
                                      [firstNodeTree, secondNodeTree] = rights $ getNodeTreeOfCell <$> cells
                                      cells = [firstCell, secondCell]
-                                     (Just (secondCell,_)) = findNextCell (head remainder)
+                                     (Just (secondCell,_)) = findNextCell (onlyOne remainder)
                                      remainder = fromMaybe (error $ "no remainder?\n" <> show firstCell <> "\n") maybeRemainder
                                      (Just (firstCell,maybeRemainder)) = findFirstCellOfContour contour [division]
                                  [div1,div2] ->if null (lefts $ getNodeTreeOfCell <$> cells)
-                                               then Just $ StraightSkeleton [[addNodeTreesAlongDivide firstNodeTree secondNodeTree div1]] (slist [])
+                                               then Just $ StraightSkeleton (slist [[addNodeTreesAlongDivide firstNodeTree secondNodeTree div1]]) (slist [])
                                                else error $ show (dumpGanjas $ concat $ (\(INodeCrossesDivide vals _) -> toGanja.fst <$> vals) <$> lefts (getNodeTreeOfCell <$> cells)) <> "\n" <> show div1 <> "\n" <> show div2 <> "\n"
                                    where
                                      [firstNodeTree, secondNodeTree, thirdNodeTree] = rights $ getNodeTreeOfCell <$> cells
                                      cells = [firstCell, secondCell, thirdCell]
                                      firstRemainder = fromMaybe (error $ "no remainder?\n" <> show firstCell <> "\n") maybeFirstRemainder
                                      secondRemainder = fromMaybe (error $ "no remainder?\n" <> show secondCell <> "\n") maybeSecondRemainder
-                                     (Just (thirdCell,_)) = findNextCell (head secondRemainder)
-                                     (Just (secondCell,maybeSecondRemainder)) = findNextCell (head firstRemainder)
+                                     (Just (thirdCell,_)) = findNextCell (onlyOne secondRemainder)
+                                     (Just (secondCell,maybeSecondRemainder)) = findNextCell (onlyOne firstRemainder)
                                      (Just (firstCell,maybeFirstRemainder)) = findFirstCellOfContour contour [div1,div2]
                                  (_:_) -> Nothing
         where
           divisions = findDivisions contour crashTree
+          onlyOne :: [a] -> a
+          onlyOne a = case a of
+                        [] -> error "empty?"
+                        [one] -> one
+                        (_:_) -> error "too many?"

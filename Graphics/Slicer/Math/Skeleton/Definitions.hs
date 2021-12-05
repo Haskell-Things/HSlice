@@ -117,7 +117,7 @@ instance Pointable INode where
       results = intersectionsOfPairs allPLines
       allPointsSame = case intersectionsOfPairs allPLines of
                         [] -> error $ "no intersection of pairs for " <> show allPLines
-                        [_] -> True
+                        (_:[]) -> True
                         points -> and $ mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor) points
       allPLines = if hasArc iNode
                   then cons (outOf iNode) $ cons firstPLine $ cons secondPLine morePLines
@@ -193,7 +193,7 @@ newtype Spine = Spine { _spineArcs :: NonEmpty PLine2 }
   deriving stock Show
 
 -- | The straight skeleton of a contour.
-data StraightSkeleton = StraightSkeleton { _nodeSets :: ![[NodeTree]], _spineNodes :: !(Slist Spine) }
+data StraightSkeleton = StraightSkeleton { _nodeSets :: !(Slist [NodeTree]), _spineNodes :: !(Slist Spine) }
   deriving Eq
   deriving stock Show
 
@@ -270,7 +270,7 @@ finalOutOf :: NodeTree -> Maybe PLine2
 finalOutOf (NodeTree eNodeSet iNodeSet)
   | hasNoINodes iNodeSet = case eNodeSet of
                              (ENodeSet (Slist [(firstNode,Slist [] _)] _)) -> Just $ outOf firstNode
-                             _ -> Nothing
+                             (ENodeSet _) -> Nothing
   | hasArc (finalINodeOf iNodeSet) = Just $ outOf $ finalINodeOf iNodeSet
   | otherwise = Nothing
 
@@ -309,7 +309,7 @@ concavePLines seg1 seg2
 hasNoINodes :: INodeSet -> Bool
 hasNoINodes iNodeSet = case iNodeSet of
                          (INodeSet (Slist _ 0)) -> True
-                         _ -> False
+                         (INodeSet _) -> False
 
 -- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
 sortedPLines :: [PLine2] -> [PLine2]

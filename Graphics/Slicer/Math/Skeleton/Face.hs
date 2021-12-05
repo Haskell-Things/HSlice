@@ -22,21 +22,17 @@
 -- | This file contains code for creating a series of Faces, covering a straight skeleton.
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
-import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), Bool(True, False), take, null, and, snd, (&&))
-
-import Data.List (dropWhile)
-
-import Data.List as DL (last, reverse)
+import Prelude ((==), otherwise, (<$>), ($), length, (/=), error, (<>), show, Eq, Show, (<>), Bool(True, False), null, not, and, snd, (&&))
 
 import Data.List.Extra (unsnoc)
 
-import Data.Maybe (isNothing, fromMaybe, Maybe(Just, Nothing), isJust, fromJust)
+import Data.Maybe (isNothing, fromMaybe, Maybe(Just, Nothing), isJust)
 
 import Safe (initSafe)
 
 import Slist.Type (Slist(Slist))
 
-import Slist (slist, cons, isEmpty, len, init, tail)
+import Slist (slist, cons, isEmpty, len, init, tail, take, dropWhile, head, one)
 
 import Slist as SL (last, reverse)
 
@@ -61,30 +57,29 @@ data Face = Face { _edge :: !LineSeg, _firstArc :: !PLine2, _arcs :: !(Slist PLi
 
 -- | take a straight skeleton, and create faces from it.
 -- accepts a line segment you want the first face to contain, and reorders the face list.
-orderedFacesOf :: LineSeg -> StraightSkeleton -> [Face]
+orderedFacesOf :: LineSeg -> StraightSkeleton -> Slist Face
 orderedFacesOf start skeleton = facesFromIndex start $ facesOf skeleton
   where
-    facesFromIndex :: LineSeg -> [Face] -> [Face]
+    facesFromIndex :: LineSeg -> Slist Face -> Slist Face
     facesFromIndex targetSeg rawFaces = take (length rawFaces) $ dropWhile (\(Face a _ _ _) -> a /= targetSeg) $ rawFaces <> rawFaces
 
 -- | take a straight skeleton, and create faces from it.
-facesOf :: StraightSkeleton -> [Face]
+facesOf :: StraightSkeleton -> Slist Face
 facesOf straightSkeleton@(StraightSkeleton nodeLists spine)
-  | null spine = case nodeLists of
-                   [] -> nodeListError
-                   [oneNodeList] -> findFaces oneNodeList
-                   (_:_) -> nodeListError
-  | otherwise = error "cannot yet handle spines, or more than one NodeList."
+  | len nodeLists == 0 = nodeListError
+  | len nodeLists == 1 && null spine = findFaces (head nodeLists)
+  | not $ null spine = error "cannot yet handle spines, or more than one NodeList."
+  | otherwise = error "whoops. don't know how we got here."
   where
     nodeListError = error "cannot handle anything other than one NodeList in a straight skeleton."
     -- find all of the faces of a set of nodeTrees.
-    findFaces :: [NodeTree] -> [Face]
-    findFaces nodeTrees = case nodeTrees of
-                            [] -> []
-                            [oneNodeTree] -> if isNothing (finalOutOf oneNodeTree)
-                                             then rawFaces
-                                             else error $ "Only one NodeTree given, and it has an output arc. Don't know how to continue: " <> show straightSkeleton <> "\n"
-                            (_:_) -> rawFaces
+    findFaces :: [NodeTree] -> Slist Face
+    findFaces nodeTrees = slist $ case nodeTrees of
+                                    [] -> []
+                                    [oneNodeTree] -> if isNothing (finalOutOf oneNodeTree)
+                                                     then rawFaces
+                                                     else error $ "Only one NodeTree given, and it has an output arc. Don't know how to continue: " <> show straightSkeleton <> "\n"
+                                    (_:_) -> rawFaces
       where
         rawFaces = case nodeTrees of
                      [] -> []
@@ -166,26 +161,28 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
             (True, True) -> areaBeneathPair target firstPLine secondPLine
                             <> areaBeneathPair target secondPLine firstPLine
             (True, False) -> areaBeneathPair target firstPLine secondPLine
-                            <> areaBeneath eNodes (ancestorsOf myINodeSet) (snd $ fromJust $ findINodeByOutput myINodeSet secondPLine True)
+                            <> areaBeneath eNodes (ancestorsOf myINodeSet) secondINode
                             <> areaBeneathPair target secondPLine firstPLine
-            (False, True) -> areaBeneath eNodes (ancestorsOf myINodeSet) (snd $ fromJust $ findINodeByOutput myINodeSet firstPLine True)
+            (False, True) -> areaBeneath eNodes (ancestorsOf myINodeSet) firstINode
                              <> areaBeneathPair target firstPLine secondPLine
                              <> areaBeneathPair target secondPLine firstPLine
-            (False, False) -> areaBeneath eNodes (ancestorsOf myINodeSet) (snd $ fromJust $ findINodeByOutput myINodeSet firstPLine True)
+            (False, False) -> areaBeneath eNodes (ancestorsOf myINodeSet) firstINode
                              <> areaBeneathPair target firstPLine secondPLine
-                             <> areaBeneath eNodes (ancestorsOf myINodeSet) (snd $ fromJust $ findINodeByOutput myINodeSet secondPLine True)
+                             <> areaBeneath eNodes (ancestorsOf myINodeSet) secondINode
                              <> areaBeneathPair target secondPLine firstPLine
           | otherwise = -- three or more input PLines
             resHead -- call the recursive resolver, and place the last face, completing the contour.
             <> findFacesRecurse target (secondPLine : morePLinesRaw)
             <> areaBeneathPair target lastPLine firstPLine
             where
+              firstINode = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet firstPLine True
+              secondINode = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet secondPLine True
               resHead -- The first part of the result.
                 | isENode firstPLine && isENode secondPLine = areaBeneathPair target firstPLine secondPLine
                 | isENode firstPLine = areaBeneathPair target firstPLine secondPLine
-                | isENode secondPLine = areaBeneath eNodes (ancestorsOf myINodeSet) (snd $ fromJust $ findINodeByOutput myINodeSet firstPLine True)
+                | isENode secondPLine = areaBeneath eNodes (ancestorsOf myINodeSet) firstINode
                                         <> areaBeneathPair target firstPLine secondPLine
-                | otherwise = areaBeneath eNodes (ancestorsOf myINodeSet) (snd $ fromJust $ findINodeByOutput myINodeSet firstPLine True)
+                | otherwise = areaBeneath eNodes (ancestorsOf myINodeSet) firstINode
                               <> areaBeneathPair target firstPLine secondPLine
               lastPLine = case unsnoc morePLinesRaw of
                             Nothing -> errorImpossible
@@ -196,7 +193,9 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
                   [] -> []
                   [onePLine] -> if isENode onePLine
                                 then []
-                                else areaBeneath eNodes (ancestorsOf myINodeSet) (snd $ fromJust $ findINodeByOutput myINodeSet onePLine True)
+                                else areaBeneath eNodes (ancestorsOf myINodeSet) $ iNodeOfPLine onePLine
+                    where
+                      iNodeOfPLine myPLine = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet onePLine True
                   (onePLine : anotherPLine : myMorePLines) -> recurse
                     where
                       recurse = areaBeneathPair myINode onePLine anotherPLine
@@ -205,36 +204,47 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
         areaBeneathPair :: INode -> PLine2 -> PLine2 -> [Face]
         areaBeneathPair myINode pLine1 pLine2
          | isENode pLine1 && isENode pLine2 = -- both enodes? make a triangle.
-           [makeTriangleFace (fromJust $ findENodeByOutput eNodes pLine1) (fromJust $ findENodeByOutput eNodes pLine2)]
+           [makeTriangleFace myENode1 myENode2]
          | isENode pLine1 = -- only pLine1 is an ENode.
-           [fromMaybe errorMaybeFailPLine1 $ makeFace (fromJust $ findENodeByOutput eNodes pLine1) (slist $ pathToFirstDescendent pLine2) (firstDescendent pLine2)]
-           <> areaBeneath eNodes (ancestorsOf myINodeSet) (snd $ fromJust $ findINodeByOutput myINodeSet pLine2 True)
+           [fromMaybe errorMaybeFailPLine1 $ makeFace myENode1 (pathToFirstDescendent pLine2) (firstDescendent pLine2)]
+           <> areaBeneath eNodes (ancestorsOf myINodeSet) myINode
          | isENode pLine2 = -- only pLine2 is an ENode.
-           [fromMaybe errorMaybeFailPLine2 $ makeFace (lastDescendent pLine1) (slist $ pathToLastDescendent pLine1) (fromJust $ findENodeByOutput eNodes pLine2)]
-         | otherwise = [areaBetween eNodes myINode pLine1 pLine2 {-(snd $ fromJust $ findINodeByOutput myINodeSet pLine2 True)-}]
+           [fromMaybe errorMaybeFailPLine2 $ makeFace (lastDescendent pLine1) (pathToLastDescendent pLine1) myENode2]
+         | otherwise = [areaBetween eNodes myINode pLine1 pLine2]
          where
-           pathToFirstDescendent :: PLine2 -> [PLine2]
+           myENode1 = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes pLine1
+           myENode2 = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes pLine2
+           myINode = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet pLine2 True
+           pathToFirstDescendent :: PLine2 -> Slist PLine2
            pathToFirstDescendent myPLine
-            | isENode myPLine = []
-            | otherwise = myPLine : pathToFirstDescendent (firstInOf $ snd $ fromJust $ findINodeByOutput myINodeSet myPLine True)
-           pathToLastDescendent :: PLine2 -> [PLine2]
+            | isENode myPLine = slist []
+            | otherwise = one myPLine <> pathToFirstDescendent (firstInOf $ snd myINode)
+             where
+               myINode = fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet myPLine True
+           pathToLastDescendent :: PLine2 -> Slist PLine2
            pathToLastDescendent myPLine
-            | isENode myPLine = []
-            | otherwise = myPLine : pathToLastDescendent (lastInOf $ snd $ fromJust $ findINodeByOutput myINodeSet myPLine True)
+            | isENode myPLine = slist []
+            | otherwise = one myPLine <> pathToLastDescendent (lastInOf $ snd myINode)
+             where
+               myINode = fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet myPLine True
            firstDescendent myPLine
              | null $ pathToFirstDescendent myPLine = -- handle the case where we're asked for an ENode's output.
-               fromJust $ findENodeByOutput eNodes myPLine
-             | otherwise = fromJust $ findENodeByOutput eNodes $ firstInOf $ snd $ fromJust $ findINodeByOutput myINodeSet (DL.last $ pathToFirstDescendent myPLine) True
+               fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes myPLine
+             | otherwise = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes $ firstInOf $ snd myINode
+               where
+                 myINode = fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet (SL.last $ pathToFirstDescendent myPLine) True
            lastDescendent myPLine
              | null $ pathToLastDescendent myPLine = -- handle the case where we're asked for an ENode's output.
-               fromJust $ findENodeByOutput eNodes myPLine
-             | otherwise = fromJust $ findENodeByOutput eNodes $ lastInOf $ snd $ fromJust $ findINodeByOutput myINodeSet (DL.last $ pathToLastDescendent myPLine) True
+               fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes myPLine
+             | otherwise = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes $ lastInOf $ snd myINode
+               where
+                 myINode = fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet (SL.last $ pathToLastDescendent myPLine) True
            errorMaybeFailPLine1 = error
                                   $ "got Nothing from makeFace for PLine1\n"
                                   <> show pLine1 <> "\n"
                                   <> show (lastDescendent pLine1) <> "\n" <> show (isENode pLine1) <> "\n"
-                                  <> show (slist $ pathToLastDescendent pLine1) <> "\n"
-                                  <> show (slist $ pathToFirstDescendent pLine2) <> "\n"
+                                  <> show (pathToLastDescendent pLine1) <> "\n"
+                                  <> show (pathToFirstDescendent pLine2) <> "\n"
                                   <> show (firstDescendent pLine2) <> "\n" <> show (isENode pLine2) <> "\n"
                                   <> show pLine2 <> "\n"
                                   <> show myENodes <> "\n" <> show iNodeSet <> "\n"
@@ -242,8 +252,8 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
                                   $ "got Nothing from makeFace for PLine2\n"
                                   <> show pLine1 <> "\n"
                                   <> show (lastDescendent pLine1) <> "\n" <> show (isENode pLine1) <> "\n"
-                                  <> show (slist $ pathToLastDescendent pLine1) <> "\n"
-                                  <> show (slist $ pathToFirstDescendent pLine2) <> "\n"
+                                  <> show (pathToLastDescendent pLine1) <> "\n"
+                                  <> show (pathToFirstDescendent pLine2) <> "\n"
                                   <> show (firstDescendent pLine2) <> "\n" <> show (isENode pLine2) <> "\n"
                                   <> show pLine2 <> "\n"
                                   <> show myENodes <> "\n" <> show iNodeSet <> "\n"
@@ -257,9 +267,9 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
              -- FIXME: we should tighten, and test this case
              | lastDescendent myPLine1 /= SL.last (cons firstENode moreENodes) =
                  fromMaybe errNodesNotNeighbors $
-                 makeFace (lastDescendent myPLine1) (slist (DL.reverse $ DL.reverse (pathToLastDescendent myPLine1) <> pathToFirstDescendent myPLine2)) (firstDescendent myPLine2)
-             | otherwise                                                               = fromMaybe errNodesNotNeighbors $
-                                                                                         makeFace (firstDescendent myPLine1) (slist (DL.reverse $ DL.reverse (pathToFirstDescendent myPLine1) <> pathToLastDescendent myPLine2)) (lastDescendent myPLine2)
+                 makeFace (lastDescendent myPLine1) (SL.reverse (pathToLastDescendent myPLine2) <> pathToFirstDescendent myPLine1) (firstDescendent myPLine2)
+             | otherwise                                                       = fromMaybe errNodesNotNeighbors $
+                                                                                 makeFace (firstDescendent myPLine1) (SL.reverse (pathToFirstDescendent myPLine2) <> pathToLastDescendent myPLine1) (lastDescendent myPLine2)
              where
                -- our error condition.
                errNodesNotNeighbors = error $ "cannot make a face from nodes that are not neighbors: \n" <> show myENodeList <> "\n" <> show parent <> "\n" <> show myPLine1 <> "\n" <> show myPLine2 <> "\n"

@@ -24,21 +24,21 @@
 -- | functions for handling contours.
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, contourIntersectionCount) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), length, Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), (++), (>))
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), (++), (>))
 
-import Data.List(head, partition, reverse, sortBy)
+import Data.List(partition, reverse, sortBy)
 
-import Data.List as DL (last)
+import Data.List as DL (uncons)
 
 import Data.List.Extra (unsnoc)
 
-import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe)
+import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe, fromMaybe)
 
 import Data.Either (fromRight)
 
-import Slist (len, size, slist, uncons, safeLast, zipWith)
+import Slist (len, size, slist, safeLast, zipWith, safeLast, safeHead)
 
-import Slist as SL (last)
+import Slist as SL (last, uncons)
 
 import Slist.Type (Slist(Slist))
 
@@ -67,9 +67,9 @@ import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, HitStartPoint, Hit
 -- so that we have the loop, and also knowledge of how
 -- the list is built (the "sides" of it).
 
-getLoops :: (Show a, Eq a) => [[a]] -> [[[a]]]
-getLoops a = getLoops' a []
-
+getLoops :: (Show a,Eq a) => [[a]] -> Maybe [[[a]]]
+getLoops [] = Just []
+getLoops (x:xs) = getLoops' xs (slist [x]) (snd $ fromMaybe (error "empty first sequence") $ unsnoc x)
 -- We will be actually doing the loop extraction with
 -- getLoops'
 
@@ -78,29 +78,41 @@ getLoops a = getLoops' a []
 --   constructed.
 
 -- | so we begin with the "building loop" being empty.
-getLoops' :: (Show a, Eq a) => [[a]] -> [[a]] -> [[[a]]]
+getLoops'
+  :: (Show a,Eq a)
+  => [[a]]     -- ^ input
+  -> Slist [a] -- ^ accumulator
+  -> a         -- ^ last element in the acumulator
+  -> Maybe [[[a]]]
 
 -- | If there aren't any segments, and the "building loop" is empty, produce no loops.
-getLoops' [] [] = []
+getLoops' [] (Slist [] _) _ = Just []
 
 -- | If the building loop is empty, stick the first segment we have onto it to give us something to build on.
-getLoops' (x:xs) [] = getLoops' xs [x]
+getLoops' (a:as) (Slist [] _) _ = getLoops' as (slist [a]) (snd $ fromMaybe (error "empty first sequence") $ unsnoc a)
 
 -- | A loop is finished if its start and end are the same.
 -- Return it and start searching for another loop.
-getLoops' segs workingLoop
-  | head (head workingLoop) == presEnd workingLoop = workingLoop : getLoops' segs []
+getLoops' segs workingLoop ultima
+  | firstItemOf workingLoop == ultima = ([sListToList workingLoop] <>) <$> getLoops' segs (slist []) ultima
+  where
+    firstItemOf :: Slist [a] -> a
+    firstItemOf a = case safeHead a of
+                      Nothing -> error "empty Slist in workingLoop"
+                      (Just v) -> case DL.uncons v of
+                                    Nothing -> error "empty first list in workingLoop"
+                                    (Just (val,_)) -> val
+    sListToList (Slist a _) = a
 
 -- | Finally, we search for pieces that can continue the working loop,
 -- | and stick one on if we find it.
 -- Otherwise... something is really screwed up.
-getLoops' segs workingLoop =
+getLoops' segs workingLoop ultima =
   let
-    connectsBackwards [] = False
-    connectsBackwards [_] = False
-    connectsBackwards (_:xs) = DL.last xs == presEnd workingLoop
-    connects [] = False     -- Handle the empty case.
     connects (x:_) = x == presEnd workingLoop
+    connects [] = False     -- Handle the empty case.
+    connectsBackwards (_:xs) = snd (fromMaybe (error "empty first sequence") $ unsnoc xs) == presEnd workingLoop
+    connectsBackwards [] = False
     -- divide our set into sequences that connect, and sequences that don't.
     (possibleForwardConts, nonForwardConts) = partition connects segs
     (possibleBackConts, nonBackConts) = partition connectsBackwards segs
@@ -111,14 +123,15 @@ getLoops' segs workingLoop =
                                [] -> error $ "unclosed loop in paths given: \nWorking: " <> show workingLoop <> "\nRemainder:" <> show nonForwardConts <> "\n"
   in
     if null next
-    then workingLoop : getLoops' segs []
-    else getLoops' unused (workingLoop <> [next])
-
--- | get the end of a working loop.
-presEnd :: [[a]] -> a
-presEnd a = case unsnoc a of
-              Nothing -> error "impossible!"
-              (Just (_,b)) -> case unsnoc b of
+    then ([sListToList workingLoop] <>) <$> getLoops' segs (slist []) ultima
+    else getLoops' unused (workingLoop <> slist [next]) (snd $ fromMaybe (error "empty next?") $ unsnoc next)
+  where
+    sListToList (Slist a _) = a
+    -- | get the end of a working loop.
+    presEnd :: Slist [a] -> a
+    presEnd a = case safeLast a of
+                  Nothing -> error "impossible!"
+                  (Just b) -> case unsnoc b of
                                 Nothing -> error "more impossible!"
                                 (Just (_,c)) -> c
 
@@ -138,7 +151,7 @@ getContours pointPairs = maybeFlipContour <$> foundContours
                               -- NOTE: returning nothing here, even though this is an error condition, and a sign that the input file has two triangles that intersect. should not happen.
                               (_:_) -> Nothing
     foundContourSets :: [[[Point2]]]
-    foundContourSets = getLoops $ (\(a,b) -> [a,b]) <$> sortPairs pointPairs
+    foundContourSets = fromMaybe (error "could not complete loop detection.") $ getLoops $ (\(a,b) -> [a,b]) <$> sortPairs pointPairs
       where
         -- Sort the list to begin with, so that differently ordered input lists give the same output.
         sortPairs :: [(Point2,Point2)] -> [(Point2,Point2)]
@@ -185,7 +198,7 @@ contourContainsContour parent child = odd noIntersections
   where
     (minPoint1, minPoint2) = (fst $ minMaxPoints parent, fst $ minMaxPoints child)
     outsidePointOfPair = Point2 (min (xOf minPoint1) (xOf minPoint2) - 1,min (yOf minPoint1) (yOf minPoint2) - 1)
-    noIntersections = length $ getContourLineSegIntersections parent $ lineSegToEdge $ innerPointOf child
+    noIntersections = len $ slist $ getContourLineSegIntersections parent $ lineSegToEdge $ innerPointOf child
     lineSegToEdge p = fromRight (error "cannot construct lineToEdge") $ lineSegFromEndpoints p outsidePointOfPair
     getContourLineSegIntersections :: Contour -> LineSeg -> [Point2]
     getContourLineSegIntersections contour line = mapMaybe (saneIntersection . intersectsWith (Left line) . Left) $ lineSegsOfContour contour
@@ -234,7 +247,7 @@ innerContourPoint distance contour l
 -- | return the number of intersections with a given contour when traveling in a straight line from srcPoint to dstPoint.
 -- Not for use against line segments that overlap and are collinear with one of the line segments are a part of the contour.
 contourIntersectionCount :: Contour -> Either (Point2, Point2) (PPoint2, PPoint2) -> Int
-contourIntersectionCount contour endPoints = length $ getIntersections contour endPoints
+contourIntersectionCount contour endPoints = len $ slist $ getIntersections contour endPoints
   where
     -- The line we are checking for intersections along.
     -- a filter for results that make sense.
@@ -271,7 +284,7 @@ lineSegsOfContour (PointContour _ _ p1 p2 p3 pts) = [consLineSeg p1 p2,
   where
     consLineSeg point1 point2 = handleLineSegError $ lineSegFromEndpoints point1 point2
     consSegsWithPoints pointStart points pointEnd =
-      case uncons points of
+      case SL.uncons points of
         Nothing -> [consLineSeg pointStart pointEnd]
         (Just (headVal,tailVals)) -> consLineSeg pointStart headVal :
                                    case safeLast tailVals of
