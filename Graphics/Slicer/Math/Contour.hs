@@ -24,7 +24,7 @@
 -- | functions for handling contours.
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, contourIntersectionCount) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), (++), (>))
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), (++), not)
 
 import Data.List(partition, reverse, sortBy)
 
@@ -316,7 +316,7 @@ justOneContourFrom (contours, _) = error $ "received multiple contours when we e
 -- since contours are a big loop, the first point IS the last point.
 lastPointOfContour :: Contour -> Point2
 lastPointOfContour (PointContour _ _ _ _ p3 pts)
-  | len pts > 0 = SL.last pts
+  | not $ null pts = SL.last pts
   | otherwise = p3
 lastPointOfContour (LineSegContour _ _ l1 l2 lns) = case safeLast lns of
                                                       Nothing -> if startPoint l1 == endPoint l2
