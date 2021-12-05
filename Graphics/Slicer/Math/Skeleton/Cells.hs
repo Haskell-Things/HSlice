@@ -26,7 +26,7 @@
 --    a contour into cells.
 module Graphics.Slicer.Math.Skeleton.Cells (RemainingContour, UnsupportedReason(INodeCrossesDivide), findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell, nodeTreesDoNotOverlap, addNodeTreesAlongDivide, nodeTreesFromDivision) where
 
-import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, elem, filter, null, otherwise, ($), (<$>), (==), (++), error, (<>), show, (&&), compare, concat, (/=), (||), (<), fst, snd)
+import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, elem, filter, null, otherwise, ($), (<$>), (==), error, (<>), show, (&&), compare, concat, (/=), (||), (<), fst, snd)
 
 import Data.Either(Either(Left, Right))
 
@@ -226,18 +226,18 @@ findRemainder (Cell segSets) contourSegList divides
     divideOfSegSet (_, maybeCellDivide) = fromMaybe (error "no divide") maybeCellDivide
     remainingSegsForward trimStart trimEnd = case atOrAround trimEnd of
                                                Before ->
-                                                 slist $ takeWhile (/= trimEnd)                               $ dropWhile (/= segmentAfter trimStart) (contourSegList ++ contourSegList)
+                                                 slist $ takeWhile (/= trimEnd)                               $ dropWhile (/= segmentAfter trimStart) (contourSegList <> contourSegList)
                                                At ->
-                                                 slist $ takeWhile (/= segmentAfter trimEnd)                  $ dropWhile (/= segmentAfter trimStart) (contourSegList ++ contourSegList)
+                                                 slist $ takeWhile (/= segmentAfter trimEnd)                  $ dropWhile (/= segmentAfter trimStart) (contourSegList <> contourSegList)
                                                After ->
-                                                 slist $ takeWhile (/= (segmentAfter $ segmentAfter trimEnd)) $ dropWhile (/= segmentAfter trimStart) (contourSegList ++ contourSegList)
+                                                 slist $ takeWhile (/= (segmentAfter $ segmentAfter trimEnd)) $ dropWhile (/= segmentAfter trimStart) (contourSegList <> contourSegList)
     remainingSegsBackward trimStart trimEnd = case atOrAround trimEnd of
                                                 Before ->
-                                                  slist $ takeWhile (/= trimStart) $ dropWhile (/= segmentBefore trimEnd) (contourSegList ++ contourSegList)
+                                                  slist $ takeWhile (/= trimStart) $ dropWhile (/= segmentBefore trimEnd) (contourSegList <> contourSegList)
                                                 At ->
-                                                  slist $ takeWhile (/= trimStart) $ dropWhile (/= trimEnd) (contourSegList ++ contourSegList)
+                                                  slist $ takeWhile (/= trimStart) $ dropWhile (/= trimEnd) (contourSegList <> contourSegList)
                                                 After ->
-                                                  slist $ takeWhile (/= trimStart) $ dropWhile (/= segmentAfter trimEnd) (contourSegList ++ contourSegList)
+                                                  slist $ takeWhile (/= trimStart) $ dropWhile (/= segmentAfter trimEnd) (contourSegList <> contourSegList)
     segmentAfter seg = fromMaybe (head contourSegs) $ segAfter seg contourSegList
       where
         segAfter _ [] = Nothing

@@ -28,7 +28,7 @@ module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWal
 
 import GHC.Generics (Generic)
 
-import Prelude (Eq, Int, Rational, ($), zipWith, concat, (<>), show, error, (++), otherwise, (==), length, fst, pi, (/), (*), pure, toRational, fromRational, (+), div, Bool)
+import Prelude (Eq, Int, Rational, ($), zipWith, concat, (<>), show, error, otherwise, (==), length, fst, pi, (/), (*), pure, toRational, fromRational, (+), div, Bool)
 
 import Data.ByteString (ByteString)
 
@@ -174,7 +174,7 @@ gcodeForContour lh pathWidth contour =
     [] -> error "impossible"
     [_a] -> error "also impossible"
     [_a,_b] -> error "more impossible"
-    (headPoint:tailPoints) -> zipWith (make2DExtrudeGCode lh pathWidth) contourPoints tailPoints ++ [make2DExtrudeGCode lh pathWidth (lastPointOfContour contour) headPoint]
+    (headPoint:tailPoints) -> zipWith (make2DExtrudeGCode lh pathWidth) contourPoints tailPoints <> [make2DExtrudeGCode lh pathWidth (lastPointOfContour contour) headPoint]
   where
     contourPoints = pointsOfContour contour
 
@@ -184,7 +184,7 @@ gcodeForInfill _ _ [] = []
 gcodeForInfill lh pathWidth lineGroups =
   case lineGroups of
     [] -> []
-    (headGroup:tailGroups) -> concat $ renderLineSegGroup headGroup : zipWith (\group1 group2 -> moveBetweenLineSegGroups group1 group2 ++ renderLineSegGroup group2) lineGroups tailGroups
+    (headGroup:tailGroups) -> concat $ renderLineSegGroup headGroup : zipWith (\group1 group2 -> moveBetweenLineSegGroups group1 group2 <> renderLineSegGroup group2) lineGroups tailGroups
   where
     -- FIXME: this should be a single gcode. why are we getting empty line groups given to us?
     moveBetweenLineSegGroups :: [LineSeg] -> [LineSeg] -> [GCode]

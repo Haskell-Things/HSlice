@@ -26,7 +26,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles, lastCrashType, motorcyclesAreAntiCollinear, motorcyclesInDivision, motorcycleMightIntersectWith) where
 
-import Prelude (Bool(True, False), Either(Left,Right), Eq, Show, Ordering (EQ, GT, LT), any, error, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, compare, not, null, (<), (>), (++), (||))
+import Prelude (Bool(True, False), Either(Left,Right), Eq, Show, Ordering (EQ, GT, LT), any, error, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, compare, not, null, (<), (>), (||))
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromMaybe)
 
@@ -249,7 +249,7 @@ motorcycleMightIntersectWith lineSegs motorcycle
     getMotorcycleIntersections m@(Motorcycle (inSeg, outSeg) _) segs = stripInSegOutSeg $ catMaybes $ mapWithNeighbors saneIntersections $ shortCircuit $ zip bufferedLineSegs $ mightIntersect <$> bufferedLineSegs
       where
         bufferedLineSegs :: [Maybe LineSeg]
-        bufferedLineSegs = Nothing : (Just <$> segs) ++ [Nothing]
+        bufferedLineSegs = Nothing : (Just <$> segs) <> [Nothing]
         mightIntersect :: Maybe LineSeg -> Maybe (Either Intersection PIntersection)
         mightIntersect maybeSeg = case maybeSeg of
                                     Nothing -> Nothing

@@ -31,7 +31,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, eNodeToINode, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isAntiCollinear, isParallel, intersectionOf, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), (++), error, (>), (&&), any, fst, and, (||), (<>), show, (<))
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<))
 
 import Data.List (filter, sortBy)
 
@@ -200,7 +200,7 @@ data StraightSkeleton = StraightSkeleton { _nodeSets :: !(Slist [NodeTree]), _sp
 -- | Cut a list into all possible pairs. Used in a few places, but here because the Pointable instance for INode uses it.
 getPairs :: [a] -> [(a,a)]
 getPairs [] = []
-getPairs (x:xs) = ((x,) <$> xs) ++ getPairs xs
+getPairs (x:xs) = ((x,) <$> xs) <> getPairs xs
 
 ---------------------------------------
 -- Utility functions for our solvers --

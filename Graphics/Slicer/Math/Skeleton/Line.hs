@@ -22,7 +22,7 @@
 -- | Functions for for applying inset line segments to a series of faces, and for adding infill to a face.
 module Graphics.Slicer.Math.Skeleton.Line (addInset, addInfill) where
 
-import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (++), (>), min, Bool(True, False), fst, maybe, snd)
+import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (<>), (>), min, Bool(True, False), fst, maybe, snd)
 
 import Data.List (sortOn, dropWhile, takeWhile, transpose)
 
@@ -60,8 +60,8 @@ import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 addLineSegsToFace :: ℝ -> Maybe Fastℕ -> Face -> ([LineSeg], Maybe [Face])
 addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMidArcs _) lastArc)
   | len midArcs == 0 = (foundLineSegs, twoSideRemainder)
-  | len midArcs == 1 = (subSides ++ foundLineSegs, threeSideRemainder)
-  | otherwise = (sides1 ++ sides2 ++ foundLineSegs, nSideRemainder)
+  | len midArcs == 1 = (subSides <> foundLineSegs, threeSideRemainder)
+  | otherwise = (sides1 <> sides2 <> foundLineSegs, nSideRemainder)
   where
     -----------------------------------------------------------------------------------------
     -- functions that are the same, regardless of number of sides of the ngon we are filling.
@@ -101,12 +101,12 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     -----------------------------------------------------------
     -- functions only used by n-gons with more than four sides.
     -----------------------------------------------------------
-    nSideRemainder = case fromMaybe [] remains1 ++ fromMaybe [] remains2 of
+    nSideRemainder = case fromMaybe [] remains1 <> fromMaybe [] remains2 of
                        res@(_:_) -> Just res
                        [] -> error "no remains for an nSideRemainder?"
 
     -- | Find the closest point where two of our arcs intersect, relative to our side.
-    arcIntersections = initSafe $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf a b) (eToPLine2 edge), (a, b))) $ [firstArc] ++ rawMidArcs ++ [lastArc]
+    arcIntersections = initSafe $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf a b) (eToPLine2 edge), (a, b))) $ [firstArc] <> rawMidArcs <> [lastArc]
     findClosestArc :: (ℝ, (PLine2, PLine2))
     findClosestArc         = case sortOn fst arcIntersections of
                                [] -> error "empty arcIntersections?"
@@ -118,9 +118,9 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     -- Return all of the arcs before and including the closest arc.
     untilArc               = if closestArc == firstArc
                              then [firstArc]
-                             else takeWhile (/= closestArcFollower) $ rawMidArcs ++ [lastArc]
+                             else takeWhile (/= closestArcFollower) $ rawMidArcs <> [lastArc]
         -- Return all of the arcs after the closest arc.
-    afterArc               = dropWhile (/= closestArcFollower) $ rawMidArcs ++ [lastArc]
+    afterArc               = dropWhile (/= closestArcFollower) $ rawMidArcs <> [lastArc]
     (sides1, remains1)     = if closestArc == firstArc
                              then noResult
                              else result firstArc untilArc

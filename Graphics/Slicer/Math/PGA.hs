@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, meet2PLine2, forcePLine2Basis, idealNormPPoint2) where
 
-import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (++), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error)
+import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error)
 
 import GHC.Generics (Generic)
 
@@ -254,15 +254,15 @@ combineConsecutiveLineSegs lines = case lines of
     combine  l1      []  = l1
     combine  []      l2  = l2
     combine (l1:ls) (l2:l2s) = case lastMay ls of
-                               Nothing -> if canCombineLineSegs l1 l2 then maybeToList (combineLineSegs l1 l2) ++ l2s else l1 : l2 : l2s
-                               (Just v) -> if canCombineLineSegs v l2 then l1:initSafe ls ++ maybeToList (combineLineSegs v l2) ++ l2s else l1:ls ++ l2:l2s
+                               Nothing -> if canCombineLineSegs l1 l2 then maybeToList (combineLineSegs l1 l2) <> l2s else l1 : l2 : l2s
+                               (Just v) -> if canCombineLineSegs v l2 then l1:initSafe ls <> maybeToList (combineLineSegs v l2) <> l2s else (l1:ls) <> (l2:l2s)
     -- | responsible for placing the last value at the front of the list, to make up for the fold of combine putting the first value last.
     combineEnds :: [LineSeg] -> [LineSeg]
     combineEnds  []      = []
     combineEnds  [l1]    = [l1]
     combineEnds  (l1:l2:ls) = case lastMay ls of
                                    Nothing -> maybeToList $ combineLineSegs l1 l2
-                                   (Just v) -> if canCombineLineSegs v l1 then maybeToList (combineLineSegs v l1) ++ l2:initSafe ls else v:l1:l2:initSafe ls
+                                   (Just v) -> if canCombineLineSegs v l1 then maybeToList (combineLineSegs v l1) <> (l2:initSafe ls) else v:l1:l2:initSafe ls
     -- | determine if two euclidian line segments are on the same projective line, and if they share a middle point.
     canCombineLineSegs :: LineSeg -> LineSeg -> Bool
     canCombineLineSegs l1@(LineSeg p1 s1) l2@(LineSeg p2 _) = sameLineSeg && sameMiddlePoint

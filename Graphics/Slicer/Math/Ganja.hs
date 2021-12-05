@@ -48,7 +48,7 @@
  -}
 module Graphics.Slicer.Math.Ganja (toGanja, dumpGanja, dumpGanjas) where
 
-import Prelude (String, (<>), (++), (<$>), ($), (>=), (==), concat, error, fst, otherwise, show, snd, zip)
+import Prelude (String, (<>), (<>), (<$>), ($), (>=), (==), concat, error, fst, otherwise, show, snd, zip)
 
 import Data.Maybe (Maybe(Nothing), maybeToList)
 
@@ -164,8 +164,8 @@ instance GanjaAble INode where
       (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
         where
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> zip allPLines allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
-          allPLines    =   firstPLine:secondPLine:rawMorePLines ++ maybeToList outPLine
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allPLines    =   firstPLine:secondPLine:rawMorePLines <> maybeToList outPLine
 
 instance GanjaAble Contour where
   toGanja contour varname = (invars, inrefs)
@@ -176,7 +176,7 @@ instance GanjaAble Contour where
           linePairs    = concat $ mapWithFollower (\(_,a) (_,b) -> "    [" <> varname <> a <> "," <> varname <> b <> "],\n") pairs
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> pairs
           pairs        = zip contourPoints allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
 
 instance GanjaAble Face where
   toGanja (Face edge firstArc (Slist arcs _) lastArc) varname = (invars, inrefs)
@@ -185,8 +185,8 @@ instance GanjaAble Face where
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip (toGanja edge : allPLines) allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
-          allPLines    = toGanja <$> ([firstArc] ++ arcs ++ [lastArc])
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allPLines    = toGanja <$> ([firstArc] <> arcs <> [lastArc])
 
 instance GanjaAble NodeTree where
   toGanja (NodeTree (ENodeSet eNodeSides) iNodeSet) varname = (invars, inrefs)
@@ -194,9 +194,9 @@ instance GanjaAble NodeTree where
       (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
-          pairs        = zip (allEdges ++ allINodes) allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
-          allEdges     = toGanja <$> (firstLine ++ remainingLines)
+          pairs        = zip (allEdges <> allINodes) allStrings
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allEdges     = toGanja <$> (firstLine <> remainingLines)
           allINodes    = toGanja <$> iNodesOf iNodeSet
           firstLine    = case eNodeSides of
                            (Slist [] _) -> []
@@ -232,7 +232,7 @@ dumpGanjas xs = ganjaHeader <> vars <> ganjaFooterStart <> refs <> ganjaFooterEn
     (vars, refs) =  (concat $ fst <$> res, concat $ snd <$> res)
       where
         res          = (\(a,b) -> a b) <$> zip xs allStrings
-        allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
+        allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
 
 -- | create a single program for a single object.
 dumpGanja :: (GanjaAble a) => a -> String

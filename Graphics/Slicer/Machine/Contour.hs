@@ -19,7 +19,7 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude ((>), ($), otherwise, Eq, (<>), show, error, (==), (&&), Bool(True, False), (++), (<), Show)
+import Prelude ((>), ($), otherwise, Eq, (<>), show, error, (==), (&&), Bool(True, False), (<), Show)
 
 import Data.Either (fromRight)
 
@@ -91,12 +91,12 @@ modifyContour pathWidth contour direction
                                             (firstSeg:moreSegs) -> case unsnoc moreSegs of
                                                                      Nothing -> error "impossible."
                                                                      (Just (middleSegs,lastSeg)) -> if isDegenerate (inwardAdjust lastSeg) (inwardAdjust firstSeg)
-                                                                                                    then middleSegs ++ maybeToList (combineLineSegs lastSeg firstSeg)
+                                                                                                    then middleSegs <> maybeToList (combineLineSegs lastSeg firstSeg)
                                                                                                     else inSegs
             concatDegenerates :: [LineSeg] -> LineSeg -> [LineSeg]
             concatDegenerates inSegs oneSeg = case unsnoc inSegs of
                                        Nothing -> [oneSeg]
-                                       (Just (middleSegs,lastSeg)) -> middleSegs ++ if isDegenerate (inwardAdjust lastSeg) (inwardAdjust oneSeg)
+                                       (Just (middleSegs,lastSeg)) -> middleSegs <> if isDegenerate (inwardAdjust lastSeg) (inwardAdjust oneSeg)
                                                                                     then maybeToList (combineLineSegs lastSeg oneSeg)
                                                                                     else [lastSeg,oneSeg]
             isDegenerate pl1 pl2
