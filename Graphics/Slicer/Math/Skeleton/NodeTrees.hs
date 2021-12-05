@@ -203,7 +203,7 @@ mergeNodeTrees nodeTrees =
         insOf (INode a b (Slist cs _) _) = a:b:cs
         rawMergeINodeSets (INodeSet myINodeSet1) (INodeSet myINodeSet2) = mergeINodeSetsInner myINodeSet1 myINodeSet2
           where
-            mergeINodeSetsInner :: (Slist [INode]) -> (Slist [INode]) -> [[INode]]
+            mergeINodeSetsInner :: Slist [INode] -> Slist [INode] -> [[INode]]
             mergeINodeSetsInner set1@(Slist rawSet1 _) set2@(Slist rawSet2 _)
               | null rawSet1 && null rawSet2 = []
               | null rawSet1 = rawSet2
