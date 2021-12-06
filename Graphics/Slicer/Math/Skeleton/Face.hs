@@ -208,35 +208,29 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
            [makeTriangleFace myENode1 myENode2]
          | isENode pLine1 = -- only pLine1 is an ENode.
            [fromMaybe errorMaybeFailPLine1 $ makeFace myENode1 (pathToFirstDescendent pLine2) (firstDescendent pLine2)]
-           <> areaBeneath eNodes (ancestorsOf myINodeSet) (iNodeOfPLine pLine2)
+           <> areaBeneath eNodes (ancestorsOf myINodeSet) (firstINodeOfPLine pLine2)
          | isENode pLine2 = -- only pLine2 is an ENode.
            [fromMaybe errorMaybeFailPLine2 $ makeFace (lastDescendent pLine1) (pathToLastDescendent pLine1) myENode2]
-         | otherwise = [areaBetween eNodes (iNodeOfPLine pLine2) pLine1 pLine2]
+         | otherwise = [areaBetween eNodes (firstINodeOfPLine pLine2) pLine1 pLine2]
          where
            myENode1 = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes pLine1
            myENode2 = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes pLine2
            pathToFirstDescendent :: PLine2 -> Slist PLine2
            pathToFirstDescendent myPLine
             | isENode myPLine = slist []
-            | otherwise = one myPLine <> pathToFirstDescendent (firstInOf $ snd myINode)
-             where
-               myINode = fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet myPLine True
+            | otherwise = one myPLine <> pathToFirstDescendent (firstInOf $ parentINodeOfPLine myPLine)
            pathToLastDescendent :: PLine2 -> Slist PLine2
            pathToLastDescendent myPLine
             | isENode myPLine = slist []
-            | otherwise = one myPLine <> pathToLastDescendent (lastInOf $ snd myINode)
-             where
-               myINode = fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet myPLine True
+            | otherwise = one myPLine <> pathToLastDescendent (lastInOf $ parentINodeOfPLine myPLine)
            firstDescendent myPLine
              | null $ pathToFirstDescendent myPLine = -- handle the case where we're asked for an ENode's output.
                fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes myPLine
-             | otherwise = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes $ firstInOf $ iNodeOfPLine myPLine
+             | otherwise = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes $ firstInOf $ firstINodeOfPLine myPLine
            lastDescendent myPLine
              | null $ pathToLastDescendent myPLine = -- handle the case where we're asked for an ENode's output.
                fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes myPLine
-             | otherwise = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes $ lastInOf $ snd myINode
-               where
-                 myINode = fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet (SL.last $ pathToLastDescendent myPLine) True
+             | otherwise = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes $ lastInOf $ lastINodeOfPLine myPLine
            errorMaybeFailPLine1 = error
                                   $ "got Nothing from makeFace for PLine1\n"
                                   <> show pLine1 <> "\n"
@@ -255,8 +249,10 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
                                   <> show (firstDescendent pLine2) <> "\n" <> show (isENode pLine2) <> "\n"
                                   <> show pLine2 <> "\n"
                                   <> show myENodes <> "\n" <> show iNodeSet <> "\n"
-           iNodeOfPLine :: PLine2 -> INode
-           iNodeOfPLine myPLine = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet (SL.last $ pathToFirstDescendent myPLine) True
+           firstINodeOfPLine, lastINodeOfPLine, parentINodeOfPLine :: PLine2 -> INode
+           firstINodeOfPLine myPLine = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet (SL.last $ pathToFirstDescendent myPLine) True
+           lastINodeOfPLine myPLine = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet (SL.last $ pathToLastDescendent myPLine) True
+           parentINodeOfPLine myPLine = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet myPLine True
            -- | Create a face covering the space between the two PLines with a single Face. Both nodes must have the same parent.
            areaBetween :: ENodeSet -> INode -> PLine2 -> PLine2 -> Face
            areaBetween (ENodeSet (Slist [] _)) _ _ _ = error "no sides?"
