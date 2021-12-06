@@ -208,14 +208,13 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
            [makeTriangleFace myENode1 myENode2]
          | isENode pLine1 = -- only pLine1 is an ENode.
            [fromMaybe errorMaybeFailPLine1 $ makeFace myENode1 (pathToFirstDescendent pLine2) (firstDescendent pLine2)]
-           <> areaBeneath eNodes (ancestorsOf myINodeSet) myINode
+           <> areaBeneath eNodes (ancestorsOf myINodeSet) (iNodeOfPLine pLine2)
          | isENode pLine2 = -- only pLine2 is an ENode.
            [fromMaybe errorMaybeFailPLine2 $ makeFace (lastDescendent pLine1) (pathToLastDescendent pLine1) myENode2]
-         | otherwise = [areaBetween eNodes myINode pLine1 pLine2]
+         | otherwise = [areaBetween eNodes (iNodeOfPLine pLine2) pLine1 pLine2]
          where
            myENode1 = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes pLine1
            myENode2 = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes pLine2
-           myINode = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet pLine2 True
            pathToFirstDescendent :: PLine2 -> Slist PLine2
            pathToFirstDescendent myPLine
             | isENode myPLine = slist []
