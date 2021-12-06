@@ -195,7 +195,7 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
                                 then []
                                 else areaBeneath eNodes (ancestorsOf myINodeSet) $ iNodeOfPLine onePLine
                     where
-                      iNodeOfPLine myPLine = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet onePLine True
+                      iNodeOfPLine myPLine = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet myPLine True
                   (onePLine : anotherPLine : myMorePLines) -> recurse
                     where
                       recurse = areaBeneathPair onePLine anotherPLine
