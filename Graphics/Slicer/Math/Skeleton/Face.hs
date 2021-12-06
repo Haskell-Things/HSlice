@@ -258,6 +258,8 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
                                   <> show (firstDescendent pLine2) <> "\n" <> show (isENode pLine2) <> "\n"
                                   <> show pLine2 <> "\n"
                                   <> show myENodes <> "\n" <> show iNodeSet <> "\n"
+           iNodeOfPLine :: PLine2 -> INode
+           iNodeOfPLine myPLine = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet (SL.last $ pathToFirstDescendent myPLine) True
            -- | Create a face covering the space between the two PLines with a single Face. Both nodes must have the same parent.
            areaBetween :: ENodeSet -> INode -> PLine2 -> PLine2 -> Face
            areaBetween (ENodeSet (Slist [] _)) _ _ _ = error "no sides?"
