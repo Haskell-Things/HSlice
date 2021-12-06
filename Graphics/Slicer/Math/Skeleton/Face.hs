@@ -230,9 +230,7 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
            firstDescendent myPLine
              | null $ pathToFirstDescendent myPLine = -- handle the case where we're asked for an ENode's output.
                fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes myPLine
-             | otherwise = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes $ firstInOf $ snd myINode
-               where
-                 myINode = fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet (SL.last $ pathToFirstDescendent myPLine) True
+             | otherwise = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes $ firstInOf $ iNodeOfPLine myPLine
            lastDescendent myPLine
              | null $ pathToLastDescendent myPLine = -- handle the case where we're asked for an ENode's output.
                fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodes myPLine
