@@ -158,32 +158,32 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
         getFaces (INode firstPLine secondPLine morePLines@(Slist morePLinesRaw _) _)
           | len morePLines == 0 = -- Just a pair
             case (isENode firstPLine,isENode secondPLine) of
-            (True, True) -> areaBeneathPair target firstPLine secondPLine
-                            <> areaBeneathPair target secondPLine firstPLine
-            (True, False) -> areaBeneathPair target firstPLine secondPLine
+            (True, True) -> areaBeneathPair firstPLine secondPLine
+                            <> areaBeneathPair secondPLine firstPLine
+            (True, False) -> areaBeneathPair firstPLine secondPLine
                             <> areaBeneath eNodes (ancestorsOf myINodeSet) secondINode
-                            <> areaBeneathPair target secondPLine firstPLine
+                            <> areaBeneathPair secondPLine firstPLine
             (False, True) -> areaBeneath eNodes (ancestorsOf myINodeSet) firstINode
-                             <> areaBeneathPair target firstPLine secondPLine
-                             <> areaBeneathPair target secondPLine firstPLine
+                             <> areaBeneathPair firstPLine secondPLine
+                             <> areaBeneathPair secondPLine firstPLine
             (False, False) -> areaBeneath eNodes (ancestorsOf myINodeSet) firstINode
-                             <> areaBeneathPair target firstPLine secondPLine
+                             <> areaBeneathPair firstPLine secondPLine
                              <> areaBeneath eNodes (ancestorsOf myINodeSet) secondINode
-                             <> areaBeneathPair target secondPLine firstPLine
+                             <> areaBeneathPair secondPLine firstPLine
           | otherwise = -- three or more input PLines
             resHead -- call the recursive resolver, and place the last face, completing the contour.
             <> findFacesRecurse target (secondPLine : morePLinesRaw)
-            <> areaBeneathPair target lastPLine firstPLine
+            <> areaBeneathPair lastPLine firstPLine
             where
               firstINode = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet firstPLine True
               secondINode = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet secondPLine True
               resHead -- The first part of the result.
-                | isENode firstPLine && isENode secondPLine = areaBeneathPair target firstPLine secondPLine
-                | isENode firstPLine = areaBeneathPair target firstPLine secondPLine
+                | isENode firstPLine && isENode secondPLine = areaBeneathPair firstPLine secondPLine
+                | isENode firstPLine = areaBeneathPair firstPLine secondPLine
                 | isENode secondPLine = areaBeneath eNodes (ancestorsOf myINodeSet) firstINode
-                                        <> areaBeneathPair target firstPLine secondPLine
+                                        <> areaBeneathPair firstPLine secondPLine
                 | otherwise = areaBeneath eNodes (ancestorsOf myINodeSet) firstINode
-                              <> areaBeneathPair target firstPLine secondPLine
+                              <> areaBeneathPair firstPLine secondPLine
               lastPLine = case unsnoc morePLinesRaw of
                             Nothing -> errorImpossible
                             (Just (_,finalPLine)) -> finalPLine
@@ -198,11 +198,12 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
                       iNodeOfPLine myPLine = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput myINodeSet onePLine True
                   (onePLine : anotherPLine : myMorePLines) -> recurse
                     where
-                      recurse = areaBeneathPair myINode onePLine anotherPLine
+                      recurse = areaBeneathPair onePLine anotherPLine
                                 <> findFacesRecurse myINode (anotherPLine:myMorePLines)
-
-        areaBeneathPair :: INode -> PLine2 -> PLine2 -> [Face]
-        areaBeneathPair myINode pLine1 pLine2
+        -- Find the area beneath two PLines, which share a common INode ancestor.
+        -- Should include the area between the two PLines, and the area under the second one, if it's an INode.
+        areaBeneathPair :: PLine2 -> PLine2 -> [Face]
+        areaBeneathPair pLine1 pLine2
          | isENode pLine1 && isENode pLine2 = -- both enodes? make a triangle.
            [makeTriangleFace myENode1 myENode2]
          | isENode pLine1 = -- only pLine1 is an ENode.
