@@ -38,9 +38,9 @@ import Data.List.Extra (unsnoc)
 
 import Slist.Type (Slist(Slist))
 
-import Slist (slist, one, cons, len, isEmpty, safeLast)
+import Slist (slist, one, cons, len, isEmpty)
 
-import Slist as SL (head, last, tail, init)
+import Slist as SL (head, last, tail)
 
 import Graphics.Implicit.Definitions (ℝ)
 
@@ -220,10 +220,10 @@ nodesAreAntiCollinear node1 node2
 
 -- Walk the result tree, and find our enodes. Used to test the property that a walk of our result tree should result in the input ENodes in order.
 findENodesInOrder :: ENodeSet -> [[INode]] -> [ENode]
-findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) = findENodesRecursive
+findENodesInOrder (ENodeSet (Slist [] _)) _ = []
+findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodesRecursive generations
   where
     findENodesRecursive :: [[INode]] -> [ENode]
-    findENodesRecursive [] = []
     findENodesRecursive myGens =
       case unsnoc myGens of
         Nothing -> []
@@ -247,14 +247,15 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) = findENodesRecursive
                                                  [] -> []
                                                  a -> [[first a]]
                                                    where
-                                                     first :: [a] -> a
+                                                     first :: [v] -> v
                                                      first [] = error "found no INode?"
-                                                     first (a:_) = a
+                                                     first (v:_) = v
               where
                 myENode = fromMaybe (error "could not find ENode?") $ findENodeByOutput eNodeSet myPLine
                 -- Determine if a PLine matches the output of an ENode.
                 isENode :: PLine2 -> Bool
                 isENode myPLine2 = isJust $ findENodeByOutput eNodeSet myPLine2
+findENodesInOrder a b = error $ "cannot find ENodes for :" <> show a <> "\n" <> show b <> "\n"
 
 -- | place our inodes in a state such that the eNodes that the inodes point to are in the order of the given enode list.
 -- also performs 'safe' node tree transforms:
@@ -315,6 +316,8 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
                  $ show oneINode <> "\n"
                  <> show (one [orderInsByENodes oneINode] <> resSlist (slist $ [flippedINode:secondGen] <> [[rawLastINode]])) <> "\n"
                  <> show initialGeneration <> "\n"
+               x@(_:_) -> error $ "way too many nodes:" <> show x <> "\n"
+      | otherwise = error "too many generations?"
       where
         -- the first generation, as given to us.
         rawFirstGeneration = SL.head generations
@@ -342,13 +345,7 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
                 first [] = error "no first of the last generation?"
                 first (a:_) = a
 
-        secondToLastGen = fromMaybe (error "no second to last generation?") $ safeLast $ SL.init moreGens
-        firstAndMids = case genWithoutFlips rawFirstGeneration of
-                         [] -> midGens
-                         v  -> one v <> midGens
-        midGens = SL.init $ SL.tail generations
         secondGen = SL.head $ SL.tail generations
-        moreGens = SL.tail generations
 
     -- transform #1: if a first generation inode connects the last and the first ENodes, remove it, and point to those enodes with the last INode.
     -- Place the first generation in ENode order, and remove a 'flipped' node if it exists.
