@@ -220,6 +220,7 @@ instance GanjaAble NodeTree where
 
 instance GanjaAble StraightSkeleton where
   toGanja (StraightSkeleton (Slist [[nodetree]] _) _) = toGanja nodetree
+  toGanja a = error $ "no a, only b: " <> show a <> "\n"
 
 -- | Create a single program, covering a series of objects.
 dumpGanjas :: [String -> (String, String)] -> String

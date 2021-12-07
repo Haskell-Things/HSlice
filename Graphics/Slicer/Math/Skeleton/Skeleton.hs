@@ -74,11 +74,12 @@ findStraightSkeleton contour holes =
                                      (Just (secondCell,_)) = findNextCell (onlyOne remainder)
                                      remainder = fromMaybe (error $ "no remainder?\n" <> show firstCell <> "\n") maybeRemainder
                                      (Just (firstCell,maybeRemainder)) = findFirstCellOfContour contour [division]
+                                 -- FIXME: wrong, but mostly right?
                                  [div1,div2] ->if null (lefts $ getNodeTreeOfCell <$> cells)
                                                then Just $ StraightSkeleton (slist [[addNodeTreesAlongDivide firstNodeTree secondNodeTree div1]]) (slist [])
                                                else error $ show (dumpGanjas $ concat $ (\(INodeCrossesDivide vals _) -> toGanja.fst <$> vals) <$> lefts (getNodeTreeOfCell <$> cells)) <> "\n" <> show div1 <> "\n" <> show div2 <> "\n"
                                    where
-                                     [firstNodeTree, secondNodeTree, thirdNodeTree] = rights $ getNodeTreeOfCell <$> cells
+                                     [firstNodeTree, secondNodeTree,_] = rights $ getNodeTreeOfCell <$> cells
                                      cells = [firstCell, secondCell, thirdCell]
                                      firstRemainder = fromMaybe (error $ "no remainder?\n" <> show firstCell <> "\n") maybeFirstRemainder
                                      secondRemainder = fromMaybe (error $ "no remainder?\n" <> show secondCell <> "\n") maybeSecondRemainder
