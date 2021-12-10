@@ -649,7 +649,6 @@ prop_TriangleStraightSkeletonHasRightGenerationCount x y rawDx dy rawOffAxis dis
     generationsOf Nothing = 0
     generationsOf (Just (StraightSkeleton (Slist [] _) _)) = 0
     generationsOf (Just (StraightSkeleton a _)) = length a
-    generationsOf a = error $ "what is this?" <> show a <> "\n"
 
 prop_TriangleCanPlaceFaces :: ℝ -> ℝ -> NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> Expectation
 prop_TriangleCanPlaceFaces x y rawDx dy rawOffAxis distanceFromMiddle = facesOf (fromMaybe (error "Got Nothing") $ findStraightSkeleton triangle []) -/> slist []
@@ -828,7 +827,6 @@ randomRectangle x y rawDx rawDy rawXYDiff
   | dx > 0 = wind
   | otherwise = wind
   where
-    unwind = [flippedFirstSeg, flippedSegFrom, flippedSecondSeg, flippedSegTo]
     wind = [firstSeg,segTo,secondSeg,segFrom]
     dx,dy,xyDiff :: ℝ
     dx = coerce rawDx
@@ -838,21 +836,13 @@ randomRectangle x y rawDx rawDy rawXYDiff
     secondSegStart = pointOnPerp firstSeg (endPoint firstSeg) (offAxis+xyDiff)
     secondSegEnd = pointOnPerp firstSeg (startPoint firstSeg) (offAxis+xyDiff)
     secondSeg = handleLineSegError $ lineSegFromEndpoints secondSegStart secondSegEnd
-    flippedSecondSeg = handleLineSegError $ lineSegFromEndpoints secondSegEnd secondSegStart
     segTo = handleLineSegError $ lineSegFromEndpoints (endPoint firstSeg) (startPoint secondSeg)
     segFrom = handleLineSegError $ lineSegFromEndpoints (endPoint secondSeg) (startPoint firstSeg)
-    flippedSegTo = handleLineSegError $ lineSegFromEndpoints (startPoint secondSeg) (endPoint firstSeg)
-    flippedSegFrom = handleLineSegError $ lineSegFromEndpoints (startPoint firstSeg) (endPoint secondSeg)
     firstSeg
       | dx > 0 && dy > 0 = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
       | dx > 0           = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
       | dy > 0           = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
       | otherwise        = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-    flippedFirstSeg
-      | dx > 0 && dy > 0 = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-      | dx > 0           = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-      | dy > 0           = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-      | otherwise        = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
 
 facetSpec :: Spec
 facetSpec = do
