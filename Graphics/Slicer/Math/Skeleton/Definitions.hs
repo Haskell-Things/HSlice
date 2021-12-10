@@ -274,7 +274,6 @@ finalOutOf (NodeTree eNodeSet iNodeSet)
   | hasArc (finalINodeOf iNodeSet) = Just $ outOf $ finalINodeOf iNodeSet
   | otherwise = Nothing
 
-
 -- | in a NodeTree, the last generation is always a single item. retrieve this item.
 finalINodeOf :: INodeSet -> INode
 finalINodeOf (INodeSet generations)

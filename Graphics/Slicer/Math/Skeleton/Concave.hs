@@ -92,7 +92,7 @@ skeletonOfConcaveRegion inSegs
       where
         lastSeg = SL.last $ slist inSegs
         firstSeg = SL.head $ slist inSegs
-        
+
     -- Generate the first generation of nodes, from the passed in line segments.
     -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
     firstENodes :: [LineSeg] -> Bool -> [ENode]
@@ -287,7 +287,7 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
                  then pruneTail oneINode rawLastINode
                  else if canFlipGenerations oneINode rawLastINode
                       then flipINodePair oneINode rawLastINode
-                      else one [orderInsByENodes oneINode] <> one [orderInsByENodes rawLastINode]   
+                      else one [orderInsByENodes oneINode] <> one [orderInsByENodes rawLastINode]
                v -> one (indexTo $ sortGeneration v) <> one [iNodeWithFlips rawLastINode]
            (Just flippedINode) ->
              case genWithoutFlips rawFirstGeneration of
@@ -300,7 +300,7 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
                       then pruneTail oneINode rawLastINode
                       else if canFlipGenerations oneINode rawLastINode
                            then flipINodePair oneINode rawLastINode
-                           else one [orderInsByENodes oneINode] <> one [orderInsByENodes rawLastINode]   
+                           else one [orderInsByENodes oneINode] <> one [orderInsByENodes rawLastINode]
                v ->
                  one (indexTo $ sortGeneration v) <> one [iNodeWithFlips rawLastINode]
      | len generations == 3 =
@@ -357,14 +357,14 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
     indexTo iNodes = iNodesBeforePLine iNodes <> iNodesAfterPLine iNodes
       where
         iNodesBeforePLine :: [INode] -> [INode]
-        iNodesBeforePLine = filter (\a -> firstPLine `pLineIsLeft` firstInOf a /= Just False) 
+        iNodesBeforePLine = filter (\a -> firstPLine `pLineIsLeft` firstInOf a /= Just False)
         -- nodes in the right order, after the divide.
         iNodesAfterPLine myINodes = withoutFlippedINodes $ filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) myINodes
         withoutFlippedINodes maybeFlippedINodes = case flippedINodeOf maybeFlippedINodes of
                                                     Nothing -> maybeFlippedINodes
                                                     (Just a) -> filter (/= a) maybeFlippedINodes
 
-    errorEmpty = error $ "empty INodeSet for nodes:\n" <> show initialGeneration <> "\nloop: " <> show loop <> "\n" 
+    errorEmpty = error $ "empty INodeSet for nodes:\n" <> show initialGeneration <> "\nloop: " <> show loop <> "\n"
 
     errorTooManyIns = error $ "generating a single INode with more inputs than possible: " <> show res <> "\n"
                            <> "rawGenerations:                 " <> show rawGenerations <> "\n"
@@ -389,7 +389,7 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
     pruneTail :: INode -> INode -> Slist [INode]
     pruneTail iNode1 iNode2 = one [addINodeToParent iNode1 iNode2]
 
-    -- check to see if an INode can be merged with another INode. 
+    -- check to see if an INode can be merged with another INode.
     canMergeWith :: INode -> INode -> Bool
     canMergeWith source@(INode _ _ _ maybeSourceOut) destination
       | isNothing maybeSourceOut = False
@@ -491,8 +491,6 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
 -- Produce a list of the inputs to a given INode.
 insOf :: INode -> [PLine2]
 insOf (INode firstIn secondIn (Slist moreIns _) _) = firstIn:secondIn:moreIns
-
-
 
 -- | Apply a recursive algorithm to solve the node set.
 --   FIXME: does not handle more than two point intersections of arcs properly.
