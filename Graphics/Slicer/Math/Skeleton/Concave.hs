@@ -285,7 +285,7 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
                [oneINode] -> -- check if we should perform a tail pruning.
                  if canPruneTail rawLastINode
                  then pruneTail oneINode rawLastINode
-                 else if canFlipGenerations oneINode rawLastINode
+                 else if canFlipINodes oneINode rawLastINode
                       then flipINodePair oneINode rawLastINode
                       else one [orderInsByENodes oneINode] <> one [orderInsByENodes rawLastINode]
                v -> one (indexTo $ sortGeneration v) <> one [iNodeWithFlips rawLastINode]
@@ -298,7 +298,7 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
                  then one [orderInsByENodes oneINode] <> mergeWith flippedINode rawLastINode
                  else if canPruneTail rawLastINode
                       then pruneTail oneINode rawLastINode
-                      else if canFlipGenerations oneINode rawLastINode
+                      else if canFlipINodes oneINode rawLastINode
                            then flipINodePair oneINode rawLastINode
                            else one [orderInsByENodes oneINode] <> one [orderInsByENodes rawLastINode]
                v ->
@@ -309,8 +309,20 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
              one (indexTo $ sortGeneration rawFirstGeneration) <> resSlist (slist $ [secondGen] <> [[rawLastINode]])
            (Just flippedINode) ->
              case genWithoutFlips rawFirstGeneration of
-               [] -> -- after transform #1, there is no first generation left. collapse our flipped inode into the next generation.
-                 resSlist (slist $ [flippedINode:secondGen] <> [[rawLastINode]])
+               [] -> -- after transform #1, there is no first generation left. find something to do with the flipped inode.
+                 case secondGen of
+                   [] -> error "impossible!"
+                   [secondINode] -> -- ok, the second generation is a single iNode. see if we can flip.
+                     if canFlipINodes flippedINode secondINode
+                     then resSlist $ flipINodePair flippedINode secondINode <> (slist [[rawLastINode]])
+                     else -- ok, we can't flip. maybe we can merge with the last INode?
+                       if inCountOf rawLastINode == 2 && canMergeWith flippedINode rawLastINode
+                       then resSlist $ (slist [secondGen]) <> mergeWith flippedINode rawLastINode
+                       else -- .. alright, maybe try to merge the second and last INode?
+                         if inCountOf rawLastINode == 2 && canMergeWith secondINode rawLastINode
+                         then resSlist $ (slist [[flippedINode]]) <> mergeWith secondINode rawLastINode
+                         else error "ran out of options"
+                   x@(_:_) -> error $ "way too many nodes:" <> show x <> "\n"
                [oneINode] ->
                  error
                  $ show oneINode <> "\n"
@@ -371,11 +383,12 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
                            <> "ENodes:                         " <> show initialGeneration <> "\n"
 
     errorInsWrongOrder = error
-                         $ "ENodes should be:  " <> show (outOf <$> initialGeneration) <> "\n"
-                         <> "ENode outs are:    " <> show (outOf <$> findENodesInOrder (eNodeSetOf $ slist initialGeneration) res) <> "\n"
-                         <> "rawGenerations:    " <> show rawGenerations <> "\n"
-                         <> "returned inodes:   " <> show res <> "\n"
-                         <> "loop:              " <> show loop <> "\n"
+                         $ "ENodes outs should be:" <> show (outOf <$> initialGeneration) <> "\n"
+                         <> "ENode outs are:      " <> show (outOf <$> findENodesInOrder (eNodeSetOf $ slist initialGeneration) res) <> "\n"
+                         <> "rawGenerations:      " <> show rawGenerations <> "\n"
+                         <> "returned inodes:     " <> show res <> "\n"
+                         <> "flippedINode:        " <> show (flippedINodeOf $ SL.head rawGenerations) <> "\n"
+                         <> "loop:                " <> show loop <> "\n"
 
     errorIllegalLast = error
                        $ "illegal last generation:\n"
@@ -405,8 +418,9 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
     mergeWith :: INode -> INode -> Slist [INode]
     mergeWith iNode1 iNode2 = one [addINodeToParent iNode1 iNode2]
 
-    -- if the object is closed, and the first generation contains the pointers to the first and last ENodes, make the first generation the second, and the second into the first.
-    canFlipGenerations firstGen secondGen = loop && hasENode secondGen && hasINode secondGen && isJust (flippedINodeOf [firstGen])
+    -- in situations where the first generation contains pointers to the first and last ENodes and the object is closed, make the first generation the second, and the second into the first.
+    canFlipINodes :: INode -> INode -> Bool
+    canFlipINodes firstGen secondGen = loop && inCountOf secondGen > 2 && isJust (flippedINodeOf [firstGen])
     -- determine if the given INode has a direct in from an ENode.
     flipINodePair :: INode -> INode -> Slist [INode]
     flipINodePair iNode1 iNode2@(INode _ _ _ maybeOut2) = one [orderInsByENodes newINode1] <> one [orderInsByENodes newINode2]
