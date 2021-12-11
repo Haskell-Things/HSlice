@@ -458,10 +458,17 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
     flippedINodeOf :: [INode] -> Maybe INode
     flippedINodeOf inodes = case filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) inodes of
                               [] -> Nothing
-                              [a] -> Just a
-                              xs -> error
-                                    $ "more than one flipped inode?" <> show xs <> "\n"
-                                    <> show initialGeneration <> "\n"
+                              [a] -> -- if there is only one result, it's going to only point to enodes.
+                                Just a
+                              xs -> -- if there is more than one result, then one of the descendants of the right answer is caught in the filter.
+                                case filter allInsAreENodes xs of
+                                  [] -> Nothing
+                                  [a] -> Just a
+                                  vs -> error
+                                        $ "more than one flipped inode?" <> show vs <> "\n"
+                                        <> show initialGeneration <> "\n"
+                                where
+                                  allInsAreENodes iNode = not $ hasINode iNode
 
     -- Return the first input to a given INode.
     firstInOf (INode firstIn _ _ _) = firstIn
