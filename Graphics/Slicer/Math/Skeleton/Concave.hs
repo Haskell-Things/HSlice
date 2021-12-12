@@ -322,7 +322,7 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
                          if inCountOf rawLastINode == 2 && canMergeWith secondINode rawLastINode
                          then resSlist $ (slist [[flippedINode]]) <> mergeWith secondINode rawLastINode
                          else error "ran out of options"
-                   x@(_:_) -> error $ "way too many nodes:" <> show x <> "\n"
+                   x@(_:_) -> errorTooManyNodes x
                [oneINode] ->
                  error
                  $ show oneINode <> "\n"
@@ -377,6 +377,14 @@ sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
                                                     (Just a) -> filter (/= a) maybeFlippedINodes
 
     errorEmpty = error $ "empty INodeSet for nodes:\n" <> show initialGeneration <> "\nloop: " <> show loop <> "\n"
+
+    errorTooManyNodes nodes = error
+                              $ "don't know how to handle a case with these nodes:\n"
+                              <> show nodes <> "\n"
+                              <> "rawGenerations:      " <> show rawGenerations <> "\n"
+                              <> "initialGeneration: " <> show initialGeneration <> "\n"
+                              <> "flippedINode:        " <> show (flippedINodeOf $ SL.head rawGenerations) <> "\n"
+                              <> "loop:                " <> show loop <> "\n"
 
     errorTooManyIns = error $ "generating a single INode with more inputs than possible: " <> show res <> "\n"
                            <> "rawGenerations:                 " <> show rawGenerations <> "\n"
