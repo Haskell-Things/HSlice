@@ -28,7 +28,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, getOutsideArc, makeENodes, averageNodes, eNodesOfOutsideContour) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, id, zip, any, (*), (+), Int, (.))
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.))
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, isNothing, fromMaybe)
 
@@ -611,36 +611,39 @@ skeletonOfNodes loop eNodes iNodes =
 
     -- | determine the exterior nodes available for calculation during the next recurse.
     remainingENodes :: [ENode]
-    remainingENodes = (if isSomething shortestMixedPairDistance && shortestPairDistance == shortestMixedPairDistance
-                       then filter (`notElem` (fst <$> shortestMixedPairs))
-                       else id) $
-                      (if isSomething shortestEPairDistance && shortestPairDistance == shortestEPairDistance
-                       then filter (`notElem` (fst <$> shortestPairs eNodes) <> (snd <$> shortestPairs eNodes))
-                       else id) eNodes
+    remainingENodes = filter (`notElem` (fst <$> mixedPairsFound) <> (fst <$> ePairsFound) <> (snd <$> ePairsFound)) eNodes
 
     -- | determine the interior nodes available for calculation during the next recurse.
     remainingINodes :: [INode]
-    remainingINodes = (if isSomething shortestMixedPairDistance && shortestPairDistance == shortestMixedPairDistance
-                       then filter (`notElem` (snd <$> shortestMixedPairs))
-                       else id) $
-                      (if isSomething shortestIPairDistance && shortestPairDistance == shortestIPairDistance
-                       then filter (`notElem` (fst <$> shortestPairs iNodes) <> (snd <$> shortestPairs iNodes))
-                       else id) iNodes
+    remainingINodes =  filter (`notElem` (snd <$> mixedPairsFound) <> (fst <$> iPairsFound) <> (snd <$> iPairsFound)) iNodes
 
     -- | collect our set of result nodes.
-    -- FIXME: these should have a specific order. what should it be?
+    -- Note: we're putting these in the order "most likely to contain INodes" to least likely. to make the optimizer easier to write.
     averageOfShortestPairs :: [INode]
-    averageOfShortestPairs = ePairsFound <> mixedPairsFound <> iPairsFound
+    averageOfShortestPairs = (uncurry averageNodes <$> iPairsFound) <> (uncurry averageNodes <$> mixedPairsFound) <> (uncurry averageNodes <$> ePairsFound)
+
+    iPairsFound =
+      if isSomething shortestIPairDistance && shortestIPairDistance == shortestPairDistance
+      then shortestPairs iNodes
+      else []
+
+    mixedPairsFound =
+      if isSomething shortestMixedPairDistance && shortestMixedPairDistance == shortestPairDistance
+      then filterINodesOf shortestMixedPairs
+      else []
       where
-        ePairsFound = if isSomething shortestEPairDistance && shortestEPairDistance == shortestPairDistance
-                      then uncurry averageNodes <$> shortestPairs eNodes
-                      else []
-        mixedPairsFound = if isSomething shortestMixedPairDistance && shortestMixedPairDistance == shortestPairDistance
-                          then uncurry averageNodes <$> shortestMixedPairs
-                          else []
-        iPairsFound = if isSomething shortestIPairDistance && shortestIPairDistance == shortestPairDistance
-                      then uncurry averageNodes <$> shortestPairs iNodes
-                      else []
+        -- | remove pairs containing INodes from the shortest INode pairs from a list of mixed pairs.
+        filterINodesOf :: [(ENode, INode)] -> [(ENode, INode)]
+        filterINodesOf myPairs = filter (\(_,myINode) -> myINode `notElem` ((fst <$> iPairsFound) <> (snd <$> iPairsFound))) myPairs
+
+    ePairsFound =
+      if isSomething shortestEPairDistance && shortestEPairDistance == shortestPairDistance
+      then (filterENodesOf $ shortestPairs eNodes)
+      else []
+      where
+        -- | remove pairs containing ENodes from the shortest mixed pairs from a list of ENode pairs
+        filterENodesOf :: [(ENode, ENode)] -> [(ENode, ENode)]
+        filterENodesOf myPairs = filter (\(myENode1,myENode2) -> myENode1 `notElem` (fst <$> mixedPairsFound) && myENode2 `notElem` (fst <$> mixedPairsFound)) myPairs
 
     -- | calculate the distances to the shortest pairs of nodes. the shortest pair, along with all of the pairs of the same length, will be in our result set.
     shortestPairDistance = min (min shortestEPairDistance shortestMixedPairDistance) (min shortestIPairDistance shortestMixedPairDistance)
@@ -693,7 +696,7 @@ skeletonOfNodes loop eNodes iNodes =
         getMixedPairs ::  [a] -> [b] -> [(a, b)]
         getMixedPairs set1 set2 = concat $ (\a -> (a,) <$> set2) <$> set1
 
-    -- | find nodes that can intersect.
+    -- | find nodes of the same type that can intersect.
     intersectingNodePairsOf :: (Arcable a, Show a) => [a] -> [(a, a)]
     intersectingNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
 
