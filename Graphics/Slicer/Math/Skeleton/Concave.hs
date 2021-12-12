@@ -659,25 +659,32 @@ skeletonOfNodes loop eNodes iNodes =
     shortestPairs myNodes = case nodePairsSortedByDistance myNodes of
                               [] -> []
                               [onePair] -> [onePair]
-                              [(a,b),(c,d)] -> if a == c || a == d || b == c || b == d
-                                               then [(a,b)]
-                                               else [(a,b),(c,d)]
-                              (pair:morePairs) -> pair : takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection pair) morePairs
+                              (pair:morePairs) -> filterCommonIns $ pair : takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection pair) morePairs
       where
         -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
         nodePairsSortedByDistance :: (Arcable a, Pointable a, Show a) => [a] -> [(a, a)]
         nodePairsSortedByDistance myNodes' = sortBy (\(p1n1, p1n2) (p2n1, p2n2) -> distanceToIntersection p1n1 p1n2 `compare` distanceToIntersection p2n1 p2n2) $ intersectingNodePairsOf myNodes'
+        filterCommonIns :: Eq a => [(a, a)] -> [(a, a)]
+        filterCommonIns pairs = case pairs of
+                                  [] -> []
+                                  [a] -> [a]
+                                  (x@(node1, node2) :xs) -> x : (filterCommonIns $ filter (\(myNode1, myNode2) -> node1 /= myNode1 && node2 /= myNode1 && node1 /= myNode2 && node2 /= myNode2) xs)
 
     -- | get the pairs of intersecting nodes of differing types that we might be putting into this generation.
     shortestMixedPairs :: [(ENode, INode)]
     shortestMixedPairs = case nodePairsSortedByDistance of
                            [] -> []
                            [onePair] -> [onePair]
-                           (pair:morePairs) -> pair : takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection pair) morePairs
+                           (pair:morePairs) -> filterCommonIns $ pair : takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection pair) morePairs
       where
         -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
         nodePairsSortedByDistance :: [(ENode, INode)]
         nodePairsSortedByDistance = sortBy (\(p1n1, p1n2) (p2n1, p2n2) -> distanceToIntersection p1n1 p1n2 `compare` distanceToIntersection p2n1 p2n2) intersectingMixedNodePairs
+        filterCommonIns :: [(ENode, INode)] -> [(ENode, INode)]
+        filterCommonIns pairs = case pairs of
+                                  [] -> []
+                                  [a] -> [a]
+                                  (x@(eNode, iNode) :xs) -> x : (filterCommonIns $ filter (\(myENode, myINode) -> eNode /= myENode && iNode /= myINode) xs)
 
     -- | find nodes of two different types that can intersect.
     intersectingMixedNodePairs :: [(ENode, INode)]
