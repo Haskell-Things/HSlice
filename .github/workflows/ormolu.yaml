@@ -10,8 +10,7 @@ jobs:
     steps:
       - uses: "actions/checkout@v1"
 
-      - uses: "actions/setup-haskell@v1.1.4"
-        id: setup-haskell-cabal
+      - uses: "haskell/actions/setup@v1"
         with:
           cabal-version: "${{ matrix.cabal }}"
           enable-stack: false
@@ -46,6 +45,6 @@ jobs:
     strategy:
       matrix:
         cabal:
-          - '3.2'
+          - '3.6.2.0'
         ghc:
-          - '8.10.4'
+          - '8.8.1'

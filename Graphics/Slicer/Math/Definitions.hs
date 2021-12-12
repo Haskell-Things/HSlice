@@ -20,9 +20,9 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
 -- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
-module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints) where
+module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints, fudgeFactor, startPoint) where
 
-import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, zipWith, (<>), error)
+import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, zipWith, (<>), error, show)
 
 import Control.DeepSeq (NFData)
 
@@ -122,7 +122,7 @@ instance SpacePoint Point3 where
 -- | Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- it should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
 -- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
-data LineSeg = LineSeg { _point :: !Point2, _distanceToEnd :: !Point2 }
+data LineSeg = LineSeg { startPoint :: !Point2, _distanceToEnd :: !Point2 }
   deriving (Generic, NFData, Show, Eq)
 
 -- | a list of points around a (2d) shape.
@@ -165,14 +165,15 @@ mapWithNeighbors f l = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f
                  (Just vs) -> vs
 
 -- | like map, only with current, and next item, and wrapping around so the last entry gets the first entry as next.
-mapWithFollower :: (a -> a -> b) -> [a] -> [b]
+mapWithFollower :: (Show a) => (a -> a -> b) -> [a] -> [b]
 mapWithFollower f l = withStrategy (parList rpar) $ z `pseq` zipWith f l z
   where
     z = zs <> [fz]
     (fz, zs) = case uncons l of
                  Nothing -> error "Empty input list"
-                 (Just (_,[])) -> error "too short of a list."
+                 (Just (a,[])) -> error $ "too short of a list.\n" <> show a <> "\n"
                  (Just vs) -> vs
+{-# INLINABLE mapWithFollower #-}
 
 -- | like map, only with previous, and current item, and wrapping around so the first entry gets the last entry as previous.
 mapWithPredecessor :: (a -> a -> b) -> [a] -> [b]
@@ -183,3 +184,7 @@ mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` zipWith f x l
                  Nothing -> error "Empty input list"
                  (Just ([],_)) -> error "too short of a list."
                  (Just vs) -> vs
+
+-- Note: fudgefactor is to make up for Double being Double, and math not necessarilly being perfect.
+fudgeFactor :: ℝ
+fudgeFactor = 0.000000000000002

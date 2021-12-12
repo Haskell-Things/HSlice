@@ -18,7 +18,7 @@
  -}
 
 -- | The purpose of this file is to hold line segment arithmatic. really, we used to have a linear algebra implementation here, before we moved to PGA.
-module Graphics.Slicer.Math.Line (LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegs, midpoint, endpoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs, handleLineSegError) where
+module Graphics.Slicer.Math.Line (LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegs, midPoint, endPoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs, handleLineSegError) where
 
 import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), Eq, (<$>), Show, error, zipWith, (<>), show, Either(Left, Right))
 
@@ -50,10 +50,6 @@ handleLineSegError ln = case ln of
       Left EmptyList                -> error "tried to construct a line segment from an empty list."
       Right                    line -> line
 
--- | Get the endpoint of a line segment.
-endpoint :: LineSeg -> Point2
-endpoint (LineSeg p s) = addPoints p s
-
 -- | Take a list of line segments, connected at their end points, and generate a list of the points in order.
 pointsFromLineSegs :: [LineSeg] -> Either LineSegError [Point2]
 pointsFromLineSegs lineSegs =  case unsnoc $ endpointsOf lineSegs of
@@ -61,21 +57,25 @@ pointsFromLineSegs lineSegs =  case unsnoc $ endpointsOf lineSegs of
                                  Just (i,l) -> Right $ l: i
   where
     endpointsOf :: [LineSeg] -> [Point2]
-    endpointsOf ls = endpoint <$> ls
+    endpointsOf ls = endPoint <$> ls
 
 -- | Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). Only call this if p2 == p3 and the lines are really close to parallel
 combineLineSegs :: LineSeg -> LineSeg -> Maybe LineSeg
-combineLineSegs l1@(LineSeg p _) l2@(LineSeg p1 s1) = if endpoint l2 == p -- If line 2 ends where line 1 begins:
+combineLineSegs l1@(LineSeg p _) l2@(LineSeg p1 s1) = if endPoint l2 == p -- If line 2 ends where line 1 begins:
                                                       then Nothing -- handle a contour that loops back on itsself.
                                                       else Just $ fromRight (error $ "cannot combine lines: " <> show l1 <> "\n" <> show l2 <> "\n") $ lineSegFromEndpoints p (addPoints p1 s1)
 
 -- | Get the midpoint of a line segment
-midpoint :: LineSeg -> Point2
-midpoint (LineSeg p s) = addPoints p (scalePoint 0.5 s)
+midPoint :: LineSeg -> Point2
+midPoint (LineSeg p s) = addPoints p (scalePoint 0.5 s)
+
+-- | Get the endpoint of a line segment.
+endPoint :: LineSeg -> Point2
+endPoint (LineSeg p s) = addPoints p s
 
 -- | Express a line segment in terms of the other endpoint
 flipLineSeg :: LineSeg -> LineSeg
-flipLineSeg l@(LineSeg _ s) = LineSeg (endpoint l) (scalePoint (-1) s)
+flipLineSeg l@(LineSeg _ s) = LineSeg (endPoint l) (scalePoint (-1) s)
 
 -- | Given a list of points (in order), construct line segments that go between them.
 makeLineSegs :: [Point2] -> [LineSeg]
@@ -93,12 +93,12 @@ pointAtZValue :: (Point3,Point3) -> ℝ -> Maybe Point2
 pointAtZValue (startPoint,stopPoint) v
   -- don't bother returning a line segment that is axially aligned.
   | zOf startPoint == zOf stopPoint = Nothing
-  | 0 <= t && t <= 1 = Just $ flatten $ addPoints lineStart (scalePoint t lineEnd)
+  | 0 <= t && t <= 1 = Just $ flatten $ addPoints lineSegStart (scalePoint t lineEnd)
   | otherwise = Nothing
   where
-    t = (v - zOf lineStart) / zOf lineEnd
-    lineEnd = (\ (Point3 (x1,y1,z1)) (Point3 (x2,y2,z2)) -> Point3 (x2-x1, y2-y1, z2-z1)) lineStart endPoint
-    (lineStart,endPoint) = if zOf startPoint < zOf stopPoint
-                           then (startPoint,stopPoint)
-                           else (stopPoint,startPoint)
+    t = (v - zOf lineSegStart) / zOf lineEnd
+    lineEnd = (\ (Point3 (x1,y1,z1)) (Point3 (x2,y2,z2)) -> Point3 (x2-x1, y2-y1, z2-z1)) lineSegStart lineSegEnd
+    (lineSegStart,lineSegEnd) = if zOf startPoint < zOf stopPoint
+                                then (startPoint,stopPoint)
+                                else (stopPoint,startPoint)
 

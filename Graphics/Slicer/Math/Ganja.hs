@@ -48,25 +48,27 @@
  -}
 module Graphics.Slicer.Math.Ganja (toGanja, dumpGanja, dumpGanjas) where
 
-import Prelude (String, (<>), (++), (<$>), ($), (>=), concat, error, fst, show, snd, zip)
+import Prelude (String, (<>), (<>), (<$>), ($), (>=), (==), concat, error, fst, otherwise, show, snd, zip)
 
-import Data.Maybe(maybeToList, Maybe(Nothing))
+import Data.Maybe (Maybe(Nothing), maybeToList)
 
 import Numeric(showFFloat)
 
 import Slist.Type (Slist(Slist))
 
+import Slist (last, len)
+
 import Graphics.Slicer.Math.Contour (pointsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), Contour, mapWithFollower)
+import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg(LineSeg), mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf)
 
-import Graphics.Slicer.Math.Line (endpoint)
+import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2))
 
-import Graphics.Slicer.Math.Skeleton.Definitions(ENode(ENode), INode(INode), Motorcycle(Motorcycle))
+import Graphics.Slicer.Math.Skeleton.Definitions(ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton))
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
@@ -92,7 +94,7 @@ instance GanjaAble LineSeg where
     <> p2ref)
     where
       (p1var, p1ref) = toGanja p1 (varname <> "a")
-      (p2var, p2ref) = toGanja (endpoint l1) (varname <> "b")
+      (p2var, p2ref) = toGanja (endPoint l1) (varname <> "b")
 
 instance GanjaAble PPoint2 where
   toGanja (PPoint2 (GVec vals)) varname = (
@@ -162,8 +164,8 @@ instance GanjaAble INode where
       (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
         where
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> zip allPLines allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
-          allPLines    =   firstPLine:secondPLine:rawMorePLines ++ (maybeToList outPLine)
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allPLines    =   firstPLine:secondPLine:rawMorePLines <> maybeToList outPLine
 
 instance GanjaAble Contour where
   toGanja contour varname = (invars, inrefs)
@@ -174,7 +176,7 @@ instance GanjaAble Contour where
           linePairs    = concat $ mapWithFollower (\(_,a) (_,b) -> "    [" <> varname <> a <> "," <> varname <> b <> "],\n") pairs
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> pairs
           pairs        = zip contourPoints allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
 
 instance GanjaAble Face where
   toGanja (Face edge firstArc (Slist arcs _) lastArc) varname = (invars, inrefs)
@@ -183,8 +185,42 @@ instance GanjaAble Face where
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip (toGanja edge : allPLines) allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
-          allPLines    = toGanja <$> ([firstArc] ++ arcs ++ [lastArc])
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allPLines    = toGanja <$> ([firstArc] <> arcs <> [lastArc])
+
+instance GanjaAble NodeTree where
+  toGanja (NodeTree (ENodeSet eNodeSides) iNodeSet) varname = (invars, inrefs)
+    where
+      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+        where
+          res          = (\(a,b) -> a (varname <> b)) <$> pairs
+          pairs        = zip (allEdges <> allINodes) allStrings
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allEdges     = toGanja <$> (firstLine <> remainingLines)
+          allINodes    = toGanja <$> iNodesOf iNodeSet
+          firstLine    = case eNodeSides of
+                           (Slist [] _) -> []
+                           (Slist [(firstNode,Slist [] _)] _) -> [inLine firstNode]
+                           (Slist [(firstNode,otherNodes)] _) -> if inLine firstNode == outLine (last otherNodes)
+                                                                 then []
+                                                                 else [inLine firstNode]
+                           (Slist _ _) -> error "too many sides."
+            where
+              inLine (ENode (a,_) _) = a
+          remainingLines
+            | len eNodeSides == 0 = []
+            | otherwise = outLine <$> eNodesOf eNodeSides
+            where
+              eNodesOf (Slist [] _) = error "no enodes?"
+              eNodesOf (Slist [(first,Slist more _)] _) = first : more
+              eNodesOf (Slist _ _) = error "too many sides?"
+          outLine (ENode (_,a) _)  = a
+          iNodesOf :: INodeSet -> [INode]
+          iNodesOf (INodeSet (Slist inodes _)) = concat inodes
+
+instance GanjaAble StraightSkeleton where
+  toGanja (StraightSkeleton (Slist [[nodetree]] _) _) = toGanja nodetree
+  toGanja a = error $ "no a, only b: " <> show a <> "\n"
 
 -- | Create a single program, covering a series of objects.
 dumpGanjas :: [String -> (String, String)] -> String
@@ -197,7 +233,7 @@ dumpGanjas xs = ganjaHeader <> vars <> ganjaFooterStart <> refs <> ganjaFooterEn
     (vars, refs) =  (concat $ fst <$> res, concat $ snd <$> res)
       where
         res          = (\(a,b) -> a b) <$> zip xs allStrings
-        allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] ++ ['0'..'9'] ]
+        allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
 
 -- | create a single program for a single object.
 dumpGanja :: (GanjaAble a) => a -> String

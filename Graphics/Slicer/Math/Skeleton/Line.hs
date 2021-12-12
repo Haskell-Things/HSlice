@@ -22,7 +22,7 @@
 -- | Functions for for applying inset line segments to a series of faces, and for adding infill to a face.
 module Graphics.Slicer.Math.Skeleton.Line (addInset, addInfill) where
 
-import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (++), (>), min, Bool(True, False), fst, maybe, snd)
+import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (<>), (>), min, Bool(True, False), fst, maybe, snd)
 
 import Data.List (sortOn, dropWhile, takeWhile, transpose)
 
@@ -38,7 +38,7 @@ import Graphics.Slicer.Math.Contour (makePointContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), (~=), mapWithFollower, mapWithPredecessor, scalePoint, addPoints)
 
-import Graphics.Slicer.Math.Line (lineSegFromEndpoints, endpoint, handleLineSegError)
+import Graphics.Slicer.Math.Line (lineSegFromEndpoints, endPoint, handleLineSegError)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (intersectionOf)
 
@@ -60,8 +60,8 @@ import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 addLineSegsToFace :: ℝ -> Maybe Fastℕ -> Face -> ([LineSeg], Maybe [Face])
 addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMidArcs _) lastArc)
   | len midArcs == 0 = (foundLineSegs, twoSideRemainder)
-  | len midArcs == 1 = (subSides ++ foundLineSegs, threeSideRemainder)
-  | otherwise = (sides1 ++ sides2 ++ foundLineSegs, nSideRemainder)
+  | len midArcs == 1 = (subSides <> foundLineSegs, threeSideRemainder)
+  | otherwise = (sides1 <> sides2 <> foundLineSegs, nSideRemainder)
   where
     -----------------------------------------------------------------------------------------
     -- functions that are the same, regardless of number of sides of the ngon we are filling.
@@ -101,12 +101,12 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     -----------------------------------------------------------
     -- functions only used by n-gons with more than four sides.
     -----------------------------------------------------------
-    nSideRemainder = case fromMaybe [] remains1 ++ fromMaybe [] remains2 of
+    nSideRemainder = case fromMaybe [] remains1 <> fromMaybe [] remains2 of
                        res@(_:_) -> Just res
                        [] -> error "no remains for an nSideRemainder?"
 
     -- | Find the closest point where two of our arcs intersect, relative to our side.
-    arcIntersections = initSafe $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf a b) (eToPLine2 edge), (a, b))) $ [firstArc] ++ rawMidArcs ++ [lastArc]
+    arcIntersections = initSafe $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf a b) (eToPLine2 edge), (a, b))) $ [firstArc] <> rawMidArcs <> [lastArc]
     findClosestArc :: (ℝ, (PLine2, PLine2))
     findClosestArc         = case sortOn fst arcIntersections of
                                [] -> error "empty arcIntersections?"
@@ -118,9 +118,9 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     -- Return all of the arcs before and including the closest arc.
     untilArc               = if closestArc == firstArc
                              then [firstArc]
-                             else takeWhile (/= closestArcFollower) $ rawMidArcs ++ [lastArc]
+                             else takeWhile (/= closestArcFollower) $ rawMidArcs <> [lastArc]
         -- Return all of the arcs after the closest arc.
-    afterArc               = dropWhile (/= closestArcFollower) $ rawMidArcs ++ [lastArc]
+    afterArc               = dropWhile (/= closestArcFollower) $ rawMidArcs <> [lastArc]
     (sides1, remains1)     = if closestArc == firstArc
                              then noResult
                              else result firstArc untilArc
@@ -158,7 +158,7 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
 --   Requires the faces are a closed set, AKA, a set of faces created from a contour.
 -- FIXME: unimplemented. basically, take the contour formed by the remainders of the faces, and squeeze in a line segment, if possible.
 -- FIXME: pretty insane when dealing with multiple insets at once. recurse into addLineSegsToFace maybe?
-addInset :: Fastℕ -> ℝ -> [Face] -> ([Contour], [Face])
+addInset :: Fastℕ -> ℝ -> Slist Face -> ([Contour], [Face])
 addInset insets distance faceSet
   | insets == 1 = ([reconstructedContour], remainingFaces)
   | otherwise = error "cannot handle more than one inset yet."
@@ -167,16 +167,16 @@ addInset insets distance faceSet
                              (Just v) -> v
                              Nothing -> error $ "failed to inset:" <> show faceSet <> "\n"
     recoveryFun l1@(LineSeg s1 _) l2@(LineSeg s2 _)
-      | endpoint l1 == s2 = endpoint l1
-      | endpoint l2 == s1 = endpoint l2
+      | endPoint l1 == s2 = endPoint l1
+      | endPoint l2 == s1 = endPoint l2
       -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
-      | endpoint l1 ~= s2 = averagePoints (endpoint l1) s1
-      | endpoint l2 ~= s1 = averagePoints (endpoint l2) s1
+      | endPoint l1 ~= s2 = averagePoints (endPoint l1) s1
+      | endPoint l2 ~= s1 = averagePoints (endPoint l2) s1
       | otherwise = error $ "out of order lineSegs generated from faces: " <> show faceSet <> "\n" <> show lineSegSets <> "\n"
     averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
     lineSegSets = fst <$> res
     remainingFaces = concat $ catMaybes $ snd <$> res
-    res = addLineSegsToFace distance (Just 1) <$> faceSet
+    res = addLineSegsToFace distance (Just 1) <$> (\(Slist a _) -> a) faceSet
 
 -- | Add infill to the area of a set of faces that was not covered in lines.
 -- FIXME: unimplemented. basically, take the contour formed by the remainders of the faces, and squeeze in a line segment, if possible.

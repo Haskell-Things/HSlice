@@ -28,7 +28,7 @@ module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWal
 
 import GHC.Generics (Generic)
 
-import Prelude (Eq, Int, Rational, ($), zipWith, concat, (<>), show, error, (++), otherwise, (==), length, fst, pi, (/), (*), pure, toRational, fromRational, (+), div, Bool)
+import Prelude (Eq, Int, Rational, ($), zipWith, concat, (<>), show, error, otherwise, (==), length, fst, pi, (/), (*), pure, toRational, fromRational, (+), div, Bool)
 
 import Data.ByteString (ByteString)
 
@@ -52,7 +52,7 @@ import Graphics.Slicer.Math.Contour (pointsOfContour, lastPointOfContour)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour, LineSeg(LineSeg), distance, roundToFifth)
 
-import Graphics.Slicer.Math.Line (endpoint)
+import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.Slicer (accumulateValues)
 
@@ -174,7 +174,7 @@ gcodeForContour lh pathWidth contour =
     [] -> error "impossible"
     [_a] -> error "also impossible"
     [_a,_b] -> error "more impossible"
-    (headPoint:tailPoints) -> zipWith (make2DExtrudeGCode lh pathWidth) contourPoints tailPoints ++ [make2DExtrudeGCode lh pathWidth (lastPointOfContour contour) headPoint]
+    (headPoint:tailPoints) -> zipWith (make2DExtrudeGCode lh pathWidth) contourPoints tailPoints <> [make2DExtrudeGCode lh pathWidth (lastPointOfContour contour) headPoint]
   where
     contourPoints = pointsOfContour contour
 
@@ -184,7 +184,7 @@ gcodeForInfill _ _ [] = []
 gcodeForInfill lh pathWidth lineGroups =
   case lineGroups of
     [] -> []
-    (headGroup:tailGroups) -> concat $ renderLineSegGroup headGroup : zipWith (\group1 group2 -> moveBetweenLineSegGroups group1 group2 ++ renderLineSegGroup group2) lineGroups tailGroups
+    (headGroup:tailGroups) -> concat $ renderLineSegGroup headGroup : zipWith (\group1 group2 -> moveBetweenLineSegGroups group1 group2 <> renderLineSegGroup group2) lineGroups tailGroups
   where
     -- FIXME: this should be a single gcode. why are we getting empty line groups given to us?
     moveBetweenLineSegGroups :: [LineSeg] -> [LineSeg] -> [GCode]
@@ -198,9 +198,9 @@ gcodeForInfill lh pathWidth lineGroups =
                                       [] -> []
                                       (headGroup:tailGroups) -> renderSegment headGroup : concat (zipWith (\ l1 l2 -> moveBetween l1 l2 : [renderSegment l2]) lineSegSet tailGroups)
     moveBetween :: LineSeg -> LineSeg -> GCode
-    moveBetween l1 (LineSeg startPointl2 _) = make2DTravelGCode (endpoint l1) startPointl2
+    moveBetween l1 (LineSeg startPointl2 _) = make2DTravelGCode (endPoint l1) startPointl2
     renderSegment :: LineSeg -> GCode
-    renderSegment ln@(LineSeg startPoint _) = make2DExtrudeGCode lh pathWidth startPoint $ endpoint ln
+    renderSegment ln@(LineSeg startPoint _) = make2DExtrudeGCode lh pathWidth startPoint $ endPoint ln
 
 ----------------------------------------------------
 ------------------ FIXED STRINGS -------------------
