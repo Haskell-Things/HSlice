@@ -62,6 +62,7 @@ import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, e
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour)
 
+-- Our imprecise Contour library.
 import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
 
 -- Our Infill library.
@@ -79,6 +80,9 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
+
+-- Our debugging library, for making the below simpler to read, and drop into command lines.
+import Graphics.Slicer.Math.Ganja (cellFrom, remainderFrom, onlyOne)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
@@ -582,11 +586,6 @@ prop_AxisAlignedRightAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
     mag1,mag2 :: ℝ
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
-    onlyOne :: [ENode] -> ENode
-    onlyOne eNodes = case eNodes of
-                      [] -> error "none"
-                      [a] -> a
-                      (_:_) -> error "too many"
 
 -- | ensure that a 135 degree angle with one side parallel with an axis and in the right place results in a line through the origin point.
 -- NOTE: hack, using angleBetween and >= to filter out minor numerical imprecision.
@@ -604,11 +603,6 @@ prop_AxisAligned135DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitu
     mag1,mag2 :: ℝ
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
-    onlyOne :: [ENode] -> ENode
-    onlyOne eNodes = case eNodes of
-                      [] -> error "none"
-                      [a] -> a
-                      (_:_) -> error "too many"
 
 -- | ensure that a 45 degree angle with one side parallel with the X axis and in the right place results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
@@ -626,11 +620,6 @@ prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitud
     mag1,mag2 :: ℝ
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
-    onlyOne :: [ENode] -> ENode
-    onlyOne eNodes = case eNodes of
-                      [] -> error "none"
-                      [a] -> a
-                      (_:_) -> error "too many"
 
 prop_TriangleNoDivides :: ℝ -> ℝ -> NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> Expectation
 prop_TriangleNoDivides x y rawDx dy rawOffAxis distanceFromMiddle = findDivisions triangle (fromMaybe (error $ show triangle) $ crashMotorcycles triangle []) --> []
@@ -821,13 +810,8 @@ prop_RectangleFacesInOrder x y rawDx rawDy rawXYDiff = edgesOf (orderedFacesOf f
         unwrap (Face edge _ _ _) = edge
 
 randomRectangle :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Positive ℝ -> [LineSeg]
-randomRectangle x y rawDx rawDy rawXYDiff
-  | dx > 0 && dy > 0 = wind
-  | dy > 0 = wind
-  | dx > 0 = wind
-  | otherwise = wind
+randomRectangle x y rawDx rawDy rawXYDiff = [firstSeg,segTo,secondSeg,segFrom]
   where
-    wind = [firstSeg,segTo,secondSeg,segFrom]
     dx,dy,xyDiff :: ℝ
     dx = coerce rawDx
     dy = coerce rawDy
@@ -1727,6 +1711,42 @@ facetSpec = do
                                     )
                           )
             )
+    it "finds the NodeTree of the second cell of our eigth simple shape." $
+      getNodeTreeOfCell (cellFrom $ findNextCell $ onlyOne $ fromMaybe (error "Got Nothing") $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c7 []) -->
+      Right (makeNodeTree [ ENode (LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0)), LineSeg (Point2 (0.0,-1.0)) (Point2 (1.0,0.0)))
+                                  (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                          ]
+                          (INodeSet (slist [
+                                            [INode (PLine2 (GVec [GVal 0.2773500981126146 (singleton (GEZero 1)), GVal 0.5547001962252291 (singleton (GEPlus 1)), GVal 0.8320502943378437 (singleton (GEPlus 2))]))
+                                                   (PLine2 (GVec [GVal (-0.24253562503633297) (singleton (GEZero 1)), GVal 0.9701425001453319 (singleton (GEPlus 1)), GVal 0.24253562503633297 (singleton (GEPlus 2))]))
+                                                   (slist [])
+                                                   (Just (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])))
+                                            ]
+                                           ]
+                                    )
+                          )
+            )
+    it "finds the NodeTree of the third cell of our eigth simple shape." $
+      getNodeTreeOfCell (cellFrom $ findNextCell $ onlyOne $ fromMaybe (error "Got Nothing") $ remainderFrom $ findNextCell $ onlyOne $ fromMaybe (error "Got Nothing") $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c7 []) -->
+      Right (makeNodeTree [ ENode (LineSeg (Point2 (0.5,0.0)) (Point2 (-0.5,1.0)), LineSeg (Point2 (0.0,1.0)) (Point2 (-1.0,0.0)))
+                                  (PLine2 (GVec [GVal (-0.5257311121191337) (singleton (GEZero 1)), GVal (-0.8506508083520399) (singleton (GEPlus 1)), GVal 0.5257311121191337 (singleton (GEPlus 2))]))
+                          , ENode (LineSeg (Point2 (0.0,1.0)) (Point2 (-1.0,0.0)), LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-1.0)))
+                                  (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                          , ENode (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-1.0)), LineSeg (Point2 (-1.0,0.0)) (Point2 (1.0,0.0)))
+                                  (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                          ]
+                          (INodeSet (slist [
+                                            [INode (PLine2 (GVec [GVal (-0.5257311121191337) (singleton (GEZero 1)), GVal (-0.8506508083520399) (singleton (GEPlus 1)), GVal 0.5257311121191337 (singleton (GEPlus 2))]))
+                                                   (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                                   (slist [
+                                                       (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+                                                          ])
+                                                   (Just (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])))
+                                            ]
+                                           ]
+                                    )
+                          )
+            )
   describe "Faces (Skeleton/Face)" $ do
     it "finds faces from a straight skeleton (c0, default order)" $
       facesOf (fromMaybe (error "got Nothing") $ findStraightSkeleton c0 []) -->
@@ -1875,12 +1895,3 @@ facetSpec = do
       square = makePointContour [Point2 (-1,1), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1)]
       -- A simple rectangle.
       rectangle = makePointContour [Point2 (-2,1), Point2 (-2,-1), Point2 (1,-1), Point2 (1,1)]
-      cellFrom (Just (a,_)) = a
-      cellFrom Nothing = error "whoops"
-      remainderFrom (Just (_,a)) = a
-      remainderFrom Nothing = error "whoops"
-      onlyOne :: [a] -> a
-      onlyOne eNodes = case eNodes of
-                         [] -> error "none"
-                         [a] -> a
-                         (_:_) -> error "too many"
