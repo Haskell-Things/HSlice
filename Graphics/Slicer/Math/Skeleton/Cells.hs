@@ -36,7 +36,7 @@ import Data.Maybe (Maybe(Just, Nothing), fromMaybe, isNothing)
 
 import Slist (head, last, len, slist, safeLast)
 
-import Slist.Type (Slist(Slist))
+import Slist.Type (Slist(Slist), one)
 
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, skeletonOfConcaveRegion)
 
@@ -62,13 +62,20 @@ data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
 -- | get a naieve node tree for a given cell.
 -- Warning: in the cases where the cell has nodes outside of the cell wall, you must use tscherne's algorithm to merge two cells.
 getNodeTreeOfCell :: Cell -> Either UnsupportedReason NodeTree
-getNodeTreeOfCell (Cell (Slist [(Slist extSegs _, Nothing)] _)) = Right $ skeletonOfConcaveRegion extSegs
+getNodeTreeOfCell (Cell (Slist [(Slist extSegs _, Nothing)] _)) = Right $ skeletonOfConcaveRegion $ one extSegs
 getNodeTreeOfCell (Cell (Slist [(Slist extSegs _, Just divide)] _))
   | null $ crossoverINodes res divide = Right res
   | otherwise = Left $ INodeCrossesDivide ((,divide) <$> crossoverINodes res divide) (error $ dumpGanja res)
   where
-    res = skeletonOfConcaveRegion extSegs
-getNodeTreeOfCell _ = error "unsupported."
+    res = skeletonOfConcaveRegion $ one extSegs
+getNodeTreeOfCell (Cell (Slist [(Slist extSegs1 _, Just divide),(Slist extSegs2 _, Nothing)] _))
+  | null (crossoverINodes res divide) = Right res
+  | otherwise = Left $ INodeCrossesDivide ((,divide) <$> crossoverINodes res divide) (error $ dumpGanja res)
+  where
+    res = skeletonOfConcaveRegion (slist [extSegs1, extSegs2])
+getNodeTreeOfCell input = error
+                          $ "unsupported cell layout:\n"
+                          <> show input <> "\n"
 
 -- | find the divisions of a given contour without holes. Divisions are points where motorcycles cross the contour.
 findDivisions :: Contour -> CrashTree -> [CellDivide]

@@ -46,7 +46,7 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithFollower, distance, fudgeFactor, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), mapWithFollower, distance, fudgeFactor, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine, flipPLine2)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree, Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, getPairs, isCollinear, indexPLinesTo, isParallel, linePairs, makeINode, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, getPairs, isCollinear, indexPLinesTo, isParallel, linePairs, makeINode, sortedPLines)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree, findENodeByOutput)
 
@@ -77,34 +77,75 @@ justToSomething val = case val of
                         Nothing -> Empty
                         (Just a) -> Something a
 
--- | Recurse on a set of nodes until we have a complete NodeTree.
+-- | find a complete NodeTree for the given collection of line segments.
 --   Only works on a sequnce of concave line segments, when there are no holes in the effected area.
-skeletonOfConcaveRegion :: [LineSeg] -> NodeTree
-skeletonOfConcaveRegion inSegs
-  | not loop && isJust (finalOutOf result) = result
-  | loop && isNothing (finalOutOf result) = result
-  | otherwise = error $ "illegal nodeTree:" <> show inSegs <> "\n" <> show loop <> "\n" <> show result <> "\n"
+skeletonOfConcaveRegion :: Slist [LineSeg] -> NodeTree
+skeletonOfConcaveRegion inSegSets
+  | not (isLoop inSegSets) && isJust (finalOutOf result) = result
+  | not (isLoop inSegSets) && isNothing (finalOutOf result) && isHallway result = result
+  | isLoop inSegSets && isNothing (finalOutOf result) = result
+  | otherwise = error $ "generated illegal nodeTree:" <> show inSegSets <> "\n" <> show (isLoop inSegSets) <> "\n" <> show result <> "\n"
   where
-    result = getNodeTree (firstENodes inSegs loop)
+    result = makeNodeTree initialGeneration resINodes
+
+    initialGeneration :: [ENode]
+    initialGeneration = concat $ firstENodes (isLoop inSegSets) <$> inSegSets
+      where
+        -- Generate the first generation of nodes, from the passed in line segments.
+        -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
+        firstENodes :: Bool -> [LineSeg] -> [ENode]
+        firstENodes segsInLoop firstSegs
+          | segsInLoop = makeENodesLooped firstSegs
+          | otherwise  = case firstSegs of
+                           [] -> []
+                           [LineSeg {}] -> []
+                           (_:_) -> makeENodes firstSegs
+
+
+    resINodes :: INodeSet
+    resINodes
+      | len inSegSets == 1 = getOneSideINodes
+      | null remainingENodes = INodeSet $ slist [foundINodes]
+      | otherwise = sortINodesByENodes (isLoop inSegSets) initialGeneration $ errorIfLeft $ skeletonOfNodes (isLoop inSegSets) remainingENodes foundINodes
+      where
+        -- solve the ends of the region, so we can then hand off the solutioning to our regular process.
+        (foundINodes, remainingENodes)
+          | len inSegSets == 2 = case initialGeneration of
+                                   [] -> ( [makeINode [getInsideArc (flipPLine2 $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArc (eToPLine2 firstSeg) (flipPLine2 $ eToPLine2 lastSeg)] (Nothing)]
+                                         , [])
+                                     where
+                                       firstSeg = SL.head $ slist $ SL.head inSegSets
+                                       lastSeg = SL.head $ slist $ SL.last inSegSets
+                                   [a] -> ( [makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just $ flipPLine2 $ outOf a)]
+                                         , [])
+                                     where
+                                       firstSeg = SL.head $ slist $ longSide
+                                       lastSeg = SL.last $ slist $ longSide
+                                       (shortSide,longSide) = case SL.head inSegSets of
+                                                                [] -> (SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
+                                                                _ -> (SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
+        -- | Get a complete set of INodes given a set of ENodes.
+        getOneSideINodes :: INodeSet
+        getOneSideINodes = sortINodesByENodes (isLoop inSegSets) initialGeneration $ errorIfLeft $ skeletonOfNodes (isLoop inSegSets) initialGeneration []
+
+    -- check if what we're returning is just a hallway.
+    -- A hallway is a portion of a contour consisting of only two sides.
+    isHallway (NodeTree _ iNodeSet) = iNodeSetHasOneMember iNodeSet
+      where
+        iNodeSetHasOneMember (INodeSet myINodeSet) = len myINodeSet == 1
+
     -- are the incoming line segments a loop?
-    loop = endPoint lastSeg == startPoint firstSeg
-           || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
+    isLoop segSets
+      | len segSets == 1 = (endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15))
+      | otherwise = False
       where
         lastSeg = SL.last $ slist inSegs
         firstSeg = SL.head $ slist inSegs
-
-    -- Generate the first generation of nodes, from the passed in line segments.
-    -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
-    firstENodes :: [LineSeg] -> Bool -> [ENode]
-    firstENodes firstSegs segsInLoop
-      | segsInLoop = makeENodesLooped firstSegs
-      | otherwise  = makeENodes firstSegs
-
-    -- | get a NodeTree from a set of generations of nodes.
-    -- FIXME: geometry may require more than one NodeTree, or may require spines, which are still a concept in flux.
-    getNodeTree :: [ENode] -> NodeTree
-    getNodeTree [] = error "no Nodes to generate a nodetree from?"
-    getNodeTree initialGeneration = makeNodeTree initialGeneration $ sortINodesByENodes (errorIfLeft (skeletonOfNodes loop initialGeneration [])) initialGeneration loop
+        inSegs
+          | len inSegSets == 1 = head inSegSets
+          | otherwise = error
+                        $ "too many input lists.\n"
+                        <> show segSets <> "\n"
 
 -- | Handle the recursive resolver failing.
 errorIfLeft :: Either PartialNodes INodeSet -> INodeSet
@@ -158,7 +199,6 @@ getOutsideArc ppoint1 pline1 ppoint2 pline2
 getInsideArc :: PLine2 -> PLine2 -> PLine2
 getInsideArc pline1 pline2@(PLine2 pv2)
   | pline1 == pline2 = error "need to be able to return two PLines."
-  | noIntersection pline1 pline2 = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
   | otherwise = normalizePLine2 $ PLine2 $ addVecPair flippedPV1 pv2
   where
       (PLine2 flippedPV1) = flipPLine2 pline1
@@ -214,8 +254,7 @@ convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWith
 nodesAreAntiCollinear :: (Pointable a, Arcable a, Pointable b, Arcable b) => a -> b -> Bool
 nodesAreAntiCollinear node1 node2
   | hasArc node1 && hasArc node2 && isAntiCollinear (outOf node1) (outOf node2) = True
-  | canPoint node1 && hasArc node2 = distancePPointToPLine (pPointOf node1) (outOf node2) < fudgeFactor*50
-  | canPoint node2 && hasArc node1 = distancePPointToPLine (pPointOf node2) (outOf node1) < fudgeFactor*50
+  | canPoint node1 && canPoint node2 && hasArc node1 && hasArc node2 = (distancePPointToPLine (pPointOf node1) (outOf node2) < fudgeFactor*50) && (distancePPointToPLine (pPointOf node2) (outOf node1) < fudgeFactor*50)
   | otherwise = False
 
 -- Walk the result tree, and find our enodes. Used to test the property that a walk of our result tree should result in the input ENodes in order.
@@ -259,8 +298,8 @@ findENodesInOrder a b = error $ "cannot find ENodes for :" <> show a <> "\n" <> 
 
 -- | place our inodes in a state such that the eNodes that the inodes point to are in the order of the given enode list.
 -- also performs 'safe' node tree transforms:
-sortINodesByENodes :: INodeSet -> [ENode] -> Bool -> INodeSet
-sortINodesByENodes inGens@(INodeSet rawGenerations) initialGeneration loop
+sortINodesByENodes :: Bool -> [ENode] -> INodeSet -> INodeSet
+sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
  | generationsIn res == 1 && inCountOf (onlyINodeOf $ INodeSet $ resSlist rawGenerations) > len (slist initialGeneration) = errorTooManyIns
  -- test for the property that a walk of the INodes we are returning results in our input ENode list.
  | initialGeneration /= findENodesInOrder (eNodeSetOf $ slist initialGeneration) res = errorInsWrongOrder
@@ -561,6 +600,7 @@ skeletonOfNodes loop eNodes iNodes =
 
     --   Handle the the case of 3 or more nodes.
     handleThreeOrMoreNodes
+      -- FIXME: this can happen for non-loops. which means this Nothing is wrong.
       | endsAtSamePoint = Right $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) <> (outOf <$> iNodes)) Nothing]
       | hasShortestPair = Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes loop remainingENodes (remainingINodes <> averageOfShortestPairs)))
       | otherwise = errorLen3
@@ -585,7 +625,7 @@ skeletonOfNodes loop eNodes iNodes =
                 <> "resultingNodes: " <> show remainingINodes <> "\n"
                 <> "thisGen: " <> show averageOfShortestPairs <> "\n"
 
-    -- | When all of our nodes end in the same point and we know this is a closed loop, we should create a Node with all of them as input. This checks for that case.
+    -- | When all of our nodes end in the same point we should create a Node with all of them as input. This checks for that case.
     endsAtSamePoint :: Bool
     endsAtSamePoint = and $ mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor) $ mapWithFollower intersectionOf ((outOf <$> nonAntiCollinearNodes eNodes (antiCollinearNodePairsOf eNodes)
                                                                                                                                    <> firstAntiCollinearNodes (antiCollinearNodePairsOf eNodes)) <>
