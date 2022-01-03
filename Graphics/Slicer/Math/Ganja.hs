@@ -46,7 +46,7 @@
 
  cut and paste, drop into https://enkimute.github.io/ganja.js/examples/coffeeshop.html, click 'Run'
  -}
-module Graphics.Slicer.Math.Ganja (toGanja, dumpGanja, dumpGanjas, cellFrom, remainderFrom, onlyOne) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, toGanja, dumpGanja, dumpGanjas, cellFrom, remainderFrom, onlyOne) where
 
 import Prelude (String, (<>), (<>), (<$>), ($), (>=), (==), concat, error, fst, otherwise, show, snd, zip, (.))
 
