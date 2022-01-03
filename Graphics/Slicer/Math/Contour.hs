@@ -209,7 +209,7 @@ contourContainsContour parent child = odd noIntersections
     saneIntersection (Right PParallel)             = Nothing
     -- FIXME: fix the remaining cases. steal the code / algorithms from closedRegion
     saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
-    innerPointOf contour = innerContourPoint 0.00001 contour $ firstLineSegOfContour contour
+    innerPointOf contour = innerContourPoint (fudgeFactor*10) contour $ firstLineSegOfContour contour
 
 -- | determine whether a contour is contained by another contour.
 contourContainedByContour :: Contour -> Contour -> Bool
@@ -230,7 +230,7 @@ insideIsLeft :: Contour -> LineSeg -> Bool
 insideIsLeft contour lineSegment = lineIsLeft lineSecondHalf lineToInside == Just True
   where
     lineSecondHalf = fromRight (error $ "cannot construct SecondHalf" <> show lineSegment <> "\n" <> show contour <> "/n") $ lineSegFromEndpoints (midPoint lineSegment) (endPoint lineSegment)
-    lineToInside = fromRight (error "cannot construct lineToInside") $ lineSegFromEndpoints (midPoint lineSegment) $ innerContourPoint 0.00001 contour lineSegment
+    lineToInside = fromRight (error "cannot construct lineToInside") $ lineSegFromEndpoints (midPoint lineSegment) $ innerContourPoint (fudgeFactor*10) contour lineSegment
 
 -- | Find a point on the interior of the given contour, on the perpendicular bisector of the given line segment, a given distance away from the line segment.
 innerContourPoint :: ℝ -> Contour -> LineSeg -> Point2
@@ -242,7 +242,7 @@ innerContourPoint distance contour l
     perpPoint      = pointOnPerp l (midPoint l) distance
     otherPerpPoint = pointOnPerp l (midPoint l) (-distance)
     outsidePoint   = Point2 (xOf minPoint - 1 , yOf minPoint - 1)
-    numIntersections = contourIntersectionCount contour (Left (pointOnPerp l (midPoint l) fudgeFactor*10, outsidePoint))
+    numIntersections = contourIntersectionCount contour (Left (pointOnPerp l (midPoint l) (fudgeFactor*10), outsidePoint))
 
 -- | return the number of intersections with a given contour when traveling in a straight line from srcPoint to dstPoint.
 -- Not for use against line segments that overlap and are collinear with one of the line segments are a part of the contour.
