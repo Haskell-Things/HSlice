@@ -21,7 +21,7 @@
 
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, meet2PLine2, forcePLine2Basis, idealNormPPoint2) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, meet2PLine2, forcePLine2Basis, idealNormPPoint2, lineIntersectsPLine, pPointBetweenPPoints) where
 
 import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error)
 
@@ -45,7 +45,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, fudgeFactor)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (•), addVal, addVecPair, divVecScalar, getVals, scalarPart, valOf, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (•), addVal, addVecPair, divVecScalar, getVals, mulScalarVec, scalarPart, valOf, vectorPart)
 
 import Graphics.Slicer.Math.Line(combineLineSegs)
 
@@ -89,21 +89,8 @@ pLineIsLeft line1 line2
   | dualAngle line1 line2 == 0 = Nothing
   | otherwise                  = Just $ dualAngle line1 line2 > 0
 
-{-
--- FIXME: A second implementation of dualAngle, using non-standard math. speed test this and the current implementation, and test this around 0 axises and points.
 
--- | Find... something?
---   FIXME: this is a total hack. taking the original lines a1^e1+b1^e2+c1^e0 and a2^e1+b2^e2+c2^e0 and calculating a1*b2-b1*a2
-dualAngle :: PLine2 -> PLine2 -> ℝ
-dualAngle line1 line2 = valOf 0 $ getVals [GEZero 1, GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ unlikeVecPair dnpl1 dnpl2
-  where
-    npl1 = dualPLine2 $ normalizePLine2 line1
-    npl2 = dualPLine2 $ normalizePLine2 line2
-    (PPoint2 dnpl1) = forcePPoint2Basis $ PPoint2 npl1
-    (PPoint2 dnpl2) = forcePPoint2Basis $ PPoint2 npl2
--}
-
--- Return the cosine of the angle between the two lines. results in a value that is positive when a line points to the "left" of the other given line, and negative when "right".
+-- | Return the cosine of the angle between the two lines. results in a value that is positive when the first line points to the "left" of the second given line, and negative when "right".
 dualAngle :: PLine2 -> PLine2 -> ℝ
 dualAngle line1@(PLine2 lvec1) line2@(PLine2 lvec2) = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
   where
@@ -116,7 +103,7 @@ dualAngle line1@(PLine2 lvec1) line2@(PLine2 lvec2) = valOf 0 $ getVals [GEZero 
 intersectionOf :: PLine2 -> PLine2 -> PPoint2
 intersectionOf pl1 pl2 = canonicalizePPoint2 $ meet2PLine2 pl1 pl2
 
--- Return the sine of the angle between the two lines. results in a value that is positive when a line points in the same direction of the other given line, and negative when pointing backwards.
+-- | Return the sine of the angle between the two lines. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
 angleBetween :: PLine2 -> PLine2 -> ℝ
 angleBetween pl1 pl2 = scalarPart $ pv1 ⎣ pv2
   where
@@ -130,6 +117,11 @@ translatePerp pLine@(PLine2 rawPLine) d = PLine2 $ addVecPair m rawPLine
   where
     m = GVec [GVal (d*normOfPLine2 pLine) (singleton (GEZero 1))]
 
+-- | Find a point somewhere along the line between the two points given.
+--  requires two weights. the ratio of these weights determines the position of the found points, E.G: 2/1 is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint.
+pPointBetweenPPoints :: PPoint2 -> PPoint2 -> ℝ -> ℝ -> PPoint2
+pPointBetweenPPoints (PPoint2 rawStartPoint) (PPoint2 rawStopPoint) weight1 weight2 = canonicalizePPoint2 $ PPoint2 $ addVecPair (mulScalarVec weight1 rawStartPoint) (mulScalarVec weight2 rawStopPoint)
+
 -- | Find the unsigned distance between a point and a line.
 distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
 distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
@@ -139,7 +131,7 @@ distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
     perpLine       = PLine2 $ lvec ⨅ pvec
     linePoint      = meet2PLine2 (PLine2 lvec) perpLine
 
--- Determine if two points are on the same side of a given line.
+-- | Determine if two points are on the same side of a given line.
 -- FIXME: we now have two implementations. speed test them. the second implementation requires one point that is already on the line.
 pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
 pPointsOnSameSideOfPLine point1 point2 line
@@ -175,7 +167,7 @@ data Intersection =
 -- | A type alias, for cases where either input is acceptable.
 type SegOrPLine2 = Either LineSeg PLine2
 
--- Check if/where lines/line segments intersect.
+-- | Check if/where lines/line segments intersect.
 -- entry point usable for all intersection needs, but it's faster to use other functions when you KNOW there MUST be an intersection.
 intersectsWith :: SegOrPLine2 -> SegOrPLine2 -> Either Intersection PIntersection
 intersectsWith (Left l1)   (Left l2)   =         lineIntersection    l1  l2
@@ -203,7 +195,7 @@ lineIntersection l1@(LineSeg p1 s1) l2@(LineSeg p2 s2)
     intersection = intersectionPoint l1 l2
     rawIntersection = intersectionOf (eToPLine2 l1) (eToPLine2 l2)
 
--- Check if/where lines/line segments intersect.
+-- | Check if/where lines/line segments intersect.
 lineIntersectsPLine :: LineSeg -> PLine2 -> Either Intersection PIntersection
 lineIntersectsPLine l1@(LineSeg p1 s1) pl1
   | meet2PLine2 (eToPLine2 l1) pl1 == PPoint2 (GVec [])          = Right $ if angleBetween (eToPLine2 l1) pl1 > 0
@@ -332,6 +324,8 @@ pToEPoint2 :: PPoint2 -> Point2
 pToEPoint2 (PPoint2 (GVec pPoint)) = Point2 (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] pPoint
                                             ,         valOf 0 $ getVals [GEZero 1, GEPlus 1] pPoint)
 
+-- | Create the ideal form of a projective point.
+-- Note: not yet used.
 _idealPPoint2 :: PPoint2 -> PPoint2
 _idealPPoint2 (PPoint2 (GVec vals)) = PPoint2 $ GVec $ foldl' addVal []
                                      [
@@ -426,7 +420,7 @@ forcePPoint2Basis pt@(PPoint2 pvec@(GVec [GVal _ gnum1, GVal _ gnum2, GVal _ gnu
   | otherwise                                 = PPoint2 $ forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] pvec
 forcePPoint2Basis (PPoint2 pvec)              = PPoint2 $ forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] pvec
 
--- | Normalization of euclidian points is really just cannonicalization.
+-- | Normalization of euclidian points is really just canonicalization.
 canonicalizePPoint2 :: PPoint2 -> PPoint2
 canonicalizePPoint2 (PPoint2 vec@(GVec vals)) = PPoint2 $ divVecScalar vec $ valOf 1 $ getVals [GEPlus 1, GEPlus 2] vals
 
