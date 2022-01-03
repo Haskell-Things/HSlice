@@ -152,6 +152,7 @@ Test-suite test-hslice
     Build-depends:
                     base
                   , containers
+                  , directory
                   , hspec
                   , hslice
                   , QuickCheck
