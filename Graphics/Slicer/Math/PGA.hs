@@ -80,8 +80,8 @@ plinesIntersectIn pl1 pl2
     scalarPart (pr1 ⎣ pr2) >  -1-fudgeFactor    = PAntiParallel
   | otherwise                                   = IntersectsIn $ intersectionOf pl1 pl2
   where
-    (PLine2 pr1) = forcePLine2Basis pl1
-    (PLine2 pr2) = forcePLine2Basis pl2
+    (PLine2 pr1) = forcePLine2Basis $ normalizePLine2 pl1
+    (PLine2 pr2) = forcePLine2Basis $ normalizePLine2 pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: PLine2 -> PLine2 -> Maybe Bool
@@ -209,7 +209,7 @@ lineIntersectsPLine l1@(LineSeg p1 s1) pl1
   | otherwise = Left NoIntersection
   where
     rawPLine (PLine2 a) = a
-    intersection = pToEPoint2 $ intersectionOf (eToPLine2 l1) pl1
+    intersection = pToEPoint2 rawIntersection
     rawIntersection = intersectionOf (eToPLine2 l1) pl1
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
