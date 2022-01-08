@@ -107,8 +107,8 @@ intersectionOf pl1 pl2 = canonicalizePPoint2 $ meet2PLine2 pl1 pl2
 angleBetween :: PLine2 -> PLine2 -> ℝ
 angleBetween pl1 pl2 = scalarPart $ pv1 ⎣ pv2
   where
-    (PLine2 pv1) = forcePLine2Basis (normalizePLine2 pl1)
-    (PLine2 pv2) = forcePLine2Basis (normalizePLine2 pl2)
+    (PLine2 pv1) = normalizePLine2 pl1
+    (PLine2 pv2) = normalizePLine2 pl2
 
 -- | Translate a line a given distance along it's perpendicular bisector.
 --   FIXME: I'm not so sure about the math on this one. test suite, please?
