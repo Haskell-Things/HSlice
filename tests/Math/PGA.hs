@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour),
 import Graphics.Slicer.Math.Line(flipLineSeg, handleLineSegError, lineSegFromEndpoints, endPoint, midPoint)
 
 -- Our Geometric Algebra library.
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣))
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 -- Our 2D Projective Geometric Algebra library.
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, angleBetween, distancePPointToPLine, normalizePLine2, pPointsOnSameSideOfPLine)
@@ -191,9 +191,14 @@ geomAlgSpec = do
     -- 1e1|1e2 = 0
     it "the dot product of two orthoginal basis vectors is nothing" $
       GVec [GVal 1 (singleton (GEPlus 1))] ⋅ GVec [GVal 1 (singleton (GEPlus 2))] --> GVec []
+    it "the like product of two orthoginal basis vectors is nothing" $
+      GVec [GVal 1 (singleton (GEPlus 1))] ⎣ GVec [GVal 1 (singleton (GEPlus 2))] --> GVec []
     it "the dot product of two vectors is comutative (a⋅b == b⋅a)" $
-      GVec (addValPair (GVal 1 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 2)))) ⋅ GVec (addValPair (GVal 2 (singleton (GEPlus 2))) (GVal 2 (singleton (GEPlus 2)))) -->
-      GVec (addValPair (GVal 2 (singleton (GEPlus 1))) (GVal 2 (singleton (GEPlus 2)))) ⋅ GVec (addValPair (GVal 1 (singleton (GEPlus 2))) (GVal 1 (singleton (GEPlus 2))))
+      GVec [GVal 1 (singleton (GEPlus 1)), GVal 1 (singleton (GEPlus 2))] ⋅ GVec [GVal 2 (singleton (GEPlus 2)), GVal 2 (singleton (GEPlus 2))] -->
+      GVec [GVal 2 (singleton (GEPlus 1)), GVal 2 (singleton (GEPlus 2))] ⋅ GVec [GVal 1 (singleton (GEPlus 2)), GVal 1 (singleton (GEPlus 2))]
+    it "the like product of two vectors is comutative (a⋅b == b⋅a)" $
+      GVec [GVal 1 (singleton (GEPlus 1)), GVal 1 (singleton (GEPlus 2))] ⎣ GVec [GVal 2 (singleton (GEPlus 2)), GVal 2 (singleton (GEPlus 2))] -->
+      GVec [GVal 2 (singleton (GEPlus 1)), GVal 2 (singleton (GEPlus 2))] ⎣ GVec [GVal 1 (singleton (GEPlus 2)), GVal 1 (singleton (GEPlus 2))]
     -- 2e1|2e1 = 4
     it "the dot product of a vector with itsself is it's magnitude squared" $
       scalarPart (GVec [GVal 2 (singleton (GEPlus 1))] ⋅ GVec [GVal 2 (singleton (GEPlus 1))]) --> 4
@@ -202,12 +207,22 @@ geomAlgSpec = do
     -- (2e1^1e2)|(2e1^1e2) = -4
     it "the dot product of a bivector with itsself is the negative of magnitude squared" $
       scalarPart (GVec [GVal 2 (fromList [GEPlus 1, GEPlus 2])] ⋅ GVec [GVal 2 (fromList [GEPlus 1, GEPlus 2])]) --> (-4)
+    it "the like product of a bivector with itsself is the negative of magnitude squared" $
+      scalarPart (GVec [GVal 2 (fromList [GEPlus 1, GEPlus 2])] ⎣ GVec [GVal 2 (fromList [GEPlus 1, GEPlus 2])]) --> (-4)
     -- 1e1^1e1 = 0
     it "the wedge product of two identical vectors is nothing" $
       vectorPart (GVec [GVal 1 (singleton (GEPlus 1))] ∧ GVec [GVal 1 (singleton (GEPlus 1))]) --> GVec []
+    it "the unlike product of two identical vectors is nothing" $
+      vectorPart (GVec [GVal 1 (singleton (GEPlus 1))] ⎤ GVec [GVal 1 (singleton (GEPlus 1))]) --> GVec []
     it "the wedge product of two vectors is anti-comutative (u∧v == -v∧u)" $
       GVec [GVal 1 (singleton (GEPlus 1))] ∧ GVec [GVal 1 (singleton (GEPlus 2))] -->
       GVec [GVal (-1) (singleton (GEPlus 2))] ∧ GVec [GVal 1 (singleton (GEPlus 1))]
+    it "the unlike product of two vectors is anti-comutative (u∧v == -v∧u)" $
+      GVec [GVal 1 (singleton (GEPlus 1))] ⎤ GVec [GVal 1 (singleton (GEPlus 2))] -->
+      GVec [GVal (-1) (singleton (GEPlus 2))] ⎤ GVec [GVal 1 (singleton (GEPlus 1))]
+    it "the result of the like operator on a pair of vectors across common basis vectors is equal to the result of the dot product." $
+      GVec [GVal (-0.5) (singleton (GEZero 1)), GVal 1 (singleton (GEPlus 1)), GVal 1 (singleton (GEPlus 2))] ⎣ GVec [GVal 2 (singleton (GEPlus 2)), GVal 2 (singleton (GEPlus 2))] -->
+      GVec [GVal (-0.5) (singleton (GEZero 1)), GVal 1 (singleton (GEPlus 1)), GVal 1 (singleton (GEPlus 2))] ⋅ GVec [GVal 2 (singleton (GEPlus 2)), GVal 2 (singleton (GEPlus 2))]
   describe "Operators (Math/GeometricAlgebra)" $ do
     it "the multiply operations that should result in nothing all result in nothing" $
       foldl' addVecPair (GVec []) [
