@@ -47,7 +47,7 @@ spec = describe "golden tests" $ do
   golden "C2-Straight_Skeleton" $ fromMaybe (error "no skeleton?") (findStraightSkeleton c2 [])
   golden "C3-Straight_Skeleton" $ fromMaybe (error "no skeleton?") (findStraightSkeleton c3 [])
   golden "C4-Straight_Skeleton" $ fromMaybe (error "no skeleton?") (findStraightSkeleton c4 [])
---  golden "C5-Straight_Skeleton" $ fromMaybe (error "no skeleton?") (findStraightSkeleton c5 [])
+  golden "C5-Straight_Skeleton" $ fromMaybe (error "no skeleton?") (findStraightSkeleton c5 [])
   golden "C6-Straight_Skeleton" $ fromMaybe (error "no skeleton?") (findStraightSkeleton c6 [])
   --golden "C0-Faces-Default" $ facesOf (fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])
   --golden "C0-Faces-Ordered" $ orderedFacesOf c0l0 (fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])
@@ -60,4 +60,4 @@ spec = describe "golden tests" $ do
       c4 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
       c5 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (2,0), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
       c6 = makePointContour [Point2 (-1,-1), Point2 (-0.5,-1), Point2 (0,0), Point2 (0.5,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
-      c7 = makePointContour [Point2 (0,-1), Point2 (1,-1), Point2 (1,1), Point2 (0.5,1), Point2 (0.5,0), Point2 (0,1), Point2 (-1,1), Point2 (-1,0), Point2 (0,0)]
+--      c7 = makePointContour [Point2 (0,-1), Point2 (1,-1), Point2 (1,1), Point2 (0.5,1), Point2 (0.5,0), Point2 (0,1), Point2 (-1,1), Point2 (-1,0), Point2 (0,0)]
