@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine, flipPLine2)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, getPairs, isCollinear, indexPLinesTo, isParallel, linePairs, makeINode, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, getPairs, isCollinear, indexPLinesTo, insOf, isParallel, lastINodeOf, linePairs, makeINode, sortedPLines)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree, findENodeByOutput)
 
@@ -124,6 +124,8 @@ skeletonOfConcaveRegion inSegSets
                                        (shortSide,longSide) = case SL.head inSegSets of
                                                                 [] -> (SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
                                                                 _ -> (SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
+                                   (_:_) -> error "too many items in initialGeneration."
+          | otherwise = error "wrong count of inSegSets."
         -- | Get a complete set of INodes given a set of ENodes.
         getOneSideINodes :: INodeSet
         getOneSideINodes = sortINodesByENodes (isLoop inSegSets) initialGeneration $ errorIfLeft $ skeletonOfNodes (isLoop inSegSets) initialGeneration []
@@ -327,7 +329,8 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
                  else if canFlipINodes oneINode rawLastINode
                       then flipINodePair oneINode rawLastINode
                       else one [orderInsByENodes oneINode] <> one [orderInsByENodes rawLastINode]
-               v -> one (indexTo $ sortGeneration v) <> one [iNodeWithFlips rawLastINode]
+               v ->
+                 one (indexTo $ sortGeneration v) <> one [iNodeWithFlips rawLastINode]
            (Just flippedINode) ->
              case genWithoutFlips rawFirstGeneration of
                [] -> -- after transform #1, there is no first generation left. just return the second, after the transform.
@@ -348,13 +351,13 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
              one (indexTo $ sortGeneration rawFirstGeneration) <> resSlist (slist $ [secondGen] <> [[rawLastINode]])
            (Just flippedINode) ->
              case genWithoutFlips rawFirstGeneration of
-               [] -> -- after transform #1, there is no first generation left. find something to do with the flipped inode.
+               [] -> -- without the flipped INode, there is no first generation left. Let's find something to do with the flipped inode.
                  case secondGen of
                    [] -> error "impossible!"
-                   [secondINode] -> -- ok, the second generation is a single iNode. see if we can flip.
+                   [secondINode] -> -- ok, the second generation is a single iNode. see if we can flip with it.
                      if canFlipINodes flippedINode secondINode
                      then resSlist $ flipINodePair flippedINode secondINode <> (slist [[rawLastINode]])
-                     else -- ok, we can't flip. maybe we can merge with the last INode?
+                     else -- ok, we can't flip. maybe we can merge the flipped INode with the last INode?
                        if inCountOf rawLastINode == 2 && canMergeWith flippedINode rawLastINode
                        then resSlist $ (slist [secondGen]) <> mergeWith flippedINode rawLastINode
                        else -- .. alright, maybe try to merge the second and last INode?
@@ -372,8 +375,6 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
       where
         -- the first generation, as given to us.
         rawFirstGeneration = SL.head generations
-        -- the last generation, as given to us.
-        rawLastGeneration = SL.last generations
 
         -- construct an INode including the inputs of the crossover node from the first generation merged, if it exists.
         iNodeWithFlips :: INode -> INode
@@ -383,18 +384,13 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
             lastGen firstGen oneINode = orderInsByENodes $ case flippedINodeOf firstGen of
                                                              Nothing -> oneINode
                                                              (Just flippedINode) -> addINodeToParent flippedINode oneINode
-
         -- The last INode, as given to us.
         rawLastINode :: INode
         rawLastINode
           | hasArc result && loop = errorIllegalLast
           | otherwise = result
           where
-            result = first rawLastGeneration
-              where
-                first :: [a] -> a
-                first [] = error "no first of the last generation?"
-                first (a:_) = a
+            result = lastINodeOf inGens
 
         secondGen = SL.head $ SL.tail generations
 
@@ -445,16 +441,16 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
 
     -- if the object is closed, and the last generation consists of an INode that points to just one ENode and one INode, merge the last generation into the prior generation.
     -- assuming that really, this should have been just another in to the previous generation.
+    canPruneTail :: INode -> Bool
     canPruneTail lastGen = loop && hasENode lastGen && hasINode lastGen && inCountOf lastGen == 2
+
+    -- actually do a tail pruning. add the two INodes together.
     pruneTail :: INode -> INode -> Slist [INode]
     pruneTail iNode1 iNode2 = one [addINodeToParent iNode1 iNode2]
 
     -- check to see if an INode can be merged with another INode.
     canMergeWith :: INode -> INode -> Bool
-    canMergeWith source@(INode _ _ _ maybeSourceOut) destination
-      | isNothing maybeSourceOut = False
-      | hasIn destination (outOf source) = True
-      | otherwise = False
+    canMergeWith inode1@(INode _ _ _ maybeOut) inode2 = isJust maybeOut && hasIn inode2 (outOf inode1)
       where
         hasIn :: INode -> PLine2 -> Bool
         hasIn iNode pLine2 = case filter (==pLine2) $ insOf iNode of
@@ -465,20 +461,25 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
     mergeWith :: INode -> INode -> Slist [INode]
     mergeWith iNode1 iNode2 = one [addINodeToParent iNode1 iNode2]
 
-    -- in situations where the first generation contains pointers to the first and last ENodes and the object is closed, make the first generation the second, and the second into the first.
+    -- in situations where the first generation contains pointers to the first and last ENodes and the object is closed, we may be able to move the node up the tree of INodes.
+    -- The idea is that these should get to the last generation.
     canFlipINodes :: INode -> INode -> Bool
     canFlipINodes firstGen secondGen = loop && inCountOf secondGen > 2 && isJust (flippedINodeOf [firstGen])
-    -- determine if the given INode has a direct in from an ENode.
+
+    -- Transform the two INodes, and return them in the same generation.
     flipINodePair :: INode -> INode -> Slist [INode]
     flipINodePair iNode1 iNode2@(INode _ _ _ maybeOut2) = one [orderInsByENodes newINode1] <> one [orderInsByENodes newINode2]
       where
+        -- like iNode2, only with our flipped connecting line.
         newINode1 = makeINode (withoutConnectingPLine $ insOf iNode2) (Just newConnectingPLine)
+        -- like iNode1, but with our flipped connecting line in, and iNode2's original out.
         newINode2 = makeINode ([newConnectingPLine] <> insOf iNode1) maybeOut2
         newConnectingPLine = flipPLine2 oldConnectingPLine
-        oldConnectingPLine = case filter (isNothing . findENodeByOutput (eNodeSetOf $ slist initialGeneration)) $ insOf iNode2 of
+        oldConnectingPLine = case iNodeInsOf iNode2 of
                                [] -> error "could not find old connecting PLine."
                                [v] -> v
                                (_:_) -> error "filter passed too many connecting PLines."
+        iNodeInsOf myINode = filter (isNothing . findENodeByOutput (eNodeSetOf $ slist initialGeneration)) $ insOf myINode
         withoutConnectingPLine = filter (/= oldConnectingPLine)
 
     -- Determine if the given INode has a PLine that points to an ENode.
@@ -543,11 +544,11 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
             first :: [a] -> a
             first [] = error "no first enode?"
             first (a:_) = a
+
     -- | add together a child and it's parent.
     addINodeToParent :: INode -> INode -> INode
     addINodeToParent (INode _ _ _ Nothing) _ = error "cannot merge a child inode with no output!"
-    addINodeToParent iNode1@(INode _ _ _ (Just out1)) iNode2@(INode _ _ _ out2) =
-      orderInsByENodes $ makeINode (insOf iNode1 <> withoutPLine out1 (insOf iNode2)) out2
+    addINodeToParent iNode1@(INode _ _ _ (Just out1)) iNode2@(INode _ _ _ out2) = orderInsByENodes $ makeINode (insOf iNode1 <> withoutPLine out1 (insOf iNode2)) out2
       where
         withoutPLine :: PLine2 -> [PLine2] -> [PLine2]
         withoutPLine myPLine = filter (/= myPLine)
@@ -555,10 +556,6 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
     -- Order the input nodes of an INode.
     orderInsByENodes :: INode -> INode
     orderInsByENodes inode@(INode _ _ _ out) = makeINode (indexPLinesTo firstPLine $ sortedPLines $ indexPLinesTo firstPLine $ insOf inode) out
-
--- Produce a list of the inputs to a given INode.
-insOf :: INode -> [PLine2]
-insOf (INode firstIn secondIn (Slist moreIns _) _) = firstIn:secondIn:moreIns
 
 -- | Apply a recursive algorithm to solve the node set.
 --   FIXME: does not handle more than two point intersections of arcs properly.

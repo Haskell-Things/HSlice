@@ -29,11 +29,13 @@
 
 -- | Common types and functions used in the code responsible for generating straight skeletons.
 
-module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, eNodeToINode, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isAntiCollinear, isParallel, intersectionOf, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo) where
+module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, eNodeToINode, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isAntiCollinear, isParallel, intersectionOf, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf) where
 
 import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<))
 
 import Data.List (filter, sortBy)
+
+import Data.List as DL (last)
 
 import Data.List.NonEmpty (NonEmpty)
 
@@ -42,6 +44,8 @@ import Data.List.Unique (count_)
 import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust)
 
 import Slist (len, cons, slist, isEmpty, safeLast, init)
+
+import Slist as SL (last)
 
 import Slist.Type (Slist(Slist))
 
@@ -127,6 +131,13 @@ instance Pointable INode where
           saneIntersect (IntersectsIn a) = Just a
           saneIntersect _                = Nothing
   ePointOf a = pToEPoint2 $ pPointOf a
+
+-- Produce a list of the inputs to a given INode.
+insOf :: INode -> [PLine2]
+insOf (INode firstIn secondIn (Slist moreIns _) _) = firstIn:secondIn:moreIns
+
+lastINodeOf :: INodeSet -> INode
+lastINodeOf (INodeSet gens) = DL.last $ SL.last gens
 
 -- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior or the exterior of a contour.
 --   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.
