@@ -162,7 +162,9 @@ Test-suite test-hslice
     Other-Modules:
                    Math.Util
                    Math.PGA
+                   GoldenSpec.Spec
+                   GoldenSpec.Util
 
 Source-repository head
     Type:            git
-    Location:        https://github.com/julialongtin/hslice.git
+    Location:        https://github.com/Haskell-Things/hslice.git
