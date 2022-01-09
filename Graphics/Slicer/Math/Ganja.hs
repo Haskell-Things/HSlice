@@ -50,7 +50,7 @@ module Graphics.Slicer.Math.Ganja (GanjaAble, toGanja, dumpGanja, dumpGanjas, ce
 
 import Prelude (String, (<>), (<>), (<$>), ($), (>=), (==), concat, error, fst, otherwise, show, snd, zip, (.))
 
-import Data.Maybe (Maybe(Nothing, Just), maybeToList)
+import Data.Maybe (Maybe(Nothing, Just), maybeToList, catMaybes)
 
 import Numeric(showFFloat)
 
@@ -68,7 +68,7 @@ import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2))
 
-import Graphics.Slicer.Math.Skeleton.Definitions(ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles))
+import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles))
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
@@ -169,6 +169,19 @@ instance GanjaAble Motorcycle where
       (l2var, l2ref) = toGanja l2 (varname <> "b")
       (plvar, plref) = toGanja outPLine (varname <> "c")
 
+instance GanjaAble Cell where
+  toGanja (Cell segsDivides) varname = (invars, inrefs)
+    where
+      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+        where
+          res          = (\(a,b) -> a (varname <> b)) <$> pairs
+          pairs        = zip allSides allStrings
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allSegs      = concat $ listFromSlist . fst <$> segsDivides
+          allDivides   = catMaybes $ listFromSlist $ snd <$> segsDivides
+          allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
+          listFromSlist (Slist a _) = a
+
 instance GanjaAble CellDivide where
   toGanja (CellDivide (DividingMotorcycles firstMotorcycle (Slist moreMotorcycles _)) _) varname = (invars, inrefs)
     where
@@ -188,7 +201,7 @@ instance GanjaAble RemainingContour where
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
           allSegs      = concat $ listFromSlist . fst <$> segsDivides
           allDivides   = concat $ snd <$> segsDivides
-          allSides      = (toGanja <$> allSegs) <> (toGanja <$> allDivides) 
+          allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
           listFromSlist (Slist a _) = a
 
 instance GanjaAble INode where
