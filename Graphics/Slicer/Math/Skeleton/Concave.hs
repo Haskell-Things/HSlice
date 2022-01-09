@@ -384,13 +384,14 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
             lastGen firstGen oneINode = orderInsByENodes $ case flippedINodeOf firstGen of
                                                              Nothing -> oneINode
                                                              (Just flippedINode) -> addINodeToParent flippedINode oneINode
-        -- The last INode, as given to us.
+
+        -- The last INode, as given to us in the recursive loop.
         rawLastINode :: INode
         rawLastINode
           | hasArc result && loop = errorIllegalLast
           | otherwise = result
           where
-            result = lastINodeOf inGens
+            result = lastINodeOf (INodeSet generations)
 
         secondGen = SL.head $ SL.tail generations
 

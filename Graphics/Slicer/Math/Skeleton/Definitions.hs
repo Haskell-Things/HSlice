@@ -137,7 +137,11 @@ insOf :: INode -> [PLine2]
 insOf (INode firstIn secondIn (Slist moreIns _) _) = firstIn:secondIn:moreIns
 
 lastINodeOf :: INodeSet -> INode
-lastINodeOf (INodeSet gens) = DL.last $ SL.last gens
+lastINodeOf (INodeSet gens)
+  | res == [] = error "no first of the last generation?"
+  | otherwise = DL.last res
+  where
+    res = SL.last gens
 
 -- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior or the exterior of a contour.
 --   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.
