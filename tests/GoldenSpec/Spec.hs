@@ -28,17 +28,19 @@ import GoldenSpec.Util (golden)
 
 import Test.Hspec (describe, Spec)
 
-import Graphics.Slicer.Math.Ganja(toGanja)
-
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour)
+import Graphics.Slicer.Math.Contour (makePointContour)
 
 -- A euclidian point.
-import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), roundPoint2, startPoint, distance)
+import Graphics.Slicer.Math.Definitions(Point2(Point2))
 
-import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.Ganja(cellFrom)
+
+import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions)
+
+import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
 
 spec :: Spec
 spec = describe "golden tests" $ do
@@ -49,15 +51,16 @@ spec = describe "golden tests" $ do
   golden "C4-Straight_Skeleton" $ fromMaybe (error "no skeleton?") (findStraightSkeleton c4 [])
   golden "C5-Straight_Skeleton" $ fromMaybe (error "no skeleton?") (findStraightSkeleton c5 [])
   golden "C6-Straight_Skeleton" $ fromMaybe (error "no skeleton?") (findStraightSkeleton c6 [])
+  golden "C7-Cell1" $ cellFrom (findFirstCellOfContour c7 $ findDivisions c7 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c7 [])
   --golden "C0-Faces-Default" $ facesOf (fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])
   --golden "C0-Faces-Ordered" $ orderedFacesOf c0l0 (fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])
     where
       c0 = makePointContour [Point2 (0,0), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
-      c0l0 = LineSeg (Point2 (0,0)) (Point2 (-1,-1))
+--      c0l0 = LineSeg (Point2 (0,0)) (Point2 (-1,-1))
       c1 = makePointContour [Point2 (-1,-1), Point2 (0,0), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       c2 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (0,0), Point2 (1,1), Point2 (-1,1)]
       c3 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (0,0), Point2 (-1,1)]
       c4 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
       c5 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (2,0), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
       c6 = makePointContour [Point2 (-1,-1), Point2 (-0.5,-1), Point2 (0,0), Point2 (0.5,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
---      c7 = makePointContour [Point2 (0,-1), Point2 (1,-1), Point2 (1,1), Point2 (0.5,1), Point2 (0.5,0), Point2 (0,1), Point2 (-1,1), Point2 (-1,0), Point2 (0,0)]
+      c7 = makePointContour [Point2 (0,-1), Point2 (1,-1), Point2 (1,1), Point2 (0.5,1), Point2 (0.5,0), Point2 (0,1), Point2 (-1,1), Point2 (-1,0), Point2 (0,0)]
