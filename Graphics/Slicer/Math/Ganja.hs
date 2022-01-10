@@ -46,6 +46,9 @@
 
  cut and paste, drop into https://enkimute.github.io/ganja.js/examples/coffeeshop.html, click 'Run'
  -}
+
+{-# LANGUAGE FlexibleInstances #-}
+
 module Graphics.Slicer.Math.Ganja (GanjaAble, toGanja, dumpGanja, dumpGanjas, cellFrom, remainderFrom, onlyOne) where
 
 import Prelude (String, (<>), (<>), (<$>), ($), (>=), (==), concat, error, fst, otherwise, show, snd, zip, (.))
@@ -256,6 +259,18 @@ instance GanjaAble Face where
           pairs        = zip (toGanja edge : allPLines) allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
           allPLines    = toGanja <$> ([firstArc] <> arcs <> [lastArc])
+
+instance GanjaAble (Slist Face) where
+  toGanja (Slist faces _) varname = (invars, inrefs)
+    where
+      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+        where
+          allArcs      = concat $ (\(Face _ firstArc (Slist arcs _) lastArc) -> [firstArc] <> arcs <> [lastArc]) <$> faces
+          allEdges     = (\(Face edge _ _ _) -> toGanja edge) <$> faces
+          res          = (\(a,b) -> a (varname <> b)) <$> pairs
+          pairs        = zip (allEdges <> allPLines) allStrings
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allPLines    = toGanja <$> allArcs
 
 -- | Create a single program, covering a series of objects.
 dumpGanjas :: [String -> (String, String)] -> String
