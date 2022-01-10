@@ -1,4 +1,36 @@
 {- ORMOLU_DISABLE -}
+
+{- HSlice.
+ - Copyright 2020 Julia Longtin
+ -
+ - This program is free software: you can redistribute it and/or modify
+ - it under the terms of the GNU Affero General Public License as published by
+ - the Free Software Foundation, either version 3 of the License, or
+ - (at your option) any later version.
+ -
+ - This program is distributed in the hope that it will be useful,
+ - but WITHOUT ANY WARRANTY; without even the implied warranty of
+ - MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ - GNU Affero General Public License for more details.
+
+ - You should have received a copy of the GNU Affero General Public License
+ - along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ -}
+
+-- Shamelessly stolen from ImplicitCAD.
+------------------------------------------------------------------------------
+-- | Construct a golden test for rendering the given object to javascript
+-- suitable for dropping into https://enkimute.github.io/ganja.js/
+--
+-- On the first run of this test, it will render the object and cache the
+-- results. Subsequent test runs will compare their result to the cached one.
+-- This is valuable for ensuring representations of structures don't break 
+-- across commits.
+--
+-- The objects are cached under @tests/golden/@, with the given name. Deleting
+-- this file is sufficient to update the test if changs in the structures are
+-- intended.
+
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase   #-}
 
@@ -14,20 +46,8 @@ import System.IO (hClose, openTempFile)
 
 import Test.Hspec (it, shouldBe, SpecWith)
 
-import Graphics.Slicer.Math.Ganja(GanjaAble, toGanja, dumpGanja, dumpGanjas)
+import Graphics.Slicer.Math.Ganja(GanjaAble, dumpGanja, dumpGanjas)
 
-------------------------------------------------------------------------------
--- | Construct a golden test for rendering the given object to javascript
--- suitable for dropping into https://enkimute.github.io/ganja.js/
---
--- On the first run of this test, it will render the object and cache the
--- results. Subsequent test runs will compare their result to the cached one.
--- This is valuable for ensuring representations of structures don't break 
--- across commits.
---
--- The objects are cached under @tests/golden/@, with the given name. Deleting
--- this file is sufficient to update the test if changs in the structures are
--- intended.
 golden :: (GanjaAble a) => String -> a -> SpecWith ()
 golden name object = it (name <> " (golden)") $ do
   (res, cached) <- liftIO $ do
