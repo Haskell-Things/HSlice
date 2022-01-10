@@ -24,7 +24,7 @@
 -- inherit instances when deriving.
 {-# LANGUAGE DerivingStrategies #-}
 
-module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles, lastCrashType, motorcyclesAreAntiCollinear, motorcyclesInDivision, motorcycleMightIntersectWith) where
+module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles, lastCrashType, motorcyclesAreAntiCollinear, motorcyclesInDivision, motorcycleMightIntersectWith, motorcycleDivisor) where
 
 import Prelude (Bool(True, False), Either(Left,Right), Eq, Show, Ordering (EQ, GT, LT), any, error, notElem, otherwise, show, (&&), (<>), ($), (<$>), (==), (/=), (.), zip, compare, not, null, (<), (>), (||))
 
@@ -40,15 +40,17 @@ import Slist as SL (filter)
 
 import Slist.Type (Slist(Slist))
 
+import Graphics.Slicer.Definitions (ℝ)
+
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, mapWithNeighbors)
 
 import Graphics.Slicer.Math.Line (lineSegFromEndpoints, handleLineSegError)
 
-import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, lineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel,PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith, plinesIntersectIn, pToEPoint2, distanceBetweenPPoints, angleBetween, eToPPoint2, normalizePLine2)
+import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, lineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel,PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith, plinesIntersectIn, pToEPoint2, distanceBetweenPPoints, angleBetween, eToPPoint2, lineIntersectsPLine, normalizePLine2, pPointBetweenPPoints, translatePerp)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), Pointable, ENode(ENode), linePairs, pPointOf, intersectionOf, isAntiCollinear, noIntersection, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), ePointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), Pointable, ENode(ENode), linePairs, pPointOf, intersectionOf, isAntiCollinear, noIntersection, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), ePointOf)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -58,6 +60,7 @@ data Collision = Collision { _inMotorcycles :: !(Motorcycle, Motorcycle, Slist M
 
 -- | the type of collision.
 -- only normal collisions (motorcycle intersects the other motorcycle's path) are survivable, and then only by the motorcycle who's path was collided with.
+-- If two motorcycles collide at the same time.. the solution cannot be found?
 data CollisionType =
   Normal -- a motorcycle runs into the path of another motorcycle.
   | HeadOn -- two motorcycles are anti-parallel, and don't intersect the contour at any point other than each other's origin.
@@ -71,6 +74,29 @@ data CrashTree = CrashTree { _motorcycles :: !(Slist Motorcycle), _survivors :: 
 -- | convert a Motorcycle to an ENode
 motorcycleToENode :: Motorcycle -> ENode
 motorcycleToENode (Motorcycle segs mcpath) = ENode segs mcpath
+
+-- | Find the point where the propogation from a motorcycle equals the propogation of what it impacts, taking into account the weight of a motorcycle, and the weight of what it impacts.
+motorcycleDivisor :: Motorcycle -> MotorcycleIntersection -> PPoint2
+motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle) pointOfTarget (mSpeedOf motorcycle) (tSpeedOf target)
+  where
+    pointOfTarget :: PPoint2
+    pointOfTarget = case target of
+                      (WithLineSeg lineSeg) -> case lineIntersectsPLine lineSeg (outOf motorcycle) of
+                                        (Right (IntersectsIn p)) -> p
+                                        v -> error $ "impossible!\n" <> show v <> "\n" <> show lineSeg <> "\n" <> show motorcycle <> "\n" <> show target <> "\n"
+                      (WithENode eNode) -> pPointOf eNode
+                      (WithMotorcycle motorcycle2) -> pPointOf motorcycle2
+    tSpeedOf :: MotorcycleIntersection -> ℝ
+    tSpeedOf myTarget = case myTarget of
+                  (WithLineSeg lineSeg) -> distanceBetweenPPoints (justIntersectsIn $ plinesIntersectIn (translatePerp (eToPLine2 lineSeg) 1) (outOf motorcycle)) (justIntersectsIn $ plinesIntersectIn (eToPLine2 lineSeg) (outOf motorcycle))
+                  (WithENode eNode@(ENode (seg1,_) _)) -> distanceBetweenPPoints (pPointOf eNode) (justIntersectsIn $ plinesIntersectIn (translatePerp (eToPLine2 seg1) 1) (outOf eNode))
+                  (WithMotorcycle motorcycle2) -> mSpeedOf motorcycle2
+    mSpeedOf :: Motorcycle -> ℝ
+    mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _) = distanceBetweenPPoints (pPointOf myMotorcycle) (justIntersectsIn $ plinesIntersectIn (translatePerp (eToPLine2 seg1) 1) (outOf myMotorcycle))
+    justIntersectsIn :: PIntersection -> PPoint2
+    justIntersectsIn res = case res of
+                             (IntersectsIn p) -> p
+                             v -> error $ "intersection failure." <> show v <> show target <> "\n" <> show motorcycle <> "\n"
 
 -- | Create a crash tree for all of the motorcycles in the given contour, with the given holes.
 -- FIXME: may fail, returning Nothing.
@@ -282,7 +308,7 @@ motorcycleMightIntersectWith lineSegs motorcycle
         saneIntersections  Nothing                                (Just (seg , Left (HitEndPoint  _ pt)))   Nothing                                  = Just (seg, Left pt)
         saneIntersections l1 l2 l3 = error $ "insane result of saneIntersections:\n" <> show l1 <> "\n" <> show l2 <> "\n" <> show l3 <> "\n"
 
--- | Find where a motorcycle intersects a contour.
+-- | Find the closest place where a motorcycle intersects a contour that is not the point where it ejects from.
 --   If the motorcycle lands between two segments, return the second line segment, otherwise return the PPoint2 of the intersection with the first LineSeg.
 motorcycleIntersectsAt :: Contour -> Motorcycle -> (LineSeg, Either LineSeg PPoint2)
 motorcycleIntersectsAt contour motorcycle = case intersections of

@@ -29,7 +29,7 @@
 
 -- | Common types and functions used in the code responsible for generating straight skeletons.
 
-module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, eNodeToINode, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), concavePLines, noIntersection, isCollinear, isAntiCollinear, isParallel, intersectionOf, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf) where
+module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, eNodeToINode, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, noIntersection, isCollinear, isAntiCollinear, isParallel, intersectionOf, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf) where
 
 import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<))
 
@@ -172,8 +172,15 @@ newtype Cell = Cell { _sides :: Slist (Slist LineSeg, Maybe CellDivide)}
   deriving stock Show
 
 -- | the border dividing two cells of a contour.
--- note that if there is an ENode that is part of the division, it's anticolinnear to the last motorcycle in _divMotorcycles.
-data CellDivide = CellDivide { _divMotorcycles :: !DividingMotorcycles, _divENode :: !(Maybe ENode) }
+data CellDivide = CellDivide { _divMotorcycles :: !DividingMotorcycles, _intersects :: !(MotorcycleIntersection) }
+  deriving Eq
+  deriving stock Show
+
+-- note that if there is an ENode that is part of the division, it's anticolinear to the last motorcycle in _divMotorcycles.
+data MotorcycleIntersection =
+    WithLineSeg LineSeg
+  | WithENode ENode
+  | WithMotorcycle Motorcycle
   deriving Eq
   deriving stock Show
 

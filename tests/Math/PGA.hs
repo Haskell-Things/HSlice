@@ -71,7 +71,7 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 -- Our Facet library.
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell, getNodeTreeOfCell, nodeTreesFromDivision)
 import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENodes, averageNodes, eNodesOfOutsideContour, getOutsideArc)
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell), outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell), MotorcycleIntersection(WithLineSeg, WithENode), outOf)
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
@@ -1034,7 +1034,7 @@ facetSpec = do
                        Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)))
                                                                          (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 2])])))
                                                                          (slist []))
-                                                             Nothing)
+                                                             (WithLineSeg $ LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0))))
                      )])
     it "finds the first cell of our second simple shape." $
       cellFrom (findFirstCellOfContour c1 $ findDivisions c1 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c1 []) -->
@@ -1044,9 +1044,10 @@ facetSpec = do
                             , LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0))
                             ],
                        Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0)))
-                                                               (PLine2 (GVec [GVal 1.414213562373095 (fromList [GEPlus 1])])))
-                                          (slist []))
-                              Nothing)
+                                                                         (PLine2 (GVec [GVal 1.414213562373095 (fromList [GEPlus 1])])))
+                                                                         (slist []))
+                                                             (WithLineSeg $ LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,-0.0)))
+                             )
                      )])
     it "finds the first cell of our third simple shape." $
       cellFrom (findFirstCellOfContour c2 $ findDivisions c2 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c2 []) -->
@@ -1056,9 +1057,10 @@ facetSpec = do
                             , LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0))
                             ],
                        Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (1.0,-1.0)) (Point2 (-1.0,1.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0)))
-                                                               (PLine2 (GVec [GVal 1.414213562373095 (fromList [GEPlus 2])])))
-                                          (slist []))
-                              Nothing)
+                                                                         (PLine2 (GVec [GVal 1.414213562373095 (fromList [GEPlus 2])])))
+                                                                         (slist []))
+                                                             (WithLineSeg $ LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
+                            )
                      )])
     it "finds the first cell of our fourth simple shape." $
       cellFrom (findFirstCellOfContour c3 $ findDivisions c3 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c3 []) -->
@@ -1068,9 +1070,10 @@ facetSpec = do
                             , LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0))
                             ],
                        Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,-1.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0)))
-                                                               (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 1])])))
-                                          (slist []))
-                              Nothing)
+                                                                         (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 1])])))
+                                                                         (slist []))
+                                                             (WithLineSeg $ LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0)))
+                              )
                      )])
     it "finds the first cell of our fifth simple shape." $
       cellFrom (findFirstCellOfContour c4 $ findDivisions c4 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c4 []) -->
@@ -1080,9 +1083,10 @@ facetSpec = do
                             , LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0))
                             ],
                        Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0)))
-                                                               (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 2])])))
-                                          (slist []))
-                              Nothing)
+                                                                         (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 2])])))
+                                                                         (slist []))
+                                                             (WithLineSeg $ LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
+                              )
                      )])
     it "finds the remains from the first cell of our first simple shape." $
       remainderFrom (findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []) -->
@@ -1395,7 +1399,7 @@ facetSpec = do
                                                                   (DividingMotorcycles
                                                                      (Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 2])])))
                                                                      (slist []))
-                                                                  (Just $ ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,1.0))) (PLine2 (GVec [GVal 1.0 (fromList [GEPlus 2])])))
+                                                                  (WithENode $ ENode (LineSeg (Point2 (1.0,-1.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,1.0))) (PLine2 (GVec [GVal 1.0 (fromList [GEPlus 2])])))
                                                                ]
     it "finds the motorcycles of our eigth simple shape." $
       convexMotorcycles c7 --> [Motorcycle (LineSeg (Point2 (0.5,1.0)) (Point2 (0.0,-1.0)), LineSeg (Point2 (0.5,0.0)) (Point2 (-0.5,1.0)))
