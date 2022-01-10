@@ -24,7 +24,7 @@
 -- | functions for handling contours.
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, contourIntersectionCount) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), not)
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), not, (*))
 
 import Data.List(partition, reverse, sortBy)
 
@@ -46,7 +46,7 @@ import Slist.Size (Size(Infinity))
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, mapWithNeighbors, minMaxPoints, xOf, yOf, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, mapWithNeighbors, minMaxPoints, xOf, yOf, startPoint, fudgeFactor)
 
 import Graphics.Slicer.Math.Line (lineSegFromEndpoints, endPoint, midPoint, handleLineSegError)
 
@@ -192,7 +192,7 @@ makeContourTreeSet contours =
     contoursWithoutParents cs = catMaybes $ [ if null $ mapMaybe (\cx -> if contourContainedByContour contourToCheck cx then Just cx else Nothing) (filter (/=contourToCheck) cs) then Just contourToCheck else Nothing | contourToCheck <- cs ]
 
 -- | Determine whether a contour is contained inside of another contour.
--- FIXME: magic numbers.
+-- FIXME: uses fudgeFactor.
 contourContainsContour :: Contour -> Contour -> Bool
 contourContainsContour parent child = odd noIntersections
   where
@@ -209,7 +209,7 @@ contourContainsContour parent child = odd noIntersections
     saneIntersection (Right PParallel)             = Nothing
     -- FIXME: fix the remaining cases. steal the code / algorithms from closedRegion
     saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
-    innerPointOf contour = innerContourPoint 0.00001 contour $ firstLineSegOfContour contour
+    innerPointOf contour = innerContourPoint fudgeFactor contour $ firstLineSegOfContour contour
 
 -- | determine whether a contour is contained by another contour.
 contourContainedByContour :: Contour -> Contour -> Bool
@@ -230,9 +230,10 @@ insideIsLeft :: Contour -> LineSeg -> Bool
 insideIsLeft contour lineSegment = lineIsLeft lineSecondHalf lineToInside == Just True
   where
     lineSecondHalf = fromRight (error $ "cannot construct SecondHalf" <> show lineSegment <> "\n" <> show contour <> "/n") $ lineSegFromEndpoints (midPoint lineSegment) (endPoint lineSegment)
-    lineToInside = fromRight (error "cannot construct lineToInside") $ lineSegFromEndpoints (midPoint lineSegment) $ innerContourPoint 0.00001 contour lineSegment
+    lineToInside = fromRight (error "cannot construct lineToInside") $ lineSegFromEndpoints (midPoint lineSegment) $ innerContourPoint (fudgeFactor*10000) contour lineSegment
 
 -- | Find a point on the interior of the given contour, on the perpendicular bisector of the given line segment, a given distance away from the line segment.
+-- FIXME: the magic 100000 value here can't be smaller, or inner walls are placed in the wrong place?
 innerContourPoint :: ℝ -> Contour -> LineSeg -> Point2
 innerContourPoint distance contour l
     | odd numIntersections = perpPoint
@@ -242,10 +243,10 @@ innerContourPoint distance contour l
     perpPoint      = pointOnPerp l (midPoint l) distance
     otherPerpPoint = pointOnPerp l (midPoint l) (-distance)
     outsidePoint   = Point2 (xOf minPoint - 1 , yOf minPoint - 1)
-    numIntersections = contourIntersectionCount contour (Left (pointOnPerp l (midPoint l) 0.00001, outsidePoint))
+    numIntersections = contourIntersectionCount contour (Left (pointOnPerp l (midPoint l) (fudgeFactor*100000), outsidePoint))
 
 -- | return the number of intersections with a given contour when traveling in a straight line from srcPoint to dstPoint.
--- Not for use against line segments that overlap and are collinear with one of the line segments are a part of the contour.
+-- Not for use against line segments that overlap and are collinear with one of the line segments that are a part of the contour.
 contourIntersectionCount :: Contour -> Either (Point2, Point2) (PPoint2, PPoint2) -> Int
 contourIntersectionCount contour endPoints = len $ getIntersections contour endPoints
   where

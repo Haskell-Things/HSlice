@@ -46,11 +46,14 @@
 
  cut and paste, drop into https://enkimute.github.io/ganja.js/examples/coffeeshop.html, click 'Run'
  -}
-module Graphics.Slicer.Math.Ganja (toGanja, dumpGanja, dumpGanjas) where
 
-import Prelude (String, (<>), (<>), (<$>), ($), (>=), (==), concat, error, fst, otherwise, show, snd, zip)
+{-# LANGUAGE FlexibleInstances #-}
 
-import Data.Maybe (Maybe(Nothing), maybeToList)
+module Graphics.Slicer.Math.Ganja (GanjaAble, toGanja, dumpGanja, dumpGanjas, cellFrom, remainderFrom, onlyOne) where
+
+import Prelude (String, (<>), (<>), (<$>), ($), (>=), (==), concat, error, fst, otherwise, show, snd, zip, (.))
+
+import Data.Maybe (Maybe(Nothing, Just), maybeToList, catMaybes)
 
 import Numeric(showFFloat)
 
@@ -68,7 +71,7 @@ import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2))
 
-import Graphics.Slicer.Math.Skeleton.Definitions(ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton))
+import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles))
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
@@ -128,6 +131,17 @@ instance GanjaAble PLine2 where
       -- because ganja's website does not handle scientific notation.
       showFullPrecision v = showFFloat Nothing v ""
 
+instance GanjaAble Contour where
+  toGanja contour varname = (invars, inrefs)
+    where
+      contourPoints = pointsOfContour contour
+      (invars, inrefs) = (concat $ fst <$> res, concat (snd <$> res) <> "    0x882288,\n" <> linePairs)
+        where
+          linePairs    = concat $ mapWithFollower (\(_,a) (_,b) -> "    [" <> varname <> a <> "," <> varname <> b <> "],\n") pairs
+          res          = (\(a,b) -> toGanja a (varname <> b)) <$> pairs
+          pairs        = zip contourPoints allStrings
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+
 instance GanjaAble ENode where
   toGanja (ENode (l1, l2) outPLine) varname = (
     l1var
@@ -158,6 +172,41 @@ instance GanjaAble Motorcycle where
       (l2var, l2ref) = toGanja l2 (varname <> "b")
       (plvar, plref) = toGanja outPLine (varname <> "c")
 
+instance GanjaAble Cell where
+  toGanja (Cell segsDivides) varname = (invars, inrefs)
+    where
+      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+        where
+          res          = (\(a,b) -> a (varname <> b)) <$> pairs
+          pairs        = zip allSides allStrings
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allSegs      = concat $ listFromSlist . fst <$> segsDivides
+          allDivides   = catMaybes $ listFromSlist $ snd <$> segsDivides
+          allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
+          listFromSlist (Slist a _) = a
+
+instance GanjaAble CellDivide where
+  toGanja (CellDivide (DividingMotorcycles firstMotorcycle (Slist moreMotorcycles _)) _) varname = (invars, inrefs)
+    where
+      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+        where
+          res            = (\(a,b) -> toGanja a (varname <> b)) <$> zip allMotorcycles allStrings
+          allStrings     = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allMotorcycles =   firstMotorcycle:moreMotorcycles
+
+instance GanjaAble RemainingContour where
+  toGanja (RemainingContour (Slist segsDivides _)) varname = (invars, inrefs)
+    where
+      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+        where
+          res          = (\(a,b) -> a (varname <> b)) <$> pairs
+          pairs        = zip allSides allStrings
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allSegs      = concat $ listFromSlist . fst <$> segsDivides
+          allDivides   = concat $ snd <$> segsDivides
+          allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
+          listFromSlist (Slist a _) = a
+
 instance GanjaAble INode where
   toGanja (INode firstPLine secondPLine (Slist rawMorePLines _) outPLine) varname = (invars, inrefs)
     where
@@ -167,26 +216,9 @@ instance GanjaAble INode where
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
           allPLines    =   firstPLine:secondPLine:rawMorePLines <> maybeToList outPLine
 
-instance GanjaAble Contour where
-  toGanja contour varname = (invars, inrefs)
-    where
-      contourPoints = pointsOfContour contour
-      (invars, inrefs) = (concat $ fst <$> res, concat (snd <$> res) <> "    0x882288,\n" <> linePairs)
-        where
-          linePairs    = concat $ mapWithFollower (\(_,a) (_,b) -> "    [" <> varname <> a <> "," <> varname <> b <> "],\n") pairs
-          res          = (\(a,b) -> toGanja a (varname <> b)) <$> pairs
-          pairs        = zip contourPoints allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
-
-instance GanjaAble Face where
-  toGanja (Face edge firstArc (Slist arcs _) lastArc) varname = (invars, inrefs)
-    where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
-        where
-          res          = (\(a,b) -> a (varname <> b)) <$> pairs
-          pairs        = zip (toGanja edge : allPLines) allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
-          allPLines    = toGanja <$> ([firstArc] <> arcs <> [lastArc])
+instance GanjaAble StraightSkeleton where
+  toGanja (StraightSkeleton (Slist [[nodetree]] _) _) = toGanja nodetree
+  toGanja a = error $ "no a, only b: " <> show a <> "\n"
 
 instance GanjaAble NodeTree where
   toGanja (NodeTree (ENodeSet eNodeSides) iNodeSet) varname = (invars, inrefs)
@@ -218,9 +250,27 @@ instance GanjaAble NodeTree where
           iNodesOf :: INodeSet -> [INode]
           iNodesOf (INodeSet (Slist inodes _)) = concat inodes
 
-instance GanjaAble StraightSkeleton where
-  toGanja (StraightSkeleton (Slist [[nodetree]] _) _) = toGanja nodetree
-  toGanja a = error $ "no a, only b: " <> show a <> "\n"
+instance GanjaAble Face where
+  toGanja (Face edge firstArc (Slist arcs _) lastArc) varname = (invars, inrefs)
+    where
+      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+        where
+          res          = (\(a,b) -> a (varname <> b)) <$> pairs
+          pairs        = zip (toGanja edge : allPLines) allStrings
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allPLines    = toGanja <$> ([firstArc] <> arcs <> [lastArc])
+
+instance GanjaAble (Slist Face) where
+  toGanja (Slist faces _) varname = (invars, inrefs)
+    where
+      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+        where
+          allArcs      = concat $ (\(Face _ firstArc (Slist arcs _) lastArc) -> [firstArc] <> arcs <> [lastArc]) <$> faces
+          allEdges     = (\(Face edge _ _ _) -> toGanja edge) <$> faces
+          res          = (\(a,b) -> a (varname <> b)) <$> pairs
+          pairs        = zip (allEdges <> allPLines) allStrings
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allPLines    = toGanja <$> allArcs
 
 -- | Create a single program, covering a series of objects.
 dumpGanjas :: [String -> (String, String)] -> String
@@ -260,3 +310,17 @@ ganjaFooterEnd = "  ],{\n"
                  <> "    scale: 1,\n"
                  <> "}));\n"
                  <> "});\n"
+
+-- moved the below here from the test suite, so that we can drop lines from the test suite into ghci directly.
+
+cellFrom :: Maybe (a,b) -> a
+cellFrom (Just (v,_)) = v
+cellFrom Nothing = error "whoops"
+remainderFrom :: Maybe (a,b) -> b
+remainderFrom (Just (_,v)) = v
+remainderFrom Nothing = error "whoops"
+onlyOne :: [a] -> a
+onlyOne eNodes = case eNodes of
+                   [] -> error "none"
+                   [a] -> a
+                   (_:_) -> error "too many"

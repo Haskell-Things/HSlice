@@ -1,0 +1,1 @@
+This file is a placeholder, to ensure this directory exists. golden tests go in this directory. if you change something that changes the results, and you know your change is right, delete the relevant files here, and the test suite will generate new ones for you.

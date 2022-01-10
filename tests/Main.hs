@@ -25,6 +25,8 @@ import Prelude (($), IO)
 -- our testing engine.
 import Test.Hspec(hspec, describe)
 
+import qualified GoldenSpec.Spec as Golden
+
 -- the execution test for warnings.
 import Math.PGA(contourSpec, lineSpec, linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec)
 
@@ -41,3 +43,5 @@ main = hspec $ do
   describe "2D PGA operations" pgaSpec
   -- run tests of the facet engine.
   describe "Contour facetization algorithms" facetSpec
+  -- run the golden tests to ensure we haven't broken the serialized forms of our unit tests.
+  describe "golden tests" Golden.spec
