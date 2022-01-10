@@ -24,7 +24,7 @@
 --
 -- On the first run of this test, it will render the object and cache the
 -- results. Subsequent test runs will compare their result to the cached one.
--- This is valuable for ensuring representations of structures don't break 
+-- This is valuable for ensuring representations of structures don't break
 -- across commits.
 --
 -- The objects are cached under @tests/golden/@, with the given name. Deleting

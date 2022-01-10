@@ -101,7 +101,6 @@ skeletonOfConcaveRegion inSegSets
                            [LineSeg {}] -> []
                            (_:_) -> makeENodes firstSegs
 
-
     resINodes :: INodeSet
     resINodes
       | len inSegSets == 1 = getOneSideINodes

@@ -89,7 +89,6 @@ pLineIsLeft line1 line2
   | dualAngle line1 line2 == 0 = Nothing
   | otherwise                  = Just $ dualAngle line1 line2 > 0
 
-
 -- | Return the cosine of the angle between the two lines. results in a value that is positive when the first line points to the "left" of the second given line, and negative when "right".
 dualAngle :: PLine2 -> PLine2 -> ℝ
 dualAngle line1@(PLine2 lvec1) line2@(PLine2 lvec2) = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
