@@ -22,7 +22,7 @@ module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
 import Prelude (($), (<>), (<$>), error, null, not, show, otherwise)
 
-import Data.Either (Either(Left, Right), lefts, rights)
+import Data.Either (lefts, rights)
 
 import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
 
@@ -83,9 +83,9 @@ findStraightSkeleton contour holes =
             where
               (Just (firstCell,maybeFirstRemainder)) = findFirstCellOfContour contour divisions
               remainingCells :: (Cell, Maybe [RemainingContour]) -> [Cell]
-              remainingCells (lastCell, lastRemainder) =
-                case lastRemainder of
-                  Nothing -> [lastCell]
-                  (Just [oneRemainder]) -> [lastCell] <> remainingCells (fromMaybe (error "could not find next cell?") $ findNextCell oneRemainder)
+              remainingCells (priorCell, priorRemainder) =
+                case priorRemainder of
+                  Nothing -> [priorCell]
+                  (Just [oneRemainder]) -> [priorCell] <> remainingCells (fromMaybe (error "could not find next cell?") $ findNextCell oneRemainder)
                   _ -> error "incomplete!"
           divisions = findDivisions contour crashTree
