@@ -44,7 +44,34 @@
  });
  @
 
- cut and paste, drop into https://enkimute.github.io/ganja.js/examples/coffeeshop.html, click 'Run'
+ or:
+
+ @
+ juri@ni:/disk4/faikvm.com/HSlice/HSlice-current$ cabal repl
+ Ok, 30 modules loaded.
+ *Graphics.Slicer> import Prelude (($),putStrLn)
+ *Graphics.Slicer Prelude> import Graphics.Slicer.Math.Ganja(dumpGanja)
+ *Graphics.Slicer Prelude Graphics.Slicer.Math.Ganja> putStrLn $ dumpGanjas [toGanja (Point2 (1,1)), toGanja (Point2 (2,2))]
+ Algebra(2,0,1,()=>{
+   var line = (a,b,c)=>a*1e1 + b*1e2 + c*1e0;
+   var point = (x,y)=>!(1e0 + x*1e1 + y*1e2);
+   var a = point(1.0,1.0);
+   var b = point(2.0,2.0);
+   document.body.appendChild(this.graph([
+     a, "a",
+     b, "b",
+   ],{
+     grid: true,
+     labels: true,
+     lineWidth: 3,
+     pointRadius: 1,
+     fontSize: 1,
+     scale: 1,
+ }));
+ });
+ @
+
+ cut, and paste the output into https://enkimute.github.io/ganja.js/examples/coffeeshop.html, click 'Run'
  -}
 
 {-# LANGUAGE FlexibleInstances #-}
