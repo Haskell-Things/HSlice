@@ -22,7 +22,7 @@
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 
 -- | functions for handling contours.
-module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, contourIntersectionCount) where
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, contourIntersectionCount, maybeFlipContour) where
 
 import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), not, (*))
 
@@ -156,11 +156,12 @@ getContours pointPairs = maybeFlipContour <$> foundContours
         -- Sort the list to begin with, so that differently ordered input lists give the same output.
         sortPairs :: [(Point2,Point2)] -> [(Point2,Point2)]
         sortPairs = sortBy (\a b -> if fst a == fst b then compare (snd a) (snd b) else compare (fst a) (fst b))
-    -- make sure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
-    maybeFlipContour :: Contour -> Contour
-    maybeFlipContour contour
-      | insideIsLeft contour (firstLineSegOfContour contour) = contour
-      | otherwise = makePointContour $ reverse $ pointsOfContour contour
+
+-- make sure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
+maybeFlipContour :: Contour -> Contour
+maybeFlipContour contour
+  | insideIsLeft contour (firstLineSegOfContour contour) = contour
+  | otherwise = makePointContour $ reverse $ pointsOfContour contour
 
 -- | A contour tree. A contour, which contains a list of contours that are cut out of the first contour, each of them contaiting a list of contours of positive space.. ad infinatum.
 data ContourTree = ContourTree { _parentContour :: !Contour, _childContours :: !(Slist ContourTreeSet) }
