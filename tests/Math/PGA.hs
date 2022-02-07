@@ -21,13 +21,13 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), (>), show, length, (<>), not)
+import Prelude (($), (*), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), (>), show, length, (<>), not, pi, encodeFloat, fst, floatRange, floatDigits, RealFloat, (-))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
 
 -- QuickCheck, for writing properties.
-import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive))
+import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive), choose, generate, vector, vectorOf)
 
 import Test.QuickCheck.IO ()
 
@@ -35,7 +35,7 @@ import Data.Coerce (coerce)
 
 import Data.Either (Either(Right), fromRight)
 
-import Data.List (foldl')
+import Data.List (foldl', sort)
 
 import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
 
@@ -51,16 +51,16 @@ import Graphics.Slicer (ℝ)
 -- A euclidian point.
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), roundPoint2, startPoint, distance)
 
-import Graphics.Slicer.Math.Line(flipLineSeg, handleLineSegError, lineSegFromEndpoints, endPoint, midPoint)
+import Graphics.Slicer.Math.Line(flipLineSeg, handleLineSegError, lineSegFromEndpoints, endPoint)
 
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, angleBetween, distancePPointToPLine, normalizePLine2, pPointsOnSameSideOfPLine)
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, angleBetween, distancePPointToPLine, normalizePLine2, pPointsOnSameSideOfPLine, pToEPoint2, translateRotatePPoint2)
 
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour)
+import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, maybeFlipContour)
 
 -- Our imprecise Contour library.
 import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
@@ -82,7 +82,7 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Math.Util ((-->), (-/>))
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
-import Graphics.Slicer.Math.Ganja (cellFrom, remainderFrom, onlyOne)
+import Graphics.Slicer.Math.Ganja (cellFrom, remainderFrom, onlyOne, dumpGanjas, toGanja)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
@@ -636,80 +636,67 @@ prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitud
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
 
-prop_TriangleNoDivides :: ℝ -> ℝ -> NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> Expectation
-prop_TriangleNoDivides x y rawDx dy rawOffAxis distanceFromMiddle = findDivisions triangle (fromMaybe (error $ show triangle) $ crashMotorcycles triangle []) --> []
-  where
-    triangle = makeLineSegContour $ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
+prop_TriangleNoDivides :: ℝ -> ℝ -> Expectation
+prop_TriangleNoDivides centerX centerY = do
+  radians <- generate $ vectorOf 3 $ choose (minPositiveFloat centerX, pi*2)
+  dists <- generate $ vector 3
+  findDivisions (triangle radians dists) (fromMaybe (error $ show (dumpGanjas $ [toGanja (triangle radians dists), toGanja (Point2 (centerX, centerY))])) $ crashMotorcycles (triangle radians dists) []) --> []
+    where
+      triangle radians dists = randomStarPoly centerX centerY radians dists
 
-prop_TriangleHasStraightSkeleton :: ℝ -> ℝ -> NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> Expectation
-prop_TriangleHasStraightSkeleton x y rawDx dy rawOffAxis distanceFromMiddle = findStraightSkeleton triangle [] -/> Nothing
-  where
-    triangle = makeLineSegContour $ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
+prop_TriangleHasStraightSkeleton :: ℝ -> ℝ -> Expectation
+prop_TriangleHasStraightSkeleton centerX centerY = do
+  radians <- generate $ vectorOf 3 $ choose (minPositiveFloat centerX, pi*2)
+  dists <- generate $ vector 3
+  findStraightSkeleton (triangle radians dists) [] -/> Nothing
+    where
+      triangle radians dists = randomStarPoly centerX centerY radians dists
 
-prop_TriangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> Expectation
-prop_TriangleStraightSkeletonHasRightGenerationCount x y rawDx dy rawOffAxis distanceFromMiddle = generationsOf (findStraightSkeleton triangle []) --> 1
-  where
-    triangle = makeLineSegContour $ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
-    generationsOf Nothing = 0
-    generationsOf (Just (StraightSkeleton (Slist [] _) _)) = 0
-    generationsOf (Just (StraightSkeleton a _)) = length a
+prop_TriangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Expectation
+prop_TriangleStraightSkeletonHasRightGenerationCount centerX centerY = do
+  radians <- generate $ vectorOf 3 $ choose (minPositiveFloat centerX, pi*2)
+  dists <- generate $ vector 3
+  generationsOf (findStraightSkeleton (triangle radians dists) []) --> 1
+    where
+      triangle radians dists = randomStarPoly centerX centerY radians dists
+      generationsOf Nothing = 0
+      generationsOf (Just (StraightSkeleton (Slist [] _) _)) = 0
+      generationsOf (Just (StraightSkeleton a _)) = length a
 
-prop_TriangleCanPlaceFaces :: ℝ -> ℝ -> NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> Expectation
-prop_TriangleCanPlaceFaces x y rawDx dy rawOffAxis distanceFromMiddle = facesOf (fromMaybe (error "Got Nothing") $ findStraightSkeleton triangle []) -/> slist []
-  where
-    triangle = makeLineSegContour $ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
+prop_TriangleCanPlaceFaces :: ℝ -> ℝ -> Expectation
+prop_TriangleCanPlaceFaces centerX centerY = do
+  radians <- generate $ vectorOf 3 $ choose (minPositiveFloat centerX, pi*2)
+  dists <- generate $ vector 3
+  facesOf (fromMaybe (error "Got Nothing") $ findStraightSkeleton (triangle radians dists) []) -/> slist []
+    where
+      triangle radians dists = randomStarPoly centerX centerY radians dists
 
-prop_TriangleHasRightFaceCount :: ℝ -> ℝ -> NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> Expectation
-prop_TriangleHasRightFaceCount x y rawDx dy rawOffAxis distanceFromMiddle = length (facesOf $ fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []) --> 3
-  where
-    triangle = makeLineSegContour $ randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
+prop_TriangleHasRightFaceCount :: ℝ -> ℝ -> Expectation
+prop_TriangleHasRightFaceCount centerX centerY = do
+  radians <- generate $ vectorOf 3 $ choose (minPositiveFloat centerX, pi*2)
+  dists <- generate $ vector 3
+  length (facesOf $ fromMaybe (error $ show $ triangle radians dists) $ findStraightSkeleton (triangle radians dists) []) --> 3
+    where
+      triangle radians dists = randomStarPoly centerX centerY radians dists
 
-prop_TriangleFacesInOrder :: ℝ -> ℝ -> NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> Expectation
-prop_TriangleFacesInOrder x y rawDx dy rawOffAxis distanceFromMiddle = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show triangleAsContour) $ findStraightSkeleton triangleAsContour []) --> triangle
-  where
-    triangleAsContour = makeLineSegContour triangle
-    triangle = randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
-    firstSeg = onlyOneOf triangle
-      where
-        onlyOneOf :: [LineSeg] -> LineSeg
-        onlyOneOf eNodes = case eNodes of
-                            [] -> error "none"
-                            (a:_) -> a
-    edgesOf :: Slist Face -> [LineSeg]
-    edgesOf faces = unwrap <$> (\(Slist a _) -> a) faces
-      where
-        unwrap :: Face -> LineSeg
-        unwrap (Face edge _ _ _) = edge
-
-randomTriangle :: ℝ -> ℝ -> NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> [LineSeg]
-randomTriangle x y rawDx dy rawOffAxis distanceFromMiddle
-  | offAxis > 0 && dx > 0 = wind
-  | offAxis > 0 = wind
-  | dx > 0 = unwind
-  | otherwise = unwind
-  where
-    unwind = [flippedFirstSeg, flippedSegOut, flippedSegIn]
-    wind = [firstSeg,segIn,segOut]
-    dx,offAxis :: ℝ
-    dx = coerce rawDx
-    offAxis = coerce rawOffAxis
-    crossX = pointOnPerp firstSeg (midPoint firstSeg) offAxis
-    lineX = handleLineSegError $ lineSegFromEndpoints (midPoint firstSeg) crossX
-    outsidePoint = pointOnPerp lineX crossX distanceFromMiddle
-    segIn = handleLineSegError $ lineSegFromEndpoints (endPoint firstSeg) outsidePoint
-    segOut = handleLineSegError $ lineSegFromEndpoints outsidePoint (startPoint firstSeg)
-    firstSeg
-      | dx > 0 && dy > 0 = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-      | dx > 0           = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-      | dy > 0           = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-      | otherwise        = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-    flippedSegIn = handleLineSegError $ lineSegFromEndpoints outsidePoint (endPoint firstSeg)
-    flippedSegOut = handleLineSegError $ lineSegFromEndpoints (startPoint firstSeg) outsidePoint
-    flippedFirstSeg
-      | dx > 0 && dy > 0 = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-      | dx > 0           = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-      | dy > 0           = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-      | otherwise        = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+prop_TriangleFacesInOrder :: ℝ -> ℝ -> Expectation
+prop_TriangleFacesInOrder centerX centerY = do
+  radians <- generate $ vectorOf 3 $ choose (minPositiveFloat centerX, pi*2)
+  dists <- generate $ vector 3
+  edgesOf (orderedFacesOf (firstSeg radians dists) $ fromMaybe (error $ show $ triangle radians dists) $ findStraightSkeleton (triangle radians dists) []) --> (lineSegsOfContour $ triangle radians dists)
+    where
+      triangle radians dists = randomStarPoly centerX centerY radians dists
+      firstSeg radians dists = onlyOneOf $ lineSegsOfContour $ triangle radians dists
+        where
+          onlyOneOf :: [LineSeg] -> LineSeg
+          onlyOneOf eNodes = case eNodes of
+                               [] -> error "none"
+                               (a:_) -> a
+      edgesOf :: Slist Face -> [LineSeg]
+      edgesOf faces = unwrap <$> (\(Slist a _) -> a) faces
+        where
+          unwrap :: Face -> LineSeg
+          unwrap (Face edge _ _ _) = edge
 
 prop_SquareNoDivides :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Expectation
 prop_SquareNoDivides x y rawDx rawDy = findDivisions square (fromMaybe (error $ show square) $ crashMotorcycles square []) --> []
@@ -842,6 +829,26 @@ randomRectangle x y rawDx rawDy rawXYDiff = [firstSeg,segTo,secondSeg,segFrom]
       | dx > 0           = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
       | dy > 0           = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
       | otherwise        = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+
+
+-- Idea stolen from: https://stackoverflow.com/questions/8997099/algorithm-to-generate-random-2d-polygon
+randomStarPoly :: ℝ -> ℝ -> [ℝ] -> [Positive ℝ] -> Contour
+randomStarPoly centerX centerY radians dists = maybeFlipContour $ makePointContour $ points
+  where
+    points = pToEPoint2 <$> pointsAroundCenter
+    pointsAroundCenter = (\(angle, distanceFromPoint) -> translateRotatePPoint2 centerPPoint distanceFromPoint angle) <$> distanceAnglePairs
+    distanceAnglePairs :: [(ℝ,ℝ)]
+    distanceAnglePairs = (\(rawDistance, rawAngle) -> (coerce rawDistance, coerce rawAngle)) <$> (makePairs (sort radians) dists)
+    centerPPoint = eToPPoint2 $ Point2 (centerX, centerY)
+    makePairs :: [ℝ] -> [Positive ℝ] -> [(ℝ,Positive ℝ)]
+    makePairs (a:as) (b:bs) = (a,b) : makePairs as bs
+    makePairs (_:_) [] = error "out of inputs"
+    makePairs [] (_:_) = []
+    makePairs [] [] = []
+
+-- Stolen from: https://stackoverflow.com/questions/1780489/haskell-minimum-maximum-double-constant
+minPositiveFloat :: RealFloat a => a -> a
+minPositiveFloat a = encodeFloat 1 $ fst (floatRange a) - floatDigits a
 
 facetSpec :: Spec
 facetSpec = do
