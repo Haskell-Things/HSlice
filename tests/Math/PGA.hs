@@ -21,7 +21,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), (*), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), (>), show, length, (<>), not, pi, encodeFloat, fst, floatRange, floatDigits, RealFloat, (-))
+import Prelude (($), (*), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), (>), show, length, (<>), not, pi, encodeFloat, fst, floatRange, floatDigits, RealFloat, (-), replicate, (/))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
@@ -40,6 +40,8 @@ import Data.List (foldl', sort)
 import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
 
 import Data.Set (singleton, fromList)
+
+import Math.Tau (tau)
 
 import Slist.Type (Slist(Slist))
 
@@ -642,7 +644,7 @@ prop_TriangleNoDivides centerX centerY = do
   dists <- generate $ vector 3
   findDivisions (triangle radians dists) (fromMaybe (error $ show (dumpGanjas $ [toGanja (triangle radians dists), toGanja (Point2 (centerX, centerY))])) $ crashMotorcycles (triangle radians dists) []) --> []
     where
-      triangle radians dists = randomStarPoly centerX centerY radians dists
+      triangle radians dists = randomStarPoly centerX centerY $ makePairs radians dists
 
 prop_TriangleHasStraightSkeleton :: ℝ -> ℝ -> Expectation
 prop_TriangleHasStraightSkeleton centerX centerY = do
@@ -650,7 +652,7 @@ prop_TriangleHasStraightSkeleton centerX centerY = do
   dists <- generate $ vector 3
   findStraightSkeleton (triangle radians dists) [] -/> Nothing
     where
-      triangle radians dists = randomStarPoly centerX centerY radians dists
+      triangle radians dists = randomStarPoly centerX centerY $ makePairs radians dists
 
 prop_TriangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Expectation
 prop_TriangleStraightSkeletonHasRightGenerationCount centerX centerY = do
@@ -658,7 +660,7 @@ prop_TriangleStraightSkeletonHasRightGenerationCount centerX centerY = do
   dists <- generate $ vector 3
   generationsOf (findStraightSkeleton (triangle radians dists) []) --> 1
     where
-      triangle radians dists = randomStarPoly centerX centerY radians dists
+      triangle radians dists = randomStarPoly centerX centerY $ makePairs radians dists
       generationsOf Nothing = 0
       generationsOf (Just (StraightSkeleton (Slist [] _) _)) = 0
       generationsOf (Just (StraightSkeleton a _)) = length a
@@ -669,7 +671,7 @@ prop_TriangleCanPlaceFaces centerX centerY = do
   dists <- generate $ vector 3
   facesOf (fromMaybe (error "Got Nothing") $ findStraightSkeleton (triangle radians dists) []) -/> slist []
     where
-      triangle radians dists = randomStarPoly centerX centerY radians dists
+      triangle radians dists = randomStarPoly centerX centerY $ makePairs radians dists
 
 prop_TriangleHasRightFaceCount :: ℝ -> ℝ -> Expectation
 prop_TriangleHasRightFaceCount centerX centerY = do
@@ -677,7 +679,7 @@ prop_TriangleHasRightFaceCount centerX centerY = do
   dists <- generate $ vector 3
   length (facesOf $ fromMaybe (error $ show $ triangle radians dists) $ findStraightSkeleton (triangle radians dists) []) --> 3
     where
-      triangle radians dists = randomStarPoly centerX centerY radians dists
+      triangle radians dists = randomStarPoly centerX centerY $ makePairs radians dists
 
 prop_TriangleFacesInOrder :: ℝ -> ℝ -> Expectation
 prop_TriangleFacesInOrder centerX centerY = do
@@ -685,7 +687,7 @@ prop_TriangleFacesInOrder centerX centerY = do
   dists <- generate $ vector 3
   edgesOf (orderedFacesOf (firstSeg radians dists) $ fromMaybe (error $ show $ triangle radians dists) $ findStraightSkeleton (triangle radians dists) []) --> (lineSegsOfContour $ triangle radians dists)
     where
-      triangle radians dists = randomStarPoly centerX centerY radians dists
+      triangle radians dists = randomStarPoly centerX centerY $ makePairs radians dists
       firstSeg radians dists = onlyOneOf $ lineSegsOfContour $ triangle radians dists
         where
           onlyOneOf :: [LineSeg] -> LineSeg
@@ -698,41 +700,53 @@ prop_TriangleFacesInOrder centerX centerY = do
           unwrap :: Face -> LineSeg
           unwrap (Face edge _ _ _) = edge
 
-prop_SquareNoDivides :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Expectation
-prop_SquareNoDivides x y rawDx rawDy = findDivisions square (fromMaybe (error $ show square) $ crashMotorcycles square []) --> []
-  where
-    square = makeLineSegContour $ randomSquare x y rawDx rawDy
+prop_SquareNoDivides :: ℝ -> ℝ -> Positive ℝ -> Expectation
+prop_SquareNoDivides x y distanceToCorner = do
+  tilt <- generate $ choose (0,tau)
+  findDivisions (square tilt) (fromMaybe (error $ show (square tilt)) $ crashMotorcycles (square tilt) []) --> []
+    where
+      square tilt = randomSquare x y distanceToCorner tilt
 
-prop_SquareHasStraightSkeleton :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Expectation
-prop_SquareHasStraightSkeleton x y rawDx rawDy = findStraightSkeleton square [] -/> Nothing
+prop_SquareHasStraightSkeleton :: ℝ -> ℝ -> Positive ℝ -> Expectation
+prop_SquareHasStraightSkeleton x y distanceToCorner = do
+  tilt <- generate $ choose (0,tau)
+  findStraightSkeleton (square tilt) [] -/> Nothing
   where
-    square = makeLineSegContour $ randomSquare x y rawDx rawDy
+    square tilt = randomSquare x y distanceToCorner tilt
 
-prop_SquareStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Expectation
-prop_SquareStraightSkeletonHasRightGenerationCount x y rawDx rawDy = generationsOf (findStraightSkeleton square []) --> 1
+prop_SquareStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Positive ℝ -> Expectation
+prop_SquareStraightSkeletonHasRightGenerationCount x y distanceToCorner = do
+  tilt <- generate $ choose (0,tau)
+  generationsOf (findStraightSkeleton (square tilt) []) --> 1
   where
-    square = makeLineSegContour $ randomSquare x y rawDx rawDy
+    square tilt = randomSquare x y distanceToCorner tilt
     generationsOf Nothing = 0
     generationsOf (Just (StraightSkeleton (Slist [] _) _)) = 0
     generationsOf (Just (StraightSkeleton a@(Slist [_] _) _)) = len a
     generationsOf a = error $ "what is this?" <> show a <> "\n"
 
-prop_SquareCanPlaceFaces :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Expectation
-prop_SquareCanPlaceFaces x y rawDx rawDy = facesOf (fromMaybe (error $ show square) $ findStraightSkeleton square []) -/> slist []
+prop_SquareCanPlaceFaces :: ℝ -> ℝ -> Positive ℝ -> Expectation
+prop_SquareCanPlaceFaces x y distanceToCorner = do
+  tilt <- generate $ choose (0,tau)
+  facesOf (fromMaybe (error $ show $ square tilt) $ findStraightSkeleton (square tilt) []) -/> slist []
   where
-    square = makeLineSegContour $ randomSquare x y rawDx rawDy
+    square tilt = randomSquare x y distanceToCorner tilt
 
-prop_SquareHasRightFaceCount :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Expectation
-prop_SquareHasRightFaceCount x y rawDx rawDy = length (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square []) --> 4
+prop_SquareHasRightFaceCount :: ℝ -> ℝ -> Positive ℝ -> Expectation
+prop_SquareHasRightFaceCount x y distanceToCorner = do
+  tilt <- generate $ choose (0,tau)
+  length (facesOf $ fromMaybe (error $ show $ square tilt) $ findStraightSkeleton (square tilt) []) --> 4
   where
-    square = makeLineSegContour $ randomSquare x y rawDx rawDy
+    square tilt = randomSquare x y distanceToCorner tilt
 
-prop_SquareFacesInOrder :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Expectation
-prop_SquareFacesInOrder x y rawDx rawDy = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show squareAsContour) $ findStraightSkeleton squareAsContour []) --> square
+prop_SquareFacesInOrder :: ℝ -> ℝ -> Positive ℝ -> Expectation
+prop_SquareFacesInOrder x y distanceToCorner = do
+  tilt <- generate $ choose (0,tau)
+  edgesOf (orderedFacesOf (firstSeg tilt) $ fromMaybe (error $ show $ square tilt) $ findStraightSkeleton (square tilt) []) --> (squareAsSegs tilt)
   where
-    squareAsContour = makeLineSegContour square
-    square = randomSquare x y rawDx rawDy
-    firstSeg = onlyOneOf square
+    square tilt = randomSquare x y distanceToCorner tilt
+    squareAsSegs tilt = lineSegsOfContour $ square tilt
+    firstSeg tilt = onlyOneOf (squareAsSegs tilt)
       where
         onlyOneOf :: [a] -> a
         onlyOneOf eNodes = case eNodes of
@@ -744,28 +758,18 @@ prop_SquareFacesInOrder x y rawDx rawDy = edgesOf (orderedFacesOf firstSeg $ fro
         unwrap :: Face -> LineSeg
         unwrap (Face edge _ _ _) = edge
 
-randomSquare :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> [LineSeg]
-randomSquare x y rawDx rawDy
-  | dx > 0 && dy > 0 = wind
-  | dy > 0 = wind
-  | dx > 0 = wind
-  | otherwise = wind
-  where
-    wind = [firstSeg,segTo,secondSeg,segFrom]
-    dx,dy :: ℝ
-    dx = coerce rawDx
-    dy = coerce rawDy
-    offAxis = distance (startPoint firstSeg) (endPoint firstSeg)
-    secondSegStart = pointOnPerp firstSeg (endPoint firstSeg) offAxis
-    secondSegEnd = pointOnPerp firstSeg (startPoint firstSeg) offAxis
-    secondSeg = handleLineSegError $ lineSegFromEndpoints secondSegStart secondSegEnd
-    segTo = handleLineSegError $ lineSegFromEndpoints (endPoint firstSeg) (startPoint secondSeg)
-    segFrom = handleLineSegError $ lineSegFromEndpoints (endPoint secondSeg) (startPoint firstSeg)
-    firstSeg
-      | dx > 0 && dy > 0 = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-      | dx > 0           = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-      | dy > 0           = LineSeg (Point2 (x,y)) (Point2 (dx,dy))
-      | otherwise        = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
+randomSquare :: ℝ -> ℝ -> Positive ℝ -> ℝ -> Contour
+randomSquare centerX centerY distance tilt =
+  randomStarPoly centerX centerY $ makePairs mk4Radians distances
+    where
+      mk4Radians =
+        [
+          tilt
+        , tilt+(tau/4)
+        , tilt+(tau/2)
+        , tilt+pi+(pi/2)
+        ]
+      distances = replicate 4 distance
 
 prop_RectangleNoDivides :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Positive ℝ -> Expectation
 prop_RectangleNoDivides x y rawDx rawDy rawXYDiff = findDivisions rectangle (fromMaybe (error $ show rectangle) $ crashMotorcycles rectangle []) --> []
@@ -831,24 +835,30 @@ randomRectangle x y rawDx rawDy rawXYDiff = [firstSeg,segTo,secondSeg,segFrom]
       | otherwise        = flipLineSeg $ LineSeg (Point2 (x,y)) (Point2 (dx,dy))
 
 
+-- | generate a random polygon.
 -- Idea stolen from: https://stackoverflow.com/questions/8997099/algorithm-to-generate-random-2d-polygon
-randomStarPoly :: ℝ -> ℝ -> [ℝ] -> [Positive ℝ] -> Contour
-randomStarPoly centerX centerY radians dists = maybeFlipContour $ makePointContour $ points
+-- note: the centerPoint is assumed to be inside of the contour.
+randomStarPoly :: ℝ -> ℝ -> [(ℝ,Positive ℝ)] -> Contour
+randomStarPoly centerX centerY radianDistPairs = maybeFlipContour $ makePointContour $ points
   where
     points = pToEPoint2 <$> pointsAroundCenter
     pointsAroundCenter = (\(angle, distanceFromPoint) -> translateRotatePPoint2 centerPPoint distanceFromPoint angle) <$> distanceAnglePairs
     distanceAnglePairs :: [(ℝ,ℝ)]
-    distanceAnglePairs = (\(rawDistance, rawAngle) -> (coerce rawDistance, coerce rawAngle)) <$> (makePairs (sort radians) dists)
+    distanceAnglePairs = (\(rawDistance, rawAngle) -> (coerce rawDistance, coerce rawAngle)) <$> radianDistPairs
     centerPPoint = eToPPoint2 $ Point2 (centerX, centerY)
-    makePairs :: [ℝ] -> [Positive ℝ] -> [(ℝ,Positive ℝ)]
-    makePairs (a:as) (b:bs) = (a,b) : makePairs as bs
-    makePairs (_:_) [] = error "out of inputs"
-    makePairs [] (_:_) = []
-    makePairs [] [] = []
 
+-- | find the smallest possible positive float.
 -- Stolen from: https://stackoverflow.com/questions/1780489/haskell-minimum-maximum-double-constant
 minPositiveFloat :: RealFloat a => a -> a
 minPositiveFloat a = encodeFloat 1 $ fst (floatRange a) - floatDigits a
+
+-- | combine two lists. for feeding into randomStarPoly.
+makePairs :: [a] -> [b] -> [(a,b)]
+makePairs (a:as) (b:bs) = (a,b) : makePairs as bs
+makePairs (_:_) [] = error "out of inputs"
+makePairs [] (_:_) = []
+makePairs [] [] = []
+
 
 facetSpec :: Spec
 facetSpec = do

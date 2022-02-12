@@ -158,6 +158,7 @@ Test-suite test-hslice
                   , QuickCheck
                   , quickcheck-io
                   , slist
+                  , tau
     Type: exitcode-stdio-1.0
     Other-Modules:
                    Math.Util
