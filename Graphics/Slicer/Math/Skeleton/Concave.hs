@@ -30,6 +30,8 @@ module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstA
 
 import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.))
 
+import Data.Either (lefts,rights)
+
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, isNothing, fromMaybe)
 
 import Data.List (takeWhile, sortBy)
@@ -54,7 +56,7 @@ import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine, flipPLine2)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, getPairs, isCollinear, indexPLinesTo, insOf, isParallel, lastINodeOf, linePairs, makeINode, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, getPairs, isCollinear, indexPLinesTo, insOf, isParallel, lastINodeOf, linePairs, makeINode, intersectionBetween, sortedPLines)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree, findENodeByOutput)
 
@@ -622,13 +624,20 @@ skeletonOfNodes loop eNodes iNodes =
                 <> "resultingNodes: " <> show remainingINodes <> "\n"
                 <> "thisGen: " <> show averageOfShortestPairs <> "\n"
 
-    -- | When all of our nodes end in the same point we should create a Node with all of them as input. This checks for that case.
+    -- | When all of our nodes end in the same point we should create a single Node with all of them as input. This checks for that case.
     endsAtSamePoint :: Bool
-    endsAtSamePoint = and $ mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor) $ mapWithFollower intersectionOf ((outOf <$> nonAntiCollinearNodes eNodes (antiCollinearNodePairsOf eNodes)
-                                                                                                                                   <> firstAntiCollinearNodes (antiCollinearNodePairsOf eNodes)) <>
-                                                                                                                                 (outOf <$> nonAntiCollinearNodes iNodes (antiCollinearNodePairsOf iNodes)
-                                                                                                                                   <> firstAntiCollinearNodes (antiCollinearNodePairsOf iNodes)))
+    endsAtSamePoint
+      | and $ isJust <$> intersections = and $ pointsCloseEnough <> linesCloseEnough
+      | otherwise = False
       where
+        intersections = mapWithFollower intersectionBetween ((outOf <$> nonAntiCollinearNodes eNodes (antiCollinearNodePairsOf eNodes) <> firstAntiCollinearNodes (antiCollinearNodePairsOf eNodes)) <>
+                                                             (outOf <$> nonAntiCollinearNodes iNodes (antiCollinearNodePairsOf iNodes) <> firstAntiCollinearNodes (antiCollinearNodePairsOf iNodes)))
+        pointIntersections = rights $ catMaybes intersections
+        lineIntersections = lefts $ catMaybes intersections
+        pointsCloseEnough = mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor) pointIntersections
+        linesCloseEnough
+          | lineIntersections == [] = []
+          | otherwise = error "nope!"
         -- since anti-collinear nodes end at the same point, only count one of them.
         firstAntiCollinearNodes nodePairs = fst <$> nodePairs
         -- find nodes that do not have an anti-collinear pair.
