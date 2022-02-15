@@ -18,16 +18,18 @@
 
 -- Shamelessly stolen from ImplicitCAD.
 
+{-# LANGUAGE FlexibleInstances #-}
+
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), (*), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), (>), show, length, (<>), not, pi, encodeFloat, fst, floatRange, floatDigits, RealFloat, (-), replicate, (/))
+import Prelude (($), (*), Show, Bool(True, False), (<$>), (==), (>=), (<=), error, sqrt, (/=), otherwise, abs, (&&), (+), (>), show, length, (<>), not, pi, encodeFloat, fst, floatRange, floatDigits, RealFloat, (-), replicate, (/), fmap)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
 
 -- QuickCheck, for writing properties.
-import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive), choose, generate, vector, vectorOf)
+import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive), Arbitrary, arbitrary, choose, generate, shrink, vector, vectorOf, suchThat)
 
 import Test.QuickCheck.IO ()
 
@@ -35,7 +37,7 @@ import Data.Coerce (coerce)
 
 import Data.Either (Either(Right), fromRight)
 
-import Data.List (foldl', sort)
+import Data.List (foldl')
 
 import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
 
@@ -700,53 +702,51 @@ prop_TriangleFacesInOrder centerX centerY = do
           unwrap :: Face -> LineSeg
           unwrap (Face edge _ _ _) = edge
 
-prop_SquareNoDivides :: ℝ -> ℝ -> Positive ℝ -> Expectation
-prop_SquareNoDivides x y distanceToCorner = do
-  tilt <- generate $ choose (0,tau)
-  findDivisions (square tilt) (fromMaybe (error $ show (square tilt)) $ crashMotorcycles (square tilt) []) --> []
+newtype Radian a = Radian {getRadian :: ℝ}
+  deriving Show
+
+instance Arbitrary (Radian a) where
+  arbitrary = fmap Radian (arbitrary `suchThat` (\a -> a > 0 && a <= tau))
+  shrink (Radian x) = [ Radian x' | x' <- shrink x , x' > 0 ]
+
+prop_SquareNoDivides :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_SquareNoDivides x y tilt distanceToCorner = do
+  findDivisions square (fromMaybe (error $ show square) $ crashMotorcycles square []) --> []
     where
-      square tilt = randomSquare x y distanceToCorner tilt
+      square = randomSquare x y distanceToCorner tilt
 
-prop_SquareHasStraightSkeleton :: ℝ -> ℝ -> Positive ℝ -> Expectation
-prop_SquareHasStraightSkeleton x y distanceToCorner = do
-  tilt <- generate $ choose (0,tau)
-  findStraightSkeleton (square tilt) [] -/> Nothing
+prop_SquareHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_SquareHasStraightSkeleton x y tilt distanceToCorner = findStraightSkeleton square [] -/> Nothing
   where
-    square tilt = randomSquare x y distanceToCorner tilt
+    square = randomSquare x y distanceToCorner tilt
 
-prop_SquareStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Positive ℝ -> Expectation
-prop_SquareStraightSkeletonHasRightGenerationCount x y distanceToCorner = do
-  tilt <- generate $ choose (0,tau)
-  generationsOf (findStraightSkeleton (square tilt) []) --> 1
+prop_SquareStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_SquareStraightSkeletonHasRightGenerationCount x y tilt distanceToCorner = generationsOf (findStraightSkeleton square []) --> 1
   where
-    square tilt = randomSquare x y distanceToCorner tilt
+    square = randomSquare x y distanceToCorner tilt
     generationsOf Nothing = 0
     generationsOf (Just (StraightSkeleton (Slist [] _) _)) = 0
     generationsOf (Just (StraightSkeleton a@(Slist [_] _) _)) = len a
     generationsOf a = error $ "what is this?" <> show a <> "\n"
 
-prop_SquareCanPlaceFaces :: ℝ -> ℝ -> Positive ℝ -> Expectation
-prop_SquareCanPlaceFaces x y distanceToCorner = do
-  tilt <- generate $ choose (0,tau)
-  facesOf (fromMaybe (error $ show $ square tilt) $ findStraightSkeleton (square tilt) []) -/> slist []
+prop_SquareCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_SquareCanPlaceFaces x y tilt distanceToCorner = facesOf (fromMaybe (error $ show square) $ findStraightSkeleton square []) -/> slist []
   where
-    square tilt = randomSquare x y distanceToCorner tilt
+    square = randomSquare x y distanceToCorner tilt
 
-prop_SquareHasRightFaceCount :: ℝ -> ℝ -> Positive ℝ -> Expectation
-prop_SquareHasRightFaceCount x y distanceToCorner = do
-  tilt <- generate $ choose (0,tau)
-  length (facesOf $ fromMaybe (error $ show $ square tilt) $ findStraightSkeleton (square tilt) []) --> 4
+prop_SquareHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_SquareHasRightFaceCount x y tilt distanceToCorner = do
+  length (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square []) --> 4
   where
-    square tilt = randomSquare x y distanceToCorner tilt
+    square = randomSquare x y distanceToCorner tilt
 
-prop_SquareFacesInOrder :: ℝ -> ℝ -> Positive ℝ -> Expectation
-prop_SquareFacesInOrder x y distanceToCorner = do
-  tilt <- generate $ choose (0,tau)
-  edgesOf (orderedFacesOf (firstSeg tilt) $ fromMaybe (error $ show $ square tilt) $ findStraightSkeleton (square tilt) []) --> (squareAsSegs tilt)
+prop_SquareFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_SquareFacesInOrder x y tilt distanceToCorner = do
+  edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show square) $ findStraightSkeleton square []) --> squareAsSegs
   where
-    square tilt = randomSquare x y distanceToCorner tilt
-    squareAsSegs tilt = lineSegsOfContour $ square tilt
-    firstSeg tilt = onlyOneOf (squareAsSegs tilt)
+    square = randomSquare x y distanceToCorner tilt
+    squareAsSegs = lineSegsOfContour square
+    firstSeg = onlyOneOf squareAsSegs
       where
         onlyOneOf :: [a] -> a
         onlyOneOf eNodes = case eNodes of
@@ -758,10 +758,12 @@ prop_SquareFacesInOrder x y distanceToCorner = do
         unwrap :: Face -> LineSeg
         unwrap (Face edge _ _ _) = edge
 
-randomSquare :: ℝ -> ℝ -> Positive ℝ -> ℝ -> Contour
-randomSquare centerX centerY distance tilt =
+randomSquare :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Contour
+randomSquare centerX centerY distanceToCorner rawTilt =
   randomStarPoly centerX centerY $ makePairs mk4Radians distances
     where
+      tilt :: ℝ
+      tilt = coerce rawTilt
       mk4Radians =
         [
           tilt
@@ -769,7 +771,7 @@ randomSquare centerX centerY distance tilt =
         , tilt+(tau/2)
         , tilt+pi+(pi/2)
         ]
-      distances = replicate 4 distance
+      distances = replicate 4 distanceToCorner
 
 prop_RectangleNoDivides :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Positive ℝ -> Expectation
 prop_RectangleNoDivides x y rawDx rawDy rawXYDiff = findDivisions rectangle (fromMaybe (error $ show rectangle) $ crashMotorcycles rectangle []) --> []
