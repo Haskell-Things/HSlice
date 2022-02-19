@@ -23,13 +23,13 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (Num, Ord, Eq, ($), Show, Bool(True, False), (<$>), (==), (>=), (<=), error, sqrt, (/=), otherwise, abs, (&&), (+), (>), show, length, (<>), not, pi, (-), replicate, (/), fmap, (<), length, (*), signum, fromInteger, mod)
+import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), show, length, (<>), not, length)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
 
 -- QuickCheck, for writing properties.
-import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive), Arbitrary, arbitrary, shrink, vector, suchThat)
+import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive))
 
 import Data.Coerce (coerce)
 
@@ -40,8 +40,6 @@ import Data.List (foldl')
 import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
 
 import Data.Set (singleton, fromList)
-
-import Math.Tau (tau)
 
 import Slist.Type (Slist(Slist))
 
@@ -57,10 +55,10 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour),
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, angleBetween, distancePPointToPLine, normalizePLine2, pPointsOnSameSideOfPLine, pToEPoint2, translateRotatePPoint2)
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, angleBetween, distancePPointToPLine, normalizePLine2, pPointsOnSameSideOfPLine)
 
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, maybeFlipContour)
+import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour)
 
 -- Our imprecise Contour library.
 import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
@@ -82,7 +80,7 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Math.Util ((-->), (-/>))
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
-import Graphics.Slicer.Math.Ganja (cellFrom, remainderFrom, onlyOne, dumpGanjas, toGanja)
+import Graphics.Slicer.Math.Ganja (ListThree, Radian, cellFrom, randomTriangle, randomRectangle, randomSquare, remainderFrom, onlyOne, dumpGanjas, toGanja)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
@@ -636,44 +634,6 @@ prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitud
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
 
--- A type for a list of three items. so we can gather a list of exactly three distances / radians.
-newtype ListThree a = ListThree {getListThree :: [a]}
-  deriving (Show, Ord, Eq)
-
-instance (Arbitrary a) => Arbitrary (ListThree a) where
-  arbitrary = fmap ListThree $ vector 3
-
--- Radians are always positive, and always between 0 and tau+minfloat.
-newtype Radian a = Radian {getRadian :: ℝ}
-  deriving (Show, Ord, Eq)
-
-instance Num (Radian a) where
-  (+) (Radian r1) (Radian r2) = Radian $ wrapIfNeeded $ r1 + r2
-    where
-      wrapIfNeeded :: ℝ -> ℝ
-      wrapIfNeeded v
-        | v <= tau   = v
-        | otherwise = v-tau
-  (-) (Radian r1) (Radian r2) = Radian $ wrapIfNeeded $ r1 - r2
-    where
-      wrapIfNeeded :: ℝ -> ℝ
-      wrapIfNeeded v
-        | v > 0     = v
-        | otherwise = v+tau
-  (*) (Radian r1) (Radian r2) = Radian $ recursiveWrap $ r1 * r2
-    where
-      recursiveWrap :: ℝ -> ℝ
-      recursiveWrap v
-        | v <= tau   = v
-        | otherwise = recursiveWrap $ v-tau
-  abs r1 = r1
-  fromInteger v = Radian $ fromInteger $ mod v 6
-  signum _ = 1
-
-instance Arbitrary (Radian ℝ) where
-  arbitrary = fmap Radian (arbitrary `suchThat` (\a -> a > 0 && a <= tau))
-  shrink (Radian x) = [ Radian x' | x' <- shrink x , x' > 0 ]
-
 prop_TriangleNoDivides :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
 prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions triangle (fromMaybe (error $ show (dumpGanjas $ [toGanja triangle, toGanja (Point2 (centerX, centerY))])) $ crashMotorcycles triangle []) --> []
   where
@@ -717,14 +677,6 @@ prop_TriangleFacesInOrder centerX centerY rawRadians rawDists = edgesOf (ordered
       where
         unwrap :: Face -> LineSeg
         unwrap (Face edge _ _ _) = edge
-
-randomTriangle :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Contour
-randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX centerY $ makePairs dists radians
-  where
-    radians :: [Radian ℝ]
-    radians = coerce rawRadians
-    dists :: [Positive ℝ]
-    dists = coerce rawDists
 
 prop_SquareNoDivides :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareNoDivides x y tilt distanceToCorner = findDivisions square (fromMaybe (error $ show square) $ crashMotorcycles square []) --> []
@@ -772,18 +724,6 @@ prop_SquareFacesInOrder x y tilt distanceToCorner = edgesOf (orderedFacesOf firs
         unwrap :: Face -> LineSeg
         unwrap (Face edge _ _ _) = edge
 
-randomSquare :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Contour
-randomSquare centerX centerY tilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians 
-  where
-    radians =
-      [
-        tilt
-      , tilt + Radian (tau/4)
-      , tilt + Radian (tau/2)
-      , tilt + Radian (pi+(pi/2))
-      ]
-    distances = replicate 4 distanceToCorner
-
 prop_RectangleNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_RectangleNoDivides x y rawFirstTilt rawSecondTilt rawDistanceToCorner = findDivisions rectangle (fromMaybe (error $ show rectangle) $ crashMotorcycles rectangle []) --> []
   where
@@ -827,40 +767,6 @@ prop_RectangleFacesInOrder x y rawFirstTilt rawSecondTilt rawDistanceToCorner = 
       where
         unwrap :: Face -> LineSeg
         unwrap (Face edge _ _ _) = edge
-
-randomRectangle :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Contour
-randomRectangle centerX centerY firstTilt secondTilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
-    where
-      radians :: [Radian ℝ]
-      radians =
-        [
-          firstTilt
-        , secondTilt
-        , flipRadian firstTilt
-        , flipRadian secondTilt
-        ]
-      flipRadian :: Radian ℝ -> Radian ℝ
-      flipRadian v
-        | v < (Radian pi) = v + Radian pi
-        | otherwise       = v - Radian pi 
-      distances = replicate 4 distanceToCorner
-
--- | generate a random polygon.
--- Idea stolen from: https://stackoverflow.com/questions/8997099/algorithm-to-generate-random-2d-polygon
--- note: the centerPoint is assumed to be inside of the contour.
-randomStarPoly :: ℝ -> ℝ -> [(Positive ℝ,Radian ℝ)] -> Contour
-randomStarPoly centerX centerY radianDistPairs = maybeFlipContour $ makePointContour $ points
-  where
-    points = pToEPoint2 <$> pointsAroundCenter
-    pointsAroundCenter = (\(distanceFromPoint, angle) -> translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)) <$> radianDistPairs
-    centerPPoint = eToPPoint2 $ Point2 (centerX, centerY)
-
--- | combine two lists. for feeding into randomStarPoly.
-makePairs :: [a] -> [b] -> [(a,b)]
-makePairs (a:as) (b:bs) = (a,b) : makePairs as bs
-makePairs (_:_) [] = error "out of inputs"
-makePairs [] (_:_) = []
-makePairs [] [] = []
 
 facetSpec :: Spec
 facetSpec = do

@@ -76,19 +76,28 @@
 
 {-# LANGUAGE FlexibleInstances #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, toGanja, dumpGanja, dumpGanjas, cellFrom, remainderFrom, onlyOne) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, cellFrom, remainderFrom, onlyOne) where
 
-import Prelude (String, (<>), (<>), (<$>), ($), (>=), (==), concat, error, fst, otherwise, show, snd, zip, (.))
+import Prelude (Eq, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&))
+
+import Data.Coerce (coerce)
 
 import Data.Maybe (Maybe(Nothing, Just), maybeToList, catMaybes)
 
-import Numeric(showFFloat)
+import Math.Tau (tau)
+
+import Numeric(showFFloat, pi)
 
 import Slist.Type (Slist(Slist))
 
 import Slist (last, len)
 
-import Graphics.Slicer.Math.Contour (pointsOfContour)
+import Test.QuickCheck (Arbitrary, Positive(Positive), arbitrary, shrink, suchThat, vector)
+
+-- The numeric type in HSlice.
+import Graphics.Slicer (ℝ)
+
+import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, pointsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg(LineSeg), mapWithFollower)
 
@@ -96,7 +105,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), 
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2))
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, translateRotatePPoint2)
 
 import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles))
 
@@ -339,6 +348,100 @@ ganjaFooterEnd = "  ],{\n"
                  <> "});\n"
 
 -- moved the below here from the test suite, so that we can drop lines from the test suite into ghci directly.
+
+-- A type for a list of three items. so we can gather a list of exactly three distances / radians.
+newtype ListThree a = ListThree {getListThree :: [a]}
+  deriving (Show, Ord, Eq)
+
+instance (Arbitrary a) => Arbitrary (ListThree a) where
+  arbitrary = ListThree <$> vector 3
+
+-- Radians are always positive, and always between 0 and tau+minfloat.
+newtype Radian a = Radian {getRadian :: ℝ}
+  deriving (Show, Ord, Eq)
+
+instance Num (Radian a) where
+  (+) (Radian r1) (Radian r2) = Radian $ wrapIfNeeded $ r1 + r2
+    where
+      wrapIfNeeded :: ℝ -> ℝ
+      wrapIfNeeded v
+        | v <= tau   = v
+        | otherwise = v-tau
+  (-) (Radian r1) (Radian r2) = Radian $ wrapIfNeeded $ r1 - r2
+    where
+      wrapIfNeeded :: ℝ -> ℝ
+      wrapIfNeeded v
+        | v > 0     = v
+        | otherwise = v+tau
+  (*) (Radian r1) (Radian r2) = Radian $ recursiveWrap $ r1 * r2
+    where
+      recursiveWrap :: ℝ -> ℝ
+      recursiveWrap v
+        | v <= tau   = v
+        | otherwise = recursiveWrap $ v-tau
+  abs r1 = r1
+  fromInteger v = Radian $ fromInteger $ mod v 6
+  signum _ = 1
+
+instance Arbitrary (Radian ℝ) where
+  arbitrary = Radian <$> (arbitrary `suchThat` (\a -> a > 0 && a <= tau))
+  shrink (Radian x) = [ Radian x' | x' <- shrink x , x' > 0 ]
+
+randomTriangle :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Contour
+randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX centerY $ makePairs dists radians
+  where
+    radians :: [Radian ℝ]
+    radians = coerce rawRadians
+    dists :: [Positive ℝ]
+    dists = coerce rawDists
+
+randomSquare :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Contour
+randomSquare centerX centerY tilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians 
+  where
+    radians =
+      [
+        tilt
+      , tilt + Radian (tau/4)
+      , tilt + Radian (tau/2)
+      , tilt + Radian (pi+(pi/2))
+      ]
+    distances = replicate 4 distanceToCorner
+
+randomRectangle :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Contour
+randomRectangle centerX centerY firstTilt secondTilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+    where
+      radians :: [Radian ℝ]
+      radians =
+        [
+          firstTilt
+        , secondTilt
+        , flipRadian firstTilt
+        , flipRadian secondTilt
+        ]
+      flipRadian :: Radian ℝ -> Radian ℝ
+      flipRadian v
+        | v < (Radian pi) = v + Radian pi
+        | otherwise       = v - Radian pi 
+      distances = replicate 4 distanceToCorner
+
+-- | generate a random polygon.
+-- Idea stolen from: https://stackoverflow.com/questions/8997099/algorithm-to-generate-random-2d-polygon
+-- note: the centerPoint is assumed to be inside of the contour.
+randomStarPoly :: ℝ -> ℝ -> [(Positive ℝ,Radian ℝ)] -> Contour
+randomStarPoly centerX centerY radianDistPairs = maybeFlipContour $ makePointContour $ points
+  where
+    points = pToEPoint2 <$> pointsAroundCenter
+    pointsAroundCenter = (\(distanceFromPoint, angle) -> translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)) <$> radianDistPairs
+    centerPPoint = eToPPoint2 $ Point2 (centerX, centerY)
+
+-- | combine two lists. for feeding into randomStarPoly.
+makePairs :: [a] -> [b] -> [(a,b)]
+makePairs (a:as) (b:bs) = (a,b) : makePairs as bs
+makePairs (_:_) [] = error "out of inputs"
+makePairs [] (_:_) = []
+makePairs [] [] = []
+
+
 
 cellFrom :: Maybe (a,b) -> a
 cellFrom (Just (v,_)) = v
