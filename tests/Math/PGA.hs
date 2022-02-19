@@ -23,7 +23,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (Num, Ord, Eq, ($), Show, Bool(True, False), (<$>), (==), (>=), (<=), error, sqrt, (/=), otherwise, abs, (&&), (+), (>), show, length, (<>), not, pi, (-), replicate, (/), fmap, (<), length, (*))
+import Prelude (Num, Ord, Eq, ($), Show, Bool(True, False), (<$>), (==), (>=), (<=), error, sqrt, (/=), otherwise, abs, (&&), (+), (>), show, length, (<>), not, pi, (-), replicate, (/), fmap, (<), length, (*), signum, fromInteger, mod)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
@@ -636,28 +636,39 @@ prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitud
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
 
+-- A type for a list of three items. so we can gather a list of exactly three distances / radians.
 newtype ListThree a = ListThree {getListThree :: [a]}
   deriving (Show, Ord, Eq)
 
 instance (Arbitrary a) => Arbitrary (ListThree a) where
   arbitrary = fmap ListThree $ vector 3
 
+-- Radians are always positive, and always between 0 and tau+minfloat.
 newtype Radian a = Radian {getRadian :: ℝ}
   deriving (Show, Ord, Eq)
 
 instance Num (Radian a) where
-  (+) (Radian n1) (Radian n2) = Radian (wrapIfNeeded $ n1 + n2)
+  (+) (Radian r1) (Radian r2) = Radian $ wrapIfNeeded $ r1 + r2
     where
       wrapIfNeeded :: ℝ -> ℝ
       wrapIfNeeded v
         | v <= tau   = v
         | otherwise = v-tau
-  (-) (Radian n1) (Radian n2) = Radian (wrapIfNeeded $ n1 - n2)
+  (-) (Radian r1) (Radian r2) = Radian $ wrapIfNeeded $ r1 - r2
     where
       wrapIfNeeded :: ℝ -> ℝ
       wrapIfNeeded v
         | v > 0     = v
         | otherwise = v+tau
+  (*) (Radian r1) (Radian r2) = Radian $ recursiveWrap $ r1 * r2
+    where
+      recursiveWrap :: ℝ -> ℝ
+      recursiveWrap v
+        | v <= tau   = v
+        | otherwise = recursiveWrap $ v-tau
+  abs r1 = r1
+  fromInteger v = Radian $ fromInteger $ mod v 6
+  signum _ = 1
 
 instance Arbitrary (Radian ℝ) where
   arbitrary = fmap Radian (arbitrary `suchThat` (\a -> a > 0 && a <= tau))
