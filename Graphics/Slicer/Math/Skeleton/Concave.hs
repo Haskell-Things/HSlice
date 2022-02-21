@@ -26,9 +26,9 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, getOutsideArc, makeENodes, averageNodes, eNodesOfOutsideContour) where
+module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, getOutsideArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, towardIntersection) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.))
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=))
 
 import Data.Either (lefts,rights)
 
@@ -162,7 +162,7 @@ averageNodes n1 n2
   | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | isParallel (outOf n1) (outOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
-  | isCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
+  | isCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\nNode1Out: " <> show (outOf n1) <> "\nNode2Out: "<> show (outOf n2) <> "\n"
   | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
   | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (outOf n1) (pPointOf n2) (outOf n2)
 
@@ -180,21 +180,22 @@ getOutsideArc ppoint1 pline1 ppoint2 pline2
   | noIntersection pline1 pline2 = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
   | l1TowardPoint && l2TowardPoint = flipPLine2 $ getInsideArc pline1 (flipPLine2 pline2)
   | l1TowardPoint                  = flipPLine2 $ getInsideArc pline1 pline2
-  | l2TowardPoint                  = getInsideArc pline2 pline1
-  | otherwise                      = getInsideArc (flipPLine2 pline2) pline1
+  | l2TowardPoint                  = getInsideArc pline1 pline2
+  | otherwise                      = getInsideArc pline1 (flipPLine2 pline2)
     where
-      l1TowardPoint = towardIntersection ppoint1 pline1 (intersectionOf pline1 pline2)
-      l2TowardPoint = towardIntersection ppoint2 pline2 (intersectionOf pline1 pline2)
-      -- Determine if the line segment formed by the two given points starts with the first point, or the second.
-      -- Note that due to numeric uncertainty, we should not rely on Eq here, and must check the sign of the angle.
-      -- FIXME: sometimes this breaks down, if pp1 and pl1 have distance between them?
-      towardIntersection :: PPoint2 -> PLine2 -> PPoint2 -> Bool
-      towardIntersection pp1 pl1 in1
-        | pp1 == in1                           = False
-        | angleBetween constructedLine pl1 > 0 = True
-        | otherwise                            = False
-        where
-          constructedLine = join2PPoint2 pp1 in1
+      intersectionPoint = intersectionOf pline1 pline2
+      l1TowardPoint = towardIntersection ppoint1 pline1 intersectionPoint
+      l2TowardPoint = towardIntersection ppoint2 pline2 intersectionPoint
+
+-- Determine if the line segment formed by the two given points starts with the first point, or the second.
+-- Note that due to numeric uncertainty, we cannot rely on Eq here, and must check the sign of the angle.
+towardIntersection :: PPoint2 -> PLine2 -> PPoint2 -> Bool
+towardIntersection pp1 pl1 pp2
+  | distanceBetweenPPoints pp1 pp2 <= fudgeFactor = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nPLineConstructed: " <> show constructedPLine <> "\n"
+  | angleBetween constructedPLine pl1 > 0         = True
+  | otherwise                                     = False
+  where
+    constructedPLine = normalizePLine2 $ join2PPoint2 pp1 pp2
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'acute' direction.
 --   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.

@@ -1,6 +1,6 @@
 {- ORMOLU_DISABLE -}
 {- HSlice.
- - Copyright 2020 Julia Longtin
+ - Copyright 2020-2022 Julia Longtin
  -
  - This program is free software: you can redistribute it and/or modify
  - it under the terms of the GNU Affero General Public License as published by
@@ -23,7 +23,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), show, length, (<>), not, length)
+import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), show, length, (<>), not, length, (<), pi, (/), (>))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
@@ -55,10 +55,12 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour),
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, angleBetween, distancePPointToPLine, normalizePLine2, pPointsOnSameSideOfPLine)
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), dualAngle, eToPPoint2, eToPLine2, join2PPoint2, translatePerp, pointOnPerp, angleBetween, distancePPointToPLine, flipPLine2, normalizePLine2, pLineIsLeft, pPointsOnSameSideOfPLine)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour)
+
+import Graphics.Slicer.Math.Line (endPoint)
 
 -- Our imprecise Contour library.
 import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
@@ -68,8 +70,8 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
 -- Our Facet library.
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell, getNodeTreeOfCell, nodeTreesFromDivision)
-import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENodes, averageNodes, eNodesOfOutsideContour, getOutsideArc)
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell), MotorcycleIntersection(WithLineSeg, WithENode), outOf)
+import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENodes, averageNodes, eNodesOfOutsideContour, getOutsideArc, towardIntersection)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell), MotorcycleIntersection(WithLineSeg, WithENode), outOf, pPointOf)
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
@@ -80,7 +82,7 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Math.Util ((-->), (-/>))
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
-import Graphics.Slicer.Math.Ganja (ListThree, Radian, cellFrom, randomTriangle, randomRectangle, randomSquare, remainderFrom, onlyOne, dumpGanjas, toGanja)
+import Graphics.Slicer.Math.Ganja (ListThree, Radian(Radian), cellFrom, randomTriangle, randomRectangle, randomSquare, randomENode, randomINode, remainderFrom, onlyOne, dumpGanja, dumpGanjas, toGanja)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
@@ -768,6 +770,46 @@ prop_RectangleFacesInOrder x y rawFirstTilt rawSecondTilt rawDistanceToCorner = 
         unwrap :: Face -> LineSeg
         unwrap (Face edge _ _ _) = edge
 
+prop_obtuseBisectorOnBiggerSide_makeENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Expectation
+prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
+  | testFirstLine = pLineIsLeft bisector pl1 --> Just True
+  | otherwise     = pLineIsLeft pl2 bisector --> Just True
+  where
+    r1 = rawR1 / 2
+    r2 = r1 + rawR2 / 2
+    (l1, l2) = (\(ENode segs _) -> segs) eNode
+    pl1 = eToPLine2 l1
+    pl2 = flipPLine2 $ eToPLine2 l2
+    eNode = randomENode x y d1 rawR1 d2 rawR2
+    bisector = flipPLine2 $ outOf eNode
+
+prop_obtuseBisectorOnBiggerSide_makeINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> Expectation
+prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2
+  | otherwise  = (angleBetween bisector1 bisector2 > 0.9,
+                  angleBetween bisector1 bisector2 < -0.9) --> (True, False)
+  where
+    eNode = randomENode x y d1 rawR1 d2 rawR2
+    iNode = randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2
+    bisector1 = outOf iNode
+    bisector2 = flipPLine2 $ outOf eNode
+
+prop_eNodeTowardIntersection1 :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Expectation
+prop_eNodeTowardIntersection1 x y d1 rawR1 d2 rawR2 = l1TowardIntersection --> True
+  where
+    l1TowardIntersection = towardIntersection (eToPPoint2 l1start) pl1 (pPointOf eNode)
+    (l1@(LineSeg l1start _), _) = (\(ENode segs _) -> segs) eNode
+    pl1 = eToPLine2 l1
+    eNode = randomENode x y d1 rawR1 d2 rawR2
+
+prop_eNodeAwayFromIntersection2 :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Expectation
+prop_eNodeAwayFromIntersection2 x y d1 rawR1 d2 rawR2 = l2TowardIntersection --> False
+  where
+    l2TowardIntersection = towardIntersection (eToPPoint2 l2End) pl2 (pPointOf eNode)
+    (_, l2) = (\(ENode segs _) -> segs) eNode
+    l2End = endPoint l2
+    pl2 = eToPLine2 l2
+    eNode = randomENode x y d1 rawR1 d2 rawR2
+
 facetSpec :: Spec
 facetSpec = do
   describe "Arcs (Skeleton/Concave)" $ do
@@ -924,6 +966,15 @@ facetSpec = do
                 (slist [])
                 (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
           ]
+
+    it "finds the outsideArc of two intersecting lines (inverted makeENode)" $
+      property prop_obtuseBisectorOnBiggerSide_makeENode
+    it "finds the outsideArc of two intersecting lines (makeINode)" $
+      property prop_obtuseBisectorOnBiggerSide_makeINode
+    it "sees that the first input line into an ENode is toward the point" $
+      property prop_eNodeTowardIntersection1
+    it "sees that the second input line into an ENode is away from the point" $
+      property prop_eNodeAwayFromIntersection2
 
     it "finds the arc resulting from a node at the intersection of the outArc of two nodes (corner3 and corner4 of c2)" $
       averageNodes c2c3E1 c2c4E1 --> INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))

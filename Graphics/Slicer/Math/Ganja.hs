@@ -76,9 +76,9 @@
 
 {-# LANGUAGE FlexibleInstances #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, cellFrom, remainderFrom, onlyOne) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomENode, randomINode, cellFrom, remainderFrom, onlyOne) where
 
-import Prelude (Eq, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&))
+import Prelude (Bool, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&))
 
 import Data.Coerce (coerce)
 
@@ -103,11 +103,13 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg(LineSe
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf)
 
-import Graphics.Slicer.Math.Line (endPoint)
+import Graphics.Slicer.Math.Line (lineSegFromEndpoints, handleLineSegError, endPoint)
 
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, translateRotatePPoint2)
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, normalizePLine2, pToEPoint2, translateRotatePPoint2)
 
-import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles))
+import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
+
+import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), makeINode, pPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
@@ -360,6 +362,10 @@ instance (Arbitrary a) => Arbitrary (ListThree a) where
 newtype Radian a = Radian {getRadian :: ℝ}
   deriving (Show, Ord, Eq)
 
+instance Arbitrary (Radian a) where
+  arbitrary = Radian <$> (arbitrary `suchThat` (\a -> a > 0 && a <= tau))
+  shrink (Radian x) = [ Radian x' | x' <- shrink x , x' > 0 ]
+
 instance Num (Radian a) where
   (+) (Radian r1) (Radian r2) = Radian $ wrapIfNeeded $ r1 + r2
     where
@@ -383,9 +389,9 @@ instance Num (Radian a) where
   fromInteger v = Radian $ fromInteger $ mod v 6
   signum _ = 1
 
-instance Arbitrary (Radian ℝ) where
-  arbitrary = Radian <$> (arbitrary `suchThat` (\a -> a > 0 && a <= tau))
-  shrink (Radian x) = [ Radian x' | x' <- shrink x , x' > 0 ]
+instance Fractional (Radian a) where
+  (/) (Radian r1) (Radian r2) = Radian $ r1 / r2
+  fromRational a = Radian $ fromRational a
 
 randomTriangle :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Contour
 randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX centerY $ makePairs dists radians
@@ -434,6 +440,36 @@ randomStarPoly centerX centerY radianDistPairs = maybeFlipContour $ makePointCon
     pointsAroundCenter = (\(distanceFromPoint, angle) -> translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)) <$> radianDistPairs
     centerPPoint = eToPPoint2 $ Point2 (centerX, centerY)
 
+randomENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> ENode
+randomENode x y d1 rawR1 d2 rawR2 = makeENode l1 l2
+  where
+    r1 = rawR1 / 2
+    r2 = r1 + (rawR2 / 2)
+    intersectionPoint = Point2 (x,y)
+    pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
+    pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
+    p1 = pToEPoint2 pp1
+    p2 = pToEPoint2 pp2
+    intersectionPPoint = eToPPoint2 intersectionPoint
+    l1 = handleLineSegError $ lineSegFromEndpoints p1 intersectionPoint
+    l2 = handleLineSegError $ lineSegFromEndpoints intersectionPoint p2
+
+randomINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> INode
+randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,maybeFlippedpl2] (Just bisector1)
+  where
+    r1 = rawR1 / 2
+    r2 = r1 + (rawR2 / 2)
+    (l1, l2) = (\(ENode segs _) -> segs) eNode
+    pl1 = normalizePLine2 $ eToPLine2 l1
+    pl2 = normalizePLine2 $ flipPLine2 $ eToPLine2 l2
+    intersectionPPoint = pPointOf eNode
+    eNode = randomENode x y d1 rawR1 d2 rawR2
+    pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
+    pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
+    maybeFlippedpl1 = if flipIn1 then flipPLine2 pl1 else pl1
+    maybeFlippedpl2 = if flipIn2 then flipPLine2 pl2 else pl2
+    bisector1 = normalizePLine2 $ getOutsideArc pp1 maybeFlippedpl1 pp2 maybeFlippedpl2
+
 -- | combine two lists. for feeding into randomStarPoly.
 makePairs :: [a] -> [b] -> [(a,b)]
 makePairs (a:as) (b:bs) = (a,b) : makePairs as bs
@@ -441,14 +477,14 @@ makePairs (_:_) [] = error "out of inputs"
 makePairs [] (_:_) = []
 makePairs [] [] = []
 
-
-
 cellFrom :: Maybe (a,b) -> a
 cellFrom (Just (v,_)) = v
 cellFrom Nothing = error "whoops"
+
 remainderFrom :: Maybe (a,b) -> b
 remainderFrom (Just (_,v)) = v
 remainderFrom Nothing = error "whoops"
+
 onlyOne :: [a] -> a
 onlyOne eNodes = case eNodes of
                    [] -> error "none"
