@@ -48,7 +48,7 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, mapWithNeighbors, minMaxPoints, xOf, yOf, startPoint, fudgeFactor)
 
-import Graphics.Slicer.Math.Line (lineSegFromEndpoints, endPoint, midPoint, handleLineSegError)
+import Graphics.Slicer.Math.Line (lineSegFromEndpoints, endPoint, midPoint, handleLineSegError, LineSegError(LineSegFromPoint,EmptyList))
 
 import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, HitStartPoint, HitEndPoint), PIntersection (PParallel, PAntiParallel, IntersectsIn), eToPPoint2, lineIsLeft, pointOnPerp, intersectsWith, pToEPoint2, PPoint2, PLine2, join2PPoint2)
 
@@ -361,7 +361,13 @@ makeLineSegContour lineSegs = case lineSegs of
 
 -- | find the first line segment of a contour.
 firstLineSegOfContour :: Contour -> LineSeg
-firstLineSegOfContour (PointContour _ _ p1 p2 _ _) = handleLineSegError $ lineSegFromEndpoints p1 p2
+firstLineSegOfContour c@(PointContour _ _ p1 p2 _ _) = myLineSegErrorHandler $ lineSegFromEndpoints p1 p2
+  where
+    myLineSegErrorHandler :: Either LineSegError LineSeg -> LineSeg
+    myLineSegErrorHandler e = case e of
+                                (Left (LineSegFromPoint _)) -> error $ "tried to create a line segment from a point when finding the first line segment!\nContour: " <> show c <> "\n"
+                                (Left (EmptyList)) -> error "unpossible!"
+                                (Right lineSeg) -> lineSeg
 firstLineSegOfContour (LineSegContour _ _ l1 _ _) = l1
 
 -- | find the first outer contour of a contourTreeSet, and return it.
