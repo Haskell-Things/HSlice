@@ -76,7 +76,7 @@
 
 {-# LANGUAGE FlexibleInstances #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomENode, randomINode, cellFrom, remainderFrom, onlyOne) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomENode, randomINode, randomPLine, randomLineSeg, cellFrom, remainderFrom, onlyOne) where
 
 import Prelude (Bool, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&))
 
@@ -92,7 +92,7 @@ import Slist.Type (Slist(Slist))
 
 import Slist (last, len)
 
-import Test.QuickCheck (Arbitrary, Positive(Positive), arbitrary, shrink, suchThat, vector)
+import Test.QuickCheck (Arbitrary, Positive(Positive), NonZero(NonZero), arbitrary, shrink, suchThat, vector)
 
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
@@ -469,6 +469,15 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
     maybeFlippedpl1 = if flipIn1 then flipPLine2 pl1 else pl1
     maybeFlippedpl2 = if flipIn2 then flipPLine2 pl2 else pl2
     bisector1 = normalizePLine2 $ getOutsideArc pp1 maybeFlippedpl1 pp2 maybeFlippedpl2
+
+-- | A helper function. constructs a random PLine.
+randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> PLine2
+randomPLine x y dx dy = eToPLine2 $ LineSeg (Point2 (coerce x, coerce y)) (Point2 (coerce dx, coerce dy))
+
+-- | A helper function. constructs a random LineSeg.
+-- FIXME: can construct 0 length segments, and fail.
+randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
+randomLineSeg x y dx dy = LineSeg (Point2 (coerce x, coerce y)) (Point2 (coerce dx, coerce dy))
 
 -- | combine two lists. for feeding into randomStarPoly.
 makePairs :: [a] -> [b] -> [(a,b)]
