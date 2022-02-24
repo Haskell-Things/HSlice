@@ -18,7 +18,7 @@
  -}
 
 -- | The purpose of this file is to hold line segment arithmatic. really, we used to have a linear algebra implementation here, before we moved to PGA.
-module Graphics.Slicer.Math.Line (LineSegError(LineSegFromPoint), lineSegFromEndpoints, makeLineSegs, midPoint, endPoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs, handleLineSegError) where
+module Graphics.Slicer.Math.Line (LineSegError(LineSegFromPoint, EmptyList), lineSegFromEndpoints, makeLineSeg, makeLineSegs, midPoint, endPoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs, handleLineSegError) where
 
 import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), Eq, (<$>), Show, error, zipWith, (<>), show, Either(Left, Right))
 
@@ -77,14 +77,15 @@ endPoint (LineSeg p s) = addPoints p s
 flipLineSeg :: LineSeg -> LineSeg
 flipLineSeg l@(LineSeg _ s) = LineSeg (endPoint l) (scalePoint (-1) s)
 
+makeLineSeg :: Point2 -> Point2 -> LineSeg
+makeLineSeg p1 p2 = handleLineSegError $ lineSegFromEndpoints p1 p2
+
 -- | Given a list of points (in order), construct line segments that go between them.
 makeLineSegs :: [Point2] -> [LineSeg]
 makeLineSegs points = case points of
                         [] -> error "tried to makeLineSegs a list with no points."
                         [p] -> error $ "tried to makeLineSegs a list with only one point: " <> show p <> "\n"
-                        (_h:t) -> zipWith consLineSeg points t
-  where
-    consLineSeg p1 p2 = handleLineSegError $ lineSegFromEndpoints p1 p2
+                        (_h:t) -> zipWith makeLineSeg points t
 
 -- | Find the point where a line segment intersects the plane at a given z height.
 --   Note that this evaluates to Nothing in the case that there is no point in the line segment that Z value, or if the line segment is z aligned.
