@@ -24,7 +24,7 @@
 -- | functions for handling contours.
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, contourIntersectionCount, maybeFlipContour) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), not, (*))
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), not, (*), (<))
 
 import Data.List(partition, reverse, sortBy)
 
@@ -46,7 +46,7 @@ import Slist.Size (Size(Infinity))
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, mapWithNeighbors, minMaxPoints, xOf, yOf, startPoint, fudgeFactor)
+import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, mapWithNeighbors, minMaxPoints, xOf, yOf, startPoint, fudgeFactor, distance)
 
 import Graphics.Slicer.Math.Line (lineSegFromEndpoints, endPoint, midPoint, handleLineSegError, LineSegError(LineSegFromPoint,EmptyList))
 
@@ -236,13 +236,13 @@ insideIsLeft contour lineSegment = lineIsLeft lineSecondHalf lineToInside == Jus
 -- | Find a point on the interior of the given contour, on the perpendicular bisector of the given line segment, a given distance away from the line segment.
 -- FIXME: the magic 100000 value here can't be smaller, or inner walls are placed in the wrong place?
 innerContourPoint :: ℝ -> Contour -> LineSeg -> Point2
-innerContourPoint distance contour l
+innerContourPoint distanceAway contour l
     | odd numIntersections = perpPoint
     | otherwise            = otherPerpPoint
   where
     minPoint       = fst (minMaxPoints contour)
-    perpPoint      = pointOnPerp l (midPoint l) distance
-    otherPerpPoint = pointOnPerp l (midPoint l) (-distance)
+    perpPoint      = pointOnPerp l (midPoint l) distanceAway
+    otherPerpPoint = pointOnPerp l (midPoint l) (-distanceAway)
     outsidePoint   = Point2 (xOf minPoint - 1 , yOf minPoint - 1)
     numIntersections = contourIntersectionCount contour (Left (pointOnPerp l (midPoint l) (fudgeFactor*100000), outsidePoint))
 
@@ -348,8 +348,8 @@ makeLineSegContour :: [LineSeg] -> Contour
 makeLineSegContour lineSegs = case lineSegs of
                                 [] -> error "tried to create an empty contour"
                                 [l] -> error $ "tried to create a contour with a single line: " <> show l <> "\n"
-                                [l1,l2] -> if startPoint l1 == endPoint l2
-                                           then error $ "tried to create a contour with only two points:\n" <> show l1 <> "\n" <> show l2 <> "\n"
+                                [l1,l2] -> if distance (startPoint l1) (endPoint l2) < fudgeFactor && distance (startPoint l2) (endPoint l2) < fudgeFactor
+                                           then error $ "tried to create a contour with two (almost) identical points:\n" <> show l1 <> "\n" <> show l2 <> "\n"
                                            else LineSegContour pL pH l1 l2 (slist [])
                                 (l1:l2:lns) -> LineSegContour pL pH l1 l2 (slist lns)
   where
