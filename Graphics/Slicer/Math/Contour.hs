@@ -24,7 +24,7 @@
 -- | functions for handling contours.
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, contourIntersectionCount, maybeFlipContour) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), not, (*), (<))
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), not, (*), (<), (&&))
 
 import Data.List(partition, reverse, sortBy)
 
