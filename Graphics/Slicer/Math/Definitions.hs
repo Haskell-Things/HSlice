@@ -74,7 +74,9 @@ instance LinAlg Point3 where
 
 -- | perform linear algebra on 2D points.
 instance LinAlg Point2 where
-  distance p1 p2 = magnitude $ addPoints p1 (scalePoint (-1) p2)
+  distance p1 p2
+    | p1 == p2 = 0
+    | otherwise = magnitude $ addPoints p1 (scalePoint (-1) p2)
     where
       magnitude (Point2 (x1,y1)) = sqrt (x1 * x1 + y1 * y1)
   addPoints (Point2 (x1,y1)) (Point2 (x2,y2)) = Point2 (x1+x2, y1+y2)
