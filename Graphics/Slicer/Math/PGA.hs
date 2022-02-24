@@ -21,7 +21,7 @@
 
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), addPPoint2s, eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, distanceBetween2PLine2s, meet2PLine2, forcePLine2Basis, idealNormPPoint2, idealPPoint2, lineIntersectsPLine, pPointBetweenPPoints, reverseGVec, translateRotatePPoint2) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), addPPoint2s, eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), dualAngle, pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, distanceBetween2PLine2s, meet2PLine2, forcePLine2Basis, idealNormPPoint2, idealPPoint2, lineIntersectsPLine, pPointBetweenPPoints, reverseGVec, translateRotatePPoint2) where
 
 import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error, sin, cos)
 
@@ -73,18 +73,17 @@ addPPoint2s pPoint1 pPoint2 = PPoint2 $ addVecPair (rawPPoint2 $ idealPPoint2 pP
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
 plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
 plinesIntersectIn pl1 pl2
-
   | meet2PLine2 pl1 pl2 == PPoint2 (GVec [])
   || (idealNormPPoint2 (meet2PLine2 pl1 pl2) < fudgeFactor
      && (angleBetween pl1 pl2 >= 1 ||
-         angleBetween pl1 pl2 <= -1 ))          = if angleBetween pl1 pl2 > 0
-                                                           then PCollinear
-                                                           else PAntiCollinear
-  | scalarPart (pr1 ⎣ pr2) <   1+fudgeFactor &&
-    scalarPart (pr1 ⎣ pr2) >   1-fudgeFactor    = PParallel
-  | scalarPart (pr1 ⎣ pr2) <  -1+fudgeFactor &&
-    scalarPart (pr1 ⎣ pr2) >  -1-fudgeFactor    = PAntiParallel
-  | otherwise                                   = IntersectsIn $ intersectionOf pl1 pl2
+         angleBetween pl1 pl2 <= -1 ))         = if angleBetween pl1 pl2 > 0
+                                                 then PCollinear
+                                                 else PAntiCollinear
+  | scalarPart (pr1 ⎣ pr2) <  1+fudgeFactor &&
+    scalarPart (pr1 ⎣ pr2) >  1-fudgeFactor    = PParallel
+  | scalarPart (pr1 ⎣ pr2) < -1+fudgeFactor &&
+    scalarPart (pr1 ⎣ pr2) > -1-fudgeFactor    = PAntiParallel
+  | otherwise                                  = IntersectsIn $ intersectionOf pl1 pl2
   where
     (PLine2 pr1) = normalizePLine2 pl1
     (PLine2 pr2) = normalizePLine2 pl2
