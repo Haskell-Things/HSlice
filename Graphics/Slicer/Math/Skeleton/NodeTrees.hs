@@ -31,15 +31,15 @@ import Slist as SL (filter, last, head, init, isEmpty)
 
 import Graphics.Slicer.Math.Definitions (LineSeg)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf, finalPLine, hasNoINodes, ancestorsOf, indexPLinesTo, makeINode, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf, finalPLine, getFirstLineSeg, getLastLineSeg, hasNoINodes, ancestorsOf, indexPLinesTo, makeINode, sortedPLines)
 
 import Graphics.Slicer.Math.PGA (PLine2)
 
 lastSegOf :: NodeTree -> LineSeg
-lastSegOf nodeTree = (\(ENode (_,outSeg) _) -> outSeg) (lastENodeOf nodeTree)
+lastSegOf nodeTree = getLastLineSeg $ lastENodeOf nodeTree
 
 firstSegOf :: NodeTree -> LineSeg
-firstSegOf nodeTree = (\(ENode (outSeg,_) _) -> outSeg) (firstENodeOf nodeTree)
+firstSegOf nodeTree = getFirstLineSeg $ firstENodeOf nodeTree
 
 lastENodeOf :: NodeTree -> ENode
 lastENodeOf (NodeTree (ENodeSet sides) _) = if null $ snd res
@@ -114,7 +114,7 @@ findENodeByOutput (ENodeSet eNodeSides) plineOut =
                                                                  (Slist [oneNode] _) -> Just oneNode
                                                                  (Slist (_:_) _)->  error "more than one exterior node with the same PLine out!"
     where
-      nodesMatching = SL.filter (\(ENode _ a) -> a == myPlineOut) (cons firstENode moreENodes)
+      nodesMatching = SL.filter (\eNode -> outOf eNode == myPlineOut) (cons firstENode moreENodes)
 
 -----------------------------------------------------------------------------
 -- dependent utility functions. used by internal components. not exported. --
@@ -257,7 +257,7 @@ mergeNodeTrees nodeTrees =
       | checkForFollower (lastOfSide side1) (firstOfSide side2) = FirstLast
       | checkForFollower (lastOfSide side2) (firstOfSide side1) = LastFirst
       | otherwise = NoMatch
-    checkForFollower (ENode (_, lastSeg) _) (ENode (firstSeg, _) _) = lastSeg == firstSeg
+    checkForFollower eNode1 eNode2 = getLastLineSeg eNode1 == getFirstLineSeg eNode2
     firstSide (ENodeSet sides)
       | len sides == 1 = head sides
       | otherwise = error "unexplored territory"

@@ -40,7 +40,7 @@ import Slist.Type (Slist(Slist), one)
 
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), ePointOf, finalPLine, intersectionOf, outOf, makeINode, insOf, lastINodeOf, pPointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), ePointOf, finalPLine, getFirstLineSeg, intersectionOf, outOf, makeINode, insOf, lastINodeOf, pPointOf)
 
 import Graphics.Slicer.Math.Ganja (dumpGanja)
 
@@ -323,11 +323,11 @@ endOfDivide divide = fromMaybe (error "missed!") $ maybeEndOfDivide divide
 maybeEndOfDivide :: CellDivide -> Maybe (LineSeg, Either Point2 PPoint2)
 maybeEndOfDivide (CellDivide (DividingMotorcycles m ms) lastIntersection)
   | len ms == 0 = case lastIntersection of
-                    (WithENode eNode@(ENode (startSeg,_) _)) -> Just (startSeg, Left $ ePointOf eNode)
+                    (WithENode eNode) -> Just (getFirstLineSeg eNode, Left $ ePointOf eNode)
                     (WithMotorcycle m1) -> Just (startSegOfMotorcycle m1, Left $ ePointOf m1)
                     (WithLineSeg lineSeg) -> motorcycleMightIntersectWith [lineSeg] m
   | len ms == 1 = case lastIntersection of
-                    (WithENode eNode@(ENode (startSeg,_) _)) -> Just (startSeg, Left $ ePointOf eNode)
+                    (WithENode eNode) -> Just (getFirstLineSeg eNode, Left $ ePointOf eNode)
                     (WithMotorcycle m2) -> Just (startSegOfMotorcycle m2, Left $ ePointOf m2)
                     (WithLineSeg lineSeg) -> motorcycleMightIntersectWith [lineSeg] $ head ms
   | otherwise = Nothing

@@ -48,15 +48,15 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), mapWithFollower, distance, fudgeFactor, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, distance, fudgeFactor, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
-import Graphics.Slicer.Math.Line (endPoint)
+import Graphics.Slicer.Math.Line (endPoint, makeLineSeg)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine, flipPLine2)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, getPairs, isCollinear, indexPLinesTo, insOf, isParallel, lastINodeOf, linePairs, makeINode, intersectionBetween, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, firstInOf, getPairs, isCollinear, indexPLinesTo, insOf, isParallel, lastINodeOf, linePairs, makeINode, intersectionBetween, sortedPLines)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree, findENodeByOutput)
 
@@ -208,24 +208,26 @@ getInsideArc pline1 pline2@(PLine2 pv2)
       (PLine2 flippedPV1) = flipPLine2 pline1
 
 -- | Make a first generation node.
-makeENode :: LineSeg -> LineSeg -> ENode
-makeENode seg1 seg2 = ENode (seg1,seg2) $ getFirstArc seg1 seg2
+makeENode :: Point2 -> Point2 -> Point2 -> ENode
+makeENode p1 p2 p3 = ENode (p1,p2,p3) $ getFirstArc p1 p2 p3
 
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
 makeENodes :: [LineSeg] -> [ENode]
 makeENodes segs = case segs of
-                         [] -> error "got empty list at makeENodes.\n"
-                         [a] -> error $ "not enough line segments at makeENodes: " <> show a <> "\n"
-                         [a,b] -> [makeENode a b]
-                         xs -> case unsnoc $ mapWithFollower makeENode xs of
-                                 Nothing -> error "impossible!"
-                                 Just (i,_) -> i
+                         [] -> error "got empty list.\n"
+                         [a] -> error $ "not enough line segments: " <> show a <> "\n"
+                         [a,b] -> [makeENode (startPoint a) (startPoint b) (endPoint b)]
+                         (a:b:xs) -> [makeENode (startPoint a) (startPoint b) (endPoint b)] <> makeENodes (b:xs)
 
--- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
+-- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour. make sure to construct the last segment connecting to the first.
 makeENodesLooped :: [LineSeg] -> [ENode]
-makeENodesLooped segs
-  | null segs = error "got empty list at makeNodes.\n"
-  | otherwise = mapWithFollower makeENode segs
+makeENodesLooped segs = case segs of
+                          [] -> error "got empty list.\n"
+                          [a] -> error $ "not enough line segments: " <> show a <> "\n"
+                          [a,b] -> error $ "not enough line segments: " <> show a <> "\n" <> show b <> "\n"
+                          (a:_:xs) -> makeENodes segs <> [makeENode (startPoint lastSeg) (startPoint a) (endPoint a)]
+                            where
+                              lastSeg = last $ slist xs
 
 -- | Find the non-reflex virtexes of a contour, and create ENodes from them.
 --   This function is meant to be used on an exterior contour.
@@ -233,13 +235,13 @@ eNodesOfOutsideContour :: Contour -> [ENode]
 eNodesOfOutsideContour contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower concavePLines $ lineSegsOfContour contour)
   where
     onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe ENode
-    onlyNodes ((seg1, seg2), Just _) = Just $ makeENode seg1 seg2
+    onlyNodes ((seg1, seg2), Just _) = Just $ makeENode (startPoint seg1) (startPoint seg2) (endPoint seg2)
     onlyNodes ((_, _), Nothing) = Nothing
 
--- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the two given line segments.
+-- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
 --   Note that we normalize the output of eToPLine2, because by default, it does not output normalized lines.
-getFirstArc :: LineSeg -> LineSeg -> PLine2
-getFirstArc seg1 seg2 = getInsideArc (normalizePLine2 $ eToPLine2 seg1) (normalizePLine2 $ eToPLine2 seg2)
+getFirstArc :: Point2 -> Point2 -> Point2 -> PLine2
+getFirstArc p1 p2 p3 = getInsideArc (normalizePLine2 $ eToPLine2 $ makeLineSeg p1 p2) (normalizePLine2 $ eToPLine2 $ makeLineSeg p2 p3)
 
 -- | Find the reflex virtexes of a contour, and draw Nodes from them.
 --   This function is for use on interior contours.
@@ -534,9 +536,6 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
                                         <> show initialGeneration <> "\n"
                                 where
                                   allInsAreENodes iNode = not $ hasINode iNode
-
-    -- Return the first input to a given INode.
-    firstInOf (INode firstIn _ _ _) = firstIn
 
     -- the output PLine of the first ENode in the input ENode set.
     firstPLine = outOf firstENode

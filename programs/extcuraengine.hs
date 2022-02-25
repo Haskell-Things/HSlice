@@ -632,6 +632,8 @@ run rawArgs = do
             maybeWallLineCount _ = Nothing
             maybeSupport (lookupVarIn "support_enable" -> Just (OBool enable)) = Just enable
             maybeSupport _ = Nothing
+            maybeSupportInfillRate (lookupVarIn "support_enable" -> Just (OBool enable)) = Just enable
+            maybeSupportInfillRate _ = Nothing
             maybeTopBottomThickness (lookupVarIn "top_bottom_thickness" -> Just (ONum thickness)) = Just thickness
             maybeTopBottomThickness _ = Nothing
             maybeInfillLineWidth (lookupVarIn "infill_line_width" -> Just (ONum width)) = Just width
@@ -640,6 +642,20 @@ run rawArgs = do
             maybeOuterWallBeforeInner  _ = Nothing
             maybeInfillSpeed (lookupVarIn "speed_infill" -> Just (ONum speed)) = Just speed
             maybeInfillSpeed _ = Nothing
+            -- FIXME: implement these!
+            -- note: if layer0 is greater than layerHeight, subtract the remainder from layer 1.
+            maybeLayer0Height (lookupVarIn "layer_height" -> Just (ONum thickness)) = Just thickness
+            maybeLayer0Height _ = Nothing
+            maybeLayer0Speed (lookupVarIn "speed_infill" -> Just (ONum speed)) = Just speed
+            maybeLayer0Speed _ = Nothing
+            maybeTopBottomSpeed (lookupVarIn "speed_infill" -> Just (ONum speed)) = Just speed
+            maybeTopBottomSpeed _ = Nothing
+            maybeTravelSpeed (lookupVarIn "speed_infill" -> Just (ONum speed)) = Just speed
+            maybeTravelSpeed _ = Nothing
+            maybeWall0Speed (lookupVarIn "speed_infill" -> Just (ONum speed)) = Just speed
+            maybeWall0Speed _ = Nothing
+            maybeWallXSpeed (lookupVarIn "speed_infill" -> Just (ONum speed)) = Just speed
+            maybeWallXSpeed _ = Nothing
         startingGCode, endingGCode :: VarLookup -> ByteString
         startingGCode (lookupVarIn "machine_start_gcode" -> Just (OString startGCode)) = fromString startGCode
         startingGCode _ = ";FLAVOR:Marlin\n"

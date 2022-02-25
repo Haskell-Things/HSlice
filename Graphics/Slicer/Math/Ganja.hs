@@ -99,17 +99,17 @@ import Graphics.Slicer (ℝ)
 
 import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, pointsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg(LineSeg), mapWithFollower)
+import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg(LineSeg), mapWithFollower, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf)
 
-import Graphics.Slicer.Math.Line (lineSegFromEndpoints, handleLineSegError, endPoint)
+import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, normalizePLine2, pToEPoint2, translateRotatePPoint2)
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
 
-import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), makeINode, pPointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg, makeINode, outOf, pPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
@@ -125,7 +125,7 @@ instance GanjaAble Point2 where
       showFullPrecision v = showFFloat Nothing v ""
 
 instance GanjaAble LineSeg where
-  toGanja l1@(LineSeg p1 _) varname = (
+  toGanja l1 varname = (
        p1var
     <> p2var,
        "    0x882288,\n"
@@ -134,7 +134,7 @@ instance GanjaAble LineSeg where
     <> p1ref
     <> p2ref)
     where
-      (p1var, p1ref) = toGanja p1 (varname <> "a")
+      (p1var, p1ref) = toGanja (startPoint l1) (varname <> "a")
       (p2var, p2ref) = toGanja (endPoint l1) (varname <> "b")
 
 instance GanjaAble PPoint2 where
@@ -181,7 +181,7 @@ instance GanjaAble Contour where
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
 
 instance GanjaAble ENode where
-  toGanja (ENode (l1, l2) outPLine) varname = (
+  toGanja eNode varname = (
     l1var
     <> l2var
     <> plvar
@@ -191,9 +191,9 @@ instance GanjaAble ENode where
     <> plref
     )
     where
-      (l1var, l1ref) = toGanja l1 (varname <> "a")
-      (l2var, l2ref) = toGanja l2 (varname <> "b")
-      (plvar, plref) = toGanja outPLine (varname <> "c")
+      (l1var, l1ref) = toGanja (getFirstLineSeg eNode) (varname <> "a")
+      (l2var, l2ref) = toGanja (getLastLineSeg eNode) (varname <> "b")
+      (plvar, plref) = toGanja (outOf eNode) (varname <> "c")
 
 instance GanjaAble Motorcycle where
   toGanja (Motorcycle (l1, l2) outPLine) varname = (
@@ -270,21 +270,19 @@ instance GanjaAble NodeTree where
           allINodes    = toGanja <$> iNodesOf iNodeSet
           firstLine    = case eNodeSides of
                            (Slist [] _) -> []
-                           (Slist [(firstNode,Slist [] _)] _) -> [inLine firstNode]
-                           (Slist [(firstNode,otherNodes)] _) -> if inLine firstNode == outLine (last otherNodes)
+                           (Slist [(firstNode,Slist [] _)] _) -> [getFirstLineSeg firstNode]
+                           (Slist [(firstNode,otherNodes)] _) -> if getFirstLineSeg firstNode == getLastLineSeg (last otherNodes)
                                                                  then []
-                                                                 else [inLine firstNode]
+                                                                 else [getFirstLineSeg firstNode]
                            (Slist _ _) -> error "too many sides."
             where
-              inLine (ENode (a,_) _) = a
           remainingLines
             | len eNodeSides == 0 = []
-            | otherwise = outLine <$> eNodesOf eNodeSides
+            | otherwise = getLastLineSeg <$> eNodesOf eNodeSides
             where
               eNodesOf (Slist [] _) = error "no enodes?"
               eNodesOf (Slist [(first,Slist more _)] _) = first : more
               eNodesOf (Slist _ _) = error "too many sides?"
-          outLine (ENode (_,a) _)  = a
           iNodesOf :: INodeSet -> [INode]
           iNodesOf (INodeSet (Slist inodes _)) = concat inodes
 
@@ -445,7 +443,7 @@ randomStarPoly centerX centerY radianDistPairs = maybeFlipContour $ makePointCon
     centerPPoint = eToPPoint2 $ Point2 (centerX, centerY)
 
 randomENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> ENode
-randomENode x y d1 rawR1 d2 rawR2 = makeENode l1 l2
+randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
   where
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
@@ -455,17 +453,14 @@ randomENode x y d1 rawR1 d2 rawR2 = makeENode l1 l2
     p1 = pToEPoint2 pp1
     p2 = pToEPoint2 pp2
     intersectionPPoint = eToPPoint2 intersectionPoint
-    l1 = handleLineSegError $ lineSegFromEndpoints p1 intersectionPoint
-    l2 = handleLineSegError $ lineSegFromEndpoints intersectionPoint p2
 
 randomINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> INode
 randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,maybeFlippedpl2] (Just bisector1)
   where
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
-    (l1, l2) = (\(ENode segs _) -> segs) eNode
-    pl1 = normalizePLine2 $ eToPLine2 l1
-    pl2 = normalizePLine2 $ flipPLine2 $ eToPLine2 l2
+    pl1 = normalizePLine2 $ eToPLine2 $ getFirstLineSeg eNode
+    pl2 = normalizePLine2 $ flipPLine2 $ eToPLine2 $ getLastLineSeg eNode
     intersectionPPoint = pPointOf eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
     pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
