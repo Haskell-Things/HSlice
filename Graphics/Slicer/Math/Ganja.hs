@@ -414,8 +414,12 @@ randomSquare centerX centerY tilt distanceToCorner = randomStarPoly centerX cent
     distances = replicate 4 distanceToCorner
 
 randomRectangle :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Contour
-randomRectangle centerX centerY firstTilt secondTilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+randomRectangle centerX centerY rawFirstTilt secondTilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
+      -- Workaround: since first and second may be unique, but may not be 0, add them!
+      firstTilt
+        | rawFirstTilt == secondTilt = rawFirstTilt + secondTilt
+        | otherwise = rawFirstTilt
       radians :: [Radian ℝ]
       radians =
         [
