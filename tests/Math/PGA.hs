@@ -817,7 +817,7 @@ prop_eNodeAwayFromIntersection2 :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> P
 prop_eNodeAwayFromIntersection2 x y d1 rawR1 d2 rawR2 = l2TowardIntersection --> False
   where
     l2TowardIntersection = towardIntersection (eToPPoint2 $ endPoint l2) pl2 (pPointOf eNode)
-    l2 =  getLastLineSeg eNode
+    l2 = getLastLineSeg eNode
     pl2 = eToPLine2 l2
     eNode = randomENode x y d1 rawR1 d2 rawR2
 
@@ -826,8 +826,8 @@ prop_translateRotateMoves x y rawD rawR = distanceBetweenPPoints (translateRotat
   where
     ppoint = eToPPoint2 $ Point2 (x,y)
     r,d::ℝ
-    r=coerce rawR
-    d=coerce rawD
+    r = coerce rawR
+    d = coerce rawD
 
 facetSpec :: Spec
 facetSpec = do
@@ -968,7 +968,11 @@ facetSpec = do
     it "finds faces from a rectangle (unit)" $
       facesOf (fromMaybe (error "got Nothing") $ findStraightSkeleton rectangle [])
       --> slist [
-           Face (LineSeg (Point2 (1.0,1.0)) (Point2 (-3.0,0.0)))
+           Face (LineSeg (Point2(1.0,-1.0)) (Point2 (0.0,2.0)))
+                (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+                (slist [])
+                (PLine2 (GVec [GVal  0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+          ,Face (LineSeg (Point2 (1.0,1.0)) (Point2 (-3.0,0.0)))
                 (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                 (slist [PLine2 (GVec [GVal 1.0 (singleton (GEPlus 2))])])
                 (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
@@ -980,10 +984,6 @@ facetSpec = do
                 (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
                 (slist [PLine2 (GVec [GVal 1.0 (singleton (GEPlus 2))])])
                 (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-          ,Face (LineSeg (Point2(1.0,-1.0)) (Point2 (0.0,2.0)))
-                (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                (slist [])
-                (PLine2 (GVec [GVal  0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
           ]
 
     it "finds the outsideArc of two intersecting lines (inverted makeENode)" $
