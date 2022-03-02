@@ -116,10 +116,6 @@ findENodeByOutput (ENodeSet eNodeSides) plineOut =
     where
       nodesMatching = SL.filter (\eNode -> outOf eNode == myPlineOut) (cons firstENode moreENodes)
 
------------------------------------------------------------------------------
--- dependent utility functions. used by internal components. not exported. --
------------------------------------------------------------------------------
-
 -- | Find an INode that has an output of the PLine given. Check the most recent generation, and if recurse is set, check previous generations.
 --   Also returns the generation the INode was found in, it's generation, and it's prior generations.
 findINodeByOutput :: INodeSet -> PLine2 -> Bool -> Maybe (INodeSet, INode)
