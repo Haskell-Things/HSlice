@@ -142,7 +142,7 @@ rotateFaces iNodeSet eNodes iNode = rTail <> [rHead]
 
 -- | Get the faces for all of the NodeTree under the given INode.
 -- uses a recursive resolver, and sometimes calls itsself, making it a co-recursive algorithm..
-getFaces :: INodeSet -> INodeSet -> ENodeSet -> INode -> [Face]
+getFaces :: INodeSet -> ENodeSet -> INode -> [Face]
 getFaces iNodeSet@(INodeSet myGenerations) eNodes iNode@(INode _ _ _ maybeOut) = findFacesRecurse iNode allPLines
   where
     allPLines = (sortedPLines $ insOf iNode <> out)
