@@ -70,7 +70,7 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
 -- Our Facet library.
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell, getNodeTreeOfCell, nodeTreesFromDivision)
-import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, getOutsideArc, towardIntersection)
+import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENodes, averageNodes, eNodesOfOutsideContour, getOutsideArc, towardIntersection)
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell), MotorcycleIntersection(WithLineSeg, WithENode), getFirstLineSeg, getLastLineSeg, outOf, pPointOf)
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
@@ -530,36 +530,6 @@ prop_AxisAlignedRightAnglesOutside xPos yPos offset rawMagnitude
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
 -- NOTE: we use only one magnitude, because getOutsideArc requires normalized inputs.
 -- NOTE: execrises the point-out-point-out path of getOutsideArc.
-prop_AxisAligned45DegreeAnglesOutside :: Bool -> Bool -> ℝ -> Positive ℝ -> Expectation
-prop_AxisAligned45DegreeAnglesOutside xPos yPos offset rawMagnitude
-  | xPos && yPos =
-    getOutsideArc (eToPPoint2 $ Point2 (offset+mag,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset+mag)) (Point2 (-mag,-mag)))
-                  (eToPPoint2 $ Point2 (offset+mag,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset+mag)) (Point2 (-mag,0)))
-                  `angleBetween`
-                   PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0 --> True
-  | xPos =
-    getOutsideArc (eToPPoint2 $ Point2 (offset+mag,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-(offset+mag))) (Point2 (-mag,mag)))
-                  (eToPPoint2 $ Point2 (offset+mag,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-(offset+mag))) (Point2 (-mag,0)))
-                  `angleBetween`
-                   PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0 --> True
-  | not xPos && yPos =
-    getOutsideArc (eToPPoint2 $ Point2 (-(offset+mag),offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset+mag)) (Point2 (mag,-mag)))
-                  (eToPPoint2 $ Point2 (-(offset+mag),offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset+mag)) (Point2 (mag,0)))
-                  `angleBetween`
-                   PLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0 --> True
-  | otherwise =
-    getOutsideArc (eToPPoint2 $ Point2 (-(offset+mag),-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-(offset+mag))) (Point2 (mag,mag)))
-                  (eToPPoint2 $ Point2 (-(offset+mag),-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-(offset+mag))) (Point2 (mag,0)))
-                  `angleBetween`
-                   PLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0 --> True
-  where
-    mag :: ℝ
-    mag = coerce rawMagnitude
-
--- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
--- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
--- NOTE: we use only one magnitude, because getOutsideArc requires normalized inputs.
--- NOTE: execrises the point-out-point-out path of getOutsideArc.
 -- FIXME: expressing this with the second line in each of these pairs the other direction (head->tail vs tail->head) results in falsification?
 prop_AxisAligned135DegreeAnglesOutside :: Bool -> Bool -> Positive ℝ -> Positive ℝ -> Expectation
 prop_AxisAligned135DegreeAnglesOutside xPos yPos rawOffset rawMagnitude
@@ -842,8 +812,6 @@ facetSpec = do
       property prop_AxisAlignedRightAnglesOutside
     it "finds the outside arcs of 135 degree angles with their sides parallel to the axises" $
       property prop_AxisAligned135DegreeAnglesOutside
-    it "finds the outside arcs of 45 degree angles with their sides parallel to the axises" $
-      property prop_AxisAligned45DegreeAnglesOutside
     it "finds the inside arcs of right angles with their sides parallel to the axises (enode)" $
       property prop_AxisAlignedRightAnglesInENode
     it "finds the inside arcs of 135 degree angles with one side parallel to an axis (enode)" $
