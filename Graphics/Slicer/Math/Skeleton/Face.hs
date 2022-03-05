@@ -177,7 +177,7 @@ getFaces iNodeSet@(INodeSet myGenerations) eNodes iNode@(INode _ _ _ maybeOut) =
          | hasArc myINode && onePLine == outOf myINode     = [] -- don't try to climb back up the tree
          | hasArc myINode && anotherPLine == outOf myINode = [] -- don't try to climb back up the tree
          | len myGenerations == 0 = error $ "wtf!\n" <> show onePLine <> "\n" <> show eNodes <> "\n" <> show iNodeSet
-         | otherwise = getFaces (ancestorsOf iNodeSet) eNodes $ firstINodeOfPLine iNodeSet eNodes onePLine 
+         | otherwise = getFaces (ancestorsOf iNodeSet) eNodes $ firstINodeOfPLine iNodeSet eNodes onePLine
 
 -- | Create a face covering the space between two PLines with a single Face. Both PLines must be a part of the same INode.
 areaBetween :: INodeSet -> ENodeSet -> PLine2 -> PLine2 -> Face

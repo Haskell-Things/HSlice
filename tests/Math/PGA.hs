@@ -653,7 +653,7 @@ prop_TriangleFacesInOrder :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (
 prop_TriangleFacesInOrder centerX centerY rawRadians rawDists = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []) --> (lineSegsOfContour triangle)
   where
     triangle = randomTriangle centerX centerY rawRadians rawDists
-    firstSeg = onlyOneOf $ lineSegsOfContour triangle 
+    firstSeg = onlyOneOf $ lineSegsOfContour triangle
       where
         onlyOneOf :: [LineSeg] -> LineSeg
         onlyOneOf eNodes = case eNodes of

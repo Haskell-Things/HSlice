@@ -400,7 +400,7 @@ randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX cent
     dists = coerce rawDists
 
 randomSquare :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Contour
-randomSquare centerX centerY tilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians 
+randomSquare centerX centerY tilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
   where
     radians =
       [
@@ -429,7 +429,7 @@ randomRectangle centerX centerY rawFirstTilt secondTilt distanceToCorner = rando
       flipRadian :: Radian ℝ -> Radian ℝ
       flipRadian v
         | v < (Radian pi) = v + Radian pi
-        | otherwise       = v - Radian pi 
+        | otherwise       = v - Radian pi
       distances = replicate 4 distanceToCorner
 
 -- | generate a random polygon.
