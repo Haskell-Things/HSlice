@@ -40,7 +40,7 @@ import Data.ByteString.UTF8 (fromString)
 
 import Data.Double.Conversion.ByteString (toFixed)
 
-import Data.List (foldl, uncons)
+import Data.List (foldl', uncons)
 
 import Data.List.Extra (unsnoc)
 
@@ -103,7 +103,7 @@ cookGCode extruder gcodes threads = do
     finalState = MachineState (EPos finalEPos) (FRate finalFRate)
     cookedResults = applyExtrusions ratedGCodes ePoses
   setMachineState finalState
-  pure $ cookedResults
+  pure cookedResults
   where
     applyExtrusions :: [GCode] -> [Rational] -> [GCode]
     applyExtrusions = zipWith applyExtrusion
@@ -117,7 +117,7 @@ cookGCode extruder gcodes threads = do
     applyExtrusion (GCExtrude3 {}) _ = error "cooking a previously cooked extrusion?"
     applyExtrusion gcode _ = gcode
     applySpeeds :: [GCode] -> ℝ -> ([GCode], ℝ)
-    applySpeeds myGCodes firstSpeed = foldl applySpeed ([],firstSpeed) myGCodes
+    applySpeeds myGCodes firstSpeed = foldl' applySpeed ([],firstSpeed) myGCodes
     applySpeed :: ([GCode], ℝ) -> GCode -> ([GCode], ℝ)
     applySpeed (myGCodes, lastSpeed) (GCRawFeedRate newSpeed myGCode)
       | lastSpeed == newSpeed = (myGCodes <> [myGCode], lastSpeed)
@@ -173,7 +173,7 @@ gcodeToText (GCMove2 (x1,y1) (x2,y2)) = "G0 " <> (if x1 ~== x2 then "" else "X" 
 gcodeToText (GCMove3 (x1,y1,z1) (x2,y2,z2)) = "G0 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2)
 gcodeToText (GCExtrude2 (x1,y1) (x2,y2) e) = "G1 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> "E" <> posIze e
 gcodeToText (GCExtrude3 (x1,y1,z1) (x2,y2,z2) e) = "G1 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2 <> " ") <> "E" <> posIze e
-gcodeToText (GCFeedRate f wtf) = error $ "applying feedrate " <> show (posIze f) <> " to something other than a GCmove(2,3) or a GCExtrude(2,3): " <> show (wtf)
+gcodeToText (GCFeedRate f wtf) = error $ "applying feedrate " <> show (posIze f) <> " to something other than a GCmove(2,3) or a GCExtrude(2,3): " <> show wtf
 gcodeToText (GCRawFeedRate a b) = error $ "Attempting to generate gcode for a feedrate change command that has not yet been cooked:\nRate: " <> show a <> "\nGCode: " <> show b <> "\n"
 gcodeToText (GCRawExtrude2 a b c) = error $ "Attempting to generate gcode for a 2D extrude command that has not yet been cooked:\nStart: " <> show a <> "\nStop: " <> show b <> "\nExtrude: " <> show c <> "\n"
 gcodeToText (GCRawExtrude3 a b c) = error $ "Attempting to generate gcode for a 3D extrude command that has not yet been cooked:\nStart: " <> show a <> "\nStop: " <> show b <> "\nExtrude: " <> show c <> "\n"
@@ -191,7 +191,7 @@ gcodeToText GCMarkInfillStart = ";TYPE:FILL"
 -- | Generate GCode for a given contour.
 -- Assumes the printer is already at the first point of the contour.
 gcodeForContour :: ℝ -> ℝ -> ℝ -> Contour -> [GCode]
-gcodeForContour lh pathWidth feedRate contour = (addFeedRate feedRate headRes):tailRes
+gcodeForContour lh pathWidth feedRate contour = addFeedRate feedRate headRes : tailRes
   where
     (headRes, tailRes) = fromMaybe (error "no results?") $ uncons res
     (headPoint,tailPoints) = fromMaybe (error "no contour points?") $ uncons contourPoints

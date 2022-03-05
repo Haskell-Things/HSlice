@@ -622,7 +622,7 @@ prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitud
     mag2 = coerce rawMagnitude2
 
 prop_TriangleNoDivides :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions triangle (fromMaybe (error $ show (dumpGanjas $ [toGanja triangle, toGanja (Point2 (centerX, centerY))])) $ crashMotorcycles triangle []) --> []
+prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions triangle (fromMaybe (error $ show (dumpGanjas [toGanja triangle, toGanja (Point2 (centerX, centerY))])) $ crashMotorcycles triangle []) --> []
   where
     triangle = randomTriangle centerX centerY rawRadians rawDists
 
@@ -650,7 +650,7 @@ prop_TriangleHasRightFaceCount centerX centerY rawRadians rawDists = length (fac
     triangle = randomTriangle centerX centerY rawRadians rawDists
 
 prop_TriangleFacesInOrder :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleFacesInOrder centerX centerY rawRadians rawDists = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []) --> (lineSegsOfContour triangle)
+prop_TriangleFacesInOrder centerX centerY rawRadians rawDists = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []) --> lineSegsOfContour triangle
   where
     triangle = randomTriangle centerX centerY rawRadians rawDists
     firstSeg = onlyOneOf $ lineSegsOfContour triangle
@@ -766,9 +766,7 @@ prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
     bisector = flipPLine2 $ outOf eNode
 
 prop_obtuseBisectorOnBiggerSide_makeINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> Expectation
-prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2
-  | otherwise  = (angleBetween bisector1 bisector2 > 0.9,
-                  angleBetween bisector1 bisector2 < -0.9) --> (True, False)
+prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleBetween bisector1 bisector2 > 0.9, angleBetween bisector1 bisector2 < -0.9) --> (True, False)
   where
     eNode = randomENode x y d1 rawR1 d2 rawR2
     iNode = randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2

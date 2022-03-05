@@ -78,7 +78,7 @@
 
 module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomENode, randomINode, randomPLine, randomLineSeg, cellFrom, remainderFrom, onlyOne) where
 
-import Prelude (Bool, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&))
+import Prelude (Bool, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
 
 import Data.Coerce (coerce)
 
@@ -271,11 +271,10 @@ instance GanjaAble NodeTree where
           firstLine    = case eNodeSides of
                            (Slist [] _) -> []
                            (Slist [(firstNode,Slist [] _)] _) -> [getFirstLineSeg firstNode]
-                           (Slist [(firstNode,otherNodes)] _) -> if getFirstLineSeg firstNode == getLastLineSeg (last otherNodes)
-                                                                 then []
-                                                                 else [getFirstLineSeg firstNode]
+                           (Slist [(firstNode,otherNodes)] _) -> if getFirstLineSeg firstNode /= getLastLineSeg (last otherNodes)
+                                                                 then [getFirstLineSeg firstNode]
+                                                                 else []
                            (Slist _ _) -> error "too many sides."
-            where
           remainingLines
             | len eNodeSides == 0 = []
             | otherwise = getLastLineSeg <$> eNodesOf eNodeSides
@@ -428,15 +427,15 @@ randomRectangle centerX centerY rawFirstTilt secondTilt distanceToCorner = rando
         ]
       flipRadian :: Radian ℝ -> Radian ℝ
       flipRadian v
-        | v < (Radian pi) = v + Radian pi
-        | otherwise       = v - Radian pi
+        | v < Radian pi = v + Radian pi
+        | otherwise     = v - Radian pi
       distances = replicate 4 distanceToCorner
 
 -- | generate a random polygon.
 -- Idea stolen from: https://stackoverflow.com/questions/8997099/algorithm-to-generate-random-2d-polygon
 -- note: the centerPoint is assumed to be inside of the contour.
 randomStarPoly :: ℝ -> ℝ -> [(Positive ℝ,Radian ℝ)] -> Contour
-randomStarPoly centerX centerY radianDistPairs = maybeFlipContour $ makePointContour $ points
+randomStarPoly centerX centerY radianDistPairs = maybeFlipContour $ makePointContour points
   where
     points = pToEPoint2 <$> pointsAroundCenter
     pointsAroundCenter = (\(distanceFromPoint, angle) -> translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)) <$> radianDistPairs

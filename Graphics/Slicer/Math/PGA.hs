@@ -137,7 +137,7 @@ distanceBetweenPPoints point1 point2 = normOfPLine2 $ join2PPoint2 point1 point2
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
 -- Same as angleBetween.
 distanceBetween2PLine2s :: PLine2 -> PLine2 -> ℝ
-distanceBetween2PLine2s pl1 pl2 = angleBetween pl1 pl2
+distanceBetween2PLine2s = angleBetween
 
 -- | Return the sine of the angle between the two lines. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
 angleBetween :: PLine2 -> PLine2 -> ℝ

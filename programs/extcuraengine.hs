@@ -168,7 +168,7 @@ layers print fs = catMaybes <$> rawContours
 zHeightOfLayer :: Print -> Fastℕ -> ℝ
 zHeightOfLayer print layerNumber
       | layerNumber == 0 = layerHeight print
-      | otherwise = layer0Height print + layerHeight print * (fromFastℕtoℝ layerNumber)
+      | otherwise = layer0Height print + layerHeight print * fromFastℕtoℝ layerNumber
 
 -- | Get the appropriate InfillType to use when generating infill for the given layer.
 -- FIXME: handle the tops and bottoms of surfaces
@@ -197,15 +197,15 @@ mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [0::Fastℕ,1
 --------------------------------------------------------------
 
 -- The difference between a slicing plan, and a Print is that a Print should specify characteristics of the resulting object, where a Plan should specify what methods to attempt to use to accomplish that goal.
-data Plan =
-  Extrude !(DivideStrategy, InsetStrategy)
+newtype Plan =
+  Extrude (DivideStrategy, InsetStrategy)
 
 -- the space that a plan is to be followed within.
 -- FIXME: union, intersect, etc.. these?
 -- FIXME: transitions between regions?
 -- FIXME: the printer's working area is a Zone of type Box3.
-data Zone =
-  Everywhere !Plan
+newtype Zone =
+  Everywhere Plan
 --  | ZBetween !(ℝ,Maybe ℝ) !Plan
 --  | BelowBottom !(Point2, Point2) !Plan
 --  | Box3 !Point3 !Point3 !Plan
@@ -306,7 +306,9 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill _ _ _ _ ls outerWallBefo
     travelBetweenContours :: Contour -> Contour -> [GCode]
     travelBetweenContours source dest = [addFeedRate travelFeedRate $ make2DTravelGCode (firstPointOfContour source) $ firstPointOfContour dest]
     travelFromContourToInfill :: Contour -> [[LineSeg]] -> [GCode]
-    travelFromContourToInfill source lines = if firstPointOfInfill lines /= Nothing then [addFeedRate travelFeedRate $ make2DTravelGCode (lastPointOfContour source) $ fromMaybe (Point2 (0,0)) $ firstPointOfInfill lines] else []
+    travelFromContourToInfill source lines
+     | firstPointOfInfill lines /= Nothing = [addFeedRate travelFeedRate $ make2DTravelGCode (lastPointOfContour source) $ fromMaybe (Point2 (0,0)) $ firstPointOfInfill lines]
+     | otherwise = []
     renderContourTreeSet :: ContourTreeSet -> [GCode]
     renderContourTreeSet (ContourTreeSet firstContourTree moreContourTrees) = renderContourTree firstContourTree <> concat (renderContourTree <$> moreContourTrees)
       where

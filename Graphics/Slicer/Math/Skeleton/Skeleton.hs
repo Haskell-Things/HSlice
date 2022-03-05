@@ -64,17 +64,18 @@ findStraightSkeleton contour holes =
           intersperseDivides nodeTrees divides = case (nodeTrees, divides) of
                                                    ([], _) -> error "impossible"
                                                    ([a], []) -> [(a,Nothing)]
-                                                   ((a:as), (b:bs)) -> [(a, Just b)] <> intersperseDivides as bs
-                                                   _ -> error "what?"
+                                                   (a:as, b:bs) -> [(a, Just b)] <> intersperseDivides as bs
+                                                   (_:_, _) -> error "what?"
           -- recursively merge our nodeTrees until we have just one.
           sumNodeTrees :: [(NodeTree, Maybe CellDivide)] -> NodeTree
           sumNodeTrees ins
             | null $ lefts rawNodeTrees = case ins of
                                             [] -> error "empty nodeTree"
                                             [(a, Nothing)] -> a
+                                            ((_, Nothing):_) -> error "impossible?"
+                                            [(_, Just _)] -> error $ show rawNodeTrees <> "\n" <> show divisions <> "\n"
                                             [(a, Just div1) ,(b, Nothing)] -> addNodeTreesAlongDivide a b div1
                                             ((a, Just div1):(b, div2):xs) -> addNodeTreesAlongDivide a (sumNodeTrees ((b, div2):xs)) div1
-                                            _ -> error $ show rawNodeTrees <> "\n" <> show divisions <> "\n"
             | otherwise = error $ "inode crossed divide:\n" <> show rawNodeTrees <> "\n" <> show divisions <> "\n"
           allNodeTrees = rights rawNodeTrees
           rawNodeTrees = getNodeTreeOfCell <$> allCellsOfContour
@@ -86,6 +87,7 @@ findStraightSkeleton contour holes =
               remainingCells (priorCell, priorRemainder) =
                 case priorRemainder of
                   Nothing -> [priorCell]
+                  (Just []) -> error "impossible?"
                   (Just [oneRemainder]) -> [priorCell] <> remainingCells (fromMaybe (error "could not find next cell?") $ findNextCell oneRemainder)
-                  _ -> error "incomplete!"
+                  (Just (_:_)) -> error "incomplete!"
           divisions = findDivisions contour crashTree

@@ -112,7 +112,7 @@ skeletonOfConcaveRegion inSegSets
         -- solve the ends of the region, so we can then hand off the solutioning to our regular process.
         (foundINodes, remainingENodes)
           | len inSegSets == 2 = case initialGeneration of
-                                   [] -> ( [makeINode [getInsideArc (flipPLine2 $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArc (eToPLine2 firstSeg) (flipPLine2 $ eToPLine2 lastSeg)] (Nothing)]
+                                   [] -> ( [makeINode [getInsideArc (flipPLine2 $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArc (eToPLine2 firstSeg) (flipPLine2 $ eToPLine2 lastSeg)] Nothing]
                                          , [])
                                      where
                                        firstSeg = SL.head $ slist $ SL.head inSegSets
@@ -120,11 +120,11 @@ skeletonOfConcaveRegion inSegSets
                                    [a] -> ( [makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just $ flipPLine2 $ outOf a)]
                                          , [])
                                      where
-                                       firstSeg = SL.head $ slist $ longSide
-                                       lastSeg = SL.last $ slist $ longSide
-                                       (shortSide,longSide) = case SL.head inSegSets of
-                                                                [] -> (SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
-                                                                _ -> (SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
+                                       firstSeg = SL.head $ slist longSide
+                                       lastSeg = SL.last $ slist longSide
+                                       (shortSide,longSide)
+                                         | null (SL.head inSegSets) = (SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
+                                         | otherwise = (SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
                                    (_:_) -> error "too many items in initialGeneration."
           | otherwise = error "wrong count of inSegSets."
         -- | Get a complete set of INodes given a set of ENodes.
@@ -139,7 +139,7 @@ skeletonOfConcaveRegion inSegSets
 
     -- are the incoming line segments a loop?
     isLoop segSets
-      | len segSets == 1 = (endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15))
+      | len segSets == 1 = endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
       | otherwise = False
       where
         lastSeg = SL.last $ slist inSegs
@@ -360,13 +360,13 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
                    [] -> error "impossible!"
                    [secondINode] -> -- ok, the second generation is a single iNode. see if we can flip with it.
                      if canFlipINodes flippedINode secondINode
-                     then resSlist $ flipINodePair flippedINode secondINode <> (slist [[rawLastINode]])
+                     then resSlist $ flipINodePair flippedINode secondINode <> slist [[rawLastINode]]
                      else -- ok, we can't flip. maybe we can merge the flipped INode with the last INode?
                        if inCountOf rawLastINode == 2 && canMergeWith flippedINode rawLastINode
-                       then resSlist $ (slist [secondGen]) <> mergeWith flippedINode rawLastINode
+                       then resSlist $ slist [secondGen] <> mergeWith flippedINode rawLastINode
                        else -- .. alright, maybe try to merge the second and last INode?
                          if inCountOf rawLastINode == 2 && canMergeWith secondINode rawLastINode
-                         then resSlist $ (slist [[flippedINode]]) <> mergeWith secondINode rawLastINode
+                         then resSlist $ slist [[flippedINode]] <> mergeWith secondINode rawLastINode
                          else error "ran out of options"
                    x@(_:_) -> errorTooManyNodes x
                [oneINode] ->
@@ -460,7 +460,7 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
         hasIn :: INode -> PLine2 -> Bool
         hasIn iNode pLine2 = case filter (==pLine2) $ insOf iNode of
                                [] -> False
-                               (_:[]) -> True
+                               [_] -> True
                                (_:_) -> error "filter passed too many options."
     -- Merge two INodes.
     mergeWith :: INode -> INode -> Slist [INode]
@@ -636,7 +636,7 @@ skeletonOfNodes loop eNodes iNodes =
         lineIntersections = lefts $ catMaybes intersections
         pointsCloseEnough = mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor) pointIntersections
         linesCloseEnough
-          | lineIntersections == [] = []
+          | null lineIntersections = []
           | otherwise = error "nope!"
         -- since anti-collinear nodes end at the same point, only count one of them.
         firstAntiCollinearNodes nodePairs = fst <$> nodePairs
@@ -680,16 +680,16 @@ skeletonOfNodes loop eNodes iNodes =
       where
         -- | remove pairs containing INodes from the shortest INode pairs from a list of mixed pairs.
         filterINodesOf :: [(ENode, INode)] -> [(ENode, INode)]
-        filterINodesOf myPairs = filter (\(_,myINode) -> myINode `notElem` ((fst <$> iPairsFound) <> (snd <$> iPairsFound))) myPairs
+        filterINodesOf = filter (\(_,myINode) -> myINode `notElem` ((fst <$> iPairsFound) <> (snd <$> iPairsFound)))
 
     ePairsFound =
       if isSomething shortestEPairDistance && shortestEPairDistance == shortestPairDistance
-      then (filterENodesOf $ shortestPairs eNodes)
+      then filterENodesOf $ shortestPairs eNodes
       else []
       where
         -- | remove pairs containing ENodes from the shortest mixed pairs from a list of ENode pairs
         filterENodesOf :: [(ENode, ENode)] -> [(ENode, ENode)]
-        filterENodesOf myPairs = filter (\(myENode1,myENode2) -> myENode1 `notElem` (fst <$> mixedPairsFound) && myENode2 `notElem` (fst <$> mixedPairsFound)) myPairs
+        filterENodesOf = filter (\(myENode1,myENode2) -> myENode1 `notElem` (fst <$> mixedPairsFound) && myENode2 `notElem` (fst <$> mixedPairsFound))
 
     -- | calculate the distances to the shortest pairs of nodes. the shortest pair, along with all of the pairs of the same length, will be in our result set.
     shortestPairDistance = min (min shortestEPairDistance shortestMixedPairDistance) (min shortestIPairDistance shortestMixedPairDistance)
@@ -717,7 +717,7 @@ skeletonOfNodes loop eNodes iNodes =
         filterCommonIns pairs = case pairs of
                                   [] -> []
                                   [a] -> [a]
-                                  (x@(node1, node2) :xs) -> x : (filterCommonIns $ filter (\(myNode1, myNode2) -> node1 /= myNode1 && node2 /= myNode1 && node1 /= myNode2 && node2 /= myNode2) xs)
+                                  (x@(node1, node2) :xs) -> x : filterCommonIns (filter (\(myNode1, myNode2) -> node1 /= myNode1 && node2 /= myNode1 && node1 /= myNode2 && node2 /= myNode2) xs)
 
     -- | get the pairs of intersecting nodes of differing types that we might be putting into this generation.
     shortestMixedPairs :: [(ENode, INode)]
@@ -733,7 +733,7 @@ skeletonOfNodes loop eNodes iNodes =
         filterCommonIns pairs = case pairs of
                                   [] -> []
                                   [a] -> [a]
-                                  (x@(eNode, iNode) :xs) -> x : (filterCommonIns $ filter (\(myENode, myINode) -> eNode /= myENode && iNode /= myINode) xs)
+                                  (x@(eNode, iNode) :xs) -> x : filterCommonIns (filter (\(myENode, myINode) -> eNode /= myENode && iNode /= myINode) xs)
 
     -- | find nodes of two different types that can intersect.
     intersectingMixedNodePairs :: [(ENode, INode)]

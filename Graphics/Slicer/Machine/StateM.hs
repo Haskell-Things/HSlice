@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Machine.StateM (getMachineState, setMachineState, EPos(EPos), FRate(FRate), StateM, MachineState(MachineState)) where
 
-import Prelude (Rational, Show(show), ($), fromRational, pure)
+import Prelude (Rational, Show(show), ($), fromRational)
 
 import Data.Functor.Identity (Identity)
 
@@ -48,16 +48,14 @@ instance Show FRate where
 -- FIXME: support multiple extruders.
 data MachineState =
   MachineState {
-      _extruderPosition :: EPos
-    , _feedRate :: FRate
+      _extruderPosition :: !EPos
+    , _feedRate :: !FRate
     }
 
 type StateM = StateT MachineState Identity
 
 getMachineState :: StateM MachineState
-getMachineState = do
-  state <- get
-  pure state
+getMachineState = do get
 
 setMachineState :: MachineState -> StateM ()
 setMachineState = put

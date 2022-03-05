@@ -122,7 +122,7 @@ instance SpacePoint Point3 where
   flatten (Point3 (x,y,_)) = Point2 (x,y)
 
 instance Eq LineSeg where
-  (==) (LineSeg s1 e1) (LineSeg s2 e2) = distance (s1) (s2) < fudgeFactor && distance (e1) (e2) < fudgeFactor
+  (==) (LineSeg s1 e1) (LineSeg s2 e2) = distance s1 s2 < fudgeFactor && distance e1 e2 < fudgeFactor
 
 -- | Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- it should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)

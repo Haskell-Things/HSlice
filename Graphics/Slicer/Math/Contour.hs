@@ -366,7 +366,7 @@ firstLineSegOfContour c@(PointContour _ _ p1 p2 _ _) = myLineSegErrorHandler $ l
     myLineSegErrorHandler :: Either LineSegError LineSeg -> LineSeg
     myLineSegErrorHandler e = case e of
                                 (Left (LineSegFromPoint _)) -> error $ "tried to create a line segment from a point when finding the first line segment!\nContour: " <> show c <> "\n"
-                                (Left (EmptyList)) -> error "unpossible!"
+                                (Left EmptyList) -> error "unpossible!"
                                 (Right lineSeg) -> lineSeg
 firstLineSegOfContour (LineSegContour _ _ l1 _ _) = l1
 

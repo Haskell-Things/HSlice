@@ -123,7 +123,7 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
         then initSafe $ rotateFaces iNodeSet myENodes target
         else rotateFaces iNodeSet myENodes target
       where
-        errorNoMoreINodes = error $ "one target, no generations, and target needs inodes?\n"
+        errorNoMoreINodes = error "one target, no generations, and target needs inodes?\n"
          -- Check the ins of an INode, and make sure all of them point to an ENode.
         allInsAreENodes :: INode -> Bool
         allInsAreENodes myTarget = and $ isJust <$> (findENodeByOutput eNodes <$> inArcsOf myTarget)
@@ -145,13 +145,13 @@ rotateFaces iNodeSet eNodes iNode = rTail <> [rHead]
 getFaces :: INodeSet -> ENodeSet -> INode -> [Face]
 getFaces iNodeSet@(INodeSet myGenerations) eNodes iNode@(INode _ _ _ maybeOut) = findFacesRecurse iNode allPLines
   where
-    allPLines = (sortedPLines $ insOf iNode <> out)
+    allPLines = sortedPLines $ insOf iNode <> out
       where
-        insOf (INode pLine1 pLine2 (Slist morePLines _) _) = (pLine1 : pLine2 : morePLines)
+        insOf (INode pLine1 pLine2 (Slist morePLines _) _) = pLine1 : pLine2 : morePLines
         out = case maybeOut of
                 Nothing -> []
                 (Just o) -> [o]
-    firstPLine = (head $ slist $ allPLines)
+    firstPLine = head $ slist allPLines
     -- responsible for placing faces under the first pline given (if applicable), and between that pline, and the following pline. then.. recurse!
     findFacesRecurse :: INode -> [PLine2] -> [Face]
     findFacesRecurse myINode pLines =

@@ -88,7 +88,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                                                                       [_,_] ->
                                                                            [CellDivide (DividingMotorcycles firstMC (Slist [] 0)) $ landingPointOf contour firstMC,
                                                                             CellDivide (DividingMotorcycles secondMC (Slist [] 0)) $ landingPointOf contour secondMC]
-                                                                      _ -> error "don't know what to do with these line segments."
+                                                                      (_:_) -> error "don't know what to do with these line segments."
                                     (Slist (_:_) _) -> error "too many motorcycles."
   where
     -- | find the divides
@@ -344,11 +344,11 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
     adjustedNodeTree1 = redirectLastOut nodeTree1 crossoverPoint
     adjustedNodeTree2 = redirectLastOut nodeTree2 crossoverPoint
     -- adjust the last output of the nodetree so that it goes through the point it's supposed to.
-    redirectLastOut (NodeTree eNodes iNodeGens@(INodeSet gens)) myCrossover = NodeTree eNodes $ INodeSet $ init gens <> (one [makeINode (insOf $ lastINodeOf iNodeGens) (Just $ join2PPoint2 (pPointOf $ lastINodeOf iNodeGens) myCrossover)])
+    redirectLastOut (NodeTree eNodes iNodeGens@(INodeSet gens)) myCrossover = NodeTree eNodes $ INodeSet $ init gens <> one [makeINode (insOf $ lastINodeOf iNodeGens) (Just $ join2PPoint2 (pPointOf $ lastINodeOf iNodeGens) myCrossover)]
     crossoverPoint = case division of
                        (CellDivide (DividingMotorcycles motorcycle1 (Slist [] _)) target) -> -- no eNode, and no opposing motorcycle.
                          motorcycleDivisor motorcycle1 target
-                       _ -> error "cannot generate crossoverPoint."
+                       (CellDivide _ _) -> error "cannot generate crossoverPoint."
 
 -- | Create the NodeTrees corresponding to the CellDivide given.
 nodeTreesFromDivision :: CellDivide -> [NodeTree]

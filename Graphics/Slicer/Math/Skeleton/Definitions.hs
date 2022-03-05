@@ -31,13 +31,13 @@
 
 module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, eNodeToINode, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, noIntersection, isCollinear, isAntiCollinear, isParallel, intersectionOf, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, intersectionBetween, lastInOf) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), null, show, (<))
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<))
 
 import Data.Either (Either(Right, Left))
 
 import Data.List (filter, sortBy)
 
-import Data.List as DL (last)
+import Data.List.Extra (unsnoc)
 
 import Data.List.NonEmpty (NonEmpty)
 
@@ -126,7 +126,7 @@ instance Pointable INode where
       results = intersectionsOfPairs allPLines
       allPointsSame = case intersectionsOfPairs allPLines of
                         [] -> error $ "no intersection of pairs for " <> show allPLines
-                        (_:[]) -> True
+                        [_] -> True
                         points -> and $ mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor) points
       allPLines = if hasArc iNode
                   then cons (outOf iNode) $ cons firstPLine $ cons secondPLine morePLines
@@ -142,11 +142,9 @@ insOf :: INode -> [PLine2]
 insOf (INode firstIn secondIn (Slist moreIns _) _) = firstIn:secondIn:moreIns
 
 lastINodeOf :: INodeSet -> INode
-lastINodeOf (INodeSet gens)
-  | null res = error "no first of the last generation?"
-  | otherwise = DL.last res
-  where
-    res = SL.last gens
+lastINodeOf (INodeSet gens) = case unsnoc (SL.last gens) of
+                                Nothing -> error "no first of the last generation?"
+                                Just (_,lastItem) -> lastItem
 
 -- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior or the exterior of a contour.
 --   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.
@@ -177,15 +175,15 @@ newtype Cell = Cell { _sides :: Slist (Slist LineSeg, Maybe CellDivide)}
   deriving stock Show
 
 -- | the border dividing two cells of a contour.
-data CellDivide = CellDivide { _divMotorcycles :: !DividingMotorcycles, _intersects :: !(MotorcycleIntersection) }
+data CellDivide = CellDivide { _divMotorcycles :: !DividingMotorcycles, _intersects :: !MotorcycleIntersection }
   deriving Eq
   deriving stock Show
 
 -- note that if there is an ENode that is part of the division, it's anticolinear to the last motorcycle in _divMotorcycles.
 data MotorcycleIntersection =
-    WithLineSeg LineSeg
-  | WithENode ENode
-  | WithMotorcycle Motorcycle
+    WithLineSeg !LineSeg
+  | WithENode !ENode
+  | WithMotorcycle !Motorcycle
   deriving Eq
   deriving stock Show
 
