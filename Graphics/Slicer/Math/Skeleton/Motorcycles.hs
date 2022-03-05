@@ -44,13 +44,13 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, mapWithNeighbors, startPoint)
 
-import Graphics.Slicer.Math.Line (lineSegFromEndpoints, handleLineSegError)
+import Graphics.Slicer.Math.Line (endPoint, lineSegFromEndpoints, handleLineSegError)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, lineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel,PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith, plinesIntersectIn, pToEPoint2, distanceBetweenPPoints, angleBetween, eToPPoint2, lineIntersectsPLine, normalizePLine2, pPointBetweenPPoints, translatePerp)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), Pointable, ENode(ENode), linePairs, pPointOf, intersectionOf, isAntiCollinear, noIntersection, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), ePointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), Pointable, ENode(ENode), getFirstLineSeg, linePairs, pPointOf, intersectionOf, isAntiCollinear, noIntersection, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), ePointOf)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -73,7 +73,7 @@ data CrashTree = CrashTree { _motorcycles :: !(Slist Motorcycle), _survivors :: 
 
 -- | convert a Motorcycle to an ENode
 motorcycleToENode :: Motorcycle -> ENode
-motorcycleToENode (Motorcycle segs mcpath) = ENode segs mcpath
+motorcycleToENode (Motorcycle (seg1,seg2) mcpath) = ENode (startPoint seg1, startPoint seg2, endPoint seg2) mcpath
 
 -- | Find the point where the propogation from a motorcycle equals the propogation of what it impacts, taking into account the weight of a motorcycle, and the weight of what it impacts.
 motorcycleDivisor :: Motorcycle -> MotorcycleIntersection -> PPoint2
@@ -89,7 +89,7 @@ motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle)
     tSpeedOf :: MotorcycleIntersection -> ℝ
     tSpeedOf myTarget = case myTarget of
                   (WithLineSeg lineSeg) -> distanceBetweenPPoints (justIntersectsIn $ plinesIntersectIn (translatePerp (eToPLine2 lineSeg) 1) (outOf motorcycle)) (justIntersectsIn $ plinesIntersectIn (eToPLine2 lineSeg) (outOf motorcycle))
-                  (WithENode eNode@(ENode (seg1,_) _)) -> distanceBetweenPPoints (pPointOf eNode) (justIntersectsIn $ plinesIntersectIn (translatePerp (eToPLine2 seg1) 1) (outOf eNode))
+                  (WithENode eNode) -> distanceBetweenPPoints (pPointOf eNode) (justIntersectsIn $ plinesIntersectIn (translatePerp (eToPLine2 $ getFirstLineSeg eNode) 1) (outOf eNode))
                   (WithMotorcycle motorcycle2) -> mSpeedOf motorcycle2
     mSpeedOf :: Motorcycle -> ℝ
     mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _) = distanceBetweenPPoints (pPointOf myMotorcycle) (justIntersectsIn $ plinesIntersectIn (translatePerp (eToPLine2 seg1) 1) (outOf myMotorcycle))

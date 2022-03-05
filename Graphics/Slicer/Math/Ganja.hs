@@ -44,34 +44,72 @@
  });
  @
 
- cut and paste, drop into https://enkimute.github.io/ganja.js/examples/coffeeshop.html, click 'Run'
+ or:
+
+ @
+ juri@ni:/disk4/faikvm.com/HSlice/HSlice-current$ cabal repl
+ Ok, 30 modules loaded.
+ *Graphics.Slicer> import Prelude (($),putStrLn)
+ *Graphics.Slicer Prelude> import Graphics.Slicer.Math.Ganja(dumpGanja)
+ *Graphics.Slicer Prelude Graphics.Slicer.Math.Ganja> putStrLn $ dumpGanjas [toGanja (Point2 (1,1)), toGanja (Point2 (2,2))]
+ Algebra(2,0,1,()=>{
+   var line = (a,b,c)=>a*1e1 + b*1e2 + c*1e0;
+   var point = (x,y)=>!(1e0 + x*1e1 + y*1e2);
+   var a = point(1.0,1.0);
+   var b = point(2.0,2.0);
+   document.body.appendChild(this.graph([
+     a, "a",
+     b, "b",
+   ],{
+     grid: true,
+     labels: true,
+     lineWidth: 3,
+     pointRadius: 1,
+     fontSize: 1,
+     scale: 1,
+ }));
+ });
+ @
+
+ cut, and paste the output into https://enkimute.github.io/ganja.js/examples/coffeeshop.html, click 'Run'
  -}
 
 {-# LANGUAGE FlexibleInstances #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, toGanja, dumpGanja, dumpGanjas, cellFrom, remainderFrom, onlyOne) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomENode, randomINode, randomPLine, randomLineSeg, cellFrom, remainderFrom, onlyOne) where
 
-import Prelude (String, (<>), (<>), (<$>), ($), (>=), (==), concat, error, fst, otherwise, show, snd, zip, (.))
+import Prelude (Bool, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
+
+import Data.Coerce (coerce)
 
 import Data.Maybe (Maybe(Nothing, Just), maybeToList, catMaybes)
 
-import Numeric(showFFloat)
+import Math.Tau (tau)
+
+import Numeric(showFFloat, pi)
 
 import Slist.Type (Slist(Slist))
 
 import Slist (last, len)
 
-import Graphics.Slicer.Math.Contour (pointsOfContour)
+import Test.QuickCheck (Arbitrary, Positive(Positive), NonZero(NonZero), arbitrary, shrink, suchThat, vector)
 
-import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg(LineSeg), mapWithFollower)
+-- The numeric type in HSlice.
+import Graphics.Slicer (ℝ)
+
+import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, pointsOfContour)
+
+import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg(LineSeg), mapWithFollower, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf)
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2))
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, normalizePLine2, pToEPoint2, translateRotatePPoint2)
 
-import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles))
+import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
+
+import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg, makeINode, outOf, pPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
@@ -87,7 +125,7 @@ instance GanjaAble Point2 where
       showFullPrecision v = showFFloat Nothing v ""
 
 instance GanjaAble LineSeg where
-  toGanja l1@(LineSeg p1 _) varname = (
+  toGanja l1 varname = (
        p1var
     <> p2var,
        "    0x882288,\n"
@@ -96,7 +134,7 @@ instance GanjaAble LineSeg where
     <> p1ref
     <> p2ref)
     where
-      (p1var, p1ref) = toGanja p1 (varname <> "a")
+      (p1var, p1ref) = toGanja (startPoint l1) (varname <> "a")
       (p2var, p2ref) = toGanja (endPoint l1) (varname <> "b")
 
 instance GanjaAble PPoint2 where
@@ -143,7 +181,7 @@ instance GanjaAble Contour where
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
 
 instance GanjaAble ENode where
-  toGanja (ENode (l1, l2) outPLine) varname = (
+  toGanja eNode varname = (
     l1var
     <> l2var
     <> plvar
@@ -153,9 +191,9 @@ instance GanjaAble ENode where
     <> plref
     )
     where
-      (l1var, l1ref) = toGanja l1 (varname <> "a")
-      (l2var, l2ref) = toGanja l2 (varname <> "b")
-      (plvar, plref) = toGanja outPLine (varname <> "c")
+      (l1var, l1ref) = toGanja (getFirstLineSeg eNode) (varname <> "a")
+      (l2var, l2ref) = toGanja (getLastLineSeg eNode) (varname <> "b")
+      (plvar, plref) = toGanja (outOf eNode) (varname <> "c")
 
 instance GanjaAble Motorcycle where
   toGanja (Motorcycle (l1, l2) outPLine) varname = (
@@ -232,21 +270,18 @@ instance GanjaAble NodeTree where
           allINodes    = toGanja <$> iNodesOf iNodeSet
           firstLine    = case eNodeSides of
                            (Slist [] _) -> []
-                           (Slist [(firstNode,Slist [] _)] _) -> [inLine firstNode]
-                           (Slist [(firstNode,otherNodes)] _) -> if inLine firstNode == outLine (last otherNodes)
-                                                                 then []
-                                                                 else [inLine firstNode]
+                           (Slist [(firstNode,Slist [] _)] _) -> [getFirstLineSeg firstNode]
+                           (Slist [(firstNode,otherNodes)] _) -> if getFirstLineSeg firstNode /= getLastLineSeg (last otherNodes)
+                                                                 then [getFirstLineSeg firstNode]
+                                                                 else []
                            (Slist _ _) -> error "too many sides."
-            where
-              inLine (ENode (a,_) _) = a
           remainingLines
             | len eNodeSides == 0 = []
-            | otherwise = outLine <$> eNodesOf eNodeSides
+            | otherwise = getLastLineSeg <$> eNodesOf eNodeSides
             where
               eNodesOf (Slist [] _) = error "no enodes?"
               eNodesOf (Slist [(first,Slist more _)] _) = first : more
               eNodesOf (Slist _ _) = error "too many sides?"
-          outLine (ENode (_,a) _)  = a
           iNodesOf :: INodeSet -> [INode]
           iNodesOf (INodeSet (Slist inodes _)) = concat inodes
 
@@ -313,12 +348,150 @@ ganjaFooterEnd = "  ],{\n"
 
 -- moved the below here from the test suite, so that we can drop lines from the test suite into ghci directly.
 
+-- A type for a list of three items. so we can gather a list of exactly three distances / radians.
+newtype ListThree a = ListThree {getListThree :: [a]}
+  deriving (Show, Ord, Eq)
+
+instance (Arbitrary a) => Arbitrary (ListThree a) where
+  arbitrary = ListThree <$> vector 3
+
+-- Radians are always positive, and always between 0 and tau+minfloat.
+newtype Radian a = Radian {getRadian :: ℝ}
+  deriving (Show, Ord, Eq)
+
+instance Arbitrary (Radian a) where
+  arbitrary = Radian <$> (arbitrary `suchThat` (\a -> a > 0 && a <= tau))
+  shrink (Radian x) = [ Radian x' | x' <- shrink x , x' > 0 ]
+
+instance Num (Radian a) where
+  (+) (Radian r1) (Radian r2) = Radian $ wrapIfNeeded $ r1 + r2
+    where
+      wrapIfNeeded :: ℝ -> ℝ
+      wrapIfNeeded v
+        | v <= tau   = v
+        | otherwise = v-tau
+  (-) (Radian r1) (Radian r2) = Radian $ wrapIfNeeded $ r1 - r2
+    where
+      wrapIfNeeded :: ℝ -> ℝ
+      wrapIfNeeded v
+        | v > 0     = v
+        | otherwise = v+tau
+  (*) (Radian r1) (Radian r2) = Radian $ recursiveWrap $ r1 * r2
+    where
+      recursiveWrap :: ℝ -> ℝ
+      recursiveWrap v
+        | v <= tau   = v
+        | otherwise = recursiveWrap $ v-tau
+  abs r1 = r1
+  fromInteger v = Radian $ fromInteger $ mod v 6
+  signum _ = 1
+
+instance Fractional (Radian a) where
+  (/) (Radian r1) (Radian r2) = Radian $ r1 / r2
+  fromRational a = Radian $ fromRational a
+
+randomTriangle :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Contour
+randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX centerY $ makePairs dists radians
+  where
+    radians :: [Radian ℝ]
+    radians = coerce rawRadians
+    dists :: [Positive ℝ]
+    dists = coerce rawDists
+
+randomSquare :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Contour
+randomSquare centerX centerY tilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+  where
+    radians =
+      [
+        tilt
+      , tilt + Radian (tau/4)
+      , tilt + Radian (tau/2)
+      , tilt + Radian (pi+(pi/2))
+      ]
+    distances = replicate 4 distanceToCorner
+
+randomRectangle :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Contour
+randomRectangle centerX centerY rawFirstTilt secondTilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+    where
+      -- Workaround: since first and second may be unique, but may not be 0, add them!
+      firstTilt
+        | rawFirstTilt == secondTilt = rawFirstTilt + secondTilt
+        | otherwise = rawFirstTilt
+      radians :: [Radian ℝ]
+      radians =
+        [
+          firstTilt
+        , secondTilt
+        , flipRadian firstTilt
+        , flipRadian secondTilt
+        ]
+      flipRadian :: Radian ℝ -> Radian ℝ
+      flipRadian v
+        | v < Radian pi = v + Radian pi
+        | otherwise     = v - Radian pi
+      distances = replicate 4 distanceToCorner
+
+-- | generate a random polygon.
+-- Idea stolen from: https://stackoverflow.com/questions/8997099/algorithm-to-generate-random-2d-polygon
+-- note: the centerPoint is assumed to be inside of the contour.
+randomStarPoly :: ℝ -> ℝ -> [(Positive ℝ,Radian ℝ)] -> Contour
+randomStarPoly centerX centerY radianDistPairs = maybeFlipContour $ makePointContour points
+  where
+    points = pToEPoint2 <$> pointsAroundCenter
+    pointsAroundCenter = (\(distanceFromPoint, angle) -> translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)) <$> radianDistPairs
+    centerPPoint = eToPPoint2 $ Point2 (centerX, centerY)
+
+randomENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> ENode
+randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
+  where
+    r1 = rawR1 / 2
+    r2 = r1 + (rawR2 / 2)
+    intersectionPoint = Point2 (x,y)
+    pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
+    pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
+    p1 = pToEPoint2 pp1
+    p2 = pToEPoint2 pp2
+    intersectionPPoint = eToPPoint2 intersectionPoint
+
+randomINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> INode
+randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,maybeFlippedpl2] (Just bisector1)
+  where
+    r1 = rawR1 / 2
+    r2 = r1 + (rawR2 / 2)
+    pl1 = normalizePLine2 $ eToPLine2 $ getFirstLineSeg eNode
+    pl2 = normalizePLine2 $ flipPLine2 $ eToPLine2 $ getLastLineSeg eNode
+    intersectionPPoint = pPointOf eNode
+    eNode = randomENode x y d1 rawR1 d2 rawR2
+    pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
+    pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
+    maybeFlippedpl1 = if flipIn1 then flipPLine2 pl1 else pl1
+    maybeFlippedpl2 = if flipIn2 then flipPLine2 pl2 else pl2
+    bisector1 = normalizePLine2 $ getOutsideArc pp1 maybeFlippedpl1 pp2 maybeFlippedpl2
+
+-- | A helper function. constructs a random PLine.
+randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> PLine2
+randomPLine x y dx dy = eToPLine2 $ LineSeg (Point2 (coerce x, coerce y)) (Point2 (coerce dx, coerce dy))
+
+-- | A helper function. constructs a random LineSeg.
+-- FIXME: can construct 0 length segments, and fail.
+randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
+randomLineSeg x y dx dy = LineSeg (Point2 (coerce x, coerce y)) (Point2 (coerce dx, coerce dy))
+
+-- | combine two lists. for feeding into randomStarPoly.
+makePairs :: [a] -> [b] -> [(a,b)]
+makePairs (a:as) (b:bs) = (a,b) : makePairs as bs
+makePairs (_:_) [] = error "out of inputs"
+makePairs [] (_:_) = []
+makePairs [] [] = []
+
 cellFrom :: Maybe (a,b) -> a
 cellFrom (Just (v,_)) = v
 cellFrom Nothing = error "whoops"
+
 remainderFrom :: Maybe (a,b) -> b
 remainderFrom (Just (_,v)) = v
 remainderFrom Nothing = error "whoops"
+
 onlyOne :: [a] -> a
 onlyOne eNodes = case eNodes of
                    [] -> error "none"

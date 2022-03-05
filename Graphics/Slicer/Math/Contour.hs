@@ -1,7 +1,7 @@
 {- ORMOLU_DISABLE -}
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco
- - Copyright 2019 Julia Longtin
+ - Copyright 2019-2022 Julia Longtin
  -
  - This program is free software: you can redistribute it and/or modify
  - it under the terms of the GNU Affero General Public License as published by
@@ -22,7 +22,7 @@
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 
 -- | functions for handling contours.
-module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, contourIntersectionCount) where
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, contourIntersectionCount, maybeFlipContour) where
 
 import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), not, (*))
 
@@ -48,7 +48,7 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, mapWithNeighbors, minMaxPoints, xOf, yOf, startPoint, fudgeFactor)
 
-import Graphics.Slicer.Math.Line (lineSegFromEndpoints, endPoint, midPoint, handleLineSegError)
+import Graphics.Slicer.Math.Line (lineSegFromEndpoints, endPoint, midPoint, handleLineSegError, LineSegError(LineSegFromPoint,EmptyList))
 
 import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, HitStartPoint, HitEndPoint), PIntersection (PParallel, PAntiParallel, IntersectsIn), eToPPoint2, lineIsLeft, pointOnPerp, intersectsWith, pToEPoint2, PPoint2, PLine2, join2PPoint2)
 
@@ -156,11 +156,12 @@ getContours pointPairs = maybeFlipContour <$> foundContours
         -- Sort the list to begin with, so that differently ordered input lists give the same output.
         sortPairs :: [(Point2,Point2)] -> [(Point2,Point2)]
         sortPairs = sortBy (\a b -> if fst a == fst b then compare (snd a) (snd b) else compare (fst a) (fst b))
-    -- make sure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
-    maybeFlipContour :: Contour -> Contour
-    maybeFlipContour contour
-      | insideIsLeft contour (firstLineSegOfContour contour) = contour
-      | otherwise = makePointContour $ reverse $ pointsOfContour contour
+
+-- make sure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
+maybeFlipContour :: Contour -> Contour
+maybeFlipContour contour
+  | insideIsLeft contour (firstLineSegOfContour contour) = contour
+  | otherwise = makePointContour $ reverse $ pointsOfContour contour
 
 -- | A contour tree. A contour, which contains a list of contours that are cut out of the first contour, each of them contaiting a list of contours of positive space.. ad infinatum.
 data ContourTree = ContourTree { _parentContour :: !Contour, _childContours :: !(Slist ContourTreeSet) }
@@ -235,13 +236,13 @@ insideIsLeft contour lineSegment = lineIsLeft lineSecondHalf lineToInside == Jus
 -- | Find a point on the interior of the given contour, on the perpendicular bisector of the given line segment, a given distance away from the line segment.
 -- FIXME: the magic 100000 value here can't be smaller, or inner walls are placed in the wrong place?
 innerContourPoint :: ℝ -> Contour -> LineSeg -> Point2
-innerContourPoint distance contour l
+innerContourPoint distanceAway contour l
     | odd numIntersections = perpPoint
     | otherwise            = otherPerpPoint
   where
     minPoint       = fst (minMaxPoints contour)
-    perpPoint      = pointOnPerp l (midPoint l) distance
-    otherPerpPoint = pointOnPerp l (midPoint l) (-distance)
+    perpPoint      = pointOnPerp l (midPoint l) distanceAway
+    otherPerpPoint = pointOnPerp l (midPoint l) (-distanceAway)
     outsidePoint   = Point2 (xOf minPoint - 1 , yOf minPoint - 1)
     numIntersections = contourIntersectionCount contour (Left (pointOnPerp l (midPoint l) (fudgeFactor*100000), outsidePoint))
 
@@ -347,8 +348,8 @@ makeLineSegContour :: [LineSeg] -> Contour
 makeLineSegContour lineSegs = case lineSegs of
                                 [] -> error "tried to create an empty contour"
                                 [l] -> error $ "tried to create a contour with a single line: " <> show l <> "\n"
-                                [l1,l2] -> if startPoint l1 == endPoint l2
-                                           then error $ "tried to create a contour with only two points:\n" <> show l1 <> "\n" <> show l2 <> "\n"
+                                [l1,l2] -> if l1 == l2
+                                           then error $ "tried to create a contour with two (almost) identical points:\n" <> show l1 <> "\n" <> show l2 <> "\n"
                                            else LineSegContour pL pH l1 l2 (slist [])
                                 (l1:l2:lns) -> LineSegContour pL pH l1 l2 (slist lns)
   where
@@ -360,7 +361,13 @@ makeLineSegContour lineSegs = case lineSegs of
 
 -- | find the first line segment of a contour.
 firstLineSegOfContour :: Contour -> LineSeg
-firstLineSegOfContour (PointContour _ _ p1 p2 _ _) = handleLineSegError $ lineSegFromEndpoints p1 p2
+firstLineSegOfContour c@(PointContour _ _ p1 p2 _ _) = myLineSegErrorHandler $ lineSegFromEndpoints p1 p2
+  where
+    myLineSegErrorHandler :: Either LineSegError LineSeg -> LineSeg
+    myLineSegErrorHandler e = case e of
+                                (Left (LineSegFromPoint _)) -> error $ "tried to create a line segment from a point when finding the first line segment!\nContour: " <> show c <> "\n"
+                                (Left EmptyList) -> error "unpossible!"
+                                (Right lineSeg) -> lineSeg
 firstLineSegOfContour (LineSegContour _ _ l1 _ _) = l1
 
 -- | find the first outer contour of a contourTreeSet, and return it.

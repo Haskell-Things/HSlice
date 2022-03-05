@@ -24,11 +24,11 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
 -- | code for generating GCode.
-module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart, GCMarkSupportStart), cookExtrusions, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText) where
+module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart, GCMarkSupportStart), cookGCode, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText) where
 
 import GHC.Generics (Generic)
 
-import Prelude (Eq, Int, Rational, ($), zipWith, concat, (<>), show, error, otherwise, (==), length, fst, pi, (/), (*), pure, toRational, fromRational, (+), div, Bool)
+import Prelude (Eq, Int, Rational, Show, ($), zipWith, concat, (<>), show, error, otherwise, (==), length, fst, pi, (/), (*), pure, toRational, fromRational, (+), div, Bool, snd)
 
 import Data.ByteString (ByteString)
 
@@ -40,9 +40,11 @@ import Data.ByteString.UTF8 (fromString)
 
 import Data.Double.Conversion.ByteString (toFixed)
 
+import Data.List (foldl', uncons)
+
 import Data.List.Extra (unsnoc)
 
-import Data.Maybe ( Maybe(Just, Nothing) )
+import Data.Maybe ( Maybe(Just, Nothing), fromMaybe )
 
 import Control.DeepSeq (NFData)
 
@@ -56,7 +58,7 @@ import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.Slicer (accumulateValues)
 
-import Graphics.Slicer.Machine.StateM (StateM, getEPos, setEPos)
+import Graphics.Slicer.Machine.StateM (StateM, MachineState(MachineState), EPos(EPos), FRate(FRate), setMachineState, getMachineState)
 
 import Graphics.Slicer.Mechanics.Definitions (Extruder, filamentWidth)
 
@@ -71,6 +73,7 @@ data GCode =
     GCMove2 { _startPoint2 :: !ℝ2, _stopPoint2 :: !ℝ2 }
   | GCMove3 { _startPoint3 :: !ℝ3, _stopPoint3 :: !ℝ3 }
   | GCFeedRate { _rate :: !ℝ, _code :: !GCode }
+  | GCRawFeedRate { _rawRate :: !ℝ, _code :: !GCode }
   | GCExtrude2 { _startPoint2 :: !ℝ2, _stopPoint2 :: !ℝ2, _ePos :: !ℝ }
   | GCExtrude3 { _startPoint3 :: !ℝ3, _stopPoint3 :: !ℝ3, _ePos :: !ℝ }
   | GCRawExtrude2 { _startPoint2 :: !ℝ2, _stopPoint2 :: !ℝ2, _extrusion :: !RawExtrude }
@@ -80,39 +83,52 @@ data GCode =
   | GCMarkOuterWallStart
   | GCMarkSupportStart
   | GCMarkInfillStart
-  deriving (Eq, Generic, NFData)
+  deriving (Eq, Generic, NFData, Show)
 
 -- | The dimensions of a section of material to be extruded.
 data RawExtrude = RawExtrude { _pathLength :: !ℝ, _pathWidth :: !ℝ, _pathHeight :: !ℝ }
-  deriving (Eq, Generic, NFData)
+  deriving (Eq, Generic, NFData, Show)
 
 -- | Calculate the extrusion values for all of the GCodes that extrude.
-cookExtrusions :: Extruder -> [GCode] -> Fastℕ -> StateM [GCode]
-cookExtrusions extruder gcodes threads = do
-  currentPos <- getEPos
+cookGCode :: Extruder -> [GCode] -> Fastℕ -> StateM [GCode]
+cookGCode extruder gcodes threads = do
+  currentMachine <- getMachineState
   let
+    (MachineState (EPos currentPos) (FRate currentFeedRate)) = currentMachine
     ePoses = [currentPos+amount | amount <- accumulateValues extrusionAmounts]
-    extrusionAmounts = [calculateExtrusion gcode | gcode <- gcodes] `using` parListChunk (div (length gcodes) (fromFastℕ threads)) rseq
-    finalEPos = case unsnoc ePoses of
-                   Nothing -> currentPos
-                   (Just (_,lastPos)) -> lastPos
-  setEPos finalEPos
-  pure $ applyExtrusions gcodes ePoses
+      where
+        extrusionAmounts = [calculateExtrusion gcode | gcode <- gcodes] `using` parListChunk (div (length gcodes) (fromFastℕ threads)) rseq
+    (ratedGCodes, finalFRate) = applySpeeds gcodes currentFeedRate
+    finalEPos = snd $ fromMaybe ([],currentPos) $ unsnoc ePoses
+    finalState = MachineState (EPos finalEPos) (FRate finalFRate)
+    cookedResults = applyExtrusions ratedGCodes ePoses
+  setMachineState finalState
+  pure cookedResults
   where
     applyExtrusions :: [GCode] -> [Rational] -> [GCode]
     applyExtrusions = zipWith applyExtrusion
     applyExtrusion :: GCode -> Rational -> GCode
+    applyExtrusion (GCFeedRate r myGCode@(GCRawExtrude2 {})) ePos = GCFeedRate r (applyExtrusion myGCode ePos)
+    applyExtrusion (GCFeedRate r myGCode@(GCRawExtrude3 {})) ePos = GCFeedRate r (applyExtrusion myGCode ePos)
     applyExtrusion (GCRawExtrude2 startPoint stopPoint _) ePos = GCExtrude2 startPoint stopPoint (fromRational ePos)
     applyExtrusion (GCRawExtrude3 startPoint stopPoint _) ePos = GCExtrude3 startPoint stopPoint (fromRational ePos)
     -- FIXME: should these two generate warnings?
-    applyExtrusion (GCExtrude2 startPoint stopPoint _) ePos = GCExtrude2 startPoint stopPoint (fromRational ePos)
-    applyExtrusion (GCExtrude3 startPoint stopPoint _) ePos = GCExtrude3 startPoint stopPoint (fromRational ePos)
+    applyExtrusion (GCExtrude2 {}) _ = error "cooking a previously cooked extrusion?"
+    applyExtrusion (GCExtrude3 {}) _ = error "cooking a previously cooked extrusion?"
     applyExtrusion gcode _ = gcode
+    applySpeeds :: [GCode] -> ℝ -> ([GCode], ℝ)
+    applySpeeds myGCodes firstSpeed = foldl' applySpeed ([],firstSpeed) myGCodes
+    applySpeed :: ([GCode], ℝ) -> GCode -> ([GCode], ℝ)
+    applySpeed (myGCodes, lastSpeed) (GCRawFeedRate newSpeed myGCode)
+      | lastSpeed == newSpeed = (myGCodes <> [myGCode], lastSpeed)
+      | otherwise = (myGCodes <> [GCFeedRate newSpeed myGCode], newSpeed)
+    applySpeed (myGCodes, lastSpeed) gcode = (myGCodes <> [gcode], lastSpeed)
     calculateExtrusion :: GCode -> Rational
     calculateExtrusion (GCRawExtrude2 _ _ (RawExtrude pathLength pathWidth pathHeight)) =
       toRational $ pathWidth * pathHeight * (2 / filamentDia) * pathLength / pi
     calculateExtrusion (GCRawExtrude3 _ _ (RawExtrude pathLength pathWidth pathHeight)) =
       toRational $ pathWidth * pathHeight * (2 / filamentDia) * pathLength / pi
+    calculateExtrusion (GCRawFeedRate _ myGCode) = calculateExtrusion myGCode
     calculateExtrusion _ = 0
     filamentDia = filamentWidth extruder
 
@@ -132,7 +148,7 @@ make2DExtrudeGCode pathThickness pathWidth p1@(Point2 (x1,y1)) p2@(Point2 (x2,y2
 
 -- | Add a feedrate to a piece of gcode.
 addFeedRate :: ℝ -> GCode -> GCode
-addFeedRate = GCFeedRate
+addFeedRate = GCRawFeedRate
 
 -- | Render a value to ByteString, in the precision that is suitable to use in a gcode file. drops trailing zeroes, and the decimal, if there is no fractional component.
 posIze :: ℝ -> ByteString
@@ -140,7 +156,7 @@ posIze pos
   | pos == 0 = "0"
   | otherwise = fst $ spanEnd (== '.') $ fst $ spanEnd (== '0') $ toFixed 5 pos
 
--- | Operator for determining whether two values are unequal, after being converted to gcode.
+-- | Operator for determining whether two values are equal, after being converted to gcode.
 (~==) :: ℝ -> ℝ -> Bool
 infixl 9 ~==
 (~==) a b = roundToFifth a == roundToFifth b
@@ -148,13 +164,19 @@ infixl 9 ~==
 -- | Render a GCode into a piece of text, ready to print. Only handles 'cooked' gcode, that has had extrusion values calculated.
 gcodeToText :: GCode -> ByteString
 gcodeToText (GCFeedRate f (GCMove2 (x1,y1) (x2,y2))) = "G0 F" <> posIze f <> " " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ")
-gcodeToText (GCFeedRate f wtf) = error "applying feedrate " <> posIze f <> " to something other than a GCmove2: " <> gcodeToText wtf
+
+gcodeToText (GCFeedRate f (GCMove3 (x1,y1,z1) (x2,y2,z2))) = "G0 F" <> posIze f <> " " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2)
+gcodeToText (GCFeedRate f (GCExtrude2 (x1,y1) (x2,y2) e)) = "G1 F" <> posIze f <> " " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> "E" <> posIze e
+
+gcodeToText (GCFeedRate f (GCExtrude3 (x1,y1,z1) (x2,y2,z2) e)) = "G1 F" <> posIze f <> " " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2) <> "E" <> posIze e
 gcodeToText (GCMove2 (x1,y1) (x2,y2)) = "G0 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ")
 gcodeToText (GCMove3 (x1,y1,z1) (x2,y2,z2)) = "G0 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2)
 gcodeToText (GCExtrude2 (x1,y1) (x2,y2) e) = "G1 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> "E" <> posIze e
 gcodeToText (GCExtrude3 (x1,y1,z1) (x2,y2,z2) e) = "G1 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2 <> " ") <> "E" <> posIze e
-gcodeToText GCRawExtrude2 {} = error "Attempting to generate gcode for a 2D extrude command that has not yet been cooked."
-gcodeToText GCRawExtrude3 {} = error "Attempting to generate gcode for a 3D extrude command that has not yet been cooked."
+gcodeToText (GCFeedRate f wtf) = error $ "applying feedrate " <> show (posIze f) <> " to something other than a GCmove(2,3) or a GCExtrude(2,3): " <> show wtf
+gcodeToText (GCRawFeedRate a b) = error $ "Attempting to generate gcode for a feedrate change command that has not yet been cooked:\nRate: " <> show a <> "\nGCode: " <> show b <> "\n"
+gcodeToText (GCRawExtrude2 a b c) = error $ "Attempting to generate gcode for a 2D extrude command that has not yet been cooked:\nStart: " <> show a <> "\nStop: " <> show b <> "\nExtrude: " <> show c <> "\n"
+gcodeToText (GCRawExtrude3 a b c) = error $ "Attempting to generate gcode for a 3D extrude command that has not yet been cooked:\nStart: " <> show a <> "\nStop: " <> show b <> "\nExtrude: " <> show c <> "\n"
 -- The current layer count, where 1 == the bottom layer of the object being printed. rafts are represented as negative layers.
 gcodeToText (GCMarkLayerStart layerNo) = ";LAYER:" <> fromString (show (fromFastℕ layerNo :: Int))
 -- perimeters on the inside of the object. may contact the infill, or an outer paremeter, but will not be exposed on the outside of the object.
@@ -168,20 +190,18 @@ gcodeToText GCMarkInfillStart = ";TYPE:FILL"
 
 -- | Generate GCode for a given contour.
 -- Assumes the printer is already at the first point of the contour.
-gcodeForContour :: ℝ -> ℝ -> Contour -> [GCode]
-gcodeForContour lh pathWidth contour =
-  case contourPoints of
-    [] -> error "impossible"
-    [_a] -> error "also impossible"
-    [_a,_b] -> error "more impossible"
-    (headPoint:tailPoints) -> zipWith (make2DExtrudeGCode lh pathWidth) contourPoints tailPoints <> [make2DExtrudeGCode lh pathWidth (lastPointOfContour contour) headPoint]
+gcodeForContour :: ℝ -> ℝ -> ℝ -> Contour -> [GCode]
+gcodeForContour lh pathWidth feedRate contour = addFeedRate feedRate headRes : tailRes
   where
+    (headRes, tailRes) = fromMaybe (error "no results?") $ uncons res
+    (headPoint,tailPoints) = fromMaybe (error "no contour points?") $ uncons contourPoints
+    res = zipWith (make2DExtrudeGCode lh pathWidth) contourPoints tailPoints <> [make2DExtrudeGCode lh pathWidth (lastPointOfContour contour) headPoint]
     contourPoints = pointsOfContour contour
 
 -- | For each group of lines, generate gcode for the segments, with move commands between them.
-gcodeForInfill :: ℝ -> ℝ -> [[LineSeg]] -> [GCode]
-gcodeForInfill _ _ [] = []
-gcodeForInfill lh pathWidth lineGroups =
+gcodeForInfill :: ℝ -> ℝ -> ℝ -> ℝ -> [[LineSeg]] -> [GCode]
+gcodeForInfill _ _ _ _ [] = []
+gcodeForInfill lh pathWidth infillFeedRate travelFeedRate lineGroups =
   case lineGroups of
     [] -> []
     (headGroup:tailGroups) -> concat $ renderLineSegGroup headGroup : zipWith (\group1 group2 -> moveBetweenLineSegGroups group1 group2 <> renderLineSegGroup group2) lineGroups tailGroups
@@ -198,9 +218,9 @@ gcodeForInfill lh pathWidth lineGroups =
                                       [] -> []
                                       (headGroup:tailGroups) -> renderSegment headGroup : concat (zipWith (\ l1 l2 -> moveBetween l1 l2 : [renderSegment l2]) lineSegSet tailGroups)
     moveBetween :: LineSeg -> LineSeg -> GCode
-    moveBetween l1 (LineSeg startPointl2 _) = make2DTravelGCode (endPoint l1) startPointl2
+    moveBetween l1 (LineSeg startPointl2 _) = addFeedRate travelFeedRate $ make2DTravelGCode (endPoint l1) startPointl2
     renderSegment :: LineSeg -> GCode
-    renderSegment ln@(LineSeg startPoint _) = make2DExtrudeGCode lh pathWidth startPoint $ endPoint ln
+    renderSegment ln@(LineSeg startPoint _) = addFeedRate infillFeedRate $ make2DExtrudeGCode lh pathWidth startPoint $ endPoint ln
 
 ----------------------------------------------------
 ------------------ FIXED STRINGS -------------------

@@ -21,9 +21,9 @@
 
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, meet2PLine2, forcePLine2Basis, idealNormPPoint2, lineIntersectsPLine, pPointBetweenPPoints) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), addPPoint2s, eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), dualAngle, pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, distanceBetween2PLine2s, meet2PLine2, forcePLine2Basis, idealNormPPoint2, idealPPoint2, lineIntersectsPLine, pPointBetweenPPoints, reverseGVec, translateRotatePPoint2) where
 
-import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error)
+import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error, sin, cos)
 
 import GHC.Generics (Generic)
 
@@ -64,21 +64,26 @@ data PIntersection =
   | IntersectsIn !PPoint2
   deriving (Show, Eq)
 
+-- | Translate a point by another point.
+addPPoint2s :: PPoint2 -> PPoint2 -> PPoint2
+addPPoint2s pPoint1 pPoint2 = PPoint2 $ addVecPair (rawPPoint2 $ idealPPoint2 pPoint1) (rawPPoint2 $ idealPPoint2 pPoint2)
+  where
+    rawPPoint2 (PPoint2 v) = v
+
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
 plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
 plinesIntersectIn pl1 pl2
-
   | meet2PLine2 pl1 pl2 == PPoint2 (GVec [])
   || (idealNormPPoint2 (meet2PLine2 pl1 pl2) < fudgeFactor
      && (angleBetween pl1 pl2 >= 1 ||
-         angleBetween pl1 pl2 <= -1 ))          = if angleBetween pl1 pl2 > 0
-                                                           then PCollinear
-                                                           else PAntiCollinear
-  | scalarPart (pr1 ⎣ pr2) <   1+fudgeFactor &&
-    scalarPart (pr1 ⎣ pr2) >   1-fudgeFactor    = PParallel
-  | scalarPart (pr1 ⎣ pr2) <  -1+fudgeFactor &&
-    scalarPart (pr1 ⎣ pr2) >  -1-fudgeFactor    = PAntiParallel
-  | otherwise                                   = IntersectsIn $ intersectionOf pl1 pl2
+         angleBetween pl1 pl2 <= -1 ))         = if angleBetween pl1 pl2 > 0
+                                                 then PCollinear
+                                                 else PAntiCollinear
+  | scalarPart (pr1 ⎣ pr2) <  1+fudgeFactor &&
+    scalarPart (pr1 ⎣ pr2) >  1-fudgeFactor    = PParallel
+  | scalarPart (pr1 ⎣ pr2) < -1+fudgeFactor &&
+    scalarPart (pr1 ⎣ pr2) > -1-fudgeFactor    = PAntiParallel
+  | otherwise                                  = IntersectsIn $ intersectionOf pl1 pl2
   where
     (PLine2 pr1) = normalizePLine2 pl1
     (PLine2 pr2) = normalizePLine2 pl2
@@ -89,32 +94,9 @@ pLineIsLeft line1 line2
   | dualAngle line1 line2 == 0 = Nothing
   | otherwise                  = Just $ dualAngle line1 line2 > 0
 
--- | Return the cosine of the angle between the two lines. results in a value that is positive when the first line points to the "left" of the second given line, and negative when "right".
-dualAngle :: PLine2 -> PLine2 -> ℝ
-dualAngle line1@(PLine2 lvec1) line2@(PLine2 lvec2) = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
-  where
-    (PPoint2 iPointVec) = canonicalizePPoint2 $ meet2PLine2 line1 line2
-    motor = addVecPair (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
-    antiMotor = addVecPair (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
-    gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
-
 -- | Find out where two lines intersect, returning a projective point. Note that this should only be used when you can guarantee these are not collinear.
 intersectionOf :: PLine2 -> PLine2 -> PPoint2
 intersectionOf pl1 pl2 = canonicalizePPoint2 $ meet2PLine2 pl1 pl2
-
--- | Return the sine of the angle between the two lines. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
-angleBetween :: PLine2 -> PLine2 -> ℝ
-angleBetween pl1 pl2 = scalarPart $ pv1 ⎣ pv2
-  where
-    (PLine2 pv1) = normalizePLine2 pl1
-    (PLine2 pv2) = normalizePLine2 pl2
-
--- | Translate a line a given distance along it's perpendicular bisector.
---   FIXME: I'm not so sure about the math on this one. test suite, please?
-translatePerp :: PLine2 -> ℝ -> PLine2
-translatePerp pLine@(PLine2 rawPLine) d = PLine2 $ addVecPair m rawPLine
-  where
-    m = GVec [GVal (d*normOfPLine2 pLine) (singleton (GEZero 1))]
 
 -- | Find a point somewhere along the line between the two points given.
 --  requires two weights. the ratio of these weights determines the position of the found points, E.G: 2/1 is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint.
@@ -151,6 +133,62 @@ pPointsOnSameSideOfPLine point1 point2 line
 -- | Find the unsigned distance between two projective points.
 distanceBetweenPPoints :: PPoint2 -> PPoint2 -> ℝ
 distanceBetweenPPoints point1 point2 = normOfPLine2 $ join2PPoint2 point1 point2
+
+-- | Find the unsigned distance between two parallel or antiparallel projective lines.
+-- Same as angleBetween.
+distanceBetween2PLine2s :: PLine2 -> PLine2 -> ℝ
+distanceBetween2PLine2s = angleBetween
+
+-- | Return the sine of the angle between the two lines. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
+angleBetween :: PLine2 -> PLine2 -> ℝ
+angleBetween pl1 pl2 = scalarPart $ pv1 ⎣ pv2
+  where
+    (PLine2 pv1) = normalizePLine2 pl1
+    (PLine2 pv2) = normalizePLine2 pl2
+
+-- | Find the cosine of the angle between the two lines. results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when "right".
+dualAngle :: PLine2 -> PLine2 -> ℝ
+dualAngle line1@(PLine2 lvec1) line2 = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
+  where
+    (PLine2 lvec2)      = normalizePLine2 line2
+    (PPoint2 iPointVec) = canonicalizePPoint2 $ meet2PLine2 line1 line2
+    motor = addVecPair (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
+    antiMotor = addVecPair (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
+    -- I, the infinite point.
+    gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
+
+-- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
+pPointOnPerp :: PLine2 -> PPoint2 -> ℝ -> PPoint2
+pPointOnPerp pline ppoint d = canonicalizePPoint2 $ PPoint2 $ motor•pvec•reverseGVec motor
+  where
+    (PLine2 lvec)  = normalizePLine2 pline
+    (PPoint2 pvec) = canonicalizePPoint2 ppoint
+    perpLine       = lvec ⨅ pvec
+    motor = addVecPair (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
+    -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
+    gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
+
+-- | Translate a line a given distance along it's perpendicular bisector.
+translatePerp :: PLine2 -> ℝ -> PLine2
+translatePerp pLine@(PLine2 rawPLine) d = PLine2 $ addVecPair m rawPLine
+  where
+    m = GVec [GVal (d*normOfPLine2 pLine) (singleton (GEZero 1))]
+
+-- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
+translateRotatePPoint2 :: PPoint2 -> ℝ -> ℝ -> PPoint2
+translateRotatePPoint2 ppoint distance rotation = PPoint2 $ translator•pvec•reverseGVec translator
+  where
+    (PPoint2 pvec)      = canonicalizePPoint2 ppoint
+    xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pvec
+      where
+        (PLine2 xLineVec) = forcePLine2Basis $ eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,0)))
+    (PLine2 angledLineThroughPPoint2) = forcePLine2Basis $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
+      where
+        rotator = addVecPair (mulScalarVec (sin $ rotation/2) pvec) (GVec [GVal (cos $ rotation/2) (singleton G0)])
+    translator = addVecPair (angledLineThroughPPoint2 • gaIScaled) (GVec [GVal 1 (singleton G0)])
+      where
+        -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
+        gaIScaled = GVec [GVal (distance/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
 
 ----------------------------------------------------------
 -------------- Euclidian Mixed Interface -----------------
@@ -261,18 +299,10 @@ combineConsecutiveLineSegs lines = case lines of
         sameLineSeg = meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])
         sameMiddlePoint = p2 == addPoints p1 s1
 
--- | find a point a given distance along a line perpendicularly bisecting this line at a given point.
 pointOnPerp :: LineSeg -> Point2 -> ℝ -> Point2
-pointOnPerp line point d = case ppointToPoint2 (canonicalizePPoint2 $ PPoint2 $ (motor•pvec)•reverse motor) of
+pointOnPerp line point d = case ppointToPoint2 $ pPointOnPerp (eToPLine2 line) (eToPPoint2 point) d of
                              Nothing -> error $ "generated infinite point trying to travel " <> show d <> "along the line perpendicular to " <> show line <> " at point " <> show point <> "\n"
                              Just v -> v
-  where
-    (PLine2 lvec)  = normalizePLine2 $ eToPLine2 line
-    (PPoint2 pvec) = canonicalizePPoint2 $ eToPPoint2 point
-    perpLine       = lvec ⨅ pvec
-    motor = addVecPair (perpLine • gaI) (GVec [GVal 1 (singleton G0)])
-    -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
-    gaI = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
 
 ------------------------------------------------
 ----- And now draw the rest of the algebra -----
@@ -323,10 +353,10 @@ pToEPoint2 :: PPoint2 -> Point2
 pToEPoint2 (PPoint2 (GVec pPoint)) = Point2 (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] pPoint
                                             ,         valOf 0 $ getVals [GEZero 1, GEPlus 1] pPoint)
 
--- | Create the ideal form of a projective point.
+-- | Create an ideal point from of a projective point.
 -- Note: not yet used.
-_idealPPoint2 :: PPoint2 -> PPoint2
-_idealPPoint2 (PPoint2 (GVec vals)) = PPoint2 $ GVec $ foldl' addVal []
+idealPPoint2 :: PPoint2 -> PPoint2
+idealPPoint2 (PPoint2 (GVec vals)) = PPoint2 $ GVec $ foldl' addVal []
                                      [
                                        GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] vals) (fromList [GEZero 1, GEPlus 1])
                                      , GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 2])
@@ -362,22 +392,24 @@ dualPPoint2 (PPoint2 vec) = dual2DGVec vec
 dualPLine2 :: PLine2 -> GVec
 dualPLine2 (PLine2 vec) = dual2DGVec vec
 
-reverse :: GVec -> GVec
-reverse vec = GVec $ foldl' addVal []
-              [
-                GVal           realVal                                                (singleton G0)
-              , GVal (         valOf 0 $ getVals [GEZero 1] vals)                     (singleton (GEZero 1))
-              , GVal (         valOf 0 $ getVals [GEPlus 1] vals)                     (singleton (GEPlus 1))
-              , GVal (         valOf 0 $ getVals [GEPlus 2] vals)                     (singleton (GEPlus 2))
-              , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 1] vals)           (fromList [GEZero 1, GEPlus 1])
-              , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] vals)           (fromList [GEZero 1, GEPlus 2])
-              , GVal (negate $ valOf 0 $ getVals [GEPlus 1, GEPlus 2] vals)           (fromList [GEPlus 1, GEPlus 2])
-              , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 1, GEPlus 2])
-              ]
+-- | Reverse a vector. Really, take every value in it, and recompute it in the reverse order of the vectors (so instead of e0∧e1, e1∧e0). which has the effect of negating bi and tri-vectors.
+reverseGVec :: GVec -> GVec
+reverseGVec vec = GVec $ foldl' addVal []
+                  [
+                    GVal           realVal                                                (singleton G0)
+                  , GVal (         valOf 0 $ getVals [GEZero 1] vals)                     (singleton (GEZero 1))
+                  , GVal (         valOf 0 $ getVals [GEPlus 1] vals)                     (singleton (GEPlus 1))
+                  , GVal (         valOf 0 $ getVals [GEPlus 2] vals)                     (singleton (GEPlus 2))
+                  , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 1] vals)           (fromList [GEZero 1, GEPlus 1])
+                  , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] vals)           (fromList [GEZero 1, GEPlus 2])
+                  , GVal (negate $ valOf 0 $ getVals [GEPlus 1, GEPlus 2] vals)           (fromList [GEPlus 1, GEPlus 2])
+                  , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 1, GEPlus 2])
+                  ]
   where
     realVal     = scalarPart vec
     (GVec vals) = vectorPart vec
 
+-- | get the dual of a vector. for a point, find a line, for a line, a point...
 dual2DGVec :: GVec -> GVec
 dual2DGVec vec = GVec $ foldl' addVal []
                  [
@@ -423,7 +455,7 @@ forcePPoint2Basis (PPoint2 pvec)              = PPoint2 $ forceBasis [fromList [
 canonicalizePPoint2 :: PPoint2 -> PPoint2
 canonicalizePPoint2 (PPoint2 vec@(GVec vals)) = PPoint2 $ divVecScalar vec $ valOf 1 $ getVals [GEPlus 1, GEPlus 2] vals
 
--- | The idealized norm of a projective point.
+-- | find the idealized norm of a projective point.
 idealNormPPoint2 :: PPoint2 -> ℝ
 idealNormPPoint2 ppoint = sqrt (x*x+y*y)
   where
@@ -433,9 +465,11 @@ idealNormPPoint2 ppoint = sqrt (x*x+y*y)
 normalizePLine2 :: PLine2 -> PLine2
 normalizePLine2 pl@(PLine2 vec) = PLine2 $ divVecScalar vec $ normOfPLine2 pl
 
+-- | find the norm of a given PLine2
 normOfPLine2 :: PLine2 -> ℝ
 normOfPLine2 pline = sqrt $ sqNormOfPLine2 pline
 
+-- | find the squared norm of a given PLine2
 sqNormOfPLine2 :: PLine2 -> ℝ
 sqNormOfPLine2 (PLine2 (GVec vals)) = a*a+b*b
   where

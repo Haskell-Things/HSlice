@@ -20,32 +20,43 @@
 
 -- The purpose of this file is to contain the definition of the machine's presumed state during a print.
 
-module Graphics.Slicer.Machine.StateM (getEPos, setEPos, EPos(EPos), StateM, MachineState(MachineState)) where
+module Graphics.Slicer.Machine.StateM (getMachineState, setMachineState, EPos(EPos), FRate(FRate), StateM, MachineState(MachineState)) where
 
-import Prelude (Rational, Show(show), ($), fromRational, pure)
+import Prelude (Rational, Show(show), ($), fromRational)
 
 import Data.Functor.Identity (Identity)
 
 import Control.Monad.State (StateT, get, put)
+
+import Graphics.Slicer.Definitions(ℝ)
 
 import Graphics.Slicer.Math.Definitions (roundToFifth)
 
 -- The always increasing amount of filament extruded during this print.
 newtype EPos = EPos Rational
 
+-- The sometimes changing feedrate.
+newtype FRate = FRate ℝ
+
 instance Show EPos where
   show (EPos v) = show $ roundToFifth $ fromRational v
 
--- | This is the state of a 3D printer. track just the amount of material extruded by the print so far, for now.
+instance Show FRate where
+  show (FRate v) = show $ roundToFifth v
+
+-- | This is the state of a 3D printer. it keeps track of the amount of material extruded by the print so far, and the current feedrate..
 -- FIXME: support multiple extruders.
-newtype MachineState = MachineState EPos
+data MachineState =
+  MachineState {
+      _extruderPosition :: !EPos
+    , _feedRate :: !FRate
+    }
 
 type StateM = StateT MachineState Identity
 
-getEPos :: StateM Rational
-getEPos = do
-  (MachineState (EPos position)) <- get
-  pure position
+getMachineState :: StateM MachineState
+getMachineState = do get
 
-setEPos :: Rational -> StateM ()
-setEPos val = put (MachineState (EPos val))
+setMachineState :: MachineState -> StateM ()
+setMachineState = put
+

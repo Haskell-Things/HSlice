@@ -22,7 +22,7 @@
 -- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
 module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints, fudgeFactor, startPoint) where
 
-import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, zipWith, (<>), error, show)
+import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, zipWith, (<>), error, show, (<), (&&))
 
 import Control.DeepSeq (NFData)
 
@@ -74,7 +74,9 @@ instance LinAlg Point3 where
 
 -- | perform linear algebra on 2D points.
 instance LinAlg Point2 where
-  distance p1 p2 = magnitude $ addPoints p1 (scalePoint (-1) p2)
+  distance p1 p2
+    | p1 == p2 = 0
+    | otherwise = magnitude $ addPoints p1 (scalePoint (-1) p2)
     where
       magnitude (Point2 (x1,y1)) = sqrt (x1 * x1 + y1 * y1)
   addPoints (Point2 (x1,y1)) (Point2 (x2,y2)) = Point2 (x1+x2, y1+y2)
@@ -119,11 +121,14 @@ instance SpacePoint Point3 where
   zOf (Point3 (_,_,z)) = z
   flatten (Point3 (x,y,_)) = Point2 (x,y)
 
+instance Eq LineSeg where
+  (==) (LineSeg s1 e1) (LineSeg s2 e2) = distance s1 s2 < fudgeFactor && distance e1 e2 < fudgeFactor
+
 -- | Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- it should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
 -- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
 data LineSeg = LineSeg { startPoint :: !Point2, _distanceToEnd :: !Point2 }
-  deriving (Generic, NFData, Show, Eq)
+  deriving (Generic, NFData, Show)
 
 -- | a list of points around a (2d) shape.
 -- Note that the minPoint and maxPoint define a bounding box for the contour that it does not spill out of.

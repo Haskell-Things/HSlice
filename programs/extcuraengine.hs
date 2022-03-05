@@ -31,27 +31,27 @@
 -- FIXME: turn this warning back on at some point.
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
-import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, error, div, reverse, fst, filter, (<=))
+import Prelude ((*), (/), (+), (-), odd, mod, round, floor, foldMap, (<>), FilePath, fromInteger, error, div, reverse, fst, filter, (<=), (>), ceiling)
 
 import Control.Applicative (pure, (<*>), (<$>))
 
 import Control.Monad ((>>=))
 
+import Data.Bool(Bool(True, False), otherwise)
+
+import Data.ByteString.UTF8 (fromString)
+
 import Data.Eq ((==), (/=))
 
 import Data.Function ((.), ($))
 
-import Data.ByteString.UTF8 (fromString)
-
-import Data.String (String)
-
-import Data.Bool(Bool(True, False), otherwise)
-
-import Data.List (length, zip, zipWith, maximum, minimum, concat)
+import Data.List (length, zip, zipWith, maximum, minimum, concat, uncons)
 
 import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe, mapMaybe)
+
+import Data.String (String)
 
 import Slist.Type (Slist(Slist))
 
@@ -76,7 +76,7 @@ import Graphics.Implicit.ExtOpenScad.Definitions (VarLookup, OVal(ONum, OString,
 
 import Graphics.Implicit.Definitions (ℝ, ℕ, Fastℕ(Fastℕ), fromFastℕ, fromFastℕtoℝ)
 
-import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea), Contour, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), StateM, MachineState(MachineState), ContourTree(ContourTree))
+import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea), Contour, getContours, Extruder(Extruder), nozzleDiameter, EPos(EPos), FRate(FRate), StateM, MachineState(MachineState), ContourTree(ContourTree))
 
 import Graphics.Slicer.Formats.STL.Definitions (trianglesFromSTL)
 
@@ -100,7 +100,7 @@ import Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Hori
 
 import Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour)
 
-import Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart), cookExtrusions, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText)
+import Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart), cookGCode, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText)
 
 default (ℕ, Fastℕ, ℝ)
 
@@ -150,12 +150,25 @@ centeredTrisFromSTL bedX bedY stl = shiftedTris
 layers :: Print -> [Tri] -> [[Contour]]
 layers print fs = catMaybes <$> rawContours
   where
-    rawContours = [cleanContour <$> getContours (allIntersections (currentLayer-(lh/2))) | currentLayer <- [lh,lh*2..zmax] ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
+    rawContours = [cleanContour <$> getContours (allIntersections $ zHeightOfMiddleOfLayer layerNo) | layerNo <- [0,1..lastLayer] ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
     allIntersections :: ℝ -> [(Point2,Point2)]
     allIntersections zLayer = catMaybes $ triIntersects zLayer <$> fs
     zs = [zOf . fst <$> triPoints | triPoints <- sidesOf <$> fs ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
     zmax = maximum $ concat zs
-    lh = layerHeight print
+    lastLayer :: Fastℕ
+    lastLayer
+      | zmax > layer0Height print = ceiling ((zmax-layer0Height print) / layerHeight print) - 1
+      | otherwise = error "too short!"
+    -- The height at the point we slice. in the middle of the layer being deposited.
+    zHeightOfMiddleOfLayer layerNumber
+      | layerNumber == 0 = layer0Height print / 2
+      | otherwise = zHeightOfLayer print layerNumber - layerHeight print / 2
+
+-- | The height of the top of the given layer. Where we are doing the depositing from.
+zHeightOfLayer :: Print -> Fastℕ -> ℝ
+zHeightOfLayer print layerNumber
+      | layerNumber == 0 = layerHeight print
+      | otherwise = layer0Height print + layerHeight print * fromFastℕtoℝ layerNumber
 
 -- | Get the appropriate InfillType to use when generating infill for the given layer.
 -- FIXME: handle the tops and bottoms of surfaces
@@ -184,15 +197,15 @@ mapEveryOther f xs = zipWith (\x v -> if odd v then f x else x) xs [0::Fastℕ,1
 --------------------------------------------------------------
 
 -- The difference between a slicing plan, and a Print is that a Print should specify characteristics of the resulting object, where a Plan should specify what methods to attempt to use to accomplish that goal.
-data Plan =
-  Extrude !(DivideStrategy, InsetStrategy)
+newtype Plan =
+  Extrude (DivideStrategy, InsetStrategy)
 
 -- the space that a plan is to be followed within.
 -- FIXME: union, intersect, etc.. these?
 -- FIXME: transitions between regions?
 -- FIXME: the printer's working area is a Zone of type Box3.
-data Zone =
-  Everywhere !Plan
+newtype Zone =
+  Everywhere Plan
 --  | ZBetween !(ℝ,Maybe ℝ) !Plan
 --  | BelowBottom !(Point2, Point2) !Plan
 --  | Box3 !Point3 !Point3 !Plan
@@ -266,25 +279,36 @@ multiplyPlan =    "pathWidth = machine_nozzle_size"
 -- FIXME: this and the next function should be replaced with functions that use a SlicingPlan to slice an object that fits in a Zone. In this way we could have different 'profiles' (vase mode, layers, etc)...
 sliceObject :: Printer -> Print -> [([Contour], Fastℕ)] -> StateM [GCode]
 sliceObject printer@(Printer _ _ extruder) print allLayers =
-  cookExtrusions extruder (concat slicedLayers) threads
+  cookGCode extruder (concat slicedLayers) threads
   where
-    slicedLayers = [sliceLayer printer print slicingPlan (isLastLayer layer) layer | layer <- allLayers] `using` parListChunk (div (length allLayers) (fromFastℕ threads)) rdeepseq
+    slicedLayers = [sliceLayer printer print slicingPlan (isLastLayer layer) (thicknessOfLayer layer) layer | layer <- allLayers] `using` parListChunk (div (length allLayers) (fromFastℕ threads)) rdeepseq
     isLastLayer layer = case unsnoc allLayers of
                           Nothing -> error "impossible!"
                           Just (_,l) -> l == layer
+    thicknessOfLayer :: ([Contour], Fastℕ) -> ℝ
+    thicknessOfLayer layer
+      | isFirstLayer layer = layer0Height print
+      | otherwise          = layerHeight print
+    isFirstLayer :: ([Contour], Fastℕ) -> Bool
+    isFirstLayer layer = case uncons allLayers of
+                           Nothing -> error "not possible!"
+                           Just (l,_) -> l == layer
     -- Hack: start to use types to explain how to slice.
     slicingPlan = Everywhere (Extrude (ZLayers,SkeletonFailThrough))
 
-sliceLayer :: Printer -> Print -> Zone -> Bool -> ([Contour], Fastℕ) -> [GCode]
-sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBeforeInner infillSpeed) _plan isLastLayer (layerContours, layerNumber) = do
+-- FIXME: remove layerheight and layerNumber from our calculations here?
+sliceLayer :: Printer -> Print -> Zone -> Bool -> ℝ -> ([Contour], Fastℕ) -> [GCode]
+sliceLayer (Printer _ _ extruder) print@(Print _ infill _ _ _ _ ls outerWallBeforeInner _ _ _ _ _) _plan isLastLayer lh (layerContours, layerNumber) = do
   let
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToContour :: Contour -> [GCode]
-    travelToContour contour = [make3DTravelGCode (Point3 (0,0,0)) (raise $ firstPointOfContour contour)]
+    travelToContour contour = [addFeedRate travelFeedRate $ make3DTravelGCode (Point3 (0,0,0)) (raise $ firstPointOfContour contour)]
     travelBetweenContours :: Contour -> Contour -> [GCode]
-    travelBetweenContours source dest = [make2DTravelGCode (firstPointOfContour source) $ firstPointOfContour dest]
+    travelBetweenContours source dest = [addFeedRate travelFeedRate $ make2DTravelGCode (firstPointOfContour source) $ firstPointOfContour dest]
     travelFromContourToInfill :: Contour -> [[LineSeg]] -> [GCode]
-    travelFromContourToInfill source lines = if firstPointOfInfill lines /= Nothing then [addFeedRate infillSpeed $ make2DTravelGCode (lastPointOfContour source) $ fromMaybe (Point2 (0,0)) $ firstPointOfInfill lines] else []
+    travelFromContourToInfill source lines
+     | firstPointOfInfill lines /= Nothing = [addFeedRate travelFeedRate $ make2DTravelGCode (lastPointOfContour source) $ fromMaybe (Point2 (0,0)) $ firstPointOfInfill lines]
+     | otherwise = []
     renderContourTreeSet :: ContourTreeSet -> [GCode]
     renderContourTreeSet (ContourTreeSet firstContourTree moreContourTrees) = renderContourTree firstContourTree <> concat (renderContourTree <$> moreContourTrees)
       where
@@ -353,9 +377,9 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
               infillChildContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
                 where
                   res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
-          drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth c
-          drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth c
-          drawInfill = GCMarkInfillStart : gcodeForInfill lh ls infillLineSegs
+          drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth outerWallFeedRate c
+          drawInnerContour c = GCMarkInnerWallStart : gcodeForContour lh pathWidth innerWallFeedRate c
+          drawInfill = GCMarkInfillStart : gcodeForInfill lh ls infillFeedRate travelFeedRate infillLineSegs
     in
     -- extruding gcode generators should be handled here in the order they are printed, so that they are guaranteed to be called in the right order.
     layerStart <> renderContourTreeSet allContours <> support <> layerEnd
@@ -379,7 +403,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
       layerStart = [GCMarkLayerStart layerNumber]
       -- FIXME: make travel gcode from the previous contour's last position?
       travelToLayerChange :: [GCode]
-      travelToLayerChange = [make2DTravelGCode (Point2 (0,0)) $ firstPointOfContour $ firstContourOfContourTreeSet allContours]
+      travelToLayerChange = [addFeedRate travelFeedRate $ make2DTravelGCode (Point2 (0,0)) $ firstPointOfContour $ firstContourOfContourTreeSet allContours]
       -- FIXME: not all support is support. what about supportInterface?
       support :: [GCode]
       support = [] -- if null supportGCode then [] else GCMarkSupportStart : supportGCode
@@ -397,8 +421,20 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill lh _ _ ls outerWallBefor
                                             (((LineSeg p _):_):_) -> Just p
       -- FIXME: this is certainly not the case!
       pathWidth = nozzleDiameter extruder
-      raise (Point2 (x,y)) = Point3 (x, y, zHeightOfLayer)
-      zHeightOfLayer = lh * (1 + fromFastℕtoℝ layerNumber)
+      infillFeedRate
+        | layerNumber == 0 = layer0Speed print
+        | otherwise = infillSpeed print
+      outerWallFeedRate
+        | layerNumber == 0 = layer0Speed print
+        | otherwise = wall0Speed print
+      innerWallFeedRate
+        | layerNumber == 0 = layer0Speed print
+        | otherwise = wallXSpeed print
+      travelFeedRate
+        | layerNumber == 0 = layer0Speed print
+        | otherwise = travelSpeed print
+      -- convert a 2D point to a 3D location.
+      raise (Point2 (x,y)) = Point3 (x, y, zHeightOfLayer print layerNumber)
 
 ----------------------------------------------------------
 ------------------------ OPTIONS -------------------------
@@ -547,14 +583,19 @@ data Printer = Printer
 -- | The parameters of the print that is being requested.
 data Print = Print
   {
-    _perimeters              :: !Fastℕ
-  , _infillAmount            :: !ℝ    -- ^ An amount of infill from 0 (none) to 1 (full density).
-  , layerHeight              :: !ℝ
-  , topBottomThickness       :: !ℝ    -- ^ The thickness of top and bottom surfaces.
+    _perimeters              :: !Fastℕ -- ^ How many walls to place on the outside of an object.
+  , _infillAmount            :: !ℝ     -- ^ An amount of infill from 0 (none) to 1 (full density).
+  , layerHeight              :: !ℝ     -- ^ the thickness for each layer
+  , layer0Height             :: !ℝ     -- ^ the thickness of the first layer
+  , topBottomThickness       :: !ℝ     -- ^ The thickness of top and bottom surfaces.
   , _withSupport             :: !Bool
-  , _lineSpacing             :: !ℝ    -- ^ In Millimeters.
-  , _outer_wall_before_inner :: !Bool -- ^ print outer wall before inside wall.
-  , _infill_speed            :: !ℝ    -- ^ In millimeters per second
+  , _lineSpacing             :: !ℝ     -- ^ In Millimeters.
+  , _outer_wall_before_inner :: !Bool  -- ^ print outer wall before inside wall.
+  , infillSpeed              :: !ℝ     -- ^ In millimeters per second
+  , layer0Speed              :: !ℝ     -- ^ In millimeters per second
+  , travelSpeed              :: !ℝ     -- ^ In millimeters per second
+  , wall0Speed               :: !ℝ     -- ^ In millimeters per second
+  , wallXSpeed               :: !ℝ     -- ^ In millimeters per second
   }
 
 run :: ExtCuraEngineRootOpts -> IO ()
@@ -573,7 +614,7 @@ run rawArgs = do
       allLayers :: [[Contour]]
       allLayers = layers print triangles
       object = zip allLayers [(0::Fastℕ)..]
-      (gcodes, _) = runState (sliceObject printer print object) (MachineState (EPos 0))
+      (gcodes, _) = runState (sliceObject printer print object) (MachineState (EPos 0) (FRate (travelSpeed print)))
       gcodesAsText = [gcodeToText gcode | gcode <- gcodes] `using` parListChunk (div (length gcodes) (fromFastℕ threads)) rseq
       layerCount = length allLayers
       outFile = fromMaybe "out.gcode" $ outputFileOpt args
@@ -616,14 +657,21 @@ run rawArgs = do
                                  (fromMaybe 2 $ maybeWallLineCount vars)
                                  (fromMaybe 1 $ maybeInfillAmount vars)
                                  (fromMaybe 0.2 $ maybeLayerHeight vars)
+                                 (fromMaybe 0.2 $ maybeLayer0Height vars)
                                  (fromMaybe 0.8 $ maybeTopBottomThickness vars)
                                  (fromMaybe False $ maybeSupport vars)
                                  (fromMaybe 0.6 $ maybeInfillLineWidth vars)
                                  (fromMaybe False $ maybeOuterWallBeforeInner vars)
                                  (fromMaybe 60 $ maybeInfillSpeed vars)
+                                 (fromMaybe 61 $ maybeLayer0Speed vars)
+                                 (fromMaybe 62 $ maybeTravelSpeed vars)
+                                 (fromMaybe 63 $ maybeWall0Speed vars)
+                                 (fromMaybe 64 $ maybeWallXSpeed vars)
           where
             maybeLayerHeight (lookupVarIn "layer_height" -> Just (ONum thickness)) = Just thickness
             maybeLayerHeight _ = Nothing
+            maybeLayer0Height (lookupVarIn "layer_height_0" -> Just (ONum thickness)) = Just thickness
+            maybeLayer0Height _ = Nothing
             maybeInfillAmount (lookupVarIn "infill_sparse_density" -> Just (ONum amount)) = Just (amount / 100)
             maybeInfillAmount _ = Nothing
             maybeWallLineCount (lookupVarIn "wall_line_count" -> Just (ONum count)) = maybeToFastℕ count
@@ -640,6 +688,19 @@ run rawArgs = do
             maybeOuterWallBeforeInner  _ = Nothing
             maybeInfillSpeed (lookupVarIn "speed_infill" -> Just (ONum speed)) = Just speed
             maybeInfillSpeed _ = Nothing
+            maybeLayer0Speed (lookupVarIn "speed_layer_0" -> Just (ONum speed)) = Just speed
+            maybeLayer0Speed _ = Nothing
+            maybeTravelSpeed (lookupVarIn "speed_travel" -> Just (ONum speed)) = Just speed
+            maybeTravelSpeed _ = Nothing
+            maybeWall0Speed (lookupVarIn "speed_wall_0" -> Just (ONum speed)) = Just speed
+            maybeWall0Speed _ = Nothing
+            maybeWallXSpeed (lookupVarIn "speed_wall_x" -> Just (ONum speed)) = Just speed
+            maybeWallXSpeed _ = Nothing
+            -- FIXME: implement this! no top and bottom layr support. :/
+--            maybeSupportInfillRate (lookupVarIn "support_enable" -> Just (OBool enable)) = Just enable
+--            maybeSupportInfillRate _ = Nothing
+--            maybeTopBottomSpeed (lookupVarIn "speed_topbottom" -> Just (ONum speed)) = Just speed
+--            maybeTopBottomSpeed _ = Nothing
         startingGCode, endingGCode :: VarLookup -> ByteString
         startingGCode (lookupVarIn "machine_start_gcode" -> Just (OString startGCode)) = fromString startGCode
         startingGCode _ = ";FLAVOR:Marlin\n"
