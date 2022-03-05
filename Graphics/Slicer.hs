@@ -49,4 +49,4 @@ import Graphics.Slicer.Definitions as D (ℝ, ℝ2, ℕ, Fastℕ, fromFastℕ, t
 
 import Graphics.Slicer.Concepts.Definitions as CD (BuildArea(RectArea, CylinderArea));
 
-import Graphics.Slicer.Machine.StateM as MaS (EPos(EPos), StateM, MachineState(MachineState), getEPos, setEPos);
+import Graphics.Slicer.Machine.StateM as MaS (EPos(EPos), FRate(FRate), StateM, MachineState(MachineState));
