@@ -38,7 +38,7 @@ import Graphics.Slicer.Math.Skeleton.Definitions (Cell, RemainingContour, Straig
 
 import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
 
-import Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne)
+-- import Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne)
 
 ----------------------------------------------------------------------------------
 ------------------- Straight Skeleton Calculation (Entry Point) ------------------
