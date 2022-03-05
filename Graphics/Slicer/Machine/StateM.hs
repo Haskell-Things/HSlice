@@ -48,8 +48,8 @@ instance Show FRate where
 -- FIXME: support multiple extruders.
 data MachineState =
   MachineState {
-      extruderPosition :: EPos
-    , feedRate :: FRate
+      _extruderPosition :: EPos
+    , _feedRate :: FRate
     }
 
 type StateM = StateT MachineState Identity
