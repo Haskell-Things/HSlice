@@ -158,6 +158,7 @@ layers print fs = catMaybes <$> rawContours
     lastLayer :: Fastℕ
     lastLayer
       | zmax > layer0Height print = ceiling ((zmax-layer0Height print) / layerHeight print) - 1
+      | zmax > layer0Height print /2 = 1
       | otherwise = error "too short!"
     -- The height at the point we slice. in the middle of the layer being deposited.
     zHeightOfMiddleOfLayer layerNumber
@@ -639,15 +640,15 @@ run rawArgs = do
 
               -- FIXME: interpret 'machine_shape', and implement eliptic beds.
               -- The bed of the printer. assumed to be some form of rectangle, with the build area coresponding to all of the space above it.
-              getPrintBed var = RectBed ( fromMaybe 150 $ maybeX var
-                                        , fromMaybe 150 $ maybeY var )
+              getPrintBed var = RectBed ( fromMaybe 100 $ maybeX var
+                                        , fromMaybe 100 $ maybeY var )
               -- The area we can print inside of.
-              defaultBuildArea var = RectArea ( fromMaybe 150 $ maybeX var
-                                              , fromMaybe 150 $ maybeY var
-                                              , fromMaybe  50 $ maybeZ var )
+              defaultBuildArea var = RectArea ( fromMaybe 100 $ maybeX var
+                                              , fromMaybe 100 $ maybeY var
+                                              , fromMaybe 100 $ maybeZ var )
               -- The Extruder. note that this includes the diameter of the feed filament.
               defaultExtruder :: VarLookup -> Extruder
-              defaultExtruder var = Extruder (fromMaybe 1.75 $ maybeFilamentDiameter var)
+              defaultExtruder var = Extruder (fromMaybe 2.85 $ maybeFilamentDiameter var)
                                              (fromMaybe 0.4 $ maybeNozzleDiameter var)
 
         -- Print settings for the item currently being sliced.
@@ -655,48 +656,48 @@ run rawArgs = do
         printFromSettings :: VarLookup -> Print
         printFromSettings vars = Print
                                  (fromMaybe 2 $ maybeWallLineCount vars)
-                                 (fromMaybe 1 $ maybeInfillAmount vars)
+                                 (fromMaybe 0.2 $ maybeInfillAmount vars)
                                  (fromMaybe 0.2 $ maybeLayerHeight vars)
-                                 (fromMaybe 0.2 $ maybeLayer0Height vars)
+                                 (fromMaybe 0.3 $ maybeLayer0Height vars)
                                  (fromMaybe 0.8 $ maybeTopBottomThickness vars)
                                  (fromMaybe False $ maybeSupport vars)
-                                 (fromMaybe 0.6 $ maybeInfillLineWidth vars)
+                                 (fromMaybe 0.4 $ maybeInfillLineWidth vars)
                                  (fromMaybe False $ maybeOuterWallBeforeInner vars)
                                  (fromMaybe 60 $ maybeInfillSpeed vars)
-                                 (fromMaybe 61 $ maybeLayer0Speed vars)
-                                 (fromMaybe 62 $ maybeTravelSpeed vars)
-                                 (fromMaybe 63 $ maybeWall0Speed vars)
+                                 (fromMaybe 30 $ maybeLayer0Speed vars)
+                                 (fromMaybe 120 $ maybeTravelSpeed vars)
+                                 (fromMaybe 30 $ maybeWall0Speed vars)
                                  (fromMaybe 64 $ maybeWallXSpeed vars)
           where
+            maybeInfillAmount (lookupVarIn "infill_sparse_density" -> Just (ONum amount)) = Just (amount / 100)
+            maybeInfillAmount _ = Nothing
+            maybeInfillLineWidth (lookupVarIn "infill_line_width" -> Just (ONum width)) = Just width
+            maybeInfillLineWidth _ = Nothing
+            maybeInfillSpeed (lookupVarIn "speed_infill" -> Just (ONum speed)) = Just speed
+            maybeInfillSpeed _ = Nothing
             maybeLayerHeight (lookupVarIn "layer_height" -> Just (ONum thickness)) = Just thickness
             maybeLayerHeight _ = Nothing
             maybeLayer0Height (lookupVarIn "layer_height_0" -> Just (ONum thickness)) = Just thickness
             maybeLayer0Height _ = Nothing
-            maybeInfillAmount (lookupVarIn "infill_sparse_density" -> Just (ONum amount)) = Just (amount / 100)
-            maybeInfillAmount _ = Nothing
-            maybeWallLineCount (lookupVarIn "wall_line_count" -> Just (ONum count)) = maybeToFastℕ count
-              where
-                maybeToFastℕ n = if fromInteger (floor n) == (n::ℝ) then Just . Fastℕ $ floor n else Nothing
-            maybeWallLineCount _ = Nothing
-            maybeSupport (lookupVarIn "support_enable" -> Just (OBool enable)) = Just enable
-            maybeSupport _ = Nothing
-            maybeTopBottomThickness (lookupVarIn "top_bottom_thickness" -> Just (ONum thickness)) = Just thickness
-            maybeTopBottomThickness _ = Nothing
-            maybeInfillLineWidth (lookupVarIn "infill_line_width" -> Just (ONum width)) = Just width
-            maybeInfillLineWidth _ = Nothing
-            maybeOuterWallBeforeInner (lookupVarIn "outer_inset_first" -> Just (OBool outerFirst)) = Just outerFirst
-            maybeOuterWallBeforeInner  _ = Nothing
-            maybeInfillSpeed (lookupVarIn "speed_infill" -> Just (ONum speed)) = Just speed
-            maybeInfillSpeed _ = Nothing
             maybeLayer0Speed (lookupVarIn "speed_layer_0" -> Just (ONum speed)) = Just speed
             maybeLayer0Speed _ = Nothing
+            maybeOuterWallBeforeInner (lookupVarIn "outer_inset_first" -> Just (OBool outerFirst)) = Just outerFirst
+            maybeOuterWallBeforeInner  _ = Nothing
             maybeTravelSpeed (lookupVarIn "speed_travel" -> Just (ONum speed)) = Just speed
             maybeTravelSpeed _ = Nothing
             maybeWall0Speed (lookupVarIn "speed_wall_0" -> Just (ONum speed)) = Just speed
             maybeWall0Speed _ = Nothing
+            maybeWallLineCount (lookupVarIn "wall_line_count" -> Just (ONum count)) = maybeToFastℕ count
+              where
+                maybeToFastℕ n = if fromInteger (floor n) == (n::ℝ) then Just . Fastℕ $ floor n else Nothing
+            maybeWallLineCount _ = Nothing
             maybeWallXSpeed (lookupVarIn "speed_wall_x" -> Just (ONum speed)) = Just speed
             maybeWallXSpeed _ = Nothing
-            -- FIXME: implement this! no top and bottom layr support. :/
+            -- FIXME: implement this! no top and bottom layer support, or support support. :/
+            maybeSupport (lookupVarIn "support_enable" -> Just (OBool enable)) = Just enable
+            maybeSupport _ = Nothing
+            maybeTopBottomThickness (lookupVarIn "top_bottom_thickness" -> Just (ONum thickness)) = Just thickness
+            maybeTopBottomThickness _ = Nothing
 --            maybeSupportInfillRate (lookupVarIn "support_enable" -> Just (OBool enable)) = Just enable
 --            maybeSupportInfillRate _ = Nothing
 --            maybeTopBottomSpeed (lookupVarIn "speed_topbottom" -> Just (ONum speed)) = Just speed

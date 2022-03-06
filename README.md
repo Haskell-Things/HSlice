@@ -13,8 +13,24 @@ Run `./extcuraengine` with options:
 * `-l infile` Name of the ASCII STL file to read (default is `in.stl`)
 * `-o outfile` Name of file to output to (default is `out.gcode`)
 
-All other settings are supplied in KEY=VALUE form, using the keys that CURA defines in it's JSON file. for instance:
-* -s machine_width=200 -s machine_depth=200 -s machine_height=100 -s machine_nozzle_size=0.35 -s material_diameter=2.85 -s outer_inset_first=False -s infill_sparse_density=100
+All other settings are supplied in KEY=VALUE form, using the same keys that CURA defines in it's JSON file. for instance:
+* -s layer_height=0.1
+* -s layer_height_0=0.3
+* -s speed_layer_0=30
+* -s machine_width=100
+* -s machine_depth=100
+* -s machine_height=100
+* -s machine_nozzle_size=0.4
+* -s material_diameter=2.85
+* -s outer_inset_first=False
+* -s infill_sparse_density=20
+* -s wall_line_count=2
+* -s infill_line_width=0.4
+* -s speed_infill=60
+* -s speed_layer_0=30
+* -s speed_travel=120
+* -s speed_wall_0=30
+* -s speed_wall_x=60
 
 ## FAQ 
 #### *Wait but...why?*
@@ -33,4 +49,4 @@ Functional programming is beautiful, and gets us closer to perfection.
 
 #### *Can I contribute?*
 
-Pull requests welcome. Drop by #implicitcad on libera IRC, or sign up for the implicitcad mailing list, OR email the author at julia.longtin@gmail.com!
+Pull requests welcome. Currency is welcome. Cheering is welcome! Drop by #implicitcad on libera IRC, or sign up for the implicitcad mailing list, OR email the author at julia.longtin@gmail.com!
