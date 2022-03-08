@@ -102,6 +102,8 @@ import Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandConto
 
 import Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWallStart, GCMarkInfillStart, GCMarkLayerStart), cookGCode, make3DTravelGCode, make2DTravelGCode, addFeedRate, gcodeForContour, gcodeForInfill, gcodeToText)
 
+import Graphics.Slicer.Mechanics.Definitions(Printer(Printer), GCodeFlavor(GCFlavorMarlin), getExtruder, getBuildArea)
+
 default (ℕ, Fastℕ, ℝ)
 
 -------------------- TOTAL HACK -----------------------
@@ -279,8 +281,8 @@ multiplyPlan =    "pathWidth = machine_nozzle_size"
 -------------------------------------------------------------
 -- FIXME: this and the next function should be replaced with functions that use a SlicingPlan to slice an object that fits in a Zone. In this way we could have different 'profiles' (vase mode, layers, etc)...
 sliceObject :: Printer -> Print -> [([Contour], Fastℕ)] -> StateM [GCode]
-sliceObject printer@(Printer _ _ extruder) print allLayers =
-  cookGCode extruder (concat slicedLayers) threads
+sliceObject printer print allLayers =
+  cookGCode printer (concat slicedLayers) threads
   where
     slicedLayers = [sliceLayer printer print slicingPlan (isLastLayer layer) (thicknessOfLayer layer) layer | layer <- allLayers] `using` parListChunk (div (length allLayers) (fromFastℕ threads)) rdeepseq
     isLastLayer layer = case unsnoc allLayers of
@@ -299,7 +301,7 @@ sliceObject printer@(Printer _ _ extruder) print allLayers =
 
 -- FIXME: remove layerheight and layerNumber from our calculations here?
 sliceLayer :: Printer -> Print -> Zone -> Bool -> ℝ -> ([Contour], Fastℕ) -> [GCode]
-sliceLayer (Printer _ _ extruder) print@(Print _ infill _ _ _ _ ls outerWallBeforeInner _ _ _ _ _) _plan isLastLayer lh (layerContours, layerNumber) = do
+sliceLayer printer print@(Print _ infill _ _ _ _ ls outerWallBeforeInner _ _ _ _ _) _plan isLastLayer lh (layerContours, layerNumber) = do
   let
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToContour :: Contour -> [GCode]
@@ -436,6 +438,7 @@ sliceLayer (Printer _ _ extruder) print@(Print _ infill _ _ _ _ ls outerWallBefo
         | otherwise = travelSpeed print
       -- convert a 2D point to a 3D location.
       raise (Point2 (x,y)) = Point3 (x, y, zHeightOfLayer print layerNumber)
+      extruder = getExtruder printer
 
 ----------------------------------------------------------
 ------------------------ OPTIONS -------------------------
@@ -573,14 +576,6 @@ sliceParser = pure (ExtCuraEngineRootOpts "slice")
 --------------------------- Main --------------------------------------
 -----------------------------------------------------------------------
 
--- Characteristics of the printer we are using.
-data Printer = Printer
-  {
-    _printBed :: !Bed
-  , buildArea :: !BuildArea
-  , _extruder :: !Extruder
-  }
-
 -- | The parameters of the print that is being requested.
 data Print = Print
   {
@@ -588,7 +583,7 @@ data Print = Print
   , _infillAmount            :: !ℝ     -- ^ An amount of infill from 0 (none) to 1 (full density).
   , layerHeight              :: !ℝ     -- ^ the thickness for each layer
   , layer0Height             :: !ℝ     -- ^ the thickness of the first layer
-  , topBottomThickness       :: !ℝ     -- ^ The thickness of top and bottom surfaces.
+  , topBottomThickness       :: !ℝ     -- ^ The thickness of top and bottom surfaces. only used for infill patterning of the bottom layers.
   , _withSupport             :: !Bool
   , _lineSpacing             :: !ℝ     -- ^ In Millimeters.
   , _outer_wall_before_inner :: !Bool  -- ^ print outer wall before inside wall.
@@ -609,7 +604,7 @@ run rawArgs = do
     (settings, _messages) <- addConstants $ settingOpts args
     let
       printer   = printerFromSettings settings
-      buildarea = buildArea printer
+      buildarea = getBuildArea printer
       print = printFromSettings settings
       triangles = centeredTrisFromSTLNonTotal buildarea stl
       allLayers :: [[Contour]]
@@ -625,7 +620,7 @@ run rawArgs = do
         -- FIXME: pull defaults for these values from a curaengine json config.
         printerFromSettings :: VarLookup -> Printer
         printerFromSettings vars =
-          Printer (getPrintBed vars) (defaultBuildArea vars) (defaultExtruder vars)
+          Printer (getPrintBed vars) (defaultBuildArea vars) (defaultExtruder vars) (defaultFlavor vars)
             where
               maybeX (lookupVarIn "machine_width" -> Just (ONum width)) = Just width
               maybeX _ = Nothing
@@ -637,6 +632,10 @@ run rawArgs = do
               maybeNozzleDiameter _ = Nothing
               maybeFilamentDiameter (lookupVarIn "material_diameter" -> Just (ONum diameter)) = Just diameter
               maybeFilamentDiameter _ = Nothing
+              maybeGCodeFlavor (lookupVarIn "machine_gcode_flavor" -> Just (OString flavor))
+                | flavor == "Marlin" = Just GCFlavorMarlin
+                | otherwise = error "unsupported GCode flavor!"
+              maybeGCodeFlavor _ = Nothing
 
               -- FIXME: interpret 'machine_shape', and implement eliptic beds.
               -- The bed of the printer. assumed to be some form of rectangle, with the build area coresponding to all of the space above it.
@@ -650,6 +649,10 @@ run rawArgs = do
               defaultExtruder :: VarLookup -> Extruder
               defaultExtruder var = Extruder (fromMaybe 2.85 $ maybeFilamentDiameter var)
                                              (fromMaybe 0.4 $ maybeNozzleDiameter var)
+
+              -- The GCode Flavor. Marlin only, for now.
+              defaultFlavor :: VarLookup -> GCodeFlavor
+              defaultFlavor var = fromMaybe GCFlavorMarlin $ maybeGCodeFlavor var
 
         -- Print settings for the item currently being sliced.
         -- FIXME: pull all of these values from a curaengine json config or the command line.

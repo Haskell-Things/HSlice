@@ -88,6 +88,7 @@ Library
                     Graphics.Slicer.Machine.StateM
                     Graphics.Slicer.Machine.Infill
                     Graphics.Slicer.Machine.Contour
+                    Graphics.Slicer.Mechanics.Definitions
                     Graphics.Slicer.Machine.GCode
                     Graphics.Slicer.Math.CheckFacets
                     Graphics.Slicer.Math.Contour
@@ -113,7 +114,6 @@ Library
                   Graphics.Slicer.Machine.Support
                   Graphics.Slicer.Math.Slicer
                   Graphics.Slicer.Formats.GCode.Definitions
-                  Graphics.Slicer.Mechanics.Definitions
                   Graphics.Slicer.Concepts.Definitions
                   Graphics.Slicer.Definitions
 

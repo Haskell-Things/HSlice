@@ -20,11 +20,13 @@
 
 -- The purpose of this file is to define mechanical characteristics of a machine.
 
-module Graphics.Slicer.Mechanics.Definitions (Extruder(Extruder), Bed(RectBed), filamentWidth, nozzleDiameter) where
+module Graphics.Slicer.Mechanics.Definitions (Printer(Printer), Extruder(Extruder), Bed(RectBed), GCodeFlavor(GCFlavorMarlin), filamentWidth, nozzleDiameter, getExtruder, getBuildArea, gCodeFlavor) where
 
-import Prelude ()
+import Prelude (Eq)
 
 import Graphics.Slicer.Definitions(ℝ, ℝ2)
+
+import Graphics.Slicer.Concepts.Definitions (BuildArea)
 
 -- The properties of the printer's extruder.
 data Extruder =
@@ -34,3 +36,16 @@ data Extruder =
 -- FIXME: replace these with Zones.
 newtype Bed =
   RectBed ℝ2 -- Width and Depth of the build plate, with the front left surface being 0,0,0.
+
+-- Characteristics of the printer we are using.
+data Printer = Printer
+  {
+    _printBed    :: !Bed
+  , getBuildArea :: !BuildArea
+  , getExtruder  :: !Extruder
+  , gCodeFlavor :: !GCodeFlavor
+  }
+
+-- | The flavor of GCode being generated
+data GCodeFlavor = GCFlavorMarlin
+  deriving Eq
