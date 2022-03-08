@@ -60,7 +60,7 @@ import Graphics.Slicer.Math.Slicer (accumulateValues)
 
 import Graphics.Slicer.Machine.StateM (StateM, MachineState(MachineState), EPos(EPos), FRate(FRate), setMachineState, getMachineState)
 
-import Graphics.Slicer.Mechanics.Definitions (Extruder, filamentWidth)
+import Graphics.Slicer.Mechanics.Definitions (Printer, GCodeFlavor(GCFlavorMarlin), filamentWidth, getExtruder, gCodeFlavor)
 
 default (ℕ, Fastℕ, ℝ)
 
@@ -90,8 +90,8 @@ data RawExtrude = RawExtrude { _pathLength :: !ℝ, _pathWidth :: !ℝ, _pathHei
   deriving (Eq, Generic, NFData, Show)
 
 -- | Calculate the extrusion values for all of the GCodes that extrude.
-cookGCode :: Extruder -> [GCode] -> Fastℕ -> StateM [GCode]
-cookGCode extruder gcodes threads = do
+cookGCode :: Printer -> [GCode] -> Fastℕ -> StateM [GCode]
+cookGCode printer gcodes threads = do
   currentMachine <- getMachineState
   let
     (MachineState (EPos currentPos) (FRate currentFeedRate)) = currentMachine
@@ -121,7 +121,12 @@ cookGCode extruder gcodes threads = do
     applySpeed :: ([GCode], ℝ) -> GCode -> ([GCode], ℝ)
     applySpeed (myGCodes, lastSpeed) (GCRawFeedRate newSpeed myGCode)
       | lastSpeed == newSpeed = (myGCodes <> [myGCode], lastSpeed)
-      | otherwise = (myGCodes <> [GCFeedRate newSpeed myGCode], newSpeed)
+      | otherwise = (myGCodes <> [GCFeedRate flavoredNewSpeed myGCode], newSpeed)
+      where
+        -- Note: for marlin firmwares, we multiply feedrates by 60, because it wants feed rates in mm/min instead of mm/sec.
+        flavoredNewSpeed
+          | gCodeFlavor printer == GCFlavorMarlin = newSpeed * 60
+          | otherwise = newSpeed
     applySpeed (myGCodes, lastSpeed) gcode = (myGCodes <> [gcode], lastSpeed)
     calculateExtrusion :: GCode -> Rational
     calculateExtrusion (GCRawExtrude2 _ _ (RawExtrude pathLength pathWidth pathHeight)) =
@@ -130,6 +135,7 @@ cookGCode extruder gcodes threads = do
       toRational $ pathWidth * pathHeight * (2 / filamentDia) * pathLength / pi
     calculateExtrusion (GCRawFeedRate _ myGCode) = calculateExtrusion myGCode
     calculateExtrusion _ = 0
+    extruder = getExtruder printer
     filamentDia = filamentWidth extruder
 
 -- | Construct a GCode to travel to a point without extruding (2D)
