@@ -88,67 +88,60 @@ skeletonOfConcaveRegion inSegSets
   | isLoop inSegSets && isNothing (finalOutOf result) = result
   | otherwise = error $ "generated illegal nodeTree:" <> show inSegSets <> "\n" <> show (isLoop inSegSets) <> "\n" <> show result <> "\n"
   where
-    result = makeNodeTree initialGeneration resINodes
-
-    initialGeneration :: [ENode]
-    initialGeneration = concat $ firstENodes (isLoop inSegSets) <$> inSegSets
-      where
-        -- Generate the first generation of nodes, from the passed in line segments.
-        -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
-        firstENodes :: Bool -> [LineSeg] -> [ENode]
-        firstENodes segsInLoop firstSegs
-          | segsInLoop = makeENodesLooped firstSegs
-          | otherwise  = case firstSegs of
-                           [] -> []
-                           [LineSeg {}] -> []
-                           (_:_) -> makeENodes firstSegs
-
+    result = makeNodeTree initialENodes resINodes
+    initialENodes = makeInitialGeneration inSegSets
     resINodes :: INodeSet
     resINodes
-      | len inSegSets == 1 = getOneSideINodes
-      | null remainingENodes = INodeSet $ slist [foundINodes]
-      | otherwise = sortINodesByENodes (isLoop inSegSets) initialGeneration $ errorIfLeft $ skeletonOfNodes (isLoop inSegSets) remainingENodes foundINodes
-      where
-        -- solve the ends of the region, so we can then hand off the solutioning to our regular process.
-        (foundINodes, remainingENodes)
-          | len inSegSets == 2 = case initialGeneration of
-                                   [] -> ( [makeINode [getInsideArc (flipPLine2 $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArc (eToPLine2 firstSeg) (flipPLine2 $ eToPLine2 lastSeg)] Nothing]
-                                         , [])
-                                     where
-                                       firstSeg = SL.head $ slist $ SL.head inSegSets
-                                       lastSeg = SL.head $ slist $ SL.last inSegSets
-                                   [a] -> ( [makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just $ flipPLine2 $ outOf a)]
-                                         , [])
-                                     where
-                                       firstSeg = SL.head $ slist longSide
-                                       lastSeg = SL.last $ slist longSide
-                                       (shortSide,longSide)
-                                         | null (SL.head inSegSets) = (SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
-                                         | otherwise = (SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
-                                   (_:_) -> error "too many items in initialGeneration."
-          | otherwise = error "wrong count of inSegSets."
-        -- | Get a complete set of INodes given a set of ENodes.
-        getOneSideINodes :: INodeSet
-        getOneSideINodes = sortINodesByENodes (isLoop inSegSets) initialGeneration $ errorIfLeft $ skeletonOfNodes (isLoop inSegSets) initialGeneration []
+      | len inSegSets == 1 = sortINodesByENodes (isLoop inSegSets) initialENodes $ errorIfLeft $ skeletonOfNodes (isLoop inSegSets) initialENodes []
+      | len inSegSets == 2 = case initialENodes of         -- solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
+                               [] -> INodeSet $ slist $ [[makeINode [getInsideArc (flipPLine2 $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArc (eToPLine2 firstSeg) (flipPLine2 $ eToPLine2 lastSeg)] Nothing]]
+                                 where
+                                   firstSeg = SL.head $ slist $ SL.head inSegSets
+                                   lastSeg = SL.head $ slist $ SL.last inSegSets
+                               [a] -> INodeSet $ slist $ [[makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just $ flipPLine2 $ outOf a)]]
+                                 where
+                                   firstSeg = SL.head $ slist longSide
+                                   lastSeg = SL.last $ slist longSide
+                                   (shortSide,longSide)
+                                     | null (SL.head inSegSets) = (SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
+                                     | otherwise = (SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
+                               (_:_) -> error "too many items in makeInitialGeneration."
+      | otherwise = error "wrong count of inSegSets."
 
-    -- check if what we're returning is just a hallway.
-    -- A hallway is a portion of a contour consisting of only two sides.
-    isHallway (NodeTree _ iNodeSet) = iNodeSetHasOneMember iNodeSet
-      where
-        iNodeSetHasOneMember (INodeSet myINodeSet) = len myINodeSet == 1
+-- | check if a set of INodes in a given NodeTree is just a hallway.
+-- A hallway is a portion of a contour consisting of only two sides. it is cut off from the closed ends of the contour by divides.
+isHallway :: NodeTree -> Bool
+isHallway (NodeTree _ iNodeSet) = iNodeSetHasOneMember iNodeSet
+  where
+    iNodeSetHasOneMember (INodeSet myINodeSet) = len myINodeSet == 1
 
-    -- are the incoming line segments a loop?
-    isLoop segSets
-      | len segSets == 1 = endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
-      | otherwise = False
-      where
-        lastSeg = SL.last $ slist inSegs
-        firstSeg = SL.head $ slist inSegs
-        inSegs
-          | len inSegSets == 1 = head inSegSets
-          | otherwise = error
-                        $ "too many input lists.\n"
-                        <> show segSets <> "\n"
+-- | determine if the given line segments are in a loop.
+isLoop :: (Slist [LineSeg]) -> Bool
+isLoop inSegSets
+  | len inSegSets == 1 = endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
+  | otherwise = False
+  where
+    lastSeg = SL.last $ slist inSegs
+    firstSeg = SL.head $ slist inSegs
+    inSegs
+      | len inSegSets == 1 = head inSegSets
+      | otherwise = error
+                    $ "too many input lists.\n"
+                    <> show inSegSets <> "\n"
+
+-- | Create the set of ENodes for a set of segments
+makeInitialGeneration :: (Slist [LineSeg]) -> [ENode]
+makeInitialGeneration inSegSets = concat $ firstENodes (isLoop inSegSets) <$> inSegSets
+  where
+    -- Generate the first generation of nodes, from the passed in line segments.
+    -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
+    firstENodes :: Bool -> [LineSeg] -> [ENode]
+    firstENodes segsInLoop firstSegs
+      | segsInLoop = makeENodesLooped firstSegs
+      | otherwise  = case firstSegs of
+                       [] -> []
+                       [LineSeg {}] -> []
+                       (_:_) -> makeENodes firstSegs
 
 -- | Handle the recursive resolver failing.
 errorIfLeft :: Either PartialNodes INodeSet -> INodeSet
