@@ -28,7 +28,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, getOutsideArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, towardIntersection) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=))
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=), (-))
 
 import Data.Either (lefts,rights)
 
@@ -88,34 +88,43 @@ skeletonOfConcaveRegion inSegSets
   | isLoop inSegSets && isNothing (finalOutOf result) = result
   | otherwise = error $ "generated illegal nodeTree:" <> show inSegSets <> "\n" <> show (isLoop inSegSets) <> "\n" <> show result <> "\n"
   where
-    result = makeNodeTree initialENodes resINodes
+    result = makeNodeTree initialENodes $ sortINodesByENodes (isLoop inSegSets) inSegSets $ findINodes inSegSets
     initialENodes = makeInitialGeneration inSegSets
-    resINodes :: INodeSet
-    resINodes
-      | len inSegSets == 1 = sortINodesByENodes (isLoop inSegSets) initialENodes $ errorIfLeft $ skeletonOfNodes (isLoop inSegSets) initialENodes []
-      | len inSegSets == 2 = case initialENodes of         -- solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
-                               [] -> INodeSet $ slist [[makeINode [getInsideArc (flipPLine2 $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArc (eToPLine2 firstSeg) (flipPLine2 $ eToPLine2 lastSeg)] Nothing]]
-                                 where
-                                   firstSeg = SL.head $ slist $ SL.head inSegSets
-                                   lastSeg = SL.head $ slist $ SL.last inSegSets
-                               [a] -> INodeSet $ slist [[makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just $ flipPLine2 $ outOf a)]]
-                                 where
-                                   firstSeg = SL.head $ slist longSide
-                                   lastSeg = SL.last $ slist longSide
-                                   (shortSide,longSide)
-                                     | null (SL.head inSegSets) = (SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
-                                     | otherwise = (SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
-                               (_:_) -> error "too many items in makeInitialGeneration."
-      | otherwise = error "wrong count of inSegSets."
+
+-- | Find a raw set of INodes representing the INodes of the solved NodeTree for this part of a contour.
+findINodes :: Slist [LineSeg] -> INodeSet
+findINodes inSegSets
+  | len inSegSets == 1 =
+    -- One continuous wall. Just cleanup the output of skeletonOfNodes.
+        errorIfLeft $ skeletonOfNodes (isLoop inSegSets) initialENodes []
+  | len inSegSets == 2 =
+    -- Two walls, no closed ends. solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
+    case initialENodes of
+      [] -> INodeSet $ slist [[makeINode [getInsideArc (flipPLine2 $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArc (eToPLine2 firstSeg) (flipPLine2 $ eToPLine2 lastSeg)] Nothing]]
+        where
+          firstSeg = SL.head $ slist $ SL.head inSegSets
+          lastSeg = SL.head $ slist $ SL.last inSegSets
+      [a] -> INodeSet $ slist [[makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just $ flipPLine2 $ outOf a)]]
+        where
+          firstSeg = SL.head $ slist longSide
+          lastSeg = SL.last $ slist longSide
+          (shortSide,longSide)
+            | null (SL.head inSegSets) = (SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
+            | otherwise = (SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
+      (_:_) -> error "too many items in makeInitialGeneration."
+  | otherwise = error "wrong count of inSegSets."
+  where
+    initialENodes = makeInitialGeneration inSegSets
 
 -- | check if a set of INodes in a given NodeTree is just a hallway.
 -- A hallway is a portion of a contour consisting of only two sides. it is cut off from the closed ends of the contour by divides.
+-- FIXME: looks dubious.
 isHallway :: NodeTree -> Bool
 isHallway (NodeTree _ iNodeSet) = iNodeSetHasOneMember iNodeSet
   where
     iNodeSetHasOneMember (INodeSet myINodeSet) = len myINodeSet == 1
 
--- | determine if the given line segments are in a loop.
+-- | determine if the given line segment set contains just one loop.
 isLoop :: Slist [LineSeg] -> Bool
 isLoop inSegSets
   | len inSegSets == 1 = endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
@@ -297,13 +306,16 @@ findENodesInOrder a b = error $ "cannot find ENodes for :" <> show a <> "\n" <> 
 
 -- | place our inodes in a state such that the eNodes that the inodes point to are in the order of the given enode list.
 -- also performs 'safe' node tree transforms:
-sortINodesByENodes :: Bool -> [ENode] -> INodeSet -> INodeSet
-sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
- | generationsIn res == 1 && inCountOf (onlyINodeOf $ INodeSet $ resSlist rawGenerations) > len (slist initialGeneration) = errorTooManyIns
+sortINodesByENodes :: Bool -> Slist [LineSeg] -> INodeSet -> INodeSet
+sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
+ | generationsIn res == 1 && inCountOf (onlyINodeOf $ INodeSet $ resSlist rawGenerations) > len (slist initialENodes) + (len inSegSets*2-2) = errorTooManyIns
+ -- skip the next property test for hallways.
+ | len inSegSets == 2 = INodeSet $ resSlist rawGenerations
  -- test for the property that a walk of the INodes we are returning results in our input ENode list.
- | initialGeneration /= findENodesInOrder (eNodeSetOf $ slist initialGeneration) res = errorInsWrongOrder
+ | initialENodes /= findENodesInOrder (eNodeSetOf $ slist initialENodes) res = errorInsWrongOrder
  | otherwise = INodeSet $ resSlist rawGenerations
   where
+    initialENodes = makeInitialGeneration inSegSets
     res :: [[INode]]
     res = unSlist $ resSlist rawGenerations
       where
@@ -366,7 +378,7 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
                  error
                  $ show oneINode <> "\n"
                  <> show (one [orderInsByENodes oneINode] <> resSlist (slist $ [flippedINode:secondGen] <> [[rawLastINode]])) <> "\n"
-                 <> show initialGeneration <> "\n"
+                 <> show initialENodes <> "\n"
                x@(_:_) -> error $ "way too many nodes:" <> show x <> "\n"
       | otherwise = error "too many generations?"
       where
@@ -409,23 +421,23 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
                                                     Nothing -> maybeFlippedINodes
                                                     (Just a) -> filter (/= a) maybeFlippedINodes
 
-    errorEmpty = error $ "empty INodeSet for nodes:\n" <> show initialGeneration <> "\nloop: " <> show loop <> "\n"
+    errorEmpty = error $ "empty INodeSet for nodes:\n" <> show initialENodes <> "\nloop: " <> show loop <> "\n"
 
     errorTooManyNodes nodes = error
                               $ "don't know how to handle a case with these nodes:\n"
                               <> show nodes <> "\n"
                               <> "rawGenerations:      " <> show rawGenerations <> "\n"
-                              <> "initialGeneration: " <> show initialGeneration <> "\n"
+                              <> "initialENodes: " <> show initialENodes <> "\n"
                               <> "flippedINode:        " <> show (flippedINodeOf $ SL.head rawGenerations) <> "\n"
                               <> "loop:                " <> show loop <> "\n"
 
     errorTooManyIns = error $ "generating a single INode with more inputs than possible: " <> show res <> "\n"
                            <> "rawGenerations:                 " <> show rawGenerations <> "\n"
-                           <> "ENodes:                         " <> show initialGeneration <> "\n"
+                           <> "ENodes:                         " <> show initialENodes <> "\n"
 
     errorInsWrongOrder = error
-                         $ "ENodes outs should be:" <> show (outOf <$> initialGeneration) <> "\n"
-                         <> "ENode outs are:      " <> show (outOf <$> findENodesInOrder (eNodeSetOf $ slist initialGeneration) res) <> "\n"
+                         $ "ENodes outs should be:" <> show (outOf <$> initialENodes) <> "\n"
+                         <> "ENode outs are:      " <> show (outOf <$> findENodesInOrder (eNodeSetOf $ slist initialENodes) res) <> "\n"
                          <> "rawGenerations:      " <> show rawGenerations <> "\n"
                          <> "returned inodes:     " <> show res <> "\n"
                          <> "flippedINode:        " <> show (flippedINodeOf $ SL.head rawGenerations) <> "\n"
@@ -434,7 +446,7 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
     errorIllegalLast = error
                        $ "illegal last generation:\n"
                        <> "rawGenerations:    " <> show rawGenerations <> "\n"
-                       <> "initialGeneration: " <> show initialGeneration <> "\n"
+                       <> "initialENodes: " <> show initialENodes <> "\n"
                        <> "loop:              " <> show loop <> "\n"
 
     -- if the object is closed, and the last generation consists of an INode that points to just one ENode and one INode, merge the last generation into the prior generation.
@@ -477,13 +489,13 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
                                [] -> error "could not find old connecting PLine."
                                [v] -> v
                                (_:_) -> error "filter passed too many connecting PLines."
-        iNodeInsOf myINode = filter (isNothing . findENodeByOutput (eNodeSetOf $ slist initialGeneration)) $ insOf myINode
+        iNodeInsOf myINode = filter (isNothing . findENodeByOutput (eNodeSetOf $ slist initialENodes)) $ insOf myINode
         withoutConnectingPLine = filter (/= oldConnectingPLine)
 
     -- Determine if the given INode has a PLine that points to an ENode.
-    hasENode iNode = any (isJust . findENodeByOutput (eNodeSetOf $ slist initialGeneration)) $ insOf iNode
+    hasENode iNode = any (isJust . findENodeByOutput (eNodeSetOf $ slist initialENodes)) $ insOf iNode
     -- Determine if the given INode has a PLine that points to another INode.
-    hasINode iNode = any (isNothing . findENodeByOutput (eNodeSetOf $ slist initialGeneration)) $ insOf iNode
+    hasINode iNode = any (isNothing . findENodeByOutput (eNodeSetOf $ slist initialENodes)) $ insOf iNode
 
     -- Construct an ENodeSet
     eNodeSetOf :: Slist ENode -> ENodeSet
@@ -506,7 +518,7 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
     onlyINodeOf a = error
                     $ "not only inode!\n"
                     <> show a <> "\n"
-                    <> show initialGeneration <> "\n"
+                    <> show initialENodes <> "\n"
                     <> show rawGenerations <> "\n"
 
     -- | Sort a generation by the first in PLine.
@@ -526,7 +538,7 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
                                   [a] -> Just a
                                   vs -> error
                                         $ "more than one flipped inode?" <> show vs <> "\n"
-                                        <> show initialGeneration <> "\n"
+                                        <> show initialENodes <> "\n"
                                 where
                                   allInsAreENodes iNode = not $ hasINode iNode
 
@@ -534,7 +546,7 @@ sortINodesByENodes loop initialGeneration inGens@(INodeSet rawGenerations)
     firstPLine = outOf firstENode
       where
         -- the first ENode given to us. for sorting uses.
-        firstENode = first initialGeneration
+        firstENode = first initialENodes
           where
             first :: [a] -> a
             first [] = error "no first enode?"
