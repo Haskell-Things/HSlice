@@ -94,11 +94,11 @@ skeletonOfConcaveRegion inSegSets
     resINodes
       | len inSegSets == 1 = sortINodesByENodes (isLoop inSegSets) initialENodes $ errorIfLeft $ skeletonOfNodes (isLoop inSegSets) initialENodes []
       | len inSegSets == 2 = case initialENodes of         -- solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
-                               [] -> INodeSet $ slist $ [[makeINode [getInsideArc (flipPLine2 $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArc (eToPLine2 firstSeg) (flipPLine2 $ eToPLine2 lastSeg)] Nothing]]
+                               [] -> INodeSet $ slist [[makeINode [getInsideArc (flipPLine2 $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArc (eToPLine2 firstSeg) (flipPLine2 $ eToPLine2 lastSeg)] Nothing]]
                                  where
                                    firstSeg = SL.head $ slist $ SL.head inSegSets
                                    lastSeg = SL.head $ slist $ SL.last inSegSets
-                               [a] -> INodeSet $ slist $ [[makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just $ flipPLine2 $ outOf a)]]
+                               [a] -> INodeSet $ slist [[makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just $ flipPLine2 $ outOf a)]]
                                  where
                                    firstSeg = SL.head $ slist longSide
                                    lastSeg = SL.last $ slist longSide
@@ -116,7 +116,7 @@ isHallway (NodeTree _ iNodeSet) = iNodeSetHasOneMember iNodeSet
     iNodeSetHasOneMember (INodeSet myINodeSet) = len myINodeSet == 1
 
 -- | determine if the given line segments are in a loop.
-isLoop :: (Slist [LineSeg]) -> Bool
+isLoop :: Slist [LineSeg] -> Bool
 isLoop inSegSets
   | len inSegSets == 1 = endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
   | otherwise = False
@@ -130,7 +130,7 @@ isLoop inSegSets
                     <> show inSegSets <> "\n"
 
 -- | Create the set of ENodes for a set of segments
-makeInitialGeneration :: (Slist [LineSeg]) -> [ENode]
+makeInitialGeneration :: Slist [LineSeg] -> [ENode]
 makeInitialGeneration inSegSets = concat $ firstENodes (isLoop inSegSets) <$> inSegSets
   where
     -- Generate the first generation of nodes, from the passed in line segments.
