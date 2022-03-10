@@ -26,7 +26,7 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, getFirstArc, getOutsideArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, towardIntersection) where
+module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, getFirstArc, getOutsideArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, towardIntersection) where
 
 import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=), (-))
 
@@ -95,7 +95,7 @@ skeletonOfConcaveRegion inSegSets
 findINodes :: Slist [LineSeg] -> INodeSet
 findINodes inSegSets
   | len inSegSets == 1 =
-    -- One continuous wall. Just cleanup the output of skeletonOfNodes.
+    -- One continuous wall. Just return the output of skeletonOfNodes.
         errorIfLeft $ skeletonOfNodes (isLoop inSegSets) initialENodes []
   | len inSegSets == 2 =
     -- Two walls, no closed ends. solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
