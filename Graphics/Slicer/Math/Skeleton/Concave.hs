@@ -641,7 +641,7 @@ skeletonOfNodes loop eNodes iNodes =
                                                              (outOf <$> nonAntiCollinearNodes iNodes (antiCollinearNodePairsOf iNodes) <> firstAntiCollinearNodes (antiCollinearNodePairsOf iNodes)))
         pointIntersections = rights $ catMaybes intersections
         lineIntersections = lefts $ catMaybes intersections
-        pointsCloseEnough = mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor) pointIntersections
+        pointsCloseEnough = mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor*15) pointIntersections
         linesCloseEnough
           | null lineIntersections = []
           | otherwise = error "nope!"
