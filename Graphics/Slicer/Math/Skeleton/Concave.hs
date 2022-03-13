@@ -265,7 +265,7 @@ nodesAreAntiCollinear node1 node2
   | canPoint node1 && canPoint node2 && hasArc node1 && hasArc node2 = (distancePPointToPLine (pPointOf node1) (outOf node2) < fudgeFactor*50) && (distancePPointToPLine (pPointOf node2) (outOf node1) < fudgeFactor*50)
   | otherwise = False
 
--- Walk the result tree, and find our enodes. Used to test the property that a walk of our result tree should result in the input ENodes in order.
+-- | Walk the result tree, and find our enodes. Used to test the property that a walk of our result tree should result in the input ENodes in order.
 findENodesInOrder :: ENodeSet -> [[INode]] -> [ENode]
 findENodesInOrder (ENodeSet (Slist [] _)) _ = []
 findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodesRecursive generations
@@ -304,12 +304,13 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodes
                 isENode myPLine2 = isJust $ findENodeByOutput eNodeSet myPLine2
 findENodesInOrder a b = error $ "cannot find ENodes for :" <> show a <> "\n" <> show b <> "\n"
 
--- | place our inodes in a state such that the eNodes that the inodes point to are in the order of the given enode list.
--- also performs 'safe' node tree transforms:
+-- | Re-order an INodeSet such that the eNodes that the inodes point to are in the order of the given enode list.
+-- also performs 'safe' node tree transforms.
 sortINodesByENodes :: Bool -> Slist [LineSeg] -> INodeSet -> INodeSet
 sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
  | generationsIn res == 1 && inCountOf (onlyINodeOf $ INodeSet $ resSlist rawGenerations) > len (slist initialENodes) + (len inSegSets*2-2) = errorTooManyIns
  -- skip the next property test for hallways.
+ -- FIXME: how do we perform this test for a hallway?
  | len inSegSets == 2 = INodeSet $ resSlist rawGenerations
  -- test for the property that a walk of the INodes we are returning results in our input ENode list.
  | initialENodes /= findENodesInOrder (eNodeSetOf $ slist initialENodes) res = errorInsWrongOrder
@@ -564,7 +565,7 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
     orderInsByENodes :: INode -> INode
     orderInsByENodes inode@(INode _ _ _ out) = makeINode (indexPLinesTo firstPLine $ sortedPLines $ indexPLinesTo firstPLine $ insOf inode) out
 
--- | Apply a recursive algorithm to solve the node set.
+-- | Apply a recursive algorithm to obtain a raw INode set.
 --   FIXME: does not handle more than two point intersections of arcs properly.
 skeletonOfNodes :: Bool -> [ENode] -> [INode] -> Either PartialNodes INodeSet
 skeletonOfNodes loop eNodes iNodes =
@@ -596,7 +597,8 @@ skeletonOfNodes loop eNodes iNodes =
     handleTwoNodes node1 node2
       | isCollinear (outOf node1) (outOf node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
       | nodesAreAntiCollinear node1 node2 && loop = Right $ INodeSet $ one [makeLastPair node1 node2]
-      | loop = Right $ INodeSet $ one [makeINode (sortedPLines [outOf node1,outOf node2]) Nothing]
+      | loop = -- this is a complete loop, so this last INode will be re-written in sortINodesByENodes anyways.
+        Right $ INodeSet $ one [makeINode (sortedPLines [outOf node1,outOf node2]) Nothing]
       | intersectsInPoint node1 node2 = Right $ INodeSet $ one [averageNodes node1 node2]
       | otherwise = errorLen2
       where
@@ -606,7 +608,7 @@ skeletonOfNodes loop eNodes iNodes =
     handleThreeOrMoreNodes
       -- FIXME: this can happen for non-loops. which means this Nothing is wrong.
       | endsAtSamePoint = Right $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) <> (outOf <$> iNodes)) Nothing]
-      | hasShortestPair = Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes loop remainingENodes (remainingINodes <> averageOfShortestPairs)))
+      | hasShortestNeighboringPair = Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes loop remainingENodes (remainingINodes <> averageOfShortestPairs)))
       | otherwise = errorLen3
       where
         inodesOf (INodeSet set) = set
@@ -653,8 +655,8 @@ skeletonOfNodes loop eNodes iNodes =
             allAntiCollinearNodes myNodePairs = (fst <$> myNodePairs) <> (snd <$> myNodePairs)
 
     -- | make sure we have a potential intersection between two nodes to work with.
-    hasShortestPair :: Bool
-    hasShortestPair = not $ null (intersectingNodePairsOf eNodes) && null (intersectingNodePairsOf iNodes) && null intersectingMixedNodePairs
+    hasShortestNeighboringPair :: Bool
+    hasShortestNeighboringPair = not $ null (intersectingNeighboringNodePairsOf $ mapWithFollower (,) eNodes) && null (intersectingNodePairsOf iNodes) && null intersectingMixedNodePairs
 
     -- | construct the last pair of a closed concave region.
     makeLastPair :: (Arcable a, Arcable b) => a -> b -> INode
@@ -689,7 +691,7 @@ skeletonOfNodes loop eNodes iNodes =
 
     ePairsFound =
       if isSomething shortestEPairDistance && shortestEPairDistance == shortestPairDistance
-      then filterENodesOf $ shortestPairs eNodes
+      then filterENodesOf $ shortestNeighboringPairs $ mapWithFollower (,) eNodes
       else []
       where
         -- | remove pairs containing ENodes from the shortest mixed pairs from a list of ENode pairs
@@ -701,7 +703,7 @@ skeletonOfNodes loop eNodes iNodes =
     shortestIPairDistance = case shortestPairs iNodes of
                               [] -> Empty
                               (firstPair:_) -> justToSomething $ uncurry distanceToIntersection firstPair
-    shortestEPairDistance = case shortestPairs eNodes of
+    shortestEPairDistance = case shortestNeighboringPairs $ mapWithFollower (,) eNodes of
                               [] -> Empty
                               (firstPair:_) -> justToSomething $ uncurry distanceToIntersection firstPair
     shortestMixedPairDistance = case shortestMixedPairs of
@@ -718,6 +720,22 @@ skeletonOfNodes loop eNodes iNodes =
         -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
         nodePairsSortedByDistance :: (Arcable a, Pointable a, Show a) => [a] -> [(a, a)]
         nodePairsSortedByDistance myNodes' = sortBy (\(p1n1, p1n2) (p2n1, p2n2) -> distanceToIntersection p1n1 p1n2 `compare` distanceToIntersection p2n1 p2n2) $ intersectingNodePairsOf myNodes'
+        filterCommonIns :: Eq a => [(a, a)] -> [(a, a)]
+        filterCommonIns pairs = case pairs of
+                                  [] -> []
+                                  [a] -> [a]
+                                  (x@(node1, node2) :xs) -> x : filterCommonIns (filter (\(myNode1, myNode2) -> node1 /= myNode1 && node2 /= myNode1 && node1 /= myNode2 && node2 /= myNode2) xs)
+
+    -- | get the list of sorted pairs of intersecting nodes.
+    shortestNeighboringPairs :: (Arcable a, Pointable a, Show a, Eq a) => [(a,a)] -> [(a, a)]
+    shortestNeighboringPairs myNodePairs = case nodePairsSortedByDistance myNodePairs of
+                                         [] -> []
+                                         [onePair] -> [onePair]
+                                         (pair:morePairs) -> filterCommonIns $ pair : takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection pair) morePairs
+      where
+        -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
+        nodePairsSortedByDistance :: (Arcable a, Pointable a, Show a) => [(a,a)] -> [(a, a)]
+        nodePairsSortedByDistance myNodesPairs' = sortBy (\(p1n1, p1n2) (p2n1, p2n2) -> distanceToIntersection p1n1 p1n2 `compare` distanceToIntersection p2n1 p2n2) $ intersectingNeighboringNodePairsOf myNodesPairs'
         filterCommonIns :: Eq a => [(a, a)] -> [(a, a)]
         filterCommonIns pairs = case pairs of
                                   [] -> []
@@ -750,6 +768,11 @@ skeletonOfNodes loop eNodes iNodes =
     -- | find nodes of the same type that can intersect.
     intersectingNodePairsOf :: (Arcable a, Show a) => [a] -> [(a, a)]
     intersectingNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
+
+    -- | find nodes of the same type that can intersect.
+    -- NOTE: accepts node pairs, so that we can ensure we check just following ENodes.
+    intersectingNeighboringNodePairsOf :: (Arcable a, Show a) => [(a,a)] -> [(a, a)]
+    intersectingNeighboringNodePairsOf inNodePairs = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> inNodePairs
 
     -- | find nodes that have output segments that are antiCollinear with one another.
     antiCollinearNodePairsOf :: (Pointable a, Arcable a) => [a] -> [(a, a)]

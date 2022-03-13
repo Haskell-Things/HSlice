@@ -670,7 +670,7 @@ run rawArgs = do
                                  (fromMaybe 30 $ maybeLayer0Speed vars)
                                  (fromMaybe 120 $ maybeTravelSpeed vars)
                                  (fromMaybe 30 $ maybeWall0Speed vars)
-                                 (fromMaybe 64 $ maybeWallXSpeed vars)
+                                 (fromMaybe 60 $ maybeWallXSpeed vars)
           where
             maybeInfillAmount (lookupVarIn "infill_sparse_density" -> Just (ONum amount)) = Just (amount / 100)
             maybeInfillAmount _ = Nothing
