@@ -75,12 +75,21 @@
  -}
 
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ParallelListComp #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomENode, randomINode, randomPLine, randomLineSeg, cellFrom, remainderFrom, onlyOne) where
+-- so we can define a Num instance for Positive.
+{-# OPTIONS_GHC -Wno-orphans #-}
 
-import Prelude (Bool, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomENode, randomINode, randomPLine, randomLineSeg, cellFrom, remainderFrom, onlyOne) where
+
+import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
 
 import Data.Coerce (coerce)
+
+import Data.List (sort)
+
+import Data.List.Unique (allUnique)
 
 import Data.Maybe (Maybe(Nothing, Just), maybeToList, catMaybes)
 
@@ -357,7 +366,7 @@ instance (Arbitrary a) => Arbitrary (ListThree a) where
 
 -- Radians are always positive, and always between 0 and tau+minfloat.
 newtype Radian a = Radian {getRadian :: ℝ}
-  deriving (Show, Ord, Eq)
+  deriving (Show, Ord, Eq, Enum)
 
 instance Arbitrary (Radian a) where
   arbitrary = Radian <$> (arbitrary `suchThat` (\a -> a > 0 && a <= tau))
@@ -386,10 +395,23 @@ instance Num (Radian a) where
   fromInteger v = Radian $ fromInteger $ mod v 6
   signum _ = 1
 
+-- | so we can do some arithmatic on positive numbers.
+-- FIXME: Yes, this is an orphan instance.
+instance (Ord a, Num a) => Num (Positive a) where
+  (+) (Positive r1) (Positive r2) = Positive $ r1 + r2
+  (-) (Positive r1) (Positive r2)
+    | r1 < r2 = Positive $  r1 - r2
+    | otherwise = error "tried to produce a negative number."
+  (*) (Positive r1) (Positive r2) = Positive $ r1 * r2
+  abs r1 = r1
+  fromInteger v = Positive $ fromInteger v
+  signum _ = 1
+
 instance Fractional (Radian a) where
   (/) (Radian r1) (Radian r2) = Radian $ r1 / r2
   fromRational a = Radian $ fromRational a
 
+-- | Generate a random triangle.
 randomTriangle :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Contour
 randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX centerY $ makePairs dists radians
   where
@@ -398,6 +420,7 @@ randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX cent
     dists :: [Positive ℝ]
     dists = coerce rawDists
 
+-- | Generate a random square.
 randomSquare :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Contour
 randomSquare centerX centerY tilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
   where
@@ -410,6 +433,7 @@ randomSquare centerX centerY tilt distanceToCorner = randomStarPoly centerX cent
       ]
     distances = replicate 4 distanceToCorner
 
+-- | Generate a random rectangle.
 randomRectangle :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Contour
 randomRectangle centerX centerY rawFirstTilt secondTilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
@@ -430,6 +454,66 @@ randomRectangle centerX centerY rawFirstTilt secondTilt distanceToCorner = rando
         | v < Radian pi = v + Radian pi
         | otherwise     = v - Radian pi
       distances = replicate 4 distanceToCorner
+
+-- | Generate a random convex four sided polygon, with two right angles.
+randomConvexDualRightQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Contour
+randomConvexDualRightQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+    where
+      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
+      [firstTilt, secondTilt, thirdTilt] = sort $ ensureUnique $ clipRadian <$> sort [rawFirstTilt, rawSecondTilt, rawThirdTilt]
+      ensureUnique :: [Radian ℝ] -> [Radian ℝ]
+      ensureUnique vals
+        | allUnique vals = vals
+        | otherwise = ensureUnique $ sort [v*m | m <- [2,3,5] | v <- vals]
+      radians :: [Radian ℝ]
+      radians =
+        [
+          firstTilt
+        , secondTilt
+        , thirdTilt
+        , flipRadian secondTilt
+        ]
+      flipRadian :: Radian ℝ -> Radian ℝ
+      flipRadian v
+        | v < Radian pi = v + Radian pi
+        | otherwise     = v - Radian pi
+      clipRadian v
+        | v > Radian pi = v - Radian pi
+        | otherwise = v
+      distances = replicate 4 distanceToCorner
+
+-- | Generate a random convex four sided polygon, with one right angle.
+randomConvexSingleRightQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
+randomConvexSingleRightQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+    where
+      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
+      [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance $ sort [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
+      ensureUniqueDistance :: [Positive ℝ] -> [Positive ℝ]
+      ensureUniqueDistance vals
+        | allUnique vals = vals
+        | otherwise = ensureUniqueDistance $ sort [v*m | m <- [2,3] | v <- vals]
+      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
+      [firstTilt, secondTilt, thirdTilt] = sort $ ensureUnique $ clipRadian <$> sort [rawFirstTilt, rawSecondTilt, rawThirdTilt]
+      ensureUnique :: [Radian ℝ] -> [Radian ℝ]
+      ensureUnique vals
+        | allUnique vals = vals
+        | otherwise = ensureUnique $ sort [v*m | m <- [2,3,5] | v <- vals]
+      radians :: [Radian ℝ]
+      radians =
+        [
+          firstTilt
+        , secondTilt
+        , thirdTilt
+        , flipRadian secondTilt
+        ]
+      flipRadian :: Radian ℝ -> Radian ℝ
+      flipRadian v
+        | v < Radian pi = v + Radian pi
+        | otherwise     = v - Radian pi
+      clipRadian v
+        | v > Radian pi = v - Radian pi
+        | otherwise = v
+      distances = firstDistanceToCorner : replicate 3 secondDistanceToCorner
 
 -- | generate a random polygon.
 -- Idea stolen from: https://stackoverflow.com/questions/8997099/algorithm-to-generate-random-2d-polygon
