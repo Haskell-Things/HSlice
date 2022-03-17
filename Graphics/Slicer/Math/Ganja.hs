@@ -81,7 +81,7 @@
 -- so we can define a Num instance for Positive.
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomENode, randomINode, randomPLine, randomLineSeg, cellFrom, remainderFrom, onlyOne) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomENode, randomINode, randomPLine, randomLineSeg, cellFrom, remainderFrom, onlyOne) where
 
 import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
 
@@ -530,7 +530,7 @@ randomConvexBisectableQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDi
       ensureUnique :: [Radian ℝ] -> [Radian ℝ]
       ensureUnique vals
         | allUnique vals = vals
-        | otherwise = ensureUnique $ sort [v*m | m <- [2,3,5] | v <- vals]
+        | otherwise = ensureUnique $ sort [v*m | m <- [2,3] | v <- vals]
       thirdTilt = secondTilt + (secondTilt - firstTilt)
       radians :: [Radian ℝ]
       radians =
@@ -548,6 +548,39 @@ randomConvexBisectableQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDi
         | v > Radian pi = v - Radian pi
         | otherwise = v
       distances = [firstDistanceToCorner, secondDistanceToCorner, firstDistanceToCorner, secondDistanceToCorner]
+
+-- | Generate a random convex four sided polygon.
+randomConvexQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Contour
+randomConvexQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+    where
+      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
+      [firstDistanceToCorner, secondDistanceToCorner, thirdDistanceToCorner] = sort $ ensureUniqueDistance $ sort [rawFirstDistanceToCorner, rawSecondDistanceToCorner, rawThirdDistanceToCorner]
+      ensureUniqueDistance :: [Positive ℝ] -> [Positive ℝ]
+      ensureUniqueDistance vals
+        | allUnique vals = vals
+        | otherwise = ensureUniqueDistance $ sort [v*m | m <- [2,3,5] | v <- vals]
+      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
+      [firstTilt, secondTilt, thirdTilt] = sort $ ensureUnique $ clipRadian <$> sort [rawFirstTilt, rawSecondTilt, rawThirdTilt]
+      ensureUnique :: [Radian ℝ] -> [Radian ℝ]
+      ensureUnique vals
+        | allUnique vals = vals
+        | otherwise = ensureUnique $ sort [v*m | m <- [2,3,5] | v <- vals]
+      radians :: [Radian ℝ]
+      radians =
+        [
+          firstTilt
+        , secondTilt
+        , thirdTilt
+        , flipRadian secondTilt
+        ]
+      flipRadian :: Radian ℝ -> Radian ℝ
+      flipRadian v
+        | v < Radian pi = v + Radian pi
+        | otherwise     = v - Radian pi
+      clipRadian v
+        | v > Radian pi = v - Radian pi
+        | otherwise = v
+      distances = [firstDistanceToCorner, thirdDistanceToCorner, secondDistanceToCorner, thirdDistanceToCorner]
 
 -- | generate a random polygon.
 -- Idea stolen from: https://stackoverflow.com/questions/8997099/algorithm-to-generate-random-2d-polygon
