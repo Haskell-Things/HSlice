@@ -647,11 +647,11 @@ skeletonOfNodes loop eNodes iNodes =
             [] -> []
             [a] -> case pointIntersections of
                      [] -> [and pointsCloseEnough]
-                     (x:_) -> [and pointsCloseEnough && distancePPointToPLine x a < fudgeFactor*15
+                     (x:_) -> [and pointsCloseEnough && distancePPointToPLine x a < fudgeFactor*15]
             (_:_) -> error
-                        $ "detected multiple lines?\n"
-                        <> show lineIntersections <> "\n"
-                        <> show pointIntersections <> "\n"
+                     $ "detected multiple lines?\n"
+                     <> show lineIntersections <> "\n"
+                     <> show pointIntersections <> "\n"
         -- since anti-collinear nodes end at the same point, only count one of them.
         firstAntiCollinearNodes nodePairs = fst <$> nodePairs
         -- find nodes that do not have an anti-collinear pair.
