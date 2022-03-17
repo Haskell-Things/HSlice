@@ -82,7 +82,7 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Math.Util ((-->), (-/>))
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
-import Graphics.Slicer.Math.Ganja (ListThree, Radian(Radian), cellFrom, randomTriangle, randomRectangle, randomSquare, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomENode, randomINode, randomLineSeg, randomPLine, remainderFrom, onlyOne, dumpGanjas, toGanja)
+import Graphics.Slicer.Math.Ganja (ListThree, Radian(Radian), cellFrom, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomENode, randomINode, randomLineSeg, randomPLine, remainderFrom, onlyOne, dumpGanjas, toGanja)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
@@ -887,6 +887,50 @@ prop_ConvexBisectableQuadFacesInOrder x y rawFirstTilt rawSecondTilt rawFirstDis
         unwrap :: Face -> LineSeg
         unwrap (Face edge _ _ _) = edge
 
+prop_ConvexQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConvexQuadNoDivides x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = findDivisions convexQuad (fromMaybe (error $ show convexQuad) $ crashMotorcycles convexQuad []) --> []
+  where
+    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
+
+prop_ConvexQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConvexQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = findStraightSkeleton convexQuad [] -/> Nothing
+  where
+    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
+
+prop_ConvexQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConvexQuadStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = generationsOf (findStraightSkeleton convexQuad []) --> 1
+  where
+    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
+    generationsOf Nothing = 0
+    generationsOf (Just (StraightSkeleton a _)) = len a
+
+prop_ConvexQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConvexQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = facesOf (fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) -/> slist []
+  where
+    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
+
+prop_ConvexQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConvexQuadHasRightFaceCount x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = length (facesOf $ fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) --> 4
+  where
+    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
+
+prop_ConvexQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConvexQuadFacesInOrder x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) --> convexQuadAsSegs
+  where
+    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
+    convexQuadAsSegs = lineSegsOfContour convexQuad
+    firstSeg = onlyOneOf convexQuadAsSegs
+      where
+        onlyOneOf :: [LineSeg] -> LineSeg
+        onlyOneOf eNodes = case eNodes of
+                          [] -> error "none"
+                          (a:_) -> a
+    edgesOf :: Slist Face -> [LineSeg]
+    edgesOf faces = unwrap <$> (\(Slist a _) -> a) faces
+      where
+        unwrap :: Face -> LineSeg
+        unwrap (Face edge _ _ _) = edge
+
 prop_obtuseBisectorOnBiggerSide_makeENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Expectation
 prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
   | testFirstLine = pLineIsLeft bisector pl1 --> Just True
@@ -1119,6 +1163,18 @@ facetSpec = do
       property prop_ConvexBisectableQuadHasRightFaceCount
     it "places faces on a convex bisectable quad in the order the line segments were given" $
       property prop_ConvexBisectableQuadFacesInOrder
+    it "finds no divides in a convex quad" $
+      property prop_ConvexQuadNoDivides
+    it "finds the straight skeleton of a convex quad (property)" $
+      property prop_ConvexQuadHasStraightSkeleton
+    it "only generates one generation for a convex quad" $
+      property prop_ConvexQuadStraightSkeletonHasRightGenerationCount
+    it "places faces on the straight skeleton of a convex quad" $
+      property prop_ConvexQuadCanPlaceFaces
+    it "finds only four faces for any convex quad" $
+      property prop_ConvexQuadHasRightFaceCount
+    it "places faces on a convex quad in the order the line segments were given" $
+      property prop_ConvexQuadFacesInOrder
     it "finds the outsideArc of two intersecting lines (inverted makeENode)" $
       property prop_obtuseBisectorOnBiggerSide_makeENode
     it "finds the outsideArc of two intersecting lines (makeINode)" $
