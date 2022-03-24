@@ -300,6 +300,7 @@ sliceObject printer print allLayers =
     slicingPlan = Everywhere (Extrude (ZLayers,SkeletonFailThrough))
 
 -- FIXME: remove layerheight and layerNumber from our calculations here?
+-- MOREFIXME: break this into "place -> annotate -> trace". Place gets the geometry, annotate adds regions of rules, trace converts to (abstracted) GCode.
 sliceLayer :: Printer -> Print -> Zone -> Bool -> ℝ -> ([Contour], Fastℕ) -> [GCode]
 sliceLayer printer print@(Print _ infill _ _ _ _ ls outerWallBeforeInner _ _ _ _ _) _plan isLastLayer lh (layerContours, layerNumber) = do
   let
