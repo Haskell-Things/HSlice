@@ -30,11 +30,13 @@ module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINode
 
 import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=), (-))
 
+import Prelude as PL (head, last, tail, init)
+
 import Data.Either (lefts,rights)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, isNothing, fromMaybe)
 
-import Data.List (takeWhile, sortBy)
+import Data.List (takeWhile, dropWhile, sortBy)
 
 import Data.List.Extra (unsnoc)
 
@@ -56,7 +58,7 @@ import Graphics.Slicer.Math.Line (endPoint, makeLineSeg)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine, flipPLine2)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, firstInOf, getPairs, isCollinear, indexPLinesTo, insOf, isParallel, lastINodeOf, linePairs, makeINode, intersectionBetween, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, getFirstLineSeg, getLastLineSeg, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, firstInOf, getPairs, isCollinear, indexPLinesTo, insOf, isParallel, lastINodeOf, linePairs, makeINode, intersectionBetween, sortedPLines)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree, findENodeByOutput)
 
@@ -89,14 +91,14 @@ skeletonOfConcaveRegion inSegSets
   | otherwise = error $ "generated illegal nodeTree:" <> show inSegSets <> "\n" <> show (isLoop inSegSets) <> "\n" <> show result <> "\n"
   where
     result = makeNodeTree initialENodes $ sortINodesByENodes (isLoop inSegSets) inSegSets $ findINodes inSegSets
-    initialENodes = makeInitialGeneration inSegSets
+    initialENodes = makeInitialGeneration (isLoop inSegSets) inSegSets
 
 -- | Find a raw set of INodes representing the INodes of the solved NodeTree for this part of a contour.
 findINodes :: Slist [LineSeg] -> INodeSet
 findINodes inSegSets
   | len inSegSets == 1 =
     -- One continuous wall. Just return the output of skeletonOfNodes.
-        errorIfLeft $ skeletonOfNodes (isLoop inSegSets) initialENodes []
+        errorIfLeft $ skeletonOfNodes (isLoop inSegSets) inSegSets []
   | len inSegSets == 2 =
     -- Two walls, no closed ends. solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
     case initialENodes of
@@ -111,10 +113,14 @@ findINodes inSegSets
           (shortSide,longSide)
             | null (SL.head inSegSets) = (SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
             | otherwise = (SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
-      (_:_) -> error "too many items in makeInitialGeneration."
+      (_:_) -> error
+               $ "too many items in makeInitialGeneration.\n"
+               <> show initialENodes <> "\n"
+               <> show inSegSets <> "\n"
+               <> show (isLoop inSegSets) <> "\n"
   | otherwise = error "wrong count of inSegSets."
   where
-    initialENodes = makeInitialGeneration inSegSets
+    initialENodes = makeInitialGeneration (isLoop inSegSets) inSegSets
 
 -- | check if a set of INodes in a given NodeTree is just a hallway.
 -- A hallway is a portion of a contour consisting of only two sides. it is cut off from the closed ends of the contour by divides.
@@ -126,35 +132,40 @@ isHallway (NodeTree _ iNodeSet) = iNodeSetHasOneMember iNodeSet
 
 -- | determine if the given line segment set contains just one loop.
 isLoop :: Slist [LineSeg] -> Bool
-isLoop inSegSets
-  | len inSegSets == 1 = endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
-  | otherwise = False
+isLoop inSegSets = endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
   where
-    lastSeg = SL.last $ slist inSegs
-    firstSeg = SL.head $ slist inSegs
-    inSegs
-      | len inSegSets == 1 = head inSegSets
-      | otherwise = error
-                    $ "too many input lists.\n"
-                    <> show inSegSets <> "\n"
+    (lastSeg, firstSeg) = case inSegSets of
+                            (Slist [] _) -> error "no segments!"
+                            oneOrMoreSets@(Slist ((_:_:_):_) _) -> (PL.last $ SL.last oneOrMoreSets, PL.head $ SL.head oneOrMoreSets)
+                            oneOrMoreSets@(Slist (_:_:_) _) -> (PL.last $ SL.last oneOrMoreSets, PL.head $ SL.head oneOrMoreSets)
+                            (Slist _ _) -> error "just one segment?"
 
 -- | Create the set of ENodes for a set of segments
-makeInitialGeneration :: Slist [LineSeg] -> [ENode]
-makeInitialGeneration inSegSets = concat $ firstENodes (isLoop inSegSets) <$> inSegSets
+makeInitialGeneration :: Bool -> Slist [LineSeg] -> [ENode]
+makeInitialGeneration gensAreLoop inSegSets = concat (firstENodes <$> inSegSets) <> maybeLoop
   where
     -- Generate the first generation of nodes, from the passed in line segments.
     -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
-    firstENodes :: Bool -> [LineSeg] -> [ENode]
-    firstENodes segsInLoop firstSegs
-      | segsInLoop = makeENodesLooped firstSegs
-      | otherwise  = case firstSegs of
-                       [] -> []
-                       [LineSeg {}] -> []
-                       (_:_) -> makeENodes firstSegs
+    firstENodes :: [LineSeg] -> [ENode]
+    firstENodes firstSegs = case firstSegs of
+                              [] -> []
+                              [LineSeg {}] -> []
+                              (_:_) -> makeENodes firstSegs
+    -- Add a closing ENode if this is a closed loop.
+    maybeLoop = if gensAreLoop
+                then [loopOfSegSets inSegSets]
+                else []
+
+loopOfSegSets :: Slist [LineSeg] -> ENode
+loopOfSegSets inSegSets = case inSegSets of
+                            (Slist [] _) -> error "no"
+                            oneOrMoreSets@(Slist ((_:_:_):_) _) -> makeENode (startPoint $ PL.last $ SL.last oneOrMoreSets) (startPoint $ PL.head $ SL.head oneOrMoreSets) (endPoint $ PL.head $ SL.head oneOrMoreSets)
+                            oneOrMoreSets@(Slist (_:_:_) _) -> makeENode (startPoint $ PL.last $ SL.last oneOrMoreSets) (startPoint $ PL.head $ SL.head oneOrMoreSets) (endPoint $ PL.head $ SL.head oneOrMoreSets)
+                            (Slist _ _) -> error "yes"
 
 -- | Handle the recursive resolver failing.
 errorIfLeft :: Either PartialNodes INodeSet -> INodeSet
-errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure -- <> "\ninSegs: " <> show inSegs <> "\n" <> show (firstENodes inSegs loop) <> "\nloop:" <> show loop <> "\n"
+errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure
 errorIfLeft (Right val)    = val
 
 -- | For a given par of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
@@ -220,16 +231,6 @@ makeENodes segs = case segs of
                          [a] -> error $ "not enough line segments: " <> show a <> "\n"
                          [a,b] -> [makeENode (startPoint a) (startPoint b) (endPoint b)]
                          (a:b:xs) -> [makeENode (startPoint a) (startPoint b) (endPoint b)] <> makeENodes (b:xs)
-
--- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour. make sure to construct the last segment connecting to the first.
-makeENodesLooped :: [LineSeg] -> [ENode]
-makeENodesLooped segs = case segs of
-                          [] -> error "got empty list.\n"
-                          [a] -> error $ "not enough line segments: " <> show a <> "\n"
-                          [a,b] -> error $ "not enough line segments: " <> show a <> "\n" <> show b <> "\n"
-                          (a:_:xs) -> makeENodes segs <> [makeENode (startPoint lastSeg) (startPoint a) (endPoint a)]
-                            where
-                              lastSeg = last $ slist xs
 
 -- | Find the non-reflex virtexes of a contour, and create ENodes from them.
 --   This function is meant to be used on an exterior contour.
@@ -316,7 +317,7 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
  | initialENodes /= findENodesInOrder (eNodeSetOf $ slist initialENodes) res = errorInsWrongOrder
  | otherwise = INodeSet $ resSlist rawGenerations
   where
-    initialENodes = makeInitialGeneration inSegSets
+    initialENodes = makeInitialGeneration loop inSegSets
     res :: [[INode]]
     res = unSlist $ resSlist rawGenerations
       where
@@ -428,26 +429,29 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
                               $ "don't know how to handle a case with these nodes:\n"
                               <> show nodes <> "\n"
                               <> "rawGenerations:      " <> show rawGenerations <> "\n"
-                              <> "initialENodes: " <> show initialENodes <> "\n"
+                              <> "initialENodes:       " <> show initialENodes <> "\n"
                               <> "flippedINode:        " <> show (flippedINodeOf $ SL.head rawGenerations) <> "\n"
                               <> "loop:                " <> show loop <> "\n"
 
     errorTooManyIns = error $ "generating a single INode with more inputs than possible: " <> show res <> "\n"
-                           <> "rawGenerations:                 " <> show rawGenerations <> "\n"
-                           <> "ENodes:                         " <> show initialENodes <> "\n"
+                           <> "rawGenerations: " <> show rawGenerations <> "\n"
+                           <> "ENodes:         " <> show initialENodes <> "\n"
+                           <> "inSegSets:      " <> show inSegSets <> "\n"
+                           <> "loop:           " <> show loop <> "\n"
 
     errorInsWrongOrder = error
                          $ "ENodes outs should be:" <> show (outOf <$> initialENodes) <> "\n"
-                         <> "ENode outs are:      " <> show (outOf <$> findENodesInOrder (eNodeSetOf $ slist initialENodes) res) <> "\n"
-                         <> "rawGenerations:      " <> show rawGenerations <> "\n"
-                         <> "returned inodes:     " <> show res <> "\n"
-                         <> "flippedINode:        " <> show (flippedINodeOf $ SL.head rawGenerations) <> "\n"
-                         <> "loop:                " <> show loop <> "\n"
+                         <> "ENode outs are:       " <> show (outOf <$> findENodesInOrder (eNodeSetOf $ slist initialENodes) res) <> "\n"
+                         <> "rawGenerations:       " <> show rawGenerations <> "\n"
+                         <> "returned inodes:      " <> show res <> "\n"
+                         <> "flippedINode:         " <> show (flippedINodeOf $ SL.head rawGenerations) <> "\n"
 
     errorIllegalLast = error
                        $ "illegal last generation:\n"
                        <> "rawGenerations:    " <> show rawGenerations <> "\n"
-                       <> "initialENodes: " <> show initialENodes <> "\n"
+                       <> "initialENodes:     " <> show initialENodes <> "\n"
+                       <> "inSegSets:         " <> show inSegSets <> "\n"
+                       <> "loop:              " <> show loop <> "\n"
                        <> "loop:              " <> show loop <> "\n"
 
     -- if the object is closed, and the last generation consists of an INode that points to just one ENode and one INode, merge the last generation into the prior generation.
@@ -567,21 +571,21 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
 -- | Apply a recursive algorithm to obtain a raw INode set.
 --   FIXME: does not handle more than two point intersections of arcs properly.
-skeletonOfNodes :: Bool -> [ENode] -> [INode] -> Either PartialNodes INodeSet
-skeletonOfNodes loop eNodes iNodes =
+skeletonOfNodes :: Bool -> Slist [LineSeg] -> [INode] -> Either PartialNodes INodeSet
+skeletonOfNodes connectedLoop inSegSets iNodes =
   case eNodes of
     [] -> case iNodes of
             [] -> -- zero nodes == return emptyset. allows us to simplify our return loop.
               Right $ INodeSet $ slist []
             [INode {}] ->
-              if loop
+              if contourLooped
               then errorLen1 -- A one node loop makes no sense, reject.
               else Right $ INodeSet $ one iNodes -- just hand back single node requests.
             [iNode1,iNode2] -> handleTwoNodes iNode1 iNode2
             (_:_) -> handleThreeOrMoreNodes
     [eNode] -> case iNodes of
                  [] ->
-                   if loop
+                   if contourLooped
                    then errorLen1 -- A one node loop makes no sense, reject.
                    else Right $ INodeSet $ one [eNodeToINode eNode] -- just hand back single node requests.
                  [iNode] -> handleTwoNodes eNode iNode
@@ -591,24 +595,28 @@ skeletonOfNodes loop eNodes iNodes =
                          (_:_) -> handleThreeOrMoreNodes
     (_:_:_:_) -> handleThreeOrMoreNodes
   where
-    errorLen1 = Left $ PartialNodes (INodeSet $ one iNodes) "NOMATCH - length 1?"
+    -- Did this contour start out as a loop?
+    contourLooped = isLoop inSegSets
+    eNodes = makeInitialGeneration connectedLoop inSegSets
+    errorLen1 = Left $ PartialNodes (INodeSet $ one iNodes) ("NOMATCH - length 1?\n" <> show eNodes <> "\n" <> show iNodes <> "\n" <> show inSegSets <> "\n")
     --   Handle the the case of two nodes.
     handleTwoNodes :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Either PartialNodes INodeSet
     handleTwoNodes node1 node2
       | isCollinear (outOf node1) (outOf node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
-      | nodesAreAntiCollinear node1 node2 && loop = Right $ INodeSet $ one [makeLastPair node1 node2]
-      | loop = -- this is a complete loop, so this last INode will be re-written in sortINodesByENodes anyways.
+      | nodesAreAntiCollinear node1 node2 && contourLooped = Right $ INodeSet $ one [makeLastPair node1 node2]
+      | contourLooped = -- this is a complete loop, so this last INode will be re-written in sortINodesByENodes anyways.
         Right $ INodeSet $ one [makeINode (sortedPLines [outOf node1,outOf node2]) Nothing]
       | intersectsInPoint node1 node2 = Right $ INodeSet $ one [averageNodes node1 node2]
       | otherwise = errorLen2
       where
-        errorLen2 = Left $ PartialNodes (INodeSet $ one iNodes) $ "NOMATCH - length 2?\n" <> show node1 <> "\n" <> show node2 <> "\n" <> show loop <> "\n" <> show eNodes <> "\n" <> show iNodes <> "\n"
+        errorLen2 = Left $ PartialNodes (INodeSet $ one iNodes) $ "NOMATCH - length 2?\n" <> show node1 <> "\n" <> show node2 <> "\n" <> show contourLooped <> "\n" <> show eNodes <> "\n" <> show iNodes <> "\n"
 
     --   Handle the the case of 3 or more nodes.
     handleThreeOrMoreNodes
+      | endsAtSamePoint && contourLooped = Right $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) <> (outOf <$> iNodes)) Nothing]
       -- FIXME: this can happen for non-loops. which means this Nothing is wrong.
-      | endsAtSamePoint = Right $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) <> (outOf <$> iNodes)) Nothing]
-      | hasShortestNeighboringPair = Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes loop remainingENodes (remainingINodes <> averageOfShortestPairs)))
+      | endsAtSamePoint && not contourLooped = error $ show ( INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) <> (outOf <$> iNodes)) Nothing])
+      | hasShortestNeighboringPair = Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes remainingLoop remainingLineSegs (remainingINodes <> averageOfShortestPairs)))
       | otherwise = errorLen3
       where
         inodesOf (INodeSet set) = set
@@ -627,8 +635,8 @@ skeletonOfNodes loop eNodes iNodes =
                 <> "MixedPairResults: " <> show (uncurry averageNodes <$> shortestMixedPairs) <> "\n"
                 <> show (isSomething shortestMixedPairDistance) <> "\n"
                 <> show (shortestEPairDistance == shortestPairDistance) <> "\n"
-                <> "resultingENodes: " <> show remainingENodes <> "\n"
-                <> "resultingNodes: " <> show remainingINodes <> "\n"
+                <> "remainingLineSegs: " <> show remainingLineSegs <> "\n"
+                <> "remainingINodes: " <> show remainingINodes <> "\n"
                 <> "thisGen: " <> show averageOfShortestPairs <> "\n"
 
     -- | When all of our nodes end in the same point we should create a single Node with all of them as input. This checks for that case.
@@ -646,7 +654,7 @@ skeletonOfNodes loop eNodes iNodes =
           case lineIntersections of
             [] -> []
             [a] -> case pointIntersections of
-                     [] -> [and pointsCloseEnough]
+                     [] -> error "one line, no points.. makes no sense."
                      (x:_) -> [and pointsCloseEnough && distancePPointToPLine x a < fudgeFactor*15]
             (_:_) -> error
                      $ "detected multiple lines?\n"
@@ -669,9 +677,46 @@ skeletonOfNodes loop eNodes iNodes =
     makeLastPair :: (Arcable a, Arcable b) => a -> b -> INode
     makeLastPair node1 node2 = makeINode (sortedPair node1 node2) Nothing
 
-    -- | determine the exterior nodes available for calculation during the next recurse.
-    remainingENodes :: [ENode]
-    remainingENodes = filter (`notElem` (fst <$> mixedPairsFound) <> (fst <$> ePairsFound) <> (snd <$> ePairsFound)) eNodes
+    -- | which ENodes contributed to this generation.
+    foundENodes = (fst <$> mixedPairsFound) <> (fst <$> ePairsFound) <> (snd <$> ePairsFound)
+
+    -- | is the looping ENode still present?
+    remainingLoop = (connectedLoop && null (filter (\a -> a == loopOfSegSets inSegSets) foundENodes))
+
+    -- | determine the line segments available for drawing ENodes from during the next recurse.
+    remainingLineSegs :: Slist [LineSeg]
+    remainingLineSegs
+      | null foundENodes = inSegSets
+      | otherwise = case inSegSets of
+                      (Slist [] _) -> error "cannot remove segment from empty set."
+                      (Slist segLists _) -> slist $ concat $ (removeENodesFromSegList (slist foundENodes)) <$> segLists
+      where
+        removeENodesFromSegList :: Slist ENode -> [LineSeg] -> [[LineSeg]]
+        removeENodesFromSegList eNodesIn lineSegs =
+          filterTooShorts $ case eNodesIn of
+                              (Slist [] _) -> [lineSegs]
+                              (Slist (oneENode:moreENodes) _) -> concat $ removeENodeFromSegList oneENode <$> removeENodesFromSegList (slist moreENodes) lineSegs
+          where
+            filterTooShorts sets = catMaybes $ isTooShort <$> sets
+            isTooShort set = case set of
+                               [] -> Nothing
+                               [val] -> Just [val]
+                               vals -> Just vals
+            removeENodeFromSegList :: ENode -> [LineSeg] -> [[LineSeg]]
+            removeENodeFromSegList eNode rawInSegs =
+              case rawInSegs of
+                [] -> []
+                [a] -> [[a]]
+                (_:_) -> if (len $ slist removeENode) > (len $ slist rawInSegs)
+                         then error "missed!"
+                         else removeENode
+                  where
+                    -- Does not really remove anything from the input segments, but breaks the lists right where the ENode used to be generated, preventing it from being generated in the next round.
+                    removeENode
+                     | getFirstLineSeg eNode == PL.head rawInSegs = [[PL.head rawInSegs]] <> [PL.tail rawInSegs]
+                     | getLastLineSeg eNode == PL.last rawInSegs = [PL.init rawInSegs] <> [[PL.last rawInSegs]]
+                     | otherwise = [takeWhile (\a -> getLastLineSeg eNode /= a) rawInSegs] <>
+                                   [dropWhile (\a -> getLastLineSeg eNode /= a) rawInSegs]
 
     -- | determine the interior nodes available for calculation during the next recurse.
     remainingINodes :: [INode]
