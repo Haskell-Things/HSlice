@@ -677,7 +677,6 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     makeLastPair :: (Arcable a, Arcable b) => a -> b -> INode
     makeLastPair node1 node2 = makeINode (sortedPair node1 node2) Nothing
 
-
     -- | which ENodes contributed to this generation.
     foundENodes = (fst <$> mixedPairsFound) <> (fst <$> ePairsFound) <> (snd <$> ePairsFound)
 
@@ -693,7 +692,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                       (Slist segLists _) -> slist $ concat $ (removeENodesFromSegList (slist foundENodes)) <$> segLists
       where
         removeENodesFromSegList :: Slist ENode -> [LineSeg] -> [[LineSeg]]
-        removeENodesFromSegList eNodesIn lineSegs = 
+        removeENodesFromSegList eNodesIn lineSegs =
           filterTooShorts $ case eNodesIn of
                               (Slist [] _) -> [lineSegs]
                               (Slist (oneENode:moreENodes) _) -> concat $ removeENodeFromSegList oneENode <$> removeENodesFromSegList (slist moreENodes) lineSegs
