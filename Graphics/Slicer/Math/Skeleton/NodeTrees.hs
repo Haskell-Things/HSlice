@@ -162,7 +162,7 @@ mergeNodeTrees nodeTrees =
       | otherwise = error "make me."
     addOneSidedINodeSets :: NodeTree -> NodeTree -> INodeSet
     addOneSidedINodeSets nt1@(NodeTree _ iNodeSet1@(INodeSet rawINodeSet1)) nt2@(NodeTree _ iNodeSet2@(INodeSet rawINodeSet2))
-      | hasNoINodes iNodeSet1 && hasNoINodes iNodeSet2 = error $ show $ nodeTreesInOrder nt1 nt2
+      | hasNoINodes iNodeSet1 && hasNoINodes iNodeSet2 = INodeSet $ slist $ nodeTreesInOrder nt1 nt2
       | hasNoINodes iNodeSet1 && hasArc (finalINodeOf iNodeSet2) = INodeSet $ rawINodeSet2 <> slist (nodeTreesInOrder nt1 nt2)
       | hasNoINodes iNodeSet1 = INodeSet $ SL.init rawINodeSet2 <> slist (nodeTreeAndInsInOrder nt1 nt2)
       | hasNoINodes iNodeSet2 && hasArc (finalINodeOf iNodeSet1) = INodeSet $ rawINodeSet1 <> slist (nodeTreesInOrder nt2 nt1)
