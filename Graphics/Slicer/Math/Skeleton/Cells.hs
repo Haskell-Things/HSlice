@@ -150,10 +150,6 @@ findNextCell (RemainingContour (Slist [(Slist lineSegs _, divides)] _) ) =
       Just (contourFromCell, Nothing)
       where
         contourFromCell = Cell (slist [(slist lineSegs, Nothing)])
-    [oneDivide] ->
-      Just (cell, Just [findRemainder cell lineSegs divides])
-      where
-        cell = createCellFromStraightWalls (slist [lineSegs]) [oneDivide]
     _ ->
       Just (cell, Just [findRemainder cell lineSegs divides])
       where
@@ -189,6 +185,7 @@ findNextCell (RemainingContour (Slist [(Slist lineSegs _, divides)] _) ) =
         toPPoint2 (Right ppoint2) = ppoint2
         startPPoint (LineSeg start _) = eToPPoint2 start
 
+-- | Where the intersection intersects a contour.
 data AtOrAround = At
                 | Before
                 | After
@@ -265,6 +262,7 @@ findRemainder (Cell segSets) contourSegList divides
 -- | use a single straight division to cut a section of a contour out, converting it to a cell.
 -- Always assumes the open side.
 -- Always assumes the open side does not create a loop in the contour.
+-- FIXME: only handles one divide, not two intersecting divides.
 createCellFromStraightWalls :: Slist [LineSeg] -> [CellDivide] -> Cell
 createCellFromStraightWalls (Slist [] _) _ = error "empty slist."
 createCellFromStraightWalls (Slist (_:_:_) _) _ = error "too many segsets."
@@ -277,15 +275,15 @@ createCellFromStraightWalls segSetSlist@(Slist [segSet] _) [cellDivide@(CellDivi
                              (slist gatherLineSegsFollowingDivide, Nothing)])
   where
     segsAreClosed mySegs = startPoint (head mySegs) == endPoint (last mySegs)
-    -- |  Return the line segments preceeding the first divide, from the opening.
+    -- | Return the line segments preceeding the first divide, from the opening.
     gatherLineSegsPreceedingDivide = if startBeforeEnd
                                      then takeWhile (/= outSeg) segSet
                                      else  takeWhile (/= segmentAfter motorcycleOutSegment) segSet
-    -- |  Return the line segments following the first divide, toward the opening.
+    -- | Return the line segments following the first divide, toward the opening.
     gatherLineSegsFollowingDivide = if startBeforeEnd
                                     then dropWhile (/= motorcycleOutSegment) segSet
                                     else dropWhile (/= outSeg) segSet
-    -- |  Return the line segments after the first divide.
+    -- | Return the line segments after the first divide.
     gatherLineSegsAfterDivide = if startBeforeEnd
                                 then takeWhile (/= segmentAfter motorcycleOutSegment) $ dropWhile (/= outSeg) segSet
                                 else takeWhile (/= outSeg)                            $ dropWhile (/= motorcycleOutSegment) segSet
