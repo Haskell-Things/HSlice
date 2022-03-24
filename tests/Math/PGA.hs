@@ -82,7 +82,7 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Math.Util ((-->), (-/>))
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
-import Graphics.Slicer.Math.Ganja (ListThree, Radian(Radian), cellFrom, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomENode, randomINode, randomLineSeg, randomPLine, remainderFrom, onlyOne, dumpGanjas, toGanja)
+import Graphics.Slicer.Math.Ganja (ListThree, Radian(Radian), cellFrom, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, remainderFrom, onlyOne, dumpGanjas, toGanja)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
@@ -931,6 +931,50 @@ prop_ConvexQuadFacesInOrder x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDis
         unwrap :: Face -> LineSeg
         unwrap (Face edge _ _ _) = edge
 
+prop_ConcaveChevronQuadOneDivide :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConcaveChevronQuadOneDivide a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+  where
+    doTest concaveChevronQuad = len ( slist $ findDivisions concaveChevronQuad (fromMaybe (error $ show concaveChevronQuad) $ crashMotorcycles concaveChevronQuad [])) --> 1
+
+prop_ConcaveChevronQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConcaveChevronQuadHasStraightSkeleton a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+  where
+    doTest concaveChevronQuad = findStraightSkeleton concaveChevronQuad [] -/> Nothing
+
+prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+  where
+    doTest concaveChevronQuad = generationsOf (findStraightSkeleton concaveChevronQuad []) --> 1
+    generationsOf Nothing = 0
+    generationsOf (Just (StraightSkeleton v _)) = len v
+
+prop_ConcaveChevronQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConcaveChevronQuadCanPlaceFaces a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+  where
+    doTest concaveChevronQuad = facesOf (fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) -/> slist []
+
+prop_ConcaveChevronQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConcaveChevronQuadHasRightFaceCount a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+  where
+    doTest concaveChevronQuad = length (facesOf $ fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) --> 4
+
+prop_ConcaveChevronQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConcaveChevronQuadFacesInOrder a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+  where
+    doTest concaveChevronQuad = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) --> concaveChevronQuadAsSegs
+      where
+        concaveChevronQuadAsSegs = lineSegsOfContour concaveChevronQuad
+        firstSeg = onlyOneOf concaveChevronQuadAsSegs
+        onlyOneOf :: [LineSeg] -> LineSeg
+        onlyOneOf eNodes = case eNodes of
+                          [] -> error "none"
+                          (oneENode:_) -> oneENode
+        edgesOf :: Slist Face -> [LineSeg]
+        edgesOf faces = unwrap <$> (\(Slist edge _) -> edge) faces
+          where
+            unwrap :: Face -> LineSeg
+            unwrap (Face edge _ _ _) = edge
+
 prop_obtuseBisectorOnBiggerSide_makeENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Expectation
 prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
   | testFirstLine = pLineIsLeft bisector pl1 --> Just True
@@ -1175,6 +1219,18 @@ facetSpec = do
       property prop_ConvexQuadHasRightFaceCount
     it "places faces on a convex quad in the order the line segments were given" $
       property prop_ConvexQuadFacesInOrder
+    it "finds one divide in a concave chevron quad" $
+      property prop_ConcaveChevronQuadOneDivide
+    it "finds the straight skeleton of a concave chevron quad (property)" $
+      property prop_ConcaveChevronQuadHasStraightSkeleton
+    it "only generates one generation for a concave chevron quad" $
+      property prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount
+    it "places faces on the straight skeleton of a concave chevron quad" $
+      property prop_ConcaveChevronQuadCanPlaceFaces
+    it "finds only four faces for any concave chevron quad" $
+      property prop_ConcaveChevronQuadHasRightFaceCount
+    it "places faces on a concave chevron quad in the order the line segments were given" $
+      property prop_ConcaveChevronQuadFacesInOrder
     it "finds the outsideArc of two intersecting lines (inverted makeENode)" $
       property prop_obtuseBisectorOnBiggerSide_makeENode
     it "finds the outsideArc of two intersecting lines (makeINode)" $
