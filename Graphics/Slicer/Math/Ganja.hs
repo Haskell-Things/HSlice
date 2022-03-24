@@ -81,7 +81,7 @@
 -- so we can define a Num instance for Positive.
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomENode, randomINode, randomPLine, randomLineSeg, cellFrom, remainderFrom, onlyOne) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomLineSeg, cellFrom, remainderFrom, onlyOne) where
 
 import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
 
@@ -411,6 +411,10 @@ instance Fractional (Radian a) where
   (/) (Radian r1) (Radian r2) = Radian $ r1 / r2
   fromRational a = Radian $ fromRational a
 
+instance (Ord a, Num a, Fractional a) => Fractional (Positive a) where
+  (/) (Positive r1) (Positive r2) = Positive $ r1 / r2
+  fromRational a = Positive $ fromRational a
+
 -- | Generate a random triangle.
 randomTriangle :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Contour
 randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX centerY $ makePairs dists radians
@@ -581,6 +585,41 @@ randomConvexQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt rawFirs
         | v > Radian pi = v - Radian pi
         | otherwise = v
       distances = [firstDistanceToCorner, thirdDistanceToCorner, secondDistanceToCorner, thirdDistanceToCorner]
+
+-- | Generate a concave four sided polygon, with the convex motorcycle impacting the opposing bend (a 'dart' per wikipedia. a chevron, or a ^.)
+-- Note: the center point is always outside of this polygon.
+randomConcaveChevronQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
+randomConcaveChevronQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+    where
+      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
+      [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance $ sort [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
+      ensureUniqueDistance :: [Positive ℝ] -> [Positive ℝ]
+      ensureUniqueDistance vals
+        | allUnique vals = vals
+        | otherwise = ensureUniqueDistance $ sort [v*m | m <- [2,3] | v <- vals]
+      thirdDistanceToCorner = secondDistanceToCorner / 2
+      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
+      [firstTilt, secondTilt] = sort $ ensureUnique $ clipRadian <$> sort [rawFirstTilt, rawSecondTilt]
+      ensureUnique :: [Radian ℝ] -> [Radian ℝ]
+      ensureUnique vals
+        | allUnique vals = vals
+        | otherwise = ensureUnique $ sort [v*m | m <- [2,3] | v <- vals]
+      radians :: [Radian ℝ]
+      radians =
+        [
+          firstTilt
+        , secondTilt
+        , flipRadian firstTilt
+        , secondTilt
+        ]
+      flipRadian :: Radian ℝ -> Radian ℝ
+      flipRadian v
+        | v < Radian pi = v + Radian pi
+        | otherwise     = v - Radian pi
+      clipRadian v
+        | v > Radian pi = v - Radian pi
+        | otherwise = v
+      distances = [firstDistanceToCorner, secondDistanceToCorner, firstDistanceToCorner, thirdDistanceToCorner]
 
 -- | generate a random polygon.
 -- Idea stolen from: https://stackoverflow.com/questions/8997099/algorithm-to-generate-random-2d-polygon
