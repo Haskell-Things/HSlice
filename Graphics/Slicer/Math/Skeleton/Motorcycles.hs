@@ -270,10 +270,11 @@ motorcycleMightIntersectWith lineSegs motorcycle
         intersectionPPointIsBehind pPoint = angleBetween (outOf motorcycle) (eToPLine2 $ lineSegToIntersectionP pPoint) < 0
         lineSegToIntersection myPoint = handleLineSegError $ lineSegFromEndpoints (ePointOf motorcycle) myPoint
         lineSegToIntersectionP myPPoint = handleLineSegError $ lineSegFromEndpoints (ePointOf motorcycle) (pToEPoint2 myPPoint)
-    -- | get all possible intersections between the motorcycle and the contour.
+    -- | get all possible intersections between the motorcycle and the given segments.
     getMotorcycleIntersections :: Motorcycle -> [LineSeg] -> [(LineSeg, Either Point2 PPoint2)]
     getMotorcycleIntersections m@(Motorcycle (inSeg, outSeg) _) segs = stripInSegOutSeg $ catMaybes $ mapWithNeighbors saneIntersections $ shortCircuit $ zip bufferedLineSegs $ mightIntersect <$> bufferedLineSegs
       where
+        -- since this is a list of segments, we terminate the list with Nothings, so that the saneIntersections pattern matching logic can deal with "there is no neighbor, but i hit a start/end point"
         bufferedLineSegs :: [Maybe LineSeg]
         bufferedLineSegs = Nothing : (Just <$> segs) <> [Nothing]
         mightIntersect :: Maybe LineSeg -> Maybe (Either Intersection PIntersection)
@@ -306,7 +307,11 @@ motorcycleMightIntersectWith lineSegs motorcycle
         saneIntersections  Nothing                                (Just (seg , Left (HitStartPoint _ pt))) (Just (_ , Left NoIntersection))          = Just (seg, Left pt)
         saneIntersections  Nothing                                (Just (seg , Left (HitStartPoint _ pt)))  Nothing                                  = Just (seg, Left pt)
         saneIntersections  Nothing                                (Just (seg , Left (HitEndPoint  _ pt)))   Nothing                                  = Just (seg, Left pt)
-        saneIntersections l1 l2 l3 = error $ "insane result of saneIntersections:\n" <> show l1 <> "\n" <> show l2 <> "\n" <> show l3 <> "\n"
+        saneIntersections  Nothing                                (Just (seg , Left (HitStartPoint _ pt))) (Just (_ , Right _))                      = Just (seg, Left pt)
+        saneIntersections  Nothing                                (Just (seg , Left (HitEndPoint  _ pt)))  (Just (_ , Right _))                      = Just (seg, Left pt)
+        saneIntersections (Just (_ , Right _))                    (Just (seg , Left (HitStartPoint _ pt)))  Nothing                                  = Just (seg, Left pt)
+        saneIntersections (Just (_ , Right _))                    (Just (seg , Left (HitEndPoint  _ pt)))   Nothing                                  = Just (seg, Left pt)
+        saneIntersections l1 l2 l3 = error $ "insane result of saneIntersections:\n" <> show l1 <> "\n" <> show l2 <> "\n" <> show l3 <> "\nWhen intersection motorcycle out:\n" <> show (outOf m) <> "\nagainst segments:\n" <> show segs <> "\n" <> show bufferedLineSegs <> "\n"
 
 -- | Find the closest place where a motorcycle intersects a contour that is not the point where it ejects from.
 --   If the motorcycle lands between two segments, return the second line segment, otherwise return the PPoint2 of the intersection with the first LineSeg.
@@ -353,7 +358,12 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
       where
         stripInSegOutSeg :: [(LineSeg, Either LineSeg PPoint2)] -> [(LineSeg, Either LineSeg PPoint2)]
         stripInSegOutSeg myIntersections
-          | not (any fun myIntersections) = error $ "no remaining segment, after removing motorcycle's inSeg and OutSeg.\nReceived: " <> show myIntersections <> "\n"
+          | not (any fun myIntersections) = error
+                                            $ "no remaining segment, after removing motorcycle's inSeg and OutSeg.\n"
+                                            <> "Received: " <> show myIntersections <> "\n"
+                                            <> "contourLines: " <> show contourLines <> "\n"
+                                            <> "PLine: " <> show (outOf m) <> "\n"
+                                            <> "Results: " <> show (intersectsWith (Right $ outOf m) . Left <$> contourLines) <> "\n"
           | otherwise = L.filter fun myIntersections
           where
             -- make sure neither of these segments are inSeg or outSeg
