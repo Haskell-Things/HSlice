@@ -30,7 +30,7 @@ import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, elem, filter, null,
 
 import Data.Either(Either(Left, Right))
 
-import Data.List (elemIndex, sortBy, dropWhile, takeWhile)
+import Data.List (elemIndex, sortBy, dropWhile, takeWhile, nub)
 
 import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
 
@@ -40,7 +40,7 @@ import Slist.Type (Slist(Slist), one)
 
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), ePointOf, finalPLine, getFirstLineSeg, intersectionOf, outOf, makeINode, insOf, lastINodeOf, pPointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), canPoint, ePointOf, finalPLine, getFirstLineSeg, intersectionOf, outOf, makeINode, insOf, lastINodeOf, pPointOf)
 
 import Graphics.Slicer.Math.Ganja (dumpGanja)
 
@@ -270,6 +270,7 @@ createCellFromStraightWalls _ [] = error "no celldivide."
 createCellFromStraightWalls _ (_:_:_) = error "too many celldivides."
 createCellFromStraightWalls segSetSlist@(Slist [segSet] _) [cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _) _) _)]
   | len segSetSlist < 1 = error "recieved a single segment. unpossible."
+  | segsAreClosed (slist $ head segSetSlist) && len segSetSlist == len (slist gatherLineSegsAfterDivide) = error "passing back full segment list, which should not be possible."
   | segsAreClosed (slist $ head segSetSlist) = Cell (slist [(slist gatherLineSegsAfterDivide, Just cellDivide)])
   | otherwise = Cell (slist [(slist gatherLineSegsPreceedingDivide, Just cellDivide),
                              (slist gatherLineSegsFollowingDivide, Nothing)])
@@ -342,7 +343,16 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
     adjustedNodeTree1 = redirectLastOut nodeTree1 crossoverPoint
     adjustedNodeTree2 = redirectLastOut nodeTree2 crossoverPoint
     -- adjust the last output of the nodetree so that it goes through the point it's supposed to.
-    redirectLastOut (NodeTree eNodes iNodeGens@(INodeSet gens)) myCrossover = NodeTree eNodes $ INodeSet $ init gens <> one [makeINode (insOf $ lastINodeOf iNodeGens) (Just $ join2PPoint2 (pPointOf $ lastINodeOf iNodeGens) myCrossover)]
+    redirectLastOut nodeTree@(NodeTree eNodes iNodeGens@(INodeSet gens)) myCrossover =
+      -- Drop INodes with two identical inputs at this stage.
+      case nub $ insOf $ lastINodeOf iNodeGens of
+        [] -> error "unpossible."
+        [_] -> NodeTree eNodes $ INodeSet $ init gens
+        (_:_) -> NodeTree eNodes $ INodeSet $ init gens <> one [makeINode (nub $ insOf $ lastINodeOf iNodeGens) (Just $ join2PPoint2 (finalPointOfNodeTree nodeTree) myCrossover)]
+    -- | find the last resolvable point in a NodeTree
+    finalPointOfNodeTree (NodeTree _ iNodeGens)
+      | canPoint (lastINodeOf iNodeGens) = pPointOf $ lastINodeOf iNodeGens
+      | otherwise = error "last INode not pointable?"
     crossoverPoint = case division of
                        (CellDivide (DividingMotorcycles motorcycle1 (Slist [] _)) target) -> -- no eNode, and no opposing motorcycle.
                          motorcycleDivisor motorcycle1 target
