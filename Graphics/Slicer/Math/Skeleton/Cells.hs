@@ -24,9 +24,9 @@
 
 -- |  This file contains the entry point for the logic and routines required for dividing
 --    a contour into cells.
-module Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason(INodeCrossesDivide), findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell, nodeTreesDoNotOverlap, addNodeTreesAlongDivide, nodeTreesFromDivision) where
+module Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason(INodeCrossesDivide), findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell, nodeTreesDoNotOverlap, addNodeTreesAlongDivide, nodeTreesFromDivision, startOfDivide, endOfDivide, findRemainder, createCellFromStraightWalls) where
 
-import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, elem, filter, null, otherwise, ($), (<$>), (==), error, (<>), show, (&&), compare, concat, (/=), (||), (<), (<=), fst, snd)
+import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, elem, filter, null, otherwise, ($), (<$>), (==), error, (<>), show, (&&), compare, concat, (/=), (||), (<), (<=), fst, snd, (*))
 
 import Data.Either(Either(Left, Right))
 
@@ -40,7 +40,7 @@ import Slist.Type (Slist(Slist), one)
 
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), canPoint, ePointOf, finalPLine, getFirstLineSeg, intersectionOf, outOf, makeINode, insOf, lastINodeOf, pPointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), canPoint, ePointOf, finalPLine, getFirstLineSeg, intersectionOf, outOf, makeINode, insOf, lastINodeOf, pPointOf, isLoop)
 
 import Graphics.Slicer.Math.Ganja (dumpGanja)
 
@@ -50,7 +50,7 @@ import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeT
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, distance, startPoint, fudgeFactor)
 
 import Graphics.Slicer.Math.Line (endPoint, handleLineSegError, lineSegFromEndpoints)
 
@@ -151,9 +151,13 @@ findNextCell (RemainingContour (Slist [(Slist lineSegs _, divides)] _) ) =
       where
         contourFromCell = Cell (slist [(slist lineSegs, Nothing)])
     _ ->
-      Just (cell, Just [findRemainder cell lineSegs divides])
+      if len (remainingSegmentsOf remainder) < len (slist lineSegs)
+      then Just (cell, Just [remainder])
+      else error "too many remaining segments."
       where
         cell = createCellFromStraightWalls (slist [lineSegs]) [closestDivide]
+        remainder = findRemainder cell lineSegs divides
+        remainingSegmentsOf (RemainingContour l) = l
         closestDivide = if fst (fst $ head divideClosestSorted) == fst ( fst $ head divideFurthestSorted)
                         then snd $ head divideClosestSorted
                         else error $ "Divide collision:\n" <> show divideClosestSorted <> "\n" <> show divideFurthestSorted <> "\n"
@@ -250,9 +254,9 @@ findRemainder (Cell segSets) contourSegList divides
                    (Just (_, Right _)) -> At
     -- | use the found cell and the motorcycle to determine what direction the motorcycle is going.
     startBeforeEnd
-      | len segSets == 1 = pointOfFirstMotorcycle divide == endPoint (fromMaybe (error "empty list. wth?") $ safeLast firstSegSet) ||
+      | len segSets == 1 = distance (pointOfFirstMotorcycle divide) (endPoint $ fromMaybe (error "empty list. wth?") $ safeLast firstSegSet) < fudgeFactor*15 ||
                            pointOfFirstMotorcycle divide /= startPoint (head firstSegSet) && error "could not use input cell to determine motorcycle direction."
-      | len segSets == 2 = pointOfFirstMotorcycle divide == endPoint (fromMaybe (error "empty list. wth?") $ safeLast firstSegSet) ||
+      | len segSets == 2 = distance (pointOfFirstMotorcycle divide) (endPoint $ fromMaybe (error "empty list. wth?") $ safeLast firstSegSet) < fudgeFactor*15 ||
                            pointOfFirstMotorcycle divide /= startPoint (head lastSegSet) && error "could not use input cell to determine motorcycle direction."
       | otherwise = error "wtf"
     remainingDivides = filter (/= divide) divides
@@ -269,13 +273,12 @@ createCellFromStraightWalls (Slist (_:_:_) _) _ = error "too many segsets."
 createCellFromStraightWalls _ [] = error "no celldivide."
 createCellFromStraightWalls _ (_:_:_) = error "too many celldivides."
 createCellFromStraightWalls segSetSlist@(Slist [segSet] _) [cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _) _) _)]
-  | len segSetSlist < 1 = error "recieved a single segment. unpossible."
-  | segsAreClosed (slist $ head segSetSlist) && len segSetSlist == len (slist gatherLineSegsAfterDivide) = error "passing back full segment list, which should not be possible."
-  | segsAreClosed (slist $ head segSetSlist) = Cell (slist [(slist gatherLineSegsAfterDivide, Just cellDivide)])
+  | len segSetSlist == 0 = error "recieved no line segments. unpossible."
+  | isLoop segSetSlist && len segSetSlist == len (slist gatherLineSegsAfterDivide) = error "passing back full segment list, which should not be possible."
+  | isLoop segSetSlist = Cell (slist [(slist gatherLineSegsAfterDivide, Just cellDivide)])
   | otherwise = Cell (slist [(slist gatherLineSegsPreceedingDivide, Just cellDivide),
                              (slist gatherLineSegsFollowingDivide, Nothing)])
   where
-    segsAreClosed mySegs = startPoint (head mySegs) == endPoint (last mySegs)
     -- | Return the line segments preceeding the first divide, from the opening.
     gatherLineSegsPreceedingDivide = if startBeforeEnd
                                      then takeWhile (/= outSeg) segSet
@@ -390,8 +393,9 @@ nodeTreesDoNotOverlap nodeTree1 nodeTree2 cellDivide@(CellDivide motorcycles1 _)
                                                              (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet check outpoint intersections of more than one motorcycle."
 
 -- | Given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
+-- NOTE: this skips checking nodes that cannot be resolved to a point.
 crossoverINodes :: NodeTree -> CellDivide -> [INode]
-crossoverINodes nodeTree@(NodeTree _ (INodeSet (Slist iNodes _))) cellDivision = filter nodeCrosses (concat iNodes)
+crossoverINodes nodeTree@(NodeTree _ (INodeSet (Slist iNodes _))) cellDivision = filter nodeCrosses (filter canPoint $ concat iNodes)
   where
     nodeCrosses :: INode -> Bool
     nodeCrosses a = Just False `elem` (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)
