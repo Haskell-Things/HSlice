@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), addPPoint2s, eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), dualAngle, pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, distanceBetween2PLine2s, meet2PLine2, forcePLine2Basis, idealNormPPoint2, idealPPoint2, lineIntersectsPLine, pPointBetweenPPoints, reverseGVec, translateRotatePPoint2, intersectionOf, onSegment) where
 
-import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error, sin, cos, abs)
+import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error, sin, cos)
 
 import GHC.Generics (Generic)
 
@@ -238,8 +238,8 @@ lineIntersectsPLine l1 pl1
   | plinesIntersectIn (eToPLine2 l1) pl1 == PAntiParallel = Right PAntiParallel
   | hasIntersection && plinesIntersectIn (eToPLine2 l1) pl1 == PCollinear = Right PCollinear
   | hasIntersection && plinesIntersectIn (eToPLine2 l1) pl1 == PAntiCollinear = Right PAntiCollinear
-  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ startPoint l1) < fudgeFactor*15 = Left $ HitStartPoint l1 intersection
-  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ endPoint l1) < fudgeFactor*15 = Left $ HitEndPoint l1 intersection
+  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ startPoint l1) < fudgeFactor*3000 = Left $ HitStartPoint l1 intersection
+  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ endPoint l1) < fudgeFactor*3000 = Left $ HitEndPoint l1 intersection
   | hasIntersection = Right $ IntersectsIn rawIntersection
   | otherwise = Left NoIntersection
   where
@@ -250,8 +250,8 @@ lineIntersectsPLine l1 pl1
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 onSegment :: LineSeg -> PPoint2 -> Bool
 onSegment ls@(LineSeg p s) i =
-  sqNormOfPLine2 (join2PPoint2 (eToPPoint2 p) (i))               <= sqNormOfSegment + sqNormOfSegment*fudgeFactor*15 &&
-  sqNormOfPLine2 (join2PPoint2 (i) (eToPPoint2 (addPoints p s))) <= sqNormOfSegment + sqNormOfSegment*fudgeFactor*15
+  sqNormOfPLine2 (join2PPoint2 (eToPPoint2 p) (i))               <= sqNormOfSegment + sqNormOfSegment*fudgeFactor*300 &&
+  sqNormOfPLine2 (join2PPoint2 (i) (eToPPoint2 (addPoints p s))) <= sqNormOfSegment + sqNormOfSegment*fudgeFactor*300
   where
     sqNormOfSegment = sqNormOfPLine2 $ eToPLine2 ls
 
