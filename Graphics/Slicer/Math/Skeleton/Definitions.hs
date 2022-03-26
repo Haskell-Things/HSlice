@@ -29,13 +29,15 @@
 
 -- | Common types and functions used in the code responsible for generating straight skeletons.
 
-module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, noIntersection, isCollinear, isAntiCollinear, isParallel, intersectionOf, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, intersectionBetween, lastInOf) where
+module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, noIntersection, isCollinear, isAntiCollinear, isParallel, intersectionOf, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, intersectionBetween, isLoop, lastInOf) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<))
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<), (*))
+
+import Prelude as PL (head, last)
 
 import Data.Either (Either(Right, Left))
 
-import Data.List (filter, sortBy)
+import Data.List (filter, sortBy, nub)
 
 import Data.List.Extra (unsnoc)
 
@@ -47,7 +49,7 @@ import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust)
 
 import Slist (len, cons, slist, isEmpty, safeLast, init)
 
-import Slist as SL (last)
+import Slist as SL (last, head)
 
 import Slist.Type (Slist(Slist))
 
@@ -55,9 +57,9 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.PGA (pToEPoint2, PPoint2, plinesIntersectIn, PIntersection(PCollinear,PAntiCollinear, IntersectsIn,PParallel,PAntiParallel), eToPPoint2, flipPLine2, lineIsLeft, PLine2(PLine2), eToPLine2, pLineIsLeft, distanceBetweenPPoints, distanceBetween2PLine2s)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance)
 
-import Graphics.Slicer.Math.Line (handleLineSegError, lineSegFromEndpoints)
+import Graphics.Slicer.Math.Line (handleLineSegError, lineSegFromEndpoints, endPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -113,7 +115,7 @@ instance Pointable INode where
           saneIntersect (IntersectsIn _) = True
           saneIntersect _                = False
   -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? angle based, etc?
-  pPointOf iNode@(INode firstPLine secondPLine morePLines _)
+  pPointOf iNode@(INode firstPLine secondPLine (Slist rawPLines _) _)
     | allPointsSame = case results of
                         [] -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
                         [a] -> a
@@ -125,12 +127,12 @@ instance Pointable INode where
     where
       results = intersectionsOfPairs allPLines
       allPointsSame = case intersectionsOfPairs allPLines of
-                        [] -> error $ "no intersection of pairs for " <> show allPLines
+                        [] -> error $ "no intersection of pairs for " <> show allPLines <> "\nINode: " <> show iNode <> "\n"
                         [_] -> True
                         points -> and $ mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor) points
       allPLines = if hasArc iNode
-                  then cons (outOf iNode) $ cons firstPLine $ cons secondPLine morePLines
-                  else cons firstPLine $ cons secondPLine morePLines
+                  then slist $ nub $ outOf iNode : firstPLine : secondPLine : rawPLines
+                  else slist $ nub $ firstPLine : secondPLine : rawPLines
       intersectionsOfPairs (Slist pLines _) = catMaybes $ (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) <$> getPairs pLines
         where
           saneIntersect (IntersectsIn a) = Just a
@@ -230,6 +232,16 @@ getPairs (x:xs) = ((x,) <$> xs) <> getPairs xs
 ---------------------------------------
 -- Utility functions for our solvers --
 ---------------------------------------
+
+-- | determine if the given line segment set contains just one loop.
+isLoop :: Slist [LineSeg] -> Bool
+isLoop inSegSets = endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
+  where
+    (lastSeg, firstSeg) = case inSegSets of
+                            (Slist [] _) -> error "no segments!"
+                            oneOrMoreSets@(Slist ((_:_:_):_) _) -> (PL.last $ SL.last oneOrMoreSets, PL.head $ SL.head oneOrMoreSets)
+                            oneOrMoreSets@(Slist (_:_:_) _) -> (PL.last $ SL.last oneOrMoreSets, PL.head $ SL.head oneOrMoreSets)
+                            (Slist _ _) -> error "just one segment?"
 
 -- | get the first line segment of an ENode.
 getFirstLineSeg :: ENode -> LineSeg
