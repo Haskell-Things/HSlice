@@ -50,7 +50,7 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, distance, fudgeFactor, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -58,8 +58,7 @@ import Graphics.Slicer.Math.Line (endPoint, makeLineSeg)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine, flipPLine2)
 
---import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, eNodeToINode, getFirstLineSeg, getLastLineSeg, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, firstInOf, getPairs, isCollinear, indexPLinesTo, insOf, isParallel, lastINodeOf, linePairs, makeINode, intersectionBetween, sortedPLines)
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, getFirstLineSeg, getLastLineSeg, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, firstInOf, getPairs, isCollinear, indexPLinesTo, insOf, isParallel, lastINodeOf, linePairs, makeINode, intersectionBetween, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, getFirstLineSeg, getLastLineSeg, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, firstInOf, getPairs, isCollinear, indexPLinesTo, insOf, isParallel, lastINodeOf, linePairs, makeINode, intersectionBetween, sortedPLines, isLoop)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree, findENodeByOutput)
 
@@ -131,16 +130,6 @@ isHallway :: NodeTree -> Bool
 isHallway (NodeTree _ iNodeSet) = iNodeSetHasOneMember iNodeSet
   where
     iNodeSetHasOneMember (INodeSet myINodeSet) = len myINodeSet == 1
-
--- | determine if the given line segment set contains just one loop.
-isLoop :: Slist [LineSeg] -> Bool
-isLoop inSegSets = endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
-  where
-    (lastSeg, firstSeg) = case inSegSets of
-                            (Slist [] _) -> error "no segments!"
-                            oneOrMoreSets@(Slist ((_:_:_):_) _) -> (PL.last $ SL.last oneOrMoreSets, PL.head $ SL.head oneOrMoreSets)
-                            oneOrMoreSets@(Slist (_:_:_) _) -> (PL.last $ SL.last oneOrMoreSets, PL.head $ SL.head oneOrMoreSets)
-                            (Slist _ _) -> error "just one segment?"
 
 -- | Create the set of ENodes for a set of segments
 makeInitialGeneration :: Bool -> Slist [LineSeg] -> [ENode]
