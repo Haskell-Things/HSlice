@@ -46,11 +46,11 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour, pointsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithNeighbors, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithNeighbors, startPoint, distance)
 
 import Graphics.Slicer.Math.Line (endPoint, lineSegFromEndpoints, handleLineSegError)
 
-import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, lineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel,PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith, plinesIntersectIn, plineFromEndpoints, pToEPoint2, distanceBetweenPPoints, angleBetween, eToPPoint2, lineIntersectsPLine, normalizePLine2, pPointBetweenPPoints, translatePerp)
+import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel,PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith, plinesIntersectIn, plineFromEndpoints, pToEPoint2, distanceBetweenPPoints, angleBetween, eToPPoint2, lineIntersectsPLine, normalizePLine2, pPointBetweenPPoints, translatePerp)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), Pointable, ENode(ENode), getFirstLineSeg, linePairs, pPointOf, intersectionOf, isAntiCollinear, noIntersection, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), canPoint, ePointOf)
 
@@ -131,7 +131,10 @@ crashMotorcycles contour holes
                                                                          Just $ CrashTree inMotorcycles (slist []) (slist [collision])
                                                                        Nothing ->
                                                                          Just $ CrashTree inMotorcycles inMotorcycles (slist [])
-                                    (Slist (_:_) _) -> Nothing
+                                    (Slist (_:_) _) -> error
+                                                       $ "found too many motorcycles: " <> show inMotorcycles <> "\n"
+                                                       <> "contour: " <> show contour <> "\n"
+                                                       <> "holes: " <> show holes <> "\n"
       -- Note that to solve this case, we will have to have a concept of speed of the motorcycle.
       | otherwise = Nothing
         where
@@ -172,11 +175,11 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (rotateLeft $ li
     --   Note that we know that the inside is to the left of the first line given, and that the first line points toward the intersection.
     convexPLines :: Point2 -> Point2 -> Point2 -> Maybe PLine2
     convexPLines p1 p2 p3
-      | Just True == lineIsLeft seg1 seg2  = Nothing
+      | Just True == pLineIsLeft pl1 pl2  = Nothing
       | otherwise                          = Just $ motorcycleFromPoints p1 p2 p3
         where
-          seg1 = handleLineSegError $ lineSegFromEndpoints p1 p2
-          seg2 = handleLineSegError $ lineSegFromEndpoints p2 p3
+          pl1 = plineFromEndpoints p1 p2
+          pl2 = plineFromEndpoints p2 p3
 
 -- | generate the PLine of a motorcycle for the given three points.
 motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> PLine2
@@ -345,6 +348,7 @@ getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _) c = stripInSe
     stripInSegOutSeg myIntersections
       | not (any fun myIntersections) = error
                                         $ "no remaining segment, after removing motorcycle's inSeg and OutSeg.\n"
+                                        <> "motorcycle: " <> show m <> "\n"
                                         <> "Received: " <> show myIntersections <> "\n"
                                         <> "contourLines: " <> show contourLines <> "\n"
                                         <> "PLine: " <> show (outOf m) <> "\n"
@@ -365,15 +369,17 @@ getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _) c = stripInSe
     saneIntersections  _                              (seg , Left (HitStartPoint _ _)) (seg2 , Left (HitEndPoint   _ _)) = Just (seg, Left seg2)
     saneIntersections (_  , Left (HitStartPoint _ _)) (_   , Left (HitEndPoint   _ _))  _                                = Nothing
     saneIntersections  _                              (_   , Left (HitEndPoint   _ _)) (_    , Left (HitStartPoint _ _)) = Nothing
-    saneIntersections (seg, Left (HitEndPoint   _ _)) (seg2, Left (HitStartPoint _ _))  _                                = Just (seg, Left seg2)
+    saneIntersections (seg, Left (HitEndPoint   _ _)) (seg2, Left (HitStartPoint _ _))  _                                = Just (seg2, Left seg)
     saneIntersections l1 l2 l3 = error
                                  $ "insane result of saneIntersections:\n"
-                                 <> show l1 <> "\n" <> show (lEnd l1) <> "\n"
-                                 <> show l2 <> "\n" <> show (lEnd l2) <> "\n"
-                                 <> show l3 <> "\n" <> show (lEnd l3) <> "\n"
+                                 <> show l1 <> "\nEndpoint: " <> show (endPoint $ lSeg l1) <> "\nLength: " <> show (lineLength l1) <> "\nAngle: " <> show (angleBetween (eToPLine2 $ lSeg l1) (outOf m)) <> "\n"
+                                 <> show l2 <> "\nEndpoint: " <> show (endPoint $ lSeg l2) <> "\nLength: " <> show (lineLength l2) <> "\nAngle: " <> show (angleBetween (eToPLine2 $ lSeg l2) (outOf m)) <> "\n"
+                                 <> show l3 <> "\nEndpoint: " <> show (endPoint $ lSeg l3) <> "\nLength: " <> show (lineLength l3) <> "\nAngle: " <> show (angleBetween (eToPLine2 $ lSeg l3) (outOf m)) <> "\n"
       where
-        lEnd :: (LineSeg, Either Intersection PIntersection) -> Point2
-        lEnd (myseg,_) = endPoint myseg
+        lSeg :: (LineSeg, Either Intersection PIntersection) -> LineSeg
+        lSeg (myseg,_) = myseg
+        lineLength :: (LineSeg, Either Intersection PIntersection) -> ℝ
+        lineLength (mySeg, _) = distance (startPoint mySeg) (endPoint mySeg)
 
 -- | Determine if a node is on one side of a motorcycle, or the other.
 --   Assumes the starting point of the second line segment is a point on the path.
