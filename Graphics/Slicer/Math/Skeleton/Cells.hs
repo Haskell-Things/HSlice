@@ -297,9 +297,9 @@ createCellFromStraightWalls segSetSlist@(Slist [segSet] _) [cellDivide@(CellDivi
     (motorcycleInSegment, eitherMotorcycleOutPoint) = fromMaybe (error "no intersections?") $ motorcycleMightIntersectWith segSet motorcycle
     -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the latter of the two segments (from the beginning of the contour).
     motorcycleOutSegment = case eitherMotorcycleOutPoint of
-                             (Left point2) -> if point2 == endPoint motorcycleInSegment
+                             (Left point2) -> if distance point2 (endPoint motorcycleInSegment) < fudgeFactor*15
                                               then segmentAfter motorcycleInSegment
-                                              else if point2 == startPoint motorcycleInSegment
+                                              else if distance point2 (startPoint motorcycleInSegment) < fudgeFactor*15
                                                    then motorcycleInSegment
                                                    else error $ show point2 <> "\n" <> show segSet <> "\n" <> show motorcycleInSegment
                              (Right _) -> motorcycleInSegment
