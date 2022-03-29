@@ -99,7 +99,6 @@ Library
                     Graphics.Slicer.Math.Facet
                     Graphics.Slicer.Math.Ganja
                     Graphics.Slicer.Math.GeometricAlgebra
-                    Graphics.Slicer.Math.Intersections
                     Graphics.Slicer.Math.Line
                     Graphics.Slicer.Math.PGA
                     Graphics.Slicer.Math.Skeleton.Cells
