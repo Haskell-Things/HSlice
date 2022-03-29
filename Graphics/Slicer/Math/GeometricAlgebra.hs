@@ -17,12 +17,12 @@
  -}
 
 -- for adding Generic and NFData to our types.
-{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass, FlexibleInstances #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, reduceVecPair, unlikeVecPair) where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
 
-import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null)
+import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac)
 
 import Prelude as P (filter)
 
@@ -39,6 +39,8 @@ import Data.List.NonEmpty (NonEmpty((:|)), toList, cons, nonEmpty)
 import Data.List.Ordered (sort, insertSet)
 
 import Data.Maybe (Maybe(Just, Nothing))
+
+import Data.Number.BigFloat (BigFloat, PrecPlus20, Eps1)
 
 import Data.Set (Set, singleton, disjoint, elems, size, elemAt, fromAscList)
 
@@ -149,6 +151,14 @@ divVecScalar (GVec vals) s = GVec $ divVal s <$> vals
   where
     divVal s1 (GVal r i) = GVal (r/s1) i
 
+-- | Divide a vector by a scalar, high precision (read: slow) version. arguments are given in this order for maximum readability.
+hpDivVecScalar :: GVec -> (BigFloat (PrecPlus20 Eps1)) -> GVec
+hpDivVecScalar (GVec vals) s = GVec $ divVal s <$> vals
+  where
+    divVal s1 (GVal r i) = GVal (realToFrac r `hpdiv` realToFrac s1) i
+    hpdiv :: (BigFloat (PrecPlus20 Eps1)) -> (BigFloat (PrecPlus20 Eps1)) -> ℝ
+    hpdiv a b = realToFrac $ a / b
+
 -- | Calculate the like product of a vector pair.
 -- actually a wrapper to make use of the fact that gvec1 `likeVecPair` gvec2 == gvec2 `likeVecPair` gvec1.
 likeVecPair :: GVec -> GVec -> [Either GRVal GVal]
@@ -169,9 +179,9 @@ likeVecPair' vec1 vec2 = results
         multiplyLike vals val@(GVal _ i1) = mulLikePair val <$> P.filter (\(GVal _ i2) -> i2 == i1) vals
           where
             mulLikePair (GVal r1 i) (GVal r2 _)
-              | size i == 1 = simplifyVal (r1*r2) (elemAt 0 i)
+              | size i == 1 = simplifyVal (r1 * r2) (elemAt 0 i)
               | otherwise = case nonEmpty (elems i) of
-                              (Just newi) -> Left $ GRVal (r1*r2) (newi <> newi)
+                              (Just newi) -> Left $ GRVal (r1 * r2) (newi <> newi)
                               Nothing -> error "empty set?"
               where
                 simplifyVal v G0 = Right $ GVal v (singleton G0)
@@ -198,7 +208,7 @@ unlikeVecPair vec1 vec2 = results
                               Nothing -> error "empty set?"
                               (Just newI1) -> case nonEmpty (elems i2) of
                                                 Nothing -> error "empty set?"
-                                                (Just newI2) -> Left $ GRVal (r1*r2) (newI1 <> newI2)
+                                                (Just newI2) -> Left $ GRVal (r1 * r2) (newI1 <> newI2)
 
 -- | Generate the reductive product of a vector pair.
 reduceVecPair :: GVec -> GVec -> [GRVal]
@@ -223,7 +233,7 @@ reduceVecPair vec1 vec2 = results
                                                           Nothing -> error "empty set?"
                                                           (Just newI1) -> case nonEmpty (elems i2) of
                                                                             Nothing -> error "empty set?"
-                                                                            (Just newI2) -> GRVal (r1*r2) (newI1 <> newI2)
+                                                                            (Just newI2) -> GRVal (r1 * r2) (newI1 <> newI2)
 
 -- | Generate the geometric product of a vector pair.
 mulVecPair :: GVec -> GVec -> [Either GRVal GVal]
@@ -244,7 +254,7 @@ mulVecPair vec1 vec2 = results
                           Nothing -> error "empty set?"
                           (Just newI1) -> case nonEmpty (elems i2) of
                                             Nothing -> error "empty set?"
-                                            (Just newI2) -> Left $ GRVal (r1*r2) (newI1 <> newI2)
+                                            (Just newI2) -> Left $ GRVal (r1 * r2) (newI1 <> newI2)
           where
             simplifyVal v G0 = Right $ GVal v (singleton G0)
             simplifyVal v (GEPlus _) = Right $ GVal v (singleton G0)

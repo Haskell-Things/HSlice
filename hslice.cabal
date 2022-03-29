@@ -49,6 +49,8 @@ Common libstuff
                 -fwrite-ide-info
                 -- for stan
                 -hiedir=.hie
+                -- for more precision
+                -fexcess-precision
                 -Wall
                 -Wextra
                 -Wcompat
@@ -74,6 +76,7 @@ Library
                   , extra
                   , implicit
                   , mtl
+                  , numbers
                   , parallel
                   , QuickCheck
                   , safe
@@ -96,6 +99,7 @@ Library
                     Graphics.Slicer.Math.Facet
                     Graphics.Slicer.Math.Ganja
                     Graphics.Slicer.Math.GeometricAlgebra
+                    Graphics.Slicer.Math.Intersections
                     Graphics.Slicer.Math.Line
                     Graphics.Slicer.Math.PGA
                     Graphics.Slicer.Math.Skeleton.Cells
