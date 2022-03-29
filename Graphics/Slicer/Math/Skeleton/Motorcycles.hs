@@ -175,25 +175,36 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (rotateLeft $ li
     --   Note that we know that the inside is to the left of the first line given, and that the first line points toward the intersection.
     convexPLines :: Point2 -> Point2 -> Point2 -> Maybe PLine2
     convexPLines p1 p2 p3
-      | Just True == pLineIsLeft pl1 pl2 = Nothing
+--      | Just True == pLineIsLeft pl1 pl2 = Nothing
+      | Just True == lineIsLeft l1 l2    = Nothing
       | otherwise                        = motorcycleFromPoints p1 p2 p3
         where
-          pl1 = plineFromEndpoints p1 p2
-          pl2 = plineFromEndpoints p2 p3
+            l1 = handleLineSegError $ lineSegFromEndpoints p1 p2
+            l2 = handleLineSegError $ lineSegFromEndpoints p2 p3
+--          pl1 = plineFromEndpoints p1 p2
+--          pl2 = plineFromEndpoints p2 p3
 
 -- | generate the PLine of a motorcycle for the given three points.
 motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> Maybe PLine2
-motorcycleFromPoints p1 p2 p3 = getOutsideArc (normalizePLine2 $ plineFromEndpoints p1 p2) (normalizePLine2 $ plineFromEndpoints p2 p3)
+motorcycleFromPoints p1 p2 p3 = getOutsideArc (plineFromEndpoints p1 p2) (plineFromEndpoints p2 p3)
   where
     -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
     --   Note that we do not normalize our output, or bother normalizing our input lines.
     getOutsideArc :: PLine2 -> PLine2 -> Maybe PLine2
     getOutsideArc pline1 pline2@(PLine2 pv2)
-      | isCollinear pline1 pline2 = Nothing
-      | isParallel pline1 pline2 = Nothing
-      | noIntersection pline1 pline2 = error $ "not collinear, but not intersecting?\n" <> show pline1 <> "\n" <> show pline2 <> "\n" <> show (plinesIntersectIn pline1 pline2)
+      | isCollinear myPline1 myPline2 = Nothing
+      | isParallel myPline1 myPline2 = Nothing
+      | noIntersection myPline1 myPline2 = error
+                                       $ "not collinear, but not intersecting?\n"
+                                       <> "PLine1: " <> show pline1 <> "\n"
+                                       <> "PLine2: " <> show pline2 <> "\n"
+                                       <> "normed PLine1: " <> show myPline1 <> "\n"
+                                       <> "normed PLine2: " <> show myPline2 <> "\n"
+                                       <> "result: " <> show (plinesIntersectIn myPline1 myPline2) <> "\n"
       | otherwise = Just $ flipPLine2 $ PLine2 $ addVecPair flippedPV1 pv2
       where
+        myPline1 = normalizePLine2 pline1
+        myPline2 = normalizePLine2 pline2
         (PLine2 flippedPV1) = flipPLine2 pline1
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
