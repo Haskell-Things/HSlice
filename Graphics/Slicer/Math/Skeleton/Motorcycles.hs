@@ -50,9 +50,9 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapW
 
 import Graphics.Slicer.Math.Line (endPoint, lineSegFromEndpoints, handleLineSegError)
 
-import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, lineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel,PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith, plinesIntersectIn, plineFromEndpoints, pToEPoint2, distanceBetweenPPoints, angleBetween, eToPPoint2, lineIntersectsPLine, normalizePLine2, pPointBetweenPPoints, translatePerp)
+import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PParallel,PAntiParallel,PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), intersectsWith, plinesIntersectIn, plineFromEndpoints, pToEPoint2, distanceBetweenPPoints, angleBetween, eToPPoint2, lineIntersectsPLine, normalizePLine2, pPointBetweenPPoints, translatePerp)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), Pointable, ENode(ENode), getFirstLineSeg, linePairs, pPointOf, intersectionOf, isAntiCollinear, noIntersection, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), canPoint, ePointOf, isCollinear, isParallel)
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), Pointable, ENode(ENode), getFirstLineSeg, linePairs, pPointOf, intersectionOf, isAntiCollinear, noIntersection, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), canPoint, ePointOf)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -131,10 +131,7 @@ crashMotorcycles contour holes
                                                                          Just $ CrashTree inMotorcycles (slist []) (slist [collision])
                                                                        Nothing ->
                                                                          Just $ CrashTree inMotorcycles inMotorcycles (slist [])
-                                    (Slist (_:_) _) -> error
-                                                       $ "found too many motorcycles: " <> show inMotorcycles <> "\n"
-                                                       <> "contour: " <> show contour <> "\n"
-                                                       <> "holes: " <> show holes <> "\n"
+                                    (Slist (_:_) _) -> Nothing
       -- Note that to solve this case, we will have to have a concept of speed of the motorcycle.
       | otherwise = Nothing
         where
@@ -175,25 +172,20 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (rotateLeft $ li
     --   Note that we know that the inside is to the left of the first line given, and that the first line points toward the intersection.
     convexPLines :: Point2 -> Point2 -> Point2 -> Maybe PLine2
     convexPLines p1 p2 p3
---      | Just True == pLineIsLeft pl1 pl2 = Nothing
-      | Just True == lineIsLeft l1 l2    = Nothing
-      | otherwise                        = motorcycleFromPoints p1 p2 p3
+      | Just True == pLineIsLeft pl1 pl2 = Nothing
+      | otherwise                        = Just $ motorcycleFromPoints p1 p2 p3
         where
-            l1 = handleLineSegError $ lineSegFromEndpoints p1 p2
-            l2 = handleLineSegError $ lineSegFromEndpoints p2 p3
---          pl1 = plineFromEndpoints p1 p2
---          pl2 = plineFromEndpoints p2 p3
+          pl1 = plineFromEndpoints p1 p2
+          pl2 = plineFromEndpoints p2 p3
 
 -- | generate the PLine of a motorcycle for the given three points.
-motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> Maybe PLine2
+motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> PLine2
 motorcycleFromPoints p1 p2 p3 = getOutsideArc (plineFromEndpoints p1 p2) (plineFromEndpoints p2 p3)
   where
     -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
     --   Note that we do not normalize our output, or bother normalizing our input lines.
-    getOutsideArc :: PLine2 -> PLine2 -> Maybe PLine2
+    getOutsideArc :: PLine2 -> PLine2 -> PLine2
     getOutsideArc pline1 pline2@(PLine2 pv2)
-      | isCollinear myPline1 myPline2 = Nothing
-      | isParallel myPline1 myPline2 = Nothing
       | noIntersection myPline1 myPline2 = error
                                        $ "not collinear, but not intersecting?\n"
                                        <> "PLine1: " <> show pline1 <> "\n"
@@ -201,7 +193,7 @@ motorcycleFromPoints p1 p2 p3 = getOutsideArc (plineFromEndpoints p1 p2) (plineF
                                        <> "normed PLine1: " <> show myPline1 <> "\n"
                                        <> "normed PLine2: " <> show myPline2 <> "\n"
                                        <> "result: " <> show (plinesIntersectIn myPline1 myPline2) <> "\n"
-      | otherwise = Just $ flipPLine2 $ PLine2 $ addVecPair flippedPV1 pv2
+      | otherwise = flipPLine2 $ PLine2 $ addVecPair flippedPV1 pv2
       where
         myPline1 = normalizePLine2 pline1
         myPline2 = normalizePLine2 pline2
