@@ -33,7 +33,7 @@ import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive))
 
 import Data.Coerce (coerce)
 
-import Data.Either (Either(Right), fromRight)
+import Data.Either (Either(Right))
 
 import Data.List (foldl')
 
@@ -69,13 +69,13 @@ import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
 import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
 -- Our Facet library.
-import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell, getNodeTreeOfCell, nodeTreesFromDivision)
+import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell, getNodeTreeOfCell)
 import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, getOutsideArc, towardIntersection)
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell), MotorcycleIntersection(WithLineSeg, WithENode), getFirstLineSeg, getLastLineSeg, outOf, pPointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell), MotorcycleIntersection(WithENode), getFirstLineSeg, getLastLineSeg, outOf, pPointOf)
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
-import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree, mergeNodeTrees)
+import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Our Utility library, for making these tests easier to read.
