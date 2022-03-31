@@ -176,7 +176,7 @@ translatePerp pLine@(PLine2 rawPLine) d = PLine2 $ addVecPair m rawPLine
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
 translateRotatePPoint2 :: PPoint2 -> ℝ -> ℝ -> PPoint2
-translateRotatePPoint2 ppoint distance rotation = PPoint2 $ translator•pvec•reverseGVec translator
+translateRotatePPoint2 ppoint d rotation = PPoint2 $ translator•pvec•reverseGVec translator
   where
     (PPoint2 pvec)      = canonicalizePPoint2 ppoint
     xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pvec
@@ -188,7 +188,7 @@ translateRotatePPoint2 ppoint distance rotation = PPoint2 $ translator•pvec•
     translator = addVecPair (angledLineThroughPPoint2 • gaIScaled) (GVec [GVal 1 (singleton G0)])
       where
         -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
-        gaIScaled = GVec [GVal (distance/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
+        gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
 
 ----------------------------------------------------------
 -------------- Euclidian Mixed Interface -----------------
