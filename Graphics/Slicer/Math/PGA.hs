@@ -443,8 +443,25 @@ forcePPoint2Basis pt@(PPoint2 pvec@(GVec [GVal _ gnum1, GVal _ gnum2, GVal _ gnu
 forcePPoint2Basis (PPoint2 pvec)              = PPoint2 $ forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] pvec
 
 -- | Normalization of euclidian points is really just canonicalization.
+-- Note: for precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
 canonicalizePPoint2 :: PPoint2 -> PPoint2
-canonicalizePPoint2 (PPoint2 vec@(GVec vals)) = PPoint2 $ divVecScalar vec $ valOf 1 $ getVals [GEPlus 1, GEPlus 2] vals
+canonicalizePPoint2 point@(PPoint2 (GVec rawVals))
+  | foundVal == Nothing = point
+  | otherwise = PPoint2 $ GVec $ foldl' addVal [] $
+                ( if getVals [GEZero 1, GEPlus 1] scaledVals == Nothing
+                  then []
+                  else [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] scaledVals) (fromList [GEZero 1, GEPlus 1])]
+                ) <>
+                ( if getVals [GEZero 1, GEPlus 2] scaledVals == Nothing
+                  then []
+                  else [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] scaledVals) (fromList [GEZero 1, GEPlus 2])]
+                ) <>
+                [GVal 1 (fromList [GEPlus 1, GEPlus 2])]
+  where
+    newVec = GVec $ addVal [(GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1]))]
+                            (GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
+    (GVec scaledVals) = divVecScalar newVec $ valOf 1 $ foundVal
+    foundVal = getVals [GEPlus 1, GEPlus 2] rawVals
 
 -- | find the idealized norm of a projective point.
 idealNormPPoint2 :: PPoint2 -> ℝ
