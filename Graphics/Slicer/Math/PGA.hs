@@ -156,7 +156,7 @@ dualAngle line1@(PLine2 lvec1) line2 = valOf 0 $ getVals [GEZero 1, GEPlus 1, GE
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
 pPointOnPerp :: PLine2 -> PPoint2 -> ℝ -> PPoint2
-pPointOnPerp pline ppoint d = canonicalizePPoint2 $ PPoint2 $ motor•pvec•reverseGVec motor
+pPointOnPerp pline ppoint d = PPoint2 $ motor•pvec•reverseGVec motor
   where
     (PLine2 lvec)  = normalizePLine2 pline
     (PPoint2 pvec) = canonicalizePPoint2 ppoint
