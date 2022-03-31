@@ -439,6 +439,20 @@ forcePPoint2Basis pt@(PPoint2 pvec@(GVec [GVal _ gnum1, GVal _ gnum2, GVal _ gnu
   | otherwise                                 = PPoint2 $ forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] pvec
 forcePPoint2Basis (PPoint2 pvec)              = PPoint2 $ forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] pvec
 
+-- | Reverse a line. same line, but pointed in the other direction.
+flipPLine2 :: PLine2 -> PLine2
+flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl' addVal []
+                                  [
+                                    GVal (negate $ valOf 0 $ getVals [GEZero 1] vals) (singleton (GEZero 1))
+                                  , GVal (negate $ valOf 0 $ getVals [GEPlus 1] vals) (singleton (GEPlus 1))
+                                  , GVal (negate $ valOf 0 $ getVals [GEPlus 2] vals) (singleton (GEPlus 2))
+                                  ]
+
+--------------------------------------------------------------
+---- Utillity functions that use sqrt(), or divVecScalar. ----
+---- Standard precision:                                  ----
+--------------------------------------------------------------
+
 -- | Normalization of euclidian points is really just canonicalization.
 -- Note: for precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
 canonicalizePPoint2 :: PPoint2 -> PPoint2
@@ -480,13 +494,4 @@ sqNormOfPLine2 (PLine2 (GVec vals)) = a*a+b*b
   where
     a = valOf 0 $ getVals [GEPlus 1] vals
     b = valOf 0 $ getVals [GEPlus 2] vals
-
--- | Reverse a line. same line, but pointed in the other direction.
-flipPLine2 :: PLine2 -> PLine2
-flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl' addVal []
-                                  [
-                                    GVal (negate $ valOf 0 $ getVals [GEZero 1] vals) (singleton (GEZero 1))
-                                  , GVal (negate $ valOf 0 $ getVals [GEPlus 1] vals) (singleton (GEPlus 1))
-                                  , GVal (negate $ valOf 0 $ getVals [GEPlus 2] vals) (singleton (GEPlus 2))
-                                  ]
 
