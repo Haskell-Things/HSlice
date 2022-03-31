@@ -98,7 +98,7 @@ intersectionOf pl1 pl2 = canonicalizePPoint2 $ meet2PLine2 pl1 pl2
 -- | Find a point somewhere along the line between the two points given.
 --  requires two weights. the ratio of these weights determines the position of the found points, E.G: 2/1 is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint.
 pPointBetweenPPoints :: PPoint2 -> PPoint2 -> ℝ -> ℝ -> PPoint2
-pPointBetweenPPoints (PPoint2 rawStartPoint) (PPoint2 rawStopPoint) weight1 weight2 = canonicalizePPoint2 $ PPoint2 $ addVecPair (mulScalarVec weight1 rawStartPoint) (mulScalarVec weight2 rawStopPoint)
+pPointBetweenPPoints (PPoint2 rawStartPoint) (PPoint2 rawStopPoint) weight1 weight2 = PPoint2 $ addVecPair (mulScalarVec weight1 rawStartPoint) (mulScalarVec weight2 rawStopPoint)
 
 -- | Find the unsigned distance between a point and a line.
 distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
