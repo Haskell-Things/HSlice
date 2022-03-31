@@ -50,9 +50,9 @@ import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeT
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, distance, startPoint, fudgeFactor)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, distance, startPoint, fudgeFactor, handleLineSegError, lineSegFromEndpoints)
 
-import Graphics.Slicer.Math.Line (endPoint, handleLineSegError, lineSegFromEndpoints)
+import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PPoint2, PIntersection(PAntiCollinear, IntersectsIn), angleBetween, distanceBetweenPPoints, eToPLine2, eToPPoint2, pToEPoint2, plinesIntersectIn, join2PPoint2)
 

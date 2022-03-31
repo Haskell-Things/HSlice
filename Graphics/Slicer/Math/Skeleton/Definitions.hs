@@ -47,19 +47,17 @@ import Data.List.Unique (count_)
 
 import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust)
 
-import Slist (len, cons, slist, isEmpty, safeLast, init)
+import Slist (len, cons, slist, isEmpty, safeLast)
 
-import Slist as SL (last, head)
+import Slist as SL (last, head, init)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.Contour (lineSegsOfContour)
-
 import Graphics.Slicer.Math.PGA (pToEPoint2, PPoint2, plinesIntersectIn, PIntersection(PCollinear,PAntiCollinear, IntersectsIn,PParallel,PAntiParallel), eToPPoint2, flipPLine2, lineIsLeft, PLine2(PLine2), eToPLine2, pLineIsLeft, distanceBetweenPPoints, distanceBetween2PLine2s)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, lineSegsOfContour, handleLineSegError, lineSegFromEndpoints)
 
-import Graphics.Slicer.Math.Line (handleLineSegError, lineSegFromEndpoints, endPoint)
+import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -285,7 +283,6 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
 intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 PPoint2)
 intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
   where
-    saneIntersection (IntersectsIn point) = Just $ Right point
     saneIntersection PAntiCollinear   = Just $ Left pl1
     saneIntersection PCollinear       = Just $ Left pl1
     saneIntersection PParallel        = if distanceBetween2PLine2s pl1 pl2 < fudgeFactor
@@ -294,10 +291,19 @@ intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
     saneIntersection PAntiParallel    = if distanceBetween2PLine2s pl1 pl2 < fudgeFactor
                                         then Just $ Left pl1
                                         else Nothing
+    saneIntersection (IntersectsIn point) = Just $ Right point
 
 -- | Get pairs of lines from the contour, including one pair that is the last line paired with the first.
 linePairs :: Contour -> [(LineSeg, LineSeg)]
 linePairs c = mapWithFollower (,) $ lineSegsOfContour c
+-- FIXME: this implementation looks better, but causes code to break because of numeric instability?
+{-
+linePairs contour = rotateRight $ mapWithNeighbors (\a b c -> (handleLineSegError $ lineSegFromEndpoints a b,
+                                                               handleLineSegError $ lineSegFromEndpoints b c)) $ pointsOfContour contour
+  where
+    rotateLeft a = PL.last a : PL.init a
+    rotateRight a = PL.init a <> [PL.last a]
+-}
 
 -- | A smart constructor for INodes.
 makeINode :: [PLine2] -> Maybe PLine2 -> INode
@@ -348,7 +354,7 @@ ancestorsOf (INodeSet generations)
   | isEmpty generations = error "cannot get all but the last generation of INodes if there are no INodes."
   | otherwise = INodeSet ancestors
   where
-    ancestors = init generations
+    ancestors = SL.init generations
 
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe PLine2

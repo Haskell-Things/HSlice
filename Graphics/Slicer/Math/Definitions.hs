@@ -20,9 +20,11 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
 -- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
-module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints, fudgeFactor, startPoint) where
+module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints, fudgeFactor, startPoint, lineSegsOfContour, LineSegError(EmptyList,LineSegFromPoint), lineSegFromEndpoints, handleLineSegError) where
 
-import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, zipWith, (<>), error, show, (<), (&&))
+import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, (<>), error, show, (<), (&&))
+
+import Prelude as PL (zipWith)
 
 import Control.DeepSeq (NFData)
 
@@ -30,7 +32,9 @@ import Control.Parallel.Strategies (withStrategy, parList, rpar)
 
 import Control.Parallel (par, pseq)
 
-import Data.List (uncons)
+import Data.Either (Either(Left, Right))
+
+import Data.List as DL (uncons)
 
 import Data.List.Extra (unsnoc)
 
@@ -38,7 +42,13 @@ import Data.Maybe (Maybe (Just, Nothing))
 
 import GHC.Generics (Generic)
 
-import Slist.Type (Slist)
+import Slist.Type (Slist(Slist), size)
+
+import Slist.Size (Size(Infinity))
+
+import Slist (safeLast)
+
+import Slist as SL (uncons, zipWith)
 
 import Graphics.Slicer.Definitions (ℝ, ℝ2, ℝ3, Fastℕ)
 
@@ -159,7 +169,7 @@ mapWithNeighbors :: (a -> a -> a -> b) -> [a] -> [b]
 mapWithNeighbors f l = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
   where
     z = zs <> [fz]
-    (fz, zs) = case uncons l of
+    (fz, zs) = case DL.uncons l of
                  Nothing -> error "Empty input list"
                  (Just (_,[])) -> error "too short of a list."
                  (Just vs) -> vs
@@ -171,10 +181,10 @@ mapWithNeighbors f l = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f
 
 -- | like map, only with current, and next item, and wrapping around so the last entry gets the first entry as next.
 mapWithFollower :: (Show a) => (a -> a -> b) -> [a] -> [b]
-mapWithFollower f l = withStrategy (parList rpar) $ z `pseq` zipWith f l z
+mapWithFollower f l = withStrategy (parList rpar) $ z `pseq` PL.zipWith f l z
   where
     z = zs <> [fz]
-    (fz, zs) = case uncons l of
+    (fz, zs) = case DL.uncons l of
                  Nothing -> error "Empty input list"
                  (Just (a,[])) -> error $ "too short of a list.\n" <> show a <> "\n"
                  (Just vs) -> vs
@@ -182,7 +192,7 @@ mapWithFollower f l = withStrategy (parList rpar) $ z `pseq` zipWith f l z
 
 -- | like map, only with previous, and current item, and wrapping around so the first entry gets the last entry as previous.
 mapWithPredecessor :: (a -> a -> b) -> [a] -> [b]
-mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` zipWith f x l
+mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` PL.zipWith f x l
   where
     x = lx:xs
     (xs, lx) = case unsnoc l of
@@ -193,3 +203,40 @@ mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` zipWith f x l
 -- Note: fudgefactor is to make up for Double being Double, and math not necessarilly being perfect.
 fudgeFactor :: ℝ
 fudgeFactor = 0.000000000000002
+
+-- | return the contour as a list of LineSegs.
+lineSegsOfContour :: Contour -> [LineSeg]
+lineSegsOfContour (PointContour _ _ p1 p2 p3 pts) = [consLineSeg p1 p2,
+                                                    consLineSeg p2 p3] <> consSegsWithPoints p3 pts p1
+  where
+    consLineSeg point1 point2 = handleLineSegError $ lineSegFromEndpoints point1 point2
+    consSegsWithPoints pointStart points pointEnd =
+      case SL.uncons points of
+        Nothing -> [consLineSeg pointStart pointEnd]
+        (Just (headVal,tailVals)) -> consLineSeg pointStart headVal :
+                                   case safeLast tailVals of
+                                     Nothing -> [consLineSeg headVal pointEnd]
+                                     (Just lastVal) -> consSegsBetween points tailVals <> [consLineSeg lastVal pointEnd]
+      where
+        consSegsBetween myPoints myTailVals = (\(Slist vals _)  -> vals) $ SL.zipWith consLineSeg myPoints myTailVals
+lineSegsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
+  | size moreLines == Infinity = error "cannot handle infinite contours."
+  | otherwise                  = l1:l2:lns
+
+-- | Create a line segment given it's endpoints.
+lineSegFromEndpoints :: Point2 -> Point2 -> Either LineSegError LineSeg
+lineSegFromEndpoints p1 p2
+  | p1 == p2 = Left $ LineSegFromPoint p1
+  | otherwise = Right $ LineSeg p1 (addPoints (scalePoint (-1) p1) p2)
+
+-- | generic handler for the error conditions of lineSegFromEndpoints
+handleLineSegError :: Either LineSegError LineSeg -> LineSeg
+handleLineSegError ln = case ln of
+      Left (LineSegFromPoint point) -> error $ "tried to construct a line segment from two identical points: " <> show point <> "\n"
+      Left EmptyList                -> error "tried to construct a line segment from an empty list."
+      Right                    line -> line
+
+-- | Possible errors from lineSegFromEndpoints.
+data LineSegError = LineSegFromPoint !Point2
+                  | EmptyList
+  deriving (Eq, Show)

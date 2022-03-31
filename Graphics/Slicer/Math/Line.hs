@@ -18,9 +18,9 @@
  -}
 
 -- | The purpose of this file is to hold line segment arithmatic. really, we used to have a linear algebra implementation here, before we moved to PGA.
-module Graphics.Slicer.Math.Line (LineSegError(LineSegFromPoint, EmptyList), lineSegFromEndpoints, makeLineSeg, makeLineSegs, midPoint, endPoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs, handleLineSegError) where
+module Graphics.Slicer.Math.Line (makeLineSeg, makeLineSegs, midPoint, endPoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs) where
 
-import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), Eq, (<$>), Show, error, zipWith, (<>), show, Either(Left, Right))
+import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), (<$>), error, zipWith, (<>), show, Either(Left, Right))
 
 import Data.Either (fromRight)
 
@@ -30,25 +30,7 @@ import Data.Maybe (Maybe(Just, Nothing))
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), LineSeg(LineSeg), Point2, addPoints, scalePoint, zOf, flatten)
-
--- | Possible errors from lineSegFromEndpoints.
-data LineSegError = LineSegFromPoint !Point2
-                  | EmptyList
-  deriving (Eq, Show)
-
--- | Create a line segment given it's endpoints.
-lineSegFromEndpoints :: Point2 -> Point2 -> Either LineSegError LineSeg
-lineSegFromEndpoints p1 p2
-  | p1 == p2 = Left $ LineSegFromPoint p1
-  | otherwise = Right $ LineSeg p1 (addPoints (scalePoint (-1) p1) p2)
-
--- | generic handler for the error conditions of lineSegFromEndpoints
-handleLineSegError :: Either LineSegError LineSeg -> LineSeg
-handleLineSegError ln = case ln of
-      Left (LineSegFromPoint point) -> error $ "tried to construct a line segment from two identical points: " <> show point <> "\n"
-      Left EmptyList                -> error "tried to construct a line segment from an empty list."
-      Right                    line -> line
+import Graphics.Slicer.Math.Definitions (Point3(Point3), LineSeg(LineSeg), Point2, LineSegError, addPoints, scalePoint, zOf, flatten, lineSegFromEndpoints, handleLineSegError, LineSegError(EmptyList))
 
 -- | Take a list of line segments, connected at their end points, and generate a list of the points in order.
 pointsFromLineSegs :: [LineSeg] -> Either LineSegError [Point2]

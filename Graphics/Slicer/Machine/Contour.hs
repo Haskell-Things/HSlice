@@ -31,9 +31,9 @@ import Data.Maybe (Maybe(Just, Nothing), catMaybes, maybeToList)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour, makeLineSegContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithNeighbors,lineSegFromEndpoints)
 
-import Graphics.Slicer.Math.Line (lineSegFromEndpoints, combineLineSegs)
+import Graphics.Slicer.Math.Line (combineLineSegs)
 
 import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn, PCollinear, PParallel, PAntiParallel), plinesIntersectIn, translatePerp, eToPLine2, pToEPoint2, angleBetween)
 

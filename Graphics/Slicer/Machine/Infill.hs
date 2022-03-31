@@ -35,6 +35,8 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg(LineSeg), distance, minMaxPoints, xOf, yOf, roundToFifth, mapWithNeighbors)
 
+import Graphics.Slicer.Math.Intersections (getLineSegIntersections)
+
 import Graphics.Slicer.Math.Line (makeLineSegs)
 
 import Graphics.Slicer.Math.PGA (Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PParallel, PAntiParallel, PCollinear, IntersectsIn), PLine2, pToEPoint2, intersectsWith, eToPLine2)
@@ -70,34 +72,6 @@ infillLineSegInside contour childContours line
           filterTooShort [] = []
           filterTooShort [a] = [a]
           filterTooShort (a:b:xs) = if roundToFifth (distance a b) == 0 then filterTooShort xs else a:filterTooShort (b:xs)
-          getLineSegIntersections :: PLine2 -> Contour -> [Point2]
-          getLineSegIntersections myline c = saneIntersections $ zip (lineSegsOfContour c) $ intersectsWith (Right myline) . Left <$> lineSegsOfContour c
-            where
-              -- FIXME: why were we snapping to grid here?
-              saneIntersections :: [(LineSeg, Either Intersection PIntersection)] -> [Point2]
-              saneIntersections xs = catMaybes $ mapWithNeighbors saneIntersection xs
-                where
-                  saneIntersection :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe Point2
-                  saneIntersection _ (_, Right (IntersectsIn ppoint)) _ = Just $ pToEPoint2 ppoint
-                  saneIntersection _ (_, Left NoIntersection)         _ = Nothing
-                  saneIntersection _ (_, Right PParallel)             _ = Nothing
-                  saneIntersection _ (_, Right PAntiParallel)         _ = Nothing
-                  -- Since every stop point of one line segment in a contour should be the same as the next start point...
-                  -- only count the first start point, when going in one direction..
-                  saneIntersection _                               (_, Left (HitStartPoint _ point)) (_, Left (HitEndPoint   _ _)) = Just point
-                  saneIntersection (_, Left (HitStartPoint _ _)) (_, Left (HitEndPoint   _ _    )) _                               = Nothing
-                  -- and only count the first start point, when going in the other direction.
-                  saneIntersection _                               (_, Left (HitEndPoint   _ _    )) (_, Left (HitStartPoint _ _)) = Nothing
-                  saneIntersection (_, Left (HitEndPoint   _ _)) (_, Left (HitStartPoint _ point)) _                               = Just point
-                  -- Ignore the end and start point that comes before / after a collinear section.
-                  saneIntersection (_, Right PCollinear)          (_, Left (HitStartPoint _ _    )) _                               = Nothing
-                  saneIntersection _                               (_, Left (HitEndPoint   _ _    )) (_, Right PCollinear)          = Nothing
-                  saneIntersection (_, Right PCollinear)          (_, Left (HitEndPoint   _ _    )) _                               = Nothing
-                  saneIntersection _                               (_, Left (HitStartPoint _ _    )) (_, Right PCollinear)          = Nothing
-                  -- FIXME: we should 'stitch out' collinear segments, not just ignore them.
-                  saneIntersection _                               (_, Right PCollinear)              _                             = Nothing
-                  -- saneIntersection (Left NoIntersection)      (Left (HitEndPoint   _ point)) (Left NoIntersection)      = Just point
-                  saneIntersection r1 r2 r3 = error $ "insane result of intersecting a line (" <> show myline <> ") with a contour " <> show c <> "\n" <> show r1 <> "\n" <> show r2 <> "\n" <> show r3 <> "\n"
 
 -- Generate lines covering the entire contour, where each one is aligned with a +1 slope, which is to say, lines parallel to a line where x = y.
 coveringLineSegsPositive :: Contour -> ℝ -> [PLine2]

@@ -24,7 +24,7 @@
 -- | functions for handling contours.
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, maybeFlipContour) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, zip, Either(Left, Right), (-), not, (*))
+import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, Either(Left, Right), (-), not, (*))
 
 import Data.List(partition, reverse, sortBy)
 
@@ -36,9 +36,9 @@ import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe, fromMaybe)
 
 import Data.Either (fromRight)
 
-import Slist (len, size, slist, safeLast, zipWith, safeLast, safeHead)
+import Slist (len, size, slist, safeLast, safeLast, safeHead)
 
-import Slist as SL (last, uncons)
+import Slist as SL (last)
 
 import Slist.Type (Slist(Slist))
 
@@ -46,11 +46,13 @@ import Slist.Size (Size(Infinity))
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, mapWithNeighbors, minMaxPoints, xOf, yOf, startPoint, fudgeFactor)
+import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, lineSegsOfContour, minMaxPoints, xOf, yOf, startPoint, fudgeFactor,handleLineSegError, LineSegError(LineSegFromPoint,EmptyList), lineSegFromEndpoints)
 
-import Graphics.Slicer.Math.Line (lineSegFromEndpoints, endPoint, midPoint, handleLineSegError, LineSegError(LineSegFromPoint,EmptyList))
+import Graphics.Slicer.Math.Intersections (contourIntersectionCount, getContourLineSegIntersections)
 
-import Graphics.Slicer.Math.PGA (Intersection(NoIntersection, HitStartPoint, HitEndPoint), PIntersection (PParallel, PAntiParallel, IntersectsIn), angleBetween, eToPLine2, eToPPoint2, lineIsLeft, pointOnPerp, intersectsWith, pToEPoint2, PPoint2)
+import Graphics.Slicer.Math.Line (endPoint, midPoint)
+
+import Graphics.Slicer.Math.PGA (lineIsLeft, pointOnPerp, pToEPoint2)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -206,15 +208,6 @@ contourContainsContour parent child = odd noIntersections
     outsidePointOfPair = Point2 (min (xOf minPoint1) (xOf minPoint2) - 1,min (yOf minPoint1) (yOf minPoint2) - 1)
     noIntersections = len $ getContourLineSegIntersections parent $ lineSegToEdge $ innerPointOf child
     lineSegToEdge p = fromRight (error "cannot construct lineToEdge") $ lineSegFromEndpoints p outsidePointOfPair
-    getContourLineSegIntersections :: Contour -> LineSeg -> Slist Point2
-    getContourLineSegIntersections contour line = slist $ mapMaybe (saneIntersection . intersectsWith (Left line) . Left) $ lineSegsOfContour contour
-    saneIntersection :: Either Intersection PIntersection -> Maybe Point2
-    saneIntersection (Left NoIntersection)         = Nothing
-    saneIntersection (Right (IntersectsIn ppoint)) = Just $ pToEPoint2 ppoint
-    saneIntersection (Right PAntiParallel)         = Nothing
-    saneIntersection (Right PParallel)             = Nothing
-    -- FIXME: fix the remaining cases. steal the code / algorithms from closedRegion
-    saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
     innerPointOf contour = innerContourPoint minDistanceFromSeg contour $ firstLineSegOfContour contour
 
 -- | determine whether a contour is contained by another contour.
@@ -249,39 +242,6 @@ innerContourPoint distanceAway contour l
     outsidePoint   = Point2 (xOf minPoint - 1 , yOf minPoint - 1)
     numIntersections = contourIntersectionCount contour (pointOnPerp l (midPoint l) minDistanceFromSeg, outsidePoint)
 
--- | return the number of intersections with a given contour when traveling in a straight line from srcPoint to dstPoint.
--- Not for use against line segments that overlap and are collinear with one of the line segments that are a part of the contour.
-contourIntersectionCount :: Contour -> (Point2, Point2) -> Int
-contourIntersectionCount contour endPoints = len $ getIntersections contour endPoints
-  where
-    -- The line we are checking for intersections along.
-    -- a filter for results that make sense.
-    getIntersections :: Contour -> (Point2, Point2) -> Slist (LineSeg, Maybe LineSeg, PPoint2)
-    getIntersections c pts = slist $ catMaybes $ mapWithNeighbors saneIntersection $ zip (lineSegsOfContour contour) $ intersectsWith (Left $ lineFromPoints pts) . Left <$> lineSegsOfContour c
-      where
-        lineFromPoints ::  (Point2, Point2) -> LineSeg
-        lineFromPoints (lstart, lend) = handleLineSegError $ lineSegFromEndpoints lstart lend
-        saneIntersection :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg, PPoint2)
-        saneIntersection _ (seg,Right (IntersectsIn ppoint)) _ = Just (seg, Nothing, ppoint)
-        saneIntersection _ (_,Left NoIntersection)         _ = Nothing
-        saneIntersection _ (_,Right PParallel)             _ = Nothing
-        saneIntersection _ (_,Right PAntiParallel)         _ = Nothing
-        saneIntersection  _                              (seg , Left (HitStartPoint _ point)) (seg2 , Left (HitEndPoint   _ _)) = Just (seg, Just seg2, eToPPoint2 point)
-        saneIntersection (_  , Left (HitStartPoint _ _)) (_   , Left (HitEndPoint   _ _))      _                                = Nothing
-        saneIntersection  _                              (_   , Left (HitEndPoint   _ _))     (_    , Left (HitStartPoint _ _)) = Nothing
-        saneIntersection (seg, Left (HitEndPoint   _ _)) (seg2, Left (HitStartPoint _ point))  _                                = Just (seg, Just seg2, eToPPoint2 point)
-        saneIntersection l1 l2 l3 = error
-                                    $ "insane result of (contour.hs) saneIntersections:\n"
-                                    <> show l1 <> "\n" <> show (lEnd l1) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l1) (eToPLine2 $ lSeg l2)) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l1) pLine) <> "\n"
-                                    <> show l2 <> "\n" <> show (lEnd l2) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l2) (eToPLine2 $ lSeg l3)) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l1) pLine) <> "\n"
-                                    <> show l3 <> "\n" <> show (lEnd l3) <> "\n"                                                                            <> show (angleBetween (eToPLine2 $ lSeg l1) pLine) <> "\n"
-          where
-            lSeg :: (LineSeg, Either Intersection PIntersection) -> LineSeg
-            lSeg (myseg,_) = myseg
-            pLine = eToPLine2 $ lineFromPoints pts
-            lEnd :: (LineSeg, Either Intersection PIntersection) -> Point2
-            lEnd (myseg,_) = endPoint myseg
-
 -- | return the contour as a list of points.
 pointsOfContour :: Contour -> [Point2]
 pointsOfContour (PointContour _ _ p1 p2 p3 pts@(Slist vals _))
@@ -290,25 +250,6 @@ pointsOfContour (PointContour _ _ p1 p2 p3 pts@(Slist vals _))
 pointsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
   | size moreLines == Infinity = error "cannot handle infinite contours."
   | otherwise                  = startPoint l1:startPoint l2:(startPoint <$> lns)
-
--- | return the contour as a list of LineSegs.
-lineSegsOfContour :: Contour -> [LineSeg]
-lineSegsOfContour (PointContour _ _ p1 p2 p3 pts) = [consLineSeg p1 p2,
-                                                    consLineSeg p2 p3] <> consSegsWithPoints p3 pts p1
-  where
-    consLineSeg point1 point2 = handleLineSegError $ lineSegFromEndpoints point1 point2
-    consSegsWithPoints pointStart points pointEnd =
-      case SL.uncons points of
-        Nothing -> [consLineSeg pointStart pointEnd]
-        (Just (headVal,tailVals)) -> consLineSeg pointStart headVal :
-                                   case safeLast tailVals of
-                                     Nothing -> [consLineSeg headVal pointEnd]
-                                     (Just lastVal) -> consSegsBetween points tailVals <> [consLineSeg lastVal pointEnd]
-      where
-        consSegsBetween myPoints myTailVals = (\(Slist vals _)  -> vals) $ zipWith consLineSeg myPoints myTailVals
-lineSegsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
-  | size moreLines == Infinity = error "cannot handle infinite contours."
-  | otherwise                  = l1:l2:lns
 
 -- | return the number of points in a contour.
 numPointsOfContour :: Contour -> Int

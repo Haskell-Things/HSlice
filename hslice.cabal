@@ -49,7 +49,7 @@ Common libstuff
                 -fwrite-ide-info
                 -- for stan
                 -hiedir=.hie
-                -- for more precision
+                -- use enhanced precision instead of 'just' Double, if available.
                 -fexcess-precision
                 -Wall
                 -Wextra
@@ -99,6 +99,7 @@ Library
                     Graphics.Slicer.Math.Facet
                     Graphics.Slicer.Math.Ganja
                     Graphics.Slicer.Math.GeometricAlgebra
+                    Graphics.Slicer.Math.Intersections
                     Graphics.Slicer.Math.Line
                     Graphics.Slicer.Math.PGA
                     Graphics.Slicer.Math.Skeleton.Cells
