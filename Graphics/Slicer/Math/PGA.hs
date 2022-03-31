@@ -76,17 +76,14 @@ plinesIntersectIn pl1 pl2
   | meet2PLine2 pl1 pl2 == PPoint2 (GVec [])
   || (idealNormPPoint2 (meet2PLine2 pl1 pl2) < fudgeFactor
      && (angleBetween pl1 pl2 >= 1 ||
-         angleBetween pl1 pl2 <= -1 ))         = if angleBetween pl1 pl2 > 0
-                                                 then PCollinear
-                                                 else PAntiCollinear
-  | scalarPart (pr1 ⎣ pr2) <  1+fudgeFactor &&
-    scalarPart (pr1 ⎣ pr2) >  1-fudgeFactor    = PParallel
-  | scalarPart (pr1 ⎣ pr2) < -1+fudgeFactor &&
-    scalarPart (pr1 ⎣ pr2) > -1-fudgeFactor    = PAntiParallel
-  | otherwise                                  = IntersectsIn $ intersectionOf pl1 pl2
-  where
-    (PLine2 pr1) = normalizePLine2 pl1
-    (PLine2 pr2) = normalizePLine2 pl2
+         angleBetween pl1 pl2 <= -1 ))       = if angleBetween pl1 pl2 > 0
+                                               then PCollinear
+                                               else PAntiCollinear
+  | angleBetween pl1 pl2 <  1+fudgeFactor &&
+    angleBetween pl1 pl2 >  1-fudgeFactor    = PParallel
+  | angleBetween pl1 pl2 < -1+fudgeFactor &&
+    angleBetween pl1 pl2 > -1-fudgeFactor    = PAntiParallel
+  | otherwise                                = IntersectsIn $ intersectionOf pl1 pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: PLine2 -> PLine2 -> Maybe Bool
