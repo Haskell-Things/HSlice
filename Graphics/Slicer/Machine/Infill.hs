@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringLineSegsVertical) where
 
-import Prelude ((+), (<$>), ($), (.), flip, (*), sqrt, (-), (<>), Ordering(EQ, GT, LT), show, error, otherwise, (==), length, concat, not, null, (!!), odd, Either (Left, Right), zip, fromIntegral, ceiling, (/), floor, Integer, compare)
+import Prelude ((+), (<$>), ($), (.), flip, (*), sqrt, (-), (<>), Ordering(EQ, GT, LT), show, error, otherwise, (==), length, concat, not, null, (!!), odd, fromIntegral, ceiling, (/), floor, Integer, compare)
 
 import Data.List.Ordered (sort)
 
@@ -31,15 +31,13 @@ import Data.Maybe (Maybe(Just, Nothing), catMaybes)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Contour (lineSegsOfContour)
-
-import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg(LineSeg), distance, minMaxPoints, xOf, yOf, roundToFifth, mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg(LineSeg), distance, minMaxPoints, xOf, yOf, roundToFifth)
 
 import Graphics.Slicer.Math.Intersections (getLineSegIntersections)
 
 import Graphics.Slicer.Math.Line (makeLineSegs)
 
-import Graphics.Slicer.Math.PGA (Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PParallel, PAntiParallel, PCollinear, IntersectsIn), PLine2, pToEPoint2, intersectsWith, eToPLine2)
+import Graphics.Slicer.Math.PGA (PLine2, eToPLine2)
 
 -- | what direction to put down infill lines.
 data InfillType = Diag1 | Diag2 | Vert | Horiz
