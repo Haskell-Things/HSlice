@@ -229,6 +229,7 @@ lineIntersection l1 l2
   where
     hasIntersection = onSegment l1 rawIntersection && onSegment l2 rawIntersection
     intersection = pToEPoint2 rawIntersection
+    -- FIXME: remove the canonicalization from this function, moving it to the callers.
     rawIntersection = canonicalizePPoint2 $ intersectionOf (eToPLine2 l1) (eToPLine2 l2)
 
 -- | Check if/where a line segment and a PLine intersect.
@@ -245,6 +246,7 @@ lineIntersectsPLine l1 pl1
   where
     hasIntersection = onSegment l1 rawIntersection
     intersection = pToEPoint2 rawIntersection
+    -- FIXME: remove the canonicalization from this function, moving it to the callers.
     rawIntersection = canonicalizePPoint2 $ intersectionOf (normalizePLine2 $ eToPLine2 l1) (normalizePLine2 pl1)
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
@@ -447,7 +449,8 @@ flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl' addVal []
 --------------------------------------------------------------
 
 -- | Normalization of euclidian points is really just canonicalization.
--- Note: for precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
+-- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
+-- Note: Normalization of euclidian points in PGA is really just canonicalization.
 canonicalizePPoint2 :: PPoint2 -> PPoint2
 canonicalizePPoint2 point@(PPoint2 (GVec rawVals))
   | foundVal == Nothing = point
@@ -494,7 +497,8 @@ sqNormOfPLine2 (PLine2 (GVec vals)) = a*a+b*b
 --------------------------------------------------------------
 
 -- | Normalize a projective point.
--- NOTE: normalization of euclidian points in PGA is really just canonicalization.
+-- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
+-- Note: Normalization of euclidian points in PGA is really just canonicalization.
 _hpCanonicalizePPoint2 :: PPoint2 -> PPoint2
 _hpCanonicalizePPoint2 point@(PPoint2 (GVec rawVals))
   | foundVal == Nothing = point
