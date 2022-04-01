@@ -220,13 +220,15 @@ lineIntersection l1 l2
   | plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) == PAntiParallel = Right PAntiParallel
   | hasIntersection && plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) == PCollinear = Right PCollinear
   | hasIntersection && plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) == PAntiCollinear = Right PAntiCollinear
-  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ startPoint l1) < fudgeFactor*15 = Left $ HitStartPoint l1 intersection
-  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ endPoint l1) < fudgeFactor*15 = Left $ HitEndPoint l1 intersection
-  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ startPoint l2) < fudgeFactor*15 = Left $ HitStartPoint l2 intersection
-  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ endPoint l2) < fudgeFactor*15 = Left $ HitEndPoint l2 intersection
+  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ startPoint l1) < snapFudgeFactor1 = Left $ HitStartPoint l1 intersection
+  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ endPoint l1) < snapFudgeFactor1 = Left $ HitEndPoint l1 intersection
+  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ startPoint l2) < snapFudgeFactor2 = Left $ HitStartPoint l2 intersection
+  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ endPoint l2) < snapFudgeFactor2 = Left $ HitEndPoint l2 intersection
   | hasIntersection = Right $ IntersectsIn rawIntersection
   | otherwise = Left NoIntersection
   where
+    snapFudgeFactor1 = fudgeFactor * 15
+    snapFudgeFactor2 = fudgeFactor * 15
     hasIntersection = onSegment l1 rawIntersection && onSegment l2 rawIntersection
     intersection = pToEPoint2 rawIntersection
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
@@ -239,11 +241,12 @@ lineIntersectsPLine l1 pl1
   | plinesIntersectIn (eToPLine2 l1) pl1 == PAntiParallel = Right PAntiParallel
   | hasIntersection && plinesIntersectIn (eToPLine2 l1) pl1 == PCollinear = Right PCollinear
   | hasIntersection && plinesIntersectIn (eToPLine2 l1) pl1 == PAntiCollinear = Right PAntiCollinear
-  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ startPoint l1) < fudgeFactor*3000 = Left $ HitStartPoint l1 intersection
-  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ endPoint l1) < fudgeFactor*3000 = Left $ HitEndPoint l1 intersection
+  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ startPoint l1) < snapFudgeFactor = Left $ HitStartPoint l1 intersection
+  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ endPoint l1) < snapFudgeFactor = Left $ HitEndPoint l1 intersection
   | hasIntersection = Right $ IntersectsIn rawIntersection
   | otherwise = Left NoIntersection
   where
+    snapFudgeFactor = fudgeFactor * 3000
     hasIntersection = onSegment l1 rawIntersection
     intersection = pToEPoint2 rawIntersection
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
