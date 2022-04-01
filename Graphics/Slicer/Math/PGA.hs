@@ -515,8 +515,8 @@ _hpCanonicalizePPoint2 point@(PPoint2 (GVec rawVals))
     foundVal = getVals [GEPlus 1, GEPlus 2] rawVals
 
 -- | find the idealized norm of a projective point.
-_hpIdealNormPPoint2 :: PPoint2 -> ℝ
-_hpIdealNormPPoint2 ppoint = realToFrac $ sqrt (x*x+y*y)
+_hpIdealNormPPoint2 :: PPoint2 -> BigFloat (PrecPlus20 Eps1)
+_hpIdealNormPPoint2 ppoint = sqrt (x*x+y*y)
   where
     (Point2 (rawX,rawY)) = pToEPoint2 ppoint
     x,y :: BigFloat (PrecPlus20 Eps1)
