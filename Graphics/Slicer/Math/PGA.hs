@@ -21,9 +21,9 @@
 
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), addPPoint2s, eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), dualAngle, pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, distanceBetween2PLine2s, meet2PLine2, forcePLine2Basis, idealNormPPoint2, idealPPoint2, lineIntersectsPLine, pPointBetweenPPoints, reverseGVec, translateRotatePPoint2, intersectionOf, onSegment) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), addPPoint2s, eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), dualAngle, pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, distanceBetween2PLine2s, meet2PLine2, forcePLine2Basis, idealNormPPoint2, idealPPoint2, lineIntersectsPLine, pPointBetweenPPoints, reverseGVec, translateRotatePPoint2, intersectionOf) where
 
-import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error, sin, cos)
+import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error, sin, cos, realToFrac)
 
 import GHC.Generics (Generic)
 
@@ -39,13 +39,15 @@ import Data.Maybe (Maybe(Just, Nothing), maybeToList)
 
 import Data.Set (Set, singleton, fromList, elems)
 
+import Data.Number.BigFloat (BigFloat, PrecPlus20, Eps1)
+
 import Safe (lastMay, initSafe)
 
 import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, fudgeFactor)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (•), addVal, addVecPair, divVecScalar, getVals, mulScalarVec, scalarPart, valOf, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (∧), (•), addVal, addVecPair, divVecScalar, getVals, mulScalarVec, scalarPart, valOf, vectorPart, hpDivVecScalar)
 
 import Graphics.Slicer.Math.Line(combineLineSegs, endPoint)
 
@@ -495,3 +497,55 @@ sqNormOfPLine2 (PLine2 (GVec vals)) = a*a+b*b
     a = valOf 0 $ getVals [GEPlus 1] vals
     b = valOf 0 $ getVals [GEPlus 2] vals
 
+--------------------------------------------------------------
+---- Utillity functions that use sqrt(), or divVecScalar. ----
+---- High precision:                                      ----
+--------------------------------------------------------------
+
+-- | Normalize a projective point.
+-- NOTE: normalization of euclidian points in PGA is really just canonicalization.
+_hpCanonicalizePPoint2 :: PPoint2 -> PPoint2
+_hpCanonicalizePPoint2 point@(PPoint2 (GVec rawVals))
+  | foundVal == Nothing = point
+  | otherwise = PPoint2 $ GVec $ foldl' addVal [] $
+                ( if getVals [GEZero 1, GEPlus 1] scaledVals == Nothing
+                  then []
+                  else [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] scaledVals) (fromList [GEZero 1, GEPlus 1])]
+                ) <>
+                ( if getVals [GEZero 1, GEPlus 2] scaledVals == Nothing
+                  then []
+                  else [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] scaledVals) (fromList [GEZero 1, GEPlus 2])]
+                ) <>
+                [GVal 1 (fromList [GEPlus 1, GEPlus 2])]
+  where
+    newVec = GVec $ addVal [(GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1]))]
+                            (GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
+    (GVec scaledVals) = hpDivVecScalar newVec $ realToFrac $ valOf 1 $ foundVal
+    foundVal = getVals [GEPlus 1, GEPlus 2] rawVals
+
+-- | find the idealized norm of a projective point.
+_hpIdealNormPPoint2 :: PPoint2 -> ℝ
+_hpIdealNormPPoint2 ppoint = realToFrac $ sqrt (x*x+y*y)
+  where
+    (Point2 (rawX,rawY)) = pToEPoint2 ppoint
+    x,y :: BigFloat (PrecPlus20 Eps1)
+    x = realToFrac rawX
+    y = realToFrac rawY
+
+-- | Find the norm of a given PLine2
+-- NOTE: High precision version.
+_hpNormOfPLine2 :: PLine2 -> BigFloat (PrecPlus20 Eps1)
+_hpNormOfPLine2 pline = sqrt $ _hpSqNormOfPLine2 pline
+
+-- | Find the squared norm of a given PLine2
+-- NOTE: High precision version.
+_hpSqNormOfPLine2 :: PLine2 -> BigFloat (PrecPlus20 Eps1)
+_hpSqNormOfPLine2 (PLine2 (GVec vals)) = a*a+b*b
+  where
+    a,b :: BigFloat (PrecPlus20 Eps1)
+    a = realToFrac $ valOf 0 $ getVals [GEPlus 1] vals
+    b = realToFrac $ valOf 0 $ getVals [GEPlus 2] vals
+
+-- | use the high precision canonicalization function on the intersection resulting from two PLines.
+_hpCanonicalizeIntersectionOf :: PLine2 -> PLine2 -> PPoint2
+_hpCanonicalizeIntersectionOf pl1 pl2 = _hpCanonicalizePPoint2 $ intersectionOf pl1 pl2
