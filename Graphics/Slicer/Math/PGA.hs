@@ -21,7 +21,7 @@
 
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), addPPoint2s, eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), dualAngle, pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, distanceBetween2PLine2s, meet2PLine2, forcePLine2Basis, idealNormPPoint2, idealPPoint2, lineIntersectsPLine, pPointBetweenPPoints, reverseGVec, translateRotatePPoint2, intersectionOf) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), addPPoint2s, eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), dualAngle, pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, distanceBetween2PLine2s, meet2PLine2, forcePLine2Basis, idealNormPPoint2, idealPPoint2, lineIntersectsPLine, pPointBetweenPPoints, reverseGVec, translateRotatePPoint2) where
 
 import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error, sin, cos, realToFrac)
 
@@ -85,7 +85,8 @@ plinesIntersectIn pl1 pl2
     angleBetween pl1 pl2 >  1-fudgeFactor    = PParallel
   | angleBetween pl1 pl2 < -1+fudgeFactor &&
     angleBetween pl1 pl2 > -1-fudgeFactor    = PAntiParallel
-  | otherwise                                = IntersectsIn $ intersectionOf pl1 pl2
+  -- FIXME: remove the canonicalization from this function, moving it to the callers.
+  | otherwise                                = IntersectsIn $ canonicalizePPoint2 $ intersectionOf pl1 pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: PLine2 -> PLine2 -> Maybe Bool
@@ -95,7 +96,7 @@ pLineIsLeft line1 line2
 
 -- | Find out where two lines intersect, returning a projective point. Note that this should only be used when you can guarantee these are not collinear.
 intersectionOf :: PLine2 -> PLine2 -> PPoint2
-intersectionOf pl1 pl2 = canonicalizePPoint2 $ meet2PLine2 pl1 pl2
+intersectionOf pl1 pl2 = meet2PLine2 pl1 pl2
 
 -- | Find a point somewhere along the line between the two points given.
 --  requires two weights. the ratio of these weights determines the position of the found points, E.G: 2/1 is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint.
@@ -107,9 +108,9 @@ distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
 distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
   where
     (PLine2 lvec)  = normalizePLine2 line
-    (PPoint2 pvec) = canonicalizePPoint2 point
+    (PPoint2 pvec) = point
     perpLine       = PLine2 $ lvec ⨅ pvec
-    linePoint      = intersectionOf (PLine2 lvec) perpLine
+    linePoint      = canonicalizePPoint2 $ intersectionOf (PLine2 lvec) perpLine
 
 -- | Determine if two points are on the same side of a given line.
 -- FIXME: we now have two implementations. speed test them. the second implementation requires one point that is already on the line.
@@ -161,7 +162,7 @@ pPointOnPerp :: PLine2 -> PPoint2 -> ℝ -> PPoint2
 pPointOnPerp pline ppoint d = PPoint2 $ motor•pvec•reverseGVec motor
   where
     (PLine2 lvec)  = normalizePLine2 pline
-    (PPoint2 pvec) = canonicalizePPoint2 ppoint
+    (PPoint2 pvec) = ppoint
     perpLine       = lvec ⨅ pvec
     motor = addVecPair (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
@@ -177,7 +178,7 @@ translatePerp pLine@(PLine2 rawPLine) d = PLine2 $ addVecPair m rawPLine
 translateRotatePPoint2 :: PPoint2 -> ℝ -> ℝ -> PPoint2
 translateRotatePPoint2 ppoint d rotation = PPoint2 $ translator•pvec•reverseGVec translator
   where
-    (PPoint2 pvec)      = canonicalizePPoint2 ppoint
+    (PPoint2 pvec)      = ppoint
     xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pvec
       where
         (PLine2 xLineVec) = forcePLine2Basis $ eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,0)))
@@ -228,7 +229,7 @@ lineIntersection l1 l2
   where
     hasIntersection = onSegment l1 rawIntersection && onSegment l2 rawIntersection
     intersection = pToEPoint2 rawIntersection
-    rawIntersection = intersectionOf (eToPLine2 l1) (eToPLine2 l2)
+    rawIntersection = canonicalizePPoint2 $ intersectionOf (eToPLine2 l1) (eToPLine2 l2)
 
 -- | Check if/where a line segment and a PLine intersect.
 lineIntersectsPLine :: LineSeg -> PLine2 -> Either Intersection PIntersection
@@ -244,7 +245,7 @@ lineIntersectsPLine l1 pl1
   where
     hasIntersection = onSegment l1 rawIntersection
     intersection = pToEPoint2 rawIntersection
-    rawIntersection = intersectionOf (normalizePLine2 $ eToPLine2 l1) (normalizePLine2 pl1)
+    rawIntersection = canonicalizePPoint2 $ intersectionOf (normalizePLine2 $ eToPLine2 l1) (normalizePLine2 pl1)
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 onSegment :: LineSeg -> PPoint2 -> Bool
