@@ -75,8 +75,8 @@ addPPoint2s pPoint1 pPoint2 = PPoint2 $ addVecPair (rawPPoint2 $ idealPPoint2 pP
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
 plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
 plinesIntersectIn pl1 pl2
-  | meet2PLine2 pl1 pl2 == PPoint2 (GVec [])
-  || (idealNormPPoint2 (meet2PLine2 pl1 pl2) < fudgeFactor
+  | intersectionOf pl1 pl2 == PPoint2 (GVec [])
+  || (idealNormPPoint2 (intersectionOf pl1 pl2) < fudgeFactor
      && (angleBetween pl1 pl2 >= 1 ||
          angleBetween pl1 pl2 <= -1 ))       = if angleBetween pl1 pl2 > 0
                                                then PCollinear
@@ -109,7 +109,7 @@ distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
     (PLine2 lvec)  = normalizePLine2 line
     (PPoint2 pvec) = canonicalizePPoint2 point
     perpLine       = PLine2 $ lvec ⨅ pvec
-    linePoint      = meet2PLine2 (PLine2 lvec) perpLine
+    linePoint      = intersectionOf (PLine2 lvec) perpLine
 
 -- | Determine if two points are on the same side of a given line.
 -- FIXME: we now have two implementations. speed test them. the second implementation requires one point that is already on the line.
@@ -283,7 +283,7 @@ combineConsecutiveLineSegs lines = case lines of
     canCombineLineSegs :: LineSeg -> LineSeg -> Bool
     canCombineLineSegs l1@(LineSeg p1 s1) l2@(LineSeg p2 _) = sameLineSeg && sameMiddlePoint
       where
-        sameLineSeg = meet2PLine2 (eToPLine2 l1) (eToPLine2 l2) == PPoint2 (GVec [])
+        sameLineSeg = plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) == PCollinear
         sameMiddlePoint = p2 == addPoints p1 s1
 
 pointOnPerp :: LineSeg -> Point2 -> ℝ -> Point2
