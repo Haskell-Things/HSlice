@@ -20,7 +20,7 @@
 
 module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getContourLineSegIntersections, getLineSegIntersections) where
 
-import Prelude (Bool(True), Either(Left,Right), any, error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, not, Int)
+import Prelude (Bool(True), Either(Left,Right), any, error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, not, Int, (<), (*))
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, mapMaybe)
 
@@ -32,7 +32,7 @@ import Slist (len, slist)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighbors, startPoint, distance, lineSegsOfContour, lineSegFromEndpoints, handleLineSegError)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighbors, startPoint, distance, lineSegsOfContour, lineSegFromEndpoints, handleLineSegError, fudgeFactor)
 
 import Graphics.Slicer.Math.Line (endPoint)
 
@@ -67,6 +67,9 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _) segs = stripIn
     saneIntersections  _ (Just (_  , Left  NoIntersection))        _ = Nothing
     saneIntersections  _ (Just (_  , Right PParallel))             _ = Nothing
     saneIntersections  _ (Just (_  , Right PAntiParallel))         _ = Nothing
+    saneIntersections (Just (seg, Left (HitEndPoint   _ pt))) (Just (seg2, Left (HitStartPoint _ _)))  (Just (_ , Left (HitEndPoint       _ pt2)))= if distance (endPoint seg) (startPoint seg2) < fudgeFactor*15
+                                                                                                                                                   then Just (seg2, Left pt)
+                                                                                                                                                   else Just (seg2, Left pt2)
     saneIntersections  _                                      (Just (seg , Left (HitStartPoint _ _)))  (Just (_    , Left (HitEndPoint   _ pt))) = Just (seg, Left pt)
     saneIntersections (Just (_  , Left (HitStartPoint _ _ ))) (Just (_   , Left (HitEndPoint   _ _)))   _                                        = Nothing
     saneIntersections  _                                      (Just (_   , Left (HitEndPoint   _ _)))  (Just (_    , Left (HitStartPoint _ _)))  = Nothing
@@ -99,7 +102,7 @@ getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _) c = stripInSe
                                         <> "Received: " <> show myIntersections <> "\n"
                                         <> "contourLines: " <> show contourLines <> "\n"
                                         <> "PLine: " <> show (outOf m) <> "\n"
-                                        <> "Results: " <> show (intersectsWith (Right $ outOf m) . Left <$> contourLines) <> "\n"
+                                        <> "Results: " <> show (zip contourLines $ intersectsWith (Right $ outOf m) . Left <$> contourLines) <> "\n"
       | otherwise = L.filter fun myIntersections
       where
         -- make sure neither of these segments are inSeg or outSeg
@@ -113,10 +116,13 @@ getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _) c = stripInSe
     saneIntersections  _ (_  , Left  NoIntersection)        _ = Nothing
     saneIntersections  _ (_  , Right PParallel)             _ = Nothing
     saneIntersections  _ (_  , Right PAntiParallel)         _ = Nothing
-    saneIntersections  _                              (seg , Left (HitStartPoint _ _)) (seg2 , Left (HitEndPoint   _ _)) = Just (seg, Left seg2)
+    saneIntersections (seg, Left (HitEndPoint _ _))   (seg2, Left (HitStartPoint _ _)) (seg3 , Left (HitEndPoint   _ _)) = if distance (endPoint seg) (startPoint seg2) < fudgeFactor*15
+                                                                                                                           then Just (seg, Left seg2)
+                                                                                                                           else Just (seg3, Left seg2)
+    saneIntersections  _                              (seg2, Left (HitStartPoint _ _)) (seg  , Left (HitEndPoint   _ _)) = Just (seg, Left seg2)
     saneIntersections (_  , Left (HitStartPoint _ _)) (_   , Left (HitEndPoint   _ _))  _                                = Nothing
     saneIntersections  _                              (_   , Left (HitEndPoint   _ _)) (_    , Left (HitStartPoint _ _)) = Nothing
-    saneIntersections (seg, Left (HitEndPoint   _ _)) (seg2, Left (HitStartPoint _ _))  _                                = Just (seg2, Left seg)
+    saneIntersections (seg, Left (HitEndPoint _ _))   (seg2, Left (HitStartPoint _ _))  _                                = Just (seg, Left seg2)
     saneIntersections l1 l2 l3 = error
                                  $ "insane result of saneIntersections:\n"
                                  <> show l1 <> "\nEndpoint: " <> show (endPoint $ lSeg l1) <> "\nLength: " <> show (lineLength l1) <> "\nAngle: " <> show (angleBetween (eToPLine2 $ lSeg l1) (outOf m)) <> "\n"
