@@ -220,10 +220,10 @@ lineIntersection l1 l2
   | plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) == PAntiParallel = Right PAntiParallel
   | hasIntersection && plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) == PCollinear = Right PCollinear
   | hasIntersection && plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) == PAntiCollinear = Right PAntiCollinear
-  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ startPoint l1) < snapFudgeFactor1 = Left $ HitStartPoint l1 intersection
-  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ endPoint l1) < snapFudgeFactor1 = Left $ HitEndPoint l1 intersection
-  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ startPoint l2) < snapFudgeFactor2 = Left $ HitStartPoint l2 intersection
-  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ endPoint l2) < snapFudgeFactor2 = Left $ HitEndPoint l2 intersection
+  | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ startPoint l1) < snapFudgeFactor1 = Left $ HitStartPoint l1 intersection
+  | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ endPoint l1) < snapFudgeFactor1 = Left $ HitEndPoint l1 intersection
+  | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ startPoint l2) < snapFudgeFactor2 = Left $ HitStartPoint l2 intersection
+  | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ endPoint l2) < snapFudgeFactor2 = Left $ HitEndPoint l2 intersection
   | hasIntersection = Right $ IntersectsIn rawIntersection
   | otherwise = Left NoIntersection
   where
@@ -241,12 +241,12 @@ lineIntersectsPLine l1 pl1
   | plinesIntersectIn (eToPLine2 l1) pl1 == PAntiParallel = Right PAntiParallel
   | hasIntersection && plinesIntersectIn (eToPLine2 l1) pl1 == PCollinear = Right PCollinear
   | hasIntersection && plinesIntersectIn (eToPLine2 l1) pl1 == PAntiCollinear = Right PAntiCollinear
-  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ startPoint l1) < snapFudgeFactor = Left $ HitStartPoint l1 intersection
-  | hasIntersection && distanceBetweenPPoints (rawIntersection) (eToPPoint2 $ endPoint l1) < snapFudgeFactor = Left $ HitEndPoint l1 intersection
+  | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ startPoint l1) < snapFudgeFactor = Left $ HitStartPoint l1 intersection
+  | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ endPoint l1) < snapFudgeFactor = Left $ HitEndPoint l1 intersection
   | hasIntersection = Right $ IntersectsIn rawIntersection
   | otherwise = Left NoIntersection
   where
-    snapFudgeFactor = fudgeFactor * 3000
+    snapFudgeFactor = fudgeFactor * 15
     hasIntersection = onSegment l1 rawIntersection
     intersection = pToEPoint2 rawIntersection
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
@@ -255,8 +255,8 @@ lineIntersectsPLine l1 pl1
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 onSegment :: LineSeg -> PPoint2 -> Bool
 onSegment ls@(LineSeg p s) i =
-  sqNormOfPLine2 (join2PPoint2 (eToPPoint2 p) (i))               <= sqNormOfSegment + sqNormOfSegment*fudgeFactor*300 &&
-  sqNormOfPLine2 (join2PPoint2 (i) (eToPPoint2 (addPoints p s))) <= sqNormOfSegment + sqNormOfSegment*fudgeFactor*300
+  sqNormOfPLine2 (join2PPoint2 (eToPPoint2 p) (i))               <= sqNormOfSegment &&
+  sqNormOfPLine2 (join2PPoint2 (i) (eToPPoint2 (addPoints p s))) <= sqNormOfSegment
   where
     sqNormOfSegment = sqNormOfPLine2 $ eToPLine2 ls
 
