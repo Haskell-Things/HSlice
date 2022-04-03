@@ -26,7 +26,7 @@
 --    a contour into cells.
 module Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason(INodeCrossesDivide), findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell, nodeTreesDoNotOverlap, addNodeTreesAlongDivide, nodeTreesFromDivision, startOfDivide, endOfDivide, findRemainder, createCellFromStraightWalls, gatherLineSegsPreceedingDivide, startBeforeEnd) where
 
-import Prelude (Bool(False, True), Eq, Ordering(LT, GT, EQ), Show, elem, filter, null, otherwise, ($), (<$>), (==), error, (<>), show, (&&), compare, concat, (/=), (||), (<), (<=), fst, snd, (*))
+import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, elem, filter, null, otherwise, ($), (<$>), (==), error, (<>), show, (&&), compare, concat, (/=), (||), (<), (<=), fst, snd, (*))
 
 import Data.Either(Either(Left, Right))
 
@@ -310,16 +310,6 @@ gatherLineSegsPreceedingDivide segments cellDivide stopSegment motorcycleOutSegm
 -- | Return the line segments after the given divide.
 gatherLineSegsAfterDivide :: [LineSeg] -> CellDivide -> LineSeg -> LineSeg -> Slist LineSeg
 gatherLineSegsAfterDivide segments cellDivide stopSegment motorcycleOutSegment
-{-  | True = error
-           $ "got here!" <> "\n"
-           <> "Segments: " <> show segments <> "\n"
-           <> "Divide: " <> show cellDivide <> "\n"
-           <> "stopSegment: " <> show stopSegment <> "\n"
-           <> "motorcycleOutSegment: " <> show motorcycleOutSegment <> "\n"
-           <> (if startBeforeEnd segments cellDivide
-               then "forwardRes: " <> show forwardRes <> "\n"
-               else "backwardRes: " <> show backwardRes <> "\n"
-              ) -}
   | startBeforeEnd segments cellDivide = forwardRes
   | otherwise = backwardRes
   where
