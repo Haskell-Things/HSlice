@@ -180,7 +180,7 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (rotateLeft $ li
 
 -- | generate the PLine of a motorcycle for the given three points.
 motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> PLine2
-motorcycleFromPoints p1 p2 p3 = getOutsideArc (plineFromEndpoints p1 p2) (plineFromEndpoints p2 p3)
+motorcycleFromPoints p1 p2 p3 = getOutsideArc (normalizePLine2 $ plineFromEndpoints p1 p2) (normalizePLine2 $ plineFromEndpoints p2 p3)
   where
     -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
     --   Note that we do not normalize our output, or bother normalizing our input lines.
@@ -216,7 +216,7 @@ concaveMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (linePairs cont
 -- | Find where a motorcycle intersects a set of line segments, if it does.
 motorcycleMightIntersectWith :: [LineSeg] -> Motorcycle -> Maybe (LineSeg, Either Point2 PPoint2)
 motorcycleMightIntersectWith lineSegs motorcycle
-  | null lineSegs = Nothing
+  | null lineSegs = error "no line segments to intersect motorcycle with?"
   | otherwise = case intersections of
                   [] -> Nothing
                   [a] -> filterIntersection a
