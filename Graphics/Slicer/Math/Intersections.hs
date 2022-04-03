@@ -67,9 +67,11 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _) segs = stripIn
     saneIntersections  _ (Just (_  , Left  NoIntersection))        _ = Nothing
     saneIntersections  _ (Just (_  , Right PParallel))             _ = Nothing
     saneIntersections  _ (Just (_  , Right PAntiParallel))         _ = Nothing
-    saneIntersections (Just (seg, Left (HitEndPoint   _ pt))) (Just (seg2, Left (HitStartPoint _ _)))  (Just (_ , Left (HitEndPoint       _ pt2)))= if distance (endPoint seg) (startPoint seg2) < fudgeFactor*15
+    saneIntersections (Just (seg, Left (HitEndPoint   _ pt))) (Just (seg2, Left (HitStartPoint _ _)))  (Just (seg3 , Left (HitEndPoint   _ pt2)))= if distance (endPoint seg) (startPoint seg2) < fudgeFactor*15
                                                                                                                                                    then Just (seg2, Left pt)
-                                                                                                                                                   else Just (seg2, Left pt2)
+                                                                                                                                                   else if distance (startPoint seg2) (endPoint seg3) < fudgeFactor*15
+                                                                                                                                                        then Just (seg2, Left pt2)
+                                                                                                                                                        else error "wtf"
     saneIntersections  _                                      (Just (seg , Left (HitStartPoint _ _)))  (Just (_    , Left (HitEndPoint   _ pt))) = Just (seg, Left pt)
     saneIntersections (Just (_  , Left (HitStartPoint _ _ ))) (Just (_   , Left (HitEndPoint   _ _)))   _                                        = Nothing
     saneIntersections  _                                      (Just (_   , Left (HitEndPoint   _ _)))  (Just (_    , Left (HitStartPoint _ _)))  = Nothing

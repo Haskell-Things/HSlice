@@ -24,9 +24,9 @@
 
 -- |  This file contains the entry point for the logic and routines required for dividing
 --    a contour into cells.
-module Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason(INodeCrossesDivide), findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell, nodeTreesDoNotOverlap, addNodeTreesAlongDivide, nodeTreesFromDivision, startOfDivide, endOfDivide, findRemainder, createCellFromStraightWalls) where
+module Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason(INodeCrossesDivide), findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell, nodeTreesDoNotOverlap, addNodeTreesAlongDivide, nodeTreesFromDivision, startOfDivide, endOfDivide, findRemainder, createCellFromStraightWalls, gatherLineSegsPreceedingDivide, startBeforeEnd) where
 
-import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, elem, filter, null, otherwise, ($), (<$>), (==), error, (<>), show, (&&), compare, concat, (/=), (||), (<), (<=), fst, snd, (*))
+import Prelude (Bool(False, True), Eq, Ordering(LT, GT, EQ), Show, elem, filter, null, otherwise, ($), (<$>), (==), error, (<>), show, (&&), compare, concat, (/=), (||), (<), (<=), fst, snd, (*))
 
 import Data.Either(Either(Left, Right))
 
@@ -200,10 +200,10 @@ findRemainder (Cell (Slist [] _)) _ _ = error "not enough"
 findRemainder (Cell (Slist (_:_:_:_) _)) _ _ = error "too much"
 findRemainder (Cell (Slist [(_, Nothing)] _)) _ _ = error "nonsensical"
 findRemainder (Cell segSets) contourSegList divides
-  | len segSets == 1 = if startBeforeEnd
+  | len segSets == 1 = if myStartBeforeEnd
                        then RemainingContour $ slist [(remainingSegsForward (last firstSegSet) (head firstSegSet), remainingDivides)]
                        else RemainingContour $ slist [(remainingSegsBackward (head firstSegSet) (last firstSegSet), remainingDivides)]
-  | len segSets == 2 = if startBeforeEnd
+  | len segSets == 2 = if myStartBeforeEnd
                        then RemainingContour $ slist [(remainingSegsForward (last firstSegSet) (head lastSegSet), remainingDivides)]
                        else RemainingContour $ slist [(remainingSegsBackward (head lastSegSet) (last firstSegSet), remainingDivides)]
   | otherwise = error "wtf"
@@ -219,25 +219,18 @@ findRemainder (Cell segSets) contourSegList divides
     divideOfSegSet (_, maybeCellDivide) = fromMaybe (error "no divide") maybeCellDivide
     remainingSegsForward trimStart trimEnd = case atOrAround of
                                                Before ->
-                                                 slist $ takeWhile (/= trimEnd)                               $ dropWhile (/= segmentAfter trimStart) (contourSegList <> contourSegList)
+                                                 slist $ takeWhile (/= trimEnd)                                                       $ dropWhile (/= segmentAfter contourSegs trimStart) (contourSegList <> contourSegList)
                                                At ->
-                                                 slist $ takeWhile (/= segmentAfter trimEnd)                  $ dropWhile (/= segmentAfter trimStart) (contourSegList <> contourSegList)
+                                                 slist $ takeWhile (/= segmentAfter contourSegs trimEnd)                              $ dropWhile (/= segmentAfter contourSegs trimStart) (contourSegList <> contourSegList)
                                                After ->
-                                                 slist $ takeWhile (/= (segmentAfter $ segmentAfter trimEnd)) $ dropWhile (/= segmentAfter trimStart) (contourSegList <> contourSegList)
+                                                 slist $ takeWhile (/= (segmentAfter contourSegs $ segmentAfter contourSegs trimEnd)) $ dropWhile (/= segmentAfter contourSegs trimStart) (contourSegList <> contourSegList)
     remainingSegsBackward trimStart trimEnd = case atOrAround of
                                                 Before ->
                                                   slist $ takeWhile (/= trimStart) $ dropWhile (/= segmentBefore trimEnd) (contourSegList <> contourSegList)
                                                 At ->
                                                   slist $ takeWhile (/= trimStart) $ dropWhile (/= trimEnd) (contourSegList <> contourSegList)
                                                 After ->
-                                                  slist $ takeWhile (/= trimStart) $ dropWhile (/= segmentAfter trimEnd) (contourSegList <> contourSegList)
-    segmentAfter seg = fromMaybe (head contourSegs) $ segAfter seg contourSegList
-      where
-        segAfter _ [] = Nothing
-        segAfter _ [_] = Nothing
-        segAfter mySeg (x:y:xs)
-            | x == mySeg = Just y
-            | otherwise = segAfter mySeg (y:xs)
+                                                  slist $ takeWhile (/= trimStart) $ dropWhile (/= segmentAfter contourSegs trimEnd) (contourSegList <> contourSegList)
     segmentBefore seg = fromMaybe (fromMaybe (error "empty list?" ) $ safeLast contourSegs) $ segBefore seg contourSegList
       where
         segBefore _ [] = Nothing
@@ -247,13 +240,13 @@ findRemainder (Cell segSets) contourSegList divides
             | otherwise = segBefore mySeg (y:xs)
     atOrAround = case maybeEndOfDivide divide of
                    Nothing -> error $ "missed!\n" <> show contourSegs <> "\n" <> show divide <> "\n" <> show segSets <> "\n"
-                   (Just (_, Left pt)) -> if pt == endPoint (segmentAfter $ fst $ endOfDivide divide)
+                   (Just (_, Left pt)) -> if pt == endPoint (segmentAfter contourSegs $ fst $ endOfDivide divide)
                                           then After
                                           else Before
                      where
                    (Just (_, Right _)) -> At
     -- | use the found cell and the motorcycle to determine what direction the motorcycle is going.
-    startBeforeEnd
+    myStartBeforeEnd
       | len segSets == 1 = distance (pointOfFirstMotorcycle divide) (endPoint $ fromMaybe (error "empty list. wth?") $ safeLast firstSegSet) < fudgeFactor*15 ||
                            pointOfFirstMotorcycle divide /= startPoint (head firstSegSet) && error "could not use input cell to determine motorcycle direction."
       | len segSets == 2 = distance (pointOfFirstMotorcycle divide) (endPoint $ fromMaybe (error "empty list. wth?") $ safeLast firstSegSet) < fudgeFactor*15 ||
@@ -272,45 +265,70 @@ createCellFromStraightWalls (Slist [] _) _ = error "empty slist."
 createCellFromStraightWalls (Slist (_:_:_) _) _ = error "too many segsets."
 createCellFromStraightWalls _ [] = error "no celldivide."
 createCellFromStraightWalls _ (_:_:_) = error "too many celldivides."
-createCellFromStraightWalls segSetSlist@(Slist [segSet] _) [cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _) _) _)]
-  | len segSetSlist == 0 = error "recieved no line segments. unpossible."
-  | isLoop segSetSlist && len segSetSlist == len (slist gatherLineSegsAfterDivide) = error "passing back full segment list, which should not be possible."
-  | isLoop segSetSlist = Cell (slist [(slist gatherLineSegsAfterDivide, Just cellDivide)])
-  | otherwise = Cell (slist [(slist gatherLineSegsPreceedingDivide, Just cellDivide),
-                             (slist gatherLineSegsFollowingDivide, Nothing)])
+createCellFromStraightWalls segSets@(Slist [segments] _) [cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _) _) _)]
+  | len segSets == 0 = error "recieved no line segments. unpossible."
+  | isLoop segSets && len segSets == len afterRes = error "passing back full segment list, which should not be possible."
+  | isLoop segSets = Cell (slist [(afterRes, Just cellDivide)])
+  | len segSets /= len preceedingRes = error "passing back incomplete segment list, which should not be possible."
+  | otherwise = Cell (slist [(preceedingRes, Just cellDivide),
+                             (followingRes, Nothing)])
   where
-    -- | Return the line segments preceeding the first divide, from the opening.
-    gatherLineSegsPreceedingDivide = if startBeforeEnd
-                                     then takeWhile (/= outSeg) segSet
-                                     else  takeWhile (/= segmentAfter motorcycleOutSegment) segSet
+    afterRes = gatherLineSegsAfterDivide segments cellDivide outSeg motorcycleOutSegment
+    preceedingRes = gatherLineSegsPreceedingDivide segments cellDivide outSeg motorcycleOutSegment
+    followingRes = slist gatherLineSegsFollowingDivide
     -- | Return the line segments following the first divide, toward the opening.
-    gatherLineSegsFollowingDivide = if startBeforeEnd
-                                    then dropWhile (/= motorcycleOutSegment) segSet
-                                    else dropWhile (/= outSeg) segSet
-    -- | Return the line segments after the first divide.
-    gatherLineSegsAfterDivide = if startBeforeEnd
-                                then takeWhile (/= segmentAfter motorcycleOutSegment) $ dropWhile (/= outSeg) segSet
-                                else takeWhile (/= outSeg)                            $ dropWhile (/= motorcycleOutSegment) segSet
-    -- | determine the direction of a divide.
-    startBeforeEnd = elemIndex (fst $ startOfDivide segSet cellDivide) segSet < elemIndex (fst $ endOfDivide cellDivide) segSet
+    gatherLineSegsFollowingDivide = if startBeforeEnd segments cellDivide
+                                    then dropWhile (/= motorcycleOutSegment) segments
+                                    else dropWhile (/= outSeg) segments
     -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the former of the two segments (from the beginning of the contour).
-    (motorcycleInSegment, eitherMotorcycleOutPoint) = fromMaybe (error "no intersections?") $ motorcycleMightIntersectWith segSet motorcycle
+    (motorcycleInSegment, eitherMotorcycleOutPoint) = fromMaybe (error "no intersections?") $ motorcycleMightIntersectWith segments motorcycle
     -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the latter of the two segments (from the beginning of the contour).
     motorcycleOutSegment = case eitherMotorcycleOutPoint of
                              (Left point2) -> if distance point2 (endPoint motorcycleInSegment) < fudgeFactor*15
-                                              then segmentAfter motorcycleInSegment
+                                              then segmentAfter (slist segments) motorcycleInSegment
                                               else if distance point2 (startPoint motorcycleInSegment) < fudgeFactor*15
                                                    then motorcycleInSegment
-                                                   else error $ show point2 <> "\n" <> show segSet <> "\n" <> show motorcycleInSegment
+                                                   else error $ show point2 <> "\n" <> show segments <> "\n" <> show motorcycleInSegment
                              (Right _) -> motorcycleInSegment
-    segmentAfter :: LineSeg -> LineSeg
-    segmentAfter seg = fromMaybe (head $ slist $ head segSetSlist) $ segAfter seg segSet
-      where
-        segAfter _ [] = Nothing
-        segAfter _ [_] = Nothing
-        segAfter mySeg (x:y:xs)
-            | x == mySeg = Just y
-            | otherwise = segAfter mySeg (y:xs)
+
+-- | find the segment immediately following a given segment.
+segmentAfter :: Slist LineSeg -> LineSeg -> LineSeg
+segmentAfter segs@(Slist rawSegList _) target = fromMaybe (head segs) $ segAfter target rawSegList
+  where
+    segAfter _ [] = Nothing
+    segAfter _ [_] = Nothing
+    segAfter myTarget (x:y:xs)
+      | x == myTarget = Just y
+      | otherwise = segAfter myTarget (y:xs)
+
+-- | Return a group of line segments preceeding the given divide, starting from the beginning of the list of segments.
+gatherLineSegsPreceedingDivide :: [LineSeg] -> CellDivide -> LineSeg -> LineSeg -> Slist LineSeg
+gatherLineSegsPreceedingDivide segments cellDivide stopSegment motorcycleOutSegment
+  | startBeforeEnd segments cellDivide = slist $ takeWhile (/= stopSegment) segments
+  | otherwise =                          slist $ takeWhile (/= segmentAfter (slist segments) motorcycleOutSegment) segments
+
+-- | Return the line segments after the given divide.
+gatherLineSegsAfterDivide :: [LineSeg] -> CellDivide -> LineSeg -> LineSeg -> Slist LineSeg
+gatherLineSegsAfterDivide segments cellDivide stopSegment motorcycleOutSegment
+{-  | True = error
+           $ "got here!" <> "\n"
+           <> "Segments: " <> show segments <> "\n"
+           <> "Divide: " <> show cellDivide <> "\n"
+           <> "stopSegment: " <> show stopSegment <> "\n"
+           <> "motorcycleOutSegment: " <> show motorcycleOutSegment <> "\n"
+           <> (if startBeforeEnd segments cellDivide
+               then "forwardRes: " <> show forwardRes <> "\n"
+               else "backwardRes: " <> show backwardRes <> "\n"
+              ) -}
+  | startBeforeEnd segments cellDivide = forwardRes
+  | otherwise = backwardRes
+  where
+    forwardRes =  slist $ takeWhile (/= segmentAfter (slist segments) motorcycleOutSegment) $ dropWhile (/= stopSegment) segments
+    backwardRes = slist $ takeWhile (/= stopSegment)                                        $ dropWhile (/= motorcycleOutSegment) segments
+
+-- | determine if the point where the motorcycle of the divide comes out of is closer to the beginning of our segment list than where it lands.
+startBeforeEnd :: [LineSeg] -> CellDivide -> Bool
+startBeforeEnd segments cellDivide = elemIndex (fst $ startOfDivide segments cellDivide) segments < elemIndex (fst $ endOfDivide cellDivide) segments
 
 -- Get the segment the divide intersects that is closest to the beginning of the list of a contour's line segments.
 startOfDivide :: [LineSeg] -> CellDivide -> (LineSeg, Either Point2 PPoint2)
