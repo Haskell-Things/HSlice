@@ -181,7 +181,7 @@ translateRotatePPoint2 ppoint d rotation = PPoint2 $ translator•pvec•reverse
     (PPoint2 pvec)      = ppoint
     xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pvec
       where
-        (PLine2 xLineVec) = forcePLine2Basis $ eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,0)))
+        (PLine2 xLineVec) = forcePLine2Basis $ plineFromEndpoints (Point2 (0,0)) (Point2 (1,0))
     (PLine2 angledLineThroughPPoint2) = forcePLine2Basis $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
       where
         rotator = addVecPair (mulScalarVec (sin $ rotation/2) pvec) (GVec [GVal (cos $ rotation/2) (singleton G0)])
