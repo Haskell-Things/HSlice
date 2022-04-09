@@ -201,6 +201,7 @@ mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` PL.zipWith f x l
                  (Just vs) -> vs
 
 -- Note: fudgefactor is to make up for Double being Double, and math not necessarilly being perfect.
+-- FIXME: eliminate. perform ulp summing instead.
 fudgeFactor :: ℝ
 fudgeFactor = 0.000000000000002
 
