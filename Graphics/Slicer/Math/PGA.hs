@@ -100,6 +100,9 @@ pLineIsLeft line1 line2
 intersectionOf :: PLine2 -> PLine2 -> PPoint2
 intersectionOf pl1 pl2 = meet2PLine2 pl1 pl2
 
+intersectionWithErr :: PLine2 -> PLine2 -> (PPoint2, UlpSum)
+intersectionWithErr pl1 pl2 = meet2PLine2WithErr pl1 pl2
+
 -- | Find a point somewhere along the line between the two points given.
 --  requires two weights. the ratio of these weights determines the position of the found points, E.G: 2/1 is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint.
 pPointBetweenPPoints :: PPoint2 -> PPoint2 -> ℝ -> ℝ -> PPoint2
@@ -569,6 +572,9 @@ normOfPLine2WithErr pline = (res, ulpSum)
     res = sqrt $ sqNormOfPLine2
     (sqNormOfPLine2, (UlpSum sqNormErr)) = sqNormOfPLine2WithErr pline
     ulpSum = UlpSum $ abs (doubleUlp res) + sqNormErr
+
+sqNormOfPLine2 :: PLine2 -> ℝ
+sqNormOfPLine2 pline = fst $ sqNormOfPLine2WithErr pline
 
 -- | find the squared norm of a given PLine2
 sqNormOfPLine2WithErr :: PLine2 -> (ℝ, UlpSum)
