@@ -49,7 +49,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, fudgeFactor)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣), (⎤), (⨅), (∧), (•), addVal, addVecPair, divVecScalar, getVals, mulScalarVec, scalarPart, valOf, vectorPart, hpDivVecScalar)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣), (⎤), (⨅), (⨅+), (∧), (•), addVal, addVecPair, divVecScalar, getVals, mulScalarVec, scalarPart, valOf, vectorPart, hpDivVecScalar)
 
 import Graphics.Slicer.Math.Line(combineLineSegs, endPoint)
 
@@ -318,17 +318,37 @@ infixl 9 ∨
 
 -- | a typed join function. join two points, returning a line.
 join2PPoint2 :: PPoint2 -> PPoint2 -> PLine2
-join2PPoint2 pp1 pp2 = PLine2 $ pv1 ∨ pv2
+join2PPoint2 pp1 pp2 = fst $ join2PPoint2WithErr pp1 pp2
+
+meet2PLine2 :: PLine2 -> PLine2 -> PPoint2
+meet2PLine2 pl1 pl2 = fst $ meet2PLine2WithErr pl1 pl2
+
+-- | a typed join function. join two points, returning a line.
+join2PPoint2WithErr :: PPoint2 -> PPoint2 -> (PLine2, UlpSum)
+join2PPoint2WithErr pp1 pp2 = (res,
+                               ulpSum)
   where
+    res = PLine2 $ pv1 ∨ pv2
+    ulpSum = UlpSum $ ulpOfPLine2 res
     (PPoint2 pv1) = forcePPoint2Basis pp1
     (PPoint2 pv2) = forcePPoint2Basis pp2
 
 -- | A typed meet function. the meeting of two lines is a point.
-meet2PLine2 :: PLine2 -> PLine2 -> PPoint2
-meet2PLine2 pl1 pl2 = PPoint2 $ pv1 ⎤ pv2
+meet2PLine2WithErr :: PLine2 -> PLine2 -> (PPoint2, UlpSum)
+meet2PLine2WithErr pl1 pl2 = (res,
+                              ulpSum)
   where
+    res =  PPoint2 $ pv1 ⎤ pv2
+    ulpSum = UlpSum $ ulpOfPPoint2 res
     (PLine2 pv1) = forcePLine2Basis pl1
     (PLine2 pv2) = forcePLine2Basis pl2
+
+-- | Create a projective point from coordinates.
+makePPoint2WithErr :: ℝ -> ℝ -> (PPoint2, UlpSum)
+makePPoint2WithErr x y = (eToPPoint2 $ Point2 (x,y)
+                         , ulpSum)
+  where
+    ulpSum = UlpSum $ abs (doubleUlp x) + abs (doubleUlp y)
 
 -- | Create a projective point from a euclidian point.
 eToPPoint2 :: Point2 -> PPoint2
@@ -482,48 +502,82 @@ ulpOfPPoint2 (PPoint2 (GVec vals)) = sum $ abs . doubleUlp . (\(GVal r _) -> r) 
 ---- Standard precision:                                  ----
 --------------------------------------------------------------
 
--- | Normalization of euclidian points is really just canonicalization.
--- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
--- Note: Normalization of euclidian points in PGA is really just canonicalization.
-canonicalizePPoint2 :: PPoint2 -> PPoint2
-canonicalizePPoint2 point@(PPoint2 (GVec rawVals))
-  | foundVal == Nothing = point
-  | otherwise = PPoint2 $ GVec $ foldl' addVal [] $
-                ( if getVals [GEZero 1, GEPlus 1] scaledVals == Nothing
-                  then []
-                  else [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] scaledVals) (fromList [GEZero 1, GEPlus 1])]
-                ) <>
-                ( if getVals [GEZero 1, GEPlus 2] scaledVals == Nothing
-                  then []
-                  else [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] scaledVals) (fromList [GEZero 1, GEPlus 2])]
-                ) <>
-                [GVal 1 (fromList [GEPlus 1, GEPlus 2])]
-  where
-    newVec = GVec $ addVal [(GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1]))]
-                            (GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
-    (GVec scaledVals) = divVecScalar newVec $ valOf 1 $ foundVal
-    foundVal = getVals [GEPlus 1, GEPlus 2] rawVals
-
 -- | find the idealized norm of a projective point.
 idealNormPPoint2 :: PPoint2 -> ℝ
 idealNormPPoint2 ppoint = sqrt (x*x+y*y)
   where
     (Point2 (x,y)) = pToEPoint2 ppoint
 
+-- | Normalization of euclidian points is really just canonicalization.
+-- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
+-- Note: Normalization of euclidian points in PGA is really just canonicalization.
+canonicalizePPoint2 :: PPoint2 -> PPoint2
+canonicalizePPoint2 point = fst $ canonicalizePPoint2WithErr point
+
 -- | Normalize a PLine2.
 normalizePLine2 :: PLine2 -> PLine2
-normalizePLine2 pl@(PLine2 vec) = PLine2 $ divVecScalar vec $ normOfPLine2 pl
+normalizePLine2 pl = fst $ normalizePLine2WithErr pl
 
 -- | find the norm of a given PLine2
 normOfPLine2 :: PLine2 -> ℝ
-normOfPLine2 pline = sqrt $ sqNormOfPLine2 pline
+normOfPLine2 pline = fst $ normOfPLine2WithErr pline
+
+-- | Normalization of euclidian points is really just canonicalization.
+-- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
+-- Note: Normalization of euclidian points in PGA is really just canonicalization.
+canonicalizePPoint2WithErr :: PPoint2 -> (PPoint2, UlpSum)
+canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
+  | foundVal == Nothing = (point, UlpSum 0)
+  | otherwise = (res, ulpSum)
+  where
+    res = PPoint2 $ GVec $ foldl' addVal []
+          $  ( if getVals [GEZero 1, GEPlus 1] scaledVals == Nothing
+               then []
+               else [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] scaledVals) (fromList [GEZero 1, GEPlus 1])]
+             )
+          <> ( if getVals [GEZero 1, GEPlus 2] scaledVals == Nothing
+               then []
+               else [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] scaledVals) (fromList [GEZero 1, GEPlus 2])]
+             )
+          <> [GVal 1 (fromList [GEPlus 1, GEPlus 2])]
+    newVec = GVec $ addVal [(GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1]))]
+                            (GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
+    (GVec scaledVals) = divVecScalar newVec $ valOf 1 $ foundVal
+    foundVal = getVals [GEPlus 1, GEPlus 2] rawVals
+    ulpSum = UlpSum $ ulpOfPPoint2 res
+
+-- | Canonicalize the intersection resulting from two PLines.
+canonicalizeIntersectionWithErr :: PLine2 -> PLine2 -> (PPoint2, UlpSum)
+canonicalizeIntersectionWithErr pl1 pl2 = (cpp1, ulpSum)
+  where
+    (cpp1, (UlpSum canonicalizationErr)) = canonicalizePPoint2WithErr pp1
+    (pp1, (UlpSum intersectionErr)) = intersectionWithErr pl1 pl2
+    ulpSum = UlpSum $ intersectionErr + canonicalizationErr
+
+-- | Normalize a PLine2.
+normalizePLine2WithErr :: PLine2 -> (PLine2, UlpSum)
+normalizePLine2WithErr pl@(PLine2 vec) = (res, ulpSum)
+  where
+    res = PLine2 $ divVecScalar vec $ normOfMyPLine
+    (normOfMyPLine, (UlpSum normErr)) = normOfPLine2WithErr pl
+    ulpSum = UlpSum $ normOfPLine2 res + normErr
+
+-- | find the norm of a given PLine2
+normOfPLine2WithErr :: PLine2 -> (ℝ, UlpSum)
+normOfPLine2WithErr pline = (res, ulpSum)
+  where
+    res = sqrt $ sqNormOfPLine2
+    (sqNormOfPLine2, (UlpSum sqNormErr)) = sqNormOfPLine2WithErr pline
+    ulpSum = UlpSum $ abs (doubleUlp res) + sqNormErr
 
 -- | find the squared norm of a given PLine2
-sqNormOfPLine2 :: PLine2 -> ℝ
-sqNormOfPLine2 (PLine2 (GVec vals)) = a*a+b*b
+sqNormOfPLine2WithErr :: PLine2 -> (ℝ, UlpSum)
+sqNormOfPLine2WithErr (PLine2 (GVec vals)) = (res, ulpSum)
   where
+    res = a*a+b*b
     a = valOf 0 $ getVals [GEPlus 1] vals
     b = valOf 0 $ getVals [GEPlus 2] vals
+    ulpSum = UlpSum $ abs (doubleUlp $ a*a) + abs (doubleUlp $ b*b) + abs (doubleUlp res)
 
 --------------------------------------------------------------
 ---- Utillity functions that use sqrt(), or divVecScalar. ----
@@ -533,8 +587,8 @@ sqNormOfPLine2 (PLine2 (GVec vals)) = a*a+b*b
 -- | Normalize a projective point.
 -- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.
-_hpCanonicalizePPoint2 :: PPoint2 -> PPoint2
-_hpCanonicalizePPoint2 point@(PPoint2 (GVec rawVals))
+hpCanonicalizePPoint2 :: PPoint2 -> PPoint2
+hpCanonicalizePPoint2 point@(PPoint2 (GVec rawVals))
   | foundVal == Nothing = point
   | otherwise = PPoint2 $ GVec $ foldl' addVal [] $
                 ( if getVals [GEZero 1, GEPlus 1] scaledVals == Nothing
@@ -576,5 +630,5 @@ _hpSqNormOfPLine2 (PLine2 (GVec vals)) = a*a+b*b
     b = realToFrac $ valOf 0 $ getVals [GEPlus 2] vals
 
 -- | use the high precision canonicalization function on the intersection resulting from two PLines.
-_hpCanonicalizeIntersectionOf :: PLine2 -> PLine2 -> PPoint2
-_hpCanonicalizeIntersectionOf pl1 pl2 = _hpCanonicalizePPoint2 $ intersectionOf pl1 pl2
+hpCanonicalizeIntersectionOf :: PLine2 -> PLine2 -> PPoint2
+hpCanonicalizeIntersectionOf pl1 pl2 = hpCanonicalizePPoint2 $ fst $ intersectionWithErr pl1 pl2
