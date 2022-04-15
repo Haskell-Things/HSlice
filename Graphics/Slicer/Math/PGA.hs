@@ -110,12 +110,17 @@ pPointBetweenPPoints (PPoint2 rawStartPoint) (PPoint2 rawStopPoint) weight1 weig
 
 -- | Find the unsigned distance between a point and a line.
 distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
-distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
+distancePPointToPLine point line = fst $ distancePPointToPLineWithErr point line
+
+distancePPointToPLineWithErr :: PPoint2 -> PLine2 -> (ℝ, UlpSum)
+distancePPointToPLineWithErr point@(PPoint2 pvec) line = (res, ulpSum)
   where
-    (PLine2 lvec)  = normalizePLine2 line
-    (PPoint2 pvec) = point
-    perpLine       = PLine2 $ lvec ⨅ pvec
-    linePoint      = canonicalizePPoint2 $ intersectionOf (PLine2 lvec) perpLine
+    (res, UlpSum resErr)           = normOfPLine2WithErr newPLine
+    (newPLine, UlpSum newPLineErr) = join2PPoint2WithErr point linePoint
+    (PLine2 lvec, UlpSum normErr)  = normalizePLine2WithErr line
+    (perpLine, UlpSum perpLineErr) = lvec ⨅+ pvec
+    (linePoint, UlpSum lpErr)      = canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
+    ulpSum                         = UlpSum $ lpErr + perpLineErr + normErr + newPLineErr + resErr
 
 -- | Determine if two points are on the same side of a given line.
 pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
@@ -132,9 +137,18 @@ pPointsOnSameSideOfPLine point1 point2 line
     isPositive :: ℝ -> Bool
     isPositive i = i > 0
 
+
 -- | Find the unsigned distance between two projective points.
 distanceBetweenPPoints :: PPoint2 -> PPoint2 -> ℝ
-distanceBetweenPPoints point1 point2 = normOfPLine2 $ join2PPoint2 point1 point2
+distanceBetweenPPoints p1 p2 = fst $ distanceBetweenPPointsWithErr p1 p2
+
+-- | Find the unsigned distance between two projective points, along with the precision of the result.
+distanceBetweenPPointsWithErr :: PPoint2 -> PPoint2 -> (ℝ, UlpSum)
+distanceBetweenPPointsWithErr point1 point2 = (res, ulpSum)
+  where
+    (res, UlpSum resErr)           = normOfPLine2WithErr newPLine
+    (newPLine, UlpSum newPLineErr) = join2PPoint2WithErr point1 point2
+    ulpSum                         = UlpSum $ resErr + newPLineErr
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
 -- Same as angleBetween.
@@ -162,14 +176,21 @@ dualAngle line1@(PLine2 lvec1) line2 = valOf 0 $ getVals [GEZero 1, GEPlus 1, GE
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
 pPointOnPerp :: PLine2 -> PPoint2 -> ℝ -> PPoint2
-pPointOnPerp pline ppoint d = PPoint2 $ motor•pvec•reverseGVec motor
+pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
+
+-- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
+pPointOnPerpWithErr :: PLine2 -> PPoint2 -> ℝ -> (PPoint2, UlpSum)
+pPointOnPerpWithErr pline (PPoint2 pvec) d = (PPoint2 res,
+                                               ulpTotal)
   where
-    (PLine2 lvec)  = normalizePLine2 pline
-    (PPoint2 pvec) = ppoint
-    perpLine       = lvec ⨅ pvec
+    res = motor•pvec•reverseGVec motor
+    (PLine2 lvec,UlpSum lErr)  = normalizePLine2WithErr pline
+    (perpLine,UlpSum perpPLineErr) = lvec ⨅+ pvec
     motor = addVecPair (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
     gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
+    gaIErr = doubleUlp $ d/2
+    ulpTotal = UlpSum $ gaIErr + perpPLineErr + lErr
 
 -- | Translate a line a given distance along it's perpendicular bisector.
 translatePerp :: PLine2 -> ℝ -> PLine2
@@ -384,7 +405,7 @@ ppointToPoint2 (PPoint2 (GVec vals)) = if infinitePoint
 -- | Create an un-normalized projective line from a euclidian line segment.
 -- FIXME: does not generate ULP value.
 eToPLine2 :: LineSeg -> PLine2
-eToPLine2 l1 = plineFromEndpoints (startPoint l1) (endPoint l1)
+eToPLine2 l1 = fst $ eToPLine2WithErr l1
 
 -- | Create a projective line from a pair of euclidian points.
 plineFromEndpoints :: Point2 -> Point2 -> PLine2
