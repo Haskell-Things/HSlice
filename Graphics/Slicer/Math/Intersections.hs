@@ -94,8 +94,9 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _) segs = stripIn
 
 -- get all possible intersections between the motorcycle and the contour.
 getMotorcycleContourIntersections :: Motorcycle -> Contour -> [(LineSeg, Either LineSeg PPoint2)]
-getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _) c = stripInSegOutSeg $ catMaybes $ mapWithNeighbors saneIntersections $ zip contourLines $ intersectsWith (Right $ outOf m) . Left <$> contourLines
+getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _) c = stripInSegOutSeg $ catMaybes $ mapWithNeighbors saneIntersections res
   where
+    res = zip contourLines $ outputIntersectsLineSeg (m, UlpSum 0) . (,UlpSum 0) <$> contourLines
     stripInSegOutSeg :: [(LineSeg, Either LineSeg PPoint2)] -> [(LineSeg, Either LineSeg PPoint2)]
     stripInSegOutSeg myIntersections
       | not (any fun myIntersections) = error
@@ -104,7 +105,7 @@ getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _) c = stripInSe
                                         <> "Received: " <> show myIntersections <> "\n"
                                         <> "contourLines: " <> show contourLines <> "\n"
                                         <> "PLine: " <> show (outOf m) <> "\n"
-                                        <> "Results: " <> show (zip contourLines $ intersectsWith (Right $ outOf m) . Left <$> contourLines) <> "\n"
+                                        <> "Results: " <> show res <> "\n"
       | otherwise = L.filter fun myIntersections
       where
         -- make sure neither of these segments are inSeg or outSeg
