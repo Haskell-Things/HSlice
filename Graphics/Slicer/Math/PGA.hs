@@ -23,11 +23,13 @@
 
 module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), addPPoint2s, eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), dualAngle, pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, distanceBetween2PLine2s, meet2PLine2, forcePLine2Basis, idealNormPPoint2, idealPPoint2, lineIntersectsPLine, pPointBetweenPPoints, reverseGVec, translateRotatePPoint2) where
 
-import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), show, error, sin, cos, realToFrac)
+import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, filter, length, sum, (.))
 
 import GHC.Generics (Generic)
 
 import Control.DeepSeq (NFData)
+
+import Data.Bits.Floating.Ulp (doubleUlp)
 
 import Data.Either (Either(Left, Right))
 
@@ -113,15 +115,12 @@ distancePPointToPLine point line = normOfPLine2 $ join2PPoint2 point linePoint
     linePoint      = canonicalizePPoint2 $ intersectionOf (PLine2 lvec) perpLine
 
 -- | Determine if two points are on the same side of a given line.
--- FIXME: we now have two implementations. speed test them. the second implementation requires one point that is already on the line.
 pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
 pPointsOnSameSideOfPLine point1 point2 line
   -- Return nothing if one of the points is on the line.
   |  valOf 0 (getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv1 ⎤ lv1) == 0 ||
      valOf 0 (getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv2 ⎤ lv1) == 0    = Nothing
     | otherwise = Just $ isPositive (valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv1 ⎤ lv1) == isPositive (valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ gValOf $ pv2 ⎤ lv1)
---  | distancePPointToPLine point1 line == 0 || distancePPointToPLine point2 line == 0 = Nothing
---  | otherwise = Just $ pLineIsLeft (join2PPoint2 linePoint point1) line == pLineIsLeft (join2PPoint2 linePoint point2) line
   where
     (PPoint2 pv1) = forcePPoint2Basis point1
     (PPoint2 pv2) = forcePPoint2Basis point2
@@ -140,6 +139,7 @@ distanceBetween2PLine2s :: PLine2 -> PLine2 -> ℝ
 distanceBetween2PLine2s = angleBetween
 
 -- | Return the sine of the angle between the two lines. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
+-- NOTE: normalizes inputs.
 angleBetween :: PLine2 -> PLine2 -> ℝ
 angleBetween pl1 pl2 = scalarPart $ pv1 ⎣ pv2
   where
@@ -359,16 +359,13 @@ ppointToPoint2 (PPoint2 (GVec vals)) = if infinitePoint
     infinitePoint = 0 == valOf 0 (getVals [GEPlus 1, GEPlus 2] vals)
 
 -- | Create an un-normalized projective line from a euclidian line segment.
+-- FIXME: does not generate ULP value.
 eToPLine2 :: LineSeg -> PLine2
 eToPLine2 l1 = plineFromEndpoints (startPoint l1) (endPoint l1)
 
 -- | Create a projective line from a pair of euclidian points.
 plineFromEndpoints :: Point2 -> Point2 -> PLine2
-plineFromEndpoints (Point2 (x1,y1)) (Point2 (x2,y2)) = PLine2 $ GVec $ foldl' addVal [] [ GVal c (singleton (GEZero 1)), GVal a (singleton (GEPlus 1)), GVal b (singleton (GEPlus 2)) ]
-  where
-    a=y2-y1
-    b=x1-x2
-    c=y1*x2-x1*y2
+plineFromEndpoints point1 point2 = fst $ pLineFromEndpointsWithErr point1 point2
 
 -- | Convert from a PPoint2 to it's associated PLine.
 dualPPoint2 :: PPoint2 -> GVec
@@ -445,6 +442,40 @@ flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl' addVal []
                                   , GVal (negate $ valOf 0 $ getVals [GEPlus 1] vals) (singleton (GEPlus 1))
                                   , GVal (negate $ valOf 0 $ getVals [GEPlus 2] vals) (singleton (GEPlus 2))
                                   ]
+
+eToPLine2WithErr :: LineSeg -> (PLine2, UlpSum)
+eToPLine2WithErr l1 = pLineFromEndpointsWithErr (startPoint l1) (endPoint l1)
+
+pLineFromEndpointsWithErr :: Point2 -> Point2 -> (PLine2, UlpSum)
+pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2)) = (PLine2 $ GVec $ foldl' addVal [] [ GVal c (singleton (GEZero 1)), GVal a (singleton (GEPlus 1)), GVal b (singleton (GEPlus 2)) ], ulpSum)
+  where
+    a=y2-y1
+    b=x1-x2
+    c=y1*x2-x1*y2
+    ulpSum = UlpSum
+             $ abs (doubleUlp $ y1*x2)
+             + abs (doubleUlp $ x1*y2)
+             + abs (doubleUlp a)
+             + abs (doubleUlp b)
+             + abs (doubleUlp c)
+
+-- | Get the sum of the error involved in storing the values in a given PLine2.
+ulpOfPLine2 :: PLine2 -> ℝ
+ulpOfPLine2 (PLine2 (GVec vals)) = sum $ abs . doubleUlp . (\(GVal r _) -> r) <$> catMaybes
+                                   [getVals [GEZero 1] vals
+                                   ,getVals [GEPlus 1] vals
+                                   ,getVals [GEPlus 2] vals]
+
+-- | Get the sum of the error involved in storing the values in a given Line Segment.
+ulpOfLineSeg :: LineSeg -> ℝ
+ulpOfLineSeg (LineSeg (Point2 (x1,y1)) (Point2 (x2,y2))) = sum $ abs . doubleUlp <$> [x1, y1, x2, y2, x1+x2, y1+y2]
+
+-- | Get the sum of the error involved in storing the values in a given PPoint2.
+ulpOfPPoint2 :: PPoint2 -> ℝ
+ulpOfPPoint2 (PPoint2 (GVec vals)) = sum $ abs . doubleUlp . (\(GVal r _) -> r) <$> catMaybes
+                                     [getVals [GEZero 1, GEPlus 1] vals
+                                     ,getVals [GEZero 1, GEPlus 2] vals
+                                     ,getVals [GEPlus 1, GEPlus 2] vals]
 
 --------------------------------------------------------------
 ---- Utillity functions that use sqrt(), or divVecScalar. ----
