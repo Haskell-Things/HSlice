@@ -81,9 +81,11 @@
 -- so we can define a Num instance for Positive.
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomLineSeg, cellFrom, remainderFrom, onlyOne) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomLineSeg, cellFrom, remainderFrom, onlyOne, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomPPoint2, randomLineSegWithErr) where
 
 import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
+
+import Data.Bits.Floating.Ulp (doubleUlp)
 
 import Data.Coerce (coerce)
 
@@ -108,13 +110,13 @@ import Graphics.Slicer (ℝ)
 
 import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, pointsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg(LineSeg), mapWithFollower, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg(LineSeg), handleLineSegError, lineSegFromEndpoints, mapWithFollower, startPoint)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf, UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, normalizePLine2, pToEPoint2, translateRotatePPoint2)
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, normalizePLine2, plineFromEndpoints, pToEPoint2, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
 
@@ -660,12 +662,73 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
 
 -- | A helper function. constructs a random PLine.
 randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> PLine2
-randomPLine x y dx dy = eToPLine2 $ LineSeg (Point2 (coerce x, coerce y)) (Point2 (coerce dx, coerce dy))
+randomPLine x y dx dy = plineFromEndpoints (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
 
 -- | A helper function. constructs a random LineSeg.
--- FIXME: can construct 0 length segments, and fail.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
-randomLineSeg x y dx dy = LineSeg (Point2 (coerce x, coerce y)) (Point2 (coerce dx, coerce dy))
+randomLineSeg x y rawDx rawDy = LineSeg (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
+  where
+    (dx, dy)
+      | rawDx == 0 && rawDy == 0 = (1,1)
+      | otherwise = (rawDx, rawDy)
+
+randomLineSegWithErr :: ℝ -> ℝ -> ℝ -> ℝ -> (LineSeg, UlpSum)
+randomLineSegWithErr x1 y1 x2 y2 = (res, ulpSum)
+  where
+    res = handleLineSegError $ lineSegFromEndpoints (Point2 (x1, y1)) (Point2 (x2, y2))
+    ulpSum = UlpSum $ ulpOfLineSeg res
+
+randomPPoint2 :: ℝ -> ℝ -> (PPoint2, UlpSum)
+randomPPoint2 x y = (eToPPoint2 $ Point2 (x,y)
+                    , ulpSum)
+  where
+    ulpSum = UlpSum $ abs (doubleUlp x) + abs (doubleUlp y)
+
+-- | A PLine that does not follow the X = Y line, and does not follow the other given line.
+randomPLineThroughOrigin :: ℝ -> ℝ -> (PLine2, UlpSum)
+randomPLineThroughOrigin x y = pLineFromEndpointsWithErr (Point2 (x,y)) (Point2 (0,0))
+
+-- | A PLine that does not follow the X = Y line, and does not follow the other given line.
+randomPLineThroughPoint :: ℝ -> ℝ -> ℝ -> (PLine2, UlpSum)
+randomPLineThroughPoint x y d = pLineFromEndpointsWithErr (Point2 (x,y)) (Point2 (d,d))
+
+-- | A line segment ending at the origin. additionally, guaranteed not to be on the X = Y line.
+randomLineSegFromPointNotX1Y1 :: ℝ -> ℝ -> ℝ -> (LineSeg, UlpSum)
+randomLineSegFromPointNotX1Y1 rawX rawY d = (res, ulpSum)
+  where
+    res = handleLineSegError $ lineSegFromEndpoints (Point2 (d, d)) (Point2 (x, y))
+    (x, y)
+      | rawX == 0 && rawY == 0 = (0,0.1)
+      | rawX == rawY = (rawX,0.1)
+      | otherwise = (rawX, rawY)
+    ulpSum = UlpSum $ ulpOfLineSeg res
+
+-- | A line segment ending at the origin. additionally, guaranteed not to be on the X = Y line.
+randomLineSegFromOriginNotX1Y1 :: ℝ -> ℝ -> (LineSeg, UlpSum)
+randomLineSegFromOriginNotX1Y1 rawX rawY = (res, ulpSum)
+  where
+    res = handleLineSegError $ lineSegFromEndpoints (Point2 (0, 0)) (Point2 (x, y))
+    (x, y)
+      | rawX == 0 && rawY == 0 = (0,0.1)
+      | rawX == rawY = (rawX,0.1)
+      | otherwise = (rawX, rawY)
+    ulpSum = UlpSum $ ulpOfLineSeg res
+
+randomX1Y1LineSegToOrigin :: NonZero ℝ -> (LineSeg, UlpSum)
+randomX1Y1LineSegToOrigin rawD = (res, ulpSum)
+  where
+    res = handleLineSegError $ lineSegFromEndpoints (Point2 (d,d)) (Point2 (0,0))
+    d :: ℝ
+    d = coerce rawD
+    ulpSum = UlpSum $ ulpOfLineSeg res
+
+randomX1Y1LineSegToPoint :: NonZero ℝ -> ℝ -> (LineSeg, UlpSum)
+randomX1Y1LineSegToPoint rawD1 d2 = (res, ulpSum)
+  where
+    res = handleLineSegError $ lineSegFromEndpoints (Point2 (d1,d1)) (Point2 (d2,d2))
+    d1 :: ℝ
+    d1 = coerce rawD1
+    ulpSum = UlpSum $ ulpOfLineSeg res
 
 -- | combine two lists. for feeding into randomStarPoly.
 makePairs :: [a] -> [b] -> [(a,b)]
