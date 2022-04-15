@@ -163,12 +163,21 @@ errorIfLeft (Right val)    = val
 --   Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
 averageNodes :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> INode
 averageNodes n1 n2
-  | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
-  | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
-  | isParallel (outOf n1) (outOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
-  | isCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\nNode1Out: " <> show (outOf n1) <> "\nNode2Out: "<> show (outOf n2) <> "\n"
-  | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\nNode1: " <> show n1 <> "\nNode2: " <> show n2 <> "\n"
+  | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n" <> dumpInput
+  | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\n" <> dumpInput
+  | isParallel (outOf n1) (outOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
+  | isCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
+  | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
+  | intersectionOf (outOf n1) (outOf n2) == pPointOf n1 = error $ "intersection is AT the point of n1!\n" <> dumpInput
+  | intersectionOf (outOf n1) (outOf n2) == pPointOf n2 = error $ "intersection is AT the point of n2!\n" <> dumpInput
   | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (outOf n1) (pPointOf n2) (outOf n2)
+  where
+    dumpInput =    "Node1: " <> show n1
+                <> "\nNode2: " <> show n2
+                <> "\nNode1Out: " <> show (outOf n1)
+                <> "\nNode2Out: "<> show (outOf n2)
+                <> "\nNode1PPoint: " <> show (pPointOf n1)
+                <> "\nNode2PPoint: " <> show (pPointOf n2) <> "\n"
 
 -- | Take a pair of arcables, and return their outOfs, in a sorted order.
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [PLine2]
@@ -819,12 +828,12 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
         getMixedPairs set1 set2 = concat $ (\a -> (a,) <$> set2) <$> set1
 
     -- | find nodes of the same type that can intersect.
-    intersectingNodePairsOf :: (Arcable a, Show a) => [a] -> [(a, a)]
+    intersectingNodePairsOf :: (Arcable a, Pointable a, Show a) => [a] -> [(a, a)]
     intersectingNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
 
     -- | find nodes of the same type that can intersect.
     -- NOTE: accepts node pairs, so that we can ensure we check just following ENodes.
-    intersectingNeighboringNodePairsOf :: (Arcable a, Show a) => [(a,a)] -> [(a, a)]
+    intersectingNeighboringNodePairsOf :: (Arcable a, Pointable a, Show a) => [(a,a)] -> [(a, a)]
     intersectingNeighboringNodePairsOf inNodePairs = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> inNodePairs
 
     -- | find nodes that have output segments that are antiCollinear with one another.
@@ -838,7 +847,13 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
       | otherwise                                                         = Nothing
 
     -- | Check if the intersection of two nodes results in a point or not.
-    intersectsInPoint :: (Arcable a, Show a, Arcable b, Show b) => a -> b -> Bool
+    intersectsInPoint :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Bool
     intersectsInPoint node1 node2
-      | hasArc node1 && hasArc node2 = not $ noIntersection (outOf node1) (outOf node2)
+      | hasArc node1 && hasArc node2 = if noIntersection (outOf node1) (outOf node2)
+                                       then False
+                                       else if intersectionOf (outOf node1) (outOf node2) == pPointOf node1
+                                            then False
+                                            else if intersectionOf (outOf node1) (outOf node2) == pPointOf node2
+                                                 then False
+                                                 else True
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
