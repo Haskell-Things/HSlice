@@ -74,6 +74,7 @@ Library
                   , deepseq
                   , double-conversion
                   , extra
+                  , floating-bits
                   , implicit
                   , mtl
                   , numbers

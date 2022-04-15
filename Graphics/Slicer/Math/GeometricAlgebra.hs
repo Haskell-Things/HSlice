@@ -20,15 +20,17 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, FlexibleInstances #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
 
-import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac)
+import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.))
 
 import Prelude as P (filter)
 
 import GHC.Generics (Generic)
 
 import Control.DeepSeq (NFData)
+
+import Data.Bits.Floating.Ulp (doubleUlp)
 
 import Data.Either (Either(Left, Right))
 
@@ -66,6 +68,10 @@ data GVal = GVal { _real :: !ℝ, _basis :: !(Set GNum) }
 -- | A value in geometric algebra, in need of reduction. this may have duplicat members, or members out of order.
 data GRVal = GRVal { _r :: !ℝ, _i :: !(NonEmpty GNum) }
   deriving (Eq, Generic, NFData, Show)
+
+-- | A constantly increasing sum of error. Used for increasing our error bars proportonally to error from the FPU.
+newtype UlpSum = UlpSum ℝ
+  deriving (Show, Eq)
 
 -- When sorting gvals, sort the basis, THEN sort the multiplier.
 instance Ord GVal where
@@ -210,16 +216,20 @@ unlikeVecPair vec1 vec2 = results
                                                 Nothing -> error "empty set?"
                                                 (Just newI2) -> Left $ GRVal (r1 * r2) (newI1 <> newI2)
 
--- | Generate the reductive product of a vector pair.
+-- | Generate the reductive product of a vector pair. multiply only values where one of the basis vectors is eliminated by the multiplication.
 reduceVecPair :: GVec -> GVec -> [GRVal]
-reduceVecPair vec1 vec2 = results
+reduceVecPair vec1 vec2 = fst <$> reduceVecPairWithErr vec1 vec2
+
+-- | Generate the reductive product of a vector pair. multiply only values where one of the basis vectors is eliminated by the multiplication.
+reduceVecPairWithErr :: GVec -> GVec -> [(GRVal, UlpSum)]
+reduceVecPairWithErr vec1 vec2 = results
   where
     results = reduceVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list. multiplies only the values where one set has some common vectors with the other set, but they do not have identical sets.
-    reduceVecPair' :: GVec -> GVec -> [GRVal]
+    reduceVecPair' :: GVec -> GVec -> [(GRVal, UlpSum)]
     reduceVecPair' (GVec v1) (GVec v2) = concatMap (multiplyReducing v1) v2
       where
-        multiplyReducing :: [GVal] -> GVal -> [GRVal]
+        multiplyReducing :: [GVal] -> GVal -> [(GRVal, UlpSum)]
         multiplyReducing vals val@(GVal _ i) = flip mulReducingPair val <$> P.filter (\(GVal _ i2) -> i2 `common` i) (P.filter (\(GVal _ i2) -> i2 `hasDifferentZeros` i) $ P.filter (\(GVal _ i2) -> i2 /= i) vals)
           where
             hasDifferentZeros :: Set GNum -> Set GNum -> Bool
@@ -233,7 +243,9 @@ reduceVecPair vec1 vec2 = results
                                                           Nothing -> error "empty set?"
                                                           (Just newI1) -> case nonEmpty (elems i2) of
                                                                             Nothing -> error "empty set?"
-                                                                            (Just newI2) -> GRVal (r1 * r2) (newI1 <> newI2)
+                                                                            (Just newI2) -> (GRVal (res) (newI1 <> newI2), UlpSum $ abs $ doubleUlp res)
+                                                                              where
+                                                                                res = r1*r2
 
 -- | Generate the geometric product of a vector pair.
 mulVecPair :: GVec -> GVec -> [Either GRVal GVal]
@@ -344,7 +356,16 @@ infixl 9 ⎤
 -- | Our "reductive" operator.
 (⨅) :: GVec -> GVec -> GVec
 infixl 9 ⨅
-(⨅) v1 v2 = GVec $ foldl' addVal [] $ postProcess <$> reduceVecPair v1 v2
+(⨅) v1 v2 = fst $ v1 ⨅+ v2
+
+-- | Our "reductive" operator, with attached Error.
+(⨅+) :: GVec -> GVec -> (GVec, UlpSum)
+infixl 9 ⨅+
+(⨅+) v1 v2 = (GVec $ foldl' addVal [] $ postProcess . fst <$> res
+             , ulpTotal)
+  where
+    res = reduceVecPairWithErr v1 v2
+    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) (UlpSum 0) (snd <$> res)
 
 -- | A wedge operator. gets the wedge product of the two arguments. note that wedge = reductive minus unlike.
 (∧) :: GVec -> GVec -> GVec
