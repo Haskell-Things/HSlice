@@ -158,6 +158,10 @@ contourIntersectionCount contour endPoints = len $ getIntersections contour endP
         saneIntersection (_  , Left (HitStartPoint _ _)) (_   , Left (HitEndPoint   _ _))      _                                = Nothing
         saneIntersection  _                              (_   , Left (HitEndPoint   _ _))     (_    , Left (HitStartPoint _ _)) = Nothing
         saneIntersection (seg, Left (HitEndPoint   _ _)) (seg2, Left (HitStartPoint _ point))  _                                = Just (seg, Just seg2, eToPPoint2 point)
+        -- handle hitting the startPoint of lineFromPoints.
+        saneIntersection  _                              (seg , Left (HitStartPoint seg2 _ ))  _                             = if seg2 /= seg
+                                                                                                                                  then Nothing
+                                                                                                                                  else error "insane"
         saneIntersection l1 l2 l3 = error
                                     $ "insane result of (contour.hs) saneIntersections:\n"
                                     <> show l1 <> "\n" <> show (lEnd l1) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l1) (eToPLine2 $ lSeg l2)) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l1) pLine) <> "\n"
