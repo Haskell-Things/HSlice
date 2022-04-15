@@ -96,7 +96,7 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _) segs = stripIn
 getMotorcycleContourIntersections :: Motorcycle -> Contour -> [(LineSeg, Either LineSeg PPoint2)]
 getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _) c = stripInSegOutSeg $ catMaybes $ mapWithNeighbors saneIntersections res
   where
-    res = zip contourLines $ outputIntersectsLineSeg (m, UlpSum 0) . (,UlpSum 0) <$> contourLines
+    res = zip contourLines $ intersectsWith (Right (outOf m)) . Left <$> contourLines
     stripInSegOutSeg :: [(LineSeg, Either LineSeg PPoint2)] -> [(LineSeg, Either LineSeg PPoint2)]
     stripInSegOutSeg myIntersections
       | not (any fun myIntersections) = error
