@@ -100,10 +100,7 @@ pLineIsLeft line1 line2
   | dualAngle line1 line2 == 0 = Nothing
   | otherwise                  = Just $ dualAngle line1 line2 > 0
 
--- | Find out where two lines intersect, returning a projective point. Note that this should only be used when you can guarantee these are not collinear.
-intersectionOf :: PLine2 -> PLine2 -> PPoint2
-intersectionOf pl1 pl2 = meet2PLine2 pl1 pl2
-
+-- | Find out where two lines intersect, returning a projective point, and the error quotent. Note that this should only be used when you can guarantee these are not collinear.
 intersectionWithErr :: PLine2 -> PLine2 -> (PPoint2, UlpSum)
 intersectionWithErr pl1 pl2 = meet2PLine2WithErr pl1 pl2
 
@@ -261,7 +258,9 @@ lineIntersection l1 l2
     hasIntersection = onSegment l1 rawIntersection 0 0 && onSegment l2 rawIntersection 0 0
     intersection = pToEPoint2 rawIntersection
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
-    rawIntersection = canonicalizePPoint2 $ intersectionOf (eToPLine2 l1) (eToPLine2 l2)
+    (rawIntersection, UlpSum ulpC) = canonicalizePPoint2WithErr rawIntersect
+    (rawIntersect, UlpSum ulpI) = intersectionWithErr pl1 pl2
+    (pl2, UlpSum ulpPL2) = eToPLine2WithErr l1
 
 -- | Check if/where a line segment and a PLine intersect.
 lineIntersectsPLine :: LineSeg -> PLine2 -> Either Intersection PIntersection
@@ -279,7 +278,9 @@ lineIntersectsPLine l1 pl1
     hasIntersection = onSegment l1 rawIntersection 0 0
     intersection = pToEPoint2 rawIntersection
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
-    rawIntersection = canonicalizePPoint2 $ intersectionOf (normalizePLine2 $ eToPLine2 l1) (normalizePLine2 pl1)
+    (rawIntersection, UlpSum ulpC) = canonicalizePPoint2WithErr rawIntersect
+    (rawIntersect, UlpSum ulpI) = intersectionWithErr pl1 pl2
+    (pl2, (UlpSum ulpPL2)) = eToPLine2WithErr l2
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 onSegment :: LineSeg -> PPoint2 -> ℝ -> ℝ -> Bool
