@@ -77,18 +77,22 @@ addPPoint2s pPoint1 pPoint2 = PPoint2 $ addVecPair (rawPPoint2 $ idealPPoint2 pP
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
 plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
 plinesIntersectIn pl1 pl2
-  | intersectionOf pl1 pl2 == PPoint2 (GVec [])
-  || (idealNormPPoint2 (intersectionOf pl1 pl2) < fudgeFactor
-     && (angleBetween pl1 pl2 >= 1 ||
-         angleBetween pl1 pl2 <= -1 ))       = if angleBetween pl1 pl2 > 0
-                                               then PCollinear
-                                               else PAntiCollinear
-  | angleBetween pl1 pl2 <  1+fudgeFactor &&
-    angleBetween pl1 pl2 >  1-fudgeFactor    = PParallel
-  | angleBetween pl1 pl2 < -1+fudgeFactor &&
-    angleBetween pl1 pl2 > -1-fudgeFactor    = PAntiParallel
+  | intersectPoint == PPoint2 (GVec [])
+  || (idealNormPPoint2 intersectPoint < fudgeFactor
+     && (intersectAngle >= 1 ||
+         intersectAngle <= -1 ))       = if intersectAngle > 0
+                                         then PCollinear
+                                         else PAntiCollinear
+  | intersectAngle >  1-fudgeFactor    = PParallel
+  | intersectAngle < -1+fudgeFactor    = PAntiParallel
+  | intersectAngle >  1+fudgeFactor    = error "too big of an angle?"
+  | intersectAngle < -1-fudgeFactor    = error "too small of an angle?"
   -- FIXME: remove the canonicalization from this function, moving it to the callers.
-  | otherwise                                = IntersectsIn $ canonicalizePPoint2 $ intersectionOf pl1 pl2
+  | otherwise                                = IntersectsIn res
+  where
+    intersectAngle = angleBetween pl1 pl2
+    (intersectPoint, intersectUlp) = intersectionWithErr pl1 pl2
+    (res, resUlp) = canonicalizeIntersectionWithErr pl1 pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: PLine2 -> PLine2 -> Maybe Bool
@@ -151,7 +155,7 @@ distanceBetweenPPointsWithErr point1 point2 = (res, ulpSum)
     ulpSum                         = UlpSum $ resErr + newPLineErr
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
--- Same as angleBetween.
+-- Same operation as angleBetween, so just a wrapper.
 distanceBetween2PLine2s :: PLine2 -> PLine2 -> ℝ
 distanceBetween2PLine2s = angleBetween
 
@@ -223,13 +227,14 @@ data Intersection =
     NoIntersection
   | HitStartPoint !LineSeg !Point2
   | HitEndPoint !LineSeg !Point2
-  deriving (Show)
+  deriving Show
 
 -- | A type alias, for cases where either input is acceptable.
 type SegOrPLine2 = Either LineSeg PLine2
 
 -- | Check if/where lines/line segments intersect.
 -- entry point usable for all intersection needs, but it's faster to use other functions when you KNOW there MUST be an intersection.
+-- FIXME: take UlpSums here.
 intersectsWith :: SegOrPLine2 -> SegOrPLine2 -> Either Intersection PIntersection
 intersectsWith (Left l1)   (Left l2)   =         lineIntersection    l1  l2
 intersectsWith (Right pl1) (Right pl2) = Right $ plinesIntersectIn   pl1 pl2
@@ -546,6 +551,10 @@ normalizePLine2 pl = fst $ normalizePLine2WithErr pl
 normOfPLine2 :: PLine2 -> ℝ
 normOfPLine2 pline = fst $ normOfPLine2WithErr pline
 
+-- | find the squared norm of a given PLine2
+sqNormOfPLine2 :: PLine2 -> ℝ
+sqNormOfPLine2 pline = fst $ sqNormOfPLine2WithErr pline
+
 -- | Normalization of euclidian points is really just canonicalization.
 -- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.
@@ -593,9 +602,6 @@ normOfPLine2WithErr pline = (res, ulpSum)
     res = sqrt $ sqNormOfPLine2
     (sqNormOfPLine2, (UlpSum sqNormErr)) = sqNormOfPLine2WithErr pline
     ulpSum = UlpSum $ abs (doubleUlp res) + sqNormErr
-
-sqNormOfPLine2 :: PLine2 -> ℝ
-sqNormOfPLine2 pline = fst $ sqNormOfPLine2WithErr pline
 
 -- | find the squared norm of a given PLine2
 sqNormOfPLine2WithErr :: PLine2 -> (ℝ, UlpSum)
