@@ -38,7 +38,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (PPoint2, eToPLine2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetween, distanceBetween2PLine2s, eToPPoint2, plinesIntersectIn, pToEPoint2)
+import Graphics.Slicer.Math.PGA (PPoint2, eToPLine2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetween, distanceBetween2PLine2s, eToPPoint2, pLineFromEndpointsWithErr, plinesIntersectIn, pToEPoint2)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), outOf)
 
@@ -142,7 +142,7 @@ getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _) c = stripInSe
 -- | return the number of intersections with a given contour when traveling in a straight line from srcPoint to dstPoint.
 -- Not for use against line segments that overlap and are collinear with one of the line segments that are a part of the contour.
 contourIntersectionCount :: Contour -> (Point2, Point2) -> Int
-contourIntersectionCount contour endPoints = len $ getIntersections contour endPoints
+contourIntersectionCount contour (start, end) = len $ getIntersections contour (start, end)
   where
     getIntersections :: Contour -> (Point2, Point2) -> Slist (LineSeg, Maybe LineSeg, PPoint2)
     getIntersections c pts = slist $ catMaybes $ mapWithNeighbors saneIntersection $ zip (lineSegsOfContour contour) $ intersectsWith (Left $ lineFromPoints pts) . Left <$> lineSegsOfContour c
@@ -150,10 +150,11 @@ contourIntersectionCount contour endPoints = len $ getIntersections contour endP
         -- The line we are checking for intersections along.
         lineFromPoints ::  (Point2, Point2) -> LineSeg
         lineFromPoints (lstart, lend) = handleLineSegError $ lineSegFromEndpoints lstart lend
+        pLine = fst $ pLineFromEndpointsWithErr start end
         -- a filter for results that make sense.
         saneIntersection :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg, PPoint2)
-        saneIntersection _ (seg,Right (IntersectsIn ppoint)) _ = Just (seg, Nothing, ppoint)
-        saneIntersection _ (_,Left NoIntersection)         _ = Nothing
+        saneIntersection _ (seg,Right (IntersectsIn p)) _    = Just (seg, Nothing, p)
+        saneIntersection _ (_,Left (NoIntersection))  _      = Nothing
         saneIntersection _ (_,Right PParallel)             _ = Nothing
         saneIntersection _ (_,Right PAntiParallel)         _ = Nothing
         saneIntersection  _                              (seg , Left (HitStartPoint _ point)) (seg2 , Left (HitEndPoint   _ _)) = Just (seg, Just seg2, eToPPoint2 point)
@@ -165,14 +166,13 @@ contourIntersectionCount contour endPoints = len $ getIntersections contour endP
                                                                                                                                   then Nothing
                                                                                                                                   else error "insane"
         saneIntersection l1 l2 l3 = error
-                                    $ "insane result of (contour.hs) saneIntersections:\n"
+                                    $ "insane result of saneIntersections:\n"
                                     <> show l1 <> "\n" <> show (lEnd l1) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l1) (eToPLine2 $ lSeg l2)) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l1) pLine) <> "\n"
                                     <> show l2 <> "\n" <> show (lEnd l2) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l2) (eToPLine2 $ lSeg l3)) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l1) pLine) <> "\n"
                                     <> show l3 <> "\n" <> show (lEnd l3) <> "\n"                                                                            <> show (angleBetween (eToPLine2 $ lSeg l1) pLine) <> "\n"
           where
             lSeg :: (LineSeg, Either Intersection PIntersection) -> LineSeg
             lSeg (myseg,_) = myseg
-            pLine = eToPLine2 $ lineFromPoints pts
             lEnd :: (LineSeg, Either Intersection PIntersection) -> Point2
             lEnd (myseg,_) = endPoint myseg
 
