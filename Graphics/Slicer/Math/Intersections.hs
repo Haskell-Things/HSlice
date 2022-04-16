@@ -18,9 +18,11 @@
 
 {- Purpose of this file: to hold the logic and routines responsible for checking for intersections with contours, or portions of contours. -}
 
-module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getContourLineSegIntersections, getLineSegIntersections) where
+{-# LANGUAGE TupleSections #-}
 
-import Prelude (Bool(True), Either(Left,Right), any, error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, not, Int, (<), (*))
+module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getContourLineSegIntersections, getLineSegIntersections, intersectionOf, intersectionBetween) where
+
+import Prelude (Bool(True), Either(Left,Right), any, error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, not, Int, (<), (*), fst)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, mapMaybe)
 
@@ -36,7 +38,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (PPoint2, eToPLine2, PIntersection(IntersectsIn,PParallel,PAntiParallel, PCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetween, eToPPoint2, pToEPoint2)
+import Graphics.Slicer.Math.PGA (PPoint2, eToPLine2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetween, distanceBetween2PLine2s, eToPPoint2, plinesIntersectIn, pToEPoint2)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), outOf)
 
@@ -211,5 +213,29 @@ getLineSegIntersections myline c = saneIntersections $ zip (lineSegsOfContour c)
         saneIntersection _                               (_, Left (HitStartPoint _ _    )) (_, Right PCollinear)          = Nothing
         -- FIXME: we should 'stitch out' collinear segments, not just ignore them.
         saneIntersection _                               (_, Right PCollinear)              _                             = Nothing
-        -- saneIntersection (Left NoIntersection)      (Left (HitEndPoint   _ point)) (Left NoIntersection)      = Just point
         saneIntersection r1 r2 r3 = error $ "insane result of intersecting a line (" <> show myline <> ") with a contour " <> show c <> "\n" <> show r1 <> "\n" <> show r2 <> "\n" <> show r3 <> "\n"
+
+-- | Get the intersection point of two lines we know have an intersection point.
+intersectionOf :: PLine2 -> PLine2 -> PPoint2
+intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
+  where
+    saneIntersection PAntiCollinear     = error $ "cannot get the intersection of anti-collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
+    saneIntersection PCollinear         = error $ "cannot get the intersection of collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
+    saneIntersection PParallel          = error $ "cannot get the intersection of parallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
+    saneIntersection PAntiParallel      = error $ "cannot get the intersection of antiparallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
+    saneIntersection (IntersectsIn p)   = p
+
+-- | Get the intersection point of two lines.
+intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 PPoint2)
+intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
+  where
+    saneIntersection PAntiCollinear     = Just $ Left pl1
+    saneIntersection PCollinear         = Just $ Left pl1
+    saneIntersection PParallel          = if distanceBetween2PLine2s pl1 pl2 < fudgeFactor
+                                          then Just $ Left pl1
+                                          else Nothing
+    saneIntersection PAntiParallel      = if distanceBetween2PLine2s pl1 pl2 < fudgeFactor
+                                          then Just $ Left pl1
+                                          else Nothing
+    saneIntersection (IntersectsIn p)   = Just $ Right p
+
