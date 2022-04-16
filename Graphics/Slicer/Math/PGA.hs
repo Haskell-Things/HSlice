@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), addPPoint2s, eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), dualAngle, pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, distanceBetween2PLine2s, meet2PLine2, forcePLine2Basis, idealNormPPoint2, idealPPoint2, lineIntersectsPLine, pLineFromEndpointsWithErr, pPointBetweenPPoints, reverseGVec, translateRotatePPoint2, ulpOfLineSeg) where
 
-import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.))
+import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool(True), (&&), (<$>), any, otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.))
 
 import GHC.Generics (Generic)
 
@@ -47,11 +47,11 @@ import Safe (lastMay, initSafe)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, fudgeFactor)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, fudgeFactor, distance)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣), (⎤), (⨅), (⨅+), (∧), (•), addVal, addVecPair, divVecScalar, getVals, mulScalarVec, scalarPart, valOf, vectorPart, hpDivVecScalar)
 
-import Graphics.Slicer.Math.Line(combineLineSegs, endPoint)
+import Graphics.Slicer.Math.Line (combineLineSegs, endPoint, midPoint)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -258,7 +258,7 @@ lineIntersection l1 l2
   where
     snapFudgeFactor1 = fudgeFactor * 15
     snapFudgeFactor2 = fudgeFactor * 15
-    hasIntersection = onSegment l1 rawIntersection && onSegment l2 rawIntersection
+    hasIntersection = onSegment l1 rawIntersection 0 0 && onSegment l2 rawIntersection 0 0
     intersection = pToEPoint2 rawIntersection
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
     rawIntersection = canonicalizePPoint2 $ intersectionOf (eToPLine2 l1) (eToPLine2 l2)
@@ -276,18 +276,29 @@ lineIntersectsPLine l1 pl1
   | otherwise = Left NoIntersection
   where
     snapFudgeFactor = fudgeFactor * 15
-    hasIntersection = onSegment l1 rawIntersection
+    hasIntersection = onSegment l1 rawIntersection 0 0
     intersection = pToEPoint2 rawIntersection
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
     rawIntersection = canonicalizePPoint2 $ intersectionOf (normalizePLine2 $ eToPLine2 l1) (normalizePLine2 pl1)
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
-onSegment :: LineSeg -> PPoint2 -> Bool
-onSegment ls@(LineSeg p s) i =
-  sqNormOfPLine2 (join2PPoint2 (eToPPoint2 p) (i))               <= sqNormOfSegment &&
-  sqNormOfPLine2 (join2PPoint2 (i) (eToPPoint2 (addPoints p s))) <= sqNormOfSegment
+onSegment :: LineSeg -> PPoint2 -> ℝ -> ℝ -> Bool
+onSegment ls i startUlp endUlp =
+  any (==True) [ startDistance <= startFudgeFactor
+               , midDistance <= (lengthOfSegment/2) + midFudgeFactor
+               , endDistance <= endFudgeFactor
+               ]
   where
-    sqNormOfSegment = sqNormOfPLine2 $ eToPLine2 ls
+    (startDistance, UlpSum startDistanceUlp) = distanceBetweenPPointsWithErr startPPoint i
+    (midDistance, UlpSum midDistanceUlp) = distanceBetweenPPointsWithErr midPPoint i
+    (endDistance, UlpSum endDistanceUlp) = distanceBetweenPPointsWithErr endPPoint i
+    startPPoint = eToPPoint2 $ startPoint ls
+    midPPoint = eToPPoint2 $ midPoint ls
+    endPPoint = eToPPoint2 $ endPoint ls
+    lengthOfSegment = distance (startPoint ls) (endPoint ls)
+    startFudgeFactor = startUlp + startDistanceUlp
+    midFudgeFactor = abs (doubleUlp lengthOfSegment) + midDistanceUlp
+    endFudgeFactor = endUlp + endDistanceUlp
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 lineIsLeft :: LineSeg -> LineSeg -> Maybe Bool
