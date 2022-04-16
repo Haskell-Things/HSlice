@@ -101,8 +101,14 @@ pLineIsLeft line1 line2
   | otherwise                  = Just $ dualAngle line1 line2 > 0
 
 -- | Find out where two lines intersect, returning a projective point, and the error quotent. Note that this should only be used when you can guarantee these are not collinear.
+-- NOTE: normalizes inputs.
 intersectionWithErr :: PLine2 -> PLine2 -> (PPoint2, UlpSum)
-intersectionWithErr pl1 pl2 = meet2PLine2WithErr pl1 pl2
+intersectionWithErr pl1 pl2 = (res, ulpTotal)
+  where
+    (res, UlpSum resErr) = meet2PLine2WithErr pLine1 pLine2
+    (pLine1, UlpSum pl1Err) = normalizePLine2WithErr pl1
+    (pLine2, UlpSum pl2Err) = normalizePLine2WithErr pl2
+    ulpTotal = UlpSum $ resErr + pl1Err + pl2Err
 
 -- | Find a point somewhere along the line between the two points given.
 --  requires two weights. the ratio of these weights determines the position of the found points, E.G: 2/1 is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint.
@@ -260,7 +266,8 @@ lineIntersection l1 l2
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
     (rawIntersection, UlpSum ulpC) = canonicalizePPoint2WithErr rawIntersect
     (rawIntersect, UlpSum ulpI) = intersectionWithErr pl1 pl2
-    (pl2, UlpSum ulpPL2) = eToPLine2WithErr l1
+    (pl1, UlpSum ulpPL1) = eToPLine2WithErr l1
+    (pl2, UlpSum ulpPL2) = eToPLine2WithErr l2
 
 -- | Check if/where a line segment and a PLine intersect.
 lineIntersectsPLine :: LineSeg -> PLine2 -> Either Intersection PIntersection
@@ -280,7 +287,7 @@ lineIntersectsPLine l1 pl1
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
     (rawIntersection, UlpSum ulpC) = canonicalizePPoint2WithErr rawIntersect
     (rawIntersect, UlpSum ulpI) = intersectionWithErr pl1 pl2
-    (pl2, (UlpSum ulpPL2)) = eToPLine2WithErr l2
+    (pl2, (UlpSum ulpPL2)) = eToPLine2WithErr l1
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 onSegment :: LineSeg -> PPoint2 -> ℝ -> ℝ -> Bool
