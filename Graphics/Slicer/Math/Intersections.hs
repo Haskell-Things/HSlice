@@ -20,9 +20,9 @@
 
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getContourLineSegIntersections, getLineSegIntersections, intersectionOf, intersectionBetween) where
+module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getContourLineSegIntersections, getLineSegIntersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
 
-import Prelude (Bool(True), Either(Left,Right), any, error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, not, Int, (<), (*), fst)
+import Prelude (Bool(True), Either(Left,Right), any, error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, not, Int, (<), (*), fst, (||), (==))
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, mapMaybe)
 
@@ -239,3 +239,23 @@ intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
                                           else Nothing
     saneIntersection (IntersectsIn p)   = Just $ Right p
 
+
+-- | check if two lines cannot intersect.
+noIntersection :: PLine2 -> PLine2 -> Bool
+noIntersection pline1 pline2 = isCollinear pline1 pline2 || isParallel pline1 pline2 || isAntiCollinear pline1 pline2 || isAntiParallel pline1 pline2
+
+-- | check if two lines are really the same line.
+isCollinear :: PLine2 -> PLine2 -> Bool
+isCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PCollinear
+
+-- | check if two lines are really the same line.
+isAntiCollinear :: PLine2 -> PLine2 -> Bool
+isAntiCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiCollinear
+
+-- | check if two lines are parallel.
+isParallel :: PLine2 -> PLine2 -> Bool
+isParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PParallel
+
+-- | check if two lines are anti-parallel.
+isAntiParallel :: PLine2 -> PLine2 -> Bool
+isAntiParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiParallel

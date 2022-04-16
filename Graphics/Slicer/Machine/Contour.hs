@@ -19,7 +19,7 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude ((>), ($), otherwise, Eq, (<>), show, error, (==), (&&), Bool(True, False), (<), Show)
+import Prelude (($), otherwise, Eq, (<>), show, error, (==), (&&), Bool(True, False), Show)
 
 import Data.Either (fromRight)
 
@@ -33,9 +33,11 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour, makeLineSegContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithNeighbors,lineSegFromEndpoints)
 
+import Graphics.Slicer.Math.Intersections (noIntersection)
+
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn, PCollinear, PParallel, PAntiParallel), plinesIntersectIn, translatePerp, eToPLine2, pToEPoint2, angleBetween)
+import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn), plinesIntersectIn, translatePerp, eToPLine2, pToEPoint2)
 
 import Graphics.Slicer.Definitions(ℝ)
 
@@ -90,22 +92,15 @@ modifyContour pathWidth contour direction
                                             [l1,l2] -> [l1,l2]
                                             (firstSeg:moreSegs) -> case unsnoc moreSegs of
                                                                      Nothing -> error "impossible."
-                                                                     (Just (middleSegs,lastSeg)) -> if isDegenerate (inwardAdjust lastSeg) (inwardAdjust firstSeg)
+                                                                     (Just (middleSegs,lastSeg)) -> if noIntersection (inwardAdjust lastSeg) (inwardAdjust firstSeg)
                                                                                                     then middleSegs <> maybeToList (combineLineSegs lastSeg firstSeg)
                                                                                                     else inSegs
             concatDegenerates :: [LineSeg] -> LineSeg -> [LineSeg]
             concatDegenerates inSegs oneSeg = case unsnoc inSegs of
                                        Nothing -> [oneSeg]
-                                       (Just (middleSegs,lastSeg)) -> middleSegs <> if isDegenerate (inwardAdjust lastSeg) (inwardAdjust oneSeg)
+                                       (Just (middleSegs,lastSeg)) -> middleSegs <> if noIntersection (inwardAdjust lastSeg) (inwardAdjust oneSeg)
                                                                                     then maybeToList (combineLineSegs lastSeg oneSeg)
                                                                                     else [lastSeg,oneSeg]
-            isDegenerate pl1 pl2
-              | angleBetween pl1 pl2 < (-0.999999) = True
-              | angleBetween pl1 pl2 >   0.999999  = True
-              | plinesIntersectIn pl1 pl2  == PParallel = True
-              | plinesIntersectIn pl1 pl2  == PAntiParallel = True
-              | plinesIntersectIn pl1 pl2  == PCollinear = True
-              | otherwise = False
         inwardAdjust l1 = translatePerp (eToPLine2 l1) (if direction == Inward then pathWidth else (-pathWidth))
         findLineSeg :: LineSeg -> LineSeg -> LineSeg -> Maybe LineSeg
         findLineSeg previousln ln nextln
