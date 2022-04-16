@@ -50,9 +50,9 @@ import Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, get
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), plinesIntersectIn, plineFromEndpoints, pToEPoint2, distanceBetweenPPoints, angleBetween, eToPPoint2, lineIntersectsPLine, normalizePLine2, pPointBetweenPPoints, translatePerp)
+import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPLine2, flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), plinesIntersectIn, plineFromEndpoints, pToEPoint2, distanceBetweenPPoints, angleBetween, eToPPoint2, lineIntersectsPLine, normalizePLine2, pPointBetweenPPoints, translatePerp)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), Pointable, ENode(ENode), getFirstLineSeg, linePairs, pPointOf, isAntiCollinear, noIntersection, outOf, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), canPoint, ePointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, isAntiCollinear, noIntersection, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 

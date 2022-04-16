@@ -116,11 +116,11 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), 
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, normalizePLine2, plineFromEndpoints, pToEPoint2, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg)
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, normalizePLine2, plineFromEndpoints, pToEPoint2, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, outOf, pPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
 
-import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg, makeINode, outOf, pPointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg, makeINode)
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 

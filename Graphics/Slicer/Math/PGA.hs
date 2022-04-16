@@ -21,7 +21,7 @@
 
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), addPPoint2s, eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), dualAngle, pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, distanceBetween2PLine2s, meet2PLine2, distanceBetweenPPointsWithErr, forcePLine2Basis, idealNormPPoint2, idealPPoint2, lineIntersectsPLine, pLineFromEndpointsWithErr, pPointBetweenPPoints, reverseGVec, translateRotatePPoint2, ulpOfLineSeg) where
+module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf), addPPoint2s, eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), dualAngle, pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, distanceBetween2PLine2s, meet2PLine2, distanceBetweenPPointsWithErr, forcePLine2Basis, idealNormPPoint2, idealPPoint2, lineIntersectsPLine, pLineFromEndpointsWithErr, pPointBetweenPPoints, reverseGVec, translateRotatePPoint2, ulpOfLineSeg) where
 
 import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool(True), (&&), (<$>), any, otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.))
 
@@ -348,6 +348,17 @@ newtype PPoint2 = PPoint2 GVec
 -- | A projective line in 2D space.
 newtype PLine2 = PLine2 GVec
   deriving (Eq, Generic, NFData, Show)
+
+-- | Can this node be resolved into a point in 2d space?
+class Pointable a where
+  canPoint :: a -> Bool
+  pPointOf :: a -> PPoint2
+  ePointOf :: a -> Point2
+
+-- | does this node have an output (resulting) pLine?
+class Arcable a where
+  hasArc :: a -> Bool
+  outOf :: a -> PLine2
 
 -- | The join operator in 2D PGA, which is just the meet operator operating in the dual space.
 (∨) :: GVec -> GVec -> GVec

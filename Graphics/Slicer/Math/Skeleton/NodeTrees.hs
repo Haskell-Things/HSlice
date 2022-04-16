@@ -31,9 +31,9 @@ import Slist as SL (filter, last, head, init, isEmpty)
 
 import Graphics.Slicer.Math.Definitions (LineSeg)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), finalINodeOf, finalPLine, getFirstLineSeg, getLastLineSeg, hasNoINodes, ancestorsOf, indexPLinesTo, makeINode, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), finalINodeOf, finalPLine, getFirstLineSeg, getLastLineSeg, hasNoINodes, ancestorsOf, indexPLinesTo, makeINode, sortedPLines)
 
-import Graphics.Slicer.Math.PGA (PLine2)
+import Graphics.Slicer.Math.PGA (PLine2, Arcable(hasArc, outOf))
 
 lastSegOf :: NodeTree -> LineSeg
 lastSegOf nodeTree = getLastLineSeg $ lastENodeOf nodeTree

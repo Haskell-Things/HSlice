@@ -55,7 +55,7 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour),
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), distanceBetweenPPoints, eToPPoint2, eToPLine2, join2PPoint2, translatePerp, translateRotatePPoint2, pointOnPerp, angleBetween, distancePPointToPLine, flipPLine2, normalizePLine2, pLineIsLeft, pPointsOnSameSideOfPLine)
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), distanceBetweenPPoints, eToPPoint2, eToPLine2, join2PPoint2, translatePerp, translateRotatePPoint2, pointOnPerp, angleBetween, distancePPointToPLine, flipPLine2, normalizePLine2, pLineIsLeft, pPointsOnSameSideOfPLine, outOf, pPointOf)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour)
@@ -71,7 +71,7 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 -- Our Facet library.
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell, getNodeTreeOfCell)
 import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, getOutsideArc, towardIntersection)
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell), MotorcycleIntersection(WithENode), getFirstLineSeg, getLastLineSeg, outOf, pPointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell), MotorcycleIntersection(WithENode), getFirstLineSeg, getLastLineSeg)
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))

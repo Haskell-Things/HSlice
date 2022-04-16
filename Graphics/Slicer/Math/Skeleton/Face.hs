@@ -40,11 +40,11 @@ import Slist as SL (reverse)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, distance, fudgeFactor)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc), ePointOf, getFirstLineSeg, getLastLineSeg, finalINodeOf, finalOutOf, ancestorsOf, firstInOf, isCollinear, lastInOf, sortedPLines, outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), getFirstLineSeg, getLastLineSeg, finalINodeOf, finalOutOf, ancestorsOf, firstInOf, isCollinear, lastInOf, sortedPLines)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, findENodeByOutput, findINodeByOutput, firstSegOf, lastENodeOf, firstENodeOf, pathFirst, pathLast)
 
-import Graphics.Slicer.Math.PGA (PLine2)
+import Graphics.Slicer.Math.PGA (PLine2, Arcable(hasArc, outOf), ePointOf)
 
 --------------------------------------------------------------------
 -------------------------- Face Placement --------------------------

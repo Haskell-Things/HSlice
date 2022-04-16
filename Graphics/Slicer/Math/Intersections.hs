@@ -38,9 +38,9 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (PPoint2, eToPLine2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetween, distanceBetween2PLine2s, eToPPoint2, pLineFromEndpointsWithErr, plinesIntersectIn, pToEPoint2)
+import Graphics.Slicer.Math.PGA (PPoint2, eToPLine2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetween, distanceBetween2PLine2s, eToPPoint2, outOf, pLineFromEndpointsWithErr, plinesIntersectIn, pToEPoint2)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), outOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
 -- | get all possible intersections between the motorcycle and the given list of segments.
 getMotorcycleSegSetIntersections :: Motorcycle -> [LineSeg] -> [(LineSeg, Either Point2 PPoint2)]

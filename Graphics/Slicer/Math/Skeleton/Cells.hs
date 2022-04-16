@@ -40,7 +40,7 @@ import Slist.Type (Slist(Slist), one)
 
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), canPoint, ePointOf, finalPLine, getFirstLineSeg, outOf, makeINode, insOf, lastINodeOf, pPointOf, isLoop)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), finalPLine, getFirstLineSeg, makeINode, insOf, lastINodeOf, isLoop)
 
 import Graphics.Slicer.Math.Ganja (dumpGanja)
 
@@ -56,7 +56,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf)
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (PPoint2, PIntersection(PAntiCollinear, IntersectsIn), angleBetween, distanceBetweenPPoints, eToPLine2, eToPPoint2, pToEPoint2, plinesIntersectIn, join2PPoint2)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), PPoint2, PIntersection(PAntiCollinear, IntersectsIn), angleBetween, distanceBetweenPPoints, eToPLine2, eToPPoint2, pToEPoint2, plinesIntersectIn, join2PPoint2)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving (Show, Eq)
