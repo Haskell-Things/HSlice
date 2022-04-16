@@ -51,13 +51,13 @@ import Slist as SL (last, head, init)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.PGA (pToEPoint2, PPoint2, plinesIntersectIn, PIntersection(PCollinear,PAntiCollinear, IntersectsIn,PParallel,PAntiParallel), eToPPoint2, flipPLine2, lineIsLeft, PLine2(PLine2), eToPLine2, pLineIsLeft, distanceBetweenPPoints, distanceBetween2PLine2s)
+import Graphics.Slicer.Math.PGA (pToEPoint2, PPoint2, plinesIntersectIn, PIntersection(PCollinear,PAntiCollinear, IntersectsIn,PParallel,PAntiParallel), eToPPoint2, flipPLine2, lineIsLeft, PLine2(PLine2), eToPLine2, pLineIsLeft, distanceBetweenPPointsWithErr)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, lineSegsOfContour, handleLineSegError, lineSegFromEndpoints)
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
+import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), addVecPair)
 
 -- | Can this node be resolved into a point in 2d space?
 class Pointable a where
@@ -127,7 +127,11 @@ instance Pointable INode where
       allPointsSame = case intersectionsOfPairs allPLines of
                         [] -> error $ "no intersection of pairs for " <> show allPLines <> "\nINode: " <> show iNode <> "\n"
                         [_] -> True
-                        points -> and $ mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor) points
+                        points -> and $ mapWithFollower distanceWithinErr points
+                          where
+                            distanceWithinErr a b = res < err
+                              where
+                                (res, UlpSum err) = distanceBetweenPPointsWithErr a b
       allPLines = if hasArc iNode
                   then slist $ nub $ outOf iNode : firstPLine : secondPLine : rawPLines
                   else slist $ nub $ firstPLine : secondPLine : rawPLines
