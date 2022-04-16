@@ -52,11 +52,11 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint)
 
-import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
+import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPoints, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine, flipPLine2, plineFromEndpoints)
+import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine, flipPLine2, plineFromEndpoints)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, getFirstLineSeg, getLastLineSeg, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, firstInOf, getPairs, isCollinear, indexPLinesTo, insOf, isParallel, lastINodeOf, linePairs, makeINode, intersectionBetween, sortedPLines, isLoop)
 
@@ -202,12 +202,14 @@ getOutsideArc ppoint1 pline1 ppoint2 pline2
 
 -- Determine if the line segment formed by the two given points starts with the first point, or the second.
 -- Note that due to numeric uncertainty, we cannot rely on Eq here, and must check the sign of the angle.
+-- FIXME: shouldn't we be given an error component in our inputs?
 towardIntersection :: PPoint2 -> PLine2 -> PPoint2 -> Bool
 towardIntersection pp1 pl1 pp2
-  | distanceBetweenPPoints pp1 pp2 <= fudgeFactor = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nPLineConstructed: " <> show constructedPLine <> "\n"
-  | angleBetween constructedPLine pl1 > 0         = True
-  | otherwise                                     = False
+  | d <= dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nPLineConstructed: " <> show constructedPLine <> "\n"
+  | angleBetween constructedPLine pl1 > 0  = True
+  | otherwise                              = False
   where
+    (d, UlpSum dErr) = distanceBetweenPPointsWithErr pp1 pp2
     constructedPLine = normalizePLine2 $ join2PPoint2 pp1 pp2
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'acute' direction.
@@ -659,7 +661,11 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                                                              (outOf <$> nonAntiCollinearNodes iNodes (antiCollinearNodePairsOf iNodes) <> firstAntiCollinearNodes (antiCollinearNodePairsOf iNodes)))
         pointIntersections = rights $ catMaybes intersections
         lineIntersections = lefts $ catMaybes intersections
-        pointsCloseEnough = mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor*15) pointIntersections
+        pointsCloseEnough = mapWithFollower pairCloseEnough pointIntersections
+          where
+            pairCloseEnough a b = res < errRes
+              where
+                (res, UlpSum errRes) = distanceBetweenPPointsWithErr a b
         linesCloseEnough =
           case lineIntersections of
             [] -> []
@@ -845,7 +851,8 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     distanceToIntersection node1 node2
       | canPoint node1 && canPoint node2 && intersectsInPoint node1 node2 = Just $ max (distanceBetweenPPoints (pPointOf node1) (intersectionOf (outOf node1) (outOf node2))) (distanceBetweenPPoints (pPointOf node2) (intersectionOf (outOf node1) (outOf node2)))
       | otherwise                                                         = Nothing
-
+      where
+        distanceBetweenPPoints p1 p2 = fst $ distanceBetweenPPointsWithErr p1 p2
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Bool
     intersectsInPoint node1 node2
