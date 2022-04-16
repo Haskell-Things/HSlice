@@ -29,13 +29,11 @@
 
 -- | Common types and functions used in the code responsible for generating straight skeletons.
 
-module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, noIntersection, isCollinear, isAntiCollinear, isParallel, intersectionOf, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, intersectionBetween, isLoop, lastInOf) where
+module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, noIntersection, isCollinear, isAntiCollinear, isParallel, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
 
 import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<), (*))
 
 import Prelude as PL (head, last)
-
-import Data.Either (Either(Right, Left))
 
 import Data.List (filter, sortBy, nub)
 
@@ -73,6 +71,7 @@ class Arcable a where
   outOf :: a -> PLine2
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
+-- FIXME: a source should have a different UlpSum for it's point and it's output.
 -- FIXME: provide our own Eq instance, cause floats suck? :)
 data ENode = ENode { _inPoints :: !(Point2, Point2, Point2), _arcOut :: !PLine2 }
   deriving Eq
@@ -90,6 +89,7 @@ instance Pointable ENode where
   ePointOf (ENode (_,centerPoint,_) _) = centerPoint
 
 -- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
+-- FIXME: a source should have a different UlpSum for it's point and it's output.
 data INode = INode { _firstInArc :: !PLine2, _secondInArc :: !PLine2, _moreInArcs :: !(Slist PLine2), _outArc :: !(Maybe PLine2) }
   deriving Eq
   deriving stock Show
@@ -268,30 +268,6 @@ isParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PParallel
 -- | check if two lines are anti-parallel.
 isAntiParallel :: PLine2 -> PLine2 -> Bool
 isAntiParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiParallel
-
--- | Get the intersection point of two lines we know have an intersection point.
-intersectionOf :: PLine2 -> PLine2 -> PPoint2
-intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
-  where
-    saneIntersection PAntiCollinear   = error $ "cannot get the intersection of anti-collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection PCollinear       = error $ "cannot get the intersection of collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection PParallel        = error $ "cannot get the intersection of parallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection PAntiParallel    = error $ "cannot get the intersection of antiparallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection (IntersectsIn point) = point
-
--- | Get the intersection point of two lines.
-intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 PPoint2)
-intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
-  where
-    saneIntersection PAntiCollinear   = Just $ Left pl1
-    saneIntersection PCollinear       = Just $ Left pl1
-    saneIntersection PParallel        = if distanceBetween2PLine2s pl1 pl2 < fudgeFactor
-                                        then Just $ Left pl1
-                                        else Nothing
-    saneIntersection PAntiParallel    = if distanceBetween2PLine2s pl1 pl2 < fudgeFactor
-                                        then Just $ Left pl1
-                                        else Nothing
-    saneIntersection (IntersectsIn point) = Just $ Right point
 
 -- | Get pairs of lines from the contour, including one pair that is the last line paired with the first.
 linePairs :: Contour -> [(LineSeg, LineSeg)]

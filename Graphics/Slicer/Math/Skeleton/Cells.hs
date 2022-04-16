@@ -40,7 +40,7 @@ import Slist.Type (Slist(Slist), one)
 
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), canPoint, ePointOf, finalPLine, getFirstLineSeg, intersectionOf, outOf, makeINode, insOf, lastINodeOf, pPointOf, isLoop)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), canPoint, ePointOf, finalPLine, getFirstLineSeg, outOf, makeINode, insOf, lastINodeOf, pPointOf, isLoop)
 
 import Graphics.Slicer.Math.Ganja (dumpGanja)
 
@@ -51,6 +51,8 @@ import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeT
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, distance, startPoint, fudgeFactor, handleLineSegError, lineSegFromEndpoints)
+
+import Graphics.Slicer.Math.Intersections (intersectionOf)
 
 import Graphics.Slicer.Math.Line (endPoint)
 

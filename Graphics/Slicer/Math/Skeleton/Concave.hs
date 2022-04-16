@@ -54,11 +54,13 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapW
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, UlpSum(UlpSum))
 
+import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween)
+
 import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine, flipPLine2, plineFromEndpoints)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, getFirstLineSeg, getLastLineSeg, noIntersection, intersectionOf, isAntiCollinear, finalOutOf, firstInOf, getPairs, isCollinear, indexPLinesTo, insOf, isParallel, lastINodeOf, linePairs, makeINode, intersectionBetween, sortedPLines, isLoop)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), concavePLines, getFirstLineSeg, getLastLineSeg, noIntersection, isAntiCollinear, finalOutOf, firstInOf, getPairs, isCollinear, indexPLinesTo, insOf, isParallel, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree, findENodeByOutput)
 

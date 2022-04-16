@@ -38,9 +38,9 @@ import Graphics.Slicer.Math.Contour (makePointContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), (~=), mapWithFollower, mapWithPredecessor, scalePoint, addPoints, lineSegFromEndpoints, handleLineSegError)
 
-import Graphics.Slicer.Math.Line (endPoint)
+import Graphics.Slicer.Math.Intersections (intersectionOf)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (intersectionOf)
+import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face))
 
