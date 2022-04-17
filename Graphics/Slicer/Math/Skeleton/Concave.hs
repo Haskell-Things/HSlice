@@ -208,8 +208,8 @@ getOutsideArc ppoint1 pline1 ppoint2 pline2
 towardIntersection :: PPoint2 -> PLine2 -> PPoint2 -> Bool
 towardIntersection pp1 pl1 pp2
   | d <= dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nPLineConstructed: " <> show constructedPLine <> "\n"
-  | angleBetween constructedPLine pl1 > 0  = True
-  | otherwise                              = False
+  | angleBetween constructedPLine (normalizePLine2 pl1) > 0  = True
+  | otherwise                                                = False
   where
     (d, UlpSum dErr) = distanceBetweenPPointsWithErr pp1 pp2
     constructedPLine = normalizePLine2 $ join2PPoint2 pp1 pp2
@@ -860,9 +860,12 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     intersectsInPoint node1 node2
       | hasArc node1 && hasArc node2 = if noIntersection (outOf node1) (outOf node2)
                                        then False
-                                       else if intersectionOf (outOf node1) (outOf node2) == pPointOf node1
+                                       else if dist1 < dist1Err
                                             then False
-                                            else if intersectionOf (outOf node1) (outOf node2) == pPointOf node2
+                                            else if dist2 < dist2Err
                                                  then False
                                                  else True
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
+      where
+        (dist1, UlpSum dist1Err) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1) (outOf node2)) (pPointOf node1)
+        (dist2, UlpSum dist2Err) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1) (outOf node2)) (pPointOf node2)
