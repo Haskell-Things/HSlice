@@ -21,7 +21,52 @@
 
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
-module Graphics.Slicer.Math.PGA(PPoint2(PPoint2), PLine2(PLine2), Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf), addPPoint2s, eToPPoint2, pToEPoint2, canonicalizePPoint2, eToPLine2, combineConsecutiveLineSegs, Intersection(HitStartPoint, HitEndPoint, NoIntersection), dualAngle, pLineIsLeft, lineIntersection, plinesIntersectIn, PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), dualPPoint2, dualPLine2, dual2DGVec, join2PPoint2, translatePerp, flipPLine2, pointOnPerp, angleBetween, lineIsLeft, distancePPointToPLine, plineFromEndpoints, intersectsWith, SegOrPLine2, pPointsOnSameSideOfPLine, normalizePLine2, distanceBetweenPPoints, distanceBetween2PLine2s, meet2PLine2, distanceBetweenPPointsWithErr, forcePLine2Basis, idealNormPPoint2, idealPPoint2, lineIntersectsPLine, pLineFromEndpointsWithErr, pPointBetweenPPoints, reverseGVec, translateRotatePPoint2, ulpOfLineSeg) where
+module Graphics.Slicer.Math.PGA(
+  Intersection(HitStartPoint, HitEndPoint, NoIntersection),
+  PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn),
+  PLine2(PLine2),
+  PPoint2(PPoint2),
+  SegOrPLine2,
+  Arcable(hasArc, outOf),
+  Pointable(canPoint, pPointOf, ePointOf),
+  addPPoint2s,
+  angleBetween,
+  canonicalizePPoint2,
+  combineConsecutiveLineSegs,
+  distanceBetween2PLine2s,
+  distanceBetweenPPoints,
+  distanceBetweenPPointsWithErr,
+  distancePPointToPLine,
+  dual2DGVec,
+  dualAngle,
+  dualPLine2,
+  dualPPoint2,
+  eToPLine2,
+  eToPPoint2,
+  flipPLine2,
+  forcePLine2Basis,
+  idealNormPPoint2,
+  idealPPoint2,
+  intersectsWith,
+  join2PPoint2,
+  lineIntersection,
+  lineIntersectsPLine,
+  lineIsLeft,
+  meet2PLine2,
+  normalizePLine2,
+  pToEPoint2,
+  pLineFromEndpointsWithErr,
+  pLineIsLeft,
+  plineFromEndpoints,
+  plinesIntersectIn,
+  pointOnPerp,
+  pPointBetweenPPoints,
+  pPointsOnSameSideOfPLine,
+  reverseGVec,
+  translateRotatePPoint2,
+  translatePerp,
+  ulpOfLineSeg
+  ) where
 
 import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool(True), (&&), (<$>), any, otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.))
 
