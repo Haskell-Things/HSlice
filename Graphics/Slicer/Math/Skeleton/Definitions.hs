@@ -29,7 +29,7 @@
 
 -- | Common types and functions used in the code responsible for generating straight skeletons.
 
-module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, noIntersection, isCollinear, isAntiCollinear, isParallel, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
+module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
 
 import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<), (*))
 
@@ -51,7 +51,7 @@ import Slist as SL (last, head, init)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.PGA (pToEPoint2, plinesIntersectIn, PIntersection(PCollinear,PAntiCollinear, IntersectsIn,PParallel,PAntiParallel), eToPPoint2, flipPLine2, lineIsLeft, PLine2(PLine2), eToPLine2, pLineIsLeft, distanceBetweenPPointsWithErr, Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf))
+import Graphics.Slicer.Math.PGA (pToEPoint2, plinesIntersectIn, PIntersection(IntersectsIn), eToPPoint2, flipPLine2, lineIsLeft, PLine2(PLine2), eToPLine2, pLineIsLeft, distanceBetweenPPointsWithErr, Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf))
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, lineSegsOfContour, handleLineSegError, lineSegFromEndpoints)
 
@@ -241,26 +241,6 @@ getFirstLineSeg (ENode (p1,p2,_) _) = handleLineSegError $ lineSegFromEndpoints 
 -- | get the second line segment of an ENode.
 getLastLineSeg :: ENode -> LineSeg
 getLastLineSeg (ENode (_,p2,p3) _) = handleLineSegError $ lineSegFromEndpoints p2 p3
-
--- | check if two lines cannot intersect.
-noIntersection :: PLine2 -> PLine2 -> Bool
-noIntersection pline1 pline2 = isCollinear pline1 pline2 || isParallel pline1 pline2 || isAntiCollinear pline1 pline2 || isAntiParallel pline1 pline2
-
--- | check if two lines are really the same line.
-isCollinear :: PLine2 -> PLine2 -> Bool
-isCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PCollinear
-
--- | check if two lines are really the same line.
-isAntiCollinear :: PLine2 -> PLine2 -> Bool
-isAntiCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiCollinear
-
--- | check if two lines are parallel.
-isParallel :: PLine2 -> PLine2 -> Bool
-isParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PParallel
-
--- | check if two lines are anti-parallel.
-isAntiParallel :: PLine2 -> PLine2 -> Bool
-isAntiParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiParallel
 
 -- | Get pairs of lines from the contour, including one pair that is the last line paired with the first.
 linePairs :: Contour -> [(LineSeg, LineSeg)]

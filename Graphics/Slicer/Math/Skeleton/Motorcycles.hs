@@ -46,13 +46,13 @@ import Graphics.Slicer.Math.Contour (pointsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithNeighbors, startPoint, lineSegFromEndpoints, handleLineSegError)
 
-import Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, intersectionOf)
+import Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, intersectionOf, isAntiCollinear, noIntersection)
 
 import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPLine2, flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), plinesIntersectIn, plineFromEndpoints, pToEPoint2, distanceBetweenPPoints, angleBetween, eToPPoint2, lineIntersectsPLine, normalizePLine2, pPointBetweenPPoints, translatePerp)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, isAntiCollinear, noIntersection, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
