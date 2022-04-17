@@ -56,7 +56,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf)
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), PPoint2, PIntersection(PAntiCollinear, IntersectsIn), angleBetween, distanceBetweenPPoints, eToPLine2, eToPPoint2, normalizePLine2, pToEPoint2, plinesIntersectIn, join2PPoint2)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), PPoint2, PIntersection(PAntiCollinear, IntersectsIn), angleBetween, distanceBetweenPPoints, eToPLine2, eToNPLine2, eToPPoint2, normalizePLine2, pToEPoint2, plinesIntersectIn, join2PPoint2)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving (Show, Eq)
@@ -107,7 +107,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                                                                                      -- LOWHANGINGFRUIT: what about two motorcycles that are anticolinear?
                                                                                      error "don't know what to do with these motorcycles."
                                                where
-                                                 intersectionIsBehind m = angleBetween (normalizePLine2 $ outOf m) (eToPLine2 $ lineSegToIntersection m) < 0
+                                                 intersectionIsBehind m = angleBetween (normalizePLine2 $ outOf m) (eToNPLine2 $ lineSegToIntersection m) < 0
                                                  lineSegToIntersection m = handleLineSegError $ lineSegFromEndpoints (ePointOf m) (pToEPoint2 intersectionPPoint)
                                                  intersectionPPoint = intersectionOf (outOf firstMC) (outOf secondMC)
                                              (Slist (_:_) _) -> error "too many motorcycles."

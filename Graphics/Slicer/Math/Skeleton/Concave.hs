@@ -54,11 +54,11 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapW
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, UlpSum(UlpSum))
 
-import Graphics.Slicer.Math.Intersections (intersectionBetween, intersectionOf, isAntiCollinear, isCollinear, isParallel, noIntersection)
+import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, isCollinear, isParallel, isAntiCollinear, noIntersection)
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine, flipPLine2, plineFromEndpoints)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine, flipPLine2, plineFromEndpoints, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
@@ -220,7 +220,7 @@ towardIntersection pp1 pl1 pp2
 getInsideArc :: PLine2 -> PLine2 -> PLine2
 getInsideArc pline1 pline2@(PLine2 pv2)
   | pline1 == pline2 = error "need to be able to return two PLines."
-  | otherwise = normalizePLine2 $ PLine2 $ addVecPair flippedPV1 pv2
+  | otherwise = (\(NPLine2 a) -> PLine2 a ) $ normalizePLine2 $ PLine2 $ addVecPair flippedPV1 pv2
   where
       (PLine2 flippedPV1) = flipPLine2 pline1
 
@@ -248,7 +248,7 @@ eNodesOfOutsideContour contour = catMaybes $ onlyNodes <$> zip (linePairs contou
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
 --   Note that we normalize the output of eToPLine2, because by default, it does not output normalized lines.
 getFirstArc :: Point2 -> Point2 -> Point2 -> PLine2
-getFirstArc p1 p2 p3 = getInsideArc (normalizePLine2 $ plineFromEndpoints p1 p2) (normalizePLine2 $ plineFromEndpoints p2 p3)
+getFirstArc p1 p2 p3 = getInsideArc ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ plineFromEndpoints p1 p2) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ plineFromEndpoints p2 p3)
 
 -- | Find the reflex virtexes of a contour, and draw Nodes from them.
 --   This function is for use on interior contours.

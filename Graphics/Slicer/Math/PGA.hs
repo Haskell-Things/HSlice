@@ -23,6 +23,7 @@
 
 module Graphics.Slicer.Math.PGA(
   Intersection(HitStartPoint, HitEndPoint, NoIntersection),
+  NPLine2(NPLine2),
   PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn),
   PLine2(PLine2),
   PPoint2(PPoint2),
@@ -30,11 +31,12 @@ module Graphics.Slicer.Math.PGA(
   Pointable(canPoint, pPointOf, ePointOf),
   angleBetween,
   combineConsecutiveLineSegs,
-  distanceBetween2PLine2s,
+  distanceBetweenPLine2s,
   distanceBetweenPPoints,
   distanceBetweenPPointsWithErr,
   distancePPointToPLine,
-  dualAngle,
+  distancePPointToPLineWithErr,
+  eToNPLine2,
   eToPLine2,
   eToPPoint2,
   flipPLine2,
@@ -51,9 +53,9 @@ module Graphics.Slicer.Math.PGA(
   plineFromEndpoints,
   plinesIntersectIn,
   pointOnPerp,
-  translateRotatePPoint2,
   translatePerp,
-  ulpOfLineSeg
+  translateRotatePPoint2,
+  ulpOfLineSeg,
   ) where
 
 import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool(True), (&&), (<$>), any, otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.))
@@ -129,7 +131,7 @@ pLineIsLeft pl1 pl2
   | abs res < ulpSum = Nothing
   | otherwise               = Just $ res > 0
   where
-    res = dualAngle npl1 npl2
+    res = angleCos npl1 npl2
     (npl1, UlpSum npl1Ulp) = normalizePLine2WithErr pl1
     (npl2, UlpSum npl2Ulp) = normalizePLine2WithErr pl2
     ulpSum = npl1Ulp + npl2Ulp
@@ -157,7 +159,7 @@ distancePPointToPLineWithErr point@(PPoint2 pvec) line = (res, ulpSum)
   where
     (res, UlpSum resErr)           = normOfPLine2WithErr newPLine
     (newPLine, UlpSum newPLineErr) = join2PPoint2WithErr point linePoint
-    (PLine2 lvec, UlpSum normErr)  = normalizePLine2WithErr line
+    (NPLine2 lvec, UlpSum normErr) = normalizePLine2WithErr line
     (perpLine, UlpSum perpLineErr) = lvec ⨅+ pvec
     (linePoint, UlpSum lpErr)      = canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
     ulpSum                         = UlpSum $ lpErr + perpLineErr + normErr + newPLineErr + resErr
@@ -194,28 +196,24 @@ distanceBetweenPPointsWithErr point1 point2 = (res, ulpSum)
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
 -- Same operation as angleBetween, so just a wrapper.
-distanceBetween2PLine2s :: PLine2 -> PLine2 -> ℝ
-distanceBetween2PLine2s = angleBetween
+distanceBetweenPLine2s :: NPLine2 -> NPLine2 -> ℝ
+distanceBetweenPLine2s = angleBetween
 
 -- | Return the sine of the angle between the two lines. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
--- NOTE: normalizes inputs.
-angleBetween :: PLine2 -> PLine2 -> ℝ
-angleBetween pl1 pl2 = scalarPart $ pv1 ⎣ pv2
-  where
-    (PLine2 pv1) = normalizePLine2 pl1
-    (PLine2 pv2) = normalizePLine2 pl2
+angleBetween :: NPLine2 -> NPLine2 -> ℝ
+angleBetween (NPLine2 pv1) (NPLine2 pv2) = scalarPart $ pv1 ⎣ pv2
 
 -- | Find the cosine of the angle between the two lines. results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when "right".
-dualAngle :: PLine2 -> PLine2 -> ℝ
-dualAngle line1@(PLine2 lvec1) line2 = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
+angleCos :: NPLine2 -> NPLine2 -> ℝ
+angleCos npl1@(NPLine2 lvec1) npl2@(NPLine2 lvec2) = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
   where
-    (PLine2 lvec2, l2Err)          = normalizePLine2WithErr line2
-    (PPoint2 iPointVec, iPointErr) = canonicalizePPoint2WithErr intersection
-    (intersection, iErr)           = meet2PLine2WithErr line1 line2
+    (PPoint2 iPointVec, iPointErr) = canonicalizeIntersectionWithErr pl1 pl2
     motor                          = addVecPair (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
     antiMotor                      = addVecPair (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
     -- I, the infinite point.
     gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
+    pl1 = (\(NPLine2 a) -> PLine2 a) npl1
+    pl2 = (\(NPLine2 a) -> PLine2 a) npl2
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
 pPointOnPerp :: PLine2 -> PPoint2 -> ℝ -> PPoint2
@@ -227,7 +225,7 @@ pPointOnPerpWithErr pline (PPoint2 pvec) d = (PPoint2 res,
                                                ulpTotal)
   where
     res = motor•pvec•reverseGVec motor
-    (PLine2 lvec,UlpSum lErr)  = normalizePLine2WithErr pline
+    (NPLine2 lvec,UlpSum lErr)  = normalizePLine2WithErr pline
     (perpLine,UlpSum perpPLineErr) = lvec ⨅+ pvec
     motor = addVecPair (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
@@ -272,7 +270,7 @@ data Intersection =
 type SegOrPLine2 = Either LineSeg PLine2
 
 -- | Check if/where lines/line segments intersect.
--- entry point usable for all intersection needs, but it's faster to use other functions when you KNOW there MUST be an intersection.
+-- entry point usable for all intersection needs.
 -- FIXME: take UlpSums here.
 intersectsWith :: SegOrPLine2 -> SegOrPLine2 -> Either Intersection PIntersection
 intersectsWith (Left l1)   (Left l2)   =         lineIntersection    l1  l2
@@ -393,6 +391,10 @@ newtype PPoint2 = PPoint2 GVec
 newtype PLine2 = PLine2 GVec
   deriving (Eq, Generic, NFData, Show)
 
+-- | A normalized projective line in 2D space.
+newtype NPLine2 = NPLine2 GVec
+  deriving (Eq, Generic, NFData, Show)
+
 -- | Can this node be resolved into a point in 2d space?
 class Pointable a where
   canPoint :: a -> Bool
@@ -426,9 +428,9 @@ join2PPoint2WithErr pp1 pp2 = (PLine2 res,
     (PPoint2 pv2) = forcePPoint2Basis pp2
 
 -- | A typed meet function. the meeting of two lines is a point.
-meet2PLine2WithErr :: PLine2 -> PLine2 -> (PPoint2, UlpSum)
-meet2PLine2WithErr (PLine2 plr1) (PLine2 plr2) = (PPoint2 res,
-                                                  resUlp)
+meet2PLine2WithErr :: NPLine2 -> NPLine2 -> (PPoint2, UlpSum)
+meet2PLine2WithErr (NPLine2 plr1) (NPLine2 plr2) = (PPoint2 res,
+                                                    resUlp)
   where
     (res, resUlp) = pv1 ⎤+ pv2
     (PLine2 pv1) = forcePLine2Basis $ PLine2 plr1
@@ -463,6 +465,10 @@ ppointToPoint2 (PPoint2 (GVec vals)) = if infinitePoint
 -- | Create an un-normalized projective line from a euclidian line segment.
 eToPLine2 :: LineSeg -> PLine2
 eToPLine2 l1 = fst $ eToPLine2WithErr l1
+
+-- | Create a normalized projective line from a euclidian line segment.
+eToNPLine2 :: LineSeg -> NPLine2
+eToNPLine2 l1 = normalizePLine2 $ fst $ eToPLine2WithErr l1
 
 -- | Create a projective line from a pair of euclidian points.
 plineFromEndpoints :: Point2 -> Point2 -> PLine2
@@ -582,7 +588,7 @@ idealNormPPoint2 ppoint = sqrt (x*x+y*y)
     (Point2 (x,y)) = pToEPoint2 ppoint
 
 -- | Normalize a PLine2.
-normalizePLine2 :: PLine2 -> PLine2
+normalizePLine2 :: PLine2 -> NPLine2
 normalizePLine2 pl = fst $ normalizePLine2WithErr pl
 
 -- | find the norm of a given PLine2
@@ -622,12 +628,13 @@ canonicalizeIntersectionWithErr pl1 pl2 = (cpp1, ulpSum)
     ulpSum = UlpSum $ intersectionErr + canonicalizationErr
 
 -- | Normalize a PLine2.
-normalizePLine2WithErr :: PLine2 -> (PLine2, UlpSum)
+normalizePLine2WithErr :: PLine2 -> (NPLine2, UlpSum)
 normalizePLine2WithErr pl@(PLine2 vec) = (res, ulpSum)
   where
-    res = PLine2 $ divVecScalar vec $ normOfMyPLine
+    res = (\(PLine2 a) -> NPLine2 a) rawRes
+    rawRes = PLine2 $ divVecScalar vec $ normOfMyPLine
     (normOfMyPLine, (UlpSum normErr)) = normOfPLine2WithErr pl
-    ulpSum = UlpSum $ normErr + ulpOfPLine2 res
+    ulpSum = UlpSum $ normErr + ulpOfPLine2 rawRes
 
 -- | find the norm of a given PLine2
 normOfPLine2WithErr :: PLine2 -> (ℝ, UlpSum)
