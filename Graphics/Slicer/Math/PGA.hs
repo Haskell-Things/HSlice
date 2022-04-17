@@ -393,10 +393,9 @@ meet2PLine2 pl1 pl2 = fst $ meet2PLine2WithErr pl1 pl2
 -- | a typed join function. join two points, returning a line.
 join2PPoint2WithErr :: PPoint2 -> PPoint2 -> (PLine2, UlpSum)
 join2PPoint2WithErr pp1 pp2 = (PLine2 res,
-                               ulpSum)
+                               resUlp)
   where
     (res,resUlp)  = pv1 ∨+ pv2
-    ulpSum = resUlp
     (PPoint2 pv1) = forcePPoint2Basis pp1
     (PPoint2 pv2) = forcePPoint2Basis pp2
 
