@@ -26,43 +26,31 @@ module Graphics.Slicer.Math.PGA(
   PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn),
   PLine2(PLine2),
   PPoint2(PPoint2),
-  SegOrPLine2,
   Arcable(hasArc, outOf),
   Pointable(canPoint, pPointOf, ePointOf),
-  addPPoint2s,
   angleBetween,
-  canonicalizePPoint2,
   combineConsecutiveLineSegs,
   distanceBetween2PLine2s,
   distanceBetweenPPoints,
   distanceBetweenPPointsWithErr,
   distancePPointToPLine,
-  dual2DGVec,
   dualAngle,
-  dualPLine2,
-  dualPPoint2,
   eToPLine2,
   eToPPoint2,
   flipPLine2,
-  forcePLine2Basis,
-  idealNormPPoint2,
-  idealPPoint2,
   intersectsWith,
   join2PPoint2,
-  lineIntersection,
   lineIntersectsPLine,
   lineIsLeft,
-  meet2PLine2,
   normalizePLine2,
-  pToEPoint2,
   pLineFromEndpointsWithErr,
   pLineIsLeft,
+  pPointBetweenPPoints,
+  pPointsOnSameSideOfPLine,
+  pToEPoint2,
   plineFromEndpoints,
   plinesIntersectIn,
   pointOnPerp,
-  pPointBetweenPPoints,
-  pPointsOnSameSideOfPLine,
-  reverseGVec,
   translateRotatePPoint2,
   translatePerp,
   ulpOfLineSeg
@@ -113,12 +101,6 @@ data PIntersection =
   | IntersectsIn !PPoint2
   deriving (Show, Eq)
 
--- | Translate a point by another point.
-addPPoint2s :: PPoint2 -> PPoint2 -> PPoint2
-addPPoint2s pPoint1 pPoint2 = PPoint2 $ addVecPair (rawPPoint2 $ idealPPoint2 pPoint1) (rawPPoint2 $ idealPPoint2 pPoint2)
-  where
-    rawPPoint2 (PPoint2 v) = v
-
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
 plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
 plinesIntersectIn pl1 pl2
@@ -138,7 +120,7 @@ plinesIntersectIn pl1 pl2
     intersectAngle = angleBetween npl1 npl2
     (npl1, npl1Ulp) = normalizePLine2WithErr pl1
     (npl2, npl2Ulp) = normalizePLine2WithErr pl2
-    (intersectPoint, intersectUlp) = intersectionWithErr pl1 pl2
+    (intersectPoint, intersectUlp) = pLineIntersectionWithErr pl1 pl2
     (res, resUlp) = canonicalizePPoint2WithErr intersectPoint
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
@@ -153,9 +135,8 @@ pLineIsLeft pl1 pl2
     ulpSum = npl1Ulp + npl2Ulp
 
 -- | Find out where two lines intersect, returning a projective point, and the error quotent. Note that this should only be used when you can guarantee these are not collinear.
--- NOTE: normalizes inputs.
-intersectionWithErr :: PLine2 -> PLine2 -> (PPoint2, UlpSum)
-intersectionWithErr pl1 pl2 = (res, ulpTotal)
+pLineIntersectionWithErr :: PLine2 -> PLine2 -> (PPoint2, UlpSum)
+pLineIntersectionWithErr pl1 pl2 = (res, ulpTotal)
   where
     (res, UlpSum resErr) = meet2PLine2WithErr pLine1 pLine2
     (pLine1, UlpSum pl1Err) = normalizePLine2WithErr pl1
@@ -228,10 +209,11 @@ angleBetween pl1 pl2 = scalarPart $ pv1 ⎣ pv2
 dualAngle :: PLine2 -> PLine2 -> ℝ
 dualAngle line1@(PLine2 lvec1) line2 = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
   where
-    (PLine2 lvec2)      = normalizePLine2 line2
-    (PPoint2 iPointVec) = canonicalizePPoint2 $ meet2PLine2 line1 line2
-    motor = addVecPair (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
-    antiMotor = addVecPair (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
+    (PLine2 lvec2, l2Err)          = normalizePLine2WithErr line2
+    (PPoint2 iPointVec, iPointErr) = canonicalizePPoint2WithErr intersection
+    (intersection, iErr)           = meet2PLine2WithErr line1 line2
+    motor                          = addVecPair (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
+    antiMotor                      = addVecPair (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
     -- I, the infinite point.
     gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
 
@@ -319,7 +301,7 @@ lineIntersection l1 l2
     intersection = pToEPoint2 rawIntersection
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
     (rawIntersection, UlpSum ulpC) = canonicalizePPoint2WithErr rawIntersect
-    (rawIntersect, UlpSum ulpI) = intersectionWithErr pl1 pl2
+    (rawIntersect, UlpSum ulpI) = pLineIntersectionWithErr pl1 pl2
     (pl1, UlpSum ulpPL1) = eToPLine2WithErr l1
     (pl2, UlpSum ulpPL2) = eToPLine2WithErr l2
 
@@ -340,7 +322,7 @@ lineIntersectsPLine l1 pl1
     intersection = pToEPoint2 rawIntersection
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
     (rawIntersection, UlpSum ulpC) = canonicalizePPoint2WithErr rawIntersect
-    (rawIntersect, UlpSum ulpI) = intersectionWithErr pl1 pl2
+    (rawIntersect, UlpSum ulpI) = pLineIntersectionWithErr pl1 pl2
     (pl2, (UlpSum ulpPL2)) = eToPLine2WithErr l1
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
@@ -434,9 +416,6 @@ infixl 9 ∨+
 join2PPoint2 :: PPoint2 -> PPoint2 -> PLine2
 join2PPoint2 pp1 pp2 = fst $ join2PPoint2WithErr pp1 pp2
 
-meet2PLine2 :: PLine2 -> PLine2 -> PPoint2
-meet2PLine2 pl1 pl2 = fst $ meet2PLine2WithErr pl1 pl2
-
 -- | a typed join function. join two points, returning a line.
 join2PPoint2WithErr :: PPoint2 -> PPoint2 -> (PLine2, UlpSum)
 join2PPoint2WithErr pp1 pp2 = (PLine2 res,
@@ -471,15 +450,6 @@ pToEPoint2 :: PPoint2 -> Point2
 pToEPoint2 (PPoint2 (GVec pPoint)) = Point2 (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] pPoint
                                             ,         valOf 0 $ getVals [GEZero 1, GEPlus 1] pPoint)
 
--- | Create an ideal point from of a projective point.
--- Note: not yet used.
-idealPPoint2 :: PPoint2 -> PPoint2
-idealPPoint2 (PPoint2 (GVec vals)) = PPoint2 $ GVec $ foldl' addVal []
-                                     [
-                                       GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] vals) (fromList [GEZero 1, GEPlus 1])
-                                     , GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 2])
-                                     ]
-
 -- | Create a euclidian point from a projective point.
 ppointToPoint2 :: PPoint2 -> Maybe Point2
 ppointToPoint2 (PPoint2 (GVec vals)) = if infinitePoint
@@ -491,21 +461,12 @@ ppointToPoint2 (PPoint2 (GVec vals)) = if infinitePoint
     infinitePoint = 0 == valOf 0 (getVals [GEPlus 1, GEPlus 2] vals)
 
 -- | Create an un-normalized projective line from a euclidian line segment.
--- FIXME: does not generate ULP value.
 eToPLine2 :: LineSeg -> PLine2
 eToPLine2 l1 = fst $ eToPLine2WithErr l1
 
 -- | Create a projective line from a pair of euclidian points.
 plineFromEndpoints :: Point2 -> Point2 -> PLine2
 plineFromEndpoints point1 point2 = fst $ pLineFromEndpointsWithErr point1 point2
-
--- | Convert from a PPoint2 to it's associated PLine.
-dualPPoint2 :: PPoint2 -> GVec
-dualPPoint2 (PPoint2 vec) = dual2DGVec vec
-
--- | Convert from a PLine to it's associated projective point.
-dualPLine2 :: PLine2 -> GVec
-dualPLine2 (PLine2 vec) = dual2DGVec vec
 
 -- | Reverse a vector. Really, take every value in it, and recompute it in the reverse order of the vectors (so instead of e0∧e1, e1∧e0). which has the effect of negating bi and tri-vectors.
 reverseGVec :: GVec -> GVec
@@ -620,12 +581,6 @@ idealNormPPoint2 ppoint = sqrt (x*x+y*y)
   where
     (Point2 (x,y)) = pToEPoint2 ppoint
 
--- | Normalization of euclidian points is really just canonicalization.
--- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
--- Note: Normalization of euclidian points in PGA is really just canonicalization.
-canonicalizePPoint2 :: PPoint2 -> PPoint2
-canonicalizePPoint2 point = fst $ canonicalizePPoint2WithErr point
-
 -- | Normalize a PLine2.
 normalizePLine2 :: PLine2 -> PLine2
 normalizePLine2 pl = fst $ normalizePLine2WithErr pl
@@ -633,10 +588,6 @@ normalizePLine2 pl = fst $ normalizePLine2WithErr pl
 -- | find the norm of a given PLine2
 normOfPLine2 :: PLine2 -> ℝ
 normOfPLine2 pline = fst $ normOfPLine2WithErr pline
-
--- | find the squared norm of a given PLine2
-sqNormOfPLine2 :: PLine2 -> ℝ
-sqNormOfPLine2 pline = fst $ sqNormOfPLine2WithErr pline
 
 -- | Normalization of euclidian points is really just canonicalization.
 -- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
@@ -667,7 +618,7 @@ canonicalizeIntersectionWithErr :: PLine2 -> PLine2 -> (PPoint2, UlpSum)
 canonicalizeIntersectionWithErr pl1 pl2 = (cpp1, ulpSum)
   where
     (cpp1, (UlpSum canonicalizationErr)) = canonicalizePPoint2WithErr pp1
-    (pp1, (UlpSum intersectionErr)) = intersectionWithErr pl1 pl2
+    (pp1, (UlpSum intersectionErr)) = pLineIntersectionWithErr pl1 pl2
     ulpSum = UlpSum $ intersectionErr + canonicalizationErr
 
 -- | Normalize a PLine2.
@@ -703,8 +654,8 @@ sqNormOfPLine2WithErr (PLine2 (GVec vals)) = (res, ulpSum)
 -- | Normalize a projective point.
 -- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.
-hpCanonicalizePPoint2 :: PPoint2 -> PPoint2
-hpCanonicalizePPoint2 point@(PPoint2 (GVec rawVals))
+_hpCanonicalizePPoint2 :: PPoint2 -> PPoint2
+_hpCanonicalizePPoint2 point@(PPoint2 (GVec rawVals))
   | foundVal == Nothing = point
   | otherwise = PPoint2 $ GVec $ foldl' addVal [] $
                 ( if getVals [GEZero 1, GEPlus 1] scaledVals == Nothing
@@ -746,5 +697,33 @@ _hpSqNormOfPLine2 (PLine2 (GVec vals)) = a*a+b*b
     b = realToFrac $ valOf 0 $ getVals [GEPlus 2] vals
 
 -- | use the high precision canonicalization function on the intersection resulting from two PLines.
-hpCanonicalizeIntersectionOf :: PLine2 -> PLine2 -> PPoint2
-hpCanonicalizeIntersectionOf pl1 pl2 = hpCanonicalizePPoint2 $ fst $ intersectionWithErr pl1 pl2
+_hpCanonicalizeIntersectionOf :: PLine2 -> PLine2 -> PPoint2
+_hpCanonicalizeIntersectionOf pl1 pl2 = _hpCanonicalizePPoint2 $ fst $ pLineIntersectionWithErr pl1 pl2
+
+----------------------------
+----- Unused functions -----
+----------------------------
+
+-- | Translate a point by another point.
+_addPPoint2s :: PPoint2 -> PPoint2 -> PPoint2
+_addPPoint2s pPoint1 pPoint2 = PPoint2 $ addVecPair (rawPPoint2 $ _idealPPoint2 pPoint1) (rawPPoint2 $ _idealPPoint2 pPoint2)
+  where
+    rawPPoint2 (PPoint2 v) = v
+
+-- | Convert from a PPoint2 to it's associated PLine.
+_dualPPoint2 :: PPoint2 -> GVec
+_dualPPoint2 (PPoint2 vec) = dual2DGVec vec
+
+-- | Convert from a PLine to it's associated projective point.
+_dualPLine2 :: PLine2 -> GVec
+_dualPLine2 (PLine2 vec) = dual2DGVec vec
+
+-- | Create an ideal point from of a projective point.
+-- Note: not yet used.
+_idealPPoint2 :: PPoint2 -> PPoint2
+_idealPPoint2 (PPoint2 (GVec vals)) = PPoint2 $ GVec $ foldl' addVal []
+                                      [
+                                        GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] vals) (fromList [GEZero 1, GEPlus 1])
+                                      , GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 2])
+                                      ]
+
