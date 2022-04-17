@@ -20,7 +20,7 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, FlexibleInstances #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
 
 import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.))
 
@@ -197,24 +197,29 @@ likeVecPair' vec1 vec2 = results
 
 -- | Generate the unlike product of a vector pair. multiply only the values in the basis vector sets that are not the same between the two GVecs.
 unlikeVecPair :: GVec -> GVec -> [Either GRVal GVal]
-unlikeVecPair vec1 vec2 = results
+unlikeVecPair vec1 vec2 = fst <$> unlikeVecPairWithErr vec1 vec2
+
+unlikeVecPairWithErr :: GVec -> GVec -> [(Either GRVal GVal, UlpSum)]
+unlikeVecPairWithErr vec1 vec2 = results
   where
     results = unlikeVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list when the two basis vectors are not the same.
-    unlikeVecPair' :: GVec -> GVec -> [Either GRVal GVal]
+    unlikeVecPair' :: GVec -> GVec -> [(Either GRVal GVal, UlpSum)]
     unlikeVecPair' (GVec v1) (GVec v2) = concatMap (multiplyUnlike v1) v2
       where
-        multiplyUnlike :: [GVal] -> GVal -> [Either GRVal GVal]
+        multiplyUnlike :: [GVal] -> GVal -> [(Either GRVal GVal, UlpSum)]
         multiplyUnlike vals val@(GVal _ i) = mulUnlikePair val <$> P.filter (\(GVal _ i2) -> i2 /= i) vals
           where
             mulUnlikePair (GVal r1 i1) (GVal r2 i2)
-              | i1 == singleton G0 = Right $ GVal (r1*r2) i2
-              | i2 == singleton G0 = Right $ GVal (r1*r2) i1
+              | i1 == singleton G0 = (Right $ GVal res i2, UlpSum $ abs $ doubleUlp res)
+              | i2 == singleton G0 = (Right $ GVal res i1, UlpSum $ abs $ doubleUlp res)
               | otherwise = case nonEmpty (elems i1) of
                               Nothing -> error "empty set?"
                               (Just newI1) -> case nonEmpty (elems i2) of
                                                 Nothing -> error "empty set?"
-                                                (Just newI2) -> Left $ GRVal (r1 * r2) (newI1 <> newI2)
+                                                (Just newI2) -> (Left $ GRVal (r1 * r2) (newI1 <> newI2), UlpSum $ abs $ doubleUlp res)
+              where
+                res = r1*r2
 
 -- | Generate the reductive product of a vector pair. multiply only values where one of the basis vectors is eliminated by the multiplication.
 reduceVecPair :: GVec -> GVec -> [GRVal]
@@ -352,6 +357,15 @@ infixl 9 ⎣
 (⎤) :: GVec -> GVec -> GVec
 infixl 9 ⎤
 (⎤) v1 v2 = GVec $ foldl' addVal [] $ postProcessFilter <$> unlikeVecPair v1 v2
+
+-- | Our "unlike" operator. unicode point u+23a4.
+(⎤+) :: GVec -> GVec -> (GVec, UlpSum)
+infixl 9 ⎤+
+(⎤+) v1 v2 = (GVec $ foldl' addVal [] $ postProcessFilter . fst <$> res
+             , ulpTotal)
+  where
+    res = unlikeVecPairWithErr v1 v2
+    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) (UlpSum 0) (snd <$> res)
 
 -- | Our "reductive" operator.
 (⨅) :: GVec -> GVec -> GVec
