@@ -97,9 +97,10 @@ plinesIntersectIn pl1 pl2
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: PLine2 -> PLine2 -> Maybe Bool
 pLineIsLeft pl1 pl2
-  | abs (angleCos npl1 npl2) < ulpSum = Nothing
-  | otherwise               = Just $ angleCos npl1 npl2 > 0
+  | abs res < ulpSum = Nothing
+  | otherwise               = Just $ res > 0
   where
+    res = dualAngle npl1 npl2
     (npl1, UlpSum npl1Ulp) = normalizePLine2WithErr pl1
     (npl2, UlpSum npl2Ulp) = normalizePLine2WithErr pl2
     ulpSum = npl1Ulp + npl2Ulp
