@@ -155,7 +155,7 @@ crashMotorcycles contour holes
                           _ -> Nothing
               where
                 intersectionPPoint = intersectionOf (outOf mot1) (outOf mot2)
-                intersectionIsBehind m = angleBetween (outOf m) (eToPLine2 $ lineSegToIntersection m) < 0
+                intersectionIsBehind m = angleBetween (normalizePLine2 $ outOf m) (eToPLine2 $ lineSegToIntersection m) < 0
                 lineSegToIntersection m = handleLineSegError $ lineSegFromEndpoints (ePointOf m) (pToEPoint2 intersectionPPoint)
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
@@ -186,17 +186,13 @@ motorcycleFromPoints p1 p2 p3 = getOutsideArc (normalizePLine2 $ plineFromEndpoi
     --   Note that we do not normalize our output, or bother normalizing our input lines.
     getOutsideArc :: PLine2 -> PLine2 -> PLine2
     getOutsideArc pline1 pline2@(PLine2 pv2)
-      | noIntersection myPline1 myPline2 = error
+      | noIntersection pline1 pline2 = error
                                        $ "not collinear, but not intersecting?\n"
                                        <> "PLine1: " <> show pline1 <> "\n"
                                        <> "PLine2: " <> show pline2 <> "\n"
-                                       <> "normed PLine1: " <> show myPline1 <> "\n"
-                                       <> "normed PLine2: " <> show myPline2 <> "\n"
-                                       <> "result: " <> show (plinesIntersectIn myPline1 myPline2) <> "\n"
+                                       <> "result: " <> show (plinesIntersectIn pline1 pline2) <> "\n"
       | otherwise = flipPLine2 $ PLine2 $ addVecPair flippedPV1 pv2
       where
-        myPline1 = normalizePLine2 pline1
-        myPline2 = normalizePLine2 pline2
         (PLine2 flippedPV1) = flipPLine2 pline1
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
@@ -229,7 +225,6 @@ motorcycleMightIntersectWith lineSegs motorcycle
     results = slist $ sortByDistance $ catMaybes $ filterIntersection <$> intersections
     sortByDistance :: [(LineSeg, Either Point2 PPoint2)] -> [(LineSeg, Either Point2 PPoint2)]
     sortByDistance = sortBy compareDistances
-    compareDistances :: (LineSeg, Either Point2 PPoint2) -> (LineSeg, Either Point2 PPoint2) -> Ordering
     compareDistances i1 i2 = case i1 of
                                (_, Right intersectionPPoint1) ->
                                  case i2 of
@@ -252,8 +247,8 @@ motorcycleMightIntersectWith lineSegs motorcycle
                                                                        then Nothing
                                                                        else Just intersection
       where
-        intersectionPointIsBehind point = angleBetween (outOf motorcycle) (eToPLine2 $ lineSegToIntersection point) < 0
-        intersectionPPointIsBehind pPoint = angleBetween (outOf motorcycle) (eToPLine2 $ lineSegToIntersectionP pPoint) < 0
+        intersectionPointIsBehind point = angleBetween (normalizePLine2 $ outOf motorcycle) (eToPLine2 $ lineSegToIntersection point) < 0
+        intersectionPPointIsBehind pPoint = angleBetween (normalizePLine2 $ outOf motorcycle) (eToPLine2 $ lineSegToIntersectionP pPoint) < 0
         lineSegToIntersection myPoint = handleLineSegError $ lineSegFromEndpoints (ePointOf motorcycle) myPoint
         lineSegToIntersectionP myPPoint = handleLineSegError $ lineSegFromEndpoints (ePointOf motorcycle) (pToEPoint2 myPPoint)
 
@@ -291,8 +286,8 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                                                                    then Nothing
                                                                                    else Just intersection
       where
-        intersectionPointIsBehind point = angleBetween (outOf motorcycle) (eToPLine2 $ lineSegToIntersection point) < 0
-        intersectionPPointIsBehind pPoint = angleBetween (outOf motorcycle) (eToPLine2 $ lineSegToIntersectionP pPoint) < 0
+        intersectionPointIsBehind point = angleBetween (normalizePLine2 $ outOf motorcycle) (eToPLine2 $ lineSegToIntersection point) < 0
+        intersectionPPointIsBehind pPoint = angleBetween (normalizePLine2 $ outOf motorcycle) (eToPLine2 $ lineSegToIntersectionP pPoint) < 0
         lineSegToIntersection myPoint = handleLineSegError $ lineSegFromEndpoints (ePointOf motorcycle) myPoint
         lineSegToIntersectionP myPPoint = handleLineSegError $ lineSegFromEndpoints (ePointOf motorcycle) (pToEPoint2 myPPoint)
     intersections = getMotorcycleContourIntersections motorcycle contour
