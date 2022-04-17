@@ -127,7 +127,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
       where
         justIntersectsIn :: PIntersection -> PPoint2
         justIntersectsIn res = case res of
-                                 (IntersectsIn p) -> p
+                                 (IntersectsIn p _) -> p
                                  v -> error $ "intersection failure." <> show v <> show myContour <> "\n" <> show myMotorcycle <> "\n"
         eNodesInPath = opposingNodes myContour myMotorcycle
           where

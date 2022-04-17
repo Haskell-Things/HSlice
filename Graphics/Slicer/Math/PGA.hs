@@ -98,7 +98,7 @@ data PIntersection =
   | PAntiCollinear
   | PParallel
   | PAntiParallel
-  | IntersectsIn !PPoint2
+  | IntersectsIn !PPoint2 !(UlpSum, UlpSum, UlpSum, UlpSum, UlpSum, UlpSum)
   deriving (Show, Eq)
 
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
@@ -114,13 +114,13 @@ plinesIntersectIn pl1 pl2
   | intersectAngle < -1+fudgeFactor    = PAntiParallel
   | intersectAngle >  1+fudgeFactor    = error "too big of an angle?"
   | intersectAngle < -1-fudgeFactor    = error "too small of an angle?"
-  -- FIXME: remove the canonicalization from this function, moving it to the callers.
-  | otherwise                                = IntersectsIn res
+  | otherwise                                = IntersectsIn res (resUlp, intersectUlp, npl1Ulp, npl2Ulp, UlpSum 0, UlpSum 0)
   where
     intersectAngle = angleBetween npl1 npl2
     (npl1, npl1Ulp) = normalizePLine2WithErr pl1
     (npl2, npl2Ulp) = normalizePLine2WithErr pl2
     (intersectPoint, intersectUlp) = pLineIntersectionWithErr pl1 pl2
+    -- FIXME: remove the canonicalization from this function, moving it to the callers.
     (res, resUlp) = canonicalizePPoint2WithErr intersectPoint
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
@@ -263,7 +263,7 @@ translateRotatePPoint2 ppoint d rotation = PPoint2 $ translator•pvec•reverse
 
 -- | Intersection events that can only happen with line segments.
 data Intersection =
-    NoIntersection
+    NoIntersection !PPoint2 !(UlpSum, UlpSum, UlpSum, UlpSum)
   | HitStartPoint !LineSeg !Point2
   | HitEndPoint !LineSeg !Point2
   deriving Show
@@ -292,8 +292,8 @@ lineIntersection l1 l2
   | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ endPoint l1) < snapFudgeFactor1 = Left $ HitEndPoint l1 intersection
   | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ startPoint l2) < snapFudgeFactor2 = Left $ HitStartPoint l2 intersection
   | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ endPoint l2) < snapFudgeFactor2 = Left $ HitEndPoint l2 intersection
-  | hasIntersection = Right $ IntersectsIn rawIntersection
-  | otherwise = Left NoIntersection
+  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0)
+  | otherwise = Left $ NoIntersection rawIntersection (UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0)
   where
     snapFudgeFactor1 = fudgeFactor * 15
     snapFudgeFactor2 = fudgeFactor * 15
@@ -314,8 +314,8 @@ lineIntersectsPLine l1 pl1
   | hasIntersection && plinesIntersectIn (eToPLine2 l1) pl1 == PAntiCollinear = Right PAntiCollinear
   | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ startPoint l1) < snapFudgeFactor = Left $ HitStartPoint l1 intersection
   | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ endPoint l1) < snapFudgeFactor = Left $ HitEndPoint l1 intersection
-  | hasIntersection = Right $ IntersectsIn rawIntersection
-  | otherwise = Left NoIntersection
+  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0)
+  | otherwise = Left $ NoIntersection rawIntersection (UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0)
   where
     snapFudgeFactor = fudgeFactor * 15
     hasIntersection = onSegment l1 rawIntersection 0 0

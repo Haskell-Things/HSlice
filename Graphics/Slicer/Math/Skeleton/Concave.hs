@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapW
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, UlpSum(UlpSum))
 
-import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, noIntersection, isAntiCollinear, isCollinear, isParallel)
+import Graphics.Slicer.Math.Intersections (intersectionBetween, intersectionOf, isAntiCollinear, isCollinear, isParallel, noIntersection)
 
 import Graphics.Slicer.Math.Line (endPoint)
 

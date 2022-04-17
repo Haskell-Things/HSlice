@@ -99,8 +99,8 @@ instance Pointable INode where
                   else cons firstPLine $ cons secondPLine morePLines
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
         where
-          saneIntersect (IntersectsIn _) = True
-          saneIntersect _                = False
+          saneIntersect (IntersectsIn _ _) = True
+          saneIntersect _                  = False
   -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? angle based, etc?
   pPointOf iNode@(INode firstPLine secondPLine (Slist rawPLines _) _)
     | allPointsSame = case results of
@@ -126,8 +126,8 @@ instance Pointable INode where
                   else slist $ nub $ firstPLine : secondPLine : rawPLines
       intersectionsOfPairs (Slist pLines _) = catMaybes $ (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) <$> getPairs pLines
         where
-          saneIntersect (IntersectsIn a) = Just a
-          saneIntersect _                = Nothing
+          saneIntersect (IntersectsIn a _) = Just a
+          saneIntersect _                  = Nothing
   ePointOf a = pToEPoint2 $ pPointOf a
 
 -- Produce a list of the inputs to a given INode.

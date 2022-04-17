@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2, Arcable(outOf), Pointa
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
-import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
+import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, UlpSum(UlpSum))
 
 -- | The collision of two motorcycles. one lives, and one doesn't, unless it's a head on collision, in which case both die, and there is no survivor.
 data Collision = Collision { _inMotorcycles :: !(Motorcycle, Motorcycle, Slist Motorcycle), _survivor :: !(Maybe Motorcycle), collisionResult :: !CollisionType }
@@ -84,7 +84,7 @@ motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle)
     pointOfTarget :: PPoint2
     pointOfTarget = case target of
                       (WithLineSeg lineSeg) -> case lineIntersectsPLine lineSeg (outOf motorcycle) of
-                                        (Right (IntersectsIn p)) -> p
+                                        (Right (IntersectsIn p _)) -> p
                                         v -> error $ "impossible!\n" <> show v <> "\n" <> show lineSeg <> "\n" <> show motorcycle <> "\n" <> show target <> "\n"
                       (WithENode eNode) -> pPointOf eNode
                       (WithMotorcycle motorcycle2) -> pPointOf motorcycle2
@@ -97,7 +97,7 @@ motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle)
     mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _) = distanceBetweenPPoints (pPointOf myMotorcycle) (justIntersectsIn $ plinesIntersectIn (translatePerp (eToPLine2 seg1) 1) (outOf myMotorcycle))
     justIntersectsIn :: PIntersection -> PPoint2
     justIntersectsIn res = case res of
-                             (IntersectsIn p) -> p
+                             (IntersectsIn p _) -> p
                              v -> error $ "intersection failure." <> show v <> show target <> "\n" <> show motorcycle <> "\n"
 
 -- | Create a crash tree for all of the motorcycles in the given contour, with the given holes.

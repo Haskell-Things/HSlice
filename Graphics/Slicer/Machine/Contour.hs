@@ -110,20 +110,20 @@ modifyContour pathWidth contour direction
           | otherwise = error $ "no intersection?\n" <> show (isIntersection previousln ln) <> "\n" <> show (isIntersection ln nextln) <> "\n" <> show previousln <> "\n" <> show ln <> "\n" <> show nextln <> "\n"
           where
             isIntersection l1 l2 = case plinesIntersectIn (inwardAdjust l1) (inwardAdjust l2) of
-                                     IntersectsIn _ -> True
-                                     _other         -> False
+                                     IntersectsIn _ _ -> True
+                                     _other           -> False
             intersectionPoint pl1 pl2 = case plinesIntersectIn pl1 pl2 of
-                                          IntersectsIn p2 -> pToEPoint2 p2
-                                          a               -> error $ "impossible result!\nresult: " <> show a <> "\npline 1: " <> show pl1
-                                                             <> "\npline 2: " <> show pl2
-                                                             <> "\nEvaluating line intersections between:\nFirst: " <> show previousln
-                                                             <> "\nSecond: " <> show ln
-                                                             <> "\nThird: " <> show nextln <> "\n"<> show (inwardAdjust previousln)
-                                                             <> "\n" <> show (eToPLine2 previousln)
-                                                             <> "\n" <> show (inwardAdjust ln)
-                                                             <> "\n" <> show (eToPLine2 ln)
-                                                             <> "\n" <> show (inwardAdjust nextln)
-                                                             <> "\n" <> show (eToPLine2 nextln)
-                                                             <> "\n" <> show direction
-                                                             <> "\n" <> show contour
-                                                             <> "\n"
+                                          IntersectsIn p2 _ -> pToEPoint2 p2
+                                          a                 -> error $ "impossible result!\nresult: " <> show a <> "\npline 1: " <> show pl1
+                                                               <> "\npline 2: " <> show pl2
+                                                               <> "\nEvaluating line intersections between:\nFirst: " <> show previousln
+                                                               <> "\nSecond: " <> show ln
+                                                               <> "\nThird: " <> show nextln <> "\n"<> show (inwardAdjust previousln)
+                                                               <> "\n" <> show (eToPLine2 previousln)
+                                                               <> "\n" <> show (inwardAdjust ln)
+                                                               <> "\n" <> show (eToPLine2 ln)
+                                                               <> "\n" <> show (inwardAdjust nextln)
+                                                               <> "\n" <> show (eToPLine2 nextln)
+                                                               <> "\n" <> show direction
+                                                               <> "\n" <> show contour
+                                                               <> "\n"

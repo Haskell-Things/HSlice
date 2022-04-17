@@ -38,7 +38,9 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (PPoint2, eToPLine2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetween, distanceBetween2PLine2s, eToPPoint2, outOf, pLineFromEndpointsWithErr, plinesIntersectIn, pToEPoint2)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), PPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetween, distanceBetween2PLine2s, eToPPoint2, eToPLine2, pLineFromEndpointsWithErr, plinesIntersectIn, pToEPoint2, normalizePLine2)
+
+import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -65,8 +67,8 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _) segs = stripIn
         -- make sure neither of these segments are inSeg or outSeg
         fun (seg,_) = seg /= inSeg && seg /= outSeg
     saneIntersections :: Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Point2 PPoint2)
-    saneIntersections  _ (Just (seg, Right (IntersectsIn p)))      _ = Just (seg, Right p)
-    saneIntersections  _ (Just (_  , Left  NoIntersection))        _ = Nothing
+    saneIntersections  _ (Just (seg, Right (IntersectsIn p _)))    _ = Just (seg, Right p)
+    saneIntersections  _ (Just (_  , Left  (NoIntersection _ _)))  _ = Nothing
     saneIntersections  _ (Just (_  , Right PParallel))             _ = Nothing
     saneIntersections  _ (Just (_  , Right PAntiParallel))         _ = Nothing
     saneIntersections (Just (seg, Left (HitEndPoint   _ pt))) (Just (seg2, Left (HitStartPoint _ _)))  (Just (seg3 , Left (HitEndPoint   _ pt2)))= if distance (endPoint seg) (startPoint seg2) < fudgeFactor*15
@@ -79,9 +81,9 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _) segs = stripIn
     saneIntersections  _                                      (Just (_   , Left (HitEndPoint   _ _)))  (Just (_    , Left (HitStartPoint _ _)))  = Nothing
     saneIntersections (Just (_ , Left (HitEndPoint    _ pt))) (Just (seg , Left (HitStartPoint _ _)))   _                                        = Just (seg, Left pt)
     saneIntersections  _                                      Nothing                                   _                                        = Nothing
-    saneIntersections (Just (_  , Left NoIntersection))       (Just (seg , Left (HitEndPoint  _ pt)))   Nothing                                  = Just (seg, Left pt)
-    saneIntersections  Nothing                                (Just (seg , Left (HitEndPoint  _ pt)))  (Just (_ , Left NoIntersection))          = Just (seg, Left pt)
-    saneIntersections  Nothing                                (Just (seg , Left (HitStartPoint _ pt))) (Just (_ , Left NoIntersection))          = Just (seg, Left pt)
+    saneIntersections (Just (_  , Left (NoIntersection _ _))) (Just (seg , Left (HitEndPoint  _ pt)))   Nothing                                  = Just (seg, Left pt)
+    saneIntersections  Nothing                                (Just (seg , Left (HitEndPoint  _ pt)))  (Just (_ , Left (NoIntersection _ _)))    = Just (seg, Left pt)
+    saneIntersections  Nothing                                (Just (seg , Left (HitStartPoint _ pt))) (Just (_ , Left (NoIntersection _ _)))    = Just (seg, Left pt)
     saneIntersections  Nothing                                (Just (seg , Left (HitStartPoint _ pt)))  Nothing                                  = Just (seg, Left pt)
     saneIntersections  Nothing                                (Just (seg , Left (HitEndPoint  _ pt)))   Nothing                                  = Just (seg, Left pt)
     saneIntersections  Nothing                                (Just (seg , Left (HitStartPoint _ pt))) (Just (_ , Right _))                      = Just (seg, Left pt)
@@ -117,8 +119,8 @@ getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _) c = stripInSe
                                      (Right _) -> True)
     contourLines = lineSegsOfContour c
     saneIntersections :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either LineSeg PPoint2)
-    saneIntersections  _ (seg, Right (IntersectsIn p))      _ = Just (seg, Right p)
-    saneIntersections  _ (_  , Left  NoIntersection)        _ = Nothing
+    saneIntersections  _ (seg, Right (IntersectsIn p _))    _ = Just (seg, Right p)
+    saneIntersections  _ (_  , Left  (NoIntersection _ _))  _ = Nothing
     saneIntersections  _ (_  , Right PParallel)             _ = Nothing
     saneIntersections  _ (_  , Right PAntiParallel)         _ = Nothing
     saneIntersections (seg, Left (HitEndPoint _ _))   (seg2, Left (HitStartPoint _ _)) (seg3 , Left (HitEndPoint   _ _)) = if distance (endPoint seg) (startPoint seg2) < fudgeFactor*15
@@ -130,9 +132,9 @@ getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _) c = stripInSe
     saneIntersections (seg, Left (HitEndPoint _ _))   (seg2, Left (HitStartPoint _ _))  _                                = Just (seg, Left seg2)
     saneIntersections l1 l2 l3 = error
                                  $ "insane result of saneIntersections:\n"
-                                 <> show l1 <> "\nEndpoint: " <> show (endPoint $ lSeg l1) <> "\nLength: " <> show (lineLength l1) <> "\nAngle: " <> show (angleBetween (eToPLine2 $ lSeg l1) (outOf m)) <> "\n"
-                                 <> show l2 <> "\nEndpoint: " <> show (endPoint $ lSeg l2) <> "\nLength: " <> show (lineLength l2) <> "\nAngle: " <> show (angleBetween (eToPLine2 $ lSeg l2) (outOf m)) <> "\n"
-                                 <> show l3 <> "\nEndpoint: " <> show (endPoint $ lSeg l3) <> "\nLength: " <> show (lineLength l3) <> "\nAngle: " <> show (angleBetween (eToPLine2 $ lSeg l3) (outOf m)) <> "\n"
+                                 <> show l1 <> "\nEndpoint: " <> show (endPoint $ lSeg l1) <> "\nLength: " <> show (lineLength l1) <> "\nAngle: " <> show (angleBetween (eToPLine2 $ lSeg l1) (normalizePLine2 $ outOf m)) <> "\n"
+                                 <> show l2 <> "\nEndpoint: " <> show (endPoint $ lSeg l2) <> "\nLength: " <> show (lineLength l2) <> "\nAngle: " <> show (angleBetween (eToPLine2 $ lSeg l2) (normalizePLine2 $ outOf m)) <> "\n"
+                                 <> show l3 <> "\nEndpoint: " <> show (endPoint $ lSeg l3) <> "\nLength: " <> show (lineLength l3) <> "\nAngle: " <> show (angleBetween (eToPLine2 $ lSeg l3) (normalizePLine2 $ outOf m)) <> "\n"
       where
         lSeg :: (LineSeg, Either Intersection PIntersection) -> LineSeg
         lSeg (myseg,_) = myseg
@@ -148,15 +150,14 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
     getIntersections c pts = slist $ catMaybes $ mapWithNeighbors saneIntersection $ zip (lineSegsOfContour contour) $ intersectsWith (Left $ lineFromPoints pts) . Left <$> lineSegsOfContour c
       where
         -- The line we are checking for intersections along.
-        lineFromPoints ::  (Point2, Point2) -> LineSeg
         lineFromPoints (lstart, lend) = handleLineSegError $ lineSegFromEndpoints lstart lend
         pLine = fst $ pLineFromEndpointsWithErr start end
         -- a filter for results that make sense.
         saneIntersection :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg, PPoint2)
-        saneIntersection _ (seg,Right (IntersectsIn p)) _    = Just (seg, Nothing, p)
-        saneIntersection _ (_,Left (NoIntersection))  _      = Nothing
-        saneIntersection _ (_,Right PParallel)             _ = Nothing
-        saneIntersection _ (_,Right PAntiParallel)         _ = Nothing
+        saneIntersection _ (seg,Right (IntersectsIn p _)) _ = Just (seg, Nothing, p)
+        saneIntersection _ (_,Left (NoIntersection _ _))  _ = Nothing
+        saneIntersection _ (_,Right PParallel)            _ = Nothing
+        saneIntersection _ (_,Right PAntiParallel)        _ = Nothing
         saneIntersection  _                              (seg , Left (HitStartPoint _ point)) (seg2 , Left (HitEndPoint   _ _)) = Just (seg, Just seg2, eToPPoint2 point)
         saneIntersection (_  , Left (HitStartPoint _ _)) (_   , Left (HitEndPoint   _ _))      _                                = Nothing
         saneIntersection  _                              (_   , Left (HitEndPoint   _ _))     (_    , Left (HitStartPoint _ _)) = Nothing
@@ -167,9 +168,9 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
                                                                                                                                   else error "insane"
         saneIntersection l1 l2 l3 = error
                                     $ "insane result of saneIntersections:\n"
-                                    <> show l1 <> "\n" <> show (lEnd l1) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l1) (eToPLine2 $ lSeg l2)) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l1) pLine) <> "\n"
-                                    <> show l2 <> "\n" <> show (lEnd l2) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l2) (eToPLine2 $ lSeg l3)) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l1) pLine) <> "\n"
-                                    <> show l3 <> "\n" <> show (lEnd l3) <> "\n"                                                                            <> show (angleBetween (eToPLine2 $ lSeg l1) pLine) <> "\n"
+                                    <> show l1 <> "\n" <> show (lEnd l1) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l1) (eToPLine2 $ lSeg l2)) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
+                                    <> show l2 <> "\n" <> show (lEnd l2) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l2) (eToPLine2 $ lSeg l3)) <> "\n" <> show (angleBetween (eToPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
+                                    <> show l3 <> "\n" <> show (lEnd l3) <> "\n"                                                                            <> show (angleBetween (eToPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
           where
             lSeg :: (LineSeg, Either Intersection PIntersection) -> LineSeg
             lSeg (myseg,_) = myseg
@@ -180,8 +181,8 @@ getContourLineSegIntersections :: Contour -> LineSeg -> Slist Point2
 getContourLineSegIntersections contour line = slist $ mapMaybe (saneIntersection . intersectsWith (Left line) . Left) $ lineSegsOfContour contour
   where
     saneIntersection :: Either Intersection PIntersection -> Maybe Point2
-    saneIntersection (Left NoIntersection)         = Nothing
-    saneIntersection (Right (IntersectsIn ppoint)) = Just $ pToEPoint2 ppoint
+    saneIntersection (Left (NoIntersection _ _))   = Nothing
+    saneIntersection (Right (IntersectsIn p _))    = Just $ pToEPoint2 p
     saneIntersection (Right PAntiParallel)         = Nothing
     saneIntersection (Right PParallel)             = Nothing
     -- FIXME: fix the remaining cases. steal the code / algorithms from closedRegion
@@ -195,21 +196,21 @@ getLineSegIntersections myline c = saneIntersections $ zip (lineSegsOfContour c)
     saneIntersections xs = catMaybes $ mapWithNeighbors saneIntersection xs
       where
         saneIntersection :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe Point2
-        saneIntersection _ (_, Right (IntersectsIn ppoint)) _ = Just $ pToEPoint2 ppoint
-        saneIntersection _ (_, Left NoIntersection)         _ = Nothing
-        saneIntersection _ (_, Right PParallel)             _ = Nothing
-        saneIntersection _ (_, Right PAntiParallel)         _ = Nothing
+        saneIntersection _ (_, Right (IntersectsIn p _))  _ = Just $ pToEPoint2 p
+        saneIntersection _ (_, Left (NoIntersection _ _)) _ = Nothing
+        saneIntersection _ (_, Right PParallel)           _ = Nothing
+        saneIntersection _ (_, Right PAntiParallel)       _ = Nothing
         -- Since every stop point of one line segment in a contour should be the same as the next start point...
         -- only count the first start point, when going in one direction..
-        saneIntersection _                               (_, Left (HitStartPoint _ point)) (_, Left (HitEndPoint   _ _)) = Just point
-        saneIntersection (_, Left (HitStartPoint _ _)) (_, Left (HitEndPoint   _ _    )) _                               = Nothing
+        saneIntersection _                               (_, Left (HitStartPoint _ point)) (_, Left (HitEndPoint   _ _))  = Just point
+        saneIntersection (_, Left (HitStartPoint _ _))   (_, Left (HitEndPoint   _ _    )) _                              = Nothing
         -- and only count the first start point, when going in the other direction.
-        saneIntersection _                               (_, Left (HitEndPoint   _ _    )) (_, Left (HitStartPoint _ _)) = Nothing
-        saneIntersection (_, Left (HitEndPoint   _ _)) (_, Left (HitStartPoint _ point)) _                               = Just point
+        saneIntersection _                               (_, Left (HitEndPoint   _ _    )) (_, Left (HitStartPoint _ _))  = Nothing
+        saneIntersection (_, Left (HitEndPoint   _ _))   (_, Left (HitStartPoint _ point)) _                              = Just point
         -- Ignore the end and start point that comes before / after a collinear section.
-        saneIntersection (_, Right PCollinear)          (_, Left (HitStartPoint _ _    )) _                               = Nothing
+        saneIntersection (_, Right PCollinear)           (_, Left (HitStartPoint _ _    )) _                              = Nothing
         saneIntersection _                               (_, Left (HitEndPoint   _ _    )) (_, Right PCollinear)          = Nothing
-        saneIntersection (_, Right PCollinear)          (_, Left (HitEndPoint   _ _    )) _                               = Nothing
+        saneIntersection (_, Right PCollinear)           (_, Left (HitEndPoint   _ _    )) _                              = Nothing
         saneIntersection _                               (_, Left (HitStartPoint _ _    )) (_, Right PCollinear)          = Nothing
         -- FIXME: we should 'stitch out' collinear segments, not just ignore them.
         saneIntersection _                               (_, Right PCollinear)              _                             = Nothing
@@ -223,7 +224,7 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
     saneIntersection PCollinear         = error $ "cannot get the intersection of collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
     saneIntersection PParallel          = error $ "cannot get the intersection of parallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
     saneIntersection PAntiParallel      = error $ "cannot get the intersection of antiparallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection (IntersectsIn p)   = p
+    saneIntersection (IntersectsIn p _) = p
 
 -- | Get the intersection point of two lines.
 intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 PPoint2)
@@ -231,13 +232,13 @@ intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
   where
     saneIntersection PAntiCollinear     = Just $ Left pl1
     saneIntersection PCollinear         = Just $ Left pl1
-    saneIntersection PParallel          = if distanceBetween2PLine2s pl1 pl2 < fudgeFactor
+    saneIntersection PParallel          = if distanceBetween2PLine2s (normalizePLine2 pl1) (normalizePLine2 pl2) < fudgeFactor
                                           then Just $ Left pl1
                                           else Nothing
-    saneIntersection PAntiParallel      = if distanceBetween2PLine2s pl1 pl2 < fudgeFactor
+    saneIntersection PAntiParallel      = if distanceBetween2PLine2s (normalizePLine2 pl1) (normalizePLine2 pl2) < fudgeFactor
                                           then Just $ Left pl1
                                           else Nothing
-    saneIntersection (IntersectsIn p)   = Just $ Right p
+    saneIntersection (IntersectsIn p _) = Just $ Right p
 
 
 -- | check if two lines cannot intersect.
