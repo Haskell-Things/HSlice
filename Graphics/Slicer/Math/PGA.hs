@@ -90,9 +90,11 @@ plinesIntersectIn pl1 pl2
   -- FIXME: remove the canonicalization from this function, moving it to the callers.
   | otherwise                                = IntersectsIn res
   where
-    intersectAngle = angleBetween pl1 pl2
+    intersectAngle = angleBetween npl1 npl2
+    (npl1, npl1Ulp) = normalizePLine2WithErr pl1
+    (npl2, npl2Ulp) = normalizePLine2WithErr pl2
     (intersectPoint, intersectUlp) = intersectionWithErr pl1 pl2
-    (res, resUlp) = canonicalizeIntersectionWithErr pl1 pl2
+    (res, resUlp) = canonicalizePPoint2WithErr intersectPoint
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: PLine2 -> PLine2 -> Maybe Bool
@@ -629,7 +631,7 @@ normalizePLine2WithErr pl@(PLine2 vec) = (res, ulpSum)
   where
     res = PLine2 $ divVecScalar vec $ normOfMyPLine
     (normOfMyPLine, (UlpSum normErr)) = normOfPLine2WithErr pl
-    ulpSum = UlpSum $ normOfPLine2 res + normErr
+    ulpSum = UlpSum $ normErr + ulpOfPLine2 res
 
 -- | find the norm of a given PLine2
 normOfPLine2WithErr :: PLine2 -> (ℝ, UlpSum)
