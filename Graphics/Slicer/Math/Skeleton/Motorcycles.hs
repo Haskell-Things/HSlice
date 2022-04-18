@@ -50,7 +50,7 @@ import Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, get
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (NPLine2(NPLine2), PLine2(PLine2), PPoint2, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPLine2, eToNPLine2, flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), plinesIntersectIn, plineFromEndpoints, pToEPoint2, distanceBetweenPPoints, angleBetween, eToPPoint2, normalizePLine2, outputIntersectsLineSeg, pPointBetweenPPoints, translatePerp)
+import Graphics.Slicer.Math.PGA (NPLine2(NPLine2), PLine2(PLine2), PPoint2, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPLine2, eToNPLine2, flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), plinesIntersectIn, plineFromEndpoints, pToEPoint2, angleBetween, distanceBetweenPPoints, eToPPoint2, normalizePLine2, outputIntersectsLineSeg, pPointBetweenPPoints, translatePerp)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
