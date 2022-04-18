@@ -273,63 +273,98 @@ type SegOrPLine2 = Either LineSeg PLine2
 -- entry point usable for all intersection needs.
 -- FIXME: take UlpSums here.
 intersectsWith :: SegOrPLine2 -> SegOrPLine2 -> Either Intersection PIntersection
-intersectsWith (Left l1)   (Left l2)   =         lineIntersection    l1  l2
+intersectsWith (Left l1)   (Left l2)   =         lineSegIntersectsLineSeg (l1, UlpSum $ ulpOfLineSeg l1) (l2, UlpSum $ ulpOfLineSeg l2)
 intersectsWith (Right pl1) (Right pl2) = Right $ plinesIntersectIn   pl1 pl2
-intersectsWith (Left l1)   (Right pl1) =         pLineIntersectsLineSeg pl1  l1
-intersectsWith (Right pl1) (Left l1)   =         pLineIntersectsLineSeg pl1  l1
+intersectsWith (Left l1)   (Right pl1) =         pLineIntersectsLineSeg (pl1, UlpSum $ ulpOfPLine2 pl1) (l1, UlpSum $ ulpOfLineSeg l1)
+intersectsWith (Right pl1) (Left l1)   =         pLineIntersectsLineSeg (pl1, UlpSum $ ulpOfPLine2 pl1) (l1, UlpSum $ ulpOfLineSeg l1)
 
 -- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
 outputIntersectsLineSeg :: (Show a, Arcable a) => a -> (LineSeg, UlpSum) -> Either Intersection PIntersection
-outputIntersectsLineSeg source (target, targetUlp)
-  | hasArc source = pLineIntersectsLineSeg (outOf source) target
+outputIntersectsLineSeg source target
+  | hasArc source = pLineIntersectsLineSeg (outOf source, UlpSum 0) target
   | otherwise = error
                 $ "no arc from source?\n"
                 <> show source <> "\n"
 
--- | Check if/where two line segments intersect.
--- FIXME: should we be returning a segment, for PCollinear and PAntiCollinear?
-lineIntersection :: LineSeg -> LineSeg -> Either Intersection PIntersection
-lineIntersection l1 l2
-  | plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) == PParallel = Right PParallel
-  | plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) == PAntiParallel = Right PAntiParallel
-  | hasIntersection && plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) == PCollinear = Right PCollinear
-  | hasIntersection && plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) == PAntiCollinear = Right PAntiCollinear
-  | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ startPoint l1) < snapFudgeFactor1 = Left $ HitStartPoint l1 intersection
-  | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ endPoint l1) < snapFudgeFactor1 = Left $ HitEndPoint l1 intersection
-  | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ startPoint l2) < snapFudgeFactor2 = Left $ HitStartPoint l2 intersection
-  | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ endPoint l2) < snapFudgeFactor2 = Left $ HitEndPoint l2 intersection
-  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0)
-  | otherwise = Left $ NoIntersection rawIntersection (UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0)
-  where
-    snapFudgeFactor1 = fudgeFactor * 15
-    snapFudgeFactor2 = fudgeFactor * 15
-    hasIntersection = onSegment l1 rawIntersection 0 0 && onSegment l2 rawIntersection 0 0
-    intersection = pToEPoint2 rawIntersection
-    -- FIXME: remove the canonicalization from this function, moving it to the callers.
-    (rawIntersection, UlpSum ulpC) = canonicalizePPoint2WithErr rawIntersect
-    (rawIntersect, UlpSum ulpI) = pLineIntersectionWithErr pl1 pl2
-    (pl1, UlpSum ulpPL1) = eToPLine2WithErr l1
-    (pl2, UlpSum ulpPL2) = eToPLine2WithErr l2
+-- | A type alias, for cases where either input is acceptable.
+type SegOrPLine2WithErr = Either (LineSeg, UlpSum) (PLine2,UlpSum)
+
+-- entry point usable for all intersection needs, complete with passed in error values.
+intersectsWithErr :: SegOrPLine2WithErr -> SegOrPLine2WithErr -> Either Intersection PIntersection
+intersectsWithErr (Left l1)       (Left l2)       =         lineSegIntersectsLineSeg l1 l2
+intersectsWithErr (Right (pl1,_)) (Right (pl2,_)) = Right $ plinesIntersectIn pl1 pl2
+intersectsWithErr (Left l1)       (Right pl1)     =         pLineIntersectsLineSeg pl1 l1
+intersectsWithErr (Right pl1)     (Left l1)       =         pLineIntersectsLineSeg pl1 l1
+
+-- FIXME: as long as this is required, we're not accounting for ULP correctly everywhere.
+ulpMultiplier :: ℝ
+ulpMultiplier = 120
 
 -- | Check if/where a line segment and a PLine intersect.
-pLineIntersectsLineSeg :: PLine2 -> LineSeg -> Either Intersection PIntersection
-pLineIntersectsLineSeg pl1 l1
-  | plinesIntersectIn (eToPLine2 l1) pl1 == PParallel = Right PParallel
-  | plinesIntersectIn (eToPLine2 l1) pl1 == PAntiParallel = Right PAntiParallel
-  | hasIntersection && plinesIntersectIn (eToPLine2 l1) pl1 == PCollinear = Right PCollinear
-  | hasIntersection && plinesIntersectIn (eToPLine2 l1) pl1 == PAntiCollinear = Right PAntiCollinear
-  | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ startPoint l1) < snapFudgeFactor = Left $ HitStartPoint l1 intersection
-  | hasIntersection && distanceBetweenPPoints rawIntersection (eToPPoint2 $ endPoint l1) < snapFudgeFactor = Left $ HitEndPoint l1 intersection
-  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0)
-  | otherwise = Left $ NoIntersection rawIntersection (UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0)
+pLineIntersectsLineSeg :: (PLine2, UlpSum) -> (LineSeg, UlpSum) -> Either Intersection PIntersection
+pLineIntersectsLineSeg (pl1, (UlpSum ulpPL1)) (l1, (UlpSum ulpL1))
+  | plinesIntersectIn pl1 pl2 == PParallel = Right PParallel
+  | plinesIntersectIn pl1 pl2 == PAntiParallel = Right PAntiParallel
+  | distance (startPoint l1) (endPoint l1) < ulpStart+ulpEnd+ulpTotal = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
+  | hasIntersection && plinesIntersectIn pl1 pl2 == PCollinear = Right PCollinear
+  | hasIntersection && plinesIntersectIn pl1 pl2 == PAntiCollinear = Right PAntiCollinear
+  | hasIntersection && startDistance <= ulpStartSum = Left $ HitStartPoint l1 intersection
+  | hasIntersection && endDistance <= ulpEndSum = Left $ HitEndPoint l1 intersection
+  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum ulpStartSum, UlpSum ulpEndSum, UlpSum 0, UlpSum ulpPL1, UlpSum ulpPL2, UlpSum ulpI)
+  | otherwise = Left $ NoIntersection rawIntersection (UlpSum ulpStartSum, UlpSum ulpEndSum, UlpSum 0, UlpSum 0)
   where
-    snapFudgeFactor = fudgeFactor * 15
-    hasIntersection = onSegment l1 rawIntersection 0 0
+    (startDistance, UlpSum ulpStart) = distanceBetweenPPointsWithErr rawIntersection (eToPPoint2 $ startPoint l1)
+    (endDistance, UlpSum ulpEnd) = distanceBetweenPPointsWithErr rawIntersection (eToPPoint2 $ endPoint l1)
+    ulpStartSum = ulpTotal+ulpStart
+    ulpEndSum = ulpTotal+ulpEnd
+    -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
+    ulpTotal
+      | ulpPL1 < 0 || ulpPL2 < 0 || ulpL1 < 0 || ulpI < 0 = error $ "negative ULP?\n"
+      | otherwise = ulpPL1 + ulpPL2 + ulpL1 + (ulpI {- * ulpMultiplier -} ) + (ulpC * ulpMultiplier)
+    dumpULPs = "ulpPL1: " <> show ulpPL1 <> "\nulpPL2: " <> show ulpPL2 <> "\nulpL1: " <> show ulpL1 <> "\nulpI: " <> show ulpI <> "\nulpC: " <> show ulpC <> "\n"
+    hasIntersection = onSegment l1 rawIntersection ulpStartSum ulpEndSum
     intersection = pToEPoint2 rawIntersection
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
     (rawIntersection, UlpSum ulpC) = canonicalizePPoint2WithErr rawIntersect
     (rawIntersect, UlpSum ulpI) = pLineIntersectionWithErr pl1 pl2
-    (pl2, (UlpSum ulpPL2)) = eToPLine2WithErr l1
+    (pl2, UlpSum ulpPL2) = eToPLine2WithErr l1
+
+-- | Check if/where two line segments intersect.
+lineSegIntersectsLineSeg :: (LineSeg, UlpSum) -> (LineSeg, UlpSum) -> Either Intersection PIntersection
+lineSegIntersectsLineSeg (l1, (UlpSum ulpL1)) (l2, (UlpSum ulpL2))
+  | plinesIntersectIn pl1 pl2 == PParallel = Right PParallel
+  | plinesIntersectIn pl1 pl2 == PAntiParallel = Right PAntiParallel
+  | distance (startPoint l1) (endPoint l1) < ulpStart1+ulpEnd1+ulpTotal = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
+  | distance (startPoint l2) (endPoint l2) < ulpStart2+ulpEnd2+ulpTotal = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
+  | hasIntersection && plinesIntersectIn pl1 pl2 == PCollinear = Right PCollinear
+  | hasIntersection && plinesIntersectIn pl1 pl2 == PAntiCollinear = Right PAntiCollinear
+  | hasIntersection && startDistance1 <= ulpStartSum1 = Left $ HitStartPoint l1 intersection
+  | hasIntersection && endDistance1 <= ulpEndSum1 = Left $ HitEndPoint l1 intersection
+  | hasIntersection && startDistance2 <= ulpStartSum2 = Left $ HitStartPoint l2 intersection
+  | hasIntersection && endDistance2 <= ulpEndSum2 = Left $ HitEndPoint l2 intersection
+  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum ulpStartSum1, UlpSum ulpEndSum1, UlpSum ulpStartSum2, UlpSum ulpEndSum2, UlpSum ulpTotal, UlpSum ulpI)
+  | otherwise = Left $ NoIntersection rawIntersection (UlpSum ulpStartSum1, UlpSum ulpEndSum1, UlpSum ulpStartSum2, UlpSum ulpEndSum2)
+  where
+    ulpStartSum1 = ulpTotal+ulpStart1
+    ulpStartSum2 = ulpTotal+ulpStart2
+    ulpEndSum1 = ulpTotal+ulpEnd1
+    ulpEndSum2 = ulpTotal+ulpEnd2
+    (startDistance1, UlpSum ulpStart1) = distanceBetweenPPointsWithErr rawIntersection (eToPPoint2 $ startPoint l1)
+    (startDistance2, UlpSum ulpStart2) = distanceBetweenPPointsWithErr rawIntersection (eToPPoint2 $ startPoint l2)
+    (endDistance1, UlpSum ulpEnd1) = distanceBetweenPPointsWithErr rawIntersection (eToPPoint2 $ endPoint l1)
+    (endDistance2, UlpSum ulpEnd2) = distanceBetweenPPointsWithErr rawIntersection (eToPPoint2 $ endPoint l2)
+    (pl1, UlpSum ulpPL1) = eToPLine2WithErr l1
+    (pl2, UlpSum ulpPL2) = eToPLine2WithErr l2
+    -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
+    ulpTotal
+      | ulpPL1 < 0 || ulpPL2 < 0 || ulpL1 < 0 || ulpL2 < 0 || ulpI < 0 || ulpC < 0 = error $ "negative ULP?\n"
+      | otherwise = ulpPL1 + ulpPL2 + ulpL1 + ulpL2 + (ulpI * ulpMultiplier) + (ulpC * ulpMultiplier)
+    dumpULPs = "ulpPL1: " <> show ulpPL1 <> "\nulpPL2: " <> show ulpPL2 <> "\nulpL1: " <> show ulpL1 <> "\nulpI: " <> show ulpI <> "\nulpC: " <> show ulpC <> "\n"
+    hasIntersection = onSegment l1 rawIntersection ulpStartSum1 ulpEndSum1 && onSegment l2 rawIntersection ulpStartSum2 ulpEndSum2
+    intersection = pToEPoint2 rawIntersection
+    -- FIXME: remove the canonicalization from this function, moving it to the callers.
+    (rawIntersection, UlpSum ulpC) = canonicalizePPoint2WithErr rawIntersect
+    (rawIntersect, UlpSum ulpI) = pLineIntersectionWithErr pl1 pl2
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 onSegment :: LineSeg -> PPoint2 -> ℝ -> ℝ -> Bool

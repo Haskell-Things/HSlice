@@ -198,7 +198,7 @@ makeContourTreeSet contours =
 -- FIXME: the magic 100000 value here can't be smaller, or inner walls are placed in the wrong place?
 -- FIXME: magic number
 minDistanceFromSeg :: ℝ
-minDistanceFromSeg = fudgeFactor*100000
+minDistanceFromSeg = fudgeFactor*1000000
 
 -- | Determine whether a contour is contained inside of another contour.
 contourContainsContour :: Contour -> Contour -> Bool
