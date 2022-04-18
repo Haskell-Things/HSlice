@@ -42,9 +42,9 @@ module Graphics.Slicer.Math.PGA(
   flipPLine2,
   intersectsWith,
   join2PPoint2,
-  lineIntersectsPLine,
   lineIsLeft,
   normalizePLine2,
+  outputIntersectsLineSeg,
   pLineFromEndpointsWithErr,
   pLineIsLeft,
   pPointBetweenPPoints,
@@ -275,8 +275,16 @@ type SegOrPLine2 = Either LineSeg PLine2
 intersectsWith :: SegOrPLine2 -> SegOrPLine2 -> Either Intersection PIntersection
 intersectsWith (Left l1)   (Left l2)   =         lineIntersection    l1  l2
 intersectsWith (Right pl1) (Right pl2) = Right $ plinesIntersectIn   pl1 pl2
-intersectsWith (Left l1)   (Right pl1) =         lineIntersectsPLine l1  pl1
-intersectsWith (Right pl1) (Left l1)   =         lineIntersectsPLine l1  pl1
+intersectsWith (Left l1)   (Right pl1) =         pLineIntersectsLineSeg pl1  l1
+intersectsWith (Right pl1) (Left l1)   =         pLineIntersectsLineSeg pl1  l1
+
+-- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
+outputIntersectsLineSeg :: (Show a, Arcable a) => a -> (LineSeg, UlpSum) -> Either Intersection PIntersection
+outputIntersectsLineSeg source (target, targetUlp)
+  | hasArc source = pLineIntersectsLineSeg (outOf source) target
+  | otherwise = error
+                $ "no arc from source?\n"
+                <> show source <> "\n"
 
 -- | Check if/where two line segments intersect.
 -- FIXME: should we be returning a segment, for PCollinear and PAntiCollinear?
@@ -304,8 +312,8 @@ lineIntersection l1 l2
     (pl2, UlpSum ulpPL2) = eToPLine2WithErr l2
 
 -- | Check if/where a line segment and a PLine intersect.
-lineIntersectsPLine :: LineSeg -> PLine2 -> Either Intersection PIntersection
-lineIntersectsPLine l1 pl1
+pLineIntersectsLineSeg :: PLine2 -> LineSeg -> Either Intersection PIntersection
+pLineIntersectsLineSeg pl1 l1
   | plinesIntersectIn (eToPLine2 l1) pl1 == PParallel = Right PParallel
   | plinesIntersectIn (eToPLine2 l1) pl1 == PAntiParallel = Right PAntiParallel
   | hasIntersection && plinesIntersectIn (eToPLine2 l1) pl1 == PCollinear = Right PCollinear
