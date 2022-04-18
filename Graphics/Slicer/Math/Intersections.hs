@@ -38,7 +38,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), PPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetween, distanceBetweenPLine2s, eToPPoint2, eToNPLine2, pLineFromEndpointsWithErr, plinesIntersectIn, pToEPoint2, normalizePLine2)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), PPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetween, distanceBetweenPLine2s, eToPPoint2, eToNPLine2, outputIntersectsLineSeg, pLineFromEndpointsWithErr, plinesIntersectIn, pToEPoint2, normalizePLine2)
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
@@ -54,7 +54,7 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _) segs = stripIn
     mightIntersect :: Maybe LineSeg -> Maybe (Either Intersection PIntersection)
     mightIntersect maybeSeg = case maybeSeg of
                                 Nothing -> Nothing
-                                (Just seg) -> Just $ intersectsWith (Right $ outOf m) $ Left seg
+                                (Just seg) -> Just $ outputIntersectsLineSeg m (seg, UlpSum 0)
     shortCircuit :: [(Maybe LineSeg, Maybe (Either Intersection PIntersection))] -> [Maybe (LineSeg, Either Intersection PIntersection)]
     shortCircuit items = shortCircuitItem <$> items
       where
