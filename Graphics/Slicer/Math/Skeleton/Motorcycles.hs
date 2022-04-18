@@ -178,22 +178,23 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (rotateLeft $ li
           pl1 = plineFromEndpoints p1 p2
           pl2 = plineFromEndpoints p2 p3
 
--- | generate the PLine of a motorcycle for the given three points.
+-- | generate the un-normalized PLine2 of a motorcycle created by the three points given.
 motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> PLine2
-motorcycleFromPoints p1 p2 p3 = getOutsideArc ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ plineFromEndpoints p1 p2) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ plineFromEndpoints p2 p3)
+motorcycleFromPoints p1 p2 p3 = getOutsideArc (plineFromEndpoints p1 p2) (plineFromEndpoints p2 p3)
   where
     -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
-    --   Note that we do not normalize our output, or bother normalizing our input lines.
+    --   Note that we do not normalize our output, or require normalized inputs, but we normalize our values before adding them.
     getOutsideArc :: PLine2 -> PLine2 -> PLine2
-    getOutsideArc pline1 pline2@(PLine2 pv2)
+    getOutsideArc pline1 pline2
       | noIntersection pline1 pline2 = error
                                        $ "not collinear, but not intersecting?\n"
                                        <> "PLine1: " <> show pline1 <> "\n"
                                        <> "PLine2: " <> show pline2 <> "\n"
                                        <> "result: " <> show (plinesIntersectIn pline1 pline2) <> "\n"
-      | otherwise = flipPLine2 $ PLine2 $ addVecPair flippedPV1 pv2
+      | otherwise = flipPLine2 $ PLine2 $ addVecPair flippedNPV1 npv2
       where
-        (PLine2 flippedPV1) = flipPLine2 pline1
+        (PLine2 flippedNPV1) = flipPLine2 $ (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 pline1
+        (NPLine2 npv2) = normalizePLine2 pline2
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
 --   A reflex virtex is any point where the line in and the line out are convex, when looked at from inside of the contour.
