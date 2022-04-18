@@ -240,7 +240,7 @@ innerContourPoint distanceAway contour l
     perpPoint      = pointOnPerp l (midPoint l) distanceAway
     otherPerpPoint = pointOnPerp l (midPoint l) (-distanceAway)
     outsidePoint   = Point2 (xOf minPoint - 1 , yOf minPoint - 1)
-    numIntersections = contourIntersectionCount contour (pointOnPerp l (midPoint l) minDistanceFromSeg, outsidePoint)
+    numIntersections = contourIntersectionCount contour (pointOnPerp l (midPoint l) distanceAway, outsidePoint)
 
 -- | return the contour as a list of points.
 pointsOfContour :: Contour -> [Point2]
