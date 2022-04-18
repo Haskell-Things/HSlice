@@ -11,7 +11,7 @@ Algebra(2,0,1,()=>{
   var adaab = point(0.0,0.0);
   var adaba = point(0.0,0.0);
   var adabb = point(1.0,1.0);
-  var adac = 0.0e1+1.414213562373095e2+0.0e0;
+  var adac = 0.0e1+2.0e2+0.0e0;
   document.body.appendChild(this.graph([
     0x882288,
     [aaa,aab],
