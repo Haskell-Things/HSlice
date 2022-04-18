@@ -23,7 +23,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), show, length, (<>), not, length, (<), (>), (-), (/), (*))
+import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), show, length, (<>), not, length, (<), (>), (-), (/))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith, Expectation)

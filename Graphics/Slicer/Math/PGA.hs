@@ -211,7 +211,7 @@ angleBetween (NPLine2 pv1) (NPLine2 pv2) = scalarPart $ pv1 ⎣ pv2
 angleCos :: NPLine2 -> NPLine2 -> ℝ
 angleCos npl1@(NPLine2 lvec1) npl2@(NPLine2 lvec2) = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
   where
-    (PPoint2 iPointVec, iPointErr) = canonicalizeIntersectionWithErr pl1 pl2
+    (PPoint2 iPointVec, _)         = canonicalizeIntersectionWithErr pl1 pl2
     motor                          = addVecPair (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
     antiMotor                      = addVecPair (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
     -- I, the infinite point.
@@ -324,7 +324,7 @@ pLineIntersectsLineSeg (pl1, (UlpSum ulpPL1)) (l1, (UlpSum ulpL1))
     -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
     ulpTotal
       | ulpPL1 < 0 || ulpPL2 < 0 || ulpL1 < 0 || ulpI < 0 = error $ "negative ULP?\n"
-      | otherwise = ulpPL1 + ulpPL2 + ulpL1 + (ulpI {- * ulpMultiplier -} ) + (ulpC * ulpMultiplier)
+      | otherwise = ulpPL1 + ulpPL2 + ulpL1 + (ulpI) + (ulpC * ulpMultiplier)
     dumpULPs = "ulpPL1: " <> show ulpPL1 <> "\nulpPL2: " <> show ulpPL2 <> "\nulpL1: " <> show ulpL1 <> "\nulpI: " <> show ulpI <> "\nulpC: " <> show ulpC <> "\n"
     hasIntersection = onSegment l1 rawIntersection ulpStartSum ulpEndSum
     intersection = pToEPoint2 rawIntersection
@@ -362,7 +362,7 @@ lineSegIntersectsLineSeg (l1, (UlpSum ulpL1)) (l2, (UlpSum ulpL2))
     -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
     ulpTotal
       | ulpPL1 < 0 || ulpPL2 < 0 || ulpL1 < 0 || ulpL2 < 0 || ulpI < 0 || ulpC < 0 = error $ "negative ULP?\n"
-      | otherwise = ulpPL1 + ulpPL2 + ulpL1 + ulpL2 + (ulpI * ulpMultiplier) + (ulpC * ulpMultiplier)
+      | otherwise = ulpPL1 + ulpPL2 + ulpL1 + ulpL2 + ulpI + (ulpC * ulpMultiplier)
     dumpULPs = "ulpPL1: " <> show ulpPL1 <> "\nulpPL2: " <> show ulpPL2 <> "\nulpL1: " <> show ulpL1 <> "\nulpI: " <> show ulpI <> "\nulpC: " <> show ulpC <> "\n"
     hasIntersection = onSegment l1 rawIntersection ulpStartSum1 ulpEndSum1 && onSegment l2 rawIntersection ulpStartSum2 ulpEndSum2
     intersection = pToEPoint2 rawIntersection
