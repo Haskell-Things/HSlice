@@ -13,7 +13,7 @@ Algebra(2,0,1,()=>{
   var aeaab = point(0.5,0.0);
   var aeaba = point(0.5,0.0);
   var aeabb = point(0.0,1.0);
-  var aeac = -2.0e1-0.5e2+1.0e0;
+  var aeac = -1.8944271909999157e1-0.4472135954999579e2+0.9472135954999579e0;
   document.body.appendChild(this.graph([
     0x882288,
     [aaa,aab],
