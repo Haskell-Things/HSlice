@@ -240,7 +240,6 @@ intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
                                           else Nothing
     saneIntersection (IntersectsIn p _) = Just $ Right p
 
-
 -- | check if two lines cannot intersect.
 noIntersection :: PLine2 -> PLine2 -> Bool
 noIntersection pline1 pline2 = isCollinear pline1 pline2 || isParallel pline1 pline2 || isAntiCollinear pline1 pline2 || isAntiParallel pline1 pline2
