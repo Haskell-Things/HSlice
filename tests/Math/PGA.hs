@@ -463,7 +463,7 @@ prop_LineSegIntersectionStableAtOrigin d1 x1 y1 rawX2 rawY2
                       (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distanceBetweenPPoints iPoint (eToPPoint2 $ Point2 (0,0))) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distanceBetweenPPoints iPoint (eToPPoint2 $ Point2 (0,0))) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       _ -> ""
-    pLineThroughOriginNotX1Y1NotOther = randomPLineThroughOrigin x2 y2 
+    pLineThroughOriginNotX1Y1NotOther = randomPLineThroughOrigin x2 y2
     x1y1LineSegToOrigin = randomX1Y1LineSegToOrigin d1
     lineSegFromOrigin = randomLineSegFromOriginNotX1Y1 x1 y1
     isEndPoint (Left (HitEndPoint _ _)) = True
@@ -1176,7 +1176,6 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
                                     then (1,1)
                                     else (0,0)
      | otherwise = (rawX2, rawY2)
-
 
 prop_PPointOnPerpWithinErrRange :: ℝ -> ℝ -> ℝ -> ℝ -> Positive ℝ -> Bool
 prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
