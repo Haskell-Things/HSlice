@@ -88,7 +88,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, fudgeFactor, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, divVecScalar, getVals, mulScalarVec, scalarPart, valOf, vectorPart, hpDivVecScalar)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, divVecScalar, getVals, mulScalarVec, scalarPart, valOf, vectorPart, hpDivVecScalar)
 
 import Graphics.Slicer.Math.Line (combineLineSegs, endPoint, midPoint)
 
@@ -112,17 +112,17 @@ plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
 plinesIntersectIn pl1 pl2
   | intersectPoint == PPoint2 (GVec [])
   || (idealNormPPoint2 intersectPoint < fudgeFactor
-     && (intersectAngle >= 1 ||
-         intersectAngle <= -1 ))       = if intersectAngle > 0
+     && (intersectAngle >= 1-iaUlp ||
+         intersectAngle <= -1+iaUlp ))       = if intersectAngle > 0
                                          then PCollinear
                                          else PAntiCollinear
   | intersectAngle >  1-fudgeFactor    = PParallel
   | intersectAngle < -1+fudgeFactor    = PAntiParallel
   | intersectAngle >  1+fudgeFactor    = error "too big of an angle?"
   | intersectAngle < -1-fudgeFactor    = error "too small of an angle?"
-  | otherwise                                = IntersectsIn res (resUlp, intersectUlp, npl1Ulp, npl2Ulp, UlpSum 0, UlpSum 0)
+  | otherwise                                = IntersectsIn res (resUlp, intersectUlp, npl1Ulp, npl2Ulp, UlpSum iaUlp, UlpSum 0)
   where
-    intersectAngle = angleBetween npl1 npl2
+    (intersectAngle, UlpSum iaUlp) = angleBetweenWithErr npl1 npl2
     (npl1, npl1Ulp) = normalizePLine2WithErr pl1
     (npl2, npl2Ulp) = normalizePLine2WithErr pl2
     (intersectPoint, intersectUlp) = pLineIntersectionWithErr pl1 pl2
@@ -205,7 +205,14 @@ distanceBetweenPLine2s = angleBetween
 
 -- | Return the sine of the angle between the two lines. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
 angleBetween :: NPLine2 -> NPLine2 -> ℝ
-angleBetween (NPLine2 pv1) (NPLine2 pv2) = scalarPart $ pv1 ⎣ pv2
+angleBetween npl1 npl2 = fst $ angleBetweenWithErr npl1 npl2
+
+-- | Return the sine of the angle between the two lines, along with the error. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
+angleBetweenWithErr :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
+angleBetweenWithErr (NPLine2 pv1) (NPLine2 pv2) = (scalarPart res
+                                           , ulpSum)
+  where
+    (res, ulpSum) = pv1 ⎣+ pv2
 
 -- | Find the cosine of the angle between the two lines. results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when "right".
 angleCos :: NPLine2 -> NPLine2 -> ℝ

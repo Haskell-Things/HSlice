@@ -20,7 +20,7 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, FlexibleInstances #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
 
 import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.))
 
@@ -169,31 +169,40 @@ hpDivVecScalar (GVec vals) s = GVec $ divVal s <$> vals
 -- actually a wrapper to make use of the fact that gvec1 `likeVecPair` gvec2 == gvec2 `likeVecPair` gvec1.
 likeVecPair :: GVec -> GVec -> [Either GRVal GVal]
 likeVecPair a b
-  | a > b     = likeVecPair' a b
-  | otherwise = likeVecPair' b a
+  | a > b     = fst <$> likeVecPairWithErr' a b
+  | otherwise = fst <$> likeVecPairWithErr' b a
+
+-- | Calculate the like product of a vector pair.
+-- actually a wrapper to make use of the fact that gvec1 `likeVecPair` gvec2 == gvec2 `likeVecPair` gvec1.
+likeVecPairWithErr :: GVec -> GVec -> [(Either GRVal GVal, UlpSum)]
+likeVecPairWithErr a b
+  | a > b     = likeVecPairWithErr' a b
+  | otherwise = likeVecPairWithErr' b a
 
 -- | Generate the like product of a vector pair. multiply only the values in the basis vector sets that are common between the two GVecs.
-likeVecPair' :: GVec -> GVec -> [Either GRVal GVal]
-likeVecPair' vec1 vec2 = results
+likeVecPairWithErr' :: GVec -> GVec -> [(Either GRVal GVal, UlpSum)]
+likeVecPairWithErr' vec1 vec2 = results
   where
     results = likeVecPair'' vec1 vec2
     -- cycle through one list, and generate a pair with the second list when the two basis vectors are the same.
-    likeVecPair'' :: GVec -> GVec -> [Either GRVal GVal]
+    likeVecPair'' :: GVec -> GVec -> [(Either GRVal GVal, UlpSum)]
     likeVecPair'' (GVec v1) (GVec v2) = concatMap (multiplyLike v1) v2
       where
-        multiplyLike :: [GVal] -> GVal -> [Either GRVal GVal]
+        multiplyLike :: [GVal] -> GVal -> [(Either GRVal GVal, UlpSum)]
         multiplyLike vals val@(GVal _ i1) = mulLikePair val <$> P.filter (\(GVal _ i2) -> i2 == i1) vals
           where
             mulLikePair (GVal r1 i) (GVal r2 _)
-              | size i == 1 = simplifyVal (r1 * r2) (elemAt 0 i)
+              | size i == 1 = (simplifyVal res (elemAt 0 i), resUlp)
               | otherwise = case nonEmpty (elems i) of
-                              (Just newi) -> Left $ GRVal (r1 * r2) (newi <> newi)
+                              (Just newi) -> (Left $ GRVal res (newi <> newi), resUlp)
                               Nothing -> error "empty set?"
               where
                 simplifyVal v G0 = Right $ GVal v (singleton G0)
                 simplifyVal v (GEPlus _) = Right $ GVal v (singleton G0)
                 simplifyVal v (GEMinus _) = Right $ GVal (-v) (singleton G0)
                 simplifyVal _ (GEZero _) = Right $ GVal 0 (singleton G0)
+                res = r1 * r2
+                resUlp = UlpSum $ abs $ doubleUlp res
 
 -- | Generate the unlike product of a vector pair. multiply only the values in the basis vector sets that are not the same between the two GVecs.
 unlikeVecPair :: GVec -> GVec -> [Either GRVal GVal]
@@ -211,15 +220,16 @@ unlikeVecPairWithErr vec1 vec2 = results
         multiplyUnlike vals val@(GVal _ i) = mulUnlikePair val <$> P.filter (\(GVal _ i2) -> i2 /= i) vals
           where
             mulUnlikePair (GVal r1 i1) (GVal r2 i2)
-              | i1 == singleton G0 = (Right $ GVal res i2, UlpSum $ abs $ doubleUlp res)
-              | i2 == singleton G0 = (Right $ GVal res i1, UlpSum $ abs $ doubleUlp res)
+              | i1 == singleton G0 = (Right $ GVal res i2, resUlp)
+              | i2 == singleton G0 = (Right $ GVal res i1, resUlp)
               | otherwise = case nonEmpty (elems i1) of
                               Nothing -> error "empty set?"
                               (Just newI1) -> case nonEmpty (elems i2) of
                                                 Nothing -> error "empty set?"
-                                                (Just newI2) -> (Left $ GRVal (r1 * r2) (newI1 <> newI2), UlpSum $ abs $ doubleUlp res)
+                                                (Just newI2) -> (Left $ GRVal res (newI1 <> newI2), resUlp)
               where
                 res = r1*r2
+                resUlp = UlpSum $ abs $ doubleUlp res
 
 -- | Generate the reductive product of a vector pair. multiply only values where one of the basis vectors is eliminated by the multiplication.
 reduceVecPair :: GVec -> GVec -> [GRVal]
@@ -352,6 +362,15 @@ grValToGVal (GRVal r i) = GVal r (fromAscList (toList i))
 (⎣) :: GVec -> GVec -> GVec
 infixl 9 ⎣
 (⎣) v1 v2 = GVec $ postProcessFilter <$> likeVecPair v1 v2
+-- | Our "like" operator. unicode point u+23a3.
+
+(⎣+) :: GVec -> GVec -> (GVec, UlpSum)
+infixl 9 ⎣+
+(⎣+) v1 v2 = (GVec $ postProcessFilter . fst <$> res
+             , ulpTotal)
+  where
+    res = likeVecPairWithErr v1 v2
+    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) (UlpSum 0) (snd <$> res)
 
 -- | Our "unlike" operator. unicode point u+23a4.
 (⎤) :: GVec -> GVec -> GVec
