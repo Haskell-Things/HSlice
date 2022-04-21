@@ -113,16 +113,17 @@ plinesIntersectIn pl1 pl2
   | intersectPoint == PPoint2 (GVec [])
   || (idealNormPPoint2 intersectPoint < fudgeFactor
      && (intersectAngle >= 1-iaUlp ||
-         intersectAngle <= -1+iaUlp ))       = if intersectAngle > 0
+         intersectAngle <= -1+iaUlp )) = if intersectAngle > 0
                                          then PCollinear
                                          else PAntiCollinear
-  | intersectAngle >  1-fudgeFactor    = PParallel
-  | intersectAngle < -1+fudgeFactor    = PAntiParallel
-  | intersectAngle >  1+fudgeFactor    = error "too big of an angle?"
-  | intersectAngle < -1-fudgeFactor    = error "too small of an angle?"
-  | otherwise                                = IntersectsIn res (resUlp, intersectUlp, npl1Ulp, npl2Ulp, UlpSum iaUlp, UlpSum 0)
+  | intersectAngle >  1-iaUlp          = PParallel
+  | intersectAngle < -1+iaUlp          = PAntiParallel
+  | intersectAngle >  1+iaUlp          = error "too big of an angle?"
+  | intersectAngle < -1-iaUlp          = error "too small of an angle?"
+  | otherwise                          = IntersectsIn res (resUlp, intersectUlp, npl1Ulp, npl2Ulp, UlpSum iaUlp, UlpSum 0)
   where
     (intersectAngle, UlpSum iaUlp) = angleBetweenWithErr npl1 npl2
+    -- FIXME: how much do the potential normalization errors have an effect on the resultant angle?
     (npl1, npl1Ulp) = normalizePLine2WithErr pl1
     (npl2, npl2Ulp) = normalizePLine2WithErr pl2
     (intersectPoint, intersectUlp) = pLineIntersectionWithErr pl1 pl2
