@@ -62,7 +62,7 @@ module Graphics.Slicer.Math.PGA(
   ulpOfLineSeg,
   ) where
 
-import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool(True), (&&), (<$>), any, otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.))
+import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool(True), (&&), (<$>), any, otherwise, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.))
 
 import GHC.Generics (Generic)
 
@@ -86,7 +86,7 @@ import Safe (lastMay, initSafe)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, fudgeFactor, distance)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, distance)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, divVecScalar, getVals, mulScalarVec, scalarPart, valOf, vectorPart, hpDivVecScalar)
 
@@ -111,9 +111,9 @@ data PIntersection =
 plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
 plinesIntersectIn pl1 pl2
   | intersectPoint == PPoint2 (GVec [])
-  || (idealNormPPoint2 intersectPoint < fudgeFactor
-     && (intersectAngle >= 1-iaUlp ||
-         intersectAngle <= -1+iaUlp )) = if intersectAngle > 0
+  || (idealNorm < idnUlp
+     && (intersectAngle > 1-iaUlp ||
+         intersectAngle < -1+iaUlp )) = if intersectAngle > 0
                                          then PCollinear
                                          else PAntiCollinear
   | intersectAngle >  1-iaUlp          = PParallel
@@ -122,6 +122,7 @@ plinesIntersectIn pl1 pl2
   | intersectAngle < -1-iaUlp          = error "too small of an angle?"
   | otherwise                          = IntersectsIn res (resUlp, intersectUlp, npl1Ulp, npl2Ulp, UlpSum iaUlp, UlpSum 0)
   where
+    (idealNorm, UlpSum idnUlp) = idealNormPPoint2WithErr intersectPoint
     (intersectAngle, UlpSum iaUlp) = angleBetweenWithErr npl1 npl2
     -- FIXME: how much do the potential normalization errors have an effect on the resultant angle?
     (npl1, npl1Ulp) = normalizePLine2WithErr pl1
@@ -636,12 +637,6 @@ ulpOfPPoint2 (PPoint2 (GVec vals)) = sum $ abs . doubleUlp . (\(GVal r _) -> r) 
 ---- Standard precision:                                  ----
 --------------------------------------------------------------
 
--- | find the idealized norm of a projective point.
-idealNormPPoint2 :: PPoint2 -> ℝ
-idealNormPPoint2 ppoint = sqrt (x*x+y*y)
-  where
-    (Point2 (x,y)) = pToEPoint2 ppoint
-
 -- | Normalize a PLine2.
 normalizePLine2 :: PLine2 -> NPLine2
 normalizePLine2 pl = fst $ normalizePLine2WithErr pl
@@ -649,6 +644,15 @@ normalizePLine2 pl = fst $ normalizePLine2WithErr pl
 -- | find the norm of a given PLine2
 normOfPLine2 :: PLine2 -> ℝ
 normOfPLine2 pline = fst $ normOfPLine2WithErr pline
+
+-- | find the idealized norm of a projective point.
+idealNormPPoint2WithErr :: PPoint2 -> (ℝ, UlpSum)
+idealNormPPoint2WithErr ppoint = (res, ulpSum)
+  where
+    res = sqrt preRes
+    preRes = x*x+y*y
+    ulpSum = UlpSum $ abs (doubleUlp $ x*x) + abs (doubleUlp $ x*x) + abs (doubleUlp preRes) + abs (doubleUlp res)
+    (Point2 (x,y)) = pToEPoint2 ppoint
 
 -- | Normalization of euclidian points is really just canonicalization.
 -- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
