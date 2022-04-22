@@ -28,7 +28,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, getFirstArc, getOutsideArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, towardIntersection) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=), (-))
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=), (-))
 
 import Prelude as PL (head, last, tail, init)
 
@@ -858,13 +858,9 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Bool
     intersectsInPoint node1 node2
-      | hasArc node1 && hasArc node2 = if noIntersection (outOf node1) (outOf node2)
-                                       then False
-                                       else if dist1 < dist1Err
-                                            then False
-                                            else if dist2 < dist2Err
-                                                 then False
-                                                 else True
+      | hasArc node1 && hasArc node2 = not (noIntersection (outOf node1) (outOf node2))
+                                       && (dist1 >= dist1Err)
+                                       && (dist2 >= dist2Err)
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
         (dist1, UlpSum dist1Err) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1) (outOf node2)) (pPointOf node1)

@@ -62,7 +62,7 @@ module Graphics.Slicer.Math.PGA(
   ulpOfLineSeg,
   ) where
 
-import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool(True), (&&), (<$>), any, otherwise, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.))
+import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.))
 
 import GHC.Generics (Generic)
 
@@ -76,7 +76,7 @@ import Data.List (foldl')
 
 import Data.List.Ordered (sort, foldt)
 
-import Data.Maybe (Maybe(Just, Nothing), maybeToList, catMaybes)
+import Data.Maybe (Maybe(Just, Nothing), maybeToList, catMaybes, isNothing)
 
 import Data.Set (Set, singleton, fromList, elems)
 
@@ -174,8 +174,8 @@ distancePPointToPLineWithErr point@(PPoint2 pvec) line = (res, ulpSum)
 pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
 pPointsOnSameSideOfPLine point1 point2 line
   -- Return nothing if one of the points is on the line.
-  |  abs(foundP1) < unlikeP1Err ||
-     abs(foundP2) < unlikeP2Err    = Nothing
+  |  abs foundP1 < unlikeP1Err ||
+     abs foundP2 < unlikeP2Err    = Nothing
     | otherwise = Just $ isPositive foundP1 == isPositive foundP2
   where
     foundP1 = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1
@@ -311,11 +311,11 @@ intersectsWithErr (Right pl1)     (Left l1)       =         pLineIntersectsLineS
 
 -- FIXME: as long as this is required, we're not accounting for ULP correctly everywhere.
 ulpMultiplier :: ℝ
-ulpMultiplier = 120
+ulpMultiplier = 450
 
 -- | Check if/where a line segment and a PLine intersect.
 pLineIntersectsLineSeg :: (PLine2, UlpSum) -> (LineSeg, UlpSum) -> Either Intersection PIntersection
-pLineIntersectsLineSeg (pl1, (UlpSum ulpPL1)) (l1, (UlpSum ulpL1))
+pLineIntersectsLineSeg (pl1, UlpSum ulpPL1) (l1, UlpSum ulpL1)
   | plinesIntersectIn pl1 pl2 == PParallel = Right PParallel
   | plinesIntersectIn pl1 pl2 == PAntiParallel = Right PAntiParallel
   | distance (startPoint l1) (endPoint l1) < ulpStart+ulpEnd+ulpTotal = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
@@ -323,7 +323,7 @@ pLineIntersectsLineSeg (pl1, (UlpSum ulpPL1)) (l1, (UlpSum ulpL1))
   | hasIntersection && plinesIntersectIn pl1 pl2 == PAntiCollinear = Right PAntiCollinear
   | hasIntersection && startDistance <= ulpStartSum = Left $ HitStartPoint l1 intersection
   | hasIntersection && endDistance <= ulpEndSum = Left $ HitEndPoint l1 intersection
-  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum ulpStartSum, UlpSum ulpEndSum, UlpSum 0, UlpSum ulpPL1, UlpSum ulpPL2, UlpSum ulpI)
+  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum ulpStartSum, UlpSum ulpEndSum, UlpSum ulpPL1, UlpSum ulpPL2, UlpSum ulpI, UlpSum ulpC)
   | otherwise = Left $ NoIntersection rawIntersection (UlpSum ulpStartSum, UlpSum ulpEndSum, UlpSum 0, UlpSum 0)
   where
     (startDistance, UlpSum ulpStart) = distanceBetweenPPointsWithErr rawIntersection (eToPPoint2 $ startPoint l1)
@@ -344,7 +344,7 @@ pLineIntersectsLineSeg (pl1, (UlpSum ulpPL1)) (l1, (UlpSum ulpL1))
 
 -- | Check if/where two line segments intersect.
 lineSegIntersectsLineSeg :: (LineSeg, UlpSum) -> (LineSeg, UlpSum) -> Either Intersection PIntersection
-lineSegIntersectsLineSeg (l1, (UlpSum ulpL1)) (l2, (UlpSum ulpL2))
+lineSegIntersectsLineSeg (l1, UlpSum ulpL1) (l2, UlpSum ulpL2)
   | plinesIntersectIn pl1 pl2 == PParallel = Right PParallel
   | plinesIntersectIn pl1 pl2 == PAntiParallel = Right PAntiParallel
   | distance (startPoint l1) (endPoint l1) < ulpStart1+ulpEnd1+ulpTotal = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
@@ -382,10 +382,9 @@ lineSegIntersectsLineSeg (l1, (UlpSum ulpL1)) (l2, (UlpSum ulpL2))
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 onSegment :: LineSeg -> PPoint2 -> ℝ -> ℝ -> Bool
 onSegment ls i startUlp endUlp =
-  any (==True) [ startDistance <= startFudgeFactor
-               , midDistance <= (lengthOfSegment/2) + midFudgeFactor
-               , endDistance <= endFudgeFactor
-               ]
+     (startDistance <= startFudgeFactor)
+  || (midDistance <= (lengthOfSegment/2) + midFudgeFactor)
+  || (endDistance <= endFudgeFactor)
   where
     (startDistance, UlpSum startDistanceUlp) = distanceBetweenPPointsWithErr startPPoint i
     (midDistance, UlpSum midDistanceUlp) = distanceBetweenPPointsWithErr midPPoint i
@@ -659,22 +658,22 @@ idealNormPPoint2WithErr ppoint = (res, ulpSum)
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.
 canonicalizePPoint2WithErr :: PPoint2 -> (PPoint2, UlpSum)
 canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
-  | foundVal == Nothing = (point, UlpSum 0)
+  | isNothing foundVal = (point, UlpSum 0)
   | otherwise = (res, ulpSum)
   where
     res = PPoint2 $ GVec $ foldl' addVal []
-          $  ( if getVals [GEZero 1, GEPlus 1] scaledVals == Nothing
+          $  ( if isNothing (getVals [GEZero 1, GEPlus 1] scaledVals)
                then []
                else [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] scaledVals) (fromList [GEZero 1, GEPlus 1])]
              )
-          <> ( if getVals [GEZero 1, GEPlus 2] scaledVals == Nothing
+          <> ( if isNothing (getVals [GEZero 1, GEPlus 2] scaledVals)
                then []
                else [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] scaledVals) (fromList [GEZero 1, GEPlus 2])]
              )
           <> [GVal 1 (fromList [GEPlus 1, GEPlus 2])]
-    newVec = GVec $ addVal [(GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1]))]
-                            (GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
-    (GVec scaledVals) = divVecScalar newVec $ valOf 1 $ foundVal
+    newVec = GVec $ addVal [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1])]
+                           (GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
+    (GVec scaledVals) = divVecScalar newVec $ valOf 1 foundVal
     foundVal = getVals [GEPlus 1, GEPlus 2] rawVals
     ulpSum = UlpSum $ ulpOfPPoint2 res
 
@@ -682,8 +681,8 @@ canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
 canonicalizeIntersectionWithErr :: PLine2 -> PLine2 -> (PPoint2, UlpSum)
 canonicalizeIntersectionWithErr pl1 pl2 = (cpp1, ulpSum)
   where
-    (cpp1, (UlpSum canonicalizationErr)) = canonicalizePPoint2WithErr pp1
-    (pp1, (UlpSum intersectionErr)) = pLineIntersectionWithErr pl1 pl2
+    (cpp1, UlpSum canonicalizationErr) = canonicalizePPoint2WithErr pp1
+    (pp1, UlpSum intersectionErr) = pLineIntersectionWithErr pl1 pl2
     ulpSum = UlpSum $ intersectionErr + canonicalizationErr
 
 -- | Normalize a PLine2.
@@ -691,16 +690,16 @@ normalizePLine2WithErr :: PLine2 -> (NPLine2, UlpSum)
 normalizePLine2WithErr pl@(PLine2 vec) = (res, ulpSum)
   where
     res = (\(PLine2 a) -> NPLine2 a) rawRes
-    rawRes = PLine2 $ divVecScalar vec $ normOfMyPLine
-    (normOfMyPLine, (UlpSum normErr)) = normOfPLine2WithErr pl
+    rawRes = PLine2 $ divVecScalar vec normOfMyPLine
+    (normOfMyPLine, UlpSum normErr) = normOfPLine2WithErr pl
     ulpSum = UlpSum $ normErr + ulpOfPLine2 rawRes
 
 -- | find the norm of a given PLine2
 normOfPLine2WithErr :: PLine2 -> (ℝ, UlpSum)
 normOfPLine2WithErr pline = (res, ulpSum)
   where
-    res = sqrt $ sqNormOfPLine2
-    (sqNormOfPLine2, (UlpSum sqNormErr)) = sqNormOfPLine2WithErr pline
+    res = sqrt sqNormOfPLine2
+    (sqNormOfPLine2, UlpSum sqNormErr) = sqNormOfPLine2WithErr pline
     ulpSum = UlpSum $ abs (doubleUlp res) + sqNormErr
 
 -- | find the squared norm of a given PLine2
@@ -722,21 +721,21 @@ sqNormOfPLine2WithErr (PLine2 (GVec vals)) = (res, ulpSum)
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.
 _hpCanonicalizePPoint2 :: PPoint2 -> PPoint2
 _hpCanonicalizePPoint2 point@(PPoint2 (GVec rawVals))
-  | foundVal == Nothing = point
+  | isNothing foundVal = point
   | otherwise = PPoint2 $ GVec $ foldl' addVal [] $
-                ( if getVals [GEZero 1, GEPlus 1] scaledVals == Nothing
+                ( if isNothing (getVals [GEZero 1, GEPlus 1] scaledVals)
                   then []
                   else [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] scaledVals) (fromList [GEZero 1, GEPlus 1])]
                 ) <>
-                ( if getVals [GEZero 1, GEPlus 2] scaledVals == Nothing
+                ( if isNothing (getVals [GEZero 1, GEPlus 2] scaledVals)
                   then []
                   else [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] scaledVals) (fromList [GEZero 1, GEPlus 2])]
                 ) <>
                 [GVal 1 (fromList [GEPlus 1, GEPlus 2])]
   where
-    newVec = GVec $ addVal [(GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1]))]
-                            (GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
-    (GVec scaledVals) = hpDivVecScalar newVec $ realToFrac $ valOf 1 $ foundVal
+    newVec = GVec $ addVal [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1])]
+                           (GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
+    (GVec scaledVals) = hpDivVecScalar newVec $ realToFrac $ valOf 1 foundVal
     foundVal = getVals [GEPlus 1, GEPlus 2] rawVals
 
 -- | find the idealized norm of a projective point.

@@ -23,7 +23,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), show, length, (<>), not, length, (<), (>), (-), (/))
+import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), show, length, (<>), not, length, (<), (>), (-), (/), (||))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
@@ -445,16 +445,16 @@ prop_LineSegIntersectionStableAtOrigin d1 x1 y1 rawX2 rawY2
                 <> "lineSegFrom: " <> show lineSegFromOrigin <> "\n"
                 <> "pline through origin: " <> show pLineThroughOriginNotX1Y1NotOther <> "\n"
                 <> "equivalent LineSeg: " <> show (lineSegFromEndpoints (Point2 (x2,y2)) (Point2 (0,0))) <> "\n"
-                <> (if isStartPoint res2 == False
-                    then "Missed start.\n"
+                <> (if isStartPoint res2
+                    then "Hit start."
+                    else "Missed start.\n"
                          <> show res2 <> "\n"
-                         <> show distanceStart <> "\n"
-                    else "Hit start.\n"
-                   )
-                <> (if isEndPoint res1 == False
-                    then "Missed end: " <> show res1 <> "\n"
-                    else "Hit end."
-                   )
+                         <> show distanceStart
+                   ) <> "\n"
+                <> (if isEndPoint res1
+                    then "Hit end."
+                    else "Missed end: " <> show res1
+                   ) <> "\n"
                 <> "(x2,y2): " <> show (x2,y2) <> "\n"
   where
     res1 = intersectsWithErr (Right pLineThroughOriginNotX1Y1NotOther) (Left x1y1LineSegToOrigin)
@@ -467,11 +467,11 @@ prop_LineSegIntersectionStableAtOrigin d1 x1 y1 rawX2 rawY2
     x1y1LineSegToOrigin = randomX1Y1LineSegToOrigin d1
     lineSegFromOrigin = randomLineSegFromOriginNotX1Y1 x1 y1
     isEndPoint (Left (HitEndPoint _ _)) = True
-    isEndPoint (Right (PCollinear)) = True
-    isEndPoint (Right (PAntiParallel)) = True
+    isEndPoint (Right PCollinear) = True
+    isEndPoint (Right PAntiParallel) = True
     isEndPoint _ = False
     isStartPoint (Left (HitStartPoint _ _)) = True
-    isStartPoint (Right (PAntiCollinear)) = True
+    isStartPoint (Right PAntiCollinear) = True
     isStartPoint _ = False
     (x2,y2)
       | rawX2 == 0 && rawY2 == 0 = (1,-1)
@@ -488,20 +488,20 @@ prop_LineSegIntersectionStableAtX1Y1Point pointD rawD1 x1 y1 rawX2 rawY2
   | otherwise = error
                 $ "missed!\n"
                 <> "x1y1 Point:" <> show (Point2 (d2,d2)) <> "\n"
-                <> "x1y1Seg: " <> show x1y1LineSegToPoint <> "\n"
+                <> "x1y1SegTo: " <> show x1y1LineSegToPoint <> "\n"
                 <> "lineSegFrom: " <> show lineSegFromPointNotX1Y1 <> "\n"
                 <> "pline through x1y1: " <> show pLineThroughPointNotX1Y1NotOther <> "\n"
                 <> "equivalent LineSeg: " <> show (lineSegFromEndpoints (Point2 (x2,y2)) (Point2 (d2,d2))) <> "\n"
-                <> (if isStartPoint res2 == False
-                    then "Missed start: " <> show res2 <> "\n"
-                         <> distanceStart <> "\n"
-                    else "Hit start.\n"
-                   )
-                <> (if isEndPoint res1 == False
-                    then "Missed end: " <> show res1 <> "\n"
-                         <> distanceEnd <> "\n"
-                    else "Hit end."
-                   )
+                <> (if isStartPoint res2
+                    then "Hit start."
+                    else "Missed start: " <> show res2 <> "\n"
+                         <> distanceStart
+                   ) <> "\n"
+                <> (if isEndPoint res1
+                    then "Hit end."
+                    else "Missed end: " <> show res1 <> "\n"
+                         <> distanceEnd
+                   ) <> "\n"
   where
     res1 = intersectsWithErr (Right pLineThroughPointNotX1Y1NotOther) (Left x1y1LineSegToPoint)
     res2 = intersectsWithErr (Right pLineThroughPointNotX1Y1NotOther) (Left lineSegFromPointNotX1Y1)
@@ -517,22 +517,21 @@ prop_LineSegIntersectionStableAtX1Y1Point pointD rawD1 x1 y1 rawX2 rawY2
     x1y1LineSegToPoint = randomX1Y1LineSegToPoint d1 d2
     lineSegFromPointNotX1Y1 = randomLineSegFromPointNotX1Y1 x1 y1 d2
     isEndPoint (Left (HitEndPoint _ _)) = True
-    isEndPoint (Right (PCollinear)) = True
-    isEndPoint (Right (PAntiCollinear)) = True
-    isEndPoint (Right (PAntiParallel)) = True
+    isEndPoint (Right PCollinear) = True
+    isEndPoint (Right PAntiCollinear) = True
+    isEndPoint (Right PAntiParallel) = True
     isEndPoint _ = False
     isStartPoint (Left (HitStartPoint _ _)) = True
-    isStartPoint (Right (PAntiCollinear)) = True
-    isStartPoint (Right (PAntiParallel)) = True
-    isStartPoint (Right (PParallel)) = True
+    isStartPoint (Right PAntiCollinear) = True
+    isStartPoint (Right PAntiParallel) = True
+    isStartPoint (Right PParallel) = True
     isStartPoint _ = False
     d2 :: ℝ
     d2
       | pointD == rawD1 = coerce rawD1 + coerce pointD
       | otherwise = coerce pointD
     d1 :: NonZero ℝ
-    d1
-      | otherwise = coerce rawD1
+    d1 = coerce rawD1
     (x2,y2)
       | rawX2 == 0 && rawY2 == 0 = (1,-1)
       | rawX2 == rawY2 = (x1,y1/2)
@@ -1085,15 +1084,11 @@ prop_ConcaveChevronQuadFacesInOrder a b c d e f = doTest $ randomConcaveChevronQ
 prop_PPointWithinErrRange :: ℝ -> ℝ -> Bool
 prop_PPointWithinErrRange x y
   | res > ulpSum1 + ulpSum2  = error $ "res too big: " <> show res <> "\nulpSum1: " <> show ulpSum1 <> "\nulpSum2: " <> show ulpSum2 <> "\n"
-  | otherwise = if p1 /= p2
-                then True
-                else if res == 0
-                     then True
-                     else error "the same, but distance?"
+  | otherwise = (p1 /= p2) || (res == 0 || error "the same, but distance?")
   where
     res = distanceBetweenPPoints p1 p2
-    (p1, (UlpSum ulpSum1)) = makePPoint2WithErr x y
-    (p2, (UlpSum ulpSum2)) = makePPoint2WithErr (x+ulpSum1) (y+ulpSum1)
+    (p1, UlpSum ulpSum1) = makePPoint2WithErr x y
+    (p2, UlpSum ulpSum2) = makePPoint2WithErr (x+ulpSum1) (y+ulpSum1)
 
 prop_LineSegWithinErrRange :: ℝ -> ℝ -> ℝ -> ℝ -> Bool
 prop_LineSegWithinErrRange x1 y1 rawX2 rawY2
@@ -1103,7 +1098,7 @@ prop_LineSegWithinErrRange x1 y1 rawX2 rawY2
   where
     res1 = distance (startPoint lineSeg) (Point2 (x1,y1))
     res2 = distance (endPoint lineSeg) (Point2 (x2,y2))
-    (lineSeg, (UlpSum ulpSum)) = randomLineSegWithErr x1 y1 x2 y2
+    (lineSeg, UlpSum ulpSum) = randomLineSegWithErr x1 y1 x2 y2
     (x2,y2)
      | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
                                     then (1,1)
@@ -1130,11 +1125,11 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
               <> "PPoint2: " <> show pPoint2 <> "\n"
               <> "PPoint2ULP: " <> show ulpSumP2 <> "\n"
     -- res1 and res2 should be 0, in an ideal world.
-    (res1,(UlpSum res1Err)) = distancePPointToPLineWithErr pPoint1 pLine1
-    (res2,(UlpSum res2Err)) = distancePPointToPLineWithErr pPoint2 pLine1
-    (pPoint1, (UlpSum ulpSumP1)) = makePPoint2WithErr x1 y1
-    (pPoint2, (UlpSum ulpSumP2)) = makePPoint2WithErr x2 y2
-    (pLine1, (UlpSum ulpPLine)) = pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2))
+    (res1,UlpSum res1Err) = distancePPointToPLineWithErr pPoint1 pLine1
+    (res2,UlpSum res2Err) = distancePPointToPLineWithErr pPoint2 pLine1
+    (pPoint1, UlpSum ulpSumP1) = makePPoint2WithErr x1 y1
+    (pPoint2, UlpSum ulpSumP2) = makePPoint2WithErr x2 y2
+    (pLine1, UlpSum ulpPLine) = pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2))
     ulpTotal1 = ulpSumP1 + ulpPLine + res1Err
     ulpTotal2 = ulpSumP2 + ulpPLine + res2Err
     -- make sure we do not try to create a 0 length line segment.
@@ -1163,11 +1158,11 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
               <> "PPoint2: " <> show pPoint2 <> "\n"
               <> "PPoint2ULP: " <> show ulpSumP2 <> "\n"
     -- res1 and res2 should be 0, in an ideal world.
-    (res1,(UlpSum res1Err)) = distancePPointToPLineWithErr pPoint1 pLine1
-    (res2,(UlpSum res2Err)) = distancePPointToPLineWithErr pPoint2 pLine1
-    (pPoint1, (UlpSum ulpSumP1)) = makePPoint2WithErr x1 y1
-    (pPoint2, (UlpSum ulpSumP2)) = makePPoint2WithErr x2 y2
-    (pLine1, (UlpSum ulpPLine)) = join2PPoint2WithErr pPoint1 pPoint2
+    (res1,UlpSum res1Err) = distancePPointToPLineWithErr pPoint1 pLine1
+    (res2,UlpSum res2Err) = distancePPointToPLineWithErr pPoint2 pLine1
+    (pPoint1, UlpSum ulpSumP1) = makePPoint2WithErr x1 y1
+    (pPoint2, UlpSum ulpSumP2) = makePPoint2WithErr x2 y2
+    (pLine1, UlpSum ulpPLine) = join2PPoint2WithErr pPoint1 pPoint2
     ulpTotal1 = ulpSumP1 + ulpPLine + res1Err
     ulpTotal2 = ulpSumP2 + ulpPLine + res2Err
     -- make sure we do not try to create a 0 length line segment.
@@ -1194,13 +1189,13 @@ prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
               <> "ulpTotal1: " <> show ulpTotal1 <> "\n"
               <> "ulpTotal2: " <> show ulpTotal2 <> "\n"
     -- res should be d, in an ideal world.
-    (res1,(UlpSum res1Err)) = distancePPointToPLineWithErr perp1 pLine
-    (res2,(UlpSum res2Err)) = distancePPointToPLineWithErr perp2 pLine
-    (perp1, (UlpSum ulpSumPerp1)) = pPointOnPerpWithErr pLine pPoint1 d
-    (perp2, (UlpSum ulpSumPerp2)) = pPointOnPerpWithErr pLine pPoint2 d
-    (pPoint1, (UlpSum ulpSumP1)) = makePPoint2WithErr x1 y1
-    (pPoint2, (UlpSum ulpSumP2)) = makePPoint2WithErr x2 y2
-    (pLine, (UlpSum ulpPLine)) = pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2))
+    (res1,UlpSum res1Err) = distancePPointToPLineWithErr perp1 pLine
+    (res2,UlpSum res2Err) = distancePPointToPLineWithErr perp2 pLine
+    (perp1, UlpSum ulpSumPerp1) = pPointOnPerpWithErr pLine pPoint1 d
+    (perp2, UlpSum ulpSumPerp2) = pPointOnPerpWithErr pLine pPoint2 d
+    (pPoint1, UlpSum ulpSumP1) = makePPoint2WithErr x1 y1
+    (pPoint2, UlpSum ulpSumP2) = makePPoint2WithErr x2 y2
+    (pLine, UlpSum ulpPLine) = pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2))
     ulpTotal1 = ulpSumP1 + ulpPLine + res1Err + ulpSumPerp1
     ulpTotal2 = ulpSumP2 + ulpPLine + res2Err + ulpSumPerp2
     d :: ℝ

@@ -18,8 +18,6 @@
 
 {- Purpose of this file: to hold the logic and routines responsible for checking for intersections with contours, or portions of contours. -}
 
-{-# LANGUAGE TupleSections #-}
-
 module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getContourLineSegIntersections, getLineSegIntersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
 
 import Prelude (Bool(True), Either(Left,Right), any, error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, not, Int, (<), (*), fst, (||), (==))
@@ -71,11 +69,10 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _) segs = stripIn
     saneIntersections  _ (Just (_  , Left  (NoIntersection _ _)))  _ = Nothing
     saneIntersections  _ (Just (_  , Right PParallel))             _ = Nothing
     saneIntersections  _ (Just (_  , Right PAntiParallel))         _ = Nothing
-    saneIntersections (Just (seg, Left (HitEndPoint   _ pt))) (Just (seg2, Left (HitStartPoint _ _)))  (Just (seg3 , Left (HitEndPoint   _ pt2)))= if distance (endPoint seg) (startPoint seg2) < fudgeFactor*15
-                                                                                                                                                   then Just (seg2, Left pt)
-                                                                                                                                                   else if distance (startPoint seg2) (endPoint seg3) < fudgeFactor*15
-                                                                                                                                                        then Just (seg2, Left pt2)
-                                                                                                                                                        else error "wtf"
+    saneIntersections (Just (seg, Left (HitEndPoint   _ pt))) (Just (seg2, Left (HitStartPoint _ _)))  (Just (seg3 , Left (HitEndPoint   _ pt2)))
+     | distance (endPoint seg) (startPoint seg2) < fudgeFactor*15 = Just (seg2, Left pt)
+     | distance (startPoint seg2) (endPoint seg3) < fudgeFactor*15 = Just (seg2, Left pt2)
+     | otherwise = error "wtf"
     saneIntersections  _                                      (Just (seg , Left (HitStartPoint _ _)))  (Just (_    , Left (HitEndPoint   _ pt))) = Just (seg, Left pt)
     saneIntersections (Just (_  , Left (HitStartPoint _ _ ))) (Just (_   , Left (HitEndPoint   _ _)))   _                                        = Nothing
     saneIntersections  _                                      (Just (_   , Left (HitEndPoint   _ _)))  (Just (_    , Left (HitStartPoint _ _)))  = Nothing

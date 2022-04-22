@@ -158,11 +158,11 @@ divVecScalar (GVec vals) s = GVec $ divVal s <$> vals
     divVal s1 (GVal r i) = GVal (r/s1) i
 
 -- | Divide a vector by a scalar, high precision (read: slow) version. arguments are given in this order for maximum readability.
-hpDivVecScalar :: GVec -> (BigFloat (PrecPlus20 Eps1)) -> GVec
+hpDivVecScalar :: GVec -> BigFloat (PrecPlus20 Eps1) -> GVec
 hpDivVecScalar (GVec vals) s = GVec $ divVal s <$> vals
   where
     divVal s1 (GVal r i) = GVal (realToFrac r `hpdiv` realToFrac s1) i
-    hpdiv :: (BigFloat (PrecPlus20 Eps1)) -> (BigFloat (PrecPlus20 Eps1)) -> ℝ
+    hpdiv :: BigFloat (PrecPlus20 Eps1) -> BigFloat (PrecPlus20 Eps1) -> ℝ
     hpdiv a b = realToFrac $ a / b
 
 -- | Calculate the like product of a vector pair.
@@ -258,7 +258,7 @@ reduceVecPairWithErr vec1 vec2 = results
                                                           Nothing -> error "empty set?"
                                                           (Just newI1) -> case nonEmpty (elems i2) of
                                                                             Nothing -> error "empty set?"
-                                                                            (Just newI2) -> (GRVal (res) (newI1 <> newI2), UlpSum $ abs $ doubleUlp res)
+                                                                            (Just newI2) -> (GRVal res (newI1 <> newI2), UlpSum $ abs $ doubleUlp res)
                                                                               where
                                                                                 res = r1*r2
 
