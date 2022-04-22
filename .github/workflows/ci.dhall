@@ -4,10 +4,11 @@ in    haskellCi.generalCi
         haskellCi.matrixSteps
         ( Some
             { ghc =
-              [ haskellCi.GHC.GHC8107
+              [ haskellCi.GHC.GHC902
+              , haskellCi.GHC.GHC8107
               , haskellCi.GHC.GHC884
               ]
-            , cabal = [ haskellCi.Cabal.Cabal32 ]
+            , cabal = [ haskellCi.Cabal.Cabal34 ]
             }
         )
         // { on = [ haskellCi.Event.push
