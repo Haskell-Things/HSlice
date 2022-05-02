@@ -20,9 +20,9 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
 -- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
-module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints, fudgeFactor, startPoint, lineSegsOfContour, LineSegError(EmptyList,LineSegFromPoint), lineSegFromEndpoints, handleLineSegError) where
+module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints, fudgeFactor, startPoint, lineSegsOfContour, LineSegError(EmptyList,LineSegFromPoint), lineSegFromEndpoints, handleLineSegError, negatePoint) where
 
-import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, (<>), error, show, (<), (&&))
+import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, (<>), error, show, (<), (&&), negate)
 
 import Prelude as PL (zipWith)
 
@@ -65,32 +65,36 @@ newtype Point2 = Point2 ℝ2
 -- | A typeclass containing our basic linear algebra functions.
 class LinAlg p where
   -- | Distance between two points. needed for the equivilence instance of line, and to determine amount of extrusion.
-  distance   :: p -> p -> ℝ
+  distance    :: p -> p -> ℝ
   -- | Add the coordinates of two points
-  addPoints  :: p -> p -> p
+  addPoints   :: p -> p -> p
   -- | Scale the coordinates of a point by s
-  scalePoint :: ℝ -> p -> p
+  scalePoint  :: ℝ -> p -> p
+  -- | negate a point.
+  negatePoint :: p -> p
   -- | Are these points the same point, after rounding for printing?
-  (~=)       :: p -> p -> Bool
+  (~=)        :: p -> p -> Bool
 
 -- | perform linear algebra on 3D points.
 instance LinAlg Point3 where
-  distance p1 p2 = magnitude $ addPoints p1 (scalePoint (-1) p2)
+  distance p1 p2 = magnitude $ addPoints p1 (negatePoint p2)
     where
       magnitude (Point3 (x1,y1,z1)) = sqrt (x1 * x1 + y1 * y1 + z1 * z1)
   addPoints (Point3 (x1,y1,z1)) (Point3 (x2,y2,z2)) = Point3 (x1+x2 ,y1+y2 ,z1+z2)
   scalePoint val (Point3 (a,b,c)) = Point3 (val*a ,val*b ,val*c)
+  negatePoint (Point3 (a,b,c)) = Point3 (negate a, negate b, negate c)
   (~=) p1 p2 = roundPoint3 p1 == roundPoint3 p2
 
 -- | perform linear algebra on 2D points.
 instance LinAlg Point2 where
   distance p1 p2
     | p1 == p2 = 0
-    | otherwise = magnitude $ addPoints p1 (scalePoint (-1) p2)
+    | otherwise = magnitude $ addPoints p1 (negatePoint p2)
     where
       magnitude (Point2 (x1,y1)) = sqrt (x1 * x1 + y1 * y1)
   addPoints (Point2 (x1,y1)) (Point2 (x2,y2)) = Point2 (x1+x2, y1+y2)
   scalePoint val (Point2 (a,b)) = Point2 (val*a ,val*b)
+  negatePoint (Point2 (a,b)) = Point2 (negate a, negate b)
   (~=) p1 p2 = roundPoint2 p1 == roundPoint2 p2
 
 -- | functions for working on points as if they are in a 2D plane.
@@ -228,7 +232,7 @@ lineSegsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
 lineSegFromEndpoints :: Point2 -> Point2 -> Either LineSegError LineSeg
 lineSegFromEndpoints p1 p2
   | p1 == p2 = Left $ LineSegFromPoint p1
-  | otherwise = Right $ LineSeg p1 (addPoints (scalePoint (-1) p1) p2)
+  | otherwise = Right $ LineSeg p1 (addPoints (negatePoint p1) p2)
 
 -- | generic handler for the error conditions of lineSegFromEndpoints
 handleLineSegError :: Either LineSegError LineSeg -> LineSeg
