@@ -286,10 +286,10 @@ type SegOrPLine2 = Either LineSeg PLine2
 -- entry point usable for all intersection needs.
 -- FIXME: take UlpSums here.
 intersectsWith :: SegOrPLine2 -> SegOrPLine2 -> Either Intersection PIntersection
-intersectsWith (Left l1)   (Left l2)   =         lineSegIntersectsLineSeg (l1, UlpSum $ ulpOfLineSeg l1) (l2, UlpSum $ ulpOfLineSeg l2)
+intersectsWith (Left l1)   (Left l2)   =         lineSegIntersectsLineSeg (l1, ulpOfLineSeg l1) (l2, ulpOfLineSeg l2)
 intersectsWith (Right pl1) (Right pl2) = Right $ plinesIntersectIn   pl1 pl2
-intersectsWith (Left l1)   (Right pl1) =         pLineIntersectsLineSeg (pl1, UlpSum $ ulpOfPLine2 pl1) (l1, UlpSum $ ulpOfLineSeg l1)
-intersectsWith (Right pl1) (Left l1)   =         pLineIntersectsLineSeg (pl1, UlpSum $ ulpOfPLine2 pl1) (l1, UlpSum $ ulpOfLineSeg l1)
+intersectsWith (Left l1)   (Right pl1) =         pLineIntersectsLineSeg (pl1, UlpSum $ ulpOfPLine2 pl1) (l1, ulpOfLineSeg l1) 0
+intersectsWith (Right pl1) (Left l1)   =         pLineIntersectsLineSeg (pl1, UlpSum $ ulpOfPLine2 pl1) (l1, ulpOfLineSeg l1) 0
 
 -- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
 outputIntersectsLineSeg :: (Show a, Arcable a) => a -> (LineSeg, UlpSum) -> Either Intersection PIntersection
@@ -621,8 +621,8 @@ ulpOfPLine2 (PLine2 (GVec vals)) = sum $ abs . doubleUlp . (\(GVal r _) -> r) <$
                                    ,getVals [GEPlus 2] vals]
 
 -- | Get the sum of the error involved in storing the values in a given Line Segment.
-ulpOfLineSeg :: LineSeg -> ℝ
-ulpOfLineSeg (LineSeg (Point2 (x1,y1)) (Point2 (x2,y2))) = sum $ abs . doubleUlp <$> [x1, y1, x2, y2, x1+x2, y1+y2]
+ulpOfLineSeg :: LineSeg -> UlpSum
+ulpOfLineSeg (LineSeg (Point2 (x1,y1)) (Point2 (x2,y2))) = UlpSum $ sum $ abs . doubleUlp <$> [x1, y1, x2, y2, x1+x2, y1+y2]
 
 -- | Get the sum of the error involved in storing the values in a given PPoint2.
 ulpOfPPoint2 :: PPoint2 -> ℝ

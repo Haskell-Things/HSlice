@@ -676,7 +676,7 @@ randomLineSegWithErr :: ℝ -> ℝ -> ℝ -> ℝ -> (LineSeg, UlpSum)
 randomLineSegWithErr x1 y1 x2 y2 = (res, ulpSum)
   where
     res = handleLineSegError $ lineSegFromEndpoints (Point2 (x1, y1)) (Point2 (x2, y2))
-    ulpSum = UlpSum $ ulpOfLineSeg res
+    ulpSum = ulpOfLineSeg res
 
 randomPPoint2 :: ℝ -> ℝ -> (PPoint2, UlpSum)
 randomPPoint2 x y = (eToPPoint2 $ Point2 (x,y)
@@ -701,7 +701,7 @@ randomLineSegFromPointNotX1Y1 rawX rawY d = (res, ulpSum)
       | rawX == 0 && rawY == 0 = (0,0.1)
       | rawX == rawY = (rawX,0.1)
       | otherwise = (rawX, rawY)
-    ulpSum = UlpSum $ ulpOfLineSeg res
+    ulpSum = ulpOfLineSeg res
 
 -- | A line segment ending at the origin. additionally, guaranteed not to be on the X = Y line.
 randomLineSegFromOriginNotX1Y1 :: ℝ -> ℝ -> (LineSeg, UlpSum)
@@ -712,7 +712,7 @@ randomLineSegFromOriginNotX1Y1 rawX rawY = (res, ulpSum)
       | rawX == 0 && rawY == 0 = (0,0.1)
       | rawX == rawY = (rawX,0.1)
       | otherwise = (rawX, rawY)
-    ulpSum = UlpSum $ ulpOfLineSeg res
+    ulpSum = ulpOfLineSeg res
 
 randomX1Y1LineSegToOrigin :: NonZero ℝ -> (LineSeg, UlpSum)
 randomX1Y1LineSegToOrigin rawD = (res, ulpSum)
@@ -720,7 +720,7 @@ randomX1Y1LineSegToOrigin rawD = (res, ulpSum)
     res = handleLineSegError $ lineSegFromEndpoints (Point2 (d,d)) (Point2 (0,0))
     d :: ℝ
     d = coerce rawD
-    ulpSum = UlpSum $ ulpOfLineSeg res
+    ulpSum = ulpOfLineSeg res
 
 randomX1Y1LineSegToPoint :: NonZero ℝ -> ℝ -> (LineSeg, UlpSum)
 randomX1Y1LineSegToPoint rawD1 d2 = (res, ulpSum)
@@ -728,7 +728,7 @@ randomX1Y1LineSegToPoint rawD1 d2 = (res, ulpSum)
     res = handleLineSegError $ lineSegFromEndpoints (Point2 (d1,d1)) (Point2 (d2,d2))
     d1 :: ℝ
     d1 = coerce rawD1
-    ulpSum = UlpSum $ ulpOfLineSeg res
+    ulpSum = ulpOfLineSeg res
 
 -- | combine two lists. for feeding into randomStarPoly.
 makePairs :: [a] -> [b] -> [(a,b)]
