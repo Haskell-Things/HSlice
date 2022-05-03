@@ -30,7 +30,7 @@ import Data.Maybe (Maybe(Just, Nothing))
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), LineSeg(LineSeg), Point2, LineSegError, addPoints, scalePoint, zOf, flatten, lineSegFromEndpoints, handleLineSegError, LineSegError(EmptyList))
+import Graphics.Slicer.Math.Definitions (Point3(Point3), LineSeg(LineSeg), Point2, LineSegError, addPoints, scalePoint, negatePoint, zOf, flatten, lineSegFromEndpoints, handleLineSegError, LineSegError(EmptyList))
 
 -- | Take a list of line segments, connected at their end points, and generate a list of the points in order.
 pointsFromLineSegs :: [LineSeg] -> Either LineSegError [Point2]
@@ -57,7 +57,7 @@ endPoint (LineSeg p s) = addPoints p s
 
 -- | Express a line segment in terms of the other endpoint
 flipLineSeg :: LineSeg -> LineSeg
-flipLineSeg l@(LineSeg _ s) = LineSeg (endPoint l) (scalePoint (-1) s)
+flipLineSeg l@(LineSeg _ s) = LineSeg (endPoint l) (negatePoint s)
 
 makeLineSeg :: Point2 -> Point2 -> LineSeg
 makeLineSeg p1 p2 = handleLineSegError $ lineSegFromEndpoints p1 p2
