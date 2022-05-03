@@ -27,7 +27,7 @@ module Graphics.Slicer.Math.PGA(
   PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn),
   PLine2(PLine2),
   PPoint2(PPoint2),
-  Arcable(hasArc, outOf),
+  Arcable(hasArc, outOf, ulpOfOut, outUlpMag),
   Pointable(canPoint, pPointOf, ePointOf),
   angleBetween,
   combineConsecutiveLineSegs,
@@ -47,6 +47,7 @@ module Graphics.Slicer.Math.PGA(
   lineIsLeft,
   makePPoint2WithErr,
   normalizePLine2,
+  normalizePLine2WithErr,
   outputIntersectsLineSeg,
   pLineFromEndpointsWithErr,
   pLineIsLeft,
@@ -292,12 +293,40 @@ intersectsWith (Left l1)   (Right pl1) =         pLineIntersectsLineSeg (pl1, Ul
 intersectsWith (Right pl1) (Left l1)   =         pLineIntersectsLineSeg (pl1, UlpSum $ ulpOfPLine2 pl1) (l1, ulpOfLineSeg l1) 0
 
 -- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
-outputIntersectsLineSeg :: (Show a, Arcable a) => a -> (LineSeg, UlpSum) -> Either Intersection PIntersection
-outputIntersectsLineSeg source target
-  | hasArc source = pLineIntersectsLineSeg (outOf source, UlpSum 0) target
-  | otherwise = error
-                $ "no arc from source?\n"
-                <> show source <> "\n"
+outputIntersectsLineSeg :: (Show a, Arcable a, Pointable a) => a -> (LineSeg, UlpSum) -> Either Intersection PIntersection
+outputIntersectsLineSeg source (l1, UlpSum ulpL1)
+  | intersectionDistance == 0 = pLineIntersectsLineSeg (pl1, UlpSum ulpPL1) (l1, UlpSum ulpL1) 1
+  | ulpScale > 100000 = error
+                        $ "wtf\n"
+                        <> "travelUlpMul: " <> show travelUlpMul <> "\n"
+                        <> "ulpMultiplier: " <> show ulpMultiplier <> "\n"
+                        <> "angle: " <> show angle <> "\n"
+                        <> "angleErr: " <> show angleErr <> "\n"
+                        <> "p1Mag: " <> show pl1Mag <> "\n"
+                        <> "intersectionDistance: " <> show intersectionDistance <> "\n"
+  | otherwise = pLineIntersectsLineSeg (pl1, UlpSum ulpPL1) (l1, UlpSum ulpL1) ulpScale
+  where
+    -- | the ULP multiplier. used to expand the hitcircle of an endpoint.
+    ulpScale = 120 + travelUlpMul * ulpMultiplier * (angle+angleErr) * (angle+angleErr)
+    (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
+    npl1 = normalizePLine2 pl1
+    npl2 = normalizePLine2 pl2
+    pl2 = eToPLine2 l1
+    -- the multiplier to account for distance between our Pointable, and where it intersects.
+    travelUlpMul
+      | canPoint source = pl1Mag / intersectionDistance
+      | otherwise = error
+                    $ "cannot resolve source to a point?\n"
+                    <> show source <> "\n"
+    (pl1, UlpSum ulpPL1, pl1Mag)
+      | hasArc source = (outOf source, ulpOfOut source, outUlpMag source)
+      | otherwise = error
+                    $ "no arc from source?\n"
+                    <> show source <> "\n"
+    -- FIXME: remove the canonicalization from this function, moving it to the callers.
+    (rawIntersection, _) = canonicalizePPoint2WithErr rawIntersect
+    (rawIntersect, _) = pLineIntersectionWithErr pl1 pl2
+    intersectionDistance = distanceBetweenPPoints (pPointOf source) rawIntersection
 
 -- | A type alias, for cases where either input is acceptable.
 type SegOrPLine2WithErr = Either (LineSeg, UlpSum) (PLine2,UlpSum)
@@ -306,19 +335,30 @@ type SegOrPLine2WithErr = Either (LineSeg, UlpSum) (PLine2,UlpSum)
 intersectsWithErr :: SegOrPLine2WithErr -> SegOrPLine2WithErr -> Either Intersection PIntersection
 intersectsWithErr (Left l1)       (Left l2)       =         lineSegIntersectsLineSeg l1 l2
 intersectsWithErr (Right (pl1,_)) (Right (pl2,_)) = Right $ plinesIntersectIn pl1 pl2
-intersectsWithErr (Left l1)       (Right pl1)     =         pLineIntersectsLineSeg pl1 l1
-intersectsWithErr (Right pl1)     (Left l1)       =         pLineIntersectsLineSeg pl1 l1
-
+intersectsWithErr (Left l1@(rawL1,_))       (Right pl1@(rawPL1,_))     =         pLineIntersectsLineSeg pl1 l1 ulpScale
+  where
+    ulpScale = 120 + ulpMultiplier * (angle+angleErr) * (angle+angleErr)
+    (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
+    (npl1, _) = normalizePLine2WithErr rawPL1
+    (npl2, _) = normalizePLine2WithErr pl2
+    (pl2, _) = eToPLine2WithErr rawL1
+intersectsWithErr (Right pl1@(rawPL1,_))     (Left l1@(rawL1,_))       =         pLineIntersectsLineSeg pl1 l1 ulpScale
+  where
+    ulpScale = 120 + ulpMultiplier * (angle+angleErr) * (angle+angleErr)
+    (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
+    (npl1, _) = normalizePLine2WithErr rawPL1
+    (npl2, _) = normalizePLine2WithErr pl2
+    (pl2, _) = eToPLine2WithErr rawL1
 -- FIXME: as long as this is required, we're not accounting for ULP correctly everywhere.
 ulpMultiplier :: ℝ
 ulpMultiplier = 450
 
 -- | Check if/where a line segment and a PLine intersect.
-pLineIntersectsLineSeg :: (PLine2, UlpSum) -> (LineSeg, UlpSum) -> Either Intersection PIntersection
-pLineIntersectsLineSeg (pl1, UlpSum ulpPL1) (l1, UlpSum ulpL1)
+pLineIntersectsLineSeg :: (PLine2, UlpSum) -> (LineSeg, UlpSum) -> ℝ -> Either Intersection PIntersection
+pLineIntersectsLineSeg (pl1, UlpSum ulpPL1) (l1, UlpSum ulpL1) ulpScale
   | plinesIntersectIn pl1 pl2 == PParallel = Right PParallel
   | plinesIntersectIn pl1 pl2 == PAntiParallel = Right PAntiParallel
-  | distance (startPoint l1) (endPoint l1) < ulpStart+ulpEnd+ulpTotal = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
+  | distance (startPoint l1) (endPoint l1) < ulpStart+ulpEnd+ulpTotal = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nulpScale: " <> show ulpScale <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
   | hasIntersection && plinesIntersectIn pl1 pl2 == PCollinear = Right PCollinear
   | hasIntersection && plinesIntersectIn pl1 pl2 == PAntiCollinear = Right PAntiCollinear
   | hasIntersection && startDistance <= ulpStartSum = Left $ HitStartPoint l1 intersection
@@ -332,8 +372,8 @@ pLineIntersectsLineSeg (pl1, UlpSum ulpPL1) (l1, UlpSum ulpL1)
     ulpEndSum = ulpTotal+ulpEnd
     -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
     ulpTotal
-      | ulpPL1 < 0 || ulpPL2 < 0 || ulpL1 < 0 || ulpI < 0 = error $ "negative ULP?\n"
-      | otherwise = ulpPL1 + ulpPL2 + ulpL1 + (ulpI) + (ulpC * ulpMultiplier)
+      | ulpPL1 < 0 || ulpPL2 < 0 || ulpL1 < 0 || ulpI < 0 = error "negative ULP?\n"
+      | otherwise = ulpPL1 + ulpPL2 + ulpL1 + ((ulpI + ulpC) * ulpScale)
     dumpULPs = "ulpPL1: " <> show ulpPL1 <> "\nulpPL2: " <> show ulpPL2 <> "\nulpL1: " <> show ulpL1 <> "\nulpI: " <> show ulpI <> "\nulpC: " <> show ulpC <> "\n"
     hasIntersection = onSegment l1 rawIntersection ulpStartSum ulpEndSum
     intersection = pToEPoint2 rawIntersection
@@ -370,8 +410,12 @@ lineSegIntersectsLineSeg (l1, UlpSum ulpL1) (l2, UlpSum ulpL2)
     (pl2, UlpSum ulpPL2) = eToPLine2WithErr l2
     -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
     ulpTotal
-      | ulpPL1 < 0 || ulpPL2 < 0 || ulpL1 < 0 || ulpL2 < 0 || ulpI < 0 || ulpC < 0 = error $ "negative ULP?\n"
-      | otherwise = ulpPL1 + ulpPL2 + ulpL1 + ulpL2 + ulpI + (ulpC * ulpMultiplier)
+      | ulpPL1 < 0 || ulpPL2 < 0 || ulpL1 < 0 || ulpL2 < 0 || ulpI < 0 || ulpC < 0 = error "negative ULP?\n"
+      | otherwise = ulpPL1 + ulpPL2 + ulpL1 + ulpL2 + ((ulpI + ulpC) * ulpScale)
+    ulpScale = 120 + ulpMultiplier * (angle+angleErr) * (angle+angleErr)
+    (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
+    (npl1, _) = normalizePLine2WithErr pl1
+    (npl2, _) = normalizePLine2WithErr pl2
     dumpULPs = "ulpPL1: " <> show ulpPL1 <> "\nulpPL2: " <> show ulpPL2 <> "\nulpL1: " <> show ulpL1 <> "\nulpI: " <> show ulpI <> "\nulpC: " <> show ulpC <> "\n"
     hasIntersection = onSegment l1 rawIntersection ulpStartSum1 ulpEndSum1 && onSegment l2 rawIntersection ulpStartSum2 ulpEndSum2
     intersection = pToEPoint2 rawIntersection
@@ -460,6 +504,8 @@ class Pointable a where
 class Arcable a where
   hasArc :: a -> Bool
   outOf :: a -> PLine2
+  ulpOfOut :: a -> UlpSum
+  outUlpMag :: a -> ℝ
 
 -- | The join operator in 2D PGA, which is just the meet operator operating in the dual space.
 (∨+) :: GVec -> GVec -> (GVec, UlpSum)

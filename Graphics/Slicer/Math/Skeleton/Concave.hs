@@ -26,9 +26,9 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, getFirstArc, getOutsideArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, towardIntersection) where
+module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, getFirstArc, getInsideArc, getOutsideArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, towardIntersection) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=), (-))
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=), (-), (/))
 
 import Prelude as PL (head, last, tail, init)
 
@@ -50,7 +50,7 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, addPoints, mapWithFollower, scalePoint, fudgeFactor, startPoint, distance)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, UlpSum(UlpSum))
 
@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, 
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine, flipPLine2, plineFromEndpoints, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, normalizePLine2WithErr, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine, flipPLine2, pLineFromEndpointsWithErr, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
@@ -226,7 +226,10 @@ getInsideArc pline1 pline2@(PLine2 pv2)
 
 -- | Make a first generation node.
 makeENode :: Point2 -> Point2 -> Point2 -> ENode
-makeENode p1 p2 p3 = ENode (p1,p2,p3) $ getFirstArc p1 p2 p3
+makeENode p1 p2 p3 = ENode (p1,p2,p3) arc arcErr arcMag
+  where
+    (arc, arcErr) = getFirstArc p1 p2 p3
+    arcMag = (distance p1 p2 + distance p2 p3) / 2
 
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
 makeENodes :: [LineSeg] -> [ENode]
@@ -246,9 +249,15 @@ eNodesOfOutsideContour contour = catMaybes $ onlyNodes <$> zip (linePairs contou
     onlyNodes ((_, _), Nothing) = Nothing
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
---   Note that we normalize the output of eToPLine2, because by default, it does not output normalized lines.
-getFirstArc :: Point2 -> Point2 -> Point2 -> PLine2
-getFirstArc p1 p2 p3 = getInsideArc ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ plineFromEndpoints p1 p2) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ plineFromEndpoints p2 p3)
+--   Note that we normalize the output,.
+getFirstArc :: Point2 -> Point2 -> Point2 -> (PLine2, UlpSum)
+getFirstArc p1 p2 p3 = (PLine2 normRes, UlpSum $ normUlp + resUlp)
+  -- since we hawe two equal sides, we can draw a point ot the other side of the quad, and use it for constructing.
+--  | distance p1 p2 == distance p2 p3 = (PLine2 quadSide, UlpSum quadSideErr)
+--  | otherwise = (getInsideArc (PLine2 side1) (PLine2 side2), UlpSum $ side1Err + side2Err)
+  where
+    (NPLine2 normRes, UlpSum normUlp) = normalizePLine2WithErr res
+    (res, UlpSum resUlp) = pLineFromEndpointsWithErr p2 $ scalePoint (0.5) $ addPoints p1 p3
 
 -- | Find the reflex virtexes of a contour, and draw Nodes from them.
 --   This function is for use on interior contours.
