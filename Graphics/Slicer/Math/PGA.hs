@@ -30,6 +30,7 @@ module Graphics.Slicer.Math.PGA(
   Arcable(hasArc, outOf, ulpOfOut, outUlpMag),
   Pointable(canPoint, pPointOf, ePointOf),
   angleBetween,
+  angleBetweenWithErr,
   combineConsecutiveLineSegs,
   distanceBetweenPLine2s,
   distanceBetweenPPoints,
@@ -61,6 +62,7 @@ module Graphics.Slicer.Math.PGA(
   translatePerp,
   translateRotatePPoint2,
   ulpOfLineSeg,
+  ulpOfPLine2
   ) where
 
 import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.))
@@ -211,9 +213,10 @@ angleBetween :: NPLine2 -> NPLine2 -> ℝ
 angleBetween npl1 npl2 = fst $ angleBetweenWithErr npl1 npl2
 
 -- | Return the sine of the angle between the two lines, along with the error. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
+-- FIXME: not generating large enough ULPs. why?
 angleBetweenWithErr :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
 angleBetweenWithErr (NPLine2 pv1) (NPLine2 pv2) = (scalarPart res
-                                           , ulpSum)
+                                                  , ulpSum)
   where
     (res, ulpSum) = pv1 ⎣+ pv2
 
