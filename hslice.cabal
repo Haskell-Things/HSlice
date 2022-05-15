@@ -80,6 +80,7 @@ Library
                   , numbers
                   , parallel
                   , QuickCheck
+                  , rounded-hw
                   , safe
                   , slist >=0.2.0.0
                   , tau
@@ -164,6 +165,7 @@ Test-suite test-hslice
                   , hslice
                   , QuickCheck
                   , quickcheck-io
+                  , rounded-hw
                   , slist
     Type: exitcode-stdio-1.0
     Other-Modules:
