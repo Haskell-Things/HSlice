@@ -75,7 +75,7 @@ data CrashTree = CrashTree { _motorcycles :: !(Slist Motorcycle), _survivors :: 
 
 -- | convert a Motorcycle to an ENode
 motorcycleToENode :: Motorcycle -> ENode
-motorcycleToENode (Motorcycle (seg1,seg2) mcpath) = ENode (startPoint seg1, startPoint seg2, endPoint seg2) mcpath
+motorcycleToENode (Motorcycle (seg1,seg2) mcpath) = ENode (startPoint seg1, startPoint seg2, endPoint seg2) mcpath (UlpSum 0) 0
 
 -- | Find the point where the propogation from a motorcycle equals the propogation of what it impacts, taking into account the weight of a motorcycle, and the weight of what it impacts.
 motorcycleDivisor :: Motorcycle -> MotorcycleIntersection -> PPoint2
