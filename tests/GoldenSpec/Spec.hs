@@ -79,12 +79,13 @@ spec = describe "golden tests" $ do
     mergeNodeTrees $
     [ justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [] ]
     <> nodeTreesFromDivision (onlyOne $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [])
-  golden "C0-Faces-Default" $ facesOf (fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])
+  golden "C0-Faces-Default" $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c0 []
   golden "C0-Faces-Ordered" $ orderedFacesOf c0l0 (fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])
   golden "C1-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c1 []
   golden "C1-Cell1" $ cellFrom $ findFirstCellOfContour c1 $ findDivisions c1 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c1 []
   golden "C1-Cell1-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findFirstCellOfContour c1 $ findDivisions c1 $ fromJust $ crashMotorcycles c1 []
   golden "C2-Cell1" $ cellFrom $ findFirstCellOfContour c2 $ findDivisions c2 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c2 []
+  golden "C2-Cell1-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findFirstCellOfContour c2 $ findDivisions c2 $ fromJust $ crashMotorcycles c2 []
   golden "C2-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c2 []
   golden "C3-Cell1" $ cellFrom $ findFirstCellOfContour c3 $ findDivisions c3 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c3 []
   golden "C3-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c3 []
@@ -100,6 +101,8 @@ spec = describe "golden tests" $ do
   golden "C7-Cell2-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
   golden "C7-Cell3" $ cellFrom (findNextCell $ onlyOne $ fromJust $ remainderFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 [])
   golden "C7-Cell3-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
+  golden "rectangle-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []
+  golden "rectangle-Faces-Default" $ facesOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []
     where
       justSupported :: Either UnsupportedReason NodeTree -> NodeTree
       justSupported maybeNodeTree = case maybeNodeTree of
@@ -114,3 +117,5 @@ spec = describe "golden tests" $ do
       c5 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (2,0), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
       c6 = makePointContour [Point2 (-1,-1), Point2 (-0.5,-1), Point2 (0,0), Point2 (0.5,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       c7 = makePointContour [Point2 (0,-1), Point2 (1,-1), Point2 (1,1), Point2 (0.5,1), Point2 (0.5,0), Point2 (0,1), Point2 (-1,1), Point2 (-1,0), Point2 (0,0)]
+      -- A simple rectangle.
+      rectangle = makePointContour [Point2 (-2,1), Point2 (-2,-1), Point2 (1,-1), Point2 (1,1)]
