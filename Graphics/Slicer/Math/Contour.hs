@@ -22,7 +22,7 @@
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 
 -- | functions for handling contours.
-module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, maybeFlipContour) where
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, pointFarOutsideContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, maybeFlipContour, firstPointPairOfContour, insideIsLeft, innerContourPoint) where
 
 import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, Either(Left, Right), (-), not, (*))
 
@@ -322,6 +322,10 @@ firstLineSegOfContour c@(PointContour _ _ p1 p2 _ _) = myLineSegErrorHandler $ l
                                 (Left EmptyList) -> error "unpossible!"
                                 (Right lineSeg) -> lineSeg
 firstLineSegOfContour (LineSegContour _ _ l1 _ _) = l1
+
+firstPointPairOfContour :: Contour -> (Point2, Point2)
+firstPointPairOfContour (PointContour _ _ p1 p2 _ _) = (p1,p2)
+firstPointPairOfContour (LineSegContour _ _ l1 _ _) = (startPoint l1, endPoint l1)
 
 -- | find the first outer contour of a contourTreeSet, and return it.
 firstContourOfContourTreeSet :: ContourTreeSet -> Contour
