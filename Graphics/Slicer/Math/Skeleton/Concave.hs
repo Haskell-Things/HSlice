@@ -28,7 +28,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, getFirstArc, getInsideArc, getOutsideArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, towardIntersection) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=), (-), (/))
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=), (-), (/), realToFrac)
 
 import Prelude as PL (head, last, tail, init)
 
@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, 
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, normalizePLine2WithErr, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetween, join2PPoint2, distancePPointToPLine, flipPLine2, pLineFromEndpointsWithErr, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, normalizePLine2WithErr, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetweenWithErr, join2PPoint2, distancePPointToPLine, distancePPointToPLineWithErr, flipPLine2, pLineFromEndpointsWithErr, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
@@ -162,7 +162,8 @@ errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure
 errorIfLeft (Right val)    = val
 
 -- | For a given par of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
---   Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
+--  Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
+--  Note: assumes outOf the two input nodes is already normalized.
 averageNodes :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> INode
 averageNodes n1 n2
   | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n" <> dumpInput
@@ -207,10 +208,10 @@ getOutsideArc ppoint1 pline1 ppoint2 pline2
 -- FIXME: shouldn't we be given an error component in our inputs?
 towardIntersection :: PPoint2 -> PLine2 -> PPoint2 -> Bool
 towardIntersection pp1 pl1 pp2
-  | d <= dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nPLineConstructed: " <> show constructedPLine <> "\n"
-  | angleBetween constructedPLine (normalizePLine2 pl1) > 0  = True
-  | otherwise                                                = False
+  | d <= realToFrac dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nPLineConstructed: " <> show constructedPLine <> "\n"
+  | otherwise = angleFound > realToFrac angleErr
   where
+    (angleFound, UlpSum angleErr) = angleBetweenWithErr constructedPLine (normalizePLine2 pl1)
     (d, UlpSum dErr) = distanceBetweenPPointsWithErr pp1 pp2
     constructedPLine = normalizePLine2 $ join2PPoint2 pp1 pp2
 
@@ -249,7 +250,8 @@ eNodesOfOutsideContour contour = catMaybes $ onlyNodes <$> zip (linePairs contou
     onlyNodes ((_, _), Nothing) = Nothing
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
---   Note that we normalize the output,.
+--   Note that we normalize our output, but return it as a PLine2. this is safe, because double normalization (if it happens) only raises the ULP.
+-- FIXME: poor ULP tracking on this linear math.
 getFirstArc :: Point2 -> Point2 -> Point2 -> (PLine2, UlpSum)
 getFirstArc p1 p2 p3 = (PLine2 normRes, UlpSum $ normUlp + resUlp)
   -- since we hawe two equal sides, we can draw a point ot the other side of the quad, and use it for constructing.
@@ -273,6 +275,7 @@ convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWith
 
 -- | A better anticollinear checker.
 -- distance is used here to get a better anticollinear than PGA has, because we have a point, and floating point hurts us.
+-- FIXME: shouldn't this be pulled into PGA.hs, as part of an outsIntersectIn?
 nodesAreAntiCollinear :: (Pointable a, Arcable a, Pointable b, Arcable b) => a -> b -> Bool
 nodesAreAntiCollinear node1 node2
   | hasArc node1 && hasArc node2 && isAntiCollinear (outOf node1) (outOf node2) = True
@@ -674,7 +677,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
         lineIntersections = lefts $ catMaybes intersections
         pointsCloseEnough = mapWithFollower pairCloseEnough pointIntersections
           where
-            pairCloseEnough a b = res < errRes
+            pairCloseEnough a b = res < realToFrac errRes
               where
                 (res, UlpSum errRes) = distanceBetweenPPointsWithErr a b
         linesCloseEnough =
@@ -868,8 +871,8 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     intersectsInPoint :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Bool
     intersectsInPoint node1 node2
       | hasArc node1 && hasArc node2 = not (noIntersection (outOf node1) (outOf node2))
-                                       && (dist1 >= dist1Err)
-                                       && (dist2 >= dist2Err)
+                                       && (dist1 >= realToFrac dist1Err)
+                                       && (dist2 >= realToFrac dist2Err)
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
         (dist1, UlpSum dist1Err) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1) (outOf node2)) (pPointOf node1)
