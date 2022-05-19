@@ -34,9 +34,11 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighbors, startPoint, distance, lineSegsOfContour, lineSegFromEndpoints, handleLineSegError, fudgeFactor)
 
+import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
+
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), PPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetween, distanceBetweenPLine2s, eToPPoint2, eToNPLine2, outputIntersectsLineSeg, pLineFromEndpointsWithErr, plinesIntersectIn, pToEPoint2, normalizePLine2, ulpOfLineSeg)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), PPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetweenWithErr, distanceBetweenPLine2s, eToPPoint2, eToNPLine2, outputIntersectsLineSeg, pLineFromEndpointsWithErr, plinesIntersectIn, pToEPoint2, normalizePLine2, ulpOfLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -127,10 +129,10 @@ getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _ _ _) c = strip
     saneIntersections  _                              (_   , Left (HitEndPoint   _ _)) (_    , Left (HitStartPoint _ _)) = Nothing
     saneIntersections (seg, Left (HitEndPoint _ _))   (seg2, Left (HitStartPoint _ _))  _                                = Just (seg, Left seg2)
     saneIntersections l1 l2 l3 = error
-                                 $ "insane result of saneIntersections:\n"
-                                 <> show l1 <> "\nEndpoint: " <> show (endPoint $ lSeg l1) <> "\nLength: " <> show (lineLength l1) <> "\nAngle: " <> show (angleBetween (eToNPLine2 $ lSeg l1) (normalizePLine2 $ outOf m)) <> "\n"
-                                 <> show l2 <> "\nEndpoint: " <> show (endPoint $ lSeg l2) <> "\nLength: " <> show (lineLength l2) <> "\nAngle: " <> show (angleBetween (eToNPLine2 $ lSeg l2) (normalizePLine2 $ outOf m)) <> "\n"
-                                 <> show l3 <> "\nEndpoint: " <> show (endPoint $ lSeg l3) <> "\nLength: " <> show (lineLength l3) <> "\nAngle: " <> show (angleBetween (eToNPLine2 $ lSeg l3) (normalizePLine2 $ outOf m)) <> "\n"
+                                 $ "insane result of saneIntersections with: " <> show (outOf m) <> "\n"
+                                 <> show l1 <> "\nEndpoint: " <> show (endPoint $ lSeg l1) <> "\nLength: " <> show (lineLength l1) <> "\nAngle: " <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l1) (normalizePLine2 $ outOf m)) <> "\n"
+                                 <> show l2 <> "\nEndpoint: " <> show (endPoint $ lSeg l2) <> "\nLength: " <> show (lineLength l2) <> "\nAngle: " <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l2) (normalizePLine2 $ outOf m)) <> "\n"
+                                 <> show l3 <> "\nEndpoint: " <> show (endPoint $ lSeg l3) <> "\nLength: " <> show (lineLength l3) <> "\nAngle: " <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l3) (normalizePLine2 $ outOf m)) <> "\n"
       where
         lSeg :: (LineSeg, Either Intersection PIntersection) -> LineSeg
         lSeg (myseg,_) = myseg
@@ -163,10 +165,10 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
                                                                                                                                   then Nothing
                                                                                                                                   else error "insane"
         saneIntersection l1 l2 l3 = error
-                                    $ "insane result of saneIntersections:\n"
-                                    <> show l1 <> "\n" <> show (lEnd l1) <> "\n" <> show (angleBetween (eToNPLine2 $ lSeg l1) (eToNPLine2 $ lSeg l2)) <> "\n" <> show (angleBetween (eToNPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
-                                    <> show l2 <> "\n" <> show (lEnd l2) <> "\n" <> show (angleBetween (eToNPLine2 $ lSeg l2) (eToNPLine2 $ lSeg l3)) <> "\n" <> show (angleBetween (eToNPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
-                                    <> show l3 <> "\n" <> show (lEnd l3) <> "\n"                                                                              <> show (angleBetween (eToNPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
+                                    $ "insane result of saneIntersections with: " <> show pts <> "\n"
+                                    <> show l1 <> "\n" <> show (lEnd l1) <> "\n" <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l1) (eToNPLine2 $ lSeg l2)) <> "\n" <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
+                                    <> show l2 <> "\n" <> show (lEnd l2) <> "\n" <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l2) (eToNPLine2 $ lSeg l3)) <> "\n" <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
+                                    <> show l3 <> "\n" <> show (lEnd l3) <> "\n"                                                                                     <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
           where
             lSeg :: (LineSeg, Either Intersection PIntersection) -> LineSeg
             lSeg (myseg,_) = myseg
