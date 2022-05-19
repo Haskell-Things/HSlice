@@ -75,7 +75,7 @@ data CrashTree = CrashTree { _motorcycles :: !(Slist Motorcycle), _survivors :: 
 
 -- | convert a Motorcycle to an ENode
 motorcycleToENode :: Motorcycle -> ENode
-motorcycleToENode (Motorcycle (seg1,seg2) mcpath) = ENode (startPoint seg1, startPoint seg2, endPoint seg2) mcpath
+motorcycleToENode (Motorcycle (seg1,seg2) mcpath mcUlp mcMag) = ENode (startPoint seg1, startPoint seg2, endPoint seg2) mcpath mcUlp mcMag
 
 -- | Find the point where the propogation from a motorcycle equals the propogation of what it impacts, taking into account the weight of a motorcycle, and the weight of what it impacts.
 motorcycleDivisor :: Motorcycle -> MotorcycleIntersection -> PPoint2
@@ -94,7 +94,7 @@ motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle)
                   (WithENode eNode) -> distanceBetweenPPoints (pPointOf eNode) (justIntersectsIn $ plinesIntersectIn (translatePerp (eToPLine2 $ getFirstLineSeg eNode) 1) (outOf eNode))
                   (WithMotorcycle motorcycle2) -> mSpeedOf motorcycle2
     mSpeedOf :: Motorcycle -> ℝ
-    mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _) = distanceBetweenPPoints (pPointOf myMotorcycle) (justIntersectsIn $ plinesIntersectIn (translatePerp (eToPLine2 seg1) 1) (outOf myMotorcycle))
+    mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _ _ _) = distanceBetweenPPoints (pPointOf myMotorcycle) (justIntersectsIn $ plinesIntersectIn (translatePerp (eToPLine2 seg1) 1) (outOf myMotorcycle))
     justIntersectsIn :: PIntersection -> PPoint2
     justIntersectsIn res = case res of
                              (IntersectsIn p _) -> p
@@ -140,7 +140,7 @@ crashMotorcycles contour holes
 
           -- Crash just two motorcycles. Returns Nothing when the motorcycles can't collide.
           crashOf :: Motorcycle -> Motorcycle -> Maybe Collision
-          crashOf mot1 mot2@(Motorcycle (inSeg2, outSeg2) _)
+          crashOf mot1 mot2@(Motorcycle (inSeg2, outSeg2) _ _ _)
             -- If we have a clear path between mot1 and the origin of mot2
             | isAntiCollinear (outOf mot1) (outOf mot2) && motorcycleIntersectsAt contour mot1 == (inSeg2, Left outSeg2) = Just $ Collision (mot1,mot2, slist []) Nothing HeadOn
             | noIntersection (outOf mot1) (outOf mot2) = Nothing
@@ -164,17 +164,18 @@ convexMotorcycles :: Contour -> [Motorcycle]
 convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (rotateLeft $ linePairs contour) (mapWithNeighbors convexPLines $ pointsOfContour contour)
   where
     rotateLeft a = PL.last a : PL.init a
-    onlyMotorcycles :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Motorcycle
+    onlyMotorcycles :: ((LineSeg, LineSeg), Maybe (PLine2, UlpSum, ℝ)) -> Maybe Motorcycle
     onlyMotorcycles ((seg1, seg2), maybePLine) = case maybePLine of
-                                                   (Just pLine) -> Just $ Motorcycle (seg1, seg2) pLine
+                                                   (Just (pLine, pLineUlp, pLineMag)) -> Just $ Motorcycle (seg1, seg2) pLine pLineUlp pLineMag
                                                    Nothing -> Nothing
     -- | Examine two line segments that are part of a Contour, and determine if they are convex from the perspective of the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior.
     --   Note that we know that the inside is to the left of the first line given, and that the first line points toward the intersection.
-    convexPLines :: Point2 -> Point2 -> Point2 -> Maybe PLine2
+    convexPLines :: Point2 -> Point2 -> Point2 -> Maybe (PLine2, UlpSum, ℝ)
     convexPLines p1 p2 p3
       | Just True == pLineIsLeft pl1 pl2 = Nothing
-      | otherwise                        = Just $ motorcycleFromPoints p1 p2 p3
+      | otherwise                        = Just (resPLine, ulpOfPLine2 resPLine, distance p1 p2 + distance p2 p3)
         where
+          resPLine = motorcycleFromPoints p1 p2 p3
           pl1 = plineFromEndpoints p1 p2
           pl2 = plineFromEndpoints p2 p3
 
@@ -296,7 +297,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
 -- | Determine if a node is on one side of a motorcycle, or the other.
 --   Assumes the starting point of the second line segment is a point on the path.
 intersectionSameSide :: (Pointable a, Show a) => PPoint2 -> a -> Motorcycle -> Maybe Bool
-intersectionSameSide pointOnSide node (Motorcycle _ path)
+intersectionSameSide pointOnSide node (Motorcycle _ path _ _)
   | canPoint node && pPointOf node == pointOnSide = Just True
   | canPoint node = pPointsOnSameSideOfPLine (pPointOf node) pointOnSide path
   | otherwise = error $ "cannot resolve provided item to a point: " <> show node <> "\n"

@@ -146,20 +146,22 @@ lastINodeOf (INodeSet gens) = case unsnoc (SL.last gens) of
 -- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior or the exterior of a contour.
 --   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.
 --   FIXME: Note that a new motorcycle may be created in the case of degenerate polygons... with it's inSegs being two other motorcycles.
-data Motorcycle = Motorcycle { _inCSegs :: !(LineSeg, LineSeg), _outPline :: !PLine2 }
+data Motorcycle = Motorcycle { _inCSegs :: !(LineSeg, LineSeg), _outPline :: !PLine2, outPlineULP :: UlpSum, outPlineMagnitude :: ℝ }
   deriving Eq
   deriving stock Show
 
 instance Arcable Motorcycle where
   -- A Motorcycle always has an arc, which is it's path.
   hasArc _ = True
-  outOf (Motorcycle _ outArc) = outArc
+  outOf (Motorcycle _ outArc _ _) = outArc
+  ulpOfOut (Motorcycle _ _ outUlp _) = outUlp
+  outUlpMag (Motorcycle _ _ _ outMag) = outMag
 
 instance Pointable Motorcycle where
   -- A motorcycle always contains a point.
   canPoint _ = True
   pPointOf a = eToPPoint2 $ ePointOf a
-  ePointOf (Motorcycle (_, LineSeg point _) _) = point
+  ePointOf (Motorcycle (_, LineSeg point _) _ _ _) = point
 
 -- | The motorcycles that are involved in dividing two cells.
 data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle, moreMotorcycles :: !(Slist Motorcycle) }

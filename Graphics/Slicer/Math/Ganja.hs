@@ -207,7 +207,7 @@ instance GanjaAble ENode where
       (plvar, plref) = toGanja (outOf eNode) (varname <> "c")
 
 instance GanjaAble Motorcycle where
-  toGanja (Motorcycle (l1, l2) outPLine) varname = (
+  toGanja (Motorcycle (l1, l2) outPLine _ _) varname = (
     l1var
     <> l2var
     <> plvar

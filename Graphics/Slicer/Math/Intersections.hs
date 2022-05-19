@@ -42,7 +42,7 @@ import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
 -- | get all possible intersections between the motorcycle and the given list of segments.
 getMotorcycleSegSetIntersections :: Motorcycle -> [LineSeg] -> [(LineSeg, Either Point2 PPoint2)]
-getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _) segs = stripInSegOutSeg $ catMaybes $ mapWithNeighbors saneIntersections $ shortCircuit $ zip bufferedLineSegs $ mightIntersect <$> bufferedLineSegs
+getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _ _ _) segs = stripInSegOutSeg $ catMaybes $ mapWithNeighbors saneIntersections $ shortCircuit $ zip bufferedLineSegs $ mightIntersect <$> bufferedLineSegs
   where
     -- since this is a list of segments, we terminate the list with Nothings, so that the saneIntersections pattern matching logic can deal with "there is no neighbor, but i hit a start/end point"
     bufferedLineSegs :: [Maybe LineSeg]
@@ -94,9 +94,9 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _) segs = stripIn
 -- | get all possible intersections between the motorcycle and the contour.
 -- filters out the input and output segment of the motorcycle.
 getMotorcycleContourIntersections :: Motorcycle -> Contour -> [(LineSeg, Either LineSeg PPoint2)]
-getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _) c = stripInSegOutSeg $ catMaybes $ mapWithNeighbors saneIntersections res
+getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _ _ _) c = stripInSegOutSeg $ catMaybes $ mapWithNeighbors saneIntersections res
   where
-    res = zip contourLines $ outputIntersectsLineSeg m . (\a -> (a, ulpOfLineSeg a)) <$>contourLines
+    res = zip contourLines $ outputIntersectsLineSeg m . (\a -> (a, ulpOfLineSeg a)) <$> contourLines
     stripInSegOutSeg :: [(LineSeg, Either LineSeg PPoint2)] -> [(LineSeg, Either LineSeg PPoint2)]
     stripInSegOutSeg myIntersections
       | not (any fun myIntersections) = error
@@ -187,7 +187,6 @@ getContourLineSegIntersections contour line = slist $ mapMaybe (saneIntersection
 getLineSegIntersections :: PLine2 -> Contour -> [Point2]
 getLineSegIntersections myline c = saneIntersections $ zip (lineSegsOfContour c) $ intersectsWith (Right myline) . Left <$> lineSegsOfContour c
   where
-    -- FIXME: why were we snapping to grid here?
     saneIntersections :: [(LineSeg, Either Intersection PIntersection)] -> [Point2]
     saneIntersections xs = catMaybes $ mapWithNeighbors saneIntersection xs
       where

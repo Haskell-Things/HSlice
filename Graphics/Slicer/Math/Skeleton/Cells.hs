@@ -267,7 +267,7 @@ createCellFromStraightWalls (Slist [] _) _ = error "empty slist."
 createCellFromStraightWalls (Slist (_:_:_) _) _ = error "too many segsets."
 createCellFromStraightWalls _ [] = error "no celldivide."
 createCellFromStraightWalls _ (_:_:_) = error "too many celldivides."
-createCellFromStraightWalls segSets@(Slist [segments] _) [cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _) _) _)]
+createCellFromStraightWalls segSets@(Slist [segments] _) [cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _ _ _) _) _)]
   | len segSets == 0 = error "recieved no line segments. unpossible."
   | isLoop segSets && len segSets == len afterRes = error "passing back full segment list, which should not be possible."
   | isLoop segSets = Cell (slist [(afterRes, Just cellDivide)])
@@ -324,7 +324,7 @@ startBeforeEnd segments cellDivide = elemIndex (fst $ startOfDivide segments cel
 
 -- Get the segment the divide intersects that is closest to the beginning of the list of a contour's line segments.
 startOfDivide :: [LineSeg] -> CellDivide -> (LineSeg, Either Point2 PPoint2)
-startOfDivide _ (CellDivide (DividingMotorcycles (Motorcycle (inSeg,LineSeg start _) _) _) _) = (inSeg, Left start)
+startOfDivide _ (CellDivide (DividingMotorcycles (Motorcycle (inSeg,LineSeg start _) _ _ _) _) _) = (inSeg, Left start)
 
 -- Get the segment the divide intersects that is closest to the end of the list of a contour's line segments.
 endOfDivide :: CellDivide -> (LineSeg, Either Point2 PPoint2)
@@ -345,7 +345,7 @@ maybeEndOfDivide (CellDivide (DividingMotorcycles m ms) lastIntersection)
   | otherwise = Nothing
   where
     startSegOfMotorcycle :: Motorcycle -> LineSeg
-    startSegOfMotorcycle (Motorcycle (startSeg, _) _) = startSeg
+    startSegOfMotorcycle (Motorcycle (startSeg, _) _ _ _) = startSeg
 
 -- | Add a pair of NodeTrees together along a Divide, to create a new nodeTree.
 -- The intersection point for the nodeTrees along the CellDivide is calculated, and then the out of final INode of the two sides is adjusted to pass through that point.
@@ -415,5 +415,5 @@ crossoverINodes nodeTree@(NodeTree _ (INodeSet (Slist iNodes _))) cellDivision =
       | lastSegOf cell == firstCSegOf m = startPoint $ lastSegOf cell
       | otherwise = error $ "unhandled case: " <> show cell <> "\n" <> show m <> "\n" <> show (lastSegOf cell) <> "\n" <> show (firstSegOf cell) <> "\n"
       where
-        firstCSegOf (Motorcycle (seg1,_) _) = seg1
-        lastCSegOf (Motorcycle (_, seg2) _) = seg2
+        firstCSegOf (Motorcycle (seg1,_) _ _ _) = seg1
+        lastCSegOf (Motorcycle (_, seg2) _ _ _) = seg2
