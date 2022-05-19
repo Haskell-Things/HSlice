@@ -1522,7 +1522,7 @@ facetSpec = do
                                            (Just (PLine2 (GVec [GVal 0.75 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))])))
   describe "Motorcycles (Skeleton/Motorcycles)" $ do
     it "finds the motorcycle in our second simple shape" $
-      convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (PLine2 (GVec [GVal 1.414213562373095 (singleton (GEPlus 1))])) {- (UlpSum 0) 0 -}]
+      convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (PLine2 (GVec [GVal 1.414213562373095 (singleton (GEPlus 1))])) (UlpSum 0) 0 ]
   describe "Cells (Skeleton/Cells)" $ do
     it "finds the remains from the first cell of our first simple shape." $
       remainderFrom (findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []) -->
@@ -1649,27 +1649,27 @@ facetSpec = do
                                             (PLine2 (GVec [GVal (-0.541196100146197) (fromList [GEZero 1]), GVal 0.3826834323650897 (fromList [GEPlus 1]), GVal (-0.9238795325112867) (fromList [GEPlus 2])]))
                                             (UlpSum 0) 0]
     it "finds the motorcycle of our sixth simple shape" $
-      convexMotorcycles c5 --> [Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (singleton (GEPlus 2))])) {- (UlpSum 2.220446049250313e-16) 2.8284271247461903 -}]
+      convexMotorcycles c5 --> [Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (singleton (GEPlus 2))])) (UlpSum 2.220446049250313e-16) 2.8284271247461903]
     it "finds the crashtree of our fifth shape." $
-      crashMotorcycles c5 [] --> Just (CrashTree (slist [Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 2])])) {- (UlpSum 2.220446049250313e-16) 2.8284271247461903 -}])
-                                                 (slist [Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 2])])) {- (UlpSum 2.220446049250313e-16) 2.8284271247461903 -}])
+      crashMotorcycles c5 [] --> Just (CrashTree (slist [Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 2])])) (UlpSum 2.220446049250313e-16) 2.8284271247461903])
+                                                 (slist [Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 2])])) (UlpSum 2.220446049250313e-16) 2.8284271247461903])
                                                  (slist []))
     it "finds the divide of our sixth shape." $
       findDivisions c5 (fromMaybe (error "Got Nothing") $ crashMotorcycles c5 []) --> [CellDivide
                                                                   (DividingMotorcycles
-                                                                     (Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 2])])) {- (UlpSum 2.220446049250313e-16) 2.8284271247461903 -})
+                                                                     (Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 2])])) (UlpSum 2.220446049250313e-16) 2.8284271247461903)
                                                                      (slist []))
                                                                   (WithENode $ ENode (Point2 (1.0,-1.0), Point2 (2.0,0.0), Point2 (1.0,1.0)) (PLine2 (GVec [GVal 1.0 (fromList [GEPlus 2])])) (UlpSum 1.1102230246251565e-15) 1.4142135623730951)
                                                                ]
     it "finds the motorcycles of our eigth simple shape." $
       convexMotorcycles c7 --> [Motorcycle (LineSeg (Point2 (0.5,1.0)) (Point2 (0.0,-1.0)), LineSeg (Point2 (0.5,0.0)) (Point2 (-0.5,1.0)))
                                            (PLine2 (GVec [GVal 0.9472135954999579 (singleton (GEZero 1)), GVal (-1.8944271909999157) (singleton (GEPlus 1)), GVal (-0.4472135954999579) (singleton (GEPlus 2))]))
-{-                                           (UlpSum 3.885780586188048e-16)
-                                           2.118033988749895 -}
+                                           (UlpSum 3.885780586188048e-16)
+                                           2.118033988749895
                                ,Motorcycle (LineSeg (Point2 (-1.0,0.0)) (Point2 (1.0,0.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0)))
                                            (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
-{-                                           (UlpSum 4.440892098500626e-16)
-                                           2.0 -}
+                                           (UlpSum 4.440892098500626e-16)
+                                           2.0
                                ]
     it "finds a CrashTree of our eigth simple shape." $
       crashMotorcycles c7 [] -->
