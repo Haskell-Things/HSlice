@@ -116,7 +116,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), 
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, normalizePLine2, plineFromEndpoints, pToEPoint2, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, outOf, pPointOf, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, makePPoint2WithErr, normalizePLine2, plineFromEndpoints, pToEPoint2, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, outOf, pPointOf, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
 
@@ -662,15 +662,15 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
 
 -- | A helper function. constructs a random PLine.
 randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> PLine2
-randomPLine x y dx dy = plineFromEndpoints (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
+randomPLine x y dx dy = fst $ randomPLineWithErr x y dx dy
+
+-- | A helper function. constructs a random PLine.
+randomPLineWithErr :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (PLine2, UlpSum)
+randomPLineWithErr x y dx dy = pLineFromEndpointsWithErr (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
 
 -- | A helper function. constructs a random LineSeg.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
-randomLineSeg x y rawDx rawDy = LineSeg (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
-  where
-    (dx, dy)
-      | rawDx == 0 && rawDy == 0 = (1,1)
-      | otherwise = (rawDx, rawDy)
+randomLineSeg x y rawDx rawDy = fst $ randomLineSegWithErr x y rawDx rawDy
 
 randomLineSegWithErr :: ℝ -> ℝ -> ℝ -> ℝ -> (LineSeg, UlpSum)
 randomLineSegWithErr x1 y1 x2 y2 = (res, ulpSum)
@@ -679,10 +679,7 @@ randomLineSegWithErr x1 y1 x2 y2 = (res, ulpSum)
     ulpSum = ulpOfLineSeg res
 
 randomPPoint2 :: ℝ -> ℝ -> (PPoint2, UlpSum)
-randomPPoint2 x y = (eToPPoint2 $ Point2 (x,y)
-                    , ulpSum)
-  where
-    ulpSum = UlpSum $ abs (doubleUlp x) + abs (doubleUlp y)
+randomPPoint2 x y = makePPoint2WithErr x y
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
 randomPLineThroughOrigin :: ℝ -> ℝ -> (PLine2, UlpSum)
