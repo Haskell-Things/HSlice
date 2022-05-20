@@ -292,8 +292,8 @@ type SegOrPLine2 = Either LineSeg PLine2
 intersectsWith :: SegOrPLine2 -> SegOrPLine2 -> Either Intersection PIntersection
 intersectsWith (Left l1)   (Left l2)   =         lineSegIntersectsLineSeg (l1, ulpOfLineSeg l1) (l2, ulpOfLineSeg l2)
 intersectsWith (Right pl1) (Right pl2) = Right $ plinesIntersectIn   pl1 pl2
-intersectsWith (Left l1)   (Right pl1) =         pLineIntersectsLineSeg (pl1, UlpSum $ ulpOfPLine2 pl1) (l1, ulpOfLineSeg l1) 0
-intersectsWith (Right pl1) (Left l1)   =         pLineIntersectsLineSeg (pl1, UlpSum $ ulpOfPLine2 pl1) (l1, ulpOfLineSeg l1) 0
+intersectsWith (Left l1)   (Right pl1) =         pLineIntersectsLineSeg (pl1, ulpOfPLine2 pl1) (l1, ulpOfLineSeg l1) 0
+intersectsWith (Right pl1) (Left l1)   =         pLineIntersectsLineSeg (pl1, ulpOfPLine2 pl1) (l1, ulpOfLineSeg l1) 0
 
 -- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
 outputIntersectsLineSeg :: (Show a, Arcable a, Pointable a) => a -> (LineSeg, UlpSum) -> Either Intersection PIntersection
@@ -510,7 +510,7 @@ class Arcable a where
   ulpOfOut :: a -> UlpSum
   outUlpMag :: a -> ℝ
 
--- | The join operator in 2D PGA, which is just the meet operator operating in the dual space.
+-- | The join operator in 2D PGA, which is implemented as the meet operator operating in the dual space.
 (∨+) :: GVec -> GVec -> (GVec, UlpSum)
 (∨+) a b = (dual2DGVec $ GVec $ foldl' addVal [] res
            , ulpSum)
@@ -663,8 +663,8 @@ pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2)) = (PLine2 $ GVec $ f
              + abs (doubleUlp c)
 
 -- | Get the sum of the error involved in storing the values in a given PLine2.
-ulpOfPLine2 :: PLine2 -> ℝ
-ulpOfPLine2 (PLine2 (GVec vals)) = sum $ abs . doubleUlp . (\(GVal r _) -> r) <$> catMaybes
+ulpOfPLine2 :: PLine2 -> UlpSum
+ulpOfPLine2 (PLine2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleUlp . (\(GVal r _) -> r) <$> catMaybes
                                    [getVals [GEZero 1] vals
                                    ,getVals [GEPlus 1] vals
                                    ,getVals [GEPlus 2] vals]
@@ -674,8 +674,8 @@ ulpOfLineSeg :: LineSeg -> UlpSum
 ulpOfLineSeg (LineSeg (Point2 (x1,y1)) (Point2 (x2,y2))) = UlpSum $ sum $ abs . doubleUlp <$> [x1, y1, x2, y2, x1+x2, y1+y2]
 
 -- | Get the sum of the error involved in storing the values in a given PPoint2.
-ulpOfPPoint2 :: PPoint2 -> ℝ
-ulpOfPPoint2 (PPoint2 (GVec vals)) = sum $ abs . doubleUlp . (\(GVal r _) -> r) <$> catMaybes
+ulpOfPPoint2 :: PPoint2 -> UlpSum
+ulpOfPPoint2 (PPoint2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleUlp . (\(GVal r _) -> r) <$> catMaybes
                                      [getVals [GEZero 1, GEPlus 1] vals
                                      ,getVals [GEZero 1, GEPlus 2] vals
                                      ,getVals [GEPlus 1, GEPlus 2] vals]
@@ -724,7 +724,7 @@ canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
                            (GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
     (GVec scaledVals) = divVecScalar newVec $ valOf 1 foundVal
     foundVal = getVals [GEPlus 1, GEPlus 2] rawVals
-    ulpSum = UlpSum $ ulpOfPPoint2 res
+    ulpSum = ulpOfPPoint2 res
 
 -- | Canonicalize the intersection resulting from two PLines.
 canonicalizeIntersectionWithErr :: PLine2 -> PLine2 -> (PPoint2, UlpSum)
@@ -741,7 +741,8 @@ normalizePLine2WithErr pl@(PLine2 vec) = (res, ulpSum)
     res = (\(PLine2 a) -> NPLine2 a) rawRes
     rawRes = PLine2 $ divVecScalar vec normOfMyPLine
     (normOfMyPLine, UlpSum normErr) = normOfPLine2WithErr pl
-    ulpSum = UlpSum $ normErr + ulpOfPLine2 rawRes
+    ulpSum = UlpSum $ normErr + resErr
+    (UlpSum resErr) = ulpOfPLine2 rawRes
 
 -- | find the norm of a given PLine2
 normOfPLine2WithErr :: PLine2 -> (ℝ, UlpSum)

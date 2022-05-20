@@ -175,7 +175,7 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (rotateLeft $ li
     convexPLines :: Point2 -> Point2 -> Point2 -> Maybe (PLine2, UlpSum, ℝ)
     convexPLines p1 p2 p3
       | Just True == pLineIsLeft pl1 pl2 = Nothing
-      | otherwise                        = Just (resPLine, UlpSum $ ulpOfPLine2 resPLine, distance p1 p2 + distance p2 p3)
+      | otherwise                        = Just (resPLine, ulpOfPLine2 resPLine, distance p1 p2 + distance p2 p3)
         where
           resPLine = motorcycleFromPoints p1 p2 p3
           pl1 = plineFromEndpoints p1 p2
