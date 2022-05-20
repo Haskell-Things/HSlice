@@ -29,7 +29,6 @@ module Graphics.Slicer.Math.PGA(
   PPoint2(PPoint2),
   Arcable(hasArc, outOf, ulpOfOut, outUlpMag),
   Pointable(canPoint, pPointOf, ePointOf),
-  angleBetween,
   angleBetweenWithErr,
   combineConsecutiveLineSegs,
   distanceBetweenPLine2s,

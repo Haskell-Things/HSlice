@@ -23,7 +23,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, (<), (>), (-), (/), (||))
+import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, realToFrac, (<), (>), (-), (/), (||))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
@@ -55,7 +55,7 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour),
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤), UlpSum(UlpSum))
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), distanceBetweenPPoints, eToPPoint2, eToPLine2, join2PPoint2, translatePerp, translateRotatePPoint2, pointOnPerp, angleBetween, distancePPointToPLine, flipPLine2, makePPoint2WithErr, normalizePLine2, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, join2PPoint2WithErr)
+import Graphics.Slicer.Math.PGA (NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), distanceBetweenPPoints, eToPPoint2, eToPLine2, join2PPoint2, translatePerp, translateRotatePPoint2, pointOnPerp, angleBetweenWithErr, distancePPointToPLine, flipPLine2, makePPoint2WithErr, normalizePLine2, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, join2PPoint2WithErr)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour)
@@ -540,43 +540,57 @@ prop_LineSegIntersectionStableAtX1Y1Point pointD rawD1 x1 y1 rawX2 rawY2
                            else (rawX2/2,rawY2/3)
       | otherwise = (rawX2,rawY2)
 
+-- | A checker, to ensure an angle is what is expected.
+myAngleBetween :: NPLine2 -> NPLine2 -> Bool
+myAngleBetween a b
+  | realToFrac res + resErr >= 1.0-resErr = True
+  | otherwise = error
+                $ "angle wrong?\n"
+                <> show a <> "\n"
+                <> show b <> "\n"
+                <> show res <> "\n"
+                <> show resErr <> "\n"
+  where
+    (res, UlpSum resErr) = angleBetweenWithErr a b
+
 -- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
-prop_AxisAlignedRightAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_AxisAlignedRightAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAlignedRightAngles xPos yPos offset rawMagnitude1 rawMagnitude2
-  | xPos && yPos     = normalizePLine2 (fst $ getFirstArc (Point2 (offset,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset)))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) >= 1.0 --> True
-  | xPos             = normalizePLine2 (fst $ getFirstArc (Point2 (offset,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,-offset)))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) >= 1.0 --> True
-  | not xPos && yPos = normalizePLine2 (fst $ getFirstArc (Point2 (-offset,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset)))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) >= 1.0 --> True
-  | otherwise        = normalizePLine2 (fst $ getFirstArc (Point2 (-offset,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,-offset)))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) >= 1.0 --> True
+  | xPos && yPos     = myNorm (fst $ getFirstArc (Point2 (offset,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset)))
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
+  | xPos             = myNorm (fst $ getFirstArc (Point2 (offset,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,-offset)))
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
+  | not xPos && yPos = myNorm (fst $ getFirstArc (Point2 (-offset,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset)))
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
+  | otherwise        = myNorm (fst $ getFirstArc (Point2 (-offset,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,-offset)))
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
   where
     mag1,mag2 :: ℝ
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
+    myNorm (PLine2 gvals) = NPLine2 gvals
 
 -- | ensure that a 135 degree angle with one side parallel with an axis and in the right place results in a line through the origin point.
 -- NOTE: hack, using angleBetween and >= to filter out minor numerical imprecision.
-prop_AxisAligned135DegreeAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_AxisAligned135DegreeAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned135DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = normalizePLine2 (fst $ getFirstArc (Point2 (offset,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset-mag2)))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | xPos             = normalizePLine2 (fst $ getFirstArc (Point2 (offset,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,mag2-offset)))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | not xPos && yPos = normalizePLine2 (fst $ getFirstArc (Point2 (-offset,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset-mag2)))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   | otherwise        = normalizePLine2 (fst $ getFirstArc (Point2 (-offset,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,mag2-offset)))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   where
     mag1,mag2 :: ℝ
     mag1 = coerce rawMagnitude1
@@ -584,20 +598,20 @@ prop_AxisAligned135DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
 
 -- | ensure that a 45 degree angle with one side parallel with the X axis and in the right place results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
-prop_AxisAligned45DegreeAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_AxisAligned45DegreeAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned45DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = normalizePLine2 (fst $ getFirstArc (Point2 (offset+mag1,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset)))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | xPos             = normalizePLine2 (fst $ getFirstArc (Point2 (offset+mag1,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,-offset)))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal  (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal  (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | not xPos && yPos = normalizePLine2 (fst $ getFirstArc (Point2 (-offset-mag1,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset)))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   | otherwise        = normalizePLine2 (fst $ getFirstArc (Point2 (-offset-mag1,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,-offset)))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   where
     mag1,mag2 :: ℝ
     mag1 = coerce rawMagnitude1
@@ -606,28 +620,28 @@ prop_AxisAligned45DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
 -- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
 -- NOTE: we use only one magnitude, because getOutsideArc requires normalized inputs.
-prop_AxisAlignedRightAnglesOutside :: Bool -> Bool -> ℝ -> Positive ℝ -> Expectation
+prop_AxisAlignedRightAnglesOutside :: Bool -> Bool -> ℝ -> Positive ℝ -> Bool
 prop_AxisAlignedRightAnglesOutside xPos yPos offset rawMagnitude
   | xPos && yPos = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (offset,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset,offset+mag)) (Point2 (0,-mag)))
                   (eToPPoint2 $ Point2 (offset+mag,offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (-mag,0))))
-                  `angleBetween`
-                   NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) >= 1.0 --> True
+                  `myAngleBetween`
+                   NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
   | xPos = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (offset,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset,-(offset+mag))) (Point2 (0,mag)))
                   (eToPPoint2 $ Point2 (offset+mag,-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (-mag,0))))
-                  `angleBetween`
-                   NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) >= 1.0 --> True
+                  `myAngleBetween`
+                   NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
   | not xPos && yPos = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (-offset,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-offset,offset+mag)) (Point2 (0,-mag)))
                   (eToPPoint2 $ Point2 (-(offset+mag),offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (mag,0))))
-                  `angleBetween`
-                   NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) >= 1.0 --> True
+                  `myAngleBetween`
+                   NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
   | otherwise = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (-offset,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (0,mag)))
                   (eToPPoint2 $ Point2 (-(offset+mag),-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (mag,0))))
-                  `angleBetween`
-                   NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) >= 1.0 --> True
+                  `myAngleBetween`
+                   NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
   where
     mag :: ℝ
     mag = coerce rawMagnitude
@@ -637,28 +651,28 @@ prop_AxisAlignedRightAnglesOutside xPos yPos offset rawMagnitude
 -- NOTE: we use only one magnitude, because getOutsideArc requires normalized inputs.
 -- NOTE: execrises the point-out-point-out path of getOutsideArc.
 -- FIXME: expressing this with the second line in each of these pairs the other direction (head->tail vs tail->head) results in falsification?
-prop_AxisAligned135DegreeAnglesOutside :: Bool -> Bool -> Positive ℝ -> Positive ℝ -> Expectation
+prop_AxisAligned135DegreeAnglesOutside :: Bool -> Bool -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned135DegreeAnglesOutside xPos yPos rawOffset rawMagnitude
   | xPos && yPos = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (offset+mag,offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (-mag,0)))
                   (eToPPoint2 $ Point2 (offset+mag,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset+mag)) (Point2 (-mag,-mag))))
-                  `angleBetween`
-                   NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0 --> True
+                  `myAngleBetween`
+                   NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   | xPos = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (offset+mag,-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (-mag,0)))
                   (eToPPoint2 $ Point2 (offset+mag,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-(offset+mag))) (Point2 (-mag,mag))))
-                  `angleBetween`
-                   NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0 --> True
+                  `myAngleBetween`
+                   NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   | not xPos && yPos = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (-(offset+mag),offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (mag,0)))
                   (eToPPoint2 $ Point2 (-(offset+mag),offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset+mag)) (Point2 (mag,-mag))))
-                  `angleBetween`
-                   NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0 --> True
+                  `myAngleBetween`
+                   NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | otherwise = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (-(offset+mag),-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (mag,0)))
                   (eToPPoint2 $ Point2 (-(offset+mag),-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-(offset+mag))) (Point2 (mag,mag))))
-                  `angleBetween`
-                   NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0 --> True
+                  `myAngleBetween`
+                   NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   where
     mag,offset :: ℝ
     offset = coerce rawOffset
@@ -666,20 +680,20 @@ prop_AxisAligned135DegreeAnglesOutside xPos yPos rawOffset rawMagnitude
 
 -- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
-prop_AxisAlignedRightAnglesInENode :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_AxisAlignedRightAnglesInENode :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAlignedRightAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (offset,offset+mag1)) (Point2 (0,-mag1)),LineSeg (Point2 (offset,offset)) (Point2 (mag2,0))]))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
   | xPos             = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (offset,-(offset+mag1))) (Point2 (0,mag1)),LineSeg (Point2 (offset,-offset)) (Point2 (mag2,0))]))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
   | not xPos && yPos = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (-offset,offset+mag1)) (Point2 (0,-mag1)),LineSeg (Point2 (-offset,offset)) (Point2 (-mag2,0))]))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
   | otherwise        = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (-offset,-(offset+mag1))) (Point2 (0,mag1)),LineSeg (Point2 (-offset,-offset)) (Point2 (-mag2,0))]))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
   where
     mag1,mag2 :: ℝ
     mag1 = coerce rawMagnitude1
@@ -690,17 +704,17 @@ prop_AxisAlignedRightAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
 prop_AxisAligned135DegreeAnglesInENode :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned135DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (offset,offset+mag1)) (Point2 (0,-mag1)),LineSeg (Point2 (offset,offset)) (Point2 (mag2,-mag2))]))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | xPos             = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (offset,-(offset+mag1))) (Point2 (0,mag1)),LineSeg (Point2 (offset,-offset)) (Point2 (mag2,mag2))]))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | not xPos && yPos = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (-offset,offset+mag1)) (Point2 (0,-mag1)),LineSeg (Point2 (-offset,offset)) (Point2 (-mag2,-mag2))]))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   | otherwise        = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (-offset,-(offset+mag1))) (Point2 (0,mag1)),LineSeg (Point2 (-offset,-offset)) (Point2 (-mag2,mag2))]))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   where
     mag1,mag2 :: ℝ
     mag1 = coerce rawMagnitude1
@@ -708,20 +722,20 @@ prop_AxisAligned135DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitu
 
 -- | ensure that a 45 degree angle with one side parallel with the X axis and in the right place results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
-prop_AxisAligned45DegreeAnglesInENode :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_AxisAligned45DegreeAnglesInENode :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = normalizePLine2 (outOf (makeENode (Point2 (offset+mag1,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset))))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | xPos             = normalizePLine2 (outOf (makeENode (Point2 (offset+mag1,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,-offset))))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | not xPos && yPos = normalizePLine2 (outOf (makeENode (Point2 (-offset-mag1,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset))))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   | otherwise        = normalizePLine2 (outOf (makeENode (Point2 (-offset-mag1,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,-offset))))
-                       `angleBetween`
-                       NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0 --> True
+                       `myAngleBetween`
+                       NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   where
     mag1,mag2 :: ℝ
     mag1 = coerce rawMagnitude1
@@ -1218,8 +1232,9 @@ prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
     bisector = flipPLine2 $ outOf eNode
 
 prop_obtuseBisectorOnBiggerSide_makeINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> Expectation
-prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleBetween bisector1 bisector2 > 0.9, angleBetween bisector1 bisector2 < -0.9) --> (True, False)
+prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound > (realToFrac $ 1-angleErr), angleFound < (realToFrac ((-1 + realToFrac (angleErr))))) --> (True, False)
   where
+    (angleFound, UlpSum angleErr) = angleBetweenWithErr bisector1 bisector2
     eNode = randomENode x y d1 rawR1 d2 rawR2
     iNode = randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2
     bisector1 = normalizePLine2 $ outOf iNode
