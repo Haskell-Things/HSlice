@@ -20,7 +20,7 @@
 
 module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getContourLineSegIntersections, getLineSegIntersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
 
-import Prelude (Bool(True), Either(Left,Right), any, error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, not, Int, (<), (*), fst, (||), (==))
+import Prelude (Bool(True), Either(Left,Right), any, error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, not, Int, (<), (*), fst, (||), (==), realToFrac)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, mapMaybe)
 
@@ -38,7 +38,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), PPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetweenWithErr, distanceBetweenPLine2s, eToPPoint2, eToNPLine2, outputIntersectsLineSeg, pLineFromEndpointsWithErr, plinesIntersectIn, pToEPoint2, normalizePLine2, ulpOfLineSeg)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), PPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetweenWithErr, distanceBetweenPLine2sWithErr, eToPPoint2, eToNPLine2, outputIntersectsLineSeg, pLineFromEndpointsWithErr, plinesIntersectIn, pToEPoint2, normalizePLine2, ulpOfLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -227,12 +227,13 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
 intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 PPoint2)
 intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
   where
+    (foundDistance, UlpSum foundErr) = distanceBetweenPLine2sWithErr (normalizePLine2 pl1) (normalizePLine2 pl2)
     saneIntersection PAntiCollinear     = Just $ Left pl1
     saneIntersection PCollinear         = Just $ Left pl1
-    saneIntersection PParallel          = if distanceBetweenPLine2s (normalizePLine2 pl1) (normalizePLine2 pl2) < fudgeFactor
+    saneIntersection PParallel          = if foundDistance < realToFrac foundErr
                                           then Just $ Left pl1
                                           else Nothing
-    saneIntersection PAntiParallel      = if distanceBetweenPLine2s (normalizePLine2 pl1) (normalizePLine2 pl2) < fudgeFactor
+    saneIntersection PAntiParallel      = if foundDistance < realToFrac foundErr
                                           then Just $ Left pl1
                                           else Nothing
     saneIntersection (IntersectsIn p _) = Just $ Right p

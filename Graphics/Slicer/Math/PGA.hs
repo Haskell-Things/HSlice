@@ -31,7 +31,7 @@ module Graphics.Slicer.Math.PGA(
   Pointable(canPoint, pPointOf, ePointOf),
   angleBetweenWithErr,
   combineConsecutiveLineSegs,
-  distanceBetweenPLine2s,
+  distanceBetweenPLine2sWithErr,
   distanceBetweenPPoints,
   distanceBetweenPPointsWithErr,
   distancePPointToPLine,
@@ -204,12 +204,8 @@ distanceBetweenPPointsWithErr point1 point2 = (res, ulpSum)
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
 -- Same operation as angleBetween, so just a wrapper.
-distanceBetweenPLine2s :: NPLine2 -> NPLine2 -> ℝ
-distanceBetweenPLine2s = angleBetween
-
--- | Return the sine of the angle between the two lines. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
-angleBetween :: NPLine2 -> NPLine2 -> ℝ
-angleBetween npl1 npl2 = fst $ angleBetweenWithErr npl1 npl2
+distanceBetweenPLine2sWithErr :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
+distanceBetweenPLine2sWithErr = angleBetweenWithErr
 
 -- | Return the sine of the angle between the two lines, along with the error. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
 -- FIXME: not generating large enough ULPs. why?
