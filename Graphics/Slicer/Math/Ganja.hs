@@ -658,7 +658,7 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
     pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
     maybeFlippedpl1 = if flipIn1 then flipPLine2 pl1 else pl1
     maybeFlippedpl2 = if flipIn2 then flipPLine2 pl2 else pl2
-    bisector1 = (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ getOutsideArc pp1 maybeFlippedpl1 pp2 maybeFlippedpl2
+    bisector1 = (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ getOutsideArc pp1 (normalizePLine2 maybeFlippedpl1) pp2 (normalizePLine2 maybeFlippedpl2)
 
 -- | A helper function. constructs a random PLine.
 randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> PLine2

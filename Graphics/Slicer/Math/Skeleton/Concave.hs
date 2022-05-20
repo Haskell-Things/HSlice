@@ -173,7 +173,7 @@ averageNodes n1 n2
   | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
   | intersectionOf (outOf n1) (outOf n2) == pPointOf n1 = error $ "intersection is AT the point of n1!\n" <> dumpInput
   | intersectionOf (outOf n1) (outOf n2) == pPointOf n2 = error $ "intersection is AT the point of n2!\n" <> dumpInput
-  | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (outOf n1) (pPointOf n2) (outOf n2)
+  | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (normalizePLine2 $ outOf n1) (pPointOf n2) (normalizePLine2 $ outOf n2)
   where
     dumpInput =    "Node1: " <> show n1
                 <> "\nNode2: " <> show n2
@@ -190,15 +190,17 @@ sortedPair n1 n2 = sortedPLines [outOf n1, outOf n2]
 --   Note: Ensure input line segments are normalised.
 --   Note: we normalize our output lines, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
 --   Note: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
-getOutsideArc :: PPoint2 -> PLine2 -> PPoint2 -> PLine2 -> PLine2
-getOutsideArc ppoint1 pline1 ppoint2 pline2
-  | pline1 == pline2 = error "need to be able to return two PLines."
+getOutsideArc :: PPoint2 -> NPLine2 -> PPoint2 -> NPLine2 -> PLine2
+getOutsideArc ppoint1 npline1 ppoint2 npline2
+  | npline1 == npline2 = error "need to be able to return two PLines."
   | noIntersection pline1 pline2 = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
   | l1TowardPoint && l2TowardPoint = flipPLine2 $ getInsideArc pline1 (flipPLine2 pline2)
   | l1TowardPoint                  = flipPLine2 $ getInsideArc pline1 pline2
   | l2TowardPoint                  = getInsideArc pline1 pline2
   | otherwise                      = getInsideArc pline1 (flipPLine2 pline2)
     where
+      pline1 = (\(NPLine2 v) -> PLine2 v) npline1
+      pline2 = (\(NPLine2 v) -> PLine2 v) npline2
       intersectionPoint = intersectionOf pline1 pline2
       l1TowardPoint = towardIntersection ppoint1 pline1 intersectionPoint
       l2TowardPoint = towardIntersection ppoint2 pline2 intersectionPoint

@@ -609,23 +609,23 @@ prop_AxisAligned45DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
 prop_AxisAlignedRightAnglesOutside :: Bool -> Bool -> ℝ -> Positive ℝ -> Expectation
 prop_AxisAlignedRightAnglesOutside xPos yPos offset rawMagnitude
   | xPos && yPos = normalizePLine2 (
-    getOutsideArc (eToPPoint2 $ Point2 (offset,offset+mag)) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset,offset+mag)) (Point2 (0,-mag)))
-                  (eToPPoint2 $ Point2 (offset+mag,offset)) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (-mag,0))))
+    getOutsideArc (eToPPoint2 $ Point2 (offset,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset,offset+mag)) (Point2 (0,-mag)))
+                  (eToPPoint2 $ Point2 (offset+mag,offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (-mag,0))))
                   `angleBetween`
                    NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) >= 1.0 --> True
   | xPos = normalizePLine2 (
-    getOutsideArc (eToPPoint2 $ Point2 (offset,-(offset+mag))) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset,-(offset+mag))) (Point2 (0,mag)))
-                  (eToPPoint2 $ Point2 (offset+mag,-offset)) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (-mag,0))))
+    getOutsideArc (eToPPoint2 $ Point2 (offset,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset,-(offset+mag))) (Point2 (0,mag)))
+                  (eToPPoint2 $ Point2 (offset+mag,-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (-mag,0))))
                   `angleBetween`
                    NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]) >= 1.0 --> True
   | not xPos && yPos = normalizePLine2 (
-    getOutsideArc (eToPPoint2 $ Point2 (-offset,offset+mag)) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-offset,offset+mag)) (Point2 (0,-mag)))
-                  (eToPPoint2 $ Point2 (-(offset+mag),offset)) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (mag,0))))
+    getOutsideArc (eToPPoint2 $ Point2 (-offset,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-offset,offset+mag)) (Point2 (0,-mag)))
+                  (eToPPoint2 $ Point2 (-(offset+mag),offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (mag,0))))
                   `angleBetween`
                    NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) >= 1.0 --> True
   | otherwise = normalizePLine2 (
-    getOutsideArc (eToPPoint2 $ Point2 (-offset,-(offset+mag))) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (0,mag)))
-                  (eToPPoint2 $ Point2 (-(offset+mag),-offset)) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (mag,0))))
+    getOutsideArc (eToPPoint2 $ Point2 (-offset,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (0,mag)))
+                  (eToPPoint2 $ Point2 (-(offset+mag),-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (mag,0))))
                   `angleBetween`
                    NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]) >= 1.0 --> True
   where
@@ -640,23 +640,23 @@ prop_AxisAlignedRightAnglesOutside xPos yPos offset rawMagnitude
 prop_AxisAligned135DegreeAnglesOutside :: Bool -> Bool -> Positive ℝ -> Positive ℝ -> Expectation
 prop_AxisAligned135DegreeAnglesOutside xPos yPos rawOffset rawMagnitude
   | xPos && yPos = normalizePLine2 (
-    getOutsideArc (eToPPoint2 $ Point2 (offset+mag,offset)) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (-mag,0)))
-                  (eToPPoint2 $ Point2 (offset+mag,offset+mag)) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset+mag)) (Point2 (-mag,-mag))))
+    getOutsideArc (eToPPoint2 $ Point2 (offset+mag,offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (-mag,0)))
+                  (eToPPoint2 $ Point2 (offset+mag,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset+mag)) (Point2 (-mag,-mag))))
                   `angleBetween`
                    NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0 --> True
   | xPos = normalizePLine2 (
-    getOutsideArc (eToPPoint2 $ Point2 (offset+mag,-offset)) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (-mag,0)))
-                  (eToPPoint2 $ Point2 (offset+mag,-(offset+mag))) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-(offset+mag))) (Point2 (-mag,mag))))
+    getOutsideArc (eToPPoint2 $ Point2 (offset+mag,-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (-mag,0)))
+                  (eToPPoint2 $ Point2 (offset+mag,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-(offset+mag))) (Point2 (-mag,mag))))
                   `angleBetween`
                    NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]) >= 1.0 --> True
   | not xPos && yPos = normalizePLine2 (
-    getOutsideArc (eToPPoint2 $ Point2 (-(offset+mag),offset)) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (mag,0)))
-                  (eToPPoint2 $ Point2 (-(offset+mag),offset+mag)) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset+mag)) (Point2 (mag,-mag))))
+    getOutsideArc (eToPPoint2 $ Point2 (-(offset+mag),offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (mag,0)))
+                  (eToPPoint2 $ Point2 (-(offset+mag),offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset+mag)) (Point2 (mag,-mag))))
                   `angleBetween`
                    NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0 --> True
   | otherwise = normalizePLine2 (
-    getOutsideArc (eToPPoint2 $ Point2 (-(offset+mag),-offset)) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (mag,0)))
-                  (eToPPoint2 $ Point2 (-(offset+mag),-(offset+mag))) ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-(offset+mag))) (Point2 (mag,mag))))
+    getOutsideArc (eToPPoint2 $ Point2 (-(offset+mag),-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (mag,0)))
+                  (eToPPoint2 $ Point2 (-(offset+mag),-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-(offset+mag))) (Point2 (mag,mag))))
                   `angleBetween`
                    NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]) >= 1.0 --> True
   where
