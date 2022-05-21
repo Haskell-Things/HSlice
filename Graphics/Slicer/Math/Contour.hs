@@ -34,8 +34,6 @@ import Data.List.Extra (unsnoc)
 
 import Data.Maybe(Maybe(Just,Nothing), catMaybes, fromJust, fromMaybe, isJust, mapMaybe)
 
-import Data.Either (fromRight)
-
 import Slist (len, size, slist, safeLast, safeLast, safeHead)
 
 import Slist as SL (last)
@@ -50,9 +48,9 @@ import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), 
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
-import Graphics.Slicer.Math.Intersections (contourIntersectionCount, getContourLineSegIntersections, noIntersection)
+import Graphics.Slicer.Math.Intersections (contourIntersectionCount, noIntersection)
 
-import Graphics.Slicer.Math.Line (endPoint, midPoint)
+import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PPoint2, eToPPoint2, join2PPoint2, pLineFromEndpointsWithErr, pLineIsLeft, pointOnPerp, pPointBetweenPPoints, pPointOnPerpWithErr, pToEPoint2) 
 
@@ -199,21 +197,16 @@ makeContourTreeSet contours =
     contoursWithAncestor cs c = mapMaybe (\cx -> if contourContainsContour c cx then Just cx else Nothing) $ filter (/=c) cs
     contoursWithoutParents cs = catMaybes $ [ if null $ mapMaybe (\cx -> if contourContainedByContour contourToCheck cx then Just cx else Nothing) (filter (/=contourToCheck) cs) then Just contourToCheck else Nothing | contourToCheck <- cs ]
 
--- | the minimum measurable distance of a point from a line segment
--- FIXME: the magic 100000 value here can't be smaller, or inner walls are placed in the wrong place?
--- FIXME: magic number
-minDistanceFromSeg :: ℝ
-minDistanceFromSeg = fudgeFactor*1000000
-
 -- | Determine whether a contour is contained inside of another contour.
 contourContainsContour :: Contour -> Contour -> Bool
-contourContainsContour parent child = odd noIntersections
+contourContainsContour parent child
+  | isJust maybeInsidePoint = odd noIntersections
+  | otherwise = error "could not find inner point."
   where
-    (minPoint1, minPoint2) = (fst $ minMaxPoints parent, fst $ minMaxPoints child)
-    outsidePointOfPair = Point2 (min (xOf minPoint1) (xOf minPoint2) - 1,min (yOf minPoint1) (yOf minPoint2) - 1)
-    noIntersections = len $ getContourLineSegIntersections parent $ lineSegToEdge $ innerPointOf child
-    lineSegToEdge p = fromRight (error "cannot construct lineToEdge") $ lineSegFromEndpoints p outsidePointOfPair
-    innerPointOf contour = pToEPoint2 $ fromMaybe (error "contour has no inner point?") $ innerContourPoint contour
+    outsidePoint = pointFarOutsideContours parent child
+    insidePoint = pToEPoint2 $ fromJust maybeInsidePoint
+    maybeInsidePoint = innerContourPoint child
+    noIntersections = contourIntersectionCount parent (insidePoint, outsidePoint)
 
 -- | determine whether a contour is contained by another contour.
 contourContainedByContour :: Contour -> Contour -> Bool
