@@ -38,6 +38,7 @@ module Graphics.Slicer.Math.PGA(
   distancePPointToPLineWithErr,
   eToNPLine2,
   eToPLine2,
+  eToPLine2WithErr,
   eToPPoint2,
   flipPLine2,
   intersectsWith,
