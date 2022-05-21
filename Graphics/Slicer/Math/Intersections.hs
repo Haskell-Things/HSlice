@@ -65,10 +65,12 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _ _ _) segs = str
         -- make sure neither of these segments are inSeg or outSeg
         fun (seg,_) = seg /= inSeg && seg /= outSeg
     saneIntersections :: Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Point2 PPoint2)
-    saneIntersections  _ (Just (seg, Right (IntersectsIn p _)))    _ = Just (seg, Right p)
-    saneIntersections  _ (Just (_  , Left  (NoIntersection _ _)))  _ = Nothing
-    saneIntersections  _ (Just (_  , Right PParallel))             _ = Nothing
-    saneIntersections  _ (Just (_  , Right PAntiParallel))         _ = Nothing
+    saneIntersections  _ (Just (seg, Right (IntersectsIn p _)))   _ = Just (seg, Right p)
+    saneIntersections  _ (Just (_  , Left  (NoIntersection _ _))) _ = Nothing
+    saneIntersections  _ (Just (_  , Right PParallel))            _ = Nothing
+    saneIntersections  _ (Just (_  , Right PAntiParallel))        _ = Nothing
+    saneIntersections  _ (Just (_  , Right PCollinear))           _ = Nothing
+    saneIntersections  _ (Just (_  , Right PAntiCollinear))       _ = Nothing
     saneIntersections (Just (seg, Left (HitEndPoint   _ pt))) (Just (seg2, Left (HitStartPoint _ _)))  (Just (seg3 , Left (HitEndPoint   _ pt2)))
      | distance (endPoint seg) (startPoint seg2) < fudgeFactor*15 = Just (seg2, Left pt)
      | distance (startPoint seg2) (endPoint seg3) < fudgeFactor*15 = Just (seg2, Left pt2)
@@ -117,10 +119,12 @@ getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _ _ _) c = strip
                                      (Right _) -> True)
     contourLines = lineSegsOfContour c
     saneIntersections :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either LineSeg PPoint2)
-    saneIntersections  _ (seg, Right (IntersectsIn p _))    _ = Just (seg, Right p)
-    saneIntersections  _ (_  , Left  (NoIntersection _ _))  _ = Nothing
-    saneIntersections  _ (_  , Right PParallel)             _ = Nothing
-    saneIntersections  _ (_  , Right PAntiParallel)         _ = Nothing
+    saneIntersections  _ (seg, Right (IntersectsIn p _))   _ = Just (seg, Right p)
+    saneIntersections  _ (_  , Left  (NoIntersection _ _)) _ = Nothing
+    saneIntersections  _ (_  , Right PParallel)            _ = Nothing
+    saneIntersections  _ (_  , Right PAntiParallel)        _ = Nothing
+    saneIntersections  _ (_  , Right PCollinear)           _ = Nothing
+    saneIntersections  _ (_  , Right PAntiCollinear)       _ = Nothing
     saneIntersections (seg, Left (HitEndPoint _ _))   (seg2, Left (HitStartPoint _ _)) (seg3 , Left (HitEndPoint   _ _)) = if distance (endPoint seg) (startPoint seg2) < fudgeFactor*15
                                                                                                                            then Just (seg, Left seg2)
                                                                                                                            else Just (seg3, Left seg2)
