@@ -69,7 +69,7 @@ module Graphics.Slicer.Math.PGA(
   ulpOfPLine2
   ) where
 
-import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.))
+import Prelude (Eq, Show, Ord, (==), ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.), realToFrac)
 
 import GHC.Generics (Generic)
 
@@ -173,21 +173,30 @@ distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
 distancePPointToPLine point line = fst $ distancePPointToPLineWithErr point line
 
 distancePPointToPLineWithErr :: PPoint2 -> PLine2 -> (ℝ, UlpSum)
-distancePPointToPLineWithErr point@(PPoint2 pvec) line = (res, ulpSum)
+distancePPointToPLineWithErr point line = (res, UlpSum $ resErr + normErr)
+  where
+    (res, UlpSum resErr) = distancePPointToNPLineWithErr point normedLine
+    (normedLine, UlpSum normErr) = normalizePLine2WithErr line
+
+-- FIXME: use the distance to increase ULP appropriately?
+distancePPointToNPLineWithErr :: PPoint2 -> NPLine2 -> (ℝ, UlpSum)
+distancePPointToNPLineWithErr point (NPLine2 nplvec) = (res, ulpSum)
   where
     (res, UlpSum resErr)           = normOfPLine2WithErr newPLine
     (newPLine, UlpSum newPLineErr) = join2PPoint2WithErr point linePoint
-    (NPLine2 lvec, UlpSum normErr) = normalizePLine2WithErr line
-    (perpLine, UlpSum perpLineErr) = lvec ⨅+ pvec
+    (rnpvec, UlpSum nPVecErr)      = canonicalizePPoint2WithErr point
+    (perpLine, UlpSum perpLineErr) = lvec ⨅+ npvec
+    (PLine2 lvec)                  = forcePLine2Basis (PLine2 nplvec)
+    (PPoint2 npvec)                = forcePPoint2Basis rnpvec
     (linePoint, UlpSum lpErr)      = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
-    ulpSum                         = UlpSum $ lpErr + perpLineErr + normErr + newPLineErr + resErr
+    ulpSum                         = UlpSum $ lpErr + perpLineErr + newPLineErr + resErr + nPVecErr
 
 -- | Determine if two points are on the same side of a given line.
 pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
 pPointsOnSameSideOfPLine point1 point2 line
   -- Return nothing if one of the points is on the line.
-  |  abs foundP1 < unlikeP1Err ||
-     abs foundP2 < unlikeP2Err    = Nothing
+  |  abs foundP1 < realToFrac unlikeP1Err ||
+     abs foundP2 < realToFrac unlikeP2Err    = Nothing
     | otherwise = Just $ isPositive foundP1 == isPositive foundP2
   where
     foundP1 = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1
@@ -345,14 +354,16 @@ intersectsWithErr (Left l1)       (Left l2)       =         lineSegIntersectsLin
 intersectsWithErr (Right (pl1,_)) (Right (pl2,_)) = Right $ plinesIntersectIn pl1 pl2
 intersectsWithErr (Left l1@(rawL1,_))       (Right pl1@(rawPL1,_))     =         pLineIntersectsLineSeg pl1 l1 ulpScale
   where
-    ulpScale = 120 + ulpMultiplier * (angle+angleErr) * (angle+angleErr)
+    ulpScale :: ℝ
+    ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
     (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
     (npl1, _) = normalizePLine2WithErr rawPL1
     (npl2, _) = normalizePLine2WithErr pl2
     (pl2, _) = eToPLine2WithErr rawL1
 intersectsWithErr (Right pl1@(rawPL1,_))     (Left l1@(rawL1,_))       =         pLineIntersectsLineSeg pl1 l1 ulpScale
   where
-    ulpScale = 120 + ulpMultiplier * (angle+angleErr) * (angle+angleErr)
+    ulpScale :: ℝ
+    ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
     (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
     (npl1, _) = normalizePLine2WithErr rawPL1
     (npl2, _) = normalizePLine2WithErr pl2
@@ -366,22 +377,23 @@ pLineIntersectsLineSeg :: (PLine2, UlpSum) -> (LineSeg, UlpSum) -> ℝ -> Either
 pLineIntersectsLineSeg (pl1, UlpSum ulpPL1) (l1, UlpSum ulpL1) ulpScale
   | plinesIntersectIn pl1 pl2 == PParallel = Right PParallel
   | plinesIntersectIn pl1 pl2 == PAntiParallel = Right PAntiParallel
-  | distance (startPoint l1) (endPoint l1) < ulpStart+ulpEnd+ulpTotal = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nulpScale: " <> show ulpScale <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
+  | distance (startPoint l1) (endPoint l1) < realToFrac (ulpStart+ulpEnd+ulpTotal) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nulpScale: " <> show ulpScale <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
   | hasIntersection && plinesIntersectIn pl1 pl2 == PCollinear = Right PCollinear
   | hasIntersection && plinesIntersectIn pl1 pl2 == PAntiCollinear = Right PAntiCollinear
   | hasIntersection && startDistance <= ulpStartSum = Left $ HitStartPoint l1 intersection
   | hasIntersection && endDistance <= ulpEndSum = Left $ HitEndPoint l1 intersection
-  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum ulpStartSum, UlpSum ulpEndSum, UlpSum ulpPL1, UlpSum ulpPL2, UlpSum ulpI, UlpSum ulpC)
-  | otherwise = Left $ NoIntersection rawIntersection (UlpSum ulpStartSum, UlpSum ulpEndSum, UlpSum 0, UlpSum 0)
+  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum (realToFrac ulpStartSum), UlpSum (realToFrac ulpEndSum), UlpSum ulpPL1, UlpSum ulpPL2, UlpSum ulpI, UlpSum ulpC)
+  | otherwise = Left $ NoIntersection rawIntersection (UlpSum (realToFrac ulpStartSum), UlpSum (realToFrac ulpEndSum), UlpSum 0, UlpSum 0)
   where
     (startDistance, UlpSum ulpStart) = distanceBetweenPPointsWithErr rawIntersection (eToPPoint2 $ startPoint l1)
     (endDistance, UlpSum ulpEnd) = distanceBetweenPPointsWithErr rawIntersection (eToPPoint2 $ endPoint l1)
-    ulpStartSum = ulpTotal+ulpStart
-    ulpEndSum = ulpTotal+ulpEnd
+    ulpStartSum, ulpEndSum :: ℝ
+    ulpStartSum = realToFrac $ ulpTotal+ulpStart
+    ulpEndSum = realToFrac $ ulpTotal+ulpEnd
     -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
     ulpTotal
       | ulpPL1 < 0 || ulpPL2 < 0 || ulpL1 < 0 || ulpI < 0 = error "negative ULP?\n"
-      | otherwise = ulpPL1 + ulpPL2 + ulpL1 + ((ulpI + ulpC) * ulpScale)
+      | otherwise = ulpPL1 + ulpPL2 + ulpL1 + ((ulpI + ulpC) * (realToFrac ulpScale))
     dumpULPs = "ulpPL1: " <> show ulpPL1 <> "\nulpPL2: " <> show ulpPL2 <> "\nulpL1: " <> show ulpL1 <> "\nulpI: " <> show ulpI <> "\nulpC: " <> show ulpC <> "\n"
     hasIntersection = onSegment l1 rawIntersection ulpStartSum ulpEndSum
     intersection = pToEPoint2 rawIntersection
@@ -395,21 +407,22 @@ lineSegIntersectsLineSeg :: (LineSeg, UlpSum) -> (LineSeg, UlpSum) -> Either Int
 lineSegIntersectsLineSeg (l1, UlpSum ulpL1) (l2, UlpSum ulpL2)
   | plinesIntersectIn pl1 pl2 == PParallel = Right PParallel
   | plinesIntersectIn pl1 pl2 == PAntiParallel = Right PAntiParallel
-  | distance (startPoint l1) (endPoint l1) < ulpStart1+ulpEnd1+ulpTotal = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
-  | distance (startPoint l2) (endPoint l2) < ulpStart2+ulpEnd2+ulpTotal = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
+  | distance (startPoint l1) (endPoint l1) < realToFrac (ulpStart1+ulpEnd1+ulpTotal) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
+  | distance (startPoint l2) (endPoint l2) < realToFrac (ulpStart2+ulpEnd2+ulpTotal) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
   | hasIntersection && plinesIntersectIn pl1 pl2 == PCollinear = Right PCollinear
   | hasIntersection && plinesIntersectIn pl1 pl2 == PAntiCollinear = Right PAntiCollinear
   | hasIntersection && startDistance1 <= ulpStartSum1 = Left $ HitStartPoint l1 intersection
   | hasIntersection && endDistance1 <= ulpEndSum1 = Left $ HitEndPoint l1 intersection
   | hasIntersection && startDistance2 <= ulpStartSum2 = Left $ HitStartPoint l2 intersection
   | hasIntersection && endDistance2 <= ulpEndSum2 = Left $ HitEndPoint l2 intersection
-  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum ulpStartSum1, UlpSum ulpEndSum1, UlpSum ulpStartSum2, UlpSum ulpEndSum2, UlpSum ulpTotal, UlpSum ulpI)
-  | otherwise = Left $ NoIntersection rawIntersection (UlpSum ulpStartSum1, UlpSum ulpEndSum1, UlpSum ulpStartSum2, UlpSum ulpEndSum2)
+  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum $ realToFrac ulpStartSum1, UlpSum $ realToFrac ulpEndSum1, UlpSum $ realToFrac ulpStartSum2, UlpSum $ realToFrac ulpEndSum2, UlpSum ulpTotal, UlpSum ulpI)
+  | otherwise = Left $ NoIntersection rawIntersection (UlpSum $ realToFrac ulpStartSum1, UlpSum $ realToFrac ulpEndSum1, UlpSum $ realToFrac ulpStartSum2, UlpSum $ realToFrac ulpEndSum2)
   where
-    ulpStartSum1 = ulpTotal+ulpStart1
-    ulpStartSum2 = ulpTotal+ulpStart2
-    ulpEndSum1 = ulpTotal+ulpEnd1
-    ulpEndSum2 = ulpTotal+ulpEnd2
+    ulpStartSum1, ulpEndSum1, ulpStartSum2, ulpEndSum2 :: ℝ
+    ulpStartSum1 = realToFrac $ ulpTotal+ulpStart1
+    ulpStartSum2 = realToFrac $ ulpTotal+ulpStart2
+    ulpEndSum1 = realToFrac $ ulpTotal+ulpEnd1
+    ulpEndSum2 = realToFrac $ ulpTotal+ulpEnd2
     (startDistance1, UlpSum ulpStart1) = distanceBetweenPPointsWithErr rawIntersection (eToPPoint2 $ startPoint l1)
     (startDistance2, UlpSum ulpStart2) = distanceBetweenPPointsWithErr rawIntersection (eToPPoint2 $ startPoint l2)
     (endDistance1, UlpSum ulpEnd1) = distanceBetweenPPointsWithErr rawIntersection (eToPPoint2 $ endPoint l1)
@@ -420,7 +433,7 @@ lineSegIntersectsLineSeg (l1, UlpSum ulpL1) (l2, UlpSum ulpL2)
     ulpTotal
       | ulpPL1 < 0 || ulpPL2 < 0 || ulpL1 < 0 || ulpL2 < 0 || ulpI < 0 || ulpC < 0 = error "negative ULP?\n"
       | otherwise = ulpPL1 + ulpPL2 + ulpL1 + ulpL2 + ((ulpI + ulpC) * ulpScale)
-    ulpScale = 120 + ulpMultiplier * (angle+angleErr) * (angle+angleErr)
+    ulpScale = 120 + ulpMultiplier * (realToFrac angle+angleErr) * (realToFrac angle+angleErr)
     (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
     (npl1, _) = normalizePLine2WithErr pl1
     (npl2, _) = normalizePLine2WithErr pl2
@@ -445,9 +458,10 @@ onSegment ls i startUlp endUlp =
     midPPoint = eToPPoint2 $ midPoint ls
     endPPoint = eToPPoint2 $ endPoint ls
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
-    startFudgeFactor = startUlp + startDistanceUlp
-    midFudgeFactor = abs (doubleUlp lengthOfSegment) + midDistanceUlp
-    endFudgeFactor = endUlp + endDistanceUlp
+    startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ
+    startFudgeFactor = realToFrac $ realToFrac startUlp + startDistanceUlp
+    midFudgeFactor = realToFrac $ abs (realToFrac $ doubleUlp lengthOfSegment) + midDistanceUlp
+    endFudgeFactor = realToFrac $ realToFrac endUlp + endDistanceUlp
 
 -- | Combine consecutive line segments. expects line segments with their end points connecting, EG, a contour generated by makeContours.
 combineConsecutiveLineSegs :: [LineSeg] -> [LineSeg]
@@ -666,11 +680,11 @@ pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2)) = (PLine2 $ GVec $ f
     b=x1-x2
     c=y1*x2-x1*y2
     ulpSum = UlpSum
-             $ abs (doubleUlp $ y1*x2)
-             + abs (doubleUlp $ x1*y2)
-             + abs (doubleUlp a)
-             + abs (doubleUlp b)
-             + abs (doubleUlp c)
+             $ abs (realToFrac $ doubleUlp $ y1*x2)
+             + abs (realToFrac $ doubleUlp $ x1*y2)
+             + abs (realToFrac $ doubleUlp a)
+             + abs (realToFrac $ doubleUlp b)
+             + abs (realToFrac $ doubleUlp c)
 
 -- | Get the sum of the error involved in storing the values in a given PLine2.
 ulpOfPLine2 :: PLine2 -> UlpSum
@@ -681,7 +695,7 @@ ulpOfPLine2 (PLine2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleUlp .
 
 -- | Get the sum of the error involved in storing the values in a given Line Segment.
 ulpOfLineSeg :: LineSeg -> UlpSum
-ulpOfLineSeg (LineSeg (Point2 (x1,y1)) (Point2 (x2,y2))) = UlpSum $ sum $ abs . doubleUlp <$> [x1, y1, x2, y2, x1+x2, y1+y2]
+ulpOfLineSeg (LineSeg (Point2 (x1,y1)) (Point2 (x2,y2))) = UlpSum $ sum $ abs . realToFrac . doubleUlp <$> [x1, y1, x2, y2, x1+x2, y1+y2]
 
 -- | Get the sum of the error involved in storing the values in a given PPoint2.
 ulpOfPPoint2 :: PPoint2 -> UlpSum
@@ -709,12 +723,12 @@ idealNormPPoint2WithErr ppoint = (res, ulpSum)
   where
     res = sqrt preRes
     preRes = x*x+y*y
-    ulpSum = UlpSum $ abs (doubleUlp $ x*x) + abs (doubleUlp $ x*x) + abs (doubleUlp preRes) + abs (doubleUlp res)
+    ulpSum = UlpSum $ abs (realToFrac $ doubleUlp $ x*x) + abs (realToFrac $ doubleUlp $ x*x) + abs (realToFrac $ doubleUlp preRes) + abs (realToFrac $ doubleUlp res)
     (Point2 (x,y)) = pToEPoint2 ppoint
 
--- | Normalization of euclidian points is really just canonicalization.
--- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
+-- | canonicalize a euclidian point.
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.
+-- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
 canonicalizePPoint2WithErr :: PPoint2 -> (PPoint2, UlpSum)
 canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
   | isNothing foundVal = (point, UlpSum 0)
@@ -764,7 +778,7 @@ normOfPLine2WithErr pline = (res, ulpSum)
   where
     res = sqrt sqNormOfPLine2
     (sqNormOfPLine2, UlpSum sqNormErr) = sqNormOfPLine2WithErr pline
-    ulpSum = UlpSum $ abs (doubleUlp res) + sqNormErr
+    ulpSum = UlpSum $ abs (realToFrac $ doubleUlp res) + sqNormErr
 
 -- | find the squared norm of a given PLine2
 sqNormOfPLine2WithErr :: PLine2 -> (ℝ, UlpSum)
@@ -773,7 +787,7 @@ sqNormOfPLine2WithErr (PLine2 (GVec vals)) = (res, ulpSum)
     res = a*a+b*b
     a = valOf 0 $ getVals [GEPlus 1] vals
     b = valOf 0 $ getVals [GEPlus 2] vals
-    ulpSum = UlpSum $ abs (doubleUlp $ a*a) + abs (doubleUlp $ b*b) + abs (doubleUlp res)
+    ulpSum = UlpSum $ abs (realToFrac $ doubleUlp $ a*a) + abs (realToFrac $ doubleUlp $ b*b) + abs (realToFrac $ doubleUlp res)
 
 --------------------------------------------------------------
 ---- Utillity functions that use sqrt(), or divVecScalar. ----
