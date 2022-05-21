@@ -40,19 +40,24 @@ module Graphics.Slicer.Math.PGA(
   eToPLine2,
   eToPLine2WithErr,
   eToPPoint2,
+  eToPPoint2WithErr,
   flipPLine2,
   intersectsWith,
   intersectsWithErr,
   join2PPoint2,
   join2PPoint2WithErr,
   lineIsLeft,
+  makePPoint2,
   makePPoint2WithErr,
   normalizePLine2,
   normalizePLine2WithErr,
   outputIntersectsLineSeg,
   pLineFromEndpointsWithErr,
+  pLineIntersectionWithErr,
   pLineIsLeft,
   pPointBetweenPPoints,
+  pPointBetweenPPointsWithErr,
+  pPointOnPerp,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
   pToEPoint2,
@@ -79,7 +84,7 @@ import Data.List (foldl')
 
 import Data.List.Ordered (sort, foldt)
 
-import Data.Maybe (Maybe(Just, Nothing), maybeToList, catMaybes, isNothing)
+import Data.Maybe (Maybe(Just, Nothing), maybeToList, catMaybes, fromJust, isNothing)
 
 import Data.Set (Set, singleton, fromList, elems)
 
@@ -155,9 +160,14 @@ pLineIntersectionWithErr pl1 pl2 = (res, ulpTotal)
     ulpTotal = UlpSum $ resErr + pl1Err + pl2Err
 
 -- | Find a point somewhere along the line between the two points given.
---  requires two weights. the ratio of these weights determines the position of the found points, E.G: 2/1 is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint.
+--  requires two weights. the ratio of these weights determines the position of the found points, E.G: (2/3,1/3) is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint.
 pPointBetweenPPoints :: PPoint2 -> PPoint2 -> ℝ -> ℝ -> PPoint2
-pPointBetweenPPoints (PPoint2 rawStartPoint) (PPoint2 rawStopPoint) weight1 weight2 = PPoint2 $ addVecPair (mulScalarVec weight1 rawStartPoint) (mulScalarVec weight2 rawStopPoint)
+pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ pPointBetweenPPointsWithErr startOfSeg stopOfSeg weight1 weight2
+
+pPointBetweenPPointsWithErr :: PPoint2 -> PPoint2 -> ℝ -> ℝ -> (PPoint2, UlpSum)
+pPointBetweenPPointsWithErr (PPoint2 rawStartPoint) (PPoint2 rawStopPoint) weight1 weight2 = (PPoint2 res, UlpSum 0)
+  where
+    res = addVecPair (mulScalarVec weight1 rawStartPoint) (mulScalarVec weight2 rawStopPoint)
 
 -- | Find the unsigned distance between a point and a line.
 distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
@@ -170,7 +180,7 @@ distancePPointToPLineWithErr point@(PPoint2 pvec) line = (res, ulpSum)
     (newPLine, UlpSum newPLineErr) = join2PPoint2WithErr point linePoint
     (NPLine2 lvec, UlpSum normErr) = normalizePLine2WithErr line
     (perpLine, UlpSum perpLineErr) = lvec ⨅+ pvec
-    (linePoint, UlpSum lpErr)      = canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
+    (linePoint, UlpSum lpErr)      = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
     ulpSum                         = UlpSum $ lpErr + perpLineErr + normErr + newPLineErr + resErr
 
 -- | Determine if two points are on the same side of a given line.
@@ -220,7 +230,7 @@ angleBetweenWithErr (NPLine2 pv1) (NPLine2 pv2) = (scalarPart res
 angleCos :: NPLine2 -> NPLine2 -> ℝ
 angleCos npl1@(NPLine2 lvec1) npl2@(NPLine2 lvec2) = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
   where
-    (PPoint2 iPointVec, _)         = canonicalizeIntersectionWithErr pl1 pl2
+    (PPoint2 iPointVec, _)         = fromJust $ canonicalizeIntersectionWithErr pl1 pl2
     motor                          = addVecPair (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
     antiMotor                      = addVecPair (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
     -- I, the infinite point.
@@ -473,7 +483,7 @@ combineConsecutiveLineSegs lines = case lines of
         sameMiddlePoint = p2 == addPoints p1 s1
 
 pointOnPerp :: LineSeg -> Point2 -> ℝ -> Point2
-pointOnPerp line point d = case ppointToPoint2 $ pPointOnPerp (eToPLine2 line) (eToPPoint2 point) d of
+pointOnPerp line point d = case pPointToPoint2 $ pPointOnPerp (eToPLine2 line) (eToPPoint2 point) d of
                              Nothing -> error $ "generated infinite point trying to travel " <> show d <> "along the line perpendicular to " <> show line <> " at point " <> show point <> "\n"
                              Just v -> v
 
@@ -536,25 +546,34 @@ meet2PLine2WithErr (NPLine2 plr1) (NPLine2 plr2) = (PPoint2 res,
     (PLine2 pv1) = forcePLine2Basis $ PLine2 plr1
     (PLine2 pv2) = forcePLine2Basis $ PLine2 plr2
 
--- | Create a projective point from coordinates.
+-- | Create a projective point from a euclidian point.
+eToPPoint2 :: Point2 -> PPoint2
+eToPPoint2 point = fst $ eToPPoint2WithErr point
+
+eToPPoint2WithErr :: Point2 -> (PPoint2, UlpSum)
+eToPPoint2WithErr (Point2 (x,y)) = makePPoint2WithErr x y
+
+makePPoint2 :: ℝ -> ℝ -> PPoint2
+makePPoint2 x y = fst $ makePPoint2WithErr x y
+
+-- | Create a euclidian projective point from coordinates, with error.
 makePPoint2WithErr :: ℝ -> ℝ -> (PPoint2, UlpSum)
 makePPoint2WithErr x y = (eToPPoint2 $ Point2 (x,y)
                          , ulpSum)
   where
     ulpSum = UlpSum $ abs (doubleUlp x) + abs (doubleUlp y)
 
--- | Create a projective point from a euclidian point.
-eToPPoint2 :: Point2 -> PPoint2
-eToPPoint2 (Point2 (x,y)) = PPoint2 $ GVec $ foldl' addVal [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (-x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
-
 -- | Create a euclidian point from a projective point.
 pToEPoint2 :: PPoint2 -> Point2
-pToEPoint2 (PPoint2 (GVec pPoint)) = Point2 (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] pPoint
-                                            ,         valOf 0 $ getVals [GEZero 1, GEPlus 1] pPoint)
+pToEPoint2 ppoint
+  | isNothing res = error "created an infinite point when trying to convert from a PPoint2 to a Point2"
+  | otherwise = fromJust res
+  where
+    res = pPointToPoint2 ppoint
 
--- | Create a euclidian point from a projective point.
-ppointToPoint2 :: PPoint2 -> Maybe Point2
-ppointToPoint2 (PPoint2 (GVec vals)) = if infinitePoint
+-- | Maybe create a euclidian point from a projective point.
+pPointToPoint2 :: PPoint2 -> Maybe Point2
+pPointToPoint2 (PPoint2 (GVec vals)) = if infinitePoint
                                       then Nothing
                                       else Just $ Point2 (xVal, yVal)
   where
@@ -723,12 +742,16 @@ canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
     ulpSum = ulpOfPPoint2 res
 
 -- | Canonicalize the intersection resulting from two PLines.
-canonicalizeIntersectionWithErr :: PLine2 -> PLine2 -> (PPoint2, UlpSum)
-canonicalizeIntersectionWithErr pl1 pl2 = (cpp1, ulpSum)
+-- NOTE: Returns nothing when the PLines are (anti)parallel.
+canonicalizeIntersectionWithErr :: PLine2 -> PLine2 -> Maybe (PPoint2, UlpSum)
+canonicalizeIntersectionWithErr pl1 pl2
+  | isNothing foundVal = Nothing
+  | otherwise = Just (cpp1, ulpSum)
   where
     (cpp1, UlpSum canonicalizationErr) = canonicalizePPoint2WithErr pp1
     (pp1, UlpSum intersectionErr) = pLineIntersectionWithErr pl1 pl2
     ulpSum = UlpSum $ intersectionErr + canonicalizationErr
+    foundVal = getVals [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
 
 -- | Normalize a PLine2.
 normalizePLine2WithErr :: PLine2 -> (NPLine2, UlpSum)

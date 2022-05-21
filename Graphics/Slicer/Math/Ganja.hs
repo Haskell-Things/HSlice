@@ -81,11 +81,9 @@
 -- so we can define a Num instance for Positive.
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomLineSeg, cellFrom, remainderFrom, onlyOne, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomPPoint2, randomLineSegWithErr) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomPLineWithErr, randomLineSeg, cellFrom, remainderFrom, onlyOne, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomPPoint2, randomLineSegWithErr) where
 
 import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
-
-import Data.Bits.Floating.Ulp (doubleUlp)
 
 import Data.Coerce (coerce)
 
@@ -93,7 +91,7 @@ import Data.List (sort)
 
 import Data.List.Unique (allUnique)
 
-import Data.Maybe (Maybe(Nothing, Just), maybeToList, catMaybes)
+import Data.Maybe (Maybe(Nothing, Just), maybeToList, catMaybes, fromMaybe)
 
 import Math.Tau (tau)
 
@@ -108,15 +106,15 @@ import Test.QuickCheck (Arbitrary, Positive(Positive), NonZero(NonZero), arbitra
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
-import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, pointsOfContour)
+import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, pointsOfContour, firstPointPairOfContour, pointFarOutsideContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg(LineSeg), handleLineSegError, lineSegFromEndpoints, mapWithFollower, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, handleLineSegError, lineSegFromEndpoints, mapWithFollower, startPoint)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf, UlpSum(UlpSum))
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf, UlpSum)
 
 import Graphics.Slicer.Math.Line (endPoint)
 
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, makePPoint2WithErr, normalizePLine2, plineFromEndpoints, pToEPoint2, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, outOf, pPointOf, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, makePPoint2WithErr, normalizePLine2, pToEPoint2, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, join2PPoint2, outOf, pPointBetweenPPointsWithErr, pPointOf, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
 
@@ -627,11 +625,18 @@ randomConcaveChevronQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDist
 -- Idea stolen from: https://stackoverflow.com/questions/8997099/algorithm-to-generate-random-2d-polygon
 -- note: the centerPoint is assumed to be inside of the contour.
 randomStarPoly :: ℝ -> ℝ -> [(Positive ℝ,Radian ℝ)] -> Contour
-randomStarPoly centerX centerY radianDistPairs = maybeFlipContour $ makePointContour points
+randomStarPoly centerX centerY radianDistPairs = fromMaybe dumpError $ maybeFlipContour contour
   where
-    points = pToEPoint2 <$> pointsAroundCenter
+    contour            = makePointContour points
+    points             = pToEPoint2 <$> pointsAroundCenter
     pointsAroundCenter = (\(distanceFromPoint, angle) -> translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)) <$> radianDistPairs
-    centerPPoint = eToPPoint2 $ Point2 (centerX, centerY)
+    centerPPoint       = eToPPoint2 $ Point2 (centerX, centerY)
+    dumpError          = error $ "failed to flip a contour:" <> dumpGanjas [toGanja contour, toGanja (Point2 (centerX, centerY)), toGanja outsidePLine] <> "\n"
+      where
+        outsidePLine       = join2PPoint2 myMidPoint outsidePoint
+        outsidePoint       = eToPPoint2 $ pointFarOutsideContour contour
+        (myMidPoint,_)     = pPointBetweenPPointsWithErr (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
+        (p1, p2)           = firstPointPairOfContour contour
 
 randomENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> ENode
 randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2

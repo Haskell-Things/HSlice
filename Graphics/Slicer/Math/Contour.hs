@@ -22,9 +22,9 @@
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 
 -- | functions for handling contours.
-module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, maybeFlipContour, firstPointPairOfContour, insideIsLeft, innerContourPoint) where
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, maybeFlipContour, firstPointPairOfContour, insideIsLeft, innerContourPoint, pointFarOutsideContour) where
 
-import Prelude ((==), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, Either(Left, Right), (-), not, (*))
+import Prelude ((==), (&&), (*), (<), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, Either(Left, Right), (-), not, realToFrac)
 
 import Data.List(partition, reverse, sortBy)
 
@@ -32,7 +32,7 @@ import Data.List as DL (uncons)
 
 import Data.List.Extra (unsnoc)
 
-import Data.Maybe(Maybe(Just,Nothing), catMaybes, mapMaybe, fromMaybe)
+import Data.Maybe(Maybe(Just,Nothing), catMaybes, fromJust, fromMaybe, isJust, mapMaybe)
 
 import Data.Either (fromRight)
 
@@ -48,11 +48,13 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, lineSegsOfContour, minMaxPoints, xOf, yOf, startPoint, fudgeFactor,handleLineSegError, LineSegError(LineSegFromPoint,EmptyList), lineSegFromEndpoints)
 
-import Graphics.Slicer.Math.Intersections (contourIntersectionCount, getContourLineSegIntersections)
+import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
+
+import Graphics.Slicer.Math.Intersections (contourIntersectionCount, getContourLineSegIntersections, noIntersection)
 
 import Graphics.Slicer.Math.Line (endPoint, midPoint)
 
-import Graphics.Slicer.Math.PGA (lineIsLeft, pointOnPerp)
+import Graphics.Slicer.Math.PGA (PPoint2, eToPPoint2, join2PPoint2, pLineFromEndpointsWithErr, pLineIsLeft, pointOnPerp, pPointBetweenPPoints, pPointOnPerpWithErr, pToEPoint2) 
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -140,7 +142,7 @@ getLoops' segs workingLoop ultima =
 -- | Turn pairs of points into lists of points in sequence.
 --   The point pairs are the beginning and end of a line segment.
 getContours :: [(Point2,Point2)] -> [Contour]
-getContours pointPairs = maybeFlipContour <$> foundContours
+getContours pointPairs = fromMaybe (error "failed to flip a contour") . maybeFlipContour <$> foundContours
   where
     contourAsLineSegs :: [[Point2]] -> [LineSeg]
     contourAsLineSegs contourPointPairs = (\[a,b] -> handleLineSegError $ lineSegFromEndpoints a b) <$> contourPointPairs
@@ -160,10 +162,13 @@ getContours pointPairs = maybeFlipContour <$> foundContours
         sortPairs = sortBy (\a b -> if fst a == fst b then compare (snd a) (snd b) else compare (fst a) (fst b))
 
 -- make sure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
-maybeFlipContour :: Contour -> Contour
+maybeFlipContour :: Contour -> Maybe Contour
 maybeFlipContour contour
-  | insideIsLeft contour (firstLineSegOfContour contour) = contour
-  | otherwise = makePointContour $ reverse $ pointsOfContour contour
+  | isJust maybeIsLeft && maybeIsLeft == Just True = Just contour
+  | isJust maybeIsLeft = Just $ makePointContour $ reverse $ pointsOfContour contour
+  | otherwise = Nothing
+  where
+    maybeIsLeft = insideIsLeft contour
 
 -- | A contour tree. A contour, which contains a list of contours that are cut out of the first contour, each of them contaiting a list of contours of positive space.. ad infinatum.
 data ContourTree = ContourTree { _parentContour :: !Contour, _childContours :: !(Slist ContourTreeSet) }
@@ -208,7 +213,7 @@ contourContainsContour parent child = odd noIntersections
     outsidePointOfPair = Point2 (min (xOf minPoint1) (xOf minPoint2) - 1,min (yOf minPoint1) (yOf minPoint2) - 1)
     noIntersections = len $ getContourLineSegIntersections parent $ lineSegToEdge $ innerPointOf child
     lineSegToEdge p = fromRight (error "cannot construct lineToEdge") $ lineSegFromEndpoints p outsidePointOfPair
-    innerPointOf contour = innerContourPoint minDistanceFromSeg contour $ firstLineSegOfContour contour
+    innerPointOf contour = pToEPoint2 $ fromMaybe (error "contour has no inner point?") $ innerContourPoint contour
 
 -- | determine whether a contour is contained by another contour.
 contourContainedByContour :: Contour -> Contour -> Bool
@@ -224,23 +229,80 @@ followingLineSeg x = followingLineSegLooped x x
     followingLineSegLooped [a] (b:_) l1 = if a == l1 then b else followingLineSegLooped [a] [] l1
     followingLineSegLooped (a:b:xs) set l1 = if a == l1 then b else followingLineSegLooped (b:xs) set l1
 
--- | Check if the left hand side of a line segmnt is toward the inside of the contour it is a part of.
-insideIsLeft :: Contour -> LineSeg -> Bool
-insideIsLeft contour lineSegment = lineIsLeft lineSegment lineToInside == Just True
+-- | Check if the left hand side of the first line segment of a contour is toward the inside of the contour.
+insideIsLeft :: Contour -> Maybe Bool
+insideIsLeft contour
+  | isJust (innerContourPoint contour) = Just $ pLineIsLeft pline1 pLineToInside == Just True
+  | otherwise = Nothing
   where
-    lineToInside = fromRight (error "cannot construct lineToInside") $ lineSegFromEndpoints (midPoint lineSegment) $ innerContourPoint minDistanceFromSeg contour lineSegment
+    (p1, p2)      = firstPointPairOfContour contour
+    myMidPoint    = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
+    pLineToInside = join2PPoint2 myMidPoint innerPoint
+    innerPoint    = fromJust $ innerContourPoint contour
+    (pline1,_)    = pLineFromEndpointsWithErr p1 p2
 
--- | Find a point on the interior of the given contour, on the perpendicular bisector of the given line segment, a given distance away from the line segment.
-innerContourPoint :: ℝ -> Contour -> LineSeg -> Point2
-innerContourPoint distanceAway contour l
-    | odd numIntersections = perpPoint
-    | otherwise            = otherPerpPoint
+-- | Find a point on the interior of a given contour, on the perpendicular bisector of the given line segment, a given distance away from the line segment.
+innerContourPoint :: Contour -> Maybe PPoint2
+innerContourPoint contour
+  | odd numIntersections && perpErr < realToFrac minDistanceFromSeg = Just perpPoint
+  | odd numIntersections = error "cannot ensure perp point is on right side of contour."
+  | odd otherIntersections && otherErr < realToFrac minDistanceFromSeg = Just otherPoint
+  | odd otherIntersections = error "cannot ensure other point is on the right side of the contour."
+  | otherwise = Nothing
   where
-    minPoint       = fst (minMaxPoints contour)
-    perpPoint      = pointOnPerp l (midPoint l) distanceAway
-    otherPerpPoint = pointOnPerp l (midPoint l) (-distanceAway)
-    outsidePoint   = Point2 (xOf minPoint - 1 , yOf minPoint - 1)
-    numIntersections = contourIntersectionCount contour (pointOnPerp l (midPoint l) distanceAway, outsidePoint)
+    (p1, p2)       = firstPointPairOfContour contour
+    source         = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 p2)
+    myMidPoint     = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
+    (perpPoint, UlpSum perpErr) = pPointOnPerpWithErr source myMidPoint minDistanceFromSeg
+    (otherPoint, UlpSum otherErr) = pPointOnPerpWithErr source myMidPoint (-minDistanceFromSeg)
+    numIntersections   = contourIntersectionCount contour (pToEPoint2 $ perpPoint, outsidePoint)
+    otherIntersections = contourIntersectionCount contour (pToEPoint2 $ otherPoint, outsidePoint)
+    outsidePoint       = pointFarOutsideContour contour
+    -- | the minimum measurable distance of a point from a line segment
+    -- FIXME: make this smaller, make more errors.
+    -- FIXME: magic number
+    minDistanceFromSeg :: ℝ
+    minDistanceFromSeg = fudgeFactor*10000000
+
+-- | Find a point that is guaranteed to be outside of the given contour, and is not on the same line as the first line segment of the contour.
+pointFarOutsideContour :: Contour -> Point2
+pointFarOutsideContour contour
+  | not (noIntersection pline1 firstPLine) = outsidePoint1
+  | not (noIntersection pline2 firstPLine) = outsidePoint2
+  | not (noIntersection pline3 firstPLine) = outsidePoint3
+  | otherwise = error "cannot get here."
+  where
+    minPoint      = fst (minMaxPoints contour)
+    (p1, p2)      = firstPointPairOfContour contour
+    firstPLine    = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 p2)
+    pline1        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint1)
+    pline2        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint2)
+    pline3        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint3)
+    outsidePoint1 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.1)
+    outsidePoint2 = Point2 (xOf minPoint - 0.2 , yOf minPoint - 0.1)
+    outsidePoint3 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.2)
+
+-- | Find a point that is guaranteed to be outside of the given contour, and is not on the same line as the first line segment of the contour.
+pointFarOutsideContours :: Contour -> Contour -> Point2
+pointFarOutsideContours contour1 contour2
+  | not (noIntersection pline1 firstPLine) && not (noIntersection pline1 secondPLine) = outsidePoint1
+  | not (noIntersection pline2 firstPLine) && not (noIntersection pline2 secondPLine) = outsidePoint2
+  | not (noIntersection pline3 firstPLine) && not (noIntersection pline3 secondPLine) = outsidePoint3
+  | otherwise = error "cannot get here...?"
+  where
+    minPoint1     = fst $ minMaxPoints contour1
+    minPoint2     = fst $ minMaxPoints contour2
+    minPoint      = Point2 $ (min (xOf minPoint1) (xOf minPoint2),min (yOf minPoint1) (yOf minPoint2))
+    (p1, p2)      = firstPointPairOfContour contour1
+    (p3, p4)      = firstPointPairOfContour contour2
+    firstPLine    = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 p2)
+    secondPLine   = join2PPoint2 (eToPPoint2 p3) (eToPPoint2 p4)
+    pline1        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint1)
+    pline2        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint2)
+    pline3        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint3)
+    outsidePoint1 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.1)
+    outsidePoint2 = Point2 (xOf minPoint - 0.2 , yOf minPoint - 0.1)
+    outsidePoint3 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.2)
 
 -- | return the contour as a list of points.
 pointsOfContour :: Contour -> [Point2]
