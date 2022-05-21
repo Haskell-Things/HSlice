@@ -18,11 +18,11 @@
 
 {- Purpose of this file: to hold the logic and routines responsible for checking for intersections with contours, or portions of contours. -}
 
-module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getContourLineSegIntersections, getLineSegIntersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
+module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getLineSegIntersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
 
 import Prelude (Bool(True), Either(Left,Right), any, error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, not, Int, (<), (*), fst, (||), (==), realToFrac)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, mapMaybe)
+import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
 import Data.List as L (filter)
 
@@ -178,17 +178,6 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
             lSeg (myseg,_) = myseg
             lEnd :: (LineSeg, Either Intersection PIntersection) -> Point2
             lEnd (myseg,_) = endPoint myseg
-
-getContourLineSegIntersections :: Contour -> LineSeg -> Slist Point2
-getContourLineSegIntersections contour line = slist $ mapMaybe (saneIntersection . intersectsWith (Left line) . Left) $ lineSegsOfContour contour
-  where
-    saneIntersection :: Either Intersection PIntersection -> Maybe Point2
-    saneIntersection (Left (NoIntersection _ _))   = Nothing
-    saneIntersection (Right (IntersectsIn p _))    = Just $ pToEPoint2 p
-    saneIntersection (Right PAntiParallel)         = Nothing
-    saneIntersection (Right PParallel)             = Nothing
-    -- FIXME: fix the remaining cases. steal the code / algorithms from closedRegion
-    saneIntersection res = error $ "insane result drawing a line to the edge: " <> show res <> "\n"
 
 getLineSegIntersections :: PLine2 -> Contour -> [Point2]
 getLineSegIntersections myline c = saneIntersections $ zip (lineSegsOfContour c) $ intersectsWith (Right myline) . Left <$> lineSegsOfContour c
