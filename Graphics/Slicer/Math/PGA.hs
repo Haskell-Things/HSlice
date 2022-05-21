@@ -567,10 +567,11 @@ makePPoint2 x y = fst $ makePPoint2WithErr x y
 
 -- | Create a euclidian projective point from coordinates, with error.
 makePPoint2WithErr :: ℝ -> ℝ -> (PPoint2, UlpSum)
-makePPoint2WithErr x y = (eToPPoint2 $ Point2 (x,y)
+makePPoint2WithErr x y = (pPoint
                          , ulpSum)
   where
-    ulpSum = UlpSum $ abs (doubleUlp x) + abs (doubleUlp y)
+    pPoint = PPoint2 $ GVec $ foldl' addVal [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
+    ulpSum = UlpSum $ abs (realToFrac $ doubleUlp x) + abs (realToFrac $ doubleUlp y)
 
 -- | Create a euclidian point from a projective point.
 pToEPoint2 :: PPoint2 -> Point2
