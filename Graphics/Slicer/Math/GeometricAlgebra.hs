@@ -19,10 +19,12 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, FlexibleInstances #-}
 
--- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
+{-# LANGUAGE DataKinds #-}
 
-import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.))
+-- | Our geometric algebra library.
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
+
+import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), Double, realToFrac)
 
 import Prelude as P (filter)
 
@@ -48,6 +50,10 @@ import Data.Set (Set, singleton, disjoint, elems, size, elemAt, fromAscList)
 
 import Data.Set as S (filter)
 
+import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf, ToNearest))
+
+import Safe (headMay)
+
 import Graphics.Slicer.Definitions (ℝ, Fastℕ)
 
 import Graphics.Slicer.Orphans ()
@@ -70,7 +76,7 @@ data GRVal = GRVal { _r :: !ℝ, _i :: !(NonEmpty GNum) }
   deriving (Eq, Generic, NFData, Show)
 
 -- | A constantly increasing sum of error. Used for increasing our error bars proportonally to error from the FPU.
-newtype UlpSum = UlpSum ℝ
+newtype UlpSum = UlpSum (Rounded 'TowardInf Double)
   deriving (Show, Eq)
 
 -- When sorting gvals, sort the basis, THEN sort the multiplier.
@@ -99,13 +105,21 @@ valOf _ (Just (GVal v _)) = v
 
 -- | Add two geometric values together.
 addValPair :: GVal -> GVal -> [GVal]
-addValPair v1@(GVal r1 i1) v2@(GVal r2 i2)
-  | r1 == 0 && r2 == 0      = []
-  | r1 == 0                 = [v2]
-  | r2 == 0                 = [v1]
-  | i1 == i2 && r1 == (-r2) = []
-  | i1 == i2                = [GVal (r1+r2) i1]
-  | otherwise               = sort [v1,v2]
+addValPair v1 v2 = fst $ addValPairWithErr v1 v2
+
+-- | Add two geometric values together.
+addValPairWithErr :: GVal -> GVal -> ([GVal], UlpSum)
+addValPairWithErr v1@(GVal r1 i1) v2@(GVal r2 i2)
+  | r1 == 0 && r2 == 0      = ([],UlpSum 0)
+  | r1 == 0                 = ([v2],UlpSum 0)
+  | r2 == 0                 = ([v1],UlpSum 0)
+  | i1 == i2 && r1 == (-r2) = ([],UlpSum 0)
+  | i1 == i2                = ([GVal res i1]
+                              , UlpSum $ abs $ realToFrac $ doubleUlp res)
+  | otherwise               = (sort [v1,v2],UlpSum 0)
+  where
+    res :: ℝ
+    res = realToFrac (realToFrac r1 + realToFrac r2 :: Rounded 'ToNearest Double)
 
 -- | Subtract a geometric value from another geometric value.
 subValPair :: GVal -> GVal -> [GVal]
@@ -116,17 +130,26 @@ subValPair v1@(GVal r1 i1) (GVal r2 i2)
 -- | Add a geometric value to a list of geometric values.
 --   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
 addVal :: [GVal] -> GVal -> [GVal]
-addVal dst src@(GVal r1 _)
+addVal dst src = fst $ addValWithErr (dst, UlpSum 0) src
+
+-- | Add a geometric value to a list of geometric values.
+--   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
+addValWithErr :: ([GVal], UlpSum) -> GVal -> ([GVal], UlpSum)
+addValWithErr dst@(dstVals, dstUlp@(UlpSum dstErr)) src@(GVal r1 _)
   | r1 == 0 = dst
-  | null dst = [src]
-  | otherwise = case sameBasis src dst of
-                  [] -> insertSet src dst
-                  (_:_) -> if sum (rOf <$> sameBasis src dst) == (-r1)
-                           then diffBasis src dst
-                           else insertSet (GVal (r1 + sum (rOf <$> sameBasis src dst)) $ iOf src) $ diffBasis src dst
+  | null dstVals = ([src], UlpSum 0)
+  | otherwise = case sameBasis src dstVals of
+                  Nothing  -> (insertSet src dstVals, dstUlp)
+                  (Just a) -> if rOf a == (-r1)
+                              then (diffBasis src dstVals, dstUlp)
+                              else (insertSet (GVal newVal $ iOf src) (diffBasis src dstVals)
+                                ,UlpSum $ dstErr + abs ( realToFrac $ doubleUlp newVal))
+                    where
+                      newVal :: ℝ
+                      newVal = realToFrac (realToFrac (rOf a) + realToFrac r1 :: Rounded 'ToNearest Double)
   where
-    sameBasis :: GVal -> [GVal] -> [GVal]
-    sameBasis val = P.filter (\(GVal _ i) -> i == iOf val)
+    sameBasis :: GVal -> [GVal] -> Maybe GVal
+    sameBasis val srcVals = headMay $ P.filter (\(GVal _ i) -> i == iOf val) srcVals
     diffBasis :: GVal -> [GVal] -> [GVal]
     diffBasis val = P.filter (\(GVal _ i) -> i /= iOf val)
     iOf (GVal _ i) = i
@@ -140,6 +163,12 @@ subVal dst (GVal r i) = addVal dst $ GVal (-r) i
 -- | Add two vectors together.
 addVecPair :: GVec -> GVec -> GVec
 addVecPair (GVec vals1) (GVec vals2) = GVec $ foldl' addVal vals1 vals2
+
+-- | Add two vectors together.
+addVecPairWithErr :: GVec -> GVec -> (GVec, UlpSum)
+addVecPairWithErr (GVec vals1) (GVec vals2) = (GVec res, resUlp)
+  where
+    (res, resUlp) = foldl' addValWithErr (vals1,UlpSum 0) vals2
 
 -- | Subtract one vector from the other.
 subVecPair :: GVec -> GVec -> GVec
@@ -201,8 +230,9 @@ likeVecPairWithErr' vec1 vec2 = results
                 simplifyVal v (GEPlus _) = Right $ GVal v (singleton G0)
                 simplifyVal v (GEMinus _) = Right $ GVal (-v) (singleton G0)
                 simplifyVal _ (GEZero _) = Right $ GVal 0 (singleton G0)
-                res = r1 * r2
-                resUlp = UlpSum $ abs $ doubleUlp res
+                res :: ℝ
+                res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest Double)
+                resUlp = UlpSum $ abs $ realToFrac $ doubleUlp res
 
 -- | Generate the unlike product of a vector pair. multiply only the values in the basis vector sets that are not the same between the two GVecs.
 unlikeVecPair :: GVec -> GVec -> [Either GRVal GVal]
@@ -228,8 +258,9 @@ unlikeVecPairWithErr vec1 vec2 = results
                                                 Nothing -> error "empty set?"
                                                 (Just newI2) -> (Left $ GRVal res (newI1 <> newI2), resUlp)
               where
-                res = r1*r2
-                resUlp = UlpSum $ abs $ doubleUlp res
+                res :: ℝ
+                res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest Double)
+                resUlp = UlpSum $ abs $ realToFrac $ doubleUlp res
 
 -- | Generate the reductive product of a vector pair. multiply only values where one of the basis vectors is eliminated by the multiplication.
 reduceVecPair :: GVec -> GVec -> [GRVal]
@@ -258,9 +289,10 @@ reduceVecPairWithErr vec1 vec2 = results
                                                           Nothing -> error "empty set?"
                                                           (Just newI1) -> case nonEmpty (elems i2) of
                                                                             Nothing -> error "empty set?"
-                                                                            (Just newI2) -> (GRVal res (newI1 <> newI2), UlpSum $ abs $ doubleUlp res)
+                                                                            (Just newI2) -> (GRVal res (newI1 <> newI2), UlpSum $ abs $ realToFrac $ doubleUlp res)
                                                                               where
-                                                                                res = r1*r2
+                                                                                res :: ℝ
+                                                                                res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest Double)
 
 -- | Generate the geometric product of a vector pair.
 mulVecPair :: GVec -> GVec -> [Either GRVal GVal]
@@ -375,16 +407,17 @@ infixl 9 ⎣+
 -- | Our "unlike" operator. unicode point u+23a4.
 (⎤) :: GVec -> GVec -> GVec
 infixl 9 ⎤
-(⎤) v1 v2 = GVec $ foldl' addVal [] $ postProcessFilter <$> unlikeVecPair v1 v2
+(⎤) v1 v2 = fst $ v1 ⎤+ v2
 
 -- | Our "unlike" operator. unicode point u+23a4.
 (⎤+) :: GVec -> GVec -> (GVec, UlpSum)
 infixl 9 ⎤+
-(⎤+) v1 v2 = (GVec $ foldl' addVal [] $ postProcessFilter . fst <$> res
+(⎤+) v1 v2 = (GVec $ newVals
              , ulpTotal)
   where
+    (newVals, addValErr) = foldl' addValWithErr ([], UlpSum 0) $ postProcessFilter . fst <$> res
     res = unlikeVecPairWithErr v1 v2
-    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) (UlpSum 0) (snd <$> res)
+    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) (addValErr) (snd <$> res)
 
 -- | Our "reductive" operator.
 (⨅) :: GVec -> GVec -> GVec
@@ -394,11 +427,12 @@ infixl 9 ⨅
 -- | Our "reductive" operator, with attached Error.
 (⨅+) :: GVec -> GVec -> (GVec, UlpSum)
 infixl 9 ⨅+
-(⨅+) v1 v2 = (GVec $ foldl' addVal [] $ postProcess . fst <$> res
+(⨅+) v1 v2 = (GVec $ newVals
              , ulpTotal)
   where
+    (newVals, addValErr) = foldl' addValWithErr ([], UlpSum 0) $ postProcess . fst <$> res
     res = reduceVecPairWithErr v1 v2
-    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) (UlpSum 0) (snd <$> res)
+    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) (addValErr) (snd <$> res)
 
 -- | A wedge operator. gets the wedge product of the two arguments. note that wedge = reductive minus unlike.
 (∧) :: GVec -> GVec -> GVec
