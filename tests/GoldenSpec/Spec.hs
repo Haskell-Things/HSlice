@@ -20,7 +20,7 @@
 
 module GoldenSpec.Spec (spec) where
 
-import Prelude (($), error, (<>), show)
+import Prelude (($), error, (<>), show, sqrt)
 
 import Data.Either (Either(Left, Right))
 
@@ -101,6 +101,10 @@ spec = describe "golden tests" $ do
   golden "C7-Cell2-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
   golden "C7-Cell3" $ cellFrom (findNextCell $ onlyOne $ fromJust $ remainderFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 [])
   golden "C7-Cell3-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
+  golden "triangle-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton triangle []
+  golden "triangle-Faces-Default" $ facesOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton triangle []
+  golden "square-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton square []
+  golden "square-Faces-Default" $ facesOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton square []
   golden "rectangle-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []
   golden "rectangle-Faces-Default" $ facesOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []
     where
@@ -117,5 +121,9 @@ spec = describe "golden tests" $ do
       c5 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (2,0), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
       c6 = makePointContour [Point2 (-1,-1), Point2 (-0.5,-1), Point2 (0,0), Point2 (0.5,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       c7 = makePointContour [Point2 (0,-1), Point2 (1,-1), Point2 (1,1), Point2 (0.5,1), Point2 (0.5,0), Point2 (0,1), Point2 (-1,1), Point2 (-1,0), Point2 (0,0)]
+      -- A simple triangle.
+      triangle = makePointContour [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
+      -- A simple square.
+      square = makePointContour [Point2 (-1,1), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1)]
       -- A simple rectangle.
       rectangle = makePointContour [Point2 (-2,1), Point2 (-2,-1), Point2 (1,-1), Point2 (1,1)]

@@ -20,10 +20,12 @@
 
 {-# LANGUAGE FlexibleInstances #-}
 
+{-# LANGUAGE DataKinds #-}
+
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, sqrt, (/=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, realToFrac, (<), (>), (-), (/), (||))
+import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, (/=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, realToFrac, sqrt, (<), (>), (-), (/), (||), (*))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
@@ -45,20 +47,22 @@ import Slist.Type (Slist(Slist))
 
 import Slist (slist, len)
 
+import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardNegInf))
+
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
 -- A euclidian point.
-import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), lineSegFromEndpoints, roundPoint2, startPoint, distance)
+import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), lineSegFromEndpoints, roundPoint2, startPoint, distance, xOf, yOf, minMaxPoints)
 
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤), UlpSum(UlpSum))
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), distanceBetweenPPoints, eToPPoint2, eToPLine2, join2PPoint2, translatePerp, translateRotatePPoint2, pointOnPerp, angleBetweenWithErr, distancePPointToPLine, flipPLine2, makePPoint2WithErr, normalizePLine2, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, join2PPoint2WithErr)
+import Graphics.Slicer.Math.PGA (NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), distanceBetweenPPoints, distanceBetweenPPointsWithErr, eToPPoint2, eToPLine2, eToPLine2WithErr, join2PPoint2, pLineIntersectionWithErr, translatePerp, translateRotatePPoint2, angleBetweenWithErr, distancePPointToPLine, flipPLine2, makePPoint2WithErr, normalizePLine2, normalizePLine2WithErr, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, join2PPoint2WithErr, outputIntersectsLineSeg, pPointBetweenPPointsWithErr, makePPoint2, pPointOnPerp, pToEPoint2)
 
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour)
+import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
 
 import Graphics.Slicer.Math.Line (endPoint)
 
@@ -69,7 +73,7 @@ import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
 import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
 -- Our Facet library.
-import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell, getNodeTreeOfCell)
+import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
 import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, getFirstArc, getOutsideArc, towardIntersection)
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell), MotorcycleIntersection(WithENode), getFirstLineSeg, getLastLineSeg)
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
@@ -82,7 +86,7 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Math.Util ((-->), (-/>))
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
-import Graphics.Slicer.Math.Ganja (ListThree, Radian(Radian), cellFrom, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, remainderFrom, onlyOne, dumpGanjas, toGanja, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr)
+import Graphics.Slicer.Math.Ganja (ListThree, Radian(Radian), cellFrom, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, dumpGanjas, toGanja, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
@@ -376,11 +380,45 @@ proj2DGeomAlgSpec = do
 prop_AxisProjection :: Positive ℝ -> Bool -> Bool -> Positive ℝ -> Expectation
 prop_AxisProjection v xAxis whichDirection dv
   | xAxis = if whichDirection
-            then pointOnPerp (randomLineSeg 0 0 (coerce v) 0) (Point2 (0,0)) (coerce dv) --> Point2 (0,coerce dv)
-            else pointOnPerp (randomLineSeg 0 0 (-(coerce v)) 0) (Point2 (0,0)) (coerce dv) --> Point2 (0,-(coerce dv))
+            then pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 (coerce v) 0) (makePPoint2 0 0) (coerce dv) --> makePPoint2 0 (coerce dv)
+            else pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 (-(coerce v)) 0) (makePPoint2 0 0) (coerce dv) --> makePPoint2 0 (-coerce dv)
   | otherwise = if whichDirection
-                then pointOnPerp (randomLineSeg 0 0 0 (coerce v)) (Point2 (0,0)) (coerce dv) --> Point2 (-(coerce dv),0)
-                else pointOnPerp (randomLineSeg 0 0 0 (-(coerce v))) (Point2 (0,0)) (coerce dv) --> Point2 (coerce dv,0)
+                then pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 0 (coerce v)) (makePPoint2 0 0) (coerce dv) --> makePPoint2 (-coerce dv) 0
+                else pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 0 (-(coerce v))) (makePPoint2 0 0) (coerce dv) --> makePPoint2 (coerce dv) 0
+
+-- A property test making sure than for any LineSeg, a pointOnPerp is in fact on a 90 degree perpendicular line.
+prop_perpAt90Degrees :: ℝ -> ℝ -> Positive ℝ -> ℝ -> NonZero ℝ -> Bool
+prop_perpAt90Degrees x y rawX2 y2 rawD
+  | angle2 < realToFrac errTotal4 = True
+  | otherwise = error
+                $ "wrong angle?\n"
+                <> "pline3Err: " <> show pline3Err <> "\n"
+                <> "norm3Err: " <> show norm3Err <> "\n"
+                <> "pline4Err: " <> show pline4Err <> "\n"
+                <> "norm4Err: " <> show norm4Err <> "\n"
+                <> "errTotal3: " <> show errTotal3 <> "\n"
+                <> "pline3: " <> show pline3 <> "\n"
+                <> "pline4: " <> show pline4 <> "\n"
+                <> "distance: " <> show d <> "\n"
+                <> "angle2: " <> show angle2 <> "\n"
+                <> "angle2Err: " <> show angle2Err <> "\n"
+  where
+    angle2ErrMul = abs (1 / realToFrac d) * angle2Err
+    (angle2, UlpSum angle2Err) = angleBetweenWithErr normedPLine3 normedPLine4
+    (bisectorStart, UlpSum bisectorStartErr) = pPointBetweenPPointsWithErr sourceStart sourceEnd 0.5 0.5
+    (bisectorEnd, UlpSum bisectorEndErr) = pPointOnPerpWithErr pline4 bisectorStart d
+    (pline3, UlpSum pline3Err) = join2PPoint2WithErr bisectorStart bisectorEnd
+    (normedPLine3, UlpSum norm3Err) = normalizePLine2WithErr pline3
+    (sourceStart, UlpSum sourceStartErr) = makePPoint2WithErr x y
+    (sourceEnd, UlpSum sourceEndErr) = makePPoint2WithErr x2 y2
+    (pline4, UlpSum pline4Err) = join2PPoint2WithErr sourceStart sourceEnd
+    (normedPLine4, UlpSum norm4Err) = normalizePLine2WithErr pline4
+    errTotal3 = angle2Err + norm3Err + pline3Err + pline4Err + norm4Err
+    errTotal4 = angle2ErrMul + norm3Err + pline3Err + pline4Err + norm4Err
+    x2 :: ℝ
+    x2 = coerce rawX2
+    d :: ℝ
+    d = coerce rawD
 
 -- | A property test making sure the distance between a point an an axis is equal to the corresponding euclidian component of the point.
 prop_DistanceToAxis :: NonZero ℝ -> NonZero ℝ -> Bool -> Expectation
@@ -433,6 +471,119 @@ pgaSpec = do
       property prop_OtherSideOfAxis
   where
     l1 = LineSeg (Point2 (1,1)) (Point2 (2,2))
+
+-- ensure that the bisector of a quad crosses the point across the quad from the bisector.
+prop_QuadBisectorCrosses :: Positive ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool 
+prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
+  | isEndPoint intersect1 && isStartPoint intersect2 && isEndPoint intersect3 && isEndPoint intersect4 = True
+  | otherwise = error $ "missed!\n"
+                <> show intersect1 <> "\n"
+                <> show intersect2 <> "\n"
+                <> show intersect3 <> "\n"
+                <> show intersect4 <> "\n"
+                <> show lineSeg1 <> "\n"
+                <> show lineSeg2 <> "\n"
+                <> show bisector <> "\n"
+                <> show bisector1 <> "\n"
+                <> show bisector1Err <> "\n"
+                <> show bisector2 <> "\n"
+                <> show eNode <> "\n"
+                <> "(" <> show x3 <> "," <> show y3 <> ")\n"
+  where
+    intersect1 = intersectsWithErr (Right (PLine2 bisector1, UlpSum bisector1Err)) (Left (lineSeg1, lineSeg1Err))
+    intersect2 = intersectsWithErr (Right (PLine2 bisector1, UlpSum bisector1Err)) (Left (lineSeg2, lineSeg2Err))
+    intersect3 = outputIntersectsLineSeg eNode (lineSeg1, lineSeg1Err)
+    intersect4 = outputIntersectsLineSeg eNode (lineSeg2, lineSeg2Err)
+    -- note that our bisector always intersects the origin.
+    (bisector, UlpSum bisectorUlp) = pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (x3,y3)) 
+    (NPLine2 bisector1, UlpSum bisector1Ulp) = normalizePLine2WithErr bisector
+    bisector1Err = bisectorUlp + bisector1Ulp
+    bisector2 = getFirstArc (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
+    eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
+    -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
+    x1,y1,x2,y2 :: ℝ
+    x1 
+     | coerce rawX1 == y1 = coerce rawX1 /2
+     | otherwise = coerce rawY1
+    y1
+     | coerce rawY1 == y2 = 0
+     | otherwise = coerce rawY1
+    x2
+     | coerce rawX2 == y2 = coerce rawX2 + coerce rawX2 / 2
+     | otherwise = coerce rawX2
+    y2 = coerce rawY2
+    -- the point that our bisector is supposed to cross.
+    x3 = x1 + x2
+    y3 = y1 + y2
+    -- the two line segments we should cross.
+    (lineSeg1,lineSeg1Err) = randomLineSegWithErr x1 y1 x3 y3
+    (lineSeg2,lineSeg2Err) = randomLineSegWithErr x3 y3 x2 y2
+    isEndPoint (Left (HitEndPoint _ _)) = True
+    isEndPoint (Right PCollinear) = True
+    isEndPoint (Right PAntiParallel) = True
+    isEndPoint _ = False
+    isStartPoint (Left (HitStartPoint _ _)) = True
+    isStartPoint (Right PAntiCollinear) = True
+    isStartPoint _ = False
+
+-- ensure that the bisector of a quad crosses the point across the quad from the bisector.. and the next N points along that path.
+prop_QuadBisectorCrossesMultiple :: Positive ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
+prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
+  | isEndPoint intersect3 && isStartPoint intersect4 = True
+  | otherwise = error $ "missed!\n"
+                <> show intersect1 <> "\n"
+                <> show intersect2 <> "\n"
+                <> show intersect3 <> "\n"
+                <> show intersect4 <> "\n"
+                <> show lineSeg1 <> "\n"
+                <> show lineSeg2 <> "\n"
+                <> show bisector1 <> "\n"
+                <> show eNode <> "\n"
+                <> show (angleBetween (normalizePLine2 $ outOf eNode) (normalizePLine2 $ PLine2 bisector1)) <> "\n"
+                <> show bisector1Err <> "\n"
+                <> show (ulpOfOut eNode) <> "\n"
+                <> "(" <> show x3 <> "," <> show y3 <> ")\n"
+                <> "(" <> show x4 <> "," <> show y4 <> ")\n"
+  where
+    intersect1 = intersectsWithErr (Right (PLine2 bisector1, UlpSum bisector1Err)) (Left (lineSeg1, lineSeg1Err))
+    intersect2 = intersectsWithErr (Right (PLine2 bisector1, UlpSum bisector1Err)) (Left (lineSeg2, lineSeg2Err))
+    intersect3 = outputIntersectsLineSeg eNode (lineSeg1, lineSeg1Err)
+    intersect4 = outputIntersectsLineSeg eNode (lineSeg2, lineSeg2Err)
+    -- note that our bisector always intersects the origin.
+    (NPLine2 bisector1, UlpSum bisector1Ulp) = normalizePLine2WithErr bisector
+    (bisector, UlpSum bisectorUlp) = pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (x3,y3)) 
+    bisector1Err = bisectorUlp + bisector1Ulp
+    eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
+    -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
+    x1,y1,x2,y2,times :: ℝ
+    x1 
+     | coerce rawX1 == y1 = coerce rawX1 /2
+     | otherwise = coerce rawY1
+    y1
+     | coerce rawY1 == y2 = 0
+     | otherwise = coerce rawY1
+    x2
+     | coerce rawX2 == y2 = coerce rawX2 + coerce rawX2 / 2
+     | otherwise = coerce rawX2
+    y2 = coerce rawY2
+    -- the point that our bisector is guaranteed to cross.
+    x3 = x1 + x2
+    y3 = y1 + y2
+    -- the point that our bisector is supposed to cross.
+    x4 = x1 * times + x2 * times
+    y4 = y1 * times + y2 * times
+    times = coerce rawTimes
+    -- the two line segments we should cross.
+    (lineSeg1,lineSeg1Err) = randomLineSegWithErr x1 y1 x4 y4
+    (lineSeg2,lineSeg2Err) = randomLineSegWithErr x4 y4 x2 y2
+    isEndPoint (Left (HitEndPoint _ _)) = True
+    isEndPoint (Right PCollinear) = True
+    isEndPoint (Right PAntiParallel) = True
+    isEndPoint _ = False
+    isStartPoint (Left (HitStartPoint _ _)) = True
+    isStartPoint (Right PAntiCollinear) = True
+    isStartPoint _ = False
+    angleBetween a b = fst $ angleBetweenWithErr a b
 
 -- ensure that every intersection with an EndPoint also intersects with a StartPoint.
 prop_LineSegIntersectionStableAtOrigin :: NonZero ℝ -> ℝ -> ℝ -> ℝ -> ℝ -> Bool
@@ -719,6 +870,7 @@ prop_AxisAligned135DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitu
     mag1,mag2 :: ℝ
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
+    angleBetween a b = fst $ angleBetweenWithErr a b
 
 -- | ensure that a 45 degree angle with one side parallel with the X axis and in the right place results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
@@ -742,9 +894,28 @@ prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitud
     mag2 = coerce rawMagnitude2
 
 prop_TriangleNoDivides :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions triangle (fromMaybe (error $ show (dumpGanjas [toGanja triangle, toGanja (Point2 (centerX, centerY))])) $ crashMotorcycles triangle []) --> []
+prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions triangle (fromMaybe (dumpError) $ crashMotorcycles triangle []) --> []
   where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
+    dumpError = error $ errorString
+    dumpError2 = error $ errorString
+    errorString =  dumpGanjas [toGanja triangle, toGanja (Point2 (centerX, centerY)), toGanja (PLine2 pLineToInside), toGanja (PLine2 pLineToOutside)] <> "\n"
+                <> show firstSeg <> "\n"
+                <> show firstPoints <> "\n"
+                <> show (insideIsLeft triangle) <> "\n"
+                <> show (pLineIsLeft pLine (PLine2 pLineToInside)) <> "\n"
+    maybeInnerPoint = innerContourPoint triangle
+    triangle        = randomTriangle centerX centerY rawRadians rawDists
+    firstSeg        = firstLineSegOfContour triangle
+    pLine           = eToPLine2 firstSeg
+    firstPoints     = firstPointPairOfContour triangle
+    (p1, p2)        = firstPointPairOfContour triangle
+    (myMidPoint,_)  = pPointBetweenPPointsWithErr (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
+    -- we normalize this for Ganja.js.
+    (NPLine2 pLineToInside) = normalizePLine2 $ join2PPoint2 myMidPoint innerPoint
+    (NPLine2 pLineToOutside) = normalizePLine2 $ join2PPoint2 innerPoint $ eToPPoint2 outsidePoint
+    innerPoint      = fromMaybe (dumpError2) maybeInnerPoint
+    minPoint        = fst (minMaxPoints triangle)
+    outsidePoint    = Point2 (xOf minPoint - 0.00000001 , yOf minPoint - 0.00000001)
 
 prop_TriangleHasStraightSkeleton :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
 prop_TriangleHasStraightSkeleton centerX centerY rawRadians rawDists = findStraightSkeleton triangle [] -/> Nothing
@@ -1097,17 +1268,17 @@ prop_ConcaveChevronQuadFacesInOrder a b c d e f = doTest $ randomConcaveChevronQ
 
 prop_PPointWithinErrRange :: ℝ -> ℝ -> Bool
 prop_PPointWithinErrRange x y
-  | res > ulpSum1 + ulpSum2  = error $ "res too big: " <> show res <> "\nulpSum1: " <> show ulpSum1 <> "\nulpSum2: " <> show ulpSum2 <> "\n"
+  | res > realToFrac (ulpSum1 + ulpSum2)  = error $ "res too big: " <> show res <> "\nulpSum1: " <> show ulpSum1 <> "\nulpSum2: " <> show ulpSum2 <> "\n"
   | otherwise = (p1 /= p2) || (res == 0 || error "the same, but distance?")
   where
     res = distanceBetweenPPoints p1 p2
     (p1, UlpSum ulpSum1) = makePPoint2WithErr x y
-    (p2, UlpSum ulpSum2) = makePPoint2WithErr (x+ulpSum1) (y+ulpSum1)
+    (p2, UlpSum ulpSum2) = makePPoint2WithErr (x + realToFrac ulpSum1) (y + realToFrac ulpSum1)
 
 prop_LineSegWithinErrRange :: ℝ -> ℝ -> ℝ -> ℝ -> Bool
 prop_LineSegWithinErrRange x1 y1 rawX2 rawY2
-  | res1 > ulpSum = error "too big startPoint"
-  | res2 > ulpSum = error "too big endPoint"
+  | res1 > realToFrac ulpSum = error "too big startPoint"
+  | res2 > realToFrac ulpSum = error "too big endPoint"
   | otherwise = True
   where
     res1 = distance (startPoint lineSeg) (Point2 (x1,y1))
@@ -1119,33 +1290,34 @@ prop_LineSegWithinErrRange x1 y1 rawX2 rawY2
                                     else (0,0)
      | otherwise = (rawX2, rawY2)
 
--- | Check the distance between two points, and a line constructed between them. should be 0 in an ideal world, and should be less than ulpTotals in our world.
+-- | Check the distance between two points, and a line constructed between them. should be 0 in an ideal world, and should be less than ulpTotals in the floating point world.
+-- FIXME: someone is lieing.
 prop_PLineWithinErrRange1 :: ℝ -> ℝ -> ℝ -> ℝ -> Bool
 prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
-  | res1 > ulpTotal1 = error $ "startPoint outside of expected range:\n" <> dumpRes
-  | res2 > ulpTotal2 = error $ "endPoint outside of expected range:\n" <> dumpRes
+  | distance1 > realToFrac ulpTotal1 = error $ "startPoint outside of expected range:\n" <> dumpRes
+  | distance2 > realToFrac ulpTotal2 = error $ "endPoint outside of expected range:\n" <> dumpRes
   | otherwise = True
   where
-    dumpRes =    "distance1: " <> show res1 <> "\n"
-              <> "distance2: " <> show res2 <> "\n"
+    dumpRes =    "distance1: " <> show distance1 <> "\n"
+              <> "distance2: " <> show distance2 <> "\n"
               <> "ulpTotal1: " <> show ulpTotal1 <> "\n"
               <> "ulpTotal2: " <> show ulpTotal2 <> "\n"
-              <> "res1Err: " <> show res1Err <> "\n"
-              <> "res2Err: " <> show res2Err <> "\n"
-              <> "PLine1: " <> show pLine1 <> "\n"
-              <> "PLine1ULP: " <> show ulpPLine <> "\n"
-              <> "PPoint1: " <> show pPoint1 <> "\n"
+              <> "distance1Err: " <> show distance1Err <> "\n"
+              <> "distance2Err: " <> show distance2Err <> "\n"
               <> "PPoint1ULP: " <> show ulpSumP1 <> "\n"
-              <> "PPoint2: " <> show pPoint2 <> "\n"
               <> "PPoint2ULP: " <> show ulpSumP2 <> "\n"
-    -- res1 and res2 should be 0, in an ideal world.
-    (res1,UlpSum res1Err) = distancePPointToPLineWithErr pPoint1 pLine1
-    (res2,UlpSum res2Err) = distancePPointToPLineWithErr pPoint2 pLine1
+              <> "PLine1ULP: " <> show ulpPLine <> "\n"
+              <> "PLine1: " <> show pLine1 <> "\n"
+              <> "PPoint1: " <> show pPoint1 <> "\n"
+              <> "PPoint2: " <> show pPoint2 <> "\n"
+    -- distance1 and distance2 should be 0, in an ideal world.
+    (distance1, UlpSum distance1Err) = distancePPointToPLineWithErr pPoint1 pLine1
+    (distance2, UlpSum distance2Err) = distancePPointToPLineWithErr pPoint2 pLine1
     (pPoint1, UlpSum ulpSumP1) = makePPoint2WithErr x1 y1
     (pPoint2, UlpSum ulpSumP2) = makePPoint2WithErr x2 y2
     (pLine1, UlpSum ulpPLine) = pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2))
-    ulpTotal1 = ulpSumP1 + ulpPLine + res1Err
-    ulpTotal2 = ulpSumP2 + ulpPLine + res2Err
+    ulpTotal1 = ulpSumP1 + ulpPLine + distance1Err
+    ulpTotal2 = ulpSumP2 + ulpPLine + distance2Err
     -- make sure we do not try to create a 0 length line segment.
     (x2,y2)
      | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
@@ -1155,30 +1327,33 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
 
 prop_PLineWithinErrRange2 :: ℝ -> ℝ -> ℝ -> ℝ -> Bool
 prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
-  | res1 > ulpTotal1 = error $ "startPoint outside of expected range:\n" <> dumpRes
-  | res2 > ulpTotal2 = error $ "endPoint outside of expected range:\n" <> dumpRes
+  | distance1 > realToFrac ulpTotal1 = error $ "startPoint outside of expected range:\n" <> dumpRes
+  | distance2 > realToFrac ulpTotal2 = error $ "endPoint outside of expected range:\n" <> dumpRes
   | otherwise = True
   where
-    dumpRes =    "distance1: " <> show res1 <> "\n"
-              <> "distance2: " <> show res2 <> "\n"
+    dumpRes =    "distance1: " <> show distance1 <> "\n"
+              <> "distance2: " <> show distance2 <> "\n"
               <> "ulpTotal1: " <> show ulpTotal1 <> "\n"
               <> "ulpTotal2: " <> show ulpTotal2 <> "\n"
-              <> "res1Err: " <> show res1Err <> "\n"
-              <> "res2Err: " <> show res2Err <> "\n"
-              <> "PLine1: " <> show pLine1 <> "\n"
-              <> "PLine1ULP: " <> show ulpPLine <> "\n"
-              <> "PPoint1: " <> show pPoint1 <> "\n"
+              <> "distance1Err: " <> show distance1Err <> "\n"
+              <> "distance2Err: " <> show distance2Err <> "\n"
               <> "PPoint1ULP: " <> show ulpSumP1 <> "\n"
-              <> "PPoint2: " <> show pPoint2 <> "\n"
               <> "PPoint2ULP: " <> show ulpSumP2 <> "\n"
-    -- res1 and res2 should be 0, in an ideal world.
-    (res1,UlpSum res1Err) = distancePPointToPLineWithErr pPoint1 pLine1
-    (res2,UlpSum res2Err) = distancePPointToPLineWithErr pPoint2 pLine1
+              <> "PLine1ULP: " <> show ulpPLine <> "\n"
+              <> "PLine1NormULP: " <> show normErr <> "\n"
+              <> "PLine1: " <> show pLine1 <> "\n"
+              <> "NPLine1(vec): " <> show lvec <> "\n"
+              <> "PPoint1: " <> show pPoint1 <> "\n"
+              <> "PPoint2: " <> show pPoint2 <> "\n"
+    -- distance1 and distance2 should be 0, in an ideal world.
+    (distance1, UlpSum distance1Err) = distancePPointToPLineWithErr pPoint1 pLine1
+    (distance2, UlpSum distance2Err) = distancePPointToPLineWithErr pPoint2 pLine1
     (pPoint1, UlpSum ulpSumP1) = makePPoint2WithErr x1 y1
     (pPoint2, UlpSum ulpSumP2) = makePPoint2WithErr x2 y2
     (pLine1, UlpSum ulpPLine) = join2PPoint2WithErr pPoint1 pPoint2
-    ulpTotal1 = ulpSumP1 + ulpPLine + res1Err
-    ulpTotal2 = ulpSumP2 + ulpPLine + res2Err
+    (NPLine2 lvec, UlpSum normErr) = normalizePLine2WithErr pLine1
+    ulpTotal1 = ulpSumP1 + ulpPLine + distance1Err
+    ulpTotal2 = ulpSumP2 + ulpPLine + distance2Err
     -- make sure we do not try to create a 0 length line segment.
     (x2,y2)
      | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
@@ -1188,8 +1363,8 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
 
 prop_PPointOnPerpWithinErrRange :: ℝ -> ℝ -> ℝ -> ℝ -> Positive ℝ -> Bool
 prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
-  | res1 > d + ulpTotal1 = error $ "too big startPoint\n" <> dumpRes
-  | res2 > d + ulpTotal2 = error $ "too big endPoint\n" <> dumpRes
+  | res1 > d + realToFrac ulpTotal1 = error $ "too big startPoint\n" <> dumpRes
+  | res2 > d + realToFrac ulpTotal2 = error $ "too big endPoint\n" <> dumpRes
   | otherwise = True
   where
     dumpRes = "PPoint1: " <> show pPoint1 <> "\n"
@@ -1264,24 +1439,90 @@ prop_translateRotateMoves x y rawD rawR = distanceBetweenPPoints (translateRotat
     r = coerce rawR
     d = coerce rawD
 
+-- |ensure that a random PLine, when normed, is approximately equal to what went in.
+prop_NormPLineIsPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
+prop_NormPLineIsPLine x y dx dy = normalizePLine2 (randomPLine x y dx dy)
+                                  `myAngleBetween`
+                                  normalizePLine2 ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ randomPLine x y dx dy)
+
+prop_PLinesIntersectAtOrigin :: NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> Bool
+prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
+  | foundDistance < realToFrac errSum = True
+  | otherwise = error "wtf"
+  where
+    (originPPoint2, UlpSum originErr) = makePPoint2WithErr 0 0
+    (foundDistance, UlpSum distanceErr) = distanceBetweenPPointsWithErr originPPoint2 intersectionPPoint2
+    (intersectionPPoint2, UlpSum intersectionErr) = pLineIntersectionWithErr randomPLine1 randomPLine2
+    (randomPLine1, UlpSum pline1Err) = randomPLineThroughOrigin x y
+    (randomPLine2, UlpSum pline2Err) = randomPLineThroughOrigin x2 y2
+    errSum = intersectionErr + originErr + pline1Err + pline2Err + distanceErr
+    x,x2,y2 :: ℝ
+    x = coerce rawX
+    x2
+      | coerce rawX2 == x = if x == 1 then 2 else 1
+      | otherwise = coerce rawX2
+    y2
+      | rawY2 == y = if y == 1 then 2 else 1
+      | otherwise = rawY2
+
+prop_PLinesIntersectAtPoint :: NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
+prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
+  | foundDistance < realToFrac errSum = True
+  | otherwise = error
+                $ "wtf\n"
+                <> show foundDistance <> "\n"
+                <> show errSum <> "\n"
+                <> show targetPPoint2 <> "\n"
+                <> show targetErr <> "\n"
+                <> show foundDistance <> "\n"
+                <> show distanceErr <> "\n"
+  where
+    (targetPPoint2, UlpSum targetErr) = makePPoint2WithErr (coerce targetX) (coerce targetY)
+    (foundDistance, UlpSum distanceErr) = distanceBetweenPPointsWithErr targetPPoint2 intersectionPPoint2
+    (intersectionPPoint2, UlpSum intersectionErr) = pLineIntersectionWithErr randomPLine1 randomPLine2
+    (randomPLine1, UlpSum pline1Err) = randomPLineWithErr x y targetX targetY
+    (randomPLine2, UlpSum pline2Err) = randomPLineWithErr x2 y2 targetX targetY
+    errSum = intersectionErr + targetErr + pline1Err + pline2Err + distanceErr
+    x,x2,y2 :: ℝ
+    x = coerce rawX
+    x2
+      | coerce rawX2 == x = if x == 1 then 2 else 1
+      | otherwise = coerce rawX2
+    y2
+      | rawY2 == y = if y == 1 then 2 else 1
+      | otherwise = rawY2
+
 facetSpec :: Spec
 facetSpec = do
   describe "Stability (Points)" $ do
     it "placing a Point within UlpSum of another point results in a point a distance away thats less than the sum of both UlpSums" $
       property prop_PPointWithinErrRange
-    it "both ends of a line segment are within UlpSum of the points they were constructed with" $
-      property prop_LineSegWithinErrRange
     it "both of the points used to construct a PLine2 are within UlpSum of the PLine2" $
       property prop_PLineWithinErrRange1
     it "both of the points used to join a PLine2 are within UlpSum of the PLine2" $
       property prop_PLineWithinErrRange2
     it "a point on the perpendicular bisector is within distance+UlpSum of a PLine2" $
       property prop_PPointOnPerpWithinErrRange
+    it "a line constructed with the midpoint of a segment and a point on the perpendicular bisector is at 90 degrees to the initial segment" $
+      property prop_perpAt90Degrees
+  describe "Stability (Lines)" $ do
+    it "both ends of a line segment are within UlpSum of the points they were constructed with" $
+      property prop_LineSegWithinErrRange
+    it "a normalized line normalized again is approximately itsself" $
+      property prop_NormPLineIsPLine
   describe "Stability (Intersections)" $ do
+    it "finds that the intersection of two PLines at the origin are within the returned UlpSum" $
+      property prop_PLinesIntersectAtOrigin
+    it "finds that the intersection of two PLines at an arbitrary point are within the returned UlpSum" $
+      property prop_PLinesIntersectAtPoint
     it "finds endpoints and startpoints in equal quantities at the origin" $
       property prop_LineSegIntersectionStableAtOrigin
     it "finds endpoints and startpoints in equal quantities along the X1Y1 line" $
       property prop_LineSegIntersectionStableAtX1Y1Point
+    it "finds an endpoint and a startpoint across a quad from a bisector from the origin" $
+      property prop_QuadBisectorCrosses
+    it "finds an endpoint and a startpoint the multiple of the discante across a quad from a bisector from the origin" $
+      property prop_QuadBisectorCrossesMultiple
   describe "Arcs (Skeleton/Concave)" $ do
     it "finds the inside arcs of right angles with their sides parallel to the axises (raw)" $
       property prop_AxisAlignedRightAngles
@@ -1303,26 +1544,6 @@ facetSpec = do
       property prop_TriangleNoDivides
     it "finds the straight skeleton of a triangle (property)" $
       property prop_TriangleHasStraightSkeleton
-    it "finds the straight skeleton of a triangle (unit)" $
-      findStraightSkeleton triangle [] -->
-      Just (StraightSkeleton (slist [[makeNodeTree [ENode (Point2 (2.0,0.0), Point2 (1.0,1.7320508075688772), Point2 (0.0,0.0))
-                                                    (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
-                                                    (UlpSum 0) 0
-                                                   ,ENode (Point2 (1.0,1.7320508075688772), Point2 (0.0,0.0), Point2 (2.0,0.0))
-                                                    (PLine2 (GVec [GVal 0.5000000000000001 (singleton (GEPlus 1)), GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
-                                                    (UlpSum 0) 0
-                                                   ,ENode (Point2 (0.0,0.0), Point2 (2.0,0.0), Point2 (1.0,1.7320508075688772))
-                                                    (PLine2 (GVec [GVal (-1.0000000000000002) (singleton (GEZero 1)), GVal 0.5000000000000001 (singleton (GEPlus 1)), GVal 0.8660254037844387 (singleton (GEPlus 2))]))
-                                                    (UlpSum 0) 0
-                                            ]
-                                            (INodeSet (slist [
-                                                              [INode (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
-                                                                     (PLine2 (GVec [GVal 0.5000000000000001 (singleton (GEPlus 1)),GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
-                                                                     (slist [PLine2 (GVec [GVal (-1.0000000000000002) (singleton (GEZero 1)), GVal 0.5000000000000001 (singleton (GEPlus 1)),GVal 0.8660254037844387 (singleton (GEPlus 2))])])
-                                                                     Nothing
-                                                              ]
-                                                             ]))
-                              ]]) (slist []))
     it "only generates one generation for a triangle" $
       property prop_TriangleStraightSkeletonHasRightGenerationCount
     it "places faces on the straight skeleton of a triangle" $
@@ -1335,30 +1556,6 @@ facetSpec = do
       property prop_SquareNoDivides
     it "finds the straight skeleton of a square (property)" $
       property prop_SquareHasStraightSkeleton
-    it "finds the straight skeleton of a square (unit)" $
-      findStraightSkeleton square [] -->
-      Just (StraightSkeleton (slist [[makeNodeTree [ENode (Point2 (-1.0,1.0), Point2 (-1.0,-1.0), Point2 (1.0,-1.0))
-                                                    (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                                    (UlpSum 0) 0
-                                                   ,ENode (Point2 (-1.0,-1.0), Point2 (1.0,-1.0), Point2 (1.0,1.0))
-                                                    (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                                    (UlpSum 0) 0
-                                                   ,ENode (Point2 (1.0,-1.0), Point2 (1.0,1.0), Point2 (-1.0,1.0))
-                                                    (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                                    (UlpSum 0) 0
-                                                   ,ENode (Point2 (1.0,1.0), Point2 (-1.0,1.0), Point2 (-1.0,-1.0))
-                                                    (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                                    (UlpSum 0) 0
-                                            ]
-                                            (INodeSet (slist [
-                                                              [INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                                                     (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                                                     (slist [PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
-                                                                            ,PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])])
-                                                                     Nothing
-                                                              ]
-                                                             ]))
-                              ]]) (slist []))
     it "only generates one generation for a square" $
       property prop_SquareStraightSkeletonHasRightGenerationCount
     it "places faces on the straight skeleton of a square" $
@@ -1367,56 +1564,10 @@ facetSpec = do
       property prop_SquareHasRightFaceCount
     it "places faces on a square in the order the line segments were given" $
       property prop_SquareFacesInOrder
-    it "finds faces from a square (unit)" $
-      facesOf (fromMaybe (error "got Nothing") $ findStraightSkeleton square []) --> slist [Face (LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,2.0)))
-                                                                                            (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                                                                            (slist [])
-                                                                                            (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475(singleton (GEPlus 2))]))
-                                                                                           ,Face (LineSeg (Point2 (1.0,1.0)) (Point2 (-2.0,0.0)))
-                                                                                            (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                                                                            (slist [])
-                                                                                            (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                                                                           ,Face (LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,-2.0)))
-                                                                                            (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                                                                            (slist [])
-                                                                                            (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                                                                           ,Face (LineSeg (Point2(-1.0,-1.0)) (Point2 (2.0,0.0)))
-                                                                                            (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                                                                            (slist [])
-                                                                                            (PLine2 (GVec [GVal  0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                                                                     ]
     it "finds no divides in a rectangle" $
       property prop_RectangleNoDivides
     it "finds the straight skeleton of a rectangle (property)" $
       property prop_RectangleHasStraightSkeleton
-    it "finds the straight skeleton of a rectangle (unit)" $
-      findStraightSkeleton rectangle [] -->
-      Just (StraightSkeleton (slist [[makeNodeTree [ENode (Point2 (-2.0,1.0), Point2 (-2.0,-1.0), Point2 (1.0,-1.0))
-                                                    (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                                    (UlpSum 0) 0
-                                                   ,ENode (Point2 (-2.0,-1.0), Point2 (1.0,-1.0), Point2 (1.0,1.0))
-                                                    (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                                    (UlpSum 0) 0
-                                                   ,ENode (Point2 (1.0,-1.0), Point2 (1.0,1.0), Point2 (-2.0,1.0))
-                                                    (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                                    (UlpSum 0) 0
-                                                   ,ENode (Point2 (1.0,1.0), Point2 (-2.0,1.0), Point2 (-2.0,-1.0))
-                                                    (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                                    (UlpSum 0) 0
-                                            ]
-                                            (INodeSet (slist [
-                                                              [INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                                                     (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                                                     (slist [])
-                                                                     (Just (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 2))])))
-                                                              ]
-                                                             ,[INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                                                     (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 2))]))
-                                                                     (slist [PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])])
-                                                                     Nothing
-                                                              ]
-                                                             ]))
-                              ]]) (slist []))
     it "only generates one generation for a rectangle" $
       property prop_RectangleStraightSkeletonHasRightGenerationCount
     it "places faces on the straight skeleton of a rectangle" $
@@ -1425,26 +1576,6 @@ facetSpec = do
       property prop_RectangleHasRightFaceCount
     it "places faces on a rectangle in the order the line segments were given" $
       property prop_RectangleFacesInOrder
-    it "finds faces from a rectangle (unit)" $
-      facesOf (fromMaybe (error "got Nothing") $ findStraightSkeleton rectangle [])
-      --> slist [
-           Face (LineSeg (Point2(1.0,-1.0)) (Point2 (0.0,2.0)))
-                (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                (slist [])
-                (PLine2 (GVec [GVal  0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-          ,Face (LineSeg (Point2 (1.0,1.0)) (Point2 (-3.0,0.0)))
-                (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                (slist [PLine2 (GVec [GVal 1.0 (singleton (GEPlus 2))])])
-                (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-          ,Face (LineSeg (Point2 (-2.0,1.0)) (Point2 (0.0,-2.0)))
-                (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                (slist [])
-                (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-          ,Face (LineSeg (Point2 (-2.0,-1.0)) (Point2 (3.0,0.0)))
-                (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                (slist [PLine2 (GVec [GVal 1.0 (singleton (GEPlus 2))])])
-                (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-          ]
     it "finds no divides in a convex dual right quad" $
       property prop_ConvexDualRightQuadNoDivides
     it "finds the straight skeleton of a convex dual right quad (property)" $
@@ -1519,7 +1650,7 @@ facetSpec = do
       averageNodes c2c3E1 c2c4E1 --> INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
                                            (slist [])
-                                           (Just (PLine2 (GVec [GVal 0.4870636221857319 (singleton (GEZero 1)), GVal 0.9807852804032305 (singleton (GEPlus 1)), GVal 0.19509032201612836 (singleton (GEPlus 2))])))
+                                           (Just (PLine2 (GVec [GVal 0.48706362218573185 (singleton (GEZero 1)), GVal 0.9807852804032305 (singleton (GEPlus 1)), GVal 0.19509032201612822 (singleton (GEPlus 2))])))
     it "finds the outside arc of two PLines intersecting at 90 degrees (c2)" $
       averageNodes c2c2E1 c2c3E1 --> INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
@@ -1537,7 +1668,7 @@ facetSpec = do
                                            (Just (PLine2 (GVec [GVal 0.75 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))])))
   describe "Motorcycles (Skeleton/Motorcycles)" $ do
     it "finds the motorcycle in our second simple shape" $
-      convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (PLine2 (GVec [GVal 1.414213562373095 (singleton (GEPlus 1))])) (UlpSum 0) 0 ]
+      convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (PLine2 (GVec [GVal 1.414213562373095 (singleton (GEPlus 1))])) (UlpSum 2.220446049250313e-16) 2.8284271247461903]
   describe "Cells (Skeleton/Cells)" $ do
     it "finds the remains from the first cell of our first simple shape." $
       remainderFrom (findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []) -->
@@ -1626,43 +1757,24 @@ facetSpec = do
                           , LineSeg (Point2 (-1.0,-1.0)) (Point2 (2.0,0.0))
                           , LineSeg (Point2 (1.0,-1.0)) (Point2 (1.0,1.0))
                           ],Nothing)])
-  describe "NodeTrees (Skeleton/Cell)" $ do
-    it "finds the NodeTree of the first cell of our third simple shape." $
-      getNodeTreeOfCell (cellFrom $ findFirstCellOfContour c2 $ findDivisions c2 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c2 []) -->
-      Right (makeNodeTree [ ENode (Point2 (0.0,0.0), Point2 (1.0,1.0), Point2 (-1.0,1.0))
-                                  (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal (-0.3826834323650897) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
-                                  (UlpSum 0) 0
-                          , ENode (Point2 (1.0,1.0), Point2 (-1.0,1.0), Point2 (-1.0,-1.0))
-                                  (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                  (UlpSum 0) 0
-                          ]
-                          (INodeSet (slist [
-                                            [INode (PLine2 (GVec [GVal (-0.541196100146197) (singleton (GEZero 1)), GVal (-0.3826834323650897) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
-                                                   (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                                    (slist [])
-                                              (Just (PLine2 (GVec [GVal (-0.4870636221857319) (singleton (GEZero 1)), GVal (-0.9807852804032305) (singleton (GEPlus 1)), GVal 0.19509032201612836 (singleton (GEPlus 2))])))
-                                            ]
-                                           ]
-                                    )
-                          )
-            )
+{-  describe "NodeTrees (Skeleton/Cell)" $ do
     it "finds the eNodes of our sixth simple shape." $
       eNodesOfOutsideContour c5 --> [
                                       ENode (Point2 (-1.0,-1.0), Point2 (1.0,-1.0),Point2 (2.0,0.0))
                                             (PLine2 (GVec [GVal (-0.5411961001461969) (fromList [GEZero 1]), GVal 0.9238795325112867 (fromList [GEPlus 1]), GVal 0.3826834323650899 (fromList [GEPlus 2])]))
-                                            (UlpSum 0) 0
+                                            (UlpSum 6.8833827526759706e-15) 1.7071067811865475
                                     , ENode (Point2 (1.0,-1.0), Point2 (2.0,0.0),Point2 (1.0,1.0))
                                             (PLine2 (GVec [GVal 1.0 (fromList [GEPlus 2])]))
-                                            (UlpSum 0) 0
+                                            (UlpSum 5.773159728050814e-15) 1.4142135623730951
                                     , ENode (Point2 (2.0,0.0), Point2 (1.0,1.0),Point2 (-1.0,1.0))
                                             (PLine2 (GVec [GVal 0.5411961001461969 (fromList [GEZero 1]), GVal (-0.9238795325112867) (fromList [GEPlus 1]), GVal 0.3826834323650899 (fromList [GEPlus 2])]))
-                                            (UlpSum 0) 0
+                                            (UlpSum 6.8833827526759706e-15) 1.7071067811865475
                                     , ENode (Point2 (1.0,1.0), Point2 (-1.0,1.0), Point2 (0.0,0.0))
                                             (PLine2 (GVec [GVal 0.541196100146197 (fromList [GEZero 1]), GVal (-0.3826834323650897) (fromList [GEPlus 1]), GVal (-0.9238795325112867) (fromList [GEPlus 2])]))
-                                            (UlpSum 0) 0
+                                            (UlpSum 5.773159728050814e-15) 1.7071067811865475
                                     , ENode (Point2 (0.0,0.0), Point2 (-1.0,-1.0), Point2 (1.0,-1.0))
                                             (PLine2 (GVec [GVal (-0.541196100146197) (fromList [GEZero 1]), GVal 0.3826834323650897 (fromList [GEPlus 1]), GVal (-0.9238795325112867) (fromList [GEPlus 2])]))
-                                            (UlpSum 0) 0]
+                                            (UlpSum 5.773159728050814e-15) 1.7071067811865475]
     it "finds the motorcycle of our sixth simple shape" $
       convexMotorcycles c5 --> [Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (singleton (GEPlus 2))])) (UlpSum 2.220446049250313e-16) 2.8284271247461903]
     it "finds the crashtree of our fifth shape." $
@@ -1670,12 +1782,13 @@ facetSpec = do
                                                  (slist [Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 2])])) (UlpSum 2.220446049250313e-16) 2.8284271247461903])
                                                  (slist []))
     it "finds the divide of our sixth shape." $
-      findDivisions c5 (fromMaybe (error "Got Nothing") $ crashMotorcycles c5 []) --> [CellDivide
-                                                                  (DividingMotorcycles
-                                                                     (Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 2])])) (UlpSum 2.220446049250313e-16) 2.8284271247461903)
-                                                                     (slist []))
-                                                                  (WithENode $ ENode (Point2 (1.0,-1.0), Point2 (2.0,0.0), Point2 (1.0,1.0)) (PLine2 (GVec [GVal 1.0 (fromList [GEPlus 2])])) (UlpSum 1.1102230246251565e-15) 1.4142135623730951)
-                                                               ]
+      findDivisions c5 (fromMaybe (error "Got Nothing") $ crashMotorcycles c5 [])
+      --> [CellDivide
+            (DividingMotorcycles
+              (Motorcycle (LineSeg (Point2 (-1.0,1.0)) (Point2 (1.0,-1.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (fromList [GEPlus 2])])) (UlpSum 2.220446049250313e-16) 2.8284271247461903)
+              (slist []))
+            (WithENode $ ENode (Point2 (1.0,-1.0), Point2 (2.0,0.0), Point2 (1.0,1.0)) (PLine2 (GVec [GVal 1.0 (fromList [GEPlus 2])])) (UlpSum 5.773159728050815e-15) 1.4142135623730951)
+          ]
     it "finds the motorcycles of our eigth simple shape." $
       convexMotorcycles c7 --> [Motorcycle (LineSeg (Point2 (0.5,1.0)) (Point2 (0.0,-1.0)), LineSeg (Point2 (0.5,0.0)) (Point2 (-0.5,1.0)))
                                            (PLine2 (GVec [GVal 0.9472135954999579 (singleton (GEZero 1)), GVal (-1.8944271909999157) (singleton (GEPlus 1)), GVal (-0.4472135954999579) (singleton (GEPlus 2))]))
@@ -1686,59 +1799,30 @@ facetSpec = do
                                            (UlpSum 4.440892098500626e-16)
                                            2.0
                                ]
+-}
     it "finds a CrashTree of our eigth simple shape." $
       crashMotorcycles c7 [] -->
         Just (CrashTree (slist $ convexMotorcycles c7)
                         (slist $ convexMotorcycles c7)
                         (slist []))
-    it "finds faces from a triangle (default order)" $
-      facesOf (fromMaybe (error "got Nothing") $ findStraightSkeleton triangle [])
-      --> slist [Face (LineSeg (Point2 (0.0,0.0)) (Point2 (2.0,0.0)))
-                 (PLine2 (GVec [GVal (-1.0) (singleton (GEZero 1)), GVal 0.5 (singleton (GEPlus 1)), GVal 0.8660254037844387 (singleton (GEPlus 2))]))
-                 (slist [])
-                 (PLine2 (GVec [GVal 0.5 (singleton (GEPlus 1)), GVal (-0.8660254037844387) (singleton (GEPlus 2))])),
-                 Face (LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,1.7320508075688772)))
-                 (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
-                 (slist [])
-                 (PLine2 (GVec [GVal (-1.0) (singleton (GEZero 1)), GVal 0.5 (singleton (GEPlus 1)), GVal 0.8660254037844387 (singleton (GEPlus 2))]))
-                ,Face (LineSeg (Point2 (1.0,1.73205080756887729)) (Point2 (-1.0,-1.7320508075688772)))
-                 (PLine2 (GVec [GVal 0.5 (singleton (GEPlus 1)), GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
-                 (slist [])
-                 (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
-                ]
-    it "finds faces from a triangle (manual order)" $
-      orderedFacesOf trianglel0 (fromMaybe (error "got Nothing") $ findStraightSkeleton triangle [])
-      --> slist [Face (LineSeg (Point2 (2.0,0.0)) (Point2 (-1.0,1.7320508075688772)))
-                      (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
-                      (slist [])
-                      (PLine2 (GVec [GVal (-1.0) (singleton (GEZero 1)), GVal 0.5 (singleton (GEPlus 1)), GVal 0.8660254037844387 (singleton (GEPlus 2))]))
-                ,Face (LineSeg (Point2 (1.0,1.73205080756887729)) (Point2 (-1.0,-1.7320508075688772)))
-                      (PLine2 (GVec [GVal 0.5 (singleton (GEPlus 1)), GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
-                      (slist [])
-                      (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
-                ,Face (LineSeg (Point2 (0.0,0.0)) (Point2 (2.0,0.0)))
-                      (PLine2 (GVec [GVal (-1.0) (singleton (GEZero 1)), GVal 0.5 (singleton (GEPlus 1)), GVal 0.8660254037844387 (singleton (GEPlus 2))]))
-                      (slist [])
-                      (PLine2 (GVec [GVal 0.5 (singleton (GEPlus 1)), GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
-                ]
   describe "insets (Skeleton/Line)" $ do
-    it "insets a triangle" $
+    it "insets a triangle (unit)" $
       addInset 1 0.25 (facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton triangle [])
-      --> ([LineSegContour (Point2 (0.4330127018922194,0.25))
+      --> ([LineSegContour (Point2 (0.4330127018922193,0.25))
                            (Point2 (1.5669872981077808,1.2320508075688772))
-                           (LineSeg (Point2 (0.4330127018922194,0.25)) (Point2 (1.1339745962155616,1.1102230246251565e-16)))
+                           (LineSeg (Point2 (0.4330127018922193,0.25)) (Point2 (1.1339745962155616,1.1102230246251565e-16)))
                            (LineSeg (Point2 (1.5669872981077808,0.2500000000000001)) (Point2 (-0.5669872981077808,0.9820508075688772)))
-                           (slist [LineSeg (Point2 (1.0,1.2320508075688772)) (Point2 (-0.5669872981077806,-0.9820508075688772))])]
+                           (slist [LineSeg (Point2 (1.0,1.2320508075688771)) (Point2 (-0.5669872981077807,-0.9820508075688772))])]
           ,[Face (LineSeg (Point2 (2.433012701892219,-0.25)) (Point2 (-2.8660254037844384,0.0)))
-                 (PLine2 (GVec [GVal (-1.0) (singleton (GEZero 1)), GVal 0.5 (singleton (GEPlus 1)), GVal 0.8660254037844387 (singleton (GEPlus 2))]))
+                 (PLine2 (GVec [GVal (-1.0000000000000002) (singleton (GEZero 1)), GVal 0.5000000000000001 (singleton (GEPlus 1)), GVal 0.8660254037844387 (singleton (GEPlus 2))]))
                  (slist [])
-                 (PLine2 (GVec [GVal 0.5 (singleton (GEPlus 1)),GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
-           ,Face (LineSeg (Point2 (1.0,2.232050807568877)) (Point2 (1.4330127018922196,-2.482050807568877)))
+                 (PLine2 (GVec [GVal 0.5000000000000001 (singleton (GEPlus 1)),GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
+           ,Face (LineSeg (Point2 (1.0,2.232050807568877)) (Point2 (1.4330127018922192,-2.482050807568877)))
                  (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
                  (slist [])
-                 (PLine2 (GVec [GVal (-1.0) (singleton (GEZero 1)), GVal 0.5 (singleton (GEPlus 1)), GVal 0.8660254037844387 (singleton (GEPlus 2))]))
-           ,Face (LineSeg (Point2 (-0.43301270189221935,-0.25)) (Point2 (1.4330127018922194,2.482050807568877)))
-                 (PLine2 (GVec [GVal 0.5 (singleton (GEPlus 1)), GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
+                 (PLine2 (GVec [GVal (-1.0000000000000002) (singleton (GEZero 1)), GVal 0.5000000000000001 (singleton (GEPlus 1)), GVal 0.8660254037844387 (singleton (GEPlus 2))]))
+           ,Face (LineSeg (Point2 (-0.43301270189221935,-0.25000000000000006)) (Point2 (1.4330127018922194,2.482050807568877)))
+                 (PLine2 (GVec [GVal 0.5000000000000001 (singleton (GEPlus 1)), GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
                  (slist [])
                  (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
            ])
@@ -1779,8 +1863,3 @@ facetSpec = do
       c7c2E1 = makeENode (Point2 (1.0,1.0)) (Point2 (0.5,1.0)) (Point2 (0.5,0.0))
       -- A simple triangle.
       triangle = makePointContour [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
-      trianglel0 = LineSeg (Point2 (2,0)) (Point2 (-1.0,sqrt 3))
-      -- A simple square.
-      square = makePointContour [Point2 (-1,1), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1)]
-      -- A simple rectangle.
-      rectangle = makePointContour [Point2 (-2,1), Point2 (-2,-1), Point2 (1,-1), Point2 (1,1)]
