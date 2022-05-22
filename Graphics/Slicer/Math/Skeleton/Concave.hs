@@ -253,15 +253,33 @@ eNodesOfOutsideContour contour = catMaybes $ onlyNodes <$> zip (linePairs contou
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
 --   Note that we normalize our output, but return it as a PLine2. this is safe, because double normalization (if it happens) only raises the ULP.
--- FIXME: poor ULP tracking on this linear math.
 getFirstArc :: Point2 -> Point2 -> Point2 -> (PLine2, UlpSum)
-getFirstArc p1 p2 p3 = (PLine2 normRes, UlpSum $ normUlp + resUlp)
+getFirstArc p1 p2 p3
   -- since we hawe two equal sides, we can draw a point ot the other side of the quad, and use it for constructing.
---  | distance p1 p2 == distance p2 p3 = (PLine2 quadSide, UlpSum quadSideErr)
---  | otherwise = (getInsideArc (PLine2 side1) (PLine2 side2), UlpSum $ side1Err + side2Err)
+  | distance p2 p1 == distance p2 p3 = (PLine2 quadRes, UlpSum $ quadErr + quadResErr)
+  {-
+  | distance p2 p1 > distance p2 p3 = scaleSide p1 p3 True (distance p2 p1 / distance p2 p3)
+  | otherwise = scaleSide p3 p1 True (distance p2 p3 / distance p2 p1)
+  -}
+  | otherwise = (getInsideArc (PLine2 side1) (PLine2 side2), UlpSum $ side1Err + side2Err)
   where
-    (NPLine2 normRes, UlpSum normUlp) = normalizePLine2WithErr res
-    (res, UlpSum resUlp) = pLineFromEndpointsWithErr p2 $ scalePoint (0.5) $ addPoints p1 p3
+    (NPLine2 side1, UlpSum side1NormErr) = normalizePLine2WithErr side1Raw
+    (side1Raw, UlpSum side1RawErr) = pLineFromEndpointsWithErr p1 p2
+    side1Err = side1NormErr+side1RawErr
+    (NPLine2 side2, UlpSum side2NormErr) = normalizePLine2WithErr side2Raw
+    (side2Raw, UlpSum side2RawErr) = pLineFromEndpointsWithErr p2 p3
+    side2Err = side2NormErr+side2RawErr
+    (NPLine2 quadRes, UlpSum quadResErr) = normalizePLine2WithErr quad
+    (quad, UlpSum quadErr) = pLineFromEndpointsWithErr p2 $ scalePoint 0.5 $ addPoints p1 p3
+    {-
+    scaleSide ps1 ps2 t v
+      | t == True = (PLine2 scaledRes, UlpSum $ scaledUlp + scaledResUlp)
+      | otherwise = (flipPLine2 $ PLine2 scaledRes, UlpSum $ scaledUlp + scaledResUlp)
+      where
+        (NPLine2 scaledRes, UlpSum scaledResUlp) = normalizePLine2WithErr scaled
+        -- FIXME: poor ULP tracking on this linear math.
+        (scaled, UlpSum scaledUlp) = pLineFromEndpointsWithErr p2 $ scalePoint 0.5 $ addPoints ps1 $ addPoints p2 $ scalePoint v $ addPoints ps2 $ negatePoint p2
+    -}
 
 -- | Find the reflex virtexes of a contour, and draw Nodes from them.
 --   This function is for use on interior contours.
