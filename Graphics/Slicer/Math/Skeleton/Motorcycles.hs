@@ -79,7 +79,7 @@ motorcycleToENode (Motorcycle (seg1,seg2) mcpath mcUlp mcMag) = ENode (startPoin
 
 -- | Find the point where the propogation from a motorcycle equals the propogation of what it impacts, taking into account the weight of a motorcycle, and the weight of what it impacts.
 motorcycleDivisor :: Motorcycle -> MotorcycleIntersection -> PPoint2
-motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle) pointOfTarget (mSpeedOf motorcycle) (tSpeedOf target)
+motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle) pointOfTarget (tSpeedOf target) (mSpeedOf motorcycle)
   where
     pointOfTarget :: PPoint2
     pointOfTarget = case target of
