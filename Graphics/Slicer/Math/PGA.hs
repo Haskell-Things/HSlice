@@ -88,8 +88,6 @@ import Data.Maybe (Maybe(Just, Nothing), maybeToList, catMaybes, fromJust, isNot
 
 import Data.Set (Set, singleton, fromList, elems)
 
-import Data.Number.BigFloat (BigFloat, PrecPlus20, Eps1)
-
 import Safe (lastMay, initSafe)
 
 import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardNegInf, TowardInf))
@@ -98,7 +96,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalar, getVals, mulScalarVec, scalarPart, valOf, vectorPart, hpDivVecScalar)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalar, getVals, mulScalarVec, scalarPart, valOf, vectorPart)
 
 import Graphics.Slicer.Math.Line (combineLineSegs, endPoint, midPoint)
 
