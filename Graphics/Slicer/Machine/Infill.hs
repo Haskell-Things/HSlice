@@ -23,7 +23,7 @@
 
 module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringPLinesVertical) where
 
-import Prelude ((+), (<$>), ($), (.), flip, (*), sqrt, (-), (<>), Ordering(EQ, GT, LT), show, error, otherwise, (==), length, concat, not, null, (!!), odd, fromIntegral, ceiling, (/), floor, Integer, compare)
+import Prelude ((+), (<$>), ($), (.), (*), sqrt, (-), Ordering(EQ, GT, LT), otherwise, (==), length, concat, not, null, (!!), fromIntegral, ceiling, (/), floor, Integer, compare)
 
 import Data.List.Ordered (sort)
 

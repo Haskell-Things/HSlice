@@ -21,8 +21,6 @@ module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandConto
 
 import Prelude (($), otherwise, Eq, (<>), show, error, (==), (&&), Bool(True, False), Show)
 
-import Data.Either (fromRight)
-
 import Data.List (null, foldl')
 
 import Data.List.Extra (unsnoc)
