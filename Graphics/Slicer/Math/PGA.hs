@@ -185,9 +185,12 @@ pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ pPointBetweenP
 
 -- NOTE: returns a canonicalized point.
 pPointBetweenPPointsWithErr :: PPoint2 -> PPoint2 -> ℝ -> ℝ -> (PPoint2, UlpSum)
-pPointBetweenPPointsWithErr (PPoint2 rawStartPoint) (PPoint2 rawStopPoint) weight1 weight2 = (PPoint2 res, UlpSum 0)
+pPointBetweenPPointsWithErr (PPoint2 rawStartPoint) (PPoint2 rawStopPoint) weight1 weight2
+  | valOf 0 foundVal == 0 = error "tried to generate an ideal point?"
+  | otherwise = canonicalizePPoint2WithErr $ PPoint2 $ res
   where
     res = addVecPair (mulScalarVec weight1 rawStartPoint) (mulScalarVec weight2 rawStopPoint)
+    foundVal = getVals [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) res
 
 -- | Find the unsigned distance between a point and a line.
 distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
@@ -201,7 +204,9 @@ distancePPointToPLineWithErr point line = (res, UlpSum $ resErr + normErr)
 
 -- FIXME: use the distance to increase ULP appropriately?
 distancePPointToNPLineWithErr :: PPoint2 -> NPLine2 -> (ℝ, UlpSum)
-distancePPointToNPLineWithErr point (NPLine2 nplvec) = (res, ulpSum)
+distancePPointToNPLineWithErr point (NPLine2 nplvec)
+  | valOf 0 foundVal == 0 = error "attempted to get the distance of an ideal point."
+  | otherwise = (res, ulpSum)
   where
     (res, UlpSum resErr)           = normOfPLine2WithErr newPLine
     (newPLine, UlpSum newPLineErr) = join2PPoint2WithErr point linePoint
@@ -211,6 +216,7 @@ distancePPointToNPLineWithErr point (NPLine2 nplvec) = (res, ulpSum)
     (PPoint2 npvec)                = forcePPoint2Basis rnpvec
     (linePoint, UlpSum lpErr)      = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
     ulpSum                         = UlpSum $ lpErr + perpLineErr + newPLineErr + resErr + nPVecErr
+    foundVal                       = getVals [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) point
 
 -- | Determine if two points are on the same side of a given line.
 pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
@@ -771,7 +777,9 @@ idealNormPPoint2WithErr ppoint = (res, ulpSum)
 -- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
 canonicalizePPoint2WithErr :: PPoint2 -> (PPoint2, UlpSum)
 canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
-  | isNothing foundVal = (point, UlpSum 0)
+  | valOf 0 foundVal == 0 = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
+  -- Handle the ID case.
+  | valOf 1 foundVal == 1 = (point, ulpSum)
   | otherwise = (res, ulpSum)
   where
     res = PPoint2 $ GVec $ foldl' addVal []
@@ -794,7 +802,7 @@ canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
 -- NOTE: Returns nothing when the PLines are (anti)parallel.
 canonicalizeIntersectionWithErr :: PLine2 -> PLine2 -> Maybe (PPoint2, UlpSum)
 canonicalizeIntersectionWithErr pl1 pl2
-  | isNothing foundVal = Nothing
+  | valOf 0 foundVal == 0 = Nothing
   | otherwise = Just (cpp1, ulpSum)
   where
     (cpp1, UlpSum canonicalizationErr) = canonicalizePPoint2WithErr pp1
