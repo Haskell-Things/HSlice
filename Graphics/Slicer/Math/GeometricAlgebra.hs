@@ -24,7 +24,7 @@
 -- | Our geometric algebra library.
 module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
 
-import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), Double, realToFrac)
+import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac)
 
 import Prelude as P (filter)
 
@@ -76,7 +76,7 @@ data GRVal = GRVal { _r :: !ℝ, _i :: !(NonEmpty GNum) }
   deriving (Eq, Generic, NFData, Show)
 
 -- | A constantly increasing sum of error. Used for increasing our error bars proportonally to error from the FPU.
-newtype UlpSum = UlpSum (Rounded 'TowardInf Double)
+newtype UlpSum = UlpSum (Rounded 'TowardInf ℝ)
   deriving (Show, Eq)
 
 -- When sorting gvals, sort the basis, THEN sort the multiplier.
@@ -119,7 +119,7 @@ addValPairWithErr v1@(GVal r1 i1) v2@(GVal r2 i2)
   | otherwise               = (sort [v1,v2],UlpSum 0)
   where
     res :: ℝ
-    res = realToFrac (realToFrac r1 + realToFrac r2 :: Rounded 'ToNearest Double)
+    res = realToFrac (realToFrac r1 + realToFrac r2 :: Rounded 'ToNearest ℝ)
 
 -- | Subtract a geometric value from another geometric value.
 subValPair :: GVal -> GVal -> [GVal]
@@ -146,7 +146,7 @@ addValWithErr dst@(dstVals, dstUlp@(UlpSum dstErr)) src@(GVal r1 _)
                                 ,UlpSum $ dstErr + abs ( realToFrac $ doubleUlp newVal))
                     where
                       newVal :: ℝ
-                      newVal = realToFrac (realToFrac (rOf a) + realToFrac r1 :: Rounded 'ToNearest Double)
+                      newVal = realToFrac (realToFrac (rOf a) + realToFrac r1 :: Rounded 'ToNearest ℝ)
   where
     sameBasis :: GVal -> [GVal] -> Maybe GVal
     sameBasis val srcVals = headMay $ P.filter (\(GVal _ i) -> i == iOf val) srcVals
@@ -231,7 +231,7 @@ likeVecPairWithErr' vec1 vec2 = results
                 simplifyVal v (GEMinus _) = Right $ GVal (-v) (singleton G0)
                 simplifyVal _ (GEZero _) = Right $ GVal 0 (singleton G0)
                 res :: ℝ
-                res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest Double)
+                res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest ℝ)
                 resUlp = UlpSum $ abs $ realToFrac $ doubleUlp res
 
 -- | Generate the unlike product of a vector pair. multiply only the values in the basis vector sets that are not the same between the two GVecs.
@@ -259,7 +259,7 @@ unlikeVecPairWithErr vec1 vec2 = results
                                                 (Just newI2) -> (Left $ GRVal res (newI1 <> newI2), resUlp)
               where
                 res :: ℝ
-                res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest Double)
+                res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest ℝ)
                 resUlp = UlpSum $ abs $ realToFrac $ doubleUlp res
 
 -- | Generate the reductive product of a vector pair. multiply only values where one of the basis vectors is eliminated by the multiplication.
@@ -292,7 +292,7 @@ reduceVecPairWithErr vec1 vec2 = results
                                                                             (Just newI2) -> (GRVal res (newI1 <> newI2), UlpSum $ abs $ realToFrac $ doubleUlp res)
                                                                               where
                                                                                 res :: ℝ
-                                                                                res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest Double)
+                                                                                res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest ℝ)
 
 -- | Generate the geometric product of a vector pair.
 mulVecPair :: GVec -> GVec -> [Either GRVal GVal]
