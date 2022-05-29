@@ -28,7 +28,7 @@ module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSp
 import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, (/=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, realToFrac, sqrt, (<), (>), (-), (/), (||), (*))
 
 -- Hspec, for writing specs.
-import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
+import Test.Hspec (describe, Spec, it, Expectation)
 
 -- QuickCheck, for writing properties.
 import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive))
@@ -47,8 +47,6 @@ import Slist.Type (Slist(Slist))
 
 import Slist (slist, len)
 
-import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardNegInf))
-
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
@@ -59,7 +57,7 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour),
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤), UlpSum(UlpSum))
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PPoint2PosErr(PPoint2PosErr), distanceBetweenPPoints, distanceBetweenPPointsWithErr, eToPPoint2, eToPLine2, eToPLine2WithErr, join2PPoint2, pLineIntersectionWithErr, translatePerp, translateRotatePPoint2, angleBetweenWithErr, distancePPointToPLine, flipPLine2, makePPoint2WithErr, normalizePLine2, normalizePLine2WithErr, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, join2PPoint2WithErr, outputIntersectsLineSeg, pPointBetweenPPointsWithErr, makePPoint2, pPointOnPerp, pToEPoint2)
+import Graphics.Slicer.Math.PGA (NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PPoint2PosErr(PPoint2PosErr), distanceBetweenPPoints, distanceBetweenPPointsWithErr, eToPPoint2, eToPLine2, join2PPoint2, pLineIntersectionWithErr, translatePerp, translateRotatePPoint2, angleBetweenWithErr, distancePPointToPLine, flipPLine2, makePPoint2WithErr, normalizePLine2, normalizePLine2WithErr, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, join2PPoint2WithErr, outputIntersectsLineSeg, pPointBetweenPPointsWithErr, makePPoint2, pPointOnPerp)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -72,12 +70,11 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
 -- Our Facet library.
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
-import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, getFirstArc, getOutsideArc, towardIntersection)
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), INodeSet(INodeSet), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Cell(Cell), MotorcycleIntersection(WithENode), getFirstLineSeg, getLastLineSeg)
+import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENode, makeENodes, averageNodes, getFirstArc, getOutsideArc, towardIntersection)
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), Cell(Cell), getFirstLineSeg, getLastLineSeg)
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
-import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Our Utility library, for making these tests easier to read.
