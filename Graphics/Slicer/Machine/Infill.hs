@@ -31,7 +31,7 @@ import Data.Maybe (Maybe(Just, Nothing), catMaybes)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg(LineSeg), addPoints, distance, makeLineSeg, minMaxPoints, xOf, yOf, roundToFifth)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg, addPoints, distance, makeLineSeg, minMaxPoints, xOf, yOf, roundToFifth)
 
 import Graphics.Slicer.Math.Intersections (getPLine2Intersections)
 
