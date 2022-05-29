@@ -21,7 +21,7 @@
 ---------------------- Infill Generation ------------------------------
 -----------------------------------------------------------------------
 
-module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringLineSegsVertical) where
+module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringPLinesVertical) where
 
 import Prelude ((+), (<$>), ($), (.), flip, (*), sqrt, (-), (<>), Ordering(EQ, GT, LT), show, error, otherwise, (==), length, concat, not, null, (!!), odd, fromIntegral, ceiling, (/), floor, Integer, compare)
 
@@ -33,7 +33,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg(LineSeg), addPoints, distance, makeLineSeg, minMaxPoints, xOf, yOf, roundToFifth)
 
-import Graphics.Slicer.Math.Intersections (getLineSegIntersections)
+import Graphics.Slicer.Math.Intersections (getPLine2Intersections)
 
 import Graphics.Slicer.Math.Line (makeLineSegs)
 
@@ -48,10 +48,10 @@ data InfillType = Diag1 | Diag2 | Vert | Horiz
 makeInfill :: Contour -> [Contour] -> ℝ -> InfillType -> [[LineSeg]]
 makeInfill contour insideContours ls layerType = catMaybes $ infillLineSegInside contour insideContours <$> infillCover layerType
     where
-      infillCover Vert = coveringLineSegsVertical contour ls
-      infillCover Horiz = coveringLineSegsHorizontal contour ls
-      infillCover Diag1 = coveringLineSegsPositive contour ls
-      infillCover Diag2 = coveringLineSegsNegative contour ls
+      infillCover Vert = coveringPLinesVertical contour ls
+      infillCover Horiz = coveringPLinesHorizontal contour ls
+      infillCover Diag1 = coveringPLinesPositive contour ls
+      infillCover Diag2 = coveringPLinesNegative contour ls
 
 -- Get the segments of an infill line that are inside of a contour, skipping space occluded by any of the child contours.
 infillLineSegInside :: Contour -> [Contour] -> PLine2 -> Maybe [LineSeg]
@@ -62,17 +62,17 @@ infillLineSegInside contour childContours line
       allLines :: [LineSeg]
       allLines = makeLineSegs allPoints
         where
-          allPoints = filterTooShort . sort . concat $ getLineSegIntersections line <$> contour:childContours
+          allPoints = filterTooShort . sort . concat $ getPLine2Intersections line <$> contour:childContours
           filterTooShort :: [Point2] -> [Point2]
           filterTooShort [] = []
           filterTooShort [a] = [a]
           filterTooShort (a:b:xs) = if roundToFifth (distance a b) == 0 then filterTooShort xs else a:filterTooShort (b:xs)
 
 -- Generate lines covering the entire contour, where each one is aligned with a +1 slope, which is to say, lines parallel to a line where x = y.
-coveringLineSegsPositive :: Contour -> ℝ -> [PLine2]
-coveringLineSegsPositive contour ls = eToPLine2 . makeSeg <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
+coveringPLinesPositive :: Contour -> ℝ -> [PLine2]
+coveringPLinesPositive contour ls = eToPLine2 . makeSeg <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
     where
-      makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope 
+      makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
       slope = Point2 (1,1)
       f v = Point2 (v-xDiff,0)
@@ -89,10 +89,10 @@ coveringLineSegsPositive contour ls = eToPLine2 . makeSeg <$> [0,lss..(xMax-xMin
       lss = sqrt $ ls*ls+ls*ls
 
 -- Generate lines covering the entire contour, where each one is aligned with a -1 slope, which is to say, lines parallel to a line where x = -y.
-coveringLineSegsNegative :: Contour -> ℝ -> [PLine2]
-coveringLineSegsNegative contour ls = eToPLine2 . makeSeg <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
+coveringPLinesNegative :: Contour -> ℝ -> [PLine2]
+coveringPLinesNegative contour ls = eToPLine2 . makeSeg <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
     where
-      makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope 
+      makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
       slope =  Point2 (1,-1)
       f v = Point2 (v+yDiff,0)
@@ -109,8 +109,8 @@ coveringLineSegsNegative contour ls = eToPLine2 . makeSeg <$> [0,lss..(xMax-xMin
       lss = sqrt $ ls*ls+ls*ls
 
 -- Generate lines covering the entire contour, where each line is aligned with the Y axis, which is to say, parallel to the Y basis vector.
-coveringLineSegsVertical :: Contour -> ℝ -> [PLine2]
-coveringLineSegsVertical contour ls = eToPLine2 . makeSeg <$> [xMin,xMin+ls..xMax]
+coveringPLinesVertical :: Contour -> ℝ -> [PLine2]
+coveringPLinesVertical contour ls = eToPLine2 . makeSeg <$> [xMin,xMin+ls..xMax]
     where
       makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
@@ -124,8 +124,8 @@ coveringLineSegsVertical contour ls = eToPLine2 . makeSeg <$> [xMin,xMin+ls..xMa
       xMax = xOf maxPoint
 
 -- Generate lines covering the entire contour, where each line is aligned with the X axis, which is to say, parallel to the X basis vector.
-coveringLineSegsHorizontal :: Contour -> ℝ -> [PLine2]
-coveringLineSegsHorizontal contour ls = eToPLine2 . makeSeg <$> [yMin,yMin+ls..yMax]
+coveringPLinesHorizontal :: Contour -> ℝ -> [PLine2]
+coveringPLinesHorizontal contour ls = eToPLine2 . makeSeg <$> [yMin,yMin+ls..yMax]
     where
       makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour

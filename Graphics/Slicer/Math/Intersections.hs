@@ -18,7 +18,7 @@
 
 {- Purpose of this file: to hold the logic and routines responsible for checking for intersections with contours, or portions of contours. -}
 
-module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getLineSegIntersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
+module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getPLine2Intersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
 
 import Prelude (Bool(True), Either(Left,Right), any, error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, not, Int, (<), (*), fst, (||), (==), length, odd, realToFrac)
 
@@ -176,8 +176,8 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
             lEnd (myseg,_) = endPoint myseg
 
 -- | Get the intersections between a PLine2 and a contour. always returns an even number of intersections.
-getLineSegIntersections :: PLine2 -> Contour -> [Point2]
-getLineSegIntersections pLine c
+getPLine2Intersections :: PLine2 -> Contour -> [Point2]
+getPLine2Intersections pLine c
   | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show pLine <> "\n" <> show res <> "\n"
   | otherwise = res
   where
