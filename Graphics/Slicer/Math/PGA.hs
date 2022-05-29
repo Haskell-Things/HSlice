@@ -31,6 +31,7 @@ module Graphics.Slicer.Math.PGA(
   PPoint2(PPoint2),
   Arcable(hasArc, outOf, ulpOfOut, outUlpMag),
   Pointable(canPoint, pPointOf, ePointOf),
+  PPoint2PosErr(PPoint2PosErr),
   angleBetweenWithErr,
   combineConsecutiveLineSegs,
   distanceBetweenPLine2sWithErr,
@@ -414,8 +415,8 @@ pLineIntersectsLineSeg (pl1, UlpSum ulpPL1) (l1, UlpSum ulpL1) ulpScale
   where
     (startDistance, UlpSum ulpStart) = distanceBetweenPPointsWithErr rawIntersection startPPoint
     (endDistance, UlpSum ulpEnd) = distanceBetweenPPointsWithErr rawIntersection endPPoint
-    (startPPoint, UlpSum startErr) = eToPPoint2WithErr $ startPoint l1
-    (endPPoint, UlpSum endErr) = eToPPoint2WithErr $ endPoint l1
+    (startPPoint, PPoint2PosErr startErr) = eToPPoint2WithErr $ startPoint l1
+    (endPPoint, PPoint2PosErr endErr) = eToPPoint2WithErr $ endPoint l1
     ulpStartSum, ulpEndSum :: ℝ
     ulpStartSum = realToFrac $ ulpTotal+ulpStart
     ulpEndSum = realToFrac $ ulpTotal+ulpEnd
@@ -460,10 +461,10 @@ lineSegIntersectsLineSeg (l1, UlpSum ulpL1) (l2, UlpSum ulpL2)
     (startDistance2, UlpSum ulpStart2) = distanceBetweenPPointsWithErr rawIntersection start2PPoint
     (endDistance1, UlpSum ulpEnd1) = distanceBetweenPPointsWithErr rawIntersection end1PPoint
     (endDistance2, UlpSum ulpEnd2) = distanceBetweenPPointsWithErr rawIntersection end2PPoint
-    (start1PPoint, UlpSum start1Err) = eToPPoint2WithErr $ startPoint l1
-    (end1PPoint, UlpSum end1Err) = eToPPoint2WithErr $ endPoint l1
-    (start2PPoint, UlpSum start2Err) = eToPPoint2WithErr $ startPoint l2
-    (end2PPoint, UlpSum end2Err) = eToPPoint2WithErr $ endPoint l2
+    (start1PPoint, PPoint2PosErr start1Err) = eToPPoint2WithErr $ startPoint l1
+    (end1PPoint, PPoint2PosErr end1Err) = eToPPoint2WithErr $ endPoint l1
+    (start2PPoint, PPoint2PosErr start2Err) = eToPPoint2WithErr $ startPoint l2
+    (end2PPoint, PPoint2PosErr end2Err) = eToPPoint2WithErr $ endPoint l2
     (pl1, UlpSum ulpPL1) = eToPLine2WithErr l1
     (pl2, UlpSum ulpPL2) = eToPLine2WithErr l2
     -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
@@ -493,9 +494,9 @@ onSegment ls i startUlp endUlp =
     (startDistance, UlpSum startDistanceUlp) = distanceBetweenPPointsWithErr startPPoint i
     (midDistance, UlpSum midDistanceUlp) = distanceBetweenPPointsWithErr midPPoint i
     (endDistance, UlpSum endDistanceUlp) = distanceBetweenPPointsWithErr endPPoint i
-    (startPPoint, UlpSum startErr) = eToPPoint2WithErr $ startPoint ls
+    (startPPoint, PPoint2PosErr startErr) = eToPPoint2WithErr $ startPoint ls
     (midPPoint, UlpSum midErr) = pPointBetweenPPointsWithErr startPPoint endPPoint 0.5 0.5
-    (endPPoint, UlpSum endErr) = eToPPoint2WithErr $ endPoint ls
+    (endPPoint, PPoint2PosErr endErr) = eToPPoint2WithErr $ endPoint ls
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
     startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ
     startFudgeFactor = realToFrac $ realToFrac startUlp + startDistanceUlp
@@ -590,23 +591,27 @@ meet2PLine2WithErr (NPLine2 plr1) (NPLine2 plr2) = (PPoint2 res,
     (PLine2 pv1) = forcePLine2Basis $ PLine2 plr1
     (PLine2 pv2) = forcePLine2Basis $ PLine2 plr2
 
+newtype PPoint2PosErr = PPoint2PosErr (Rounded 'TowardInf ℝ)
+
 -- | Create a projective point from a euclidian point.
 eToPPoint2 :: Point2 -> PPoint2
 eToPPoint2 point = fst $ eToPPoint2WithErr point
 
-eToPPoint2WithErr :: Point2 -> (PPoint2, UlpSum)
-eToPPoint2WithErr (Point2 (x,y)) = makePPoint2WithErr x y
+eToPPoint2WithErr :: Point2 -> (PPoint2, PPoint2PosErr)
+eToPPoint2WithErr (Point2 (x,y)) = (res, resULP)
+  where
+    (res, resULP) = makePPoint2WithErr x y
 
 makePPoint2 :: ℝ -> ℝ -> PPoint2
 makePPoint2 x y = fst $ makePPoint2WithErr x y
 
 -- | Create a euclidian projective point from coordinates, with error.
-makePPoint2WithErr :: ℝ -> ℝ -> (PPoint2, UlpSum)
+makePPoint2WithErr :: ℝ -> ℝ -> (PPoint2, PPoint2PosErr)
 makePPoint2WithErr x y = (pPoint
                          , ulpSum)
   where
     pPoint = PPoint2 $ GVec $ foldl' addVal [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
-    ulpSum = UlpSum $ abs (realToFrac $ doubleUlp x) + abs (realToFrac $ doubleUlp y)
+    ulpSum = PPoint2PosErr $ abs (realToFrac $ doubleUlp x) + abs (realToFrac $ doubleUlp y)
 
 -- | Create a euclidian point from a projective point.
 pToEPoint2 :: PPoint2 -> Point2
