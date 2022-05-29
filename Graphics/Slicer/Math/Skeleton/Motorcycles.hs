@@ -81,7 +81,7 @@ motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle)
   where
     pointOfTarget :: PPoint2
     pointOfTarget = case target of
-                      (WithLineSeg lineSeg) -> case outputIntersectsLineSeg motorcycle (lineSeg, UlpSum 0) of
+                      (WithLineSeg lineSeg) -> case outputIntersectsLineSeg motorcycle (lineSeg, ulpOfLineSeg lineSeg) of
                                         (Right (IntersectsIn p _)) -> p
                                         v -> error $ "impossible!\n" <> show v <> "\n" <> show lineSeg <> "\n" <> show motorcycle <> "\n" <> show target <> "\n"
                       (WithENode eNode) -> pPointOf eNode

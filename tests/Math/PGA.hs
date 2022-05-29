@@ -144,7 +144,7 @@ linearAlgSpec = do
     c1 = makePointContour cp1
     cl1 = makeLineSegContour (lineSegsOfContour c1)
     c2 = makePointContour [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
-    c2l1 = LineSeg (Point2 (0.75,0.25)) (Point2 (0,0.5))
+    c2l1 = firstLineSegOfContour c2
 
 geomAlgSpec :: Spec
 geomAlgSpec = do
