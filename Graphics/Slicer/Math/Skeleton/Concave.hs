@@ -50,13 +50,11 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, addPoints, mapWithFollower, scalePoint, fudgeFactor, startPoint, distance)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, addPoints, endPoint, mapWithFollower, scalePoint, fudgeFactor, startPoint, distance)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, isCollinear, isParallel, isAntiCollinear, noIntersection)
-
-import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, normalizePLine2WithErr, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetweenWithErr, join2PPoint2, distancePPointToPLine, distancePPointToPLineWithErr, flipPLine2, pLineFromEndpointsWithErr, NPLine2(NPLine2))
 
@@ -660,8 +658,8 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     --   Handle the the case of 3 or more nodes.
     handleThreeOrMoreNodes
       | endsAtSamePoint && contourLooped = Right $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) <> (outOf <$> iNodes)) Nothing]
-      -- FIXME: this can happen for non-loops. which means this Nothing is wrong.
-      | endsAtSamePoint && not contourLooped = error $ show ( INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) <> (outOf <$> iNodes)) Nothing])
+      -- FIXME: this can happen for non-loops. which means this Nothing is wrong. it should be the result of the intersection tree from the first and last node in the segment.
+      | endsAtSamePoint && not contourLooped = error $ show $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) <> (outOf <$> iNodes)) Nothing]
       | hasShortestNeighboringPair = Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes remainingLoop remainingLineSegs (remainingINodes <> averageOfShortestPairs)))
       | otherwise = errorLen3
       where

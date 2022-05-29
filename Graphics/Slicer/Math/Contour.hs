@@ -44,13 +44,11 @@ import Slist.Size (Size(Infinity))
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, lineSegsOfContour, minMaxPoints, xOf, yOf, startPoint, fudgeFactor,handleLineSegError, LineSegError(LineSegFromPoint,EmptyList), lineSegFromEndpoints)
+import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, lineSegsOfContour, minMaxPoints, xOf, yOf, startPoint, endPoint, fudgeFactor, makeLineSeg)
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (contourIntersectionCount, noIntersection)
-
-import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PPoint2, eToPPoint2, join2PPoint2, pLineFromEndpointsWithErr, pLineIsLeft, pPointBetweenPPoints, pPointOnPerpWithErr, pToEPoint2)
 
@@ -140,10 +138,10 @@ getLoops' segs workingLoop ultima =
 -- | Turn pairs of points into lists of points in sequence.
 --   The point pairs are the beginning and end of a line segment.
 getContours :: [(Point2,Point2)] -> [Contour]
-getContours pointPairs = fromMaybe (error "failed to flip a contour") . maybeFlipContour <$> foundContours
+getContours pointPairs = fromMaybe (error $ "failed to flip a contour\n" <> show pointPairs <> "\n") . maybeFlipContour <$> foundContours
   where
     contourAsLineSegs :: [[Point2]] -> [LineSeg]
-    contourAsLineSegs contourPointPairs = (\[a,b] -> handleLineSegError $ lineSegFromEndpoints a b) <$> contourPointPairs
+    contourAsLineSegs contourPointPairs = (\[a,b] -> makeLineSeg a b) <$> contourPointPairs
     foundContours = makeLineSegContour . contourAsLineSegs <$> mapMaybe contourLongEnough foundContourSets
     contourLongEnough :: [[Point2]] -> Maybe [[Point2]]
     contourLongEnough pts = case pts of
@@ -234,7 +232,7 @@ insideIsLeft contour
     innerPoint    = fromJust $ innerContourPoint contour
     (pline1,_)    = pLineFromEndpointsWithErr p1 p2
 
--- | Find a point on the interior of a given contour, on the perpendicular bisector of the given line segment, a given distance away from the line segment.
+-- | Find a point on the interior of a given contour, on the perpendicular bisector of the first line segment, a given distance away from the line segment.
 innerContourPoint :: Contour -> Maybe PPoint2
 innerContourPoint contour
   | odd numIntersections && perpErr < realToFrac minDistanceFromSeg = Just perpPoint
@@ -369,13 +367,9 @@ makeLineSegContour lineSegs = case lineSegs of
 
 -- | find the first line segment of a contour.
 firstLineSegOfContour :: Contour -> LineSeg
-firstLineSegOfContour c@(PointContour _ _ p1 p2 _ _) = myLineSegErrorHandler $ lineSegFromEndpoints p1 p2
-  where
-    myLineSegErrorHandler :: Either LineSegError LineSeg -> LineSeg
-    myLineSegErrorHandler e = case e of
-                                (Left (LineSegFromPoint _)) -> error $ "tried to create a line segment from a point when finding the first line segment!\nContour: " <> show c <> "\n"
-                                (Left EmptyList) -> error "unpossible!"
-                                (Right lineSeg) -> lineSeg
+firstLineSegOfContour c@(PointContour _ _ p1 p2 _ _)
+  | p1 == p2 = error $ "tried to create a line segment from a point when finding the first line segment!\nContour: " <> show c <> "\n"
+  | otherwise = makeLineSeg p1 p2
 firstLineSegOfContour (LineSegContour _ _ l1 _ _) = l1
 
 firstPointPairOfContour :: Contour -> (Point2, Point2)

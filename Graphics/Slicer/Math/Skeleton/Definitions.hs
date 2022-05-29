@@ -55,9 +55,7 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.PGA (pToEPoint2, plinesIntersectIn, PIntersection(IntersectsIn), eToPPoint2, flipPLine2, PLine2(PLine2), eToPLine2, pLineIsLeft, distanceBetweenPPointsWithErr, Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, ulpOfOut, outUlpMag))
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, lineSegsOfContour, handleLineSegError, lineSegFromEndpoints)
-
-import Graphics.Slicer.Math.Line (endPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), addVecPair)
 
@@ -242,11 +240,11 @@ isLoop inSegSets = endPoint lastSeg == startPoint firstSeg || distance (endPoint
 
 -- | get the first line segment of an ENode.
 getFirstLineSeg :: ENode -> LineSeg
-getFirstLineSeg (ENode (p1,p2,_) _ _ _) = handleLineSegError $ lineSegFromEndpoints p1 p2
+getFirstLineSeg (ENode (p1,p2,_) _ _ _) = makeLineSeg p1 p2
 
 -- | get the second line segment of an ENode.
 getLastLineSeg :: ENode -> LineSeg
-getLastLineSeg (ENode (_,p2,p3) _ _ _) = handleLineSegError $ lineSegFromEndpoints p2 p3
+getLastLineSeg (ENode (_,p2,p3) _ _ _) = makeLineSeg p2 p3
 
 -- | Get pairs of lines from the contour, including one pair that is the last line paired with the first.
 linePairs :: Contour -> [(LineSeg, LineSeg)]

@@ -20,7 +20,7 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
 -- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
-module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints, fudgeFactor, startPoint, lineSegsOfContour, LineSegError(EmptyList,LineSegFromPoint), lineSegFromEndpoints, handleLineSegError, negatePoint) where
+module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints, endPoint, fudgeFactor, startPoint, lineSegsOfContour, makeLineSeg, negatePoint) where
 
 import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, (<>), error, show, (<), (&&), negate)
 
@@ -31,8 +31,6 @@ import Control.DeepSeq (NFData)
 import Control.Parallel.Strategies (withStrategy, parList, rpar)
 
 import Control.Parallel (par, pseq)
-
-import Data.Either (Either(Left, Right))
 
 import Data.List as DL (uncons)
 
@@ -141,7 +139,7 @@ instance Eq LineSeg where
 -- | Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- it should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
 -- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
-data LineSeg = LineSeg { startPoint :: !Point2, _distanceToEnd :: !Point2 }
+data LineSeg = LineSeg { startPoint :: !Point2, endPoint :: !Point2 }
   deriving (Generic, NFData, Show)
 
 -- | a list of points around a (2d) shape.
@@ -205,43 +203,30 @@ mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` PL.zipWith f x l
                  (Just vs) -> vs
 
 -- Note: fudgefactor is to make up for Double being Double, and math not necessarilly being perfect.
--- FIXME: eliminate. perform ulp summing instead.
+-- FIXME: eliminate. perform typed ulp summing instead.
 fudgeFactor :: ℝ
 fudgeFactor = 0.000000000000002
 
+makeLineSeg :: Point2 -> Point2 -> LineSeg
+makeLineSeg p1 p2
+  | p1 == p2 = error "tried to make a zero length line segment."
+  | otherwise = LineSeg p1 p2
+
 -- | return the contour as a list of LineSegs.
 lineSegsOfContour :: Contour -> [LineSeg]
-lineSegsOfContour (PointContour _ _ p1 p2 p3 pts) = [consLineSeg p1 p2,
-                                                    consLineSeg p2 p3] <> consSegsWithPoints p3 pts p1
+lineSegsOfContour (PointContour _ _ p1 p2 p3 pts) = [makeLineSeg p1 p2,
+                                                    makeLineSeg p2 p3] <> consSegsWithPoints p3 pts p1
   where
-    consLineSeg point1 point2 = handleLineSegError $ lineSegFromEndpoints point1 point2
     consSegsWithPoints pointStart points pointEnd =
       case SL.uncons points of
-        Nothing -> [consLineSeg pointStart pointEnd]
-        (Just (headVal,tailVals)) -> consLineSeg pointStart headVal :
+        Nothing -> [makeLineSeg pointStart pointEnd]
+        (Just (headVal,tailVals)) -> makeLineSeg pointStart headVal :
                                    case safeLast tailVals of
-                                     Nothing -> [consLineSeg headVal pointEnd]
-                                     (Just lastVal) -> consSegsBetween points tailVals <> [consLineSeg lastVal pointEnd]
+                                     Nothing -> [makeLineSeg headVal pointEnd]
+                                     (Just lastVal) -> consSegsBetween points tailVals <> [makeLineSeg lastVal pointEnd]
       where
-        consSegsBetween myPoints myTailVals = (\(Slist vals _)  -> vals) $ SL.zipWith consLineSeg myPoints myTailVals
+        consSegsBetween myPoints myTailVals = (\(Slist vals _)  -> vals) $ SL.zipWith makeLineSeg myPoints myTailVals
 lineSegsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
   | size moreLines == Infinity = error "cannot handle infinite contours."
   | otherwise                  = l1:l2:lns
 
--- | Create a line segment given it's endpoints.
-lineSegFromEndpoints :: Point2 -> Point2 -> Either LineSegError LineSeg
-lineSegFromEndpoints p1 p2
-  | p1 == p2 = Left $ LineSegFromPoint p1
-  | otherwise = Right $ LineSeg p1 (addPoints (negatePoint p1) p2)
-
--- | generic handler for the error conditions of lineSegFromEndpoints
-handleLineSegError :: Either LineSegError LineSeg -> LineSeg
-handleLineSegError ln = case ln of
-      Left (LineSegFromPoint point) -> error $ "tried to construct a line segment from two identical points: " <> show point <> "\n"
-      Left EmptyList                -> error "tried to construct a line segment from an empty list."
-      Right                    line -> line
-
--- | Possible errors from lineSegFromEndpoints.
-data LineSegError = LineSegFromPoint !Point2
-                  | EmptyList
-  deriving (Eq, Show)

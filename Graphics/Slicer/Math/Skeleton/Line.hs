@@ -36,11 +36,9 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (makePointContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), (~=), mapWithFollower, mapWithPredecessor, scalePoint, addPoints, lineSegFromEndpoints, handleLineSegError)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), (~=), mapWithFollower, mapWithPredecessor, scalePoint, addPoints, endPoint, makeLineSeg)
 
 import Graphics.Slicer.Math.Intersections (intersectionOf)
-
-import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face))
 
@@ -77,12 +75,12 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     linesToRender          = maybe linesUntilEnd (min linesUntilEnd) insets
 
     -- | The line segments we are placing.
-    foundLineSegs          = [ handleLineSegError $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf newSide firstArc) (pToEPoint2 $ intersectionOf newSide lastArc) | newSide <- newSides ]
+    foundLineSegs          = [ makeLineSeg (pToEPoint2 $ intersectionOf newSide firstArc) (pToEPoint2 $ intersectionOf newSide lastArc) | newSide <- newSides ]
       where
         newSides = [ translatePerp (eToPLine2 edge) $ translateDir (-(distance+(distance * fromIntegral segmentNum))) | segmentNum <- [0..linesToRender-1] ]
 
     -- | The line where we are no longer able to fill this face. from the firstArc to the lastArc, along the point that the lines we place stop.
-    finalSide              = handleLineSegError $ lineSegFromEndpoints (pToEPoint2 $ intersectionOf finalLine firstArc) (pToEPoint2 $ intersectionOf finalLine lastArc)
+    finalSide              = makeLineSeg (pToEPoint2 $ intersectionOf finalLine firstArc) (pToEPoint2 $ intersectionOf finalLine lastArc)
       where
         finalLine = translatePerp (eToPLine2 edge) $ translateDir (distance * fromIntegral linesToRender)
 

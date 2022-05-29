@@ -31,7 +31,7 @@ import Data.Maybe (Maybe(Just, Nothing), catMaybes, maybeToList)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour, makeLineSegContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithNeighbors,lineSegFromEndpoints)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithNeighbors, makeLineSeg)
 
 import Graphics.Slicer.Math.Intersections (noIntersection)
 
@@ -106,7 +106,7 @@ modifyContour pathWidth contour direction
         findLineSeg previousln ln nextln
           -- The ideal case.
           | isIntersection previousln ln &&
-            isIntersection ln nextln        = Just $ fromRight ( error "failed to construct intersection") $ lineSegFromEndpoints (intersectionPoint (inwardAdjust previousln) (inwardAdjust ln)) (intersectionPoint (inwardAdjust ln) (inwardAdjust nextln))
+            isIntersection ln nextln        = Just $ makeLineSeg (intersectionPoint (inwardAdjust previousln) (inwardAdjust ln)) (intersectionPoint (inwardAdjust ln) (inwardAdjust nextln))
           | otherwise = error $ "no intersection?\n" <> show (isIntersection previousln ln) <> "\n" <> show (isIntersection ln nextln) <> "\n" <> show previousln <> "\n" <> show ln <> "\n" <> show nextln <> "\n"
           where
             isIntersection l1 l2 = case plinesIntersectIn (inwardAdjust l1) (inwardAdjust l2) of

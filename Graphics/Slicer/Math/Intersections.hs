@@ -20,7 +20,7 @@
 
 module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getLineSegIntersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
 
-import Prelude (Bool(True), Either(Left,Right), any, error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, not, Int, (<), (*), fst, (||), (==), realToFrac)
+import Prelude (Bool(True), Either(Left,Right), any, error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, not, Int, (<), (*), fst, (||), (==), length, odd, realToFrac)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes)
 
@@ -32,11 +32,9 @@ import Slist (len, slist)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighbors, startPoint, distance, lineSegsOfContour, lineSegFromEndpoints, handleLineSegError, fudgeFactor)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighbors, startPoint, distance, lineSegsOfContour, endPoint, fudgeFactor, makeLineSeg)
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
-
-import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (Arcable(outOf), PPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, angleBetweenWithErr, distanceBetweenPLine2sWithErr, eToPPoint2, eToNPLine2, outputIntersectsLineSeg, pLineFromEndpointsWithErr, plinesIntersectIn, pToEPoint2, normalizePLine2, ulpOfLineSeg)
 
@@ -149,10 +147,8 @@ contourIntersectionCount :: Contour -> (Point2, Point2) -> Int
 contourIntersectionCount contour (start, end) = len $ getIntersections contour (start, end)
   where
     getIntersections :: Contour -> (Point2, Point2) -> Slist (LineSeg, Maybe LineSeg, PPoint2)
-    getIntersections c pts = slist $ catMaybes $ mapWithNeighbors saneIntersection $ zip (lineSegsOfContour contour) $ intersectsWith (Left $ lineFromPoints pts) . Left <$> lineSegsOfContour c
+    getIntersections c (pt1, pt2) = slist $ catMaybes $ mapWithNeighbors saneIntersection $ zip (lineSegsOfContour contour) $ intersectsWith (Left $ makeLineSeg pt1 pt2) . Left <$> lineSegsOfContour c
       where
-        -- The line we are checking for intersections along.
-        lineFromPoints (lstart, lend) = handleLineSegError $ lineSegFromEndpoints lstart lend
         pLine = fst $ pLineFromEndpointsWithErr start end
         -- a filter for results that make sense.
         saneIntersection :: (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Maybe LineSeg, PPoint2)
@@ -169,7 +165,7 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
                                                                                                                                   then Nothing
                                                                                                                                   else error "insane"
         saneIntersection l1 l2 l3 = error
-                                    $ "insane result of saneIntersections with: " <> show pts <> "\n"
+                                    $ "insane result of saneIntersections with: " <> show pt1 <> "<->" <> show pt2 <> "\n"
                                     <> show l1 <> "\n" <> show (lEnd l1) <> "\n" <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l1) (eToNPLine2 $ lSeg l2)) <> "\n" <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
                                     <> show l2 <> "\n" <> show (lEnd l2) <> "\n" <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l2) (eToNPLine2 $ lSeg l3)) <> "\n" <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
                                     <> show l3 <> "\n" <> show (lEnd l3) <> "\n"                                                                                     <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
@@ -179,9 +175,13 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
             lEnd :: (LineSeg, Either Intersection PIntersection) -> Point2
             lEnd (myseg,_) = endPoint myseg
 
+-- | Get the intersections between a PLine2 and a contour. always returns an even number of intersections.
 getLineSegIntersections :: PLine2 -> Contour -> [Point2]
-getLineSegIntersections myline c = saneIntersections $ zip (lineSegsOfContour c) $ intersectsWith (Right myline) . Left <$> lineSegsOfContour c
+getLineSegIntersections pLine c
+  | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show pLine <> "\n" <> show res <> "\n"
+  | otherwise = res
   where
+    res = saneIntersections $ zip (lineSegsOfContour c) $ intersectsWith (Right pLine) . Left <$> lineSegsOfContour c
     saneIntersections :: [(LineSeg, Either Intersection PIntersection)] -> [Point2]
     saneIntersections xs = catMaybes $ mapWithNeighbors saneIntersection xs
       where
@@ -202,9 +202,24 @@ getLineSegIntersections myline c = saneIntersections $ zip (lineSegsOfContour c)
         saneIntersection _                               (_, Left (HitEndPoint   _ _    )) (_, Right PCollinear)          = Nothing
         saneIntersection (_, Right PCollinear)           (_, Left (HitEndPoint   _ _    )) _                              = Nothing
         saneIntersection _                               (_, Left (HitStartPoint _ _    )) (_, Right PCollinear)          = Nothing
-        -- FIXME: we should 'stitch out' collinear segments, not just ignore them.
+        -- Ignore the end and start point that comes before / after a collinear section.
+        saneIntersection (_, Right PAntiCollinear)       (_, Left (HitStartPoint _ _    )) _                              = Nothing
+        saneIntersection _                               (_, Left (HitEndPoint   _ _    )) (_, Right PAntiCollinear)      = Nothing
+        saneIntersection (_, Right PAntiCollinear)       (_, Left (HitEndPoint   _ _    )) _                              = Nothing
+        saneIntersection _                               (_, Left (HitStartPoint _ _    )) (_, Right PAntiCollinear)      = Nothing
+        -- FIXME: we should 'stitch out' (anti-)collinear segments, not just ignore them.
         saneIntersection _                               (_, Right PCollinear)              _                             = Nothing
-        saneIntersection r1 r2 r3 = error $ "insane result of intersecting a line (" <> show myline <> ") with a contour " <> show c <> "\n" <> show r1 <> "\n" <> show r2 <> "\n" <> show r3 <> "\n"
+        saneIntersection _                               (_, Right PAntiCollinear)          _                             = Nothing
+        saneIntersection l1 l2 l3 = error
+                                    $ "insane result of intersecting a line (" <> show pLine <> ") with a contour " <> show c <> "\n"
+                                    <> show l1 <> "\n" <> show (lEnd l1) <> "\n" <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l1) (eToNPLine2 $ lSeg l2)) <> "\n" <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
+                                    <> show l2 <> "\n" <> show (lEnd l2) <> "\n" <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l2) (eToNPLine2 $ lSeg l3)) <> "\n" <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
+                                    <> show l3 <> "\n" <> show (lEnd l3) <> "\n"                                                                                     <> show (angleBetweenWithErr (eToNPLine2 $ lSeg l1) $ normalizePLine2 pLine) <> "\n"
+          where
+            lSeg :: (LineSeg, Either Intersection PIntersection) -> LineSeg
+            lSeg (myseg,_) = myseg
+            lEnd :: (LineSeg, Either Intersection PIntersection) -> Point2
+            lEnd (myseg,_) = endPoint myseg
 
 -- | Get the intersection point of two lines we know have an intersection point.
 intersectionOf :: PLine2 -> PLine2 -> PPoint2

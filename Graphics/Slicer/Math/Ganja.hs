@@ -108,11 +108,9 @@ import Graphics.Slicer (ℝ)
 
 import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, pointsOfContour, firstPointPairOfContour, pointFarOutsideContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, handleLineSegError, lineSegFromEndpoints, mapWithFollower, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPoint, mapWithFollower, startPoint, makeLineSeg)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf, UlpSum)
-
-import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, makePPoint2WithErr, normalizePLine2, pToEPoint2, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, join2PPoint2, outOf, pPointBetweenPPointsWithErr, pPointOf, NPLine2(NPLine2))
 
@@ -680,7 +678,7 @@ randomLineSeg x y rawDx rawDy = fst $ randomLineSegWithErr x y rawDx rawDy
 randomLineSegWithErr :: ℝ -> ℝ -> ℝ -> ℝ -> (LineSeg, UlpSum)
 randomLineSegWithErr x1 y1 x2 y2 = (res, ulpSum)
   where
-    res = handleLineSegError $ lineSegFromEndpoints (Point2 (x1, y1)) (Point2 (x2, y2))
+    res = makeLineSeg (Point2 (x1, y1)) (Point2 (x2, y2))
     ulpSum = ulpOfLineSeg res
 
 randomPPoint2 :: ℝ -> ℝ -> (PPoint2, UlpSum)
@@ -698,7 +696,7 @@ randomPLineThroughPoint x y d = pLineFromEndpointsWithErr (Point2 (x,y)) (Point2
 randomLineSegFromPointNotX1Y1 :: ℝ -> ℝ -> ℝ -> (LineSeg, UlpSum)
 randomLineSegFromPointNotX1Y1 rawX rawY d = (res, ulpSum)
   where
-    res = handleLineSegError $ lineSegFromEndpoints (Point2 (d, d)) (Point2 (x, y))
+    res = makeLineSeg (Point2 (d, d)) (Point2 (x, y))
     (x, y)
       | rawX == 0 && rawY == 0 = (0,0.1)
       | rawX == rawY = (rawX,0.1)
@@ -709,7 +707,7 @@ randomLineSegFromPointNotX1Y1 rawX rawY d = (res, ulpSum)
 randomLineSegFromOriginNotX1Y1 :: ℝ -> ℝ -> (LineSeg, UlpSum)
 randomLineSegFromOriginNotX1Y1 rawX rawY = (res, ulpSum)
   where
-    res = handleLineSegError $ lineSegFromEndpoints (Point2 (0, 0)) (Point2 (x, y))
+    res = makeLineSeg (Point2 (0, 0)) (Point2 (x, y))
     (x, y)
       | rawX == 0 && rawY == 0 = (0,0.1)
       | rawX == rawY = (rawX,0.1)
@@ -719,7 +717,7 @@ randomLineSegFromOriginNotX1Y1 rawX rawY = (res, ulpSum)
 randomX1Y1LineSegToOrigin :: NonZero ℝ -> (LineSeg, UlpSum)
 randomX1Y1LineSegToOrigin rawD = (res, ulpSum)
   where
-    res = handleLineSegError $ lineSegFromEndpoints (Point2 (d,d)) (Point2 (0,0))
+    res = makeLineSeg (Point2 (d,d)) (Point2 (0,0))
     d :: ℝ
     d = coerce rawD
     ulpSum = ulpOfLineSeg res
@@ -727,7 +725,7 @@ randomX1Y1LineSegToOrigin rawD = (res, ulpSum)
 randomX1Y1LineSegToPoint :: NonZero ℝ -> ℝ -> (LineSeg, UlpSum)
 randomX1Y1LineSegToPoint rawD1 d2 = (res, ulpSum)
   where
-    res = handleLineSegError $ lineSegFromEndpoints (Point2 (d1,d1)) (Point2 (d2,d2))
+    res = makeLineSeg (Point2 (d1,d1)) (Point2 (d2,d2))
     d1 :: ℝ
     d1 = coerce rawD1
     ulpSum = ulpOfLineSeg res

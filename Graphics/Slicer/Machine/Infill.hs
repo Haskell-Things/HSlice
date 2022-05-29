@@ -31,7 +31,7 @@ import Data.Maybe (Maybe(Just, Nothing), catMaybes)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg(LineSeg), distance, minMaxPoints, xOf, yOf, roundToFifth)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg(LineSeg), addPoints, distance, makeLineSeg, minMaxPoints, xOf, yOf, roundToFifth)
 
 import Graphics.Slicer.Math.Intersections (getLineSegIntersections)
 
@@ -44,7 +44,7 @@ data InfillType = Diag1 | Diag2 | Vert | Horiz
 
 -- Generate infill for a layer.
 -- Basically, cover the build plane in lines, then remove the portions of those lines that are not inside of the target contour.
--- The target contour should be the innermost parameter, and the target inside contours should also be the innermost parameters.
+-- The target contour should be pre-shrunk to the innermost parameter, and the target inside contours should also be the outermost parameters.
 makeInfill :: Contour -> [Contour] -> ℝ -> InfillType -> [[LineSeg]]
 makeInfill contour insideContours ls layerType = catMaybes $ infillLineSegInside contour insideContours <$> infillCover layerType
     where
@@ -60,10 +60,7 @@ infillLineSegInside contour childContours line
   | otherwise = Nothing
     where
       allLines :: [LineSeg]
-      allLines
-        | null allPoints         = []
-        | odd $ length allPoints = error $ "found odd number of points:\n" <> show allPoints <> "\noverlaying line:\n" <> show line <> "\nonto contour:\n" <> show contour <> "\n" <> show childContours <> "\n"
-        | otherwise              = makeLineSegs allPoints
+      allLines = makeLineSegs allPoints
         where
           allPoints = filterTooShort . sort . concat $ getLineSegIntersections line <$> contour:childContours
           filterTooShort :: [Point2] -> [Point2]
@@ -73,8 +70,9 @@ infillLineSegInside contour childContours line
 
 -- Generate lines covering the entire contour, where each one is aligned with a +1 slope, which is to say, lines parallel to a line where x = y.
 coveringLineSegsPositive :: Contour -> ℝ -> [PLine2]
-coveringLineSegsPositive contour ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
+coveringLineSegsPositive contour ls = eToPLine2 . makeSeg <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
     where
+      makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope 
       (minPoint, maxPoint) = minMaxPoints contour
       slope = Point2 (1,1)
       f v = Point2 (v-xDiff,0)
@@ -92,8 +90,9 @@ coveringLineSegsPositive contour ls = eToPLine2 . flip LineSeg slope . f <$> [0,
 
 -- Generate lines covering the entire contour, where each one is aligned with a -1 slope, which is to say, lines parallel to a line where x = -y.
 coveringLineSegsNegative :: Contour -> ℝ -> [PLine2]
-coveringLineSegsNegative contour ls = eToPLine2 . flip LineSeg slope . f <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
+coveringLineSegsNegative contour ls = eToPLine2 . makeSeg <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
     where
+      makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope 
       (minPoint, maxPoint) = minMaxPoints contour
       slope =  Point2 (1,-1)
       f v = Point2 (v+yDiff,0)
@@ -111,8 +110,9 @@ coveringLineSegsNegative contour ls = eToPLine2 . flip LineSeg slope . f <$> [0,
 
 -- Generate lines covering the entire contour, where each line is aligned with the Y axis, which is to say, parallel to the Y basis vector.
 coveringLineSegsVertical :: Contour -> ℝ -> [PLine2]
-coveringLineSegsVertical contour ls = eToPLine2 . flip LineSeg slope . f <$> [xMin,xMin+ls..xMax]
+coveringLineSegsVertical contour ls = eToPLine2 . makeSeg <$> [xMin,xMin+ls..xMax]
     where
+      makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
       slope = Point2 (0,1)
       f v = Point2 (v,0)
@@ -125,8 +125,9 @@ coveringLineSegsVertical contour ls = eToPLine2 . flip LineSeg slope . f <$> [xM
 
 -- Generate lines covering the entire contour, where each line is aligned with the X axis, which is to say, parallel to the X basis vector.
 coveringLineSegsHorizontal :: Contour -> ℝ -> [PLine2]
-coveringLineSegsHorizontal contour ls = eToPLine2 . flip LineSeg slope . f <$> [yMin,yMin+ls..yMax]
+coveringLineSegsHorizontal contour ls = eToPLine2 . makeSeg <$> [yMin,yMin+ls..yMax]
     where
+      makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
       slope = Point2 (1,0)
       f v = Point2 (0,v)

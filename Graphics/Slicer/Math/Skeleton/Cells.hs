@@ -50,13 +50,11 @@ import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeT
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, distance, startPoint, fudgeFactor, handleLineSegError, lineSegFromEndpoints)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, distance, endPoint, startPoint, fudgeFactor, makeLineSeg)
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionOf)
-
-import Graphics.Slicer.Math.Line (endPoint)
 
 import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), PPoint2, PIntersection(PAntiCollinear, IntersectsIn), angleBetweenWithErr, distanceBetweenPPoints, eToPLine2, eToNPLine2, eToPPoint2, normalizePLine2, pToEPoint2, plinesIntersectIn, join2PPoint2)
 
@@ -112,7 +110,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                                                  intersectionIsBehind m = angleFound < realToFrac angleErr
                                                    where
                                                      (angleFound, UlpSum angleErr) = angleBetweenWithErr (normalizePLine2 $ outOf m) (eToNPLine2 $ lineSegToIntersection m)
-                                                 lineSegToIntersection m = handleLineSegError $ lineSegFromEndpoints (ePointOf m) (pToEPoint2 intersectionPPoint)
+                                                 lineSegToIntersection m = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
                                                  intersectionPPoint = intersectionOf (outOf firstMC) (outOf secondMC)
                                              (Slist (_:_) _) -> error "too many motorcycles."
     motorcyclesIn (CrashTree motorcycles _ _) = motorcycles
