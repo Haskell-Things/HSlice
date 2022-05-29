@@ -736,7 +736,7 @@ ulpOfPLine2 (PLine2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleUlp .
 
 -- | Get the sum of the error involved in storing the values in a given Line Segment.
 ulpOfLineSeg :: LineSeg -> UlpSum
-ulpOfLineSeg (LineSeg (Point2 (x1,y1)) (Point2 (x2,y2))) = UlpSum $ sum $ abs . realToFrac . doubleUlp <$> [x1, y1, x2, y2, x1+x2, y1+y2]
+ulpOfLineSeg (LineSeg (Point2 (x1,y1)) (Point2 (x2,y2))) = UlpSum $ sum $ abs . realToFrac . doubleUlp <$> [x1, y1, x2, y2]
 
 -- | Get the sum of the error involved in storing the values in a given PPoint2.
 ulpOfPPoint2 :: PPoint2 -> UlpSum
