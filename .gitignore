@@ -8,6 +8,7 @@ cabal-dev
 *.dyn_hi
 .hpc
 .hsenv
+.hie/
 .cabal-sandbox/
 cabal.sandbox.config
 *.prof
