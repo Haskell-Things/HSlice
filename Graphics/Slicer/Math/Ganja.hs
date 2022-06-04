@@ -81,7 +81,7 @@
 -- so we can define a Num instance for Positive.
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomENode, randomINode, randomPLine, randomLineSeg, cellFrom, remainderFrom, onlyOne) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomPLineWithErr, randomLineSeg, cellFrom, remainderFrom, onlyOne, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr) where
 
 import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
 
@@ -91,7 +91,7 @@ import Data.List (sort)
 
 import Data.List.Unique (allUnique)
 
-import Data.Maybe (Maybe(Nothing, Just), maybeToList, catMaybes)
+import Data.Maybe (Maybe(Nothing, Just), maybeToList, catMaybes, fromMaybe)
 
 import Math.Tau (tau)
 
@@ -106,19 +106,17 @@ import Test.QuickCheck (Arbitrary, Positive(Positive), NonZero(NonZero), arbitra
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
-import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, pointsOfContour)
+import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, pointsOfContour, firstPointPairOfContour, pointFarOutsideContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg(LineSeg), mapWithFollower, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPoint, mapWithFollower, startPoint, makeLineSeg)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf, UlpSum)
 
-import Graphics.Slicer.Math.Line (endPoint)
-
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, normalizePLine2, pToEPoint2, translateRotatePPoint2)
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, normalizePLine2, pToEPoint2, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, join2PPoint2, outOf, pPointBetweenPPointsWithErr, pPointOf, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
 
-import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg, makeINode, outOf, pPointOf)
+import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg, makeINode)
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
@@ -205,7 +203,7 @@ instance GanjaAble ENode where
       (plvar, plref) = toGanja (outOf eNode) (varname <> "c")
 
 instance GanjaAble Motorcycle where
-  toGanja (Motorcycle (l1, l2) outPLine) varname = (
+  toGanja (Motorcycle (l1, l2) outPLine _ _) varname = (
     l1var
     <> l2var
     <> plvar
@@ -411,6 +409,10 @@ instance Fractional (Radian a) where
   (/) (Radian r1) (Radian r2) = Radian $ r1 / r2
   fromRational a = Radian $ fromRational a
 
+instance (Ord a, Num a, Fractional a) => Fractional (Positive a) where
+  (/) (Positive r1) (Positive r2) = Positive $ r1 / r2
+  fromRational a = Positive $ fromRational a
+
 -- | Generate a random triangle.
 randomTriangle :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Contour
 randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX centerY $ makePairs dists radians
@@ -582,15 +584,57 @@ randomConvexQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt rawFirs
         | otherwise = v
       distances = [firstDistanceToCorner, thirdDistanceToCorner, secondDistanceToCorner, thirdDistanceToCorner]
 
+-- | Generate a concave four sided polygon, with the convex motorcycle impacting the opposing bend (a 'dart' per wikipedia. a chevron, or a ^.)
+-- Note: the center point is always outside of this polygon.
+randomConcaveChevronQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
+randomConcaveChevronQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+    where
+      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
+      [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance $ sort [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
+      ensureUniqueDistance :: [Positive ℝ] -> [Positive ℝ]
+      ensureUniqueDistance vals
+        | allUnique vals = vals
+        | otherwise = ensureUniqueDistance $ sort [v*m | m <- [2,3] | v <- vals]
+      thirdDistanceToCorner = secondDistanceToCorner / 2
+      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
+      [firstTilt, secondTilt] = sort $ ensureUnique $ clipRadian <$> sort [rawFirstTilt, rawSecondTilt]
+      ensureUnique :: [Radian ℝ] -> [Radian ℝ]
+      ensureUnique vals
+        | allUnique vals = vals
+        | otherwise = ensureUnique $ sort [v*m | m <- [2,3] | v <- vals]
+      radians :: [Radian ℝ]
+      radians =
+        [
+          firstTilt
+        , secondTilt
+        , flipRadian firstTilt
+        , secondTilt
+        ]
+      flipRadian :: Radian ℝ -> Radian ℝ
+      flipRadian v
+        | v < Radian pi = v + Radian pi
+        | otherwise     = v - Radian pi
+      clipRadian v
+        | v > Radian pi = v - Radian pi
+        | otherwise = v
+      distances = [firstDistanceToCorner, secondDistanceToCorner, firstDistanceToCorner, thirdDistanceToCorner]
+
 -- | generate a random polygon.
 -- Idea stolen from: https://stackoverflow.com/questions/8997099/algorithm-to-generate-random-2d-polygon
 -- note: the centerPoint is assumed to be inside of the contour.
 randomStarPoly :: ℝ -> ℝ -> [(Positive ℝ,Radian ℝ)] -> Contour
-randomStarPoly centerX centerY radianDistPairs = maybeFlipContour $ makePointContour points
+randomStarPoly centerX centerY radianDistPairs = fromMaybe dumpError $ maybeFlipContour contour
   where
-    points = pToEPoint2 <$> pointsAroundCenter
+    contour            = makePointContour points
+    points             = pToEPoint2 <$> pointsAroundCenter
     pointsAroundCenter = (\(distanceFromPoint, angle) -> translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)) <$> radianDistPairs
-    centerPPoint = eToPPoint2 $ Point2 (centerX, centerY)
+    centerPPoint       = eToPPoint2 $ Point2 (centerX, centerY)
+    dumpError          = error $ "failed to flip a contour:" <> dumpGanjas [toGanja contour, toGanja (Point2 (centerX, centerY)), toGanja outsidePLine] <> "\n"
+      where
+        outsidePLine       = join2PPoint2 myMidPoint outsidePoint
+        outsidePoint       = eToPPoint2 $ pointFarOutsideContour contour
+        (myMidPoint,_)     = pPointBetweenPPointsWithErr (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
+        (p1, p2)           = firstPointPairOfContour contour
 
 randomENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> ENode
 randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
@@ -609,24 +653,79 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
   where
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
-    pl1 = normalizePLine2 $ eToPLine2 $ getFirstLineSeg eNode
-    pl2 = normalizePLine2 $ flipPLine2 $ eToPLine2 $ getLastLineSeg eNode
+    pl1 = (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ getFirstLineSeg eNode
+    pl2 = (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ flipPLine2 $ eToPLine2 $ getLastLineSeg eNode
     intersectionPPoint = pPointOf eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
     pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
     pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
     maybeFlippedpl1 = if flipIn1 then flipPLine2 pl1 else pl1
     maybeFlippedpl2 = if flipIn2 then flipPLine2 pl2 else pl2
-    bisector1 = normalizePLine2 $ getOutsideArc pp1 maybeFlippedpl1 pp2 maybeFlippedpl2
+    bisector1 = (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ getOutsideArc pp1 (normalizePLine2 maybeFlippedpl1) pp2 (normalizePLine2 maybeFlippedpl2)
 
 -- | A helper function. constructs a random PLine.
 randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> PLine2
-randomPLine x y dx dy = eToPLine2 $ LineSeg (Point2 (coerce x, coerce y)) (Point2 (coerce dx, coerce dy))
+randomPLine x y dx dy = fst $ randomPLineWithErr x y dx dy
+
+-- | A helper function. constructs a random PLine.
+randomPLineWithErr :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (PLine2, UlpSum)
+randomPLineWithErr x y dx dy = pLineFromEndpointsWithErr (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
 
 -- | A helper function. constructs a random LineSeg.
--- FIXME: can construct 0 length segments, and fail.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
-randomLineSeg x y dx dy = LineSeg (Point2 (coerce x, coerce y)) (Point2 (coerce dx, coerce dy))
+randomLineSeg x y rawDx rawDy = fst $ randomLineSegWithErr x y rawDx rawDy
+
+randomLineSegWithErr :: ℝ -> ℝ -> ℝ -> ℝ -> (LineSeg, UlpSum)
+randomLineSegWithErr x1 y1 x2 y2 = (res, ulpSum)
+  where
+    res = makeLineSeg (Point2 (x1, y1)) (Point2 (x2, y2))
+    ulpSum = ulpOfLineSeg res
+
+-- | A PLine that does not follow the X = Y line, and does not follow the other given line.
+randomPLineThroughOrigin :: ℝ -> ℝ -> (PLine2, UlpSum)
+randomPLineThroughOrigin x y = pLineFromEndpointsWithErr (Point2 (x,y)) (Point2 (0,0))
+
+-- | A PLine that does not follow the X = Y line, and does not follow the other given line.
+randomPLineThroughPoint :: ℝ -> ℝ -> ℝ -> (PLine2, UlpSum)
+randomPLineThroughPoint x y d = pLineFromEndpointsWithErr (Point2 (x,y)) (Point2 (d,d))
+
+-- | A line segment ending at the origin. additionally, guaranteed not to be on the X = Y line.
+randomLineSegFromPointNotX1Y1 :: ℝ -> ℝ -> ℝ -> (LineSeg, UlpSum)
+randomLineSegFromPointNotX1Y1 rawX rawY d = (res, ulpSum)
+  where
+    res = makeLineSeg (Point2 (d, d)) (Point2 (x, y))
+    (x, y)
+      | rawX == 0 && rawY == 0 = (0,0.1)
+      | rawX == rawY = (rawX,0.1)
+      | otherwise = (rawX, rawY)
+    ulpSum = ulpOfLineSeg res
+
+-- | A line segment ending at the origin. additionally, guaranteed not to be on the X = Y line.
+randomLineSegFromOriginNotX1Y1 :: ℝ -> ℝ -> (LineSeg, UlpSum)
+randomLineSegFromOriginNotX1Y1 rawX rawY = (res, ulpSum)
+  where
+    res = makeLineSeg (Point2 (0, 0)) (Point2 (x, y))
+    (x, y)
+      | rawX == 0 && rawY == 0 = (0,0.1)
+      | rawX == rawY = (rawX,0.1)
+      | otherwise = (rawX, rawY)
+    ulpSum = ulpOfLineSeg res
+
+randomX1Y1LineSegToOrigin :: NonZero ℝ -> (LineSeg, UlpSum)
+randomX1Y1LineSegToOrigin rawD = (res, ulpSum)
+  where
+    res = makeLineSeg (Point2 (d,d)) (Point2 (0,0))
+    d :: ℝ
+    d = coerce rawD
+    ulpSum = ulpOfLineSeg res
+
+randomX1Y1LineSegToPoint :: NonZero ℝ -> ℝ -> (LineSeg, UlpSum)
+randomX1Y1LineSegToPoint rawD1 d2 = (res, ulpSum)
+  where
+    res = makeLineSeg (Point2 (d1,d1)) (Point2 (d2,d2))
+    d1 :: ℝ
+    d1 = coerce rawD1
+    ulpSum = ulpOfLineSeg res
 
 -- | combine two lists. for feeding into randomStarPoly.
 makePairs :: [a] -> [b] -> [(a,b)]

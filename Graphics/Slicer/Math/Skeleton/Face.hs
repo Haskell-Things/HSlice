@@ -34,17 +34,19 @@ import Safe (initSafe)
 
 import Slist.Type (Slist(Slist))
 
-import Slist (slist, isEmpty, len, init, tail, take, dropWhile, head, one)
+import Slist (slist, isEmpty, len, init, tail, take, dropWhile, head, one, last)
 
-import Slist as SL (last, reverse)
+import Slist as SL (reverse)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, distance, fudgeFactor)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc), ePointOf, getFirstLineSeg, getLastLineSeg, finalINodeOf, finalOutOf, ancestorsOf, firstInOf, isCollinear, lastInOf, sortedPLines, outOf)
+import Graphics.Slicer.Math.Intersections (isCollinear)
+
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), getFirstLineSeg, getLastLineSeg, finalINodeOf, finalOutOf, ancestorsOf, firstInOf, lastInOf, sortedPLines)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, findENodeByOutput, findINodeByOutput, firstSegOf, lastENodeOf, firstENodeOf, pathFirst, pathLast)
 
-import Graphics.Slicer.Math.PGA (PLine2)
+import Graphics.Slicer.Math.PGA (PLine2, Arcable(hasArc, outOf), ePointOf)
 
 --------------------------------------------------------------------
 -------------------------- Face Placement --------------------------
@@ -212,7 +214,7 @@ intraNodeFace nodeTree1 nodeTree2
   where
     errNodesNotNeighbors = error $ "cannot make a face from nodes that are not neighbors: \n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
     follows :: NodeTree -> NodeTree -> Bool
-    follows nt1 nt2 = isCollinear (SL.last $ firstPLinesOf nt1) (SL.last $ lastPLinesOf nt2)
+    follows nt1 nt2 = isCollinear (last $ firstPLinesOf nt1) (last $ lastPLinesOf nt2)
     isLeftOf :: NodeTree -> NodeTree -> Bool
     isLeftOf nt1 nt2 = firstSegOf nt1 == lastSegOf nt2
     isRightOf :: NodeTree -> NodeTree -> Bool
@@ -238,15 +240,15 @@ firstDescendent iNodeSet eNodeSet pLine
 
 -- | find the First INode of a PLine.
 firstINodeOfPLine :: INodeSet -> ENodeSet -> PLine2 -> INode
-firstINodeOfPLine iNodeSet eNodeSet pLine = snd $ fromMaybe (error $ "could not find INode!\nLooking for: " <> show pLine <> "\nIn InodeSet: " <> show iNodeSet <> "\n") $ findINodeByOutput iNodeSet (SL.last $ pathToFirstDescendent iNodeSet eNodeSet pLine) True
+firstINodeOfPLine iNodeSet eNodeSet pLine = snd $ fromMaybe (error $ "could not find INode!\nLooking for: " <> show pLine <> "\nIn InodeSet: " <> show iNodeSet <> "\n") $ findINodeByOutput iNodeSet (last $ pathToFirstDescendent iNodeSet eNodeSet pLine) True
 
 -- | find the last INode of a PLine.
 lastINodeOfPLine :: INodeSet -> ENodeSet -> PLine2 -> INode
-lastINodeOfPLine iNodeSet eNodeSet pLine = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput iNodeSet (SL.last $ pathToLastDescendent iNodeSet eNodeSet pLine) True
+lastINodeOfPLine iNodeSet eNodeSet pLine = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput iNodeSet (last $ pathToLastDescendent iNodeSet eNodeSet pLine) True
 
 -- | Find the parent inode of a given PLine2.
 parentINodeOfPLine :: INodeSet -> PLine2 -> INode
-parentINodeOfPLine iNodeSet pLine = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput iNodeSet pLine True
+parentINodeOfPLine iNodeSet pLine = snd $ fromMaybe (error $ "could not find INode!\nLooking for: " <> show pLine <> "\nIn INodeSet: " <> show iNodeSet <> "\n") $ findINodeByOutput iNodeSet pLine True
 
 -- | Determine if a PLine matches the output of an ENode.
 isENode :: ENodeSet -> PLine2 -> Bool

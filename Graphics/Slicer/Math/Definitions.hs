@@ -20,9 +20,11 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
 -- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
-module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints, fudgeFactor, startPoint) where
+module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints, endPoint, fudgeFactor, startPoint, lineSegsOfContour, makeLineSeg, negatePoint) where
 
-import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, zipWith, (<>), error, show, (<), (&&))
+import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, (<>), error, show, (<), (&&), negate)
+
+import Prelude as PL (zipWith)
 
 import Control.DeepSeq (NFData)
 
@@ -30,7 +32,7 @@ import Control.Parallel.Strategies (withStrategy, parList, rpar)
 
 import Control.Parallel (par, pseq)
 
-import Data.List (uncons)
+import Data.List as DL (uncons)
 
 import Data.List.Extra (unsnoc)
 
@@ -38,7 +40,13 @@ import Data.Maybe (Maybe (Just, Nothing))
 
 import GHC.Generics (Generic)
 
-import Slist.Type (Slist)
+import Slist.Type (Slist(Slist), size)
+
+import Slist.Size (Size(Infinity))
+
+import Slist (safeLast)
+
+import Slist as SL (uncons, zipWith)
 
 import Graphics.Slicer.Definitions (ℝ, ℝ2, ℝ3, Fastℕ)
 
@@ -55,32 +63,36 @@ newtype Point2 = Point2 ℝ2
 -- | A typeclass containing our basic linear algebra functions.
 class LinAlg p where
   -- | Distance between two points. needed for the equivilence instance of line, and to determine amount of extrusion.
-  distance   :: p -> p -> ℝ
+  distance    :: p -> p -> ℝ
   -- | Add the coordinates of two points
-  addPoints  :: p -> p -> p
+  addPoints   :: p -> p -> p
   -- | Scale the coordinates of a point by s
-  scalePoint :: ℝ -> p -> p
+  scalePoint  :: ℝ -> p -> p
+  -- | negate a point.
+  negatePoint :: p -> p
   -- | Are these points the same point, after rounding for printing?
-  (~=)       :: p -> p -> Bool
+  (~=)        :: p -> p -> Bool
 
 -- | perform linear algebra on 3D points.
 instance LinAlg Point3 where
-  distance p1 p2 = magnitude $ addPoints p1 (scalePoint (-1) p2)
+  distance p1 p2 = magnitude $ addPoints p1 (negatePoint p2)
     where
       magnitude (Point3 (x1,y1,z1)) = sqrt (x1 * x1 + y1 * y1 + z1 * z1)
   addPoints (Point3 (x1,y1,z1)) (Point3 (x2,y2,z2)) = Point3 (x1+x2 ,y1+y2 ,z1+z2)
   scalePoint val (Point3 (a,b,c)) = Point3 (val*a ,val*b ,val*c)
+  negatePoint (Point3 (a,b,c)) = Point3 (negate a, negate b, negate c)
   (~=) p1 p2 = roundPoint3 p1 == roundPoint3 p2
 
 -- | perform linear algebra on 2D points.
 instance LinAlg Point2 where
   distance p1 p2
     | p1 == p2 = 0
-    | otherwise = magnitude $ addPoints p1 (scalePoint (-1) p2)
+    | otherwise = magnitude $ addPoints p1 (negatePoint p2)
     where
       magnitude (Point2 (x1,y1)) = sqrt (x1 * x1 + y1 * y1)
   addPoints (Point2 (x1,y1)) (Point2 (x2,y2)) = Point2 (x1+x2, y1+y2)
   scalePoint val (Point2 (a,b)) = Point2 (val*a ,val*b)
+  negatePoint (Point2 (a,b)) = Point2 (negate a, negate b)
   (~=) p1 p2 = roundPoint2 p1 == roundPoint2 p2
 
 -- | functions for working on points as if they are in a 2D plane.
@@ -127,7 +139,7 @@ instance Eq LineSeg where
 -- | Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
 -- it should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
 -- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
-data LineSeg = LineSeg { startPoint :: !Point2, _distanceToEnd :: !Point2 }
+data LineSeg = LineSeg { startPoint :: !Point2, endPoint :: !Point2 }
   deriving (Generic, NFData, Show)
 
 -- | a list of points around a (2d) shape.
@@ -159,7 +171,7 @@ mapWithNeighbors :: (a -> a -> a -> b) -> [a] -> [b]
 mapWithNeighbors f l = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
   where
     z = zs <> [fz]
-    (fz, zs) = case uncons l of
+    (fz, zs) = case DL.uncons l of
                  Nothing -> error "Empty input list"
                  (Just (_,[])) -> error "too short of a list."
                  (Just vs) -> vs
@@ -171,10 +183,10 @@ mapWithNeighbors f l = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f
 
 -- | like map, only with current, and next item, and wrapping around so the last entry gets the first entry as next.
 mapWithFollower :: (Show a) => (a -> a -> b) -> [a] -> [b]
-mapWithFollower f l = withStrategy (parList rpar) $ z `pseq` zipWith f l z
+mapWithFollower f l = withStrategy (parList rpar) $ z `pseq` PL.zipWith f l z
   where
     z = zs <> [fz]
-    (fz, zs) = case uncons l of
+    (fz, zs) = case DL.uncons l of
                  Nothing -> error "Empty input list"
                  (Just (a,[])) -> error $ "too short of a list.\n" <> show a <> "\n"
                  (Just vs) -> vs
@@ -182,7 +194,7 @@ mapWithFollower f l = withStrategy (parList rpar) $ z `pseq` zipWith f l z
 
 -- | like map, only with previous, and current item, and wrapping around so the first entry gets the last entry as previous.
 mapWithPredecessor :: (a -> a -> b) -> [a] -> [b]
-mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` zipWith f x l
+mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` PL.zipWith f x l
   where
     x = lx:xs
     (xs, lx) = case unsnoc l of
@@ -191,5 +203,30 @@ mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` zipWith f x l
                  (Just vs) -> vs
 
 -- Note: fudgefactor is to make up for Double being Double, and math not necessarilly being perfect.
+-- FIXME: eliminate. perform typed ulp summing instead.
 fudgeFactor :: ℝ
 fudgeFactor = 0.000000000000002
+
+makeLineSeg :: Point2 -> Point2 -> LineSeg
+makeLineSeg p1 p2
+  | p1 == p2 = error "tried to make a zero length line segment."
+  | otherwise = LineSeg p1 p2
+
+-- | return the contour as a list of LineSegs.
+lineSegsOfContour :: Contour -> [LineSeg]
+lineSegsOfContour (PointContour _ _ p1 p2 p3 pts) = [makeLineSeg p1 p2,
+                                                    makeLineSeg p2 p3] <> consSegsWithPoints p3 pts p1
+  where
+    consSegsWithPoints pointStart points pointEnd =
+      case SL.uncons points of
+        Nothing -> [makeLineSeg pointStart pointEnd]
+        (Just (headVal,tailVals)) -> makeLineSeg pointStart headVal :
+                                   case safeLast tailVals of
+                                     Nothing -> [makeLineSeg headVal pointEnd]
+                                     (Just lastVal) -> consSegsBetween points tailVals <> [makeLineSeg lastVal pointEnd]
+      where
+        consSegsBetween myPoints myTailVals = (\(Slist vals _)  -> vals) $ SL.zipWith makeLineSeg myPoints myTailVals
+lineSegsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
+  | size moreLines == Infinity = error "cannot handle infinite contours."
+  | otherwise                  = l1:l2:lns
+

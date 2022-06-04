@@ -37,7 +37,7 @@ import Graphics.Slicer.Math.Contour (makePointContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2(Point2), xOf, yOf, minMaxPoints, addPoints, scalePoint)
 
-import Graphics.Slicer.Machine.Infill (infillLineSegInside, coveringLineSegsVertical)
+import Graphics.Slicer.Machine.Infill (infillLineSegInside, coveringPLinesVertical)
 
 -- | shorten a line segment by a given amount in millimeters on each end
 shortenLineBy :: ℝ -> LineSeg -> LineSeg
@@ -58,7 +58,7 @@ makeSupport :: Contour
             -> [LineSeg]
 makeSupport contour childContours lh ls = fmap (shortenLineBy $ 2 * lh)
                                           $ concat $ catMaybes $ infillLineSegInside contour (addBBox childContours)
-                                          <$> coveringLineSegsVertical contour ls
+                                          <$> coveringPLinesVertical contour ls
 
 -- A bounding box. a box around a contour.
 -- FIXME: built into the contours, now.

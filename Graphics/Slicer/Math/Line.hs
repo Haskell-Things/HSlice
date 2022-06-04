@@ -18,72 +18,30 @@
  -}
 
 -- | The purpose of this file is to hold line segment arithmatic. really, we used to have a linear algebra implementation here, before we moved to PGA.
-module Graphics.Slicer.Math.Line (LineSegError(LineSegFromPoint, EmptyList), lineSegFromEndpoints, makeLineSeg, makeLineSegs, midPoint, endPoint, pointAtZValue, pointsFromLineSegs, flipLineSeg, combineLineSegs, handleLineSegError) where
+module Graphics.Slicer.Math.Line (makeLineSeg, makeLineSegs, pointAtZValue, flipLineSeg, combineLineSegs) where
 
-import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), Eq, (<$>), Show, error, zipWith, (<>), show, Either(Left, Right))
-
-import Data.Either (fromRight)
-
-import Data.List.Extra (unsnoc)
+import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), error, zipWith, (<>), show)
 
 import Data.Maybe (Maybe(Just, Nothing))
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), LineSeg(LineSeg), Point2, addPoints, scalePoint, zOf, flatten)
-
--- | Possible errors from lineSegFromEndpoints.
-data LineSegError = LineSegFromPoint !Point2
-                  | EmptyList
-  deriving (Eq, Show)
-
--- | Create a line segment given it's endpoints.
-lineSegFromEndpoints :: Point2 -> Point2 -> Either LineSegError LineSeg
-lineSegFromEndpoints p1 p2
-  | p1 == p2 = Left $ LineSegFromPoint p1
-  | otherwise = Right $ LineSeg p1 (addPoints (scalePoint (-1) p1) p2)
-
--- | generic handler for the error conditions of lineSegFromEndpoints
-handleLineSegError :: Either LineSegError LineSeg -> LineSeg
-handleLineSegError ln = case ln of
-      Left (LineSegFromPoint point) -> error $ "tried to construct a line segment from two identical points: " <> show point <> "\n"
-      Left EmptyList                -> error "tried to construct a line segment from an empty list."
-      Right                    line -> line
-
--- | Take a list of line segments, connected at their end points, and generate a list of the points in order.
-pointsFromLineSegs :: [LineSeg] -> Either LineSegError [Point2]
-pointsFromLineSegs lineSegs =  case unsnoc $ endpointsOf lineSegs of
-                                 Nothing -> Left EmptyList
-                                 Just (i,l) -> Right $ l: i
-  where
-    endpointsOf :: [LineSeg] -> [Point2]
-    endpointsOf ls = endPoint <$> ls
+import Graphics.Slicer.Math.Definitions (Point3(Point3), LineSeg(LineSeg), Point2, addPoints, scalePoint, zOf, flatten, makeLineSeg)
 
 -- | Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). Only call this if p2 == p3 and the lines are really close to parallel
 combineLineSegs :: LineSeg -> LineSeg -> Maybe LineSeg
-combineLineSegs l1@(LineSeg p _) l2@(LineSeg p1 s1) = if endPoint l2 == p -- If line 2 ends where line 1 begins:
-                                                      then Nothing -- handle a contour that loops back on itsself.
-                                                      else Just $ fromRight (error $ "cannot combine lines: " <> show l1 <> "\n" <> show l2 <> "\n") $ lineSegFromEndpoints p (addPoints p1 s1)
-
--- | Get the midpoint of a line segment
-midPoint :: LineSeg -> Point2
-midPoint (LineSeg p s) = addPoints p (scalePoint 0.5 s)
-
--- | Get the endpoint of a line segment.
-endPoint :: LineSeg -> Point2
-endPoint (LineSeg p s) = addPoints p s
+combineLineSegs (LineSeg s1 _) (LineSeg _ e2) = if s1 == e2 -- If line 2 ends where line 1 begins:
+                                                then Nothing -- handle a contour that loops back on itsself.
+                                                else Just $ LineSeg s1 e2
 
 -- | Express a line segment in terms of the other endpoint
 flipLineSeg :: LineSeg -> LineSeg
-flipLineSeg l@(LineSeg _ s) = LineSeg (endPoint l) (scalePoint (-1) s)
-
-makeLineSeg :: Point2 -> Point2 -> LineSeg
-makeLineSeg p1 p2 = handleLineSegError $ lineSegFromEndpoints p1 p2
+flipLineSeg (LineSeg s e) = LineSeg e s
 
 -- | Given a list of points (in order), construct line segments that go between them.
 makeLineSegs :: [Point2] -> [LineSeg]
 makeLineSegs points = case points of
-                        [] -> error "tried to makeLineSegs a list with no points."
+                        [] -> []
                         [p] -> error $ "tried to makeLineSegs a list with only one point: " <> show p <> "\n"
                         (_h:t) -> zipWith makeLineSeg points t
 
@@ -102,4 +60,3 @@ pointAtZValue (startPoint,stopPoint) v
     (lineSegStart,lineSegEnd) = if zOf startPoint < zOf stopPoint
                                 then (startPoint,stopPoint)
                                 else (stopPoint,startPoint)
-

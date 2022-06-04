@@ -29,13 +29,13 @@
 
 -- | Common types and functions used in the code responsible for generating straight skeletons.
 
-module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Arcable(hasArc, outOf), Pointable(canPoint, ePointOf, pPointOf), ancestorsOf, eNodeToINode, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, noIntersection, isCollinear, isAntiCollinear, isParallel, intersectionOf, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, intersectionBetween, lastInOf) where
+module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<))
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<), (*), realToFrac)
 
-import Data.Either (Either(Right, Left))
+import Prelude as PL (head, last)
 
-import Data.List (filter, sortBy)
+import Data.List (filter, sortBy, nub)
 
 import Data.List.Extra (unsnoc)
 
@@ -45,51 +45,42 @@ import Data.List.Unique (count_)
 
 import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust)
 
-import Slist (len, cons, slist, isEmpty, safeLast, init)
+import Slist (len, cons, slist, isEmpty, safeLast)
 
-import Slist as SL (last)
+import Slist as SL (last, head, init)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.Contour (lineSegsOfContour)
+import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.PGA (pToEPoint2, PPoint2, plinesIntersectIn, PIntersection(PCollinear,PAntiCollinear, IntersectsIn,PParallel,PAntiParallel), eToPPoint2, flipPLine2, lineIsLeft, PLine2(PLine2), eToPLine2, pLineIsLeft, distanceBetweenPPoints, distanceBetween2PLine2s)
+import Graphics.Slicer.Math.PGA (pToEPoint2, plinesIntersectIn, PIntersection(IntersectsIn), eToPPoint2, flipPLine2, PLine2(PLine2), eToPLine2, pLineIsLeft, distanceBetweenPPointsWithErr, Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, ulpOfOut, outUlpMag), CPPoint2(CPPoint2), PPoint2(PPoint2))
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
-import Graphics.Slicer.Math.Line (handleLineSegError, lineSegFromEndpoints)
-
-import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
-
--- | Can this node be resolved into a point in 2d space?
-class Pointable a where
-  canPoint :: a -> Bool
-  pPointOf :: a -> PPoint2
-  ePointOf :: a -> Point2
-
--- | does this node have an output (resulting) pLine?
-class Arcable a where
-  hasArc :: a -> Bool
-  outOf :: a -> PLine2
+import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), addVecPair)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
+-- FIXME: a source should have a different UlpSum for it's point and it's output.
 -- FIXME: provide our own Eq instance, cause floats suck? :)
-data ENode = ENode { _inPoints :: !(Point2, Point2, Point2), _arcOut :: !PLine2 }
+data ENode = ENode { _inPoints :: !(Point2, Point2, Point2), _arcOut :: !PLine2, _arcULP :: UlpSum, _arcUlpMag :: ℝ}
   deriving Eq
   deriving stock Show
 
 instance Arcable ENode where
   -- an ENode always has an arc.
   hasArc _ = True
-  outOf (ENode _ outArc) = outArc
+  outOf (ENode _ outArc _ _) = outArc
+  ulpOfOut (ENode _ _ outUlp _) = outUlp
+  outUlpMag (ENode _ _ _ ulpMag) = ulpMag
 
 instance Pointable ENode where
   -- an ENode always contains a point.
   canPoint _ = True
   pPointOf a = eToPPoint2 $ ePointOf a
-  ePointOf (ENode (_,centerPoint,_) _) = centerPoint
+  ePointOf (ENode (_,centerPoint,_) _ _ _) = centerPoint
 
 -- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
+-- FIXME: a source should have a different UlpSum for it's point and it's output.
 data INode = INode { _firstInArc :: !PLine2, _secondInArc :: !PLine2, _moreInArcs :: !(Slist PLine2), _outArc :: !(Maybe PLine2) }
   deriving Eq
   deriving stock Show
@@ -100,6 +91,8 @@ instance Arcable INode where
   outOf (INode _ _ _ outArc) = case outArc of
                                  (Just rawOutArc) -> rawOutArc
                                  Nothing -> error "tried to get an outArc that has no output arc."
+  ulpOfOut _ = error "tried to get the ULP of the out of an INode."
+  outUlpMag _ = error "tried to get the magnitude of the ULP of the out of an INode."
 
 instance Pointable INode where
   -- an INode does not contain a point, we have to attempt to resolve one instead.
@@ -110,10 +103,10 @@ instance Pointable INode where
                   else cons firstPLine $ cons secondPLine morePLines
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
         where
-          saneIntersect (IntersectsIn _) = True
-          saneIntersect _                = False
+          saneIntersect (IntersectsIn _ _) = True
+          saneIntersect _                  = False
   -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? angle based, etc?
-  pPointOf iNode@(INode firstPLine secondPLine morePLines _)
+  pPointOf iNode@(INode firstPLine secondPLine (Slist rawPLines _) _)
     | allPointsSame = case results of
                         [] -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
                         [a] -> a
@@ -125,16 +118,20 @@ instance Pointable INode where
     where
       results = intersectionsOfPairs allPLines
       allPointsSame = case intersectionsOfPairs allPLines of
-                        [] -> error $ "no intersection of pairs for " <> show allPLines
+                        [] -> error $ "no intersection of pairs for " <> show allPLines <> "\nINode: " <> show iNode <> "\n"
                         [_] -> True
-                        points -> and $ mapWithFollower (\a b -> distanceBetweenPPoints a b < fudgeFactor) points
+                        points -> and $ mapWithFollower distanceWithinErr points
+                          where
+                            distanceWithinErr a b = res < (realToFrac err)
+                              where
+                                (res, UlpSum err) = distanceBetweenPPointsWithErr a b
       allPLines = if hasArc iNode
-                  then cons (outOf iNode) $ cons firstPLine $ cons secondPLine morePLines
-                  else cons firstPLine $ cons secondPLine morePLines
+                  then slist $ nub $ outOf iNode : firstPLine : secondPLine : rawPLines
+                  else slist $ nub $ firstPLine : secondPLine : rawPLines
       intersectionsOfPairs (Slist pLines _) = catMaybes $ (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) <$> getPairs pLines
         where
-          saneIntersect (IntersectsIn a) = Just a
-          saneIntersect _                = Nothing
+          saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
+          saneIntersect _                  = Nothing
   ePointOf a = pToEPoint2 $ pPointOf a
 
 -- Produce a list of the inputs to a given INode.
@@ -149,20 +146,22 @@ lastINodeOf (INodeSet gens) = case unsnoc (SL.last gens) of
 -- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior or the exterior of a contour.
 --   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.
 --   FIXME: Note that a new motorcycle may be created in the case of degenerate polygons... with it's inSegs being two other motorcycles.
-data Motorcycle = Motorcycle { _inCSegs :: !(LineSeg, LineSeg), _outPline :: !PLine2 }
+data Motorcycle = Motorcycle { _inCSegs :: !(LineSeg, LineSeg), _outPline :: !PLine2, outPlineULP :: UlpSum, outPlineMagnitude :: ℝ }
   deriving Eq
   deriving stock Show
 
 instance Arcable Motorcycle where
   -- A Motorcycle always has an arc, which is it's path.
   hasArc _ = True
-  outOf (Motorcycle _ outArc) = outArc
+  outOf (Motorcycle _ outArc _ _) = outArc
+  ulpOfOut (Motorcycle _ _ outUlp _) = outUlp
+  outUlpMag (Motorcycle _ _ _ outMag) = outMag
 
 instance Pointable Motorcycle where
   -- A motorcycle always contains a point.
   canPoint _ = True
   pPointOf a = eToPPoint2 $ ePointOf a
-  ePointOf (Motorcycle (_, LineSeg point _) _) = point
+  ePointOf (Motorcycle (_, LineSeg point _) _ _ _) = point
 
 -- | The motorcycles that are involved in dividing two cells.
 data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle, moreMotorcycles :: !(Slist Motorcycle) }
@@ -231,65 +230,35 @@ getPairs (x:xs) = ((x,) <$> xs) <> getPairs xs
 -- Utility functions for our solvers --
 ---------------------------------------
 
--- | convert an ENode to an INode.
-eNodeToINode :: ENode -> INode
-eNodeToINode eNode = INode (eToPLine2 $ getFirstLineSeg eNode) (eToPLine2 $ getLastLineSeg eNode) (slist []) (Just $ outOf eNode)
+-- | determine if the given line segment set contains just one loop.
+isLoop :: Slist [LineSeg] -> Bool
+isLoop inSegSets = endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
+  where
+    (lastSeg, firstSeg) = case inSegSets of
+                            (Slist [] _) -> error "no segments!"
+                            oneOrMoreSets@(Slist ((_:_:_):_) _) -> (PL.last $ SL.last oneOrMoreSets, PL.head $ SL.head oneOrMoreSets)
+                            oneOrMoreSets@(Slist (_:_:_) _) -> (PL.last $ SL.last oneOrMoreSets, PL.head $ SL.head oneOrMoreSets)
+                            (Slist _ _) -> error "just one segment?"
 
 -- | get the first line segment of an ENode.
 getFirstLineSeg :: ENode -> LineSeg
-getFirstLineSeg (ENode (p1,p2,_) _) = handleLineSegError $ lineSegFromEndpoints p1 p2
+getFirstLineSeg (ENode (p1,p2,_) _ _ _) = makeLineSeg p1 p2
 
 -- | get the second line segment of an ENode.
 getLastLineSeg :: ENode -> LineSeg
-getLastLineSeg (ENode (_,p2,p3) _) = handleLineSegError $ lineSegFromEndpoints p2 p3
-
--- | check if two lines cannot intersect.
-noIntersection :: PLine2 -> PLine2 -> Bool
-noIntersection pline1 pline2 = isCollinear pline1 pline2 || isParallel pline1 pline2 || isAntiCollinear pline1 pline2 || isAntiParallel pline1 pline2
-
--- | check if two lines are really the same line.
-isCollinear :: PLine2 -> PLine2 -> Bool
-isCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PCollinear
-
--- | check if two lines are really the same line.
-isAntiCollinear :: PLine2 -> PLine2 -> Bool
-isAntiCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiCollinear
-
--- | check if two lines are parallel.
-isParallel :: PLine2 -> PLine2 -> Bool
-isParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PParallel
-
--- | check if two lines are anti-parallel.
-isAntiParallel :: PLine2 -> PLine2 -> Bool
-isAntiParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiParallel
-
--- | Get the intersection point of two lines we know have an intersection point.
-intersectionOf :: PLine2 -> PLine2 -> PPoint2
-intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
-  where
-    saneIntersection PAntiCollinear   = error $ "cannot get the intersection of anti-collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection PCollinear       = error $ "cannot get the intersection of collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection PParallel        = error $ "cannot get the intersection of parallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection PAntiParallel    = error $ "cannot get the intersection of antiparallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection (IntersectsIn point) = point
-
--- | Get the intersection point of two lines.
-intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 PPoint2)
-intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
-  where
-    saneIntersection (IntersectsIn point) = Just $ Right point
-    saneIntersection PAntiCollinear   = Just $ Left pl1
-    saneIntersection PCollinear       = Just $ Left pl1
-    saneIntersection PParallel        = if distanceBetween2PLine2s pl1 pl2 < fudgeFactor
-                                        then Just $ Left pl1
-                                        else Nothing
-    saneIntersection PAntiParallel    = if distanceBetween2PLine2s pl1 pl2 < fudgeFactor
-                                        then Just $ Left pl1
-                                        else Nothing
+getLastLineSeg (ENode (_,p2,p3) _ _ _) = makeLineSeg p2 p3
 
 -- | Get pairs of lines from the contour, including one pair that is the last line paired with the first.
 linePairs :: Contour -> [(LineSeg, LineSeg)]
 linePairs c = mapWithFollower (,) $ lineSegsOfContour c
+-- FIXME: this implementation looks better, but causes code to break because of numeric instability?
+{-
+linePairs contour = rotateRight $ mapWithNeighbors (\a b c -> (handleLineSegError $ lineSegFromEndpoints a b,
+                                                               handleLineSegError $ lineSegFromEndpoints b c)) $ pointsOfContour contour
+  where
+    rotateLeft a = PL.last a : PL.init a
+    rotateRight a = PL.init a <> [PL.last a]
+-}
 
 -- | A smart constructor for INodes.
 makeINode :: [PLine2] -> Maybe PLine2 -> INode
@@ -340,12 +309,12 @@ ancestorsOf (INodeSet generations)
   | isEmpty generations = error "cannot get all but the last generation of INodes if there are no INodes."
   | otherwise = INodeSet ancestors
   where
-    ancestors = init generations
+    ancestors = SL.init generations
 
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe PLine2
 concavePLines seg1 seg2
-  | Just True == lineIsLeft seg1 seg2  = Just $ PLine2 $ addVecPair pv1 pv2
+  | Just True == pLineIsLeft (eToPLine2 seg1) (eToPLine2 seg2) = Just $ PLine2 $ addVecPair pv1 pv2
   | otherwise                          = Nothing
   where
     (PLine2 pv1) = eToPLine2 seg1

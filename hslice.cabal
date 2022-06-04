@@ -49,6 +49,8 @@ Common libstuff
                 -fwrite-ide-info
                 -- for stan
                 -hiedir=.hie
+                -- use enhanced precision instead of 'just' Double, if available.
+                -fexcess-precision
                 -Wall
                 -Wextra
                 -Wcompat
@@ -72,10 +74,13 @@ Library
                   , deepseq
                   , double-conversion
                   , extra
+                  , floating-bits
                   , implicit
                   , mtl
+                  , numbers
                   , parallel
                   , QuickCheck
+                  , rounded-hw
                   , safe
                   , slist >=0.2.0.0
                   , tau
@@ -96,6 +101,7 @@ Library
                     Graphics.Slicer.Math.Facet
                     Graphics.Slicer.Math.Ganja
                     Graphics.Slicer.Math.GeometricAlgebra
+                    Graphics.Slicer.Math.Intersections
                     Graphics.Slicer.Math.Line
                     Graphics.Slicer.Math.PGA
                     Graphics.Slicer.Math.Skeleton.Cells
@@ -159,6 +165,7 @@ Test-suite test-hslice
                   , hslice
                   , QuickCheck
                   , quickcheck-io
+                  , rounded-hw
                   , slist
     Type: exitcode-stdio-1.0
     Other-Modules:
