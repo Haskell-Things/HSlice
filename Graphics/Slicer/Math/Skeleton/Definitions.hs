@@ -91,6 +91,8 @@ instance Arcable INode where
   outOf (INode _ _ _ outArc) = case outArc of
                                  (Just rawOutArc) -> rawOutArc
                                  Nothing -> error "tried to get an outArc that has no output arc."
+  ulpOfOut _ = error "tried to get the ULP of the out of an INode."
+  outUlpMag _ = error "tried to get the magnitude of the ULP of the out of an INode."
 
 instance Pointable INode where
   -- an INode does not contain a point, we have to attempt to resolve one instead.
