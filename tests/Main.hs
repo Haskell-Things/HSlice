@@ -23,7 +23,7 @@
 import Prelude (($), IO)
 
 -- our testing engine.
-import Test.Hspec(hspec, describe)
+import Test.Hspec(hspec, describe, parallel)
 
 import qualified GoldenSpec.Spec as Golden
 
@@ -31,7 +31,7 @@ import qualified GoldenSpec.Spec as Golden
 import Math.PGA(contourSpec, lineSpec, linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec)
 
 main :: IO ()
-main = hspec $ do
+main = hspec $ parallel $ do
   -- run tests against the mixed algebra engine.
   describe "linear algebra calculations" linearAlgSpec
   describe "contour handling" contourSpec

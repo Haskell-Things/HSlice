@@ -38,6 +38,8 @@ import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, isNothing, fromMaybe)
 
 import Data.List (takeWhile, dropWhile, sortBy, nub)
 
+import Numeric.Rounded.Hardware (getRounded)
+
 import Data.List.Extra (unsnoc)
 
 import Slist.Type (Slist(Slist))
@@ -56,7 +58,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, isCollinear, isParallel, isAntiCollinear, noIntersection)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), PPoint2, eToPLine2, flipPLine2, normalizePLine2, normalizePLine2WithErr, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetweenWithErr, join2PPoint2, distancePPointToPLine, distancePPointToPLineWithErr, flipPLine2, pLineFromEndpointsWithErr, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalizePPoint2WithErr, eToPLine2, flipPLine2, join2CPPoint2WithErr, normalizePLine2, normalizePLine2WithErr, distanceBetweenCPPointsWithErr, pLineIsLeft, angleBetweenWithErr, distancePPointToPLine, distancePPointToPLineWithErr, flipPLine2, pLineFromEndpointsWithErr, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
@@ -169,10 +171,12 @@ averageNodes n1 n2
   | isParallel (outOf n1) (outOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
   | isCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
   | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
-  | intersectionOf (outOf n1) (outOf n2) == pPointOf n1 = error $ "intersection is AT the point of n1!\n" <> dumpInput
-  | intersectionOf (outOf n1) (outOf n2) == pPointOf n2 = error $ "intersection is AT the point of n2!\n" <> dumpInput
+  | n1Distance < getRounded n1Err = error $ "intersection is AT the point of n1!\n" <> dumpInput
+  | n2Distance < getRounded n2Err = error $ "intersection is AT the point of n2!\n" <> dumpInput
   | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (normalizePLine2 $ outOf n1) (pPointOf n2) (normalizePLine2 $ outOf n2)
   where
+    (n1Distance, UlpSum n1Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf n1) (outOf n2)) (fst $ canonicalizePPoint2WithErr $ pPointOf n1)
+    (n2Distance, UlpSum n2Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf n1) (outOf n2)) (fst $ canonicalizePPoint2WithErr $ pPointOf n2)
     dumpInput =    "Node1: " <> show n1
                 <> "\nNode2: " <> show n2
                 <> "\nNode1Out: " <> show (outOf n1)
@@ -206,14 +210,14 @@ getOutsideArc ppoint1 npline1 ppoint2 npline2
 -- Determine if the line segment formed by the two given points starts with the first point, or the second.
 -- Note that due to numeric uncertainty, we cannot rely on Eq here, and must check the sign of the angle.
 -- FIXME: shouldn't we be given an error component in our inputs?
-towardIntersection :: PPoint2 -> PLine2 -> PPoint2 -> Bool
+towardIntersection :: PPoint2 -> PLine2 -> CPPoint2 -> Bool
 towardIntersection pp1 pl1 pp2
   | d <= realToFrac dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nPLineConstructed: " <> show constructedPLine <> "\n"
   | otherwise = angleFound > realToFrac angleErr
   where
     (angleFound, UlpSum angleErr) = angleBetweenWithErr constructedPLine (normalizePLine2 pl1)
-    (d, UlpSum dErr) = distanceBetweenPPointsWithErr pp1 pp2
-    constructedPLine = normalizePLine2 $ join2PPoint2 pp1 pp2
+    (d, UlpSum dErr) = distanceBetweenCPPointsWithErr (fst $ canonicalizePPoint2WithErr pp1) pp2
+    constructedPLine = normalizePLine2 $ fst $ join2CPPoint2WithErr (fst $ canonicalizePPoint2WithErr pp1) pp2
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'acute' direction.
 --   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
@@ -697,7 +701,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
           where
             pairCloseEnough a b = res < realToFrac errRes
               where
-                (res, UlpSum errRes) = distanceBetweenPPointsWithErr a b
+                (res, UlpSum errRes) = distanceBetweenCPPointsWithErr a b
         linesCloseEnough =
           case lineIntersections of
             [] -> []
@@ -705,7 +709,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                      [] -> error "one line, no points.. makes no sense."
                      (x:_) -> [and pointsCloseEnough && foundDistance < realToFrac foundErr]
                        where
-                         (foundDistance, UlpSum foundErr) = distancePPointToPLineWithErr x a
+                         (foundDistance, UlpSum foundErr) = distancePPointToPLineWithErr ((\(CPPoint2 v) -> PPoint2 v) x) a
             (_:_) -> error
                      $ "detected multiple lines?\n"
                      <> show lineIntersections <> "\n"
@@ -883,10 +887,13 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
     distanceToIntersection :: (Pointable a, Arcable a, Show a, Pointable b, Arcable b, Show b) => a -> b -> Maybe ℝ
     distanceToIntersection node1 node2
-      | canPoint node1 && canPoint node2 && intersectsInPoint node1 node2 = Just $ max (distanceBetweenPPoints (pPointOf node1) (intersectionOf (outOf node1) (outOf node2))) (distanceBetweenPPoints (pPointOf node2) (intersectionOf (outOf node1) (outOf node2)))
-      | otherwise                                                         = Nothing
-      where
-        distanceBetweenPPoints p1 p2 = fst $ distanceBetweenPPointsWithErr p1 p2
+      | canPoint node1
+        && canPoint node2
+        && intersectsInPoint node1 node2 =
+        Just $ fst (distanceBetweenCPPointsWithErr (fst $ canonicalizePPoint2WithErr $ pPointOf node1) (intersectionOf (outOf node1) (outOf node2)))
+               `max`
+               fst (distanceBetweenCPPointsWithErr (fst $ canonicalizePPoint2WithErr $ pPointOf node2) (intersectionOf (outOf node1) (outOf node2)))
+      | otherwise = Nothing
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Bool
     intersectsInPoint node1 node2
@@ -895,5 +902,5 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                                        && (dist2 >= realToFrac dist2Err)
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, UlpSum dist1Err) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1) (outOf node2)) (pPointOf node1)
-        (dist2, UlpSum dist2Err) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1) (outOf node2)) (pPointOf node2)
+        (dist1, UlpSum dist1Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf node1) (outOf node2)) (fst $ canonicalizePPoint2WithErr $ pPointOf node1)
+        (dist2, UlpSum dist2Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf node1) (outOf node2)) (fst $ canonicalizePPoint2WithErr $ pPointOf node2)

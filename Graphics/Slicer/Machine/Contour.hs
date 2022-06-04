@@ -35,7 +35,7 @@ import Graphics.Slicer.Math.Intersections (noIntersection)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn), plinesIntersectIn, translatePerp, eToPLine2, pToEPoint2)
+import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn), plinesIntersectIn, translatePerp, eToPLine2, cPToEPoint2)
 
 import Graphics.Slicer.Definitions(ℝ)
 
@@ -111,7 +111,7 @@ modifyContour pathWidth contour direction
                                      IntersectsIn _ _ -> True
                                      _other           -> False
             intersectionPoint pl1 pl2 = case plinesIntersectIn pl1 pl2 of
-                                          IntersectsIn p2 _ -> pToEPoint2 p2
+                                          IntersectsIn p2 _ -> cPToEPoint2 p2
                                           a                 -> error $ "impossible result!\nresult: " <> show a <> "\npline 1: " <> show pl1
                                                                <> "\npline 2: " <> show pl2
                                                                <> "\nEvaluating line intersections between:\nFirst: " <> show previousln
