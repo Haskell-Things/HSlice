@@ -469,7 +469,7 @@ pgaSpec = do
     l1 = LineSeg (Point2 (1,1)) (Point2 (2,2))
 
 -- ensure that the bisector of a quad crosses the point across the quad from the bisector.
-prop_QuadBisectorCrosses :: Positive ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool 
+prop_QuadBisectorCrosses :: Positive ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
   | isEndPoint intersect1 && isStartPoint intersect2 && isEndPoint intersect3 && isEndPoint intersect4 = True
   | otherwise = error $ "missed!\n"
@@ -491,14 +491,14 @@ prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
     intersect3 = outputIntersectsLineSeg eNode (lineSeg1, lineSeg1Err)
     intersect4 = outputIntersectsLineSeg eNode (lineSeg2, lineSeg2Err)
     -- note that our bisector always intersects the origin.
-    (bisector, UlpSum bisectorUlp) = pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (x3,y3)) 
+    (bisector, UlpSum bisectorUlp) = pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (x3,y3))
     (NPLine2 bisector1, UlpSum bisector1Ulp) = normalizePLine2WithErr bisector
     bisector1Err = bisectorUlp + bisector1Ulp
     bisector2 = getFirstArc (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
     x1,y1,x2,y2 :: ℝ
-    x1 
+    x1
      | coerce rawX1 == y1 = coerce rawX1 /2
      | otherwise = coerce rawY1
     y1
@@ -547,12 +547,12 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
     intersect4 = outputIntersectsLineSeg eNode (lineSeg2, lineSeg2Err)
     -- note that our bisector always intersects the origin.
     (NPLine2 bisector1, UlpSum bisector1Ulp) = normalizePLine2WithErr bisector
-    (bisector, UlpSum bisectorUlp) = pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (x3,y3)) 
+    (bisector, UlpSum bisectorUlp) = pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (x3,y3))
     bisector1Err = bisectorUlp + bisector1Ulp
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
     x1,y1,x2,y2,times :: ℝ
-    x1 
+    x1
      | coerce rawX1 == y1 = coerce rawX1 /2
      | otherwise = coerce rawY1
     y1

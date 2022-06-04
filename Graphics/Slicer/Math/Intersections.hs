@@ -87,7 +87,7 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
     getIntersections :: Contour -> (Point2, Point2) -> Slist (LineSeg, Either Point2 CPPoint2)
     getIntersections c (pt1, pt2) = slist $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour contour) $ intersectsWith (Left $ makeLineSeg pt1 pt2) . Left <$> lineSegsOfContour c
       where
-        openCircuit v = Just <$> v 
+        openCircuit v = Just <$> v
 
 -- | Get the intersections between a PLine2 and a contour as a series of points. always returns an even number of intersections.
 getPLine2Intersections :: PLine2 -> Contour -> [Point2]
