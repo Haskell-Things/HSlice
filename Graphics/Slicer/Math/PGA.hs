@@ -663,10 +663,10 @@ makeCPPoint2 x y = fst $ makeCPPoint2WithErr x y
 -- | Create a canonical euclidian projective point from the given coordinates, with error.
 makeCPPoint2WithErr :: ℝ -> ℝ -> (CPPoint2, PPoint2PosErr)
 makeCPPoint2WithErr x y = (pPoint
-                         , ulpSum)
+                         , posErr)
   where
     pPoint = CPPoint2 $ GVec $ foldl' addVal [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
-    ulpSum = PPoint2PosErr $ abs (realToFrac $ doubleUlp x) + abs (realToFrac $ doubleUlp y)
+    posErr = PPoint2PosErr $ abs (realToFrac $ doubleUlp $ negate x) + abs (realToFrac $ doubleUlp y)
 
 -- | Create a euclidian point from a projective point.
 pToEPoint2 :: PPoint2 -> Point2
@@ -831,11 +831,15 @@ normOfPLine2 pline = fst $ normOfPLine2WithErr pline
 
 -- | find the idealized norm of a projective point.
 idealNormPPoint2WithErr :: PPoint2 -> (ℝ, UlpSum)
-idealNormPPoint2WithErr ppoint = (res, ulpSum)
+idealNormPPoint2WithErr ppoint = (res, ulpTotal)
   where
     res = sqrt preRes
     preRes = x*x+y*y
-    ulpSum = UlpSum $ abs (realToFrac $ doubleUlp $ x*x) + abs (realToFrac $ doubleUlp $ x*x) + abs (realToFrac $ doubleUlp preRes) + abs (realToFrac $ doubleUlp res)
+    ulpTotal = UlpSum
+               $ abs (realToFrac $ doubleUlp $ x*x)
+               + abs (realToFrac $ doubleUlp $ y*y)
+               + abs (realToFrac $ doubleUlp preRes)
+               + abs (realToFrac $ doubleUlp res)
     (Point2 (x,y)) = pToEPoint2 ppoint
 
 -- | canonicalize a euclidian point.
