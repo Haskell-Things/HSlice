@@ -69,7 +69,7 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _ _ _) segs = str
 getMotorcycleContourIntersections :: Motorcycle -> Contour -> [(LineSeg, Either Point2 CPPoint2)]
 getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _ _ _) c = stripInSegOutSeg $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip contourLines $ willIntersect <$> contourLines
   where
-    willIntersect :: LineSeg -> (Either Intersection PIntersection)
+    willIntersect :: LineSeg -> Either Intersection PIntersection
     willIntersect mySeg = outputIntersectsLineSeg m (mySeg, ulpOfLineSeg mySeg)
     openCircuit v = Just <$> v
     contourLines = lineSegsOfContour c

@@ -122,7 +122,7 @@ instance Pointable INode where
                         [_] -> True
                         points -> and $ mapWithFollower distanceWithinErr points
                           where
-                            distanceWithinErr a b = res < (realToFrac err)
+                            distanceWithinErr a b = res < realToFrac err
                               where
                                 (res, UlpSum err) = distanceBetweenPPointsWithErr a b
       allPLines = if hasArc iNode
