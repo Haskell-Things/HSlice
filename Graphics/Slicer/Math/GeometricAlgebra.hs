@@ -412,12 +412,12 @@ infixl 9 ⎤
 -- | Our "unlike" operator. unicode point u+23a4.
 (⎤+) :: GVec -> GVec -> (GVec, UlpSum)
 infixl 9 ⎤+
-(⎤+) v1 v2 = (GVec $ newVals
+(⎤+) v1 v2 = (GVec newVals
              , ulpTotal)
   where
     (newVals, addValErr) = foldl' addValWithErr ([], UlpSum 0) $ postProcessFilter . fst <$> res
     res = unlikeVecPairWithErr v1 v2
-    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) (addValErr) (snd <$> res)
+    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) addValErr (snd <$> res)
 
 -- | Our "reductive" operator.
 (⨅) :: GVec -> GVec -> GVec
@@ -427,12 +427,12 @@ infixl 9 ⨅
 -- | Our "reductive" operator, with attached Error.
 (⨅+) :: GVec -> GVec -> (GVec, UlpSum)
 infixl 9 ⨅+
-(⨅+) v1 v2 = (GVec $ newVals
+(⨅+) v1 v2 = (GVec newVals
              , ulpTotal)
   where
     (newVals, addValErr) = foldl' addValWithErr ([], UlpSum 0) $ postProcess . fst <$> res
     res = reduceVecPairWithErr v1 v2
-    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) (addValErr) (snd <$> res)
+    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) addValErr (snd <$> res)
 
 -- | A wedge operator. gets the wedge product of the two arguments. note that wedge = reductive minus unlike.
 (∧) :: GVec -> GVec -> GVec
