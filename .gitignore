@@ -22,5 +22,6 @@ slicer
 # build results.
 .ghc.environment.*
 Setup
+stack.yaml.lock
 cabal.project.local
 dist-newstyle/
