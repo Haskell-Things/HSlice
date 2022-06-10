@@ -248,8 +248,8 @@ innerContourPoint contour
     myMidPoint     = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
     (perpPoint, UlpSum perpErr) = pPointOnPerpWithErr source myMidPoint minDistanceFromSeg
     (otherPoint, UlpSum otherErr) = pPointOnPerpWithErr source myMidPoint (-minDistanceFromSeg)
-    numIntersections   = contourIntersectionCount contour (pToEPoint2 $ perpPoint, outsidePoint)
-    otherIntersections = contourIntersectionCount contour (pToEPoint2 $ otherPoint, outsidePoint)
+    numIntersections   = contourIntersectionCount contour (pToEPoint2 perpPoint, outsidePoint)
+    otherIntersections = contourIntersectionCount contour (pToEPoint2 otherPoint, outsidePoint)
     outsidePoint       = pointFarOutsideContour contour
     -- | the minimum measurable distance of a point from a line segment
     -- FIXME: make this smaller, make more errors.
@@ -285,7 +285,7 @@ pointFarOutsideContours contour1 contour2
   where
     minPoint1     = fst $ minMaxPoints contour1
     minPoint2     = fst $ minMaxPoints contour2
-    minPoint      = Point2 $ (min (xOf minPoint1) (xOf minPoint2),min (yOf minPoint1) (yOf minPoint2))
+    minPoint      = Point2 (min (xOf minPoint1) (xOf minPoint2),min (yOf minPoint1) (yOf minPoint2))
     (p1, p2)      = firstPointPairOfContour contour1
     (p3, p4)      = firstPointPairOfContour contour2
     firstPLine    = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 p2)
