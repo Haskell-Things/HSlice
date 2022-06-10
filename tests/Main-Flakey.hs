@@ -1,6 +1,6 @@
 {- ORMOLU_DISABLE -}
 {-
- - Copyright 2020 Julia Longtin
+ - Copyright 2022 Julia Longtin
  -
  - This program is free software: you can redistribute it and/or modify
  - it under the terms of the GNU Affero General Public License as published by
@@ -25,23 +25,10 @@ import Prelude (($), IO)
 -- our testing engine.
 import Test.Hspec(hspec, describe, parallel)
 
-import GoldenSpec.Spec (goldenSpec)
-
 -- the execution test for warnings.
-import Math.PGA(contourSpec, lineSpec, linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec)
+import Math.PGA(facetFlakeySpec)
 
 main :: IO ()
 main = hspec $ parallel $ do
-  -- run tests against the mixed algebra engine.
-  describe "linear algebra calculations" linearAlgSpec
-  describe "contour handling" contourSpec
-  describe "more contour handling" lineSpec
-  -- run tests against the Geometric Algebra engine.
-  describe "geometric algebra calculations" geomAlgSpec
-  -- run tests against the 2D Projective Geometric Algebra engine.
-  describe "2D PGA primitives" proj2DGeomAlgSpec
-  describe "2D PGA operations" pgaSpec
   -- run tests of the facet engine.
-  describe "Contour facetization algorithms" facetSpec
-  -- run the golden tests to ensure we haven't broken the serialized forms of our unit tests.
-  describe "golden tests" goldenSpec
+  describe "Contour facetization algorithms" facetFlakeySpec
