@@ -83,7 +83,7 @@
 
 module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), edgesOf, generationsOf, toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomPLineWithErr, randomLineSeg, cellFrom, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr) where
 
-import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
+import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, Int, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
 
 import Data.Coerce (coerce)
 
@@ -761,6 +761,7 @@ edgesOf faces = unwrap <$> (\(Slist a _) -> a) faces
     unwrap :: Face -> LineSeg
     unwrap (Face edge _ _ _) = edge
 
+generationsOf :: Maybe StraightSkeleton -> Int
 generationsOf Nothing = 0
 generationsOf (Just (StraightSkeleton (Slist [] _) _)) = 0
 generationsOf (Just (StraightSkeleton a@(Slist [_] _) _)) = len a
