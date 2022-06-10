@@ -60,7 +60,7 @@ canonicalizePPoint2 point = fst $ canonicalizePPoint2WithErr point
 cPPointBetweenCPPoints :: CPPoint2 -> CPPoint2 -> ℝ -> ℝ -> CPPoint2
 cPPointBetweenCPPoints start stop weight1 weight2 = fst $ cPPointBetweenCPPointsWithErr start stop weight1 weight2
 
-distanceBetweenCPPoints :: CPPoint2 -> CPPoint2 -> ℝ 
+distanceBetweenCPPoints :: CPPoint2 -> CPPoint2 -> ℝ
 distanceBetweenCPPoints point1 point2 = fst $ distanceBetweenCPPointsWithErr point1 point2
 
 -- | Find the unsigned distance between a point and a line.
