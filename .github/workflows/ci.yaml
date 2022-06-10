@@ -27,7 +27,7 @@ jobs:
       - name: build all
         run: cabal build all --enable-tests --enable-benchmarks
       - name: test all
-        run: cabal test all --enable-tests
+        run: cabal test test-hslice --enable-tests
       - name: haddock all
         run: cabal haddock all 
     strategy:
