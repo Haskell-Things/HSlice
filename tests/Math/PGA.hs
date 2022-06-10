@@ -22,16 +22,16 @@
 
 {-# LANGUAGE DataKinds #-}
 
-module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, contourSpec, lineSpec) where
+module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
 import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, (/=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, realToFrac, sqrt, (<), (>), (-), (/), (||), (*))
 
 -- Hspec, for writing specs.
-import Test.Hspec (describe, Spec, it, pendingWith, Expectation)
+import Test.Hspec (describe, Spec, it, Expectation)
 
 -- QuickCheck, for writing properties.
-import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive), verboseCheck)
+import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive))
 
 import Data.Coerce (coerce)
 
@@ -1495,19 +1495,42 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
       | rawY2 == y = if y == 1 then 2 else 1
       | otherwise = rawY2
 
+facetFlakeySpec :: Spec
+facetFlakeySpec = do
+  describe "Stability (Points)" $ do
+    it "both of the points used to construct a PLine2 are within UlpSum of the PLine2" $
+      property prop_PLineWithinErrRange1
+    it "a line constructed with the midpoint of a segment and a point on the perpendicular bisector is at 90 degrees to the initial segment" $
+      property prop_perpAt90Degrees
+  describe "Stability (Intersections)" $ do
+    it "finds that the intersection of two PLines at an arbitrary point are within the returned UlpSum" $
+      property prop_PLinesIntersectAtPoint
+    it "finds endpoints and startpoints in equal quantities along the X1Y1 line" $
+      property prop_LineSegIntersectionStableAtX1Y1Point
+    it "finds an endpoint and a startpoint across a quad from a bisector from the origin" $
+      property prop_QuadBisectorCrosses
+    it "finds an endpoint and a startpoint the multiple of the discante across a quad from a bisector from the origin" $
+      property prop_QuadBisectorCrossesMultiple
+  describe "Faces (Concave Chevron)" $ do
+    it "places faces on the straight skeleton of a concave chevron quad" $
+      property prop_ConcaveChevronQuadCanPlaceFaces
+    it "finds only four faces for any concave chevron quad" $
+      property prop_ConcaveChevronQuadHasRightFaceCount
+    it "places faces on a concave chevron quad in the order the line segments were given" $
+      property prop_ConcaveChevronQuadFacesInOrder
+  describe "Arcs (Skeleton/Concave)" $ do
+    it "finds the outside arc of two intersecting lines (inverted makeENode)" $
+      property prop_obtuseBisectorOnBiggerSide_makeENode
+
 facetSpec :: Spec
 facetSpec = do
   describe "Stability (Points)" $ do
-    it "placing a Point within a give of another point results in a point a distance away thats less than the " $
+    it "placing a Point within a the error range of another point results in a point a distance away thats less than the sum of the two errors" $
       property prop_PPointWithinErrRange
-    it "both of the points used to construct a PLine2 are within UlpSum of the PLine2" $
-      property prop_PLineWithinErrRange1
     it "both of the points used to join a PLine2 are within UlpSum of the PLine2" $
       property prop_PLineWithinErrRange2
     it "a point on the perpendicular bisector is within distance+UlpSum of a PLine2" $
       property prop_PPointOnPerpWithinErrRange
-    it "a line constructed with the midpoint of a segment and a point on the perpendicular bisector is at 90 degrees to the initial segment" $
-      property prop_perpAt90Degrees
   describe "Stability (Lines)" $ do
     it "both ends of a line segment are within UlpSum of the points they were constructed with" $
       property prop_LineSegWithinErrRange
@@ -1516,18 +1539,8 @@ facetSpec = do
   describe "Stability (Intersections)" $ do
     it "finds that the intersection of two PLines at the origin are within the returned UlpSum" $
       property prop_PLinesIntersectAtOrigin
-    it "finds that the intersection of two PLines at an arbitrary point are within the returned UlpSum" $
-      property prop_PLinesIntersectAtPoint
     it "finds endpoints and startpoints in equal quantities at the origin" $
       property prop_LineSegIntersectionStableAtOrigin
-    it "finds endpoints and startpoints in equal quantities along the X1Y1 line" $
-      property prop_LineSegIntersectionStableAtX1Y1Point
-    it "finds an endpoint and a startpoint across a quad from a bisector from the origin" $ do
-      pendingWith "alwaysFail."
-      verboseCheck prop_QuadBisectorCrosses
-    it "finds an endpoint and a startpoint the multiple of the discante across a quad from a bisector from the origin" $ do
-      pendingWith "alwaysFail."
-      verboseCheck prop_QuadBisectorCrossesMultiple
   describe "Arcs (Skeleton/Concave)" $ do
     it "finds the inside arcs of right angles with their sides parallel to the axises (raw)" $
       property prop_AxisAlignedRightAngles
@@ -1635,17 +1648,6 @@ facetSpec = do
       property prop_ConcaveChevronQuadHasStraightSkeleton
     it "only generates one generation for a concave chevron quad" $
       property prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount
-    it "places faces on the straight skeleton of a concave chevron quad" $ do
-      pendingWith "flakes 1 in 20."
-      verboseCheck prop_ConcaveChevronQuadCanPlaceFaces
-    it "finds only four faces for any concave chevron quad" $ do
-      pendingWith "flakes 1 in 20."
-      verboseCheck prop_ConcaveChevronQuadHasRightFaceCount
-    it "places faces on a concave chevron quad in the order the line segments were given" $ do
-      pendingWith "flakes 1 in 20."
-      verboseCheck prop_ConcaveChevronQuadFacesInOrder
-    it "finds the outsideArc of two intersecting lines (inverted makeENode)" $
-      property prop_obtuseBisectorOnBiggerSide_makeENode
     it "finds the outsideArc of two intersecting lines (makeINode)" $
       property prop_obtuseBisectorOnBiggerSide_makeINode
     it "sees that the first input line into an ENode is toward the point" $

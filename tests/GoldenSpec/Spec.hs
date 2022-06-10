@@ -18,7 +18,7 @@
 {-# OPTIONS_GHC -fno-warn-missing-import-lists #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults        #-}
 
-module GoldenSpec.Spec (spec) where
+module GoldenSpec.Spec (goldenSpec) where
 
 import Prelude (($), error, (<>), show, sqrt)
 
@@ -50,8 +50,8 @@ import Graphics.Slicer.Math.Skeleton.NodeTrees (mergeNodeTrees)
 
 import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 
-spec :: Spec
-spec = describe "golden tests" $ do
+goldenSpec :: Spec
+goldenSpec = describe "golden tests" $ do
   golden "C0-Cell1" $ cellFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []
   golden "C0-Cell1-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []
   golden "C0-Cell2-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []
