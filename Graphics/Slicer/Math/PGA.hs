@@ -685,14 +685,18 @@ cPToEPoint2 (CPPoint2 rawPoint)
     res = pPointToPoint2 $ PPoint2 rawPoint
 
 -- | Maybe create a euclidian point from a projective point.
+-- FIXME: does negate cause a precision loss?
+-- FIXME: canonicalization certainly does...
 pPointToPoint2 :: PPoint2 -> Maybe Point2
-pPointToPoint2 (PPoint2 (GVec vals)) = if infinitePoint
-                                      then Nothing
-                                      else Just $ Point2 (xVal, yVal)
+pPointToPoint2 point@(PPoint2 (GVec rawVals))
+ | e12Val == 0 = Nothing
+ | e12Val == 1 = Just $ Point2 (xVal, yVal)
+ | otherwise = Just $ Point2 (xVal, yVal)
   where
+    (CPPoint2 (GVec vals)) = fst $ canonicalizePPoint2WithErr point
     xVal = negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] vals
     yVal =          valOf 0 $ getVals [GEZero 1, GEPlus 1] vals
-    infinitePoint = 0 == valOf 0 (getVals [GEPlus 1, GEPlus 2] vals)
+    e12Val = valOf 0 (getVals [GEPlus 1, GEPlus 2] rawVals)
 
 -- | Create an un-normalized projective line from a euclidian line segment.
 eToPLine2 :: LineSeg -> PLine2
