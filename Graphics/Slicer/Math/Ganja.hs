@@ -81,7 +81,7 @@
 -- so we can define a Num instance for Positive.
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomPLineWithErr, randomLineSeg, cellFrom, remainderFrom, onlyOne, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), edgesOf, generationsOf, toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomPLineWithErr, randomLineSeg, cellFrom, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr) where
 
 import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
 
@@ -743,7 +743,23 @@ remainderFrom (Just (_,v)) = v
 remainderFrom Nothing = error "whoops"
 
 onlyOne :: [a] -> a
-onlyOne eNodes = case eNodes of
-                   [] -> error "none"
-                   [a] -> a
-                   (_:_) -> error "too many"
+onlyOne as = case as of
+               [] -> error "none"
+               [a] -> a
+               (_:_) -> error "too many"
+
+onlyOneOf :: [a] -> a
+onlyOneOf as = case as of
+                 [] -> error "none"
+                 (a:_) -> a
+
+edgesOf :: Slist Face -> [LineSeg]
+edgesOf faces = unwrap <$> (\(Slist a _) -> a) faces
+  where
+    unwrap :: Face -> LineSeg
+    unwrap (Face edge _ _ _) = edge
+
+generationsOf Nothing = 0
+generationsOf (Just (StraightSkeleton (Slist [] _) _)) = 0
+generationsOf (Just (StraightSkeleton a@(Slist [_] _) _)) = len a
+generationsOf a = error $ "what is this?" <> show a <> "\n"
