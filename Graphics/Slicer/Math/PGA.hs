@@ -52,6 +52,8 @@ module Graphics.Slicer.Math.PGA(
   eToPPoint2,
   eToPPoint2WithErr,
   flipPLine2,
+  getInsideArcWithErr,
+  getFirstArcWithErr,
   intersectsWith,
   intersectsWithErr,
   join2PPoint2,
@@ -103,7 +105,7 @@ import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardNegInf, TowardInf))
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, endPoint, distance)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, scalePoint, startPoint, endPoint, distance)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalar, getVals, mulScalarVec, scalarPart, valOf, vectorPart)
 
@@ -560,6 +562,48 @@ combineConsecutiveLineSegs lines = case lines of
         -- FIXME: this does not take into account the Err introduced by eToPLine2.
         sameLineSeg = plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) == PCollinear
         sameMiddlePoint = p2 == addPoints p1 s1
+
+-- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
+--   Note that we normalize our output, but return it as a PLine2. this is safe, because double normalization (if it happens) only raises the ULP.
+getFirstArcWithErr :: Point2 -> Point2 -> Point2 -> (PLine2, UlpSum)
+getFirstArcWithErr p1 p2 p3
+  -- since we hawe two equal sides, we can draw a point ot the other side of the quad, and use it for constructing.
+  | distance p2 p1 == distance p2 p3 = (PLine2 quadRes, UlpSum $ quadErr + quadResErr)
+  {-
+  | distance p2 p1 > distance p2 p3 = scaleSide p1 p3 True (distance p2 p1 / distance p2 p3)
+  | otherwise = scaleSide p3 p1 True (distance p2 p3 / distance p2 p1)
+  -}
+  | otherwise = (insideArc, UlpSum $ side1Err + side2Err + insideArcErr)
+  where
+    (insideArc, UlpSum insideArcErr) = getInsideArcWithErr (PLine2 side1) (PLine2 side2)
+    (NPLine2 side1, UlpSum side1NormErr) = normalizePLine2WithErr side1Raw
+    (side1Raw, UlpSum side1RawErr) = pLineFromEndpointsWithErr p1 p2
+    side1Err = side1NormErr+side1RawErr
+    (NPLine2 side2, UlpSum side2NormErr) = normalizePLine2WithErr side2Raw
+    (side2Raw, UlpSum side2RawErr) = pLineFromEndpointsWithErr p2 p3
+    side2Err = side2NormErr+side2RawErr
+    (NPLine2 quadRes, UlpSum quadResErr) = normalizePLine2WithErr quad
+    (quad, UlpSum quadErr) = pLineFromEndpointsWithErr p2 $ scalePoint 0.5 $ addPoints p1 p3
+    {-
+    scaleSide ps1 ps2 t v
+      | t == True = (PLine2 scaledRes, UlpSum $ scaledUlp + scaledResUlp)
+      | otherwise = (flipPLine2 $ PLine2 scaledRes, UlpSum $ scaledUlp + scaledResUlp)
+      where
+        (NPLine2 scaledRes, UlpSum scaledResUlp) = normalizePLine2WithErr scaled
+        -- FIXME: poor ULP tracking on this linear math.
+        (scaled, UlpSum scaledUlp) = pLineFromEndpointsWithErr p2 $ scalePoint 0.5 $ addPoints ps1 $ addPoints p2 $ scalePoint v $ addPoints ps2 $ negatePoint p2
+    -}
+
+-- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'acute' direction.
+--   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArcWithErr outputs are normalized.
+--   Note that we know that the inside is to the right of the first line given, and that the first line points toward the intersection.
+getInsideArcWithErr :: PLine2 -> PLine2 -> (PLine2, UlpSum)
+getInsideArcWithErr pline1 pline2@(PLine2 pv2)
+  | pline1 == pline2 = error "need to be able to return two PLines."
+  | otherwise = (PLine2 rawRes, resULP)
+  where
+      (NPLine2 rawRes, resULP) = normalizePLine2WithErr $ PLine2 $ addVecPair flippedPV1 pv2
+      (PLine2 flippedPV1) = flipPLine2 pline1
 
 ------------------------------------------------
 ----- And now draw the rest of the algebra -----

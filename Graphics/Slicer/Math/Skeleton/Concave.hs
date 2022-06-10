@@ -26,7 +26,7 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, getFirstArc, getInsideArc, getOutsideArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, towardIntersection) where
+module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, getOutsideArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, towardIntersection) where
 
 import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=), (-), (/), realToFrac)
 
@@ -52,13 +52,13 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, addPoints, endPoint, mapWithFollower, scalePoint, fudgeFactor, startPoint, distance)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, mapWithFollower, fudgeFactor, startPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, UlpSum(UlpSum))
+import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, isCollinear, isParallel, isAntiCollinear, noIntersection)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalizePPoint2WithErr, eToPLine2, flipPLine2, join2CPPoint2WithErr, normalizePLine2, normalizePLine2WithErr, distanceBetweenCPPointsWithErr, pLineIsLeft, angleBetweenWithErr, distancePPointToPLine, distancePPointToPLineWithErr, flipPLine2, pLineFromEndpointsWithErr, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalizePPoint2WithErr, eToPLine2, flipPLine2, getFirstArcWithErr, join2CPPoint2WithErr, normalizePLine2, normalizePLine2WithErr, distanceBetweenCPPointsWithErr, pLineIsLeft, angleBetweenWithErr, distancePPointToPLineWithErr, distancePPointToPLineWithErr, flipPLine2, pLineFromEndpointsWithErr, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
@@ -189,9 +189,9 @@ sortedPair :: (Arcable a, Arcable b) => a -> b -> [PLine2]
 sortedPair n1 n2 = sortedPLines [outOf n1, outOf n2]
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
---   Note: Ensure input line segments are normalised.
---   Note: we normalize our output lines, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
---   Note: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
+-- Note: we normalize our output lines.
+-- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
+-- FIXME: should return amount of error.
 getOutsideArc :: PPoint2 -> NPLine2 -> PPoint2 -> NPLine2 -> PLine2
 getOutsideArc ppoint1 npline1 ppoint2 npline2
   | npline1 == npline2 = error "need to be able to return two PLines."
@@ -212,28 +212,18 @@ getOutsideArc ppoint1 npline1 ppoint2 npline2
 -- FIXME: shouldn't we be given an error component in our inputs?
 towardIntersection :: PPoint2 -> PLine2 -> CPPoint2 -> Bool
 towardIntersection pp1 pl1 pp2
-  | d <= realToFrac dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nPLineConstructed: " <> show constructedPLine <> "\n"
+  | d <= realToFrac dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
   | otherwise = angleFound > realToFrac angleErr
   where
-    (angleFound, UlpSum angleErr) = angleBetweenWithErr constructedPLine (normalizePLine2 pl1)
-    (d, UlpSum dErr) = distanceBetweenCPPointsWithErr (fst $ canonicalizePPoint2WithErr pp1) pp2
-    constructedPLine = normalizePLine2 $ fst $ join2CPPoint2WithErr (fst $ canonicalizePPoint2WithErr pp1) pp2
-
--- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'acute' direction.
---   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
---   Note that we know that the inside is to the right of the first line given, and that the first line points toward the intersection.
-getInsideArc :: PLine2 -> PLine2 -> PLine2
-getInsideArc pline1 pline2@(PLine2 pv2)
-  | pline1 == pline2 = error "need to be able to return two PLines."
-  | otherwise = (\(NPLine2 a) -> PLine2 a ) $ normalizePLine2 $ PLine2 $ addVecPair flippedPV1 pv2
-  where
-      (PLine2 flippedPV1) = flipPLine2 pline1
+    (angleFound, UlpSum angleErr) = angleBetweenWithErr newPLine (normalizePLine2 pl1)
+    (d, UlpSum dErr) = distanceBetweenCPPointsWithErr (canonicalizePPoint2 pp1) pp2
+    newPLine = normalizePLine2 $ join2CPPoint2 (canonicalizePPoint2 pp1) pp2
 
 -- | Make a first generation node.
 makeENode :: Point2 -> Point2 -> Point2 -> ENode
 makeENode p1 p2 p3 = ENode (p1,p2,p3) arc arcErr arcMag
   where
-    (arc, arcErr) = getFirstArc p1 p2 p3
+    (arc, arcErr) = getFirstArcWithErr p1 p2 p3
     arcMag = (distance p1 p2 + distance p2 p3) / 2
 
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
@@ -252,36 +242,6 @@ eNodesOfOutsideContour contour = catMaybes $ onlyNodes <$> zip (linePairs contou
     onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe ENode
     onlyNodes ((seg1, seg2), Just _) = Just $ makeENode (startPoint seg1) (startPoint seg2) (endPoint seg2)
     onlyNodes ((_, _), Nothing) = Nothing
-
--- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
---   Note that we normalize our output, but return it as a PLine2. this is safe, because double normalization (if it happens) only raises the ULP.
-getFirstArc :: Point2 -> Point2 -> Point2 -> (PLine2, UlpSum)
-getFirstArc p1 p2 p3
-  -- since we hawe two equal sides, we can draw a point ot the other side of the quad, and use it for constructing.
-  | distance p2 p1 == distance p2 p3 = (PLine2 quadRes, UlpSum $ quadErr + quadResErr)
-  {-
-  | distance p2 p1 > distance p2 p3 = scaleSide p1 p3 True (distance p2 p1 / distance p2 p3)
-  | otherwise = scaleSide p3 p1 True (distance p2 p3 / distance p2 p1)
-  -}
-  | otherwise = (getInsideArc (PLine2 side1) (PLine2 side2), UlpSum $ side1Err + side2Err)
-  where
-    (NPLine2 side1, UlpSum side1NormErr) = normalizePLine2WithErr side1Raw
-    (side1Raw, UlpSum side1RawErr) = pLineFromEndpointsWithErr p1 p2
-    side1Err = side1NormErr+side1RawErr
-    (NPLine2 side2, UlpSum side2NormErr) = normalizePLine2WithErr side2Raw
-    (side2Raw, UlpSum side2RawErr) = pLineFromEndpointsWithErr p2 p3
-    side2Err = side2NormErr+side2RawErr
-    (NPLine2 quadRes, UlpSum quadResErr) = normalizePLine2WithErr quad
-    (quad, UlpSum quadErr) = pLineFromEndpointsWithErr p2 $ scalePoint 0.5 $ addPoints p1 p3
-    {-
-    scaleSide ps1 ps2 t v
-      | t == True = (PLine2 scaledRes, UlpSum $ scaledUlp + scaledResUlp)
-      | otherwise = (flipPLine2 $ PLine2 scaledRes, UlpSum $ scaledUlp + scaledResUlp)
-      where
-        (NPLine2 scaledRes, UlpSum scaledResUlp) = normalizePLine2WithErr scaled
-        -- FIXME: poor ULP tracking on this linear math.
-        (scaled, UlpSum scaledUlp) = pLineFromEndpointsWithErr p2 $ scalePoint 0.5 $ addPoints ps1 $ addPoints p2 $ scalePoint v $ addPoints ps2 $ negatePoint p2
-    -}
 
 -- | Find the reflex virtexes of a contour, and draw Nodes from them.
 --   This function is for use on interior contours.
