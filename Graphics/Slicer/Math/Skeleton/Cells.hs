@@ -56,7 +56,9 @@ import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionOf)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), CPPoint2, PIntersection(PAntiCollinear, IntersectsIn), angleBetweenWithErr, canonicalizePPoint2WithErr, distanceBetweenCPPointsWithErr, distanceBetweenPPoints, eToPLine2, eToNPLine2, eToCPPoint2, eToPPoint2, normalizePLine2, plinesIntersectIn, join2PPoint2, cPToEPoint2)
+import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenCPPoints, eToCPPoint2, eToNPLine2, eToPLine2, eToPPoint2, join2PPoint2, normalizePLine2)
+
+import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), CPPoint2, PIntersection(PAntiCollinear, IntersectsIn), angleBetweenWithErr, distanceBetweenCPPointsWithErr, plinesIntersectIn, cPToEPoint2)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving (Show, Eq)
@@ -119,12 +121,14 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
     landingPointOf myContour myMotorcycle =
       case eNodesInPath of
         [] -> WithLineSeg $ fst $ motorcycleIntersectsAt myContour myMotorcycle
-        [oneNode] -> if motorcycleToENodeDistance <= motorcycleToLineSegDistance
+        [oneNode] -> if motorcycleENodeDistance <= motorcycleLineSegDistance
                      then WithENode oneNode
                      else WithLineSeg $ fst $ motorcycleIntersectsAt myContour myMotorcycle
           where
-            motorcycleToENodeDistance = distanceBetweenPPoints (pPointOf myMotorcycle) (pPointOf oneNode)
-            motorcycleToLineSegDistance = fst $ distanceBetweenCPPointsWithErr (fst $ canonicalizePPoint2WithErr $ pPointOf myMotorcycle) (justIntersectsIn $ plinesIntersectIn (outOf myMotorcycle) (eToPLine2 $ fst $ motorcycleIntersectsAt myContour myMotorcycle))
+            cMotorcyclePoint = canonicalizePPoint2 $ pPointOf myMotorcycle
+            cNodePoint = canonicalizePPoint2 $ pPointOf oneNode
+            motorcycleENodeDistance = distanceBetweenCPPoints cMotorcyclePoint cNodePoint
+            motorcycleLineSegDistance = distanceBetweenCPPoints cMotorcyclePoint $ justIntersectsIn $ plinesIntersectIn (outOf myMotorcycle) (eToPLine2 $ fst $ motorcycleIntersectsAt myContour myMotorcycle)
         (_:_) -> error "more than one opposing exterior node. cannot yet handle this situation."
       where
         justIntersectsIn :: PIntersection -> CPPoint2

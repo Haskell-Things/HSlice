@@ -81,9 +81,9 @@
 -- so we can define a Num instance for Positive.
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomPLineWithErr, randomLineSeg, cellFrom, remainderFrom, onlyOne, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), edgesOf, generationsOf, toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomPLineWithErr, randomLineSeg, cellFrom, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr) where
 
-import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
+import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, Int, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
 
 import Data.Coerce (coerce)
 
@@ -112,7 +112,9 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPo
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf, UlpSum)
 
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), eToPLine2, eToPPoint2, flipPLine2, normalizePLine2, pToEPoint2, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, join2PPoint2, outOf, pPointBetweenPPointsWithErr, pPointOf, NPLine2(NPLine2))
+import Graphics.Slicer.Math.Lossy (eToPLine2, eToPPoint2, join2PPoint2, normalizePLine2, pPointBetweenPPoints)
+
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), flipPLine2, pToEPoint2, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, outOf, pPointOf, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
 
@@ -631,10 +633,10 @@ randomStarPoly centerX centerY radianDistPairs = fromMaybe dumpError $ maybeFlip
     centerPPoint       = eToPPoint2 $ Point2 (centerX, centerY)
     dumpError          = error $ "failed to flip a contour:" <> dumpGanjas [toGanja contour, toGanja (Point2 (centerX, centerY)), toGanja outsidePLine] <> "\n"
       where
-        outsidePLine       = join2PPoint2 myMidPoint outsidePoint
-        outsidePoint       = eToPPoint2 $ pointFarOutsideContour contour
-        (myMidPoint,_)     = pPointBetweenPPointsWithErr (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
-        (p1, p2)           = firstPointPairOfContour contour
+        outsidePLine   = join2PPoint2 myMidPoint outsidePoint
+        outsidePoint   = eToPPoint2 $ pointFarOutsideContour contour
+        myMidPoint     = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
+        (p1, p2)       = firstPointPairOfContour contour
 
 randomENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> ENode
 randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
@@ -743,7 +745,24 @@ remainderFrom (Just (_,v)) = v
 remainderFrom Nothing = error "whoops"
 
 onlyOne :: [a] -> a
-onlyOne eNodes = case eNodes of
-                   [] -> error "none"
-                   [a] -> a
-                   (_:_) -> error "too many"
+onlyOne as = case as of
+               [] -> error "none"
+               [a] -> a
+               (_:_) -> error "too many"
+
+onlyOneOf :: [a] -> a
+onlyOneOf as = case as of
+                 [] -> error "none"
+                 (a:_) -> a
+
+edgesOf :: Slist Face -> [LineSeg]
+edgesOf faces = unwrap <$> (\(Slist a _) -> a) faces
+  where
+    unwrap :: Face -> LineSeg
+    unwrap (Face edge _ _ _) = edge
+
+generationsOf :: Maybe StraightSkeleton -> Int
+generationsOf Nothing = 0
+generationsOf (Just (StraightSkeleton (Slist [] _) _)) = 0
+generationsOf (Just (StraightSkeleton a@(Slist [_] _) _)) = len a
+generationsOf a = error $ "what is this?" <> show a <> "\n"

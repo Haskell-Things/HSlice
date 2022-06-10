@@ -53,7 +53,9 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.PGA (pToEPoint2, plinesIntersectIn, PIntersection(IntersectsIn), eToPPoint2, flipPLine2, PLine2(PLine2), eToPLine2, pLineIsLeft, distanceBetweenPPointsWithErr, Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, ulpOfOut, outUlpMag), CPPoint2(CPPoint2), PPoint2(PPoint2))
+import Graphics.Slicer.Math.Lossy (eToPLine2, eToPPoint2, canonicalizePPoint2)
+
+import Graphics.Slicer.Math.PGA (pToEPoint2, plinesIntersectIn, PIntersection(IntersectsIn), flipPLine2, PLine2(PLine2), pLineIsLeft, distanceBetweenCPPointsWithErr, Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, ulpOfOut, outUlpMag), CPPoint2(CPPoint2), PPoint2(PPoint2))
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
@@ -124,7 +126,7 @@ instance Pointable INode where
                           where
                             distanceWithinErr a b = res < realToFrac err
                               where
-                                (res, UlpSum err) = distanceBetweenPPointsWithErr a b
+                                (res, UlpSum err) = distanceBetweenCPPointsWithErr (canonicalizePPoint2 a) (canonicalizePPoint2 b)
       allPLines = if hasArc iNode
                   then slist $ nub $ outOf iNode : firstPLine : secondPLine : rawPLines
                   else slist $ nub $ firstPLine : secondPLine : rawPLines

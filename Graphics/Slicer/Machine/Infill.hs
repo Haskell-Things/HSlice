@@ -37,7 +37,9 @@ import Graphics.Slicer.Math.Intersections (getPLine2Intersections)
 
 import Graphics.Slicer.Math.Line (makeLineSegs)
 
-import Graphics.Slicer.Math.PGA (PLine2, eToPLine2)
+import Graphics.Slicer.Math.Lossy (eToPLine2)
+
+import Graphics.Slicer.Math.PGA (PLine2)
 
 -- | what direction to put down infill lines.
 data InfillType = Diag1 | Diag2 | Vert | Horiz

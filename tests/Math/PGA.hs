@@ -45,8 +45,6 @@ import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf))
 
 import Data.Set (singleton, fromList)
 
-import Slist.Type (Slist(Slist))
-
 import Slist (slist, len)
 
 -- The numeric type in HSlice.
@@ -58,8 +56,10 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour),
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤), UlpSum(UlpSum))
 
+import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenCPPoints, distancePPointToPLine, eToCPPoint2, eToPLine2, eToPPoint2, getFirstArc, join2PPoint2, makeCPPoint2, makePPoint2, normalizePLine2, pPointOnPerp)
+
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PPoint2PosErr(PPoint2PosErr), canonicalizePPoint2WithErr, cPPointBetweenCPPointsWithErr, distanceBetweenCPPointsWithErr, distanceBetweenPPoints, distanceCPPointToNPLineWithErr, eToCPPoint2, eToPPoint2, eToPLine2, join2CPPoint2WithErr, join2PPoint2, pLineIntersectionWithErr, translatePerp, translateRotatePPoint2, angleBetweenWithErr, distancePPointToPLine, flipPLine2, makeCPPoint2WithErr, normalizePLine2, normalizePLine2WithErr, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr, pPointOnPerp)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PPoint2PosErr(PPoint2PosErr), canonicalizePPoint2WithErr, cPPointBetweenCPPointsWithErr, distanceBetweenCPPointsWithErr, distanceCPPointToNPLineWithErr, join2CPPoint2WithErr, pLineIntersectionWithErr, translatePerp, translateRotatePPoint2, angleBetweenWithErr, flipPLine2, makeCPPoint2WithErr, normalizePLine2WithErr, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -72,8 +72,8 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
 -- Our Facet library.
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
-import Graphics.Slicer.Math.Skeleton.Concave (getFirstArc, makeENode, makeENodes, averageNodes, getFirstArc, getOutsideArc, towardIntersection)
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), INode(INode), Cell(Cell), getFirstLineSeg, getLastLineSeg)
+import Graphics.Slicer.Math.Skeleton.Concave (makeENode, makeENodes, averageNodes, getOutsideArc, towardIntersection)
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), RemainingContour(RemainingContour), INode(INode), Cell(Cell), getFirstLineSeg, getLastLineSeg)
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
@@ -83,7 +83,7 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Math.Util ((-->), (-/>))
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
-import Graphics.Slicer.Math.Ganja (ListThree, Radian(Radian), cellFrom, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, dumpGanjas, toGanja, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr)
+import Graphics.Slicer.Math.Ganja (ListThree, Radian(Radian), cellFrom, edgesOf, generationsOf, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, dumpGanjas, toGanja, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
@@ -376,11 +376,11 @@ proj2DGeomAlgSpec = do
 prop_AxisProjection :: Positive ℝ -> Bool -> Bool -> Positive ℝ -> Expectation
 prop_AxisProjection v xAxis whichDirection dv
   | xAxis = if whichDirection
-            then fst (canonicalizePPoint2WithErr $ pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 (coerce v) 0) ((\(CPPoint2 p) -> PPoint2 p) $ fst $ makeCPPoint2WithErr 0 0) (coerce dv)) --> fst (makeCPPoint2WithErr 0 (coerce dv))
-            else fst (canonicalizePPoint2WithErr $ pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 (-(coerce v)) 0) ((\(CPPoint2 p) -> PPoint2 p) $ fst $ makeCPPoint2WithErr 0 0) (coerce dv)) --> fst (makeCPPoint2WithErr 0 (-coerce dv))
+            then canonicalizePPoint2 (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 (coerce v) 0) (makePPoint2 0 0) (coerce dv)) --> makeCPPoint2 0 (coerce dv)
+            else canonicalizePPoint2 (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 (-(coerce v)) 0) (makePPoint2 0 0) (coerce dv)) --> makeCPPoint2 0 (-coerce dv)
   | otherwise = if whichDirection
-                then fst (canonicalizePPoint2WithErr $ pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 0 (coerce v)) ((\(CPPoint2 p) -> PPoint2 p) $ fst $ makeCPPoint2WithErr 0 0) (coerce dv)) --> fst (makeCPPoint2WithErr (-coerce dv) 0)
-                else fst (canonicalizePPoint2WithErr $ pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 0 (-(coerce v))) ((\(CPPoint2 p) -> PPoint2 p) $ fst $ makeCPPoint2WithErr 0 0) (coerce dv)) --> fst (makeCPPoint2WithErr (coerce dv) 0)
+                then canonicalizePPoint2 (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 0 (coerce v)) (makePPoint2 0 0) (coerce dv)) --> makeCPPoint2 (-coerce dv) 0
+                else canonicalizePPoint2 (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 0 (-(coerce v))) (makePPoint2 0 0) (coerce dv)) --> makeCPPoint2 (coerce dv) 0
 
 -- A property test making sure than for any LineSeg, a pointOnPerp is in fact on a 90 degree perpendicular line.
 prop_perpAt90Degrees :: ℝ -> ℝ -> Positive ℝ -> ℝ -> NonZero ℝ -> Bool
@@ -579,7 +579,6 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
     isStartPoint (Left (HitStartPoint _)) = True
     isStartPoint (Right PAntiCollinear) = True
     isStartPoint _ = False
-    angleBetween a b = fst $ angleBetweenWithErr a b
 
 -- ensure that every intersection with an EndPoint also intersects with a StartPoint.
 prop_LineSegIntersectionStableAtOrigin :: NonZero ℝ -> ℝ -> ℝ -> ℝ -> ℝ -> Bool
@@ -704,16 +703,16 @@ myAngleBetween a b
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
 prop_AxisAlignedRightAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAlignedRightAngles xPos yPos offset rawMagnitude1 rawMagnitude2
-  | xPos && yPos     = myNorm (fst $ getFirstArc (Point2 (offset,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset)))
+  | xPos && yPos     = myNorm (getFirstArc (Point2 (offset,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset)))
                        `myAngleBetween`
                        NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
-  | xPos             = myNorm (fst $ getFirstArc (Point2 (offset,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,-offset)))
+  | xPos             = myNorm (getFirstArc (Point2 (offset,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,-offset)))
                        `myAngleBetween`
                        NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
-  | not xPos && yPos = myNorm (fst $ getFirstArc (Point2 (-offset,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset)))
+  | not xPos && yPos = myNorm (getFirstArc (Point2 (-offset,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset)))
                        `myAngleBetween`
                        NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
-  | otherwise        = myNorm (fst $ getFirstArc (Point2 (-offset,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,-offset)))
+  | otherwise        = myNorm (getFirstArc (Point2 (-offset,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,-offset)))
                        `myAngleBetween`
                        NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
   where
@@ -726,16 +725,16 @@ prop_AxisAlignedRightAngles xPos yPos offset rawMagnitude1 rawMagnitude2
 -- NOTE: hack, using angleBetween and >= to filter out minor numerical imprecision.
 prop_AxisAligned135DegreeAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned135DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
-  | xPos && yPos     = normalizePLine2 (fst $ getFirstArc (Point2 (offset,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset-mag2)))
+  | xPos && yPos     = normalizePLine2 (getFirstArc (Point2 (offset,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset-mag2)))
                        `myAngleBetween`
                        NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
-  | xPos             = normalizePLine2 (fst $ getFirstArc (Point2 (offset,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,mag2-offset)))
+  | xPos             = normalizePLine2 (getFirstArc (Point2 (offset,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,mag2-offset)))
                        `myAngleBetween`
                        NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
-  | not xPos && yPos = normalizePLine2 (fst $ getFirstArc (Point2 (-offset,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset-mag2)))
+  | not xPos && yPos = normalizePLine2 (getFirstArc (Point2 (-offset,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset-mag2)))
                        `myAngleBetween`
                        NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
-  | otherwise        = normalizePLine2 (fst $ getFirstArc (Point2 (-offset,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,mag2-offset)))
+  | otherwise        = normalizePLine2 (getFirstArc (Point2 (-offset,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,mag2-offset)))
                        `myAngleBetween`
                        NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   where
@@ -747,16 +746,16 @@ prop_AxisAligned135DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
 prop_AxisAligned45DegreeAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned45DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
-  | xPos && yPos     = normalizePLine2 (fst $ getFirstArc (Point2 (offset+mag1,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset)))
+  | xPos && yPos     = normalizePLine2 (getFirstArc (Point2 (offset+mag1,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset)))
                        `myAngleBetween`
                        NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
-  | xPos             = normalizePLine2 (fst $ getFirstArc (Point2 (offset+mag1,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,-offset)))
+  | xPos             = normalizePLine2 (getFirstArc (Point2 (offset+mag1,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,-offset)))
                        `myAngleBetween`
                        NPLine2 (GVec [GVal  (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
-  | not xPos && yPos = normalizePLine2 (fst $ getFirstArc (Point2 (-offset-mag1,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset)))
+  | not xPos && yPos = normalizePLine2 (getFirstArc (Point2 (-offset-mag1,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset)))
                        `myAngleBetween`
                        NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
-  | otherwise        = normalizePLine2 (fst $ getFirstArc (Point2 (-offset-mag1,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,-offset)))
+  | otherwise        = normalizePLine2 (getFirstArc (Point2 (-offset-mag1,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,-offset)))
                        `myAngleBetween`
                        NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   where
@@ -908,8 +907,8 @@ prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions trian
     -- we normalize this for Ganja.js.
     (NPLine2 pLineToInside) = normalizePLine2 $ join2PPoint2 myMidPoint innerPoint
     (NPLine2 pLineToOutside) = normalizePLine2 $ join2PPoint2 innerPoint $ eToPPoint2 outsidePoint
-    innerPoint      = fromMaybe dumpError2 maybeInnerPoint
-    minPoint        = fst (minMaxPoints triangle)
+    innerPoint      = fromMaybe (dumpError2) maybeInnerPoint
+    minPoint        = fst $ minMaxPoints triangle
     outsidePoint    = Point2 (xOf minPoint - 0.00000001 , yOf minPoint - 0.00000001)
 
 prop_TriangleHasStraightSkeleton :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
@@ -921,9 +920,6 @@ prop_TriangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> ListThree 
 prop_TriangleStraightSkeletonHasRightGenerationCount centerX centerY rawRadians rawDists = generationsOf (findStraightSkeleton triangle []) --> 1
   where
     triangle = randomTriangle centerX centerY rawRadians rawDists
-    generationsOf Nothing = 0
-    generationsOf (Just (StraightSkeleton (Slist [] _) _)) = 0
-    generationsOf (Just (StraightSkeleton a _)) = length a
 
 prop_TriangleCanPlaceFaces :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
 prop_TriangleCanPlaceFaces centerX centerY rawRadians rawDists = facesOf (fromMaybe (error "Got Nothing") $ findStraightSkeleton triangle []) -/> slist []
@@ -940,16 +936,6 @@ prop_TriangleFacesInOrder centerX centerY rawRadians rawDists = edgesOf (ordered
   where
     triangle = randomTriangle centerX centerY rawRadians rawDists
     firstSeg = onlyOneOf $ lineSegsOfContour triangle
-      where
-        onlyOneOf :: [LineSeg] -> LineSeg
-        onlyOneOf eNodes = case eNodes of
-                             [] -> error "none"
-                             (a:_) -> a
-    edgesOf :: Slist Face -> [LineSeg]
-    edgesOf faces = unwrap <$> (\(Slist a _) -> a) faces
-      where
-        unwrap :: Face -> LineSeg
-        unwrap (Face edge _ _ _) = edge
 
 prop_SquareNoDivides :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareNoDivides x y tilt distanceToCorner = findDivisions square (fromMaybe (error $ show square) $ crashMotorcycles square []) --> []
@@ -965,10 +951,6 @@ prop_SquareStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -
 prop_SquareStraightSkeletonHasRightGenerationCount x y tilt distanceToCorner = generationsOf (findStraightSkeleton square []) --> 1
   where
     square = randomSquare x y tilt distanceToCorner
-    generationsOf Nothing = 0
-    generationsOf (Just (StraightSkeleton (Slist [] _) _)) = 0
-    generationsOf (Just (StraightSkeleton a@(Slist [_] _) _)) = len a
-    generationsOf a = error $ "what is this?" <> show a <> "\n"
 
 prop_SquareCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareCanPlaceFaces x y tilt distanceToCorner = facesOf (fromMaybe (error $ show square) $ findStraightSkeleton square []) -/> slist []
@@ -986,16 +968,6 @@ prop_SquareFacesInOrder x y tilt distanceToCorner = edgesOf (orderedFacesOf firs
     square = randomSquare x y tilt distanceToCorner
     squareAsSegs = lineSegsOfContour square
     firstSeg = onlyOneOf squareAsSegs
-      where
-        onlyOneOf :: [a] -> a
-        onlyOneOf eNodes = case eNodes of
-                            [] -> error "none"
-                            (a:_) -> a
-    edgesOf :: Slist Face -> [LineSeg]
-    edgesOf faces = unwrap <$> (\(Slist a _) -> a) faces
-      where
-        unwrap :: Face -> LineSeg
-        unwrap (Face edge _ _ _) = edge
 
 prop_RectangleNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_RectangleNoDivides x y rawFirstTilt rawSecondTilt rawDistanceToCorner = findDivisions rectangle (fromMaybe (error $ show rectangle) $ crashMotorcycles rectangle []) --> []
@@ -1011,8 +983,6 @@ prop_RectangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian �
 prop_RectangleStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawDistanceToCorner = generationsOf (findStraightSkeleton rectangle []) --> 1
   where
     rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-    generationsOf Nothing = 0
-    generationsOf (Just (StraightSkeleton a _)) = len a
 
 prop_RectangleCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_RectangleCanPlaceFaces x y rawFirstTilt rawSecondTilt rawDistanceToCorner = facesOf (fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []) -/> slist []
@@ -1030,16 +1000,6 @@ prop_RectangleFacesInOrder x y rawFirstTilt rawSecondTilt rawDistanceToCorner = 
     rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
     rectangleAsSegs = lineSegsOfContour rectangle
     firstSeg = onlyOneOf rectangleAsSegs
-      where
-        onlyOneOf :: [LineSeg] -> LineSeg
-        onlyOneOf eNodes = case eNodes of
-                          [] -> error "none"
-                          (a:_) -> a
-    edgesOf :: Slist Face -> [LineSeg]
-    edgesOf faces = unwrap <$> (\(Slist a _) -> a) faces
-      where
-        unwrap :: Face -> LineSeg
-        unwrap (Face edge _ _ _) = edge
 
 prop_ConvexDualRightQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_ConvexDualRightQuadNoDivides x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = findDivisions convexDualRightQuad (fromMaybe (error $ show convexDualRightQuad) $ crashMotorcycles convexDualRightQuad []) --> []
@@ -1055,8 +1015,6 @@ prop_ConvexDualRightQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ ->
 prop_ConvexDualRightQuadStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = generationsOf (findStraightSkeleton convexDualRightQuad []) --> 1
   where
     convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-    generationsOf Nothing = 0
-    generationsOf (Just (StraightSkeleton a _)) = len a
 
 prop_ConvexDualRightQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_ConvexDualRightQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = facesOf (fromMaybe (error $ show convexDualRightQuad) $ findStraightSkeleton convexDualRightQuad []) -/> slist []
@@ -1074,16 +1032,6 @@ prop_ConvexDualRightQuadFacesInOrder x y rawFirstTilt rawSecondTilt rawThirdTilt
     convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
     convexDualRightQuadAsSegs = lineSegsOfContour convexDualRightQuad
     firstSeg = onlyOneOf convexDualRightQuadAsSegs
-      where
-        onlyOneOf :: [LineSeg] -> LineSeg
-        onlyOneOf eNodes = case eNodes of
-                          [] -> error "none"
-                          (a:_) -> a
-    edgesOf :: Slist Face -> [LineSeg]
-    edgesOf faces = unwrap <$> (\(Slist a _) -> a) faces
-      where
-        unwrap :: Face -> LineSeg
-        unwrap (Face edge _ _ _) = edge
 
 prop_ConvexSingleRightQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexSingleRightQuadNoDivides x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = findDivisions convexSingleRightQuad (fromMaybe (error $ show convexSingleRightQuad) $ crashMotorcycles convexSingleRightQuad []) --> []
@@ -1099,8 +1047,6 @@ prop_ConvexSingleRightQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ 
 prop_ConvexSingleRightQuadStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = generationsOf (findStraightSkeleton convexSingleRightQuad []) --> 1
   where
     convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-    generationsOf Nothing = 0
-    generationsOf (Just (StraightSkeleton a _)) = len a
 
 prop_ConvexSingleRightQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexSingleRightQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = facesOf (fromMaybe (error $ show convexSingleRightQuad) $ findStraightSkeleton convexSingleRightQuad []) -/> slist []
@@ -1118,16 +1064,6 @@ prop_ConvexSingleRightQuadFacesInOrder x y rawFirstTilt rawSecondTilt rawThirdTi
     convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
     convexSingleRightQuadAsSegs = lineSegsOfContour convexSingleRightQuad
     firstSeg = onlyOneOf convexSingleRightQuadAsSegs
-      where
-        onlyOneOf :: [LineSeg] -> LineSeg
-        onlyOneOf eNodes = case eNodes of
-                          [] -> error "none"
-                          (a:_) -> a
-    edgesOf :: Slist Face -> [LineSeg]
-    edgesOf faces = unwrap <$> (\(Slist a _) -> a) faces
-      where
-        unwrap :: Face -> LineSeg
-        unwrap (Face edge _ _ _) = edge
 
 prop_ConvexBisectableQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexBisectableQuadNoDivides x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = findDivisions convexBisectableQuad (fromMaybe (error $ show convexBisectableQuad) $ crashMotorcycles convexBisectableQuad []) --> []
@@ -1143,8 +1079,6 @@ prop_ConvexBisectableQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -
 prop_ConvexBisectableQuadStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = generationsOf (findStraightSkeleton convexBisectableQuad []) --> 1
   where
     convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-    generationsOf Nothing = 0
-    generationsOf (Just (StraightSkeleton a _)) = len a
 
 prop_ConvexBisectableQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexBisectableQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = facesOf (fromMaybe (error $ show convexBisectableQuad) $ findStraightSkeleton convexBisectableQuad []) -/> slist []
@@ -1162,16 +1096,6 @@ prop_ConvexBisectableQuadFacesInOrder x y rawFirstTilt rawSecondTilt rawFirstDis
     convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
     convexBisectableQuadAsSegs = lineSegsOfContour convexBisectableQuad
     firstSeg = onlyOneOf convexBisectableQuadAsSegs
-      where
-        onlyOneOf :: [LineSeg] -> LineSeg
-        onlyOneOf eNodes = case eNodes of
-                          [] -> error "none"
-                          (a:_) -> a
-    edgesOf :: Slist Face -> [LineSeg]
-    edgesOf faces = unwrap <$> (\(Slist a _) -> a) faces
-      where
-        unwrap :: Face -> LineSeg
-        unwrap (Face edge _ _ _) = edge
 
 prop_ConvexQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexQuadNoDivides x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = findDivisions convexQuad (fromMaybe (error $ show convexQuad) $ crashMotorcycles convexQuad []) --> []
@@ -1187,8 +1111,6 @@ prop_ConvexQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian �
 prop_ConvexQuadStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = generationsOf (findStraightSkeleton convexQuad []) --> 1
   where
     convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-    generationsOf Nothing = 0
-    generationsOf (Just (StraightSkeleton a _)) = len a
 
 prop_ConvexQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = facesOf (fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) -/> slist []
@@ -1206,16 +1128,6 @@ prop_ConvexQuadFacesInOrder x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDis
     convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
     convexQuadAsSegs = lineSegsOfContour convexQuad
     firstSeg = onlyOneOf convexQuadAsSegs
-      where
-        onlyOneOf :: [LineSeg] -> LineSeg
-        onlyOneOf eNodes = case eNodes of
-                          [] -> error "none"
-                          (a:_) -> a
-    edgesOf :: Slist Face -> [LineSeg]
-    edgesOf faces = unwrap <$> (\(Slist a _) -> a) faces
-      where
-        unwrap :: Face -> LineSeg
-        unwrap (Face edge _ _ _) = edge
 
 prop_ConcaveChevronQuadOneDivide :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConcaveChevronQuadOneDivide a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
@@ -1231,8 +1143,6 @@ prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> 
 prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
   where
     doTest concaveChevronQuad = generationsOf (findStraightSkeleton concaveChevronQuad []) --> 1
-    generationsOf Nothing = 0
-    generationsOf (Just (StraightSkeleton v _)) = len v
 
 prop_ConcaveChevronQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConcaveChevronQuadCanPlaceFaces a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
@@ -1251,15 +1161,6 @@ prop_ConcaveChevronQuadFacesInOrder a b c d e f = doTest $ randomConcaveChevronQ
       where
         concaveChevronQuadAsSegs = lineSegsOfContour concaveChevronQuad
         firstSeg = onlyOneOf concaveChevronQuadAsSegs
-        onlyOneOf :: [LineSeg] -> LineSeg
-        onlyOneOf eNodes = case eNodes of
-                          [] -> error "none"
-                          (oneENode:_) -> oneENode
-        edgesOf :: Slist Face -> [LineSeg]
-        edgesOf faces = unwrap <$> (\(Slist edge _) -> edge) faces
-          where
-            unwrap :: Face -> LineSeg
-            unwrap (Face edge _ _ _) = edge
 
 -- | Test of dimensional accuracy.
 -- make sure that the measured distance between two points that have been placed as close as possible is less than the amount of error placing both points added to the amount of error of doing a measurement of distance.
@@ -1433,9 +1334,10 @@ prop_eNodeAwayFromIntersection2 x y d1 rawR1 d2 rawR2 = l2TowardIntersection -->
     eNode = randomENode x y d1 rawR1 d2 rawR2
 
 prop_translateRotateMoves :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Expectation
-prop_translateRotateMoves x y rawD rawR = distanceBetweenPPoints (translateRotatePPoint2 ppoint d r) ppoint /= 0 --> True
+prop_translateRotateMoves x y rawD rawR = distanceBetweenCPPoints (canonicalizePPoint2 $ translateRotatePPoint2 pPoint d r) cPPoint /= 0 --> True
   where
-    ppoint = eToPPoint2 $ Point2 (x,y)
+    pPoint = eToPPoint2 $ Point2 (x,y)
+    cPPoint = makeCPPoint2 x y
     r,d::ℝ
     r = coerce rawR
     d = coerce rawD

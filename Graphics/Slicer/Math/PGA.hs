@@ -38,40 +38,30 @@ module Graphics.Slicer.Math.PGA(
   canonicalizePPoint2WithErr,
   cPPointBetweenCPPointsWithErr,
   cPToEPoint2,
-  distanceBetweenPLine2sWithErr,
   distanceBetweenCPPointsWithErr,
-  distanceBetweenPPoints,
-  distanceBetweenPPointsWithErr,
+  distanceBetweenNPLine2sWithErr,
   distanceCPPointToNPLineWithErr,
-  distancePPointToPLine,
   distancePPointToPLineWithErr,
-  eToCPPoint2,
-  eToNPLine2,
-  eToPLine2,
+  eToCPPoint2WithErr,
   eToPLine2WithErr,
-  eToPPoint2,
   eToPPoint2WithErr,
   flipPLine2,
+  getInsideArcWithErr,
+  getFirstArcWithErr,
   intersectsWith,
   intersectsWithErr,
-  join2PPoint2,
   join2PPoint2WithErr,
   join2CPPoint2WithErr,
-  makeCPPoint2,
   makeCPPoint2WithErr,
-  normalizePLine2,
   normalizePLine2WithErr,
   outputIntersectsLineSeg,
   pLineFromEndpointsWithErr,
   pLineIntersectionWithErr,
   pLineIsLeft,
-  pPointBetweenPPoints,
   pPointBetweenPPointsWithErr,
-  pPointOnPerp,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
   pToEPoint2,
-  plineFromEndpoints,
   plinesIntersectIn,
   translatePerp,
   translateRotatePPoint2,
@@ -103,7 +93,7 @@ import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardNegInf, TowardInf))
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, endPoint, distance)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, scalePoint, startPoint, endPoint, distance)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalar, getVals, mulScalarVec, scalarPart, valOf, vectorPart)
 
@@ -186,11 +176,6 @@ pLineIntersectionWithErr pl1 pl2 = (res, ulpTotal)
     (pLine2, UlpSum pl2Err) = normalizePLine2WithErr pl2
     ulpTotal = UlpSum $ resErr + pl1Err + pl2Err
 
--- | Find a point somewhere along the line between the two points given.
---  requires two weights. the ratio of these weights determines the position of the found points, E.G: (2/3,1/3) is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint. weights can sum to anything.
-pPointBetweenPPoints :: PPoint2 -> PPoint2 -> ℝ -> ℝ -> PPoint2
-pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ pPointBetweenPPointsWithErr startOfSeg stopOfSeg weight1 weight2
-
 -- NOTE: returns a canonicalized point.
 pPointBetweenPPointsWithErr :: PPoint2 -> PPoint2 -> ℝ -> ℝ -> (PPoint2, UlpSum)
 pPointBetweenPPointsWithErr start stop weight1 weight2 = (PPoint2 cRes, UlpSum $ cResErr + cStartErr + cStopErr)
@@ -199,7 +184,6 @@ pPointBetweenPPointsWithErr start stop weight1 weight2 = (PPoint2 cRes, UlpSum $
     (cStart, UlpSum cStartErr) = canonicalizePPoint2WithErr start
     (cStop, UlpSum cStopErr) = canonicalizePPoint2WithErr stop
 
--- NOTE: returns a canonicalized point.
 cPPointBetweenCPPointsWithErr :: CPPoint2 -> CPPoint2 -> ℝ -> ℝ -> (CPPoint2, UlpSum)
 cPPointBetweenCPPointsWithErr (CPPoint2 rawStartPoint) (CPPoint2 rawStopPoint) weight1 weight2
   | valOf 0 foundVal == 0 = error "tried to generate an ideal point?"
@@ -207,10 +191,6 @@ cPPointBetweenCPPointsWithErr (CPPoint2 rawStartPoint) (CPPoint2 rawStopPoint) w
   where
     res = addVecPair (mulScalarVec weight1 rawStartPoint) (mulScalarVec weight2 rawStopPoint)
     foundVal = getVals [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) res
-
--- | Find the unsigned distance between a point and a line.
-distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
-distancePPointToPLine point line = fst $ distancePPointToPLineWithErr point line
 
 distancePPointToPLineWithErr :: PPoint2 -> PLine2 -> (ℝ, UlpSum)
 distancePPointToPLineWithErr point line = (res, UlpSum $ resErr + normErr + nPVecErr)
@@ -252,19 +232,6 @@ pPointsOnSameSideOfPLine point1 point2 line
     isPositive :: ℝ -> Bool
     isPositive i = i > 0
 
--- | Find the unsigned distance between two projective points.
-distanceBetweenPPoints :: PPoint2 -> PPoint2 -> ℝ
-distanceBetweenPPoints p1 p2 = fst $ distanceBetweenPPointsWithErr p1 p2
-
--- | Find the unsigned distance between two projective points, along with the precision of the result.
--- FIXME: use CPPoint2
-distanceBetweenPPointsWithErr :: PPoint2 -> PPoint2 -> (ℝ, UlpSum)
-distanceBetweenPPointsWithErr point1 point2 = (res, UlpSum $ resErr + cpoint1Err + cpoint2Err)
-  where
-    (res, UlpSum resErr) = distanceBetweenCPPointsWithErr cpoint1 cpoint2
-    (cpoint1, UlpSum cpoint1Err) = canonicalizePPoint2WithErr point1
-    (cpoint2, UlpSum cpoint2Err) = canonicalizePPoint2WithErr point2
-
 distanceBetweenCPPointsWithErr :: CPPoint2 -> CPPoint2 -> (ℝ, UlpSum)
 distanceBetweenCPPointsWithErr cpoint1 cpoint2 = (res, ulpTotal)
   where
@@ -274,8 +241,8 @@ distanceBetweenCPPointsWithErr cpoint1 cpoint2 = (res, ulpTotal)
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
 -- Same operation as angleBetween, so just a wrapper.
-distanceBetweenPLine2sWithErr :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
-distanceBetweenPLine2sWithErr = angleBetweenWithErr
+distanceBetweenNPLine2sWithErr :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
+distanceBetweenNPLine2sWithErr = angleBetweenWithErr
 
 -- | Return the sine of the angle between the two lines, along with the error. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
 -- FIXME: not generating large enough ULPs. why?
@@ -286,10 +253,6 @@ angleBetweenWithErr (NPLine2 pv1) (NPLine2 pv2) = (scalarPart res
     (res, ulpSum) = p1 ⎣+ p2
     (PLine2 p1) = forcePLine2Basis $ PLine2 pv1
     (PLine2 p2) = forcePLine2Basis $ PLine2 pv2
-
--- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
-pPointOnPerp :: PLine2 -> PPoint2 -> ℝ -> PPoint2
-pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
 pPointOnPerpWithErr :: PLine2 -> PPoint2 -> ℝ -> (PPoint2, UlpSum)
@@ -321,7 +284,7 @@ translateRotatePPoint2 ppoint d rotation = PPoint2 $ translator•pvec•reverse
     (PPoint2 pvec)      = ppoint
     xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pvec
       where
-        (PLine2 xLineVec) = forcePLine2Basis $ plineFromEndpoints (Point2 (0,0)) (Point2 (1,0))
+        (PLine2 xLineVec) = forcePLine2Basis $ fst $ pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (1,0))
     (PLine2 angledLineThroughPPoint2) = forcePLine2Basis $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
       where
         rotator = addVecPair (mulScalarVec (sin $ rotation/2) pvec) (GVec [GVal (cos $ rotation/2) (singleton G0)])
@@ -557,8 +520,50 @@ combineConsecutiveLineSegs lines = case lines of
     canCombineLineSegs l1@(LineSeg p1 s1) l2@(LineSeg p2 _) = sameLineSeg && sameMiddlePoint
       where
         -- FIXME: this does not take into account the Err introduced by eToPLine2.
-        sameLineSeg = plinesIntersectIn (eToPLine2 l1) (eToPLine2 l2) == PCollinear
+        sameLineSeg = plinesIntersectIn (fst $ eToPLine2WithErr l1) (fst $ eToPLine2WithErr l2) == PCollinear
         sameMiddlePoint = p2 == addPoints p1 s1
+
+-- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
+--   Note that we normalize our output, but return it as a PLine2. this is safe, because double normalization (if it happens) only raises the ULP.
+getFirstArcWithErr :: Point2 -> Point2 -> Point2 -> (PLine2, UlpSum)
+getFirstArcWithErr p1 p2 p3
+  -- since we hawe two equal sides, we can draw a point ot the other side of the quad, and use it for constructing.
+  | distance p2 p1 == distance p2 p3 = (PLine2 quadRes, UlpSum $ quadErr + quadResErr)
+  {-
+  | distance p2 p1 > distance p2 p3 = scaleSide p1 p3 True (distance p2 p1 / distance p2 p3)
+  | otherwise = scaleSide p3 p1 True (distance p2 p3 / distance p2 p1)
+  -}
+  | otherwise = (insideArc, UlpSum $ side1Err + side2Err + insideArcErr)
+  where
+    (insideArc, UlpSum insideArcErr) = getInsideArcWithErr (PLine2 side1) (PLine2 side2)
+    (NPLine2 side1, UlpSum side1NormErr) = normalizePLine2WithErr side1Raw
+    (side1Raw, UlpSum side1RawErr) = pLineFromEndpointsWithErr p1 p2
+    side1Err = side1NormErr+side1RawErr
+    (NPLine2 side2, UlpSum side2NormErr) = normalizePLine2WithErr side2Raw
+    (side2Raw, UlpSum side2RawErr) = pLineFromEndpointsWithErr p2 p3
+    side2Err = side2NormErr+side2RawErr
+    (NPLine2 quadRes, UlpSum quadResErr) = normalizePLine2WithErr quad
+    (quad, UlpSum quadErr) = pLineFromEndpointsWithErr p2 $ scalePoint 0.5 $ addPoints p1 p3
+    {-
+    scaleSide ps1 ps2 t v
+      | t == True = (PLine2 scaledRes, UlpSum $ scaledUlp + scaledResUlp)
+      | otherwise = (flipPLine2 $ PLine2 scaledRes, UlpSum $ scaledUlp + scaledResUlp)
+      where
+        (NPLine2 scaledRes, UlpSum scaledResUlp) = normalizePLine2WithErr scaled
+        -- FIXME: poor ULP tracking on this linear math.
+        (scaled, UlpSum scaledUlp) = pLineFromEndpointsWithErr p2 $ scalePoint 0.5 $ addPoints ps1 $ addPoints p2 $ scalePoint v $ addPoints ps2 $ negatePoint p2
+    -}
+
+-- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'acute' direction.
+--   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArcWithErr outputs are normalized.
+--   Note that we know that the inside is to the right of the first line given, and that the first line points toward the intersection.
+getInsideArcWithErr :: PLine2 -> PLine2 -> (PLine2, UlpSum)
+getInsideArcWithErr pline1 pline2@(PLine2 pv2)
+  | pline1 == pline2 = error "need to be able to return two PLines."
+  | otherwise = (PLine2 rawRes, resULP)
+  where
+      (NPLine2 rawRes, resULP) = normalizePLine2WithErr $ PLine2 $ addVecPair flippedPV1 pv2
+      (PLine2 flippedPV1) = flipPLine2 pline1
 
 ------------------------------------------------
 ----- And now draw the rest of the algebra -----
@@ -603,10 +608,6 @@ class Arcable a where
 infixl 9 ∨+
 
 -- | a typed join function. join two points, returning a line.
-join2PPoint2 :: PPoint2 -> PPoint2 -> PLine2
-join2PPoint2 pp1 pp2 = fst $ join2PPoint2WithErr pp1 pp2
-
--- | a typed join function. join two points, returning a line.
 join2PPoint2WithErr :: PPoint2 -> PPoint2 -> (PLine2, UlpSum)
 join2PPoint2WithErr pp1 pp2 = (res,
                                errTotal)
@@ -636,36 +637,24 @@ meet2PLine2WithErr (NPLine2 plr1) (NPLine2 plr2) = (PPoint2 res,
 
 newtype PPoint2PosErr = PPoint2PosErr (Rounded 'TowardInf ℝ)
 
--- | Create a projective point from a euclidian point.
-eToPPoint2 :: Point2 -> PPoint2
-eToPPoint2 point = fst $ eToPPoint2WithErr point
-
 eToPPoint2WithErr :: Point2 -> (PPoint2, PPoint2PosErr)
 eToPPoint2WithErr (Point2 (x,y)) = (PPoint2 res, resUlp)
   where
     (CPPoint2 res, resUlp) = makeCPPoint2WithErr x y
-
--- | Create a projective point from a euclidian point.
-eToCPPoint2 :: Point2 -> CPPoint2
-eToCPPoint2 point = fst $ eToCPPoint2WithErr point
 
 eToCPPoint2WithErr :: Point2 -> (CPPoint2, PPoint2PosErr)
 eToCPPoint2WithErr (Point2 (x,y)) = (res, resUlp)
   where
     (res, resUlp) = makeCPPoint2WithErr x y
 
--- | create a canonical euclidian projective point from the given coordinates.
---   Really, just wraps makeCPPoint2WithErr
-makeCPPoint2 :: ℝ -> ℝ -> CPPoint2
-makeCPPoint2 x y = fst $ makeCPPoint2WithErr x y
-
 -- | Create a canonical euclidian projective point from the given coordinates, with error.
+-- FIXME: is there any chance of loss of precision on y?
 makeCPPoint2WithErr :: ℝ -> ℝ -> (CPPoint2, PPoint2PosErr)
 makeCPPoint2WithErr x y = (pPoint
                          , posErr)
   where
     pPoint = CPPoint2 $ GVec $ foldl' addVal [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
-    posErr = PPoint2PosErr $ abs (realToFrac $ doubleUlp $ negate x) + abs (realToFrac $ doubleUlp y)
+    posErr = PPoint2PosErr $ abs (realToFrac $ doubleUlp $ negate x) -- + abs (realToFrac $ doubleUlp y)
 
 -- | Create a euclidian point from a projective point.
 pToEPoint2 :: PPoint2 -> Point2
@@ -684,26 +673,18 @@ cPToEPoint2 (CPPoint2 rawPoint)
     res = pPointToPoint2 $ PPoint2 rawPoint
 
 -- | Maybe create a euclidian point from a projective point.
+-- FIXME: does negate cause a precision loss?
+-- FIXME: canonicalization certainly does...
 pPointToPoint2 :: PPoint2 -> Maybe Point2
-pPointToPoint2 (PPoint2 (GVec vals)) = if infinitePoint
-                                      then Nothing
-                                      else Just $ Point2 (xVal, yVal)
+pPointToPoint2 point@(PPoint2 (GVec rawVals))
+ | e12Val == 0 = Nothing
+ | e12Val == 1 = Just $ Point2 (xVal, yVal)
+ | otherwise = Just $ Point2 (xVal, yVal)
   where
+    (CPPoint2 (GVec vals)) = fst $ canonicalizePPoint2WithErr point
     xVal = negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] vals
     yVal =          valOf 0 $ getVals [GEZero 1, GEPlus 1] vals
-    infinitePoint = 0 == valOf 0 (getVals [GEPlus 1, GEPlus 2] vals)
-
--- | Create an un-normalized projective line from a euclidian line segment.
-eToPLine2 :: LineSeg -> PLine2
-eToPLine2 l1 = fst $ eToPLine2WithErr l1
-
--- | Create a normalized projective line from a euclidian line segment.
-eToNPLine2 :: LineSeg -> NPLine2
-eToNPLine2 l1 = normalizePLine2 $ fst $ eToPLine2WithErr l1
-
--- | Create a projective line from a pair of euclidian points.
-plineFromEndpoints :: Point2 -> Point2 -> PLine2
-plineFromEndpoints point1 point2 = fst $ pLineFromEndpointsWithErr point1 point2
+    e12Val = valOf 0 (getVals [GEPlus 1, GEPlus 2] rawVals)
 
 -- | Reverse a vector. Really, take every value in it, and recompute it in the reverse order of the vectors (so instead of e0∧e1, e1∧e0). which has the effect of negating bi and tri-vectors.
 reverseGVec :: GVec -> GVec
@@ -819,10 +800,6 @@ ulpOfCPPoint2 (CPPoint2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleU
 --------------------------------------------------------------
 ---- Utillity functions that use sqrt(), or divVecScalar. ----
 --------------------------------------------------------------
-
--- | Normalize a PLine2.
-normalizePLine2 :: PLine2 -> NPLine2
-normalizePLine2 pl = fst $ normalizePLine2WithErr pl
 
 -- | find the norm of a given PLine2
 normOfPLine2 :: PLine2 -> ℝ
