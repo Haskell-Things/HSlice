@@ -888,10 +888,10 @@ prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitud
     mag2 = coerce rawMagnitude2
 
 prop_TriangleNoDivides :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions triangle (fromMaybe (dumpError) $ crashMotorcycles triangle []) --> []
+prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions triangle (fromMaybe dumpError $ crashMotorcycles triangle []) --> []
   where
-    dumpError = error $ errorString
-    dumpError2 = error $ errorString
+    dumpError = error errorString
+    dumpError2 = error errorString
     errorString =  dumpGanjas [toGanja triangle, toGanja (Point2 (centerX, centerY)), toGanja (PLine2 pLineToInside), toGanja (PLine2 pLineToOutside)] <> "\n"
                 <> show firstSeg <> "\n"
                 <> show firstPoints <> "\n"
@@ -1307,7 +1307,7 @@ prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
     bisector = flipPLine2 $ outOf eNode
 
 prop_obtuseBisectorOnBiggerSide_makeINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> Expectation
-prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound > (realToFrac $ 1-angleErr), angleFound < realToFrac (-1 + angleErr :: Rounded 'TowardInf ℝ)) --> (True, False)
+prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound > realToFrac (1-angleErr), angleFound < realToFrac (-1 + angleErr :: Rounded 'TowardInf ℝ)) --> (True, False)
   where
     (angleFound, UlpSum angleErr) = angleBetweenWithErr bisector1 bisector2
     eNode = randomENode x y d1 rawR1 d2 rawR2
