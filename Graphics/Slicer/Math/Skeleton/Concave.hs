@@ -58,7 +58,9 @@ import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, isCollinear, isParallel, isAntiCollinear, noIntersection)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalizePPoint2WithErr, eToPLine2, flipPLine2, getFirstArcWithErr, join2CPPoint2WithErr, normalizePLine2, normalizePLine2WithErr, distanceBetweenCPPointsWithErr, pLineIsLeft, angleBetweenWithErr, distancePPointToPLineWithErr, distancePPointToPLineWithErr, flipPLine2, pLineFromEndpointsWithErr, NPLine2(NPLine2))
+import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenCPPoints, distancePPointToPLine, eToPLine2, getInsideArc, join2CPPoint2, normalizePLine2)
+
+import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), CPPoint2(CPPoint2), PPoint2(PPoint2), flipPLine2, getFirstArcWithErr, distanceBetweenCPPointsWithErr, pLineIsLeft, angleBetweenWithErr, distancePPointToPLineWithErr, flipPLine2, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
@@ -175,8 +177,8 @@ averageNodes n1 n2
   | n2Distance < getRounded n2Err = error $ "intersection is AT the point of n2!\n" <> dumpInput
   | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (normalizePLine2 $ outOf n1) (pPointOf n2) (normalizePLine2 $ outOf n2)
   where
-    (n1Distance, UlpSum n1Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf n1) (outOf n2)) (fst $ canonicalizePPoint2WithErr $ pPointOf n1)
-    (n2Distance, UlpSum n2Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf n1) (outOf n2)) (fst $ canonicalizePPoint2WithErr $ pPointOf n2)
+    (n1Distance, UlpSum n1Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf n1) (outOf n2)) (canonicalizePPoint2 $ pPointOf n1)
+    (n2Distance, UlpSum n2Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf n1) (outOf n2)) (canonicalizePPoint2 $ pPointOf n2)
     dumpInput =    "Node1: " <> show n1
                 <> "\nNode2: " <> show n2
                 <> "\nNode1Out: " <> show (outOf n1)
@@ -850,9 +852,9 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
       | canPoint node1
         && canPoint node2
         && intersectsInPoint node1 node2 =
-        Just $ fst (distanceBetweenCPPointsWithErr (fst $ canonicalizePPoint2WithErr $ pPointOf node1) (intersectionOf (outOf node1) (outOf node2)))
+        Just $ distanceBetweenCPPoints (canonicalizePPoint2 $ pPointOf node1) (intersectionOf (outOf node1) (outOf node2))
                `max`
-               fst (distanceBetweenCPPointsWithErr (fst $ canonicalizePPoint2WithErr $ pPointOf node2) (intersectionOf (outOf node1) (outOf node2)))
+               distanceBetweenCPPoints (canonicalizePPoint2 $ pPointOf node2) (intersectionOf (outOf node1) (outOf node2))
       | otherwise = Nothing
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Bool
@@ -862,5 +864,5 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                                        && (dist2 >= realToFrac dist2Err)
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, UlpSum dist1Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf node1) (outOf node2)) (fst $ canonicalizePPoint2WithErr $ pPointOf node1)
-        (dist2, UlpSum dist2Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf node1) (outOf node2)) (fst $ canonicalizePPoint2WithErr $ pPointOf node2)
+        (dist1, UlpSum dist1Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf node1) (outOf node2)) (canonicalizePPoint2 $ pPointOf node1)
+        (dist2, UlpSum dist2Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf node1) (outOf node2)) (canonicalizePPoint2 $ pPointOf node2)
