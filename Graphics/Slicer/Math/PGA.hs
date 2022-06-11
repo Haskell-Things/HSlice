@@ -240,9 +240,13 @@ distanceBetweenCPPointsWithErr cpoint1 cpoint2 = (res, ulpTotal)
     ulpTotal                       = UlpSum $ resErr + newPLineErr
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
--- Same operation as angleBetween, so just a wrapper.
 distanceBetweenNPLine2sWithErr :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
-distanceBetweenNPLine2sWithErr = angleBetweenWithErr
+distanceBetweenNPLine2sWithErr (NPLine2 pv1) (NPLine2 pv2) = (ideal, UlpSum $ idealErr + resErr)
+  where
+    (ideal, UlpSum idealErr) = idealNormPPoint2WithErr $ PPoint2 res
+    (res, UlpSum resErr) = p1 ⎣+ p2
+    (PLine2 p1) = forcePLine2Basis $ PLine2 pv1
+    (PLine2 p2) = forcePLine2Basis $ PLine2 pv2
 
 -- | Return the sine of the angle between the two lines, along with the error. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
 -- FIXME: not generating large enough ULPs. why?
@@ -801,22 +805,24 @@ ulpOfCPPoint2 (CPPoint2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleU
 ---- Utillity functions that use sqrt(), or divVecScalar. ----
 --------------------------------------------------------------
 
--- | find the norm of a given PLine2
-normOfPLine2 :: PLine2 -> ℝ
-normOfPLine2 pline = fst $ normOfPLine2WithErr pline
-
--- | find the idealized norm of a projective point.
+-- | find the idealized norm of a projective point (ideal or not).
 idealNormPPoint2WithErr :: PPoint2 -> (ℝ, UlpSum)
-idealNormPPoint2WithErr ppoint = (res, ulpTotal)
+idealNormPPoint2WithErr ppoint@(PPoint2 (GVec rawVals)) = (res, ulpTotal)
   where
-    res = sqrt preRes
+    res
+     | preRes == 0 = 0
+     | otherwise = sqrt preRes
     preRes = x*x+y*y
     ulpTotal = UlpSum
                $ abs (realToFrac $ doubleUlp $ x*x)
                + abs (realToFrac $ doubleUlp $ y*y)
                + abs (realToFrac $ doubleUlp preRes)
                + abs (realToFrac $ doubleUlp res)
-    (Point2 (x,y)) = pToEPoint2 ppoint
+    (x,y)
+     | e12Val == 0 = ( negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] rawVals
+                     ,          valOf 0 $ getVals [GEZero 1, GEPlus 1] rawVals)
+     | otherwise = (\(Point2 (x1,y1)) -> (x1,y1)) $ pToEPoint2 ppoint
+    e12Val = valOf 0 (getVals [GEPlus 1, GEPlus 2] rawVals)
 
 -- | canonicalize a euclidian point.
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.
