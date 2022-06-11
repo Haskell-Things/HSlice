@@ -23,6 +23,7 @@ module Graphics.Slicer.Math.Lossy (
   canonicalizePPoint2,
   cPPointBetweenCPPoints,
   distanceBetweenCPPoints,
+  distanceBetweenNPLine2s,
   distanceCPPointToNPLine,
   distancePPointToPLine,
   eToCPPoint2,
@@ -38,7 +39,8 @@ module Graphics.Slicer.Math.Lossy (
   normalizePLine2,
   pLineFromEndpoints,
   pPointBetweenPPoints,
-  pPointOnPerp
+  pPointOnPerp,
+  translatePLine2
   ) where
 
 import Prelude (($), fst)
@@ -48,7 +50,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2, PLine2, PPoint2(PPoint2), angleBetweenWithErr, canonicalizePPoint2WithErr, cPPointBetweenCPPointsWithErr, distanceBetweenCPPointsWithErr, distanceCPPointToNPLineWithErr, distancePPointToPLineWithErr, eToCPPoint2WithErr, eToPLine2WithErr, eToPPoint2WithErr, getFirstArcWithErr, getInsideArcWithErr, join2CPPoint2WithErr, join2PPoint2WithErr, makeCPPoint2WithErr, normalizePLine2WithErr, pLineFromEndpointsWithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2, PLine2, PPoint2(PPoint2), angleBetweenWithErr, canonicalizePPoint2WithErr, cPPointBetweenCPPointsWithErr, distanceBetweenCPPointsWithErr, distanceBetweenNPLine2sWithErr, distanceCPPointToNPLineWithErr, distancePPointToPLineWithErr, eToCPPoint2WithErr, eToPLine2WithErr, eToPPoint2WithErr, getFirstArcWithErr, getInsideArcWithErr, join2CPPoint2WithErr, join2PPoint2WithErr, makeCPPoint2WithErr, normalizePLine2WithErr, pLineFromEndpointsWithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, translatePLine2WithErr)
 
 angleBetween :: NPLine2 -> NPLine2 -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetweenWithErr nPLine1 nPLine2
@@ -62,6 +64,9 @@ cPPointBetweenCPPoints start stop weight1 weight2 = fst $ cPPointBetweenCPPoints
 
 distanceBetweenCPPoints :: CPPoint2 -> CPPoint2 -> ℝ
 distanceBetweenCPPoints point1 point2 = fst $ distanceBetweenCPPointsWithErr point1 point2
+
+distanceBetweenNPLine2s :: NPLine2 -> NPLine2 -> ℝ
+distanceBetweenNPLine2s nPLine1 nPLine2 = fst $ distanceBetweenNPLine2sWithErr nPLine1 nPLine2
 
 -- | Find the unsigned distance between a point and a line.
 distanceCPPointToNPLine :: CPPoint2 -> NPLine2 -> ℝ
@@ -129,3 +134,6 @@ pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ pPointBetweenP
 pPointOnPerp :: PLine2 -> PPoint2 -> ℝ -> PPoint2
 pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
 
+-- | translate a PLine2 along it's perpendicular bisector.
+translatePLine2 :: PLine2 -> ℝ -> PLine2
+translatePLine2 pline distance = fst $ translatePLine2WithErr pline distance

@@ -63,7 +63,7 @@ module Graphics.Slicer.Math.PGA(
   pPointsOnSameSideOfPLine,
   pToEPoint2,
   plinesIntersectIn,
-  translatePerp,
+  translatePLine2WithErr,
   translateRotatePPoint2,
   ulpOfLineSeg,
   ulpOfPLine2
@@ -240,9 +240,13 @@ distanceBetweenCPPointsWithErr cpoint1 cpoint2 = (res, ulpTotal)
     ulpTotal                       = UlpSum $ resErr + newPLineErr
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
--- Same operation as angleBetween, so just a wrapper.
 distanceBetweenNPLine2sWithErr :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
-distanceBetweenNPLine2sWithErr = angleBetweenWithErr
+distanceBetweenNPLine2sWithErr (NPLine2 pv1) (NPLine2 pv2) = (ideal, UlpSum $ idealErr + resErr)
+  where
+    (ideal, UlpSum idealErr) = idealNormPPoint2WithErr $ PPoint2 res
+    (res, UlpSum resErr) = p1 ⎣+ p2
+    (PLine2 p1) = forcePLine2Basis $ PLine2 pv1
+    (PLine2 p2) = forcePLine2Basis $ PLine2 pv2
 
 -- | Return the sine of the angle between the two lines, along with the error. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
 -- FIXME: not generating large enough ULPs. why?
@@ -272,10 +276,14 @@ pPointOnPerpWithErr pline rppoint d = (PPoint2 res,
     ulpTotal = UlpSum $ gaIErr + perpPLineErr + lErr + motorErr
 
 -- | Translate a line a given distance along it's perpendicular bisector.
-translatePerp :: PLine2 -> ℝ -> PLine2
-translatePerp pLine@(PLine2 rawPLine) d = PLine2 $ addVecPair m rawPLine
+-- Abuses the property that translation of a line is expressed on the GEZero component.
+-- WARNING: multiple calls to this will stack up nErr needlessly.
+translatePLine2WithErr :: PLine2 -> ℝ -> (PLine2, UlpSum)
+translatePLine2WithErr pLine@(PLine2 rawPLine) d = (PLine2 res, UlpSum $ resErr + nErr)
   where
-    m = GVec [GVal (d*normOfPLine2 pLine) (singleton (GEZero 1))]
+    (res, UlpSum resErr) = addVecPairWithErr m rawPLine
+    m = GVec [GVal (d*n) (singleton (GEZero 1))]
+    (n, UlpSum nErr) = normOfPLine2WithErr pLine
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
 translateRotatePPoint2 :: PPoint2 -> ℝ -> ℝ -> PPoint2
@@ -801,13 +809,11 @@ ulpOfCPPoint2 (CPPoint2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleU
 ---- Utillity functions that use sqrt(), or divVecScalar. ----
 --------------------------------------------------------------
 
--- | find the norm of a given PLine2
-normOfPLine2 :: PLine2 -> ℝ
-normOfPLine2 pline = fst $ normOfPLine2WithErr pline
-
--- | find the idealized norm of a projective point.
+-- | find the idealized norm of a projective point (ideal or not).
 idealNormPPoint2WithErr :: PPoint2 -> (ℝ, UlpSum)
-idealNormPPoint2WithErr ppoint = (res, ulpTotal)
+idealNormPPoint2WithErr ppoint@(PPoint2 (GVec rawVals))
+  | preRes == 0 = (0, UlpSum 0)
+  | otherwise   = (res, ulpTotal)
   where
     res = sqrt preRes
     preRes = x*x+y*y
@@ -816,7 +822,11 @@ idealNormPPoint2WithErr ppoint = (res, ulpTotal)
                + abs (realToFrac $ doubleUlp $ y*y)
                + abs (realToFrac $ doubleUlp preRes)
                + abs (realToFrac $ doubleUlp res)
-    (Point2 (x,y)) = pToEPoint2 ppoint
+    (x,y)
+     | e12Val == 0 = ( negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] rawVals
+                     ,          valOf 0 $ getVals [GEZero 1, GEPlus 1] rawVals)
+     | otherwise = (\(Point2 (x1,y1)) -> (x1,y1)) $ pToEPoint2 ppoint
+    e12Val = valOf 0 (getVals [GEPlus 1, GEPlus 2] rawVals)
 
 -- | canonicalize a euclidian point.
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.
