@@ -63,7 +63,7 @@ module Graphics.Slicer.Math.PGA(
   pPointsOnSameSideOfPLine,
   pToEPoint2,
   plinesIntersectIn,
-  translatePerp,
+  translatePLine2WithErr,
   translateRotatePPoint2,
   ulpOfLineSeg,
   ulpOfPLine2
@@ -276,10 +276,14 @@ pPointOnPerpWithErr pline rppoint d = (PPoint2 res,
     ulpTotal = UlpSum $ gaIErr + perpPLineErr + lErr + motorErr
 
 -- | Translate a line a given distance along it's perpendicular bisector.
-translatePerp :: PLine2 -> ℝ -> PLine2
-translatePerp pLine@(PLine2 rawPLine) d = PLine2 $ addVecPair m rawPLine
+-- Abuses the property that translation of a line is expressed on the GEZero component.
+-- WARNING: multiple calls to this will stack up nErr needlessly.
+translatePLine2WithErr :: PLine2 -> ℝ -> (PLine2, UlpSum)
+translatePLine2WithErr pLine@(PLine2 rawPLine) d = (PLine2 res, UlpSum $ resErr + nErr)
   where
-    m = GVec [GVal (d*normOfPLine2 pLine) (singleton (GEZero 1))]
+    (res, UlpSum resErr) = addVecPairWithErr m rawPLine
+    m = GVec [GVal (d*n) (singleton (GEZero 1))]
+    (n, UlpSum nErr) = normOfPLine2WithErr pLine
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
 translateRotatePPoint2 :: PPoint2 -> ℝ -> ℝ -> PPoint2
@@ -807,11 +811,11 @@ ulpOfCPPoint2 (CPPoint2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleU
 
 -- | find the idealized norm of a projective point (ideal or not).
 idealNormPPoint2WithErr :: PPoint2 -> (ℝ, UlpSum)
-idealNormPPoint2WithErr ppoint@(PPoint2 (GVec rawVals)) = (res, ulpTotal)
+idealNormPPoint2WithErr ppoint@(PPoint2 (GVec rawVals))
+  | preRes == 0 = (0, UlpSum 0)
+  | otherwise   = (res, ulpTotal)
   where
-    res
-     | preRes == 0 = 0
-     | otherwise = sqrt preRes
+    res = sqrt preRes
     preRes = x*x+y*y
     ulpTotal = UlpSum
                $ abs (realToFrac $ doubleUlp $ x*x)

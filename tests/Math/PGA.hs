@@ -25,7 +25,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, (/=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, realToFrac, sqrt, (<), (>), (-), (/), (||), (*))
+import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, (/=), (<=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, realToFrac, sqrt, (<), (>), (-), (/), (||), (*))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -56,10 +56,10 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour),
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤), UlpSum(UlpSum))
 
-import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenCPPoints, distancePPointToPLine, eToCPPoint2, eToPLine2, eToPPoint2, getFirstArc, join2PPoint2, makeCPPoint2, makePPoint2, normalizePLine2, pPointOnPerp)
+import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenCPPoints, distanceBetweenNPLine2s, distancePPointToPLine, eToCPPoint2, eToPLine2, eToPPoint2, getFirstArc, join2PPoint2, makeCPPoint2, makePPoint2, normalizePLine2, pPointOnPerp, translatePLine2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PPoint2PosErr(PPoint2PosErr), canonicalizePPoint2WithErr, cPPointBetweenCPPointsWithErr, distanceBetweenCPPointsWithErr, distanceCPPointToNPLineWithErr, join2CPPoint2WithErr, pLineIntersectionWithErr, translatePerp, translateRotatePPoint2, angleBetweenWithErr, flipPLine2, makeCPPoint2WithErr, normalizePLine2WithErr, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PPoint2PosErr(PPoint2PosErr), canonicalizePPoint2WithErr, cPPointBetweenCPPointsWithErr, distanceBetweenCPPointsWithErr, distanceCPPointToNPLineWithErr, join2CPPoint2WithErr, pLineIntersectionWithErr, translatePLine2WithErr, translateRotatePPoint2, angleBetweenWithErr, flipPLine2, makeCPPoint2WithErr, normalizePLine2WithErr, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -449,11 +449,34 @@ prop_OtherSideOfAxis v1 v2 p1 p2 xAxis positive
                 then pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (coerce p1,coerce v1))) (eToPPoint2 (Point2 (-(coerce p2),coerce v2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (0,1)))) --> Just False
                 else pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (-(coerce p1),coerce v1))) (eToPPoint2 (Point2 (coerce p1,coerce v2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (0,1)))) --> Just False
 
+-- | Ensure that a PLine translated, then translated back is approximately the same PLine.
+prop_PerpTranslateID :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
+prop_PerpTranslateID x y dx dy rawT
+  | res <= resErr = res <= resErr
+  | otherwise = error
+                $ "failed:\n"
+                <> "origPLine: " <> show origPLine <> "\n"
+                <> "resPLine: " <> show resPLine <> "\n"
+                <> "origNPline: " <> show origNPLine <> "\n"
+                <> "resNPline: " <> show resNPLine <> "\n"
+                <> "res: " <> show res <> "\n"
+                <> "resErr: " <> show resErr <> "\n"
+  where
+    res = distanceBetweenNPLine2s resNPLine origNPLine
+    (resNPLine, UlpSum resNErr) = normalizePLine2WithErr resPLine
+    (origNPLine, UlpSum origNErr) = normalizePLine2WithErr origPLine
+    (resPLine, UlpSum resPLineErr) = translatePLine2WithErr translatedPLine (-t)
+    (translatedPLine, UlpSum translatedPLineErr) = translatePLine2WithErr origPLine t
+    (origPLine, UlpSum origPLineErr) = randomPLineWithErr x y dx dy
+    resErr, t :: ℝ
+    resErr = realToFrac (resPLineErr + translatedPLineErr + origPLineErr + resNErr + origNErr)
+    t = coerce rawT
+
 pgaSpec :: Spec
 pgaSpec = do
   describe "Translation (math/PGA)" $ do
     it "a translated line translated back is the same line" $
-     translatePerp (translatePerp (eToPLine2 l1) 1) (-1) --> eToPLine2 l1
+     property prop_PerpTranslateID
   describe "Projection (math/PGA)" $ do
     it "a projection on the perpendicular bisector of an axis aligned line is on the other axis" $
       property prop_AxisProjection
@@ -465,8 +488,6 @@ pgaSpec = do
       property prop_SameSideOfAxis
     it "two projective points on different sides of a line show as being on different sides of a line" $
       property prop_OtherSideOfAxis
-  where
-    l1 = LineSeg (Point2 (1,1)) (Point2 (2,2))
 
 -- ensure that the bisector of a quad crosses the point across the quad from the bisector.
 prop_QuadBisectorCrosses :: Positive ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
