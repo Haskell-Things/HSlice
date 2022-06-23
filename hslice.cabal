@@ -1,201 +1,198 @@
-Cabal-version:       3.0
-Name:                hslice
-Version:             0.0.1
-Tested-with:         GHC >= 8.8
-Build-type:          Simple
-Synopsis:            A GCode generator, that accepts STL files.
-Description:         A slicer in haskell. Use it to slice 3D prints.
-License:             AGPL-3.0-or-later
-License-file:        LICENSE
-Author:              Julia Longtin <julia.longtin@gmail.com>
-Maintainer:          Julia Longtin <julia.longtin@gmail.com>
-Homepage:            http://implicitcad.org/
-Category:            Graphics
+cabal-version: 3.0
+name:          hslice
+version:       0.0.1
+license:       AGPL-3.0-or-later
+license-file:  LICENSE
+maintainer:    Julia Longtin <julia.longtin@gmail.com>
+author:        Julia Longtin <julia.longtin@gmail.com>
+tested-with:   ghc >=8.8
+homepage:      http://implicitcad.org/
+synopsis:      A GCode generator, that accepts STL files.
+description:   A slicer in haskell. Use it to slice 3D prints.
+category:      Graphics
+build-type:    Simple
 
-Common binstuff
-    Default-Language: Haskell2010
-    Default-extensions: NoImplicitPrelude
-    Ghc-options:
-                -threaded
-                -rtsopts "-with-rtsopts -N -qg -t"
-                -optc-O3
-                -- see GHC manual 8.2.1 section 6.5.1.
-                -feager-blackholing
-                -- for weeder
-                -fwrite-ide-info
-                -- for stan
-                -hiedir=.hie
-                -Wall
-                -Wextra
-                -Wcompat
-                -Wmonomorphism-restriction
-                -Wmissing-signatures
-                -Wmissing-export-lists
-                -Wmissing-import-lists
-                -Wmissing-home-modules
-                -Widentities
-                -Wimplicit-prelude
-                -Wredundant-constraints
-                -Wall-missed-specialisations
+source-repository head
+    type:     git
+    location: https://github.com/Haskell-Things/hslice.git
 
-Common libstuff
-    Default-Language: Haskell2010
-    Default-extensions: NoImplicitPrelude
-    Ghc-options:
-                -optc-O3
-                -- see GHC manual 8.2.1 section 6.5.1.
-                -feager-blackholing
-                -- for weeder
-                -fwrite-ide-info
-                -- for stan
-                -hiedir=.hie
-                -- use enhanced precision instead of 'just' Double, if available.
-                -fexcess-precision
-                -Wall
-                -Wextra
-                -Wcompat
-                -Wmonomorphism-restriction
-                -Wmissing-signatures
-                -Wmissing-export-lists
-                -Wmissing-import-lists
-                -Wmissing-home-modules
-                -Widentities
-                -Wimplicit-prelude
-                -Wredundant-constraints
-                -Wall-missed-specialisations
+library
+    exposed-modules:
+        Graphics.Slicer
+        Graphics.Slicer.Formats.STL.Definitions
+        Graphics.Slicer.Formats.STL.Facets
+        Graphics.Slicer.Machine.StateM
+        Graphics.Slicer.Machine.Infill
+        Graphics.Slicer.Machine.Contour
+        Graphics.Slicer.Mechanics.Definitions
+        Graphics.Slicer.Machine.GCode
+        Graphics.Slicer.Math.CheckFacets
+        Graphics.Slicer.Math.Contour
+        Graphics.Slicer.Math.Definitions
+        Graphics.Slicer.Math.Facet
+        Graphics.Slicer.Math.Ganja
+        Graphics.Slicer.Math.GeometricAlgebra
+        Graphics.Slicer.Math.Intersections
+        Graphics.Slicer.Math.Lossy
+        Graphics.Slicer.Math.Line
+        Graphics.Slicer.Math.PGA
+        Graphics.Slicer.Math.Skeleton.Cells
+        Graphics.Slicer.Math.Skeleton.Concave
+        Graphics.Slicer.Math.Skeleton.Definitions
+        Graphics.Slicer.Math.Skeleton.Face
+        Graphics.Slicer.Math.Skeleton.Line
+        Graphics.Slicer.Math.Skeleton.Motorcycles
+        Graphics.Slicer.Math.Skeleton.NodeTrees
+        Graphics.Slicer.Math.Skeleton.Skeleton
+        Graphics.Slicer.Math.Skeleton.Tscherne
+        Graphics.Slicer.Math.Tri
+        Graphics.Slicer.Orphans
 
-Library
-    Import: libstuff
-    Build-depends:
-                    base
-                  , bytestring
-                  , containers
-                  , data-ordlist
-                  , deepseq
-                  , double-conversion
-                  , extra
-                  , floating-bits
-                  , implicit
-                  , mtl
-                  , numbers
-                  , parallel
-                  , QuickCheck
-                  , rounded-hw
-                  , safe
-                  , slist >=0.2.0.0
-                  , tau
-                  , Unique
-                  , utf8-string
-    Exposed-Modules:
-                    Graphics.Slicer
-                    Graphics.Slicer.Formats.STL.Definitions
-                    Graphics.Slicer.Formats.STL.Facets
-                    Graphics.Slicer.Machine.StateM
-                    Graphics.Slicer.Machine.Infill
-                    Graphics.Slicer.Machine.Contour
-                    Graphics.Slicer.Mechanics.Definitions
-                    Graphics.Slicer.Machine.GCode
-                    Graphics.Slicer.Math.CheckFacets
-                    Graphics.Slicer.Math.Contour
-                    Graphics.Slicer.Math.Definitions
-                    Graphics.Slicer.Math.Facet
-                    Graphics.Slicer.Math.Ganja
-                    Graphics.Slicer.Math.GeometricAlgebra
-                    Graphics.Slicer.Math.Intersections
-                    Graphics.Slicer.Math.Lossy
-                    Graphics.Slicer.Math.Line
-                    Graphics.Slicer.Math.PGA
-                    Graphics.Slicer.Math.Skeleton.Cells
-                    Graphics.Slicer.Math.Skeleton.Concave
-                    Graphics.Slicer.Math.Skeleton.Definitions
-                    Graphics.Slicer.Math.Skeleton.Face
-                    Graphics.Slicer.Math.Skeleton.Line
-                    Graphics.Slicer.Math.Skeleton.Motorcycles
-                    Graphics.Slicer.Math.Skeleton.NodeTrees
-                    Graphics.Slicer.Math.Skeleton.Skeleton
-                    Graphics.Slicer.Math.Skeleton.Tscherne
-                    Graphics.Slicer.Math.Tri
-                    Graphics.Slicer.Orphans
-    Other-Modules:
-                  Graphics.Slicer.Math.Point
-                  Graphics.Slicer.Machine.Support
-                  Graphics.Slicer.Math.Slicer
-                  Graphics.Slicer.Formats.GCode.Definitions
-                  Graphics.Slicer.Concepts.Definitions
-                  Graphics.Slicer.Definitions
+    other-modules:
+        Graphics.Slicer.Math.Point
+        Graphics.Slicer.Machine.Support
+        Graphics.Slicer.Math.Slicer
+        Graphics.Slicer.Formats.GCode.Definitions
+        Graphics.Slicer.Concepts.Definitions
+        Graphics.Slicer.Definitions
 
-Executable extcuraengine
-    Import: binstuff
-    Main-is: extcuraengine.hs
-    Hs-source-dirs: programs
-    Build-depends:
-                    base < 5.0
-                  , bytestring
-                  , extra
-                  , hslice
-                  , implicit
-                  , mtl
-                  , optparse-applicative
-                  , parallel
-                  , slist >=0.2.0.0
-                  , utf8-string
+    default-language:   Haskell2010
+    default-extensions: NoImplicitPrelude
+    ghc-options:
+        -optc-O3 -feager-blackholing -fwrite-ide-info -hiedir=.hie
+        -fexcess-precision -Wall -Wextra -Wcompat
+        -Wmonomorphism-restriction -Wmissing-signatures
+        -Wmissing-export-lists -Wmissing-import-lists
+        -Wmissing-home-modules -Widentities -Wimplicit-prelude
+        -Wredundant-constraints -Wall-missed-specialisations
 
-Executable extadmesh
-    Import: binstuff
-    Main-is: extadmesh.hs
-    Hs-source-dirs: programs
-    Build-depends:
-                    base < 5.0
-                  , bytestring
-                  , hslice
-                  , implicit
-                  , mtl
-                  , optparse-applicative
-                  , parallel
-                  , utf8-string
+    build-depends:
+        base -any,
+        bytestring -any,
+        containers -any,
+        data-ordlist -any,
+        deepseq -any,
+        double-conversion -any,
+        extra -any,
+        floating-bits -any,
+        implicit -any,
+        mtl -any,
+        numbers -any,
+        parallel -any,
+        QuickCheck -any,
+        rounded-hw -any,
+        safe -any,
+        slist >=0.2.0.0,
+        tau -any,
+        Unique -any,
+        utf8-string -any
 
-Test-suite test-hslice
-    Import: binstuff
-    Main-is: Main.hs
-    Hs-source-dirs: tests
-    Build-depends:
-                    base < 5.0
-                  , containers
-                  , directory
-                  , hspec
-                  , hslice
-                  , QuickCheck
-                  , quickcheck-io
-                  , rounded-hw
-                  , slist
-    Type: exitcode-stdio-1.0
-    Other-Modules:
-                   Math.Util
-                   Math.PGA
-                   GoldenSpec.Spec
-                   GoldenSpec.Util
+executable extcuraengine
+    main-is:            extcuraengine.hs
+    hs-source-dirs:     programs
+    default-language:   Haskell2010
+    default-extensions: NoImplicitPrelude
+    ghc-options:
+        -threaded -rtsopts "-with-rtsopts -N -qg -t" -optc-O3
+        -feager-blackholing -fwrite-ide-info -hiedir=.hie -Wall -Wextra
+        -Wcompat -Wmonomorphism-restriction -Wmissing-signatures
+        -Wmissing-export-lists -Wmissing-import-lists
+        -Wmissing-home-modules -Widentities -Wimplicit-prelude
+        -Wredundant-constraints -Wall-missed-specialisations
 
-Test-suite test-flakey
-    Import: binstuff
-    Main-is: Main-Flakey.hs
-    Hs-source-dirs: tests
-    Build-depends:
-                    base < 5.0
-                  , containers
-                  , directory
-                  , hspec
-                  , hslice
-                  , QuickCheck
-                  , quickcheck-io
-                  , rounded-hw
-                  , slist
-    Type: exitcode-stdio-1.0
-    Other-Modules:
-                   Math.Util
-                   Math.PGA
-                   GoldenSpec.Spec
-                   GoldenSpec.Util
+    build-depends:
+        base <5.0,
+        bytestring -any,
+        extra -any,
+        hslice -any,
+        implicit -any,
+        mtl -any,
+        optparse-applicative -any,
+        parallel -any,
+        slist >=0.2.0.0,
+        utf8-string -any
 
-Source-repository head
-    Type:            git
-    Location:        https://github.com/Haskell-Things/hslice.git
+executable extadmesh
+    main-is:            extadmesh.hs
+    hs-source-dirs:     programs
+    default-language:   Haskell2010
+    default-extensions: NoImplicitPrelude
+    ghc-options:
+        -threaded -rtsopts "-with-rtsopts -N -qg -t" -optc-O3
+        -feager-blackholing -fwrite-ide-info -hiedir=.hie -Wall -Wextra
+        -Wcompat -Wmonomorphism-restriction -Wmissing-signatures
+        -Wmissing-export-lists -Wmissing-import-lists
+        -Wmissing-home-modules -Widentities -Wimplicit-prelude
+        -Wredundant-constraints -Wall-missed-specialisations
+
+    build-depends:
+        base <5.0,
+        bytestring -any,
+        hslice -any,
+        implicit -any,
+        mtl -any,
+        optparse-applicative -any,
+        parallel -any,
+        utf8-string -any
+
+test-suite test-hslice
+    type:               exitcode-stdio-1.0
+    main-is:            Main.hs
+    hs-source-dirs:     tests
+    other-modules:
+        Math.Util
+        Math.PGA
+        GoldenSpec.Spec
+        GoldenSpec.Util
+
+    default-language:   Haskell2010
+    default-extensions: NoImplicitPrelude
+    ghc-options:
+        -threaded -rtsopts "-with-rtsopts -N -qg -t" -optc-O3
+        -feager-blackholing -fwrite-ide-info -hiedir=.hie -Wall -Wextra
+        -Wcompat -Wmonomorphism-restriction -Wmissing-signatures
+        -Wmissing-export-lists -Wmissing-import-lists
+        -Wmissing-home-modules -Widentities -Wimplicit-prelude
+        -Wredundant-constraints -Wall-missed-specialisations
+
+    build-depends:
+        base <5.0,
+        containers -any,
+        directory -any,
+        hspec -any,
+        hslice -any,
+        QuickCheck -any,
+        quickcheck-io -any,
+        rounded-hw -any,
+        slist -any
+
+test-suite test-flakey
+    type:               exitcode-stdio-1.0
+    main-is:            Main-Flakey.hs
+    hs-source-dirs:     tests
+    other-modules:
+        Math.Util
+        Math.PGA
+        GoldenSpec.Spec
+        GoldenSpec.Util
+
+    default-language:   Haskell2010
+    default-extensions: NoImplicitPrelude
+    ghc-options:
+        -threaded -rtsopts "-with-rtsopts -N -qg -t" -optc-O3
+        -feager-blackholing -fwrite-ide-info -hiedir=.hie -Wall -Wextra
+        -Wcompat -Wmonomorphism-restriction -Wmissing-signatures
+        -Wmissing-export-lists -Wmissing-import-lists
+        -Wmissing-home-modules -Widentities -Wimplicit-prelude
+        -Wredundant-constraints -Wall-missed-specialisations
+
+    build-depends:
+        base <5.0,
+        containers -any,
+        directory -any,
+        hspec -any,
+        hslice -any,
+        QuickCheck -any,
+        quickcheck-io -any,
+        rounded-hw -any,
+        slist -any
