@@ -1,4 +1,4 @@
-Cabal-version:       2.2
+Cabal-version:       3.0
 Name:                hslice
 Version:             0.0.1
 Tested-with:         GHC >= 8.8
@@ -129,7 +129,7 @@ Executable extcuraengine
     Main-is: extcuraengine.hs
     Hs-source-dirs: programs
     Build-depends:
-                    base
+                    base < 5.0
                   , bytestring
                   , extra
                   , hslice
@@ -145,7 +145,7 @@ Executable extadmesh
     Main-is: extadmesh.hs
     Hs-source-dirs: programs
     Build-depends:
-                    base
+                    base < 5.0
                   , bytestring
                   , hslice
                   , implicit
@@ -159,7 +159,7 @@ Test-suite test-hslice
     Main-is: Main.hs
     Hs-source-dirs: tests
     Build-depends:
-                    base
+                    base < 5.0
                   , containers
                   , directory
                   , hspec
@@ -180,7 +180,7 @@ Test-suite test-flakey
     Main-is: Main-Flakey.hs
     Hs-source-dirs: tests
     Build-depends:
-                    base
+                    base < 5.0
                   , containers
                   , directory
                   , hspec
