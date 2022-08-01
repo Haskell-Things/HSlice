@@ -25,7 +25,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, (/=), (<=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, realToFrac, sqrt, (<), (>), (-), (/), (||), (*))
+import Prelude (($), Bool(True, False), (<$>), (==), error, (/=), (<=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, mempty, realToFrac, sqrt, (<), (>), (-), (/), (*))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -41,8 +41,6 @@ import Data.List (foldl')
 
 import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
 
-import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf))
-
 import Data.Set (singleton, fromList)
 
 import Slist (slist, len)
@@ -54,12 +52,12 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), roundPoint2, startPoint, distance, xOf, yOf, minMaxPoints, makeLineSeg, endPoint)
 
 -- Our Geometric Algebra library.
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤), UlpSum(UlpSum))
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVec, divVecScalar, scalarPart, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤), UlpSum(UlpSum))
 
-import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenCPPoints, distanceBetweenNPLine2s, distancePPointToPLine, eToCPPoint2, eToPLine2, eToPPoint2, getFirstArc, join2PPoint2, makeCPPoint2, makePPoint2, normalizePLine2, pPointOnPerp)
+import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PPoint2PosErr(PPoint2PosErr), canonicalizePPoint2WithErr, cPPointBetweenCPPointsWithErr, distanceBetweenCPPointsWithErr, distanceCPPointToNPLineWithErr, join2CPPoint2WithErr, pLineIntersectionWithErr, translatePLine2WithErr, translateRotatePPoint2, angleBetweenWithErr, flipPLine2, makeCPPoint2WithErr, normalizePLine2WithErr, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, eToPPoint2, eToPLine2WithErr, join2PPointsWithErr, pLineIntersectionWithErr, translatePLine2WithErr, translateRotatePPoint2, angleBetweenWithErr, flipPLine2, makePPoint2, normalizePLine2WithErr, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr, sameDirection)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -71,8 +69,9 @@ import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
 import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
 -- Our Facet library.
+import Graphics.Slicer.Math.Arcs (towardIntersection)
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
-import Graphics.Slicer.Math.Skeleton.Concave (makeENode, makeENodes, averageNodes, getOutsideArc, towardIntersection)
+import Graphics.Slicer.Math.Skeleton.Concave (makeENode, makeENodes, averageNodes)
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), RemainingContour(RemainingContour), INode(INode), Cell(Cell), getFirstLineSeg, getLastLineSeg)
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
@@ -367,7 +366,7 @@ proj2DGeomAlgSpec = do
     it "A line constructed from a line segment is correct" $
       eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,1))) --> pl1
     it "A line constructed from by joining two points is correct" $
-      join2PPoint2 (eToPPoint2 (Point2 (0,0))) (eToPPoint2 (Point2 (1,1))) --> pl1
+      join2PPoints (eToPPoint2 (Point2 (0,0))) (eToPPoint2 (Point2 (1,1))) --> pl1
   where
     pl1 = PLine2 $ GVec [GVal 1 (singleton (GEPlus 1)), GVal (-1) (singleton (GEPlus 2))]
 
@@ -376,11 +375,11 @@ proj2DGeomAlgSpec = do
 prop_AxisProjection :: Positive ℝ -> Bool -> Bool -> Positive ℝ -> Expectation
 prop_AxisProjection v xAxis whichDirection dv
   | xAxis = if whichDirection
-            then canonicalizePPoint2 (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 (coerce v) 0) (makePPoint2 0 0) (coerce dv)) --> makeCPPoint2 0 (coerce dv)
-            else canonicalizePPoint2 (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 (-(coerce v)) 0) (makePPoint2 0 0) (coerce dv)) --> makeCPPoint2 0 (-coerce dv)
+            then (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 (coerce v) 0) (makePPoint2 0 0) (coerce dv)) --> makePPoint2 0 (coerce dv)
+            else (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 (-(coerce v)) 0) (makePPoint2 0 0) (coerce dv)) --> makePPoint2 0 (-coerce dv)
   | otherwise = if whichDirection
-                then canonicalizePPoint2 (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 0 (coerce v)) (makePPoint2 0 0) (coerce dv)) --> makeCPPoint2 (-coerce dv) 0
-                else canonicalizePPoint2 (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 0 (-(coerce v))) (makePPoint2 0 0) (coerce dv)) --> makeCPPoint2 (coerce dv) 0
+                then (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 0 (coerce v)) (makePPoint2 0 0) (coerce dv)) --> makePPoint2 (-coerce dv) 0
+                else (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 0 (-(coerce v))) (makePPoint2 0 0) (coerce dv)) --> makePPoint2 (coerce dv) 0
 
 -- A property test making sure than for any LineSeg, a pointOnPerp is in fact on a 90 degree perpendicular line.
 prop_perpAt90Degrees :: ℝ -> ℝ -> Positive ℝ -> ℝ -> NonZero ℝ -> Bool
@@ -399,18 +398,17 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
                 <> "angle2: " <> show angle2 <> "\n"
                 <> "angle2Err: " <> show angle2Err <> "\n"
   where
-    (angle2, UlpSum angle2Err) = angleBetweenWithErr normedPLine3 normedPLine4
-    (CPPoint2 rawBisectorStart, UlpSum bisectorStartErr) = cPPointBetweenCPPointsWithErr sourceStart sourceEnd 0.5 0.5
-    (bisectorEndRaw, UlpSum bisectorEndRawErr) = pPointOnPerpWithErr pline4 (PPoint2 rawBisectorStart) d
-    (bisectorEnd, UlpSum bisectorEndErr) = canonicalizePPoint2WithErr bisectorEndRaw
-    (pline3, UlpSum pline3Err) = join2CPPoint2WithErr (CPPoint2 rawBisectorStart) bisectorEnd
-    (normedPLine3, UlpSum norm3Err) = normalizePLine2WithErr pline3
-    (sourceStart, PPoint2PosErr sourceStartErr) = makeCPPoint2WithErr x y
-    (sourceEnd, PPoint2PosErr sourceEndErr) = makeCPPoint2WithErr x2 y2
-    (pline4, UlpSum pline4Err) = join2CPPoint2WithErr sourceStart sourceEnd
-    (normedPLine4, UlpSum norm4Err) = normalizePLine2WithErr pline4
-    errTotal3 = angle2Err + norm3Err + pline3Err + pline4Err + norm4Err + bisectorStartErr + bisectorEndRawErr + bisectorEndErr + sourceStartErr + sourceEndErr
-    errTotal4 = angle2Err + norm3Err + pline3Err + pline4Err + norm4Err + bisectorStartErr + bisectorEndRawErr + bisectorEndErr + sourceStartErr + sourceEndErr
+    (angle2, angle2Err) = angleBetweenWithErr normedPLine3 normedPLine4
+    (rawBisectorStart, (PPoint2Err bisectorStartErr _,_,_,_)) = pPointBetweenPPointsWithErr sourceStart sourceEnd 0.5 0.5
+    (bisectorEnd, bisectorEndRawErr) = pPointOnPerpWithErr pline4 rawBisectorStart d
+    (pline3, (_,_,PLine2Err pline3Err _ _ _ _)) = join2PPointsWithErr rawBisectorStart bisectorEnd
+    (normedPLine3, PLine2Err _ norm3Err _ _ _) = normalizePLine2WithErr pline3
+    sourceStart = makePPoint2 x y
+    sourceEnd = makePPoint2 x2 y2
+    (pline4, (_,_,PLine2Err pline4Err _ _ _ _)) = join2PPointsWithErr sourceStart sourceEnd
+    (normedPLine4, PLine2Err _ norm4Err _ _ _) = normalizePLine2WithErr pline4
+    errTotal3 = ulpVal $  norm3Err <> pline3Err <> pline4Err <> norm4Err <> bisectorStartErr <> bisectorEndRawErr
+    errTotal4 = ulpVal $  norm3Err <> pline3Err <> pline4Err <> norm4Err <> bisectorStartErr <> bisectorEndRawErr
     x2 :: ℝ
     x2 = coerce rawX2
     d :: ℝ
@@ -419,8 +417,8 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
 -- | A property test making sure the distance between a point an an axis is equal to the corresponding euclidian component of the point.
 prop_DistanceToAxis :: NonZero ℝ -> NonZero ℝ -> Bool -> Expectation
 prop_DistanceToAxis v v2 xAxis
-  | xAxis = distancePPointToPLine (eToPPoint2 $ Point2 (coerce v2,coerce v)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> abs (coerce v)
-  | otherwise = distancePPointToPLine (eToPPoint2 $ Point2 (coerce v,coerce v2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> abs (coerce v)
+  | xAxis = distancePPointToPLine (eToPPoint2 $ Point2 (coerce v2,coerce v), mempty) (eToPLine2WithErr $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> abs (coerce v)
+  | otherwise = distancePPointToPLine (eToPPoint2 $ Point2 (coerce v,coerce v2), mempty) (eToPLine2WithErr $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> abs (coerce v)
 
 -- | A property test making sure two points on the same side of an axis show as being on the same side of the axis.
 prop_SameSideOfAxis :: NonZero ℝ -> NonZero ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool -> Bool -> Expectation
@@ -452,7 +450,7 @@ prop_OtherSideOfAxis v1 v2 p1 p2 xAxis positive
 -- | Ensure that a PLine translated, then translated back is approximately the same PLine.
 prop_PerpTranslateID :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
 prop_PerpTranslateID x y dx dy rawT
-  | res <= resErr = res <= resErr
+  | res <= resTErr = res <= resTErr
   | otherwise = error
                 $ "failed:\n"
                 <> "origPLine: " <> show origPLine <> "\n"
@@ -461,15 +459,17 @@ prop_PerpTranslateID x y dx dy rawT
                 <> "resNPline: " <> show resNPLine <> "\n"
                 <> "res: " <> show res <> "\n"
                 <> "resErr: " <> show resErr <> "\n"
+                <> "resTErr: " <> show resTErr <> "\n"
   where
-    res = distanceBetweenNPLine2s resNPLine origNPLine
-    (resNPLine, UlpSum resNErr) = normalizePLine2WithErr resPLine
-    (origNPLine, UlpSum origNErr) = normalizePLine2WithErr origPLine
-    (resPLine, UlpSum resPLineErr) = translatePLine2WithErr translatedPLine (-t)
-    (translatedPLine, UlpSum translatedPLineErr) = translatePLine2WithErr origPLine t
-    (origPLine, UlpSum origPLineErr) = randomPLineWithErr x y dx dy
-    resErr, t :: ℝ
-    resErr = realToFrac (resPLineErr + translatedPLineErr + origPLineErr + resNErr + origNErr)
+    res = distanceBetweenPLines resNPLine origNPLine
+    (resNPLine, PLine2Err _ (UlpSum resNErr) _ _ _) = normalizePLine2WithErr resPLine
+    (origNPLine, PLine2Err _ (UlpSum origNErr) _ _ _) = normalizePLine2WithErr origPLine
+    (resPLine, PLine2Err _ _ _ (UlpSum resTransErr) _) = translatePLine2WithErr translatedPLine (-t)
+    (translatedPLine, PLine2Err _ _ _ (UlpSum origTransErr) _) = translatePLine2WithErr origPLine t
+    (origPLine, PLine2Err _ _ _ (UlpSum origPLineErr) _) = randomPLineWithErr x y dx dy
+    resTErr, resErr, t :: ℝ
+    resTErr = realToFrac (resTransErr + origTransErr)
+    resErr = realToFrac ( origPLineErr + resNErr + origNErr)
     t = coerce rawT
 
 pgaSpec :: Spec
@@ -502,19 +502,20 @@ prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
                 <> show lineSeg2 <> "\n"
                 <> show bisector <> "\n"
                 <> show bisector1 <> "\n"
-                <> show bisector1Err <> "\n"
+                <> show bisector1NormUlp <> "\n"
+                <> show bisectorAngleUlp <> "\n"
+                <> show bisectorTranslateUlp <> "\n"
                 <> show bisector2 <> "\n"
                 <> show eNode <> "\n"
                 <> "(" <> show x3 <> "," <> show y3 <> ")\n"
   where
-    intersect1 = intersectsWithErr (Right (PLine2 bisector1, UlpSum bisector1Err)) (Left (lineSeg1, lineSeg1Err))
-    intersect2 = intersectsWithErr (Right (PLine2 bisector1, UlpSum bisector1Err)) (Left (lineSeg2, lineSeg2Err))
+    intersect1 = intersectsWithErr (Right (PLine2 bisector1, PLine2Err mempty bisector1NormUlp bisectorAngleUlp bisectorTranslateUlp mempty)) (Left (lineSeg1, lineSeg1Err))
+    intersect2 = intersectsWithErr (Right (PLine2 bisector1, PLine2Err mempty bisector1NormUlp bisectorAngleUlp bisectorTranslateUlp mempty)) (Left (lineSeg2, lineSeg2Err))
     intersect3 = outputIntersectsLineSeg eNode (lineSeg1, lineSeg1Err)
     intersect4 = outputIntersectsLineSeg eNode (lineSeg2, lineSeg2Err)
     -- note that our bisector always intersects the origin.
-    (bisector, UlpSum bisectorUlp) = pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (x3,y3))
-    (NPLine2 bisector1, UlpSum bisector1Ulp) = normalizePLine2WithErr bisector
-    bisector1Err = bisectorUlp + bisector1Ulp
+    (NPLine2 bisector1, PLine2Err _ bisector1NormUlp _ _ _) = normalizePLine2WithErr bisector
+    (bisector, PLine2Err _ _ bisectorAngleUlp bisectorTranslateUlp _) = pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (x3,y3))
     bisector2 = getFirstArc (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
@@ -556,20 +557,21 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
                 <> show lineSeg2 <> "\n"
                 <> show bisector1 <> "\n"
                 <> show eNode <> "\n"
-                <> show (angleBetween (normalizePLine2 $ outOf eNode) (normalizePLine2 $ PLine2 bisector1)) <> "\n"
-                <> show bisector1Err <> "\n"
-                <> show (ulpOfOut eNode) <> "\n"
+                <> show (angleBetween (outOf eNode) (PLine2 bisector1)) <> "\n"
+                <> show bisector1NormUlp <> "\n"
+                <> show bisectorAngleUlp <> "\n"
+                <> show bisectorTranslateUlp <> "\n"
+                <> show (errOfOut eNode) <> "\n"
                 <> "(" <> show x3 <> "," <> show y3 <> ")\n"
                 <> "(" <> show x4 <> "," <> show y4 <> ")\n"
   where
-    intersect1 = intersectsWithErr (Right (PLine2 bisector1, UlpSum bisector1Err)) (Left (lineSeg1, lineSeg1Err))
-    intersect2 = intersectsWithErr (Right (PLine2 bisector1, UlpSum bisector1Err)) (Left (lineSeg2, lineSeg2Err))
+    intersect1 = intersectsWithErr (Right (PLine2 bisector1, PLine2Err mempty bisector1NormUlp bisectorAngleUlp bisectorTranslateUlp mempty)) (Left (lineSeg1, lineSeg1Err))
+    intersect2 = intersectsWithErr (Right (PLine2 bisector1, PLine2Err mempty bisector1NormUlp bisectorAngleUlp bisectorTranslateUlp mempty)) (Left (lineSeg2, lineSeg2Err))
     intersect3 = outputIntersectsLineSeg eNode (lineSeg1, lineSeg1Err)
     intersect4 = outputIntersectsLineSeg eNode (lineSeg2, lineSeg2Err)
     -- note that our bisector always intersects the origin.
-    (NPLine2 bisector1, UlpSum bisector1Ulp) = normalizePLine2WithErr bisector
-    (bisector, UlpSum bisectorUlp) = pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (x3,y3))
-    bisector1Err = bisectorUlp + bisector1Ulp
+    (NPLine2 bisector1, PLine2Err _ bisector1NormUlp _ _ _) = normalizePLine2WithErr bisector
+    (bisector, PLine2Err _ _ bisectorAngleUlp bisectorTranslateUlp _) = pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (x3,y3))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
     x1,y1,x2,y2,times :: ℝ
@@ -627,8 +629,8 @@ prop_LineSegIntersectionStableAtOrigin d1 x1 y1 rawX2 rawY2
     res1 = intersectsWithErr (Right pLineThroughOriginNotX1Y1NotOther) (Left x1y1LineSegToOrigin)
     res2 = intersectsWithErr (Right pLineThroughOriginNotX1Y1NotOther) (Left lineSegFromOrigin)
     distanceStart = case res2 of
-                      (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distanceBetweenCPPointsWithErr iPoint (eToCPPoint2 $ Point2 (0,0))) <> "\nUlpSum:" <> show ulpSum <> "\n"
-                      (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distanceBetweenCPPointsWithErr iPoint (eToCPPoint2 $ Point2 (0,0))) <> "\nUlpSum:" <> show ulpSum <> "\n"
+                      (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distanceBetweenPPointsWithErr (iPoint,mempty) (eToPPoint2 $ Point2 (0,0), mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
+                      (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distanceBetweenPPointsWithErr (iPoint,mempty) (eToPPoint2 $ Point2 (0,0), mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       _ -> ""
     pLineThroughOriginNotX1Y1NotOther = randomPLineThroughOrigin x2 y2
     x1y1LineSegToOrigin = randomX1Y1LineSegToOrigin d1
@@ -673,12 +675,12 @@ prop_LineSegIntersectionStableAtX1Y1Point pointD rawD1 x1 y1 rawX2 rawY2
     res1 = intersectsWithErr (Right pLineThroughPointNotX1Y1NotOther) (Left x1y1LineSegToPoint)
     res2 = intersectsWithErr (Right pLineThroughPointNotX1Y1NotOther) (Left lineSegFromPointNotX1Y1)
     distanceStart = case res2 of
-                      (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distanceBetweenCPPointsWithErr iPoint (eToCPPoint2 $ Point2 (d2,d2))) <> "\nUlpSum:" <> show ulpSum <> "\n"
-                      (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distanceBetweenCPPointsWithErr iPoint (eToCPPoint2 $ Point2 (d2,d2))) <> "\nUlpSum:" <> show ulpSum <> "\n"
+                      (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distanceBetweenPPointsWithErr (iPoint,mempty) (eToPPoint2 $ Point2 (d2,d2),mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
+                      (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distanceBetweenPPointsWithErr (iPoint,mempty) (eToPPoint2 $ Point2 (d2,d2),mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       _ -> ""
     distanceEnd = case res1 of
-                      (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distanceBetweenCPPointsWithErr iPoint (eToCPPoint2 $ Point2 (d2,d2))) <> "\nUlpSum:" <> show ulpSum <> "\n"
-                      (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distanceBetweenCPPointsWithErr iPoint (eToCPPoint2 $ Point2 (d2,d2))) <> "\nUlpSum:" <> show ulpSum <> "\n"
+                      (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distanceBetweenPPointsWithErr (iPoint,mempty) (eToPPoint2 $ Point2 (d2,d2),mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
+                      (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distanceBetweenPPointsWithErr (iPoint,mempty) (eToPPoint2 $ Point2 (d2,d2),mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       _ -> ""
     pLineThroughPointNotX1Y1NotOther = randomPLineThroughPoint x2 y2 d2
     x1y1LineSegToPoint = randomX1Y1LineSegToPoint d1 d2
@@ -707,56 +709,42 @@ prop_LineSegIntersectionStableAtX1Y1Point pointD rawD1 x1 y1 rawX2 rawY2
                            else (rawX2/2,rawY2/3)
       | otherwise = (rawX2,rawY2)
 
--- | A checker, to ensure an angle is what is expected.
-myAngleBetween :: NPLine2 -> NPLine2 -> Bool
-myAngleBetween a b
-  | realToFrac res + resErr >= 1.0-resErr = True
-  | otherwise = error
-                $ "angle wrong?\n"
-                <> show a <> "\n"
-                <> show b <> "\n"
-                <> show res <> "\n"
-                <> show resErr <> "\n"
-  where
-    (res, UlpSum resErr) = angleBetweenWithErr a b
-
 -- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
 prop_AxisAlignedRightAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAlignedRightAngles xPos yPos offset rawMagnitude1 rawMagnitude2
-  | xPos && yPos     = myNorm (getFirstArc (Point2 (offset,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset)))
-                       `myAngleBetween`
+  | xPos && yPos     =  (getFirstArc (Point2 (offset,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset)))
+                       `sameDirection`
                        NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
-  | xPos             = myNorm (getFirstArc (Point2 (offset,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,-offset)))
-                       `myAngleBetween`
+  | xPos             =  (getFirstArc (Point2 (offset,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,-offset)))
+                       `sameDirection`
                        NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
-  | not xPos && yPos = myNorm (getFirstArc (Point2 (-offset,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset)))
-                       `myAngleBetween`
+  | not xPos && yPos =  (getFirstArc (Point2 (-offset,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset)))
+                       `sameDirection`
                        NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
-  | otherwise        = myNorm (getFirstArc (Point2 (-offset,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,-offset)))
-                       `myAngleBetween`
+  | otherwise        =  (getFirstArc (Point2 (-offset,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,-offset)))
+                       `sameDirection`
                        NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
   where
     mag1,mag2 :: ℝ
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
-    myNorm (PLine2 gvals) = NPLine2 gvals
 
 -- | ensure that a 135 degree angle with one side parallel with an axis and in the right place results in a line through the origin point.
 -- NOTE: hack, using angleBetween and >= to filter out minor numerical imprecision.
 prop_AxisAligned135DegreeAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned135DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = normalizePLine2 (getFirstArc (Point2 (offset,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset-mag2)))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | xPos             = normalizePLine2 (getFirstArc (Point2 (offset,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,mag2-offset)))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | not xPos && yPos = normalizePLine2 (getFirstArc (Point2 (-offset,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset-mag2)))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   | otherwise        = normalizePLine2 (getFirstArc (Point2 (-offset,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,mag2-offset)))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   where
     mag1,mag2 :: ℝ
@@ -768,16 +756,16 @@ prop_AxisAligned135DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
 prop_AxisAligned45DegreeAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned45DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = normalizePLine2 (getFirstArc (Point2 (offset+mag1,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset)))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | xPos             = normalizePLine2 (getFirstArc (Point2 (offset+mag1,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,-offset)))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal  (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | not xPos && yPos = normalizePLine2 (getFirstArc (Point2 (-offset-mag1,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset)))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   | otherwise        = normalizePLine2 (getFirstArc (Point2 (-offset-mag1,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,-offset)))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   where
     mag1,mag2 :: ℝ
@@ -792,22 +780,22 @@ prop_AxisAlignedRightAnglesOutside xPos yPos offset rawMagnitude
   | xPos && yPos = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (offset,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset,offset+mag)) (Point2 (offset,offset)))
                   (eToPPoint2 $ Point2 (offset+mag,offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (offset,offset))))
-                  `myAngleBetween`
+                  `sameDirection`
                    NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
   | xPos = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (offset,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset,-(offset+mag))) (Point2 (offset,-offset)))
                   (eToPPoint2 $ Point2 (offset+mag,-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (offset,-offset))))
-                  `myAngleBetween`
+                  `sameDirection`
                    NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
   | not xPos && yPos = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (-offset,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-offset,offset+mag)) (Point2 (-offset,offset)))
                   (eToPPoint2 $ Point2 (-(offset+mag),offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (-offset,offset))))
-                  `myAngleBetween`
+                  `sameDirection`
                    NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
   | otherwise = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (-offset,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (-offset,-offset)))
                   (eToPPoint2 $ Point2 (-(offset+mag),-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (-offset,-offset))))
-                  `myAngleBetween`
+                  `sameDirection`
                    NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
   where
     mag :: ℝ
@@ -823,22 +811,22 @@ prop_AxisAligned135DegreeAnglesOutside xPos yPos rawOffset rawMagnitude
   | xPos && yPos = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (offset+mag,offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (offset,offset)))
                   (eToPPoint2 $ Point2 (offset+mag,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset+mag)) (Point2 (offset,offset))))
-                  `myAngleBetween`
+                  `sameDirection`
                    NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   | xPos = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (offset+mag,-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (offset,-offset)))
                   (eToPPoint2 $ Point2 (offset+mag,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-(offset+mag))) (Point2 (offset,-offset))))
-                  `myAngleBetween`
+                  `sameDirection`
                    NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   | not xPos && yPos = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (-(offset+mag),offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (-offset,offset)))
                   (eToPPoint2 $ Point2 (-(offset+mag),offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset+mag)) (Point2 (-offset,offset))))
-                  `myAngleBetween`
+                  `sameDirection`
                    NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | otherwise = normalizePLine2 (
     getOutsideArc (eToPPoint2 $ Point2 (-(offset+mag),-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (-offset,-offset)))
                   (eToPPoint2 $ Point2 (-(offset+mag),-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-(offset+mag))) (Point2 (-offset,-offset))))
-                  `myAngleBetween`
+                  `sameDirection`
                    NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   where
     mag,offset :: ℝ
@@ -850,16 +838,16 @@ prop_AxisAligned135DegreeAnglesOutside xPos yPos rawOffset rawMagnitude
 prop_AxisAlignedRightAnglesInENode :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAlignedRightAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (offset,offset+mag1)) (Point2 (offset,offset)),LineSeg (Point2 (offset,offset)) (Point2 (offset+mag2,offset))]))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
   | xPos             = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (offset,-(offset+mag1))) (Point2 (offset,-offset)),LineSeg (Point2 (offset,-offset)) (Point2 (offset+mag2,-offset))]))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))])
   | not xPos && yPos = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (-offset,offset+mag1)) (Point2 (-offset,offset)),LineSeg (Point2 (-offset,offset)) (Point2 (-(offset+mag2),offset))]))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
   | otherwise        = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (-offset,-(offset+mag1))) (Point2 (-offset,-offset)),LineSeg (Point2 (-offset,-offset)) (Point2 (-(offset+mag2),-offset))]))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))])
   where
     mag1,mag2 :: ℝ
@@ -871,16 +859,16 @@ prop_AxisAlignedRightAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
 prop_AxisAligned135DegreeAnglesInENode :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned135DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (offset,offset+mag1)) (Point2 (offset,offset)),LineSeg (Point2 (offset,offset)) (Point2 (offset+mag2,offset-mag2))]))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | xPos             = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (offset,-(offset+mag1))) (Point2 (offset,-offset)),LineSeg (Point2 (offset,-offset)) (Point2 (offset+mag2,-(offset-mag2)))]))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | not xPos && yPos = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (-offset,offset+mag1)) (Point2 (-offset,offset)),LineSeg (Point2 (-offset,offset)) (Point2 (-(offset+mag2),offset-mag2))]))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   | otherwise        = normalizePLine2 (outOf (onlyOne $ makeENodes [LineSeg (Point2 (-offset,-(offset+mag1))) (Point2 (-offset,-offset)),LineSeg (Point2 (-offset,-offset)) (Point2 (-(offset+mag2),-(offset-mag2)))]))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   where
     mag1,mag2 :: ℝ
@@ -892,16 +880,16 @@ prop_AxisAligned135DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitu
 prop_AxisAligned45DegreeAnglesInENode :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = normalizePLine2 (outOf (makeENode (Point2 (offset+mag1,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset))))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | xPos             = normalizePLine2 (outOf (makeENode (Point2 (offset+mag1,-offset-mag1)) (Point2 (offset,-offset)) (Point2 (offset+mag2,-offset))))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))])
   | not xPos && yPos = normalizePLine2 (outOf (makeENode (Point2 (-offset-mag1,offset+mag1)) (Point2 (-offset,offset)) (Point2 (-offset-mag2,offset))))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   | otherwise        = normalizePLine2 (outOf (makeENode (Point2 (-offset-mag1,-offset-mag1)) (Point2 (-offset,-offset)) (Point2 (-offset-mag2,-offset))))
-                       `myAngleBetween`
+                       `sameDirection`
                        NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))])
   where
     mag1,mag2 :: ℝ
@@ -917,17 +905,17 @@ prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions trian
                 <> show firstSeg <> "\n"
                 <> show firstPoints <> "\n"
                 <> show (insideIsLeft triangle) <> "\n"
-                <> show (pLineIsLeft pLine (PLine2 pLineToInside)) <> "\n"
+                <> show (pLineIsLeft pLine (PLine2 pLineToInside, mempty)) <> "\n"
     maybeInnerPoint = innerContourPoint triangle
     triangle        = randomTriangle centerX centerY rawRadians rawDists
     firstSeg        = firstLineSegOfContour triangle
-    pLine           = eToPLine2 firstSeg
+    pLine           = eToPLine2WithErr firstSeg
     firstPoints     = firstPointPairOfContour triangle
     (p1, p2)        = firstPointPairOfContour triangle
     (myMidPoint,_)  = pPointBetweenPPointsWithErr (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
     -- we normalize this for Ganja.js.
-    (NPLine2 pLineToInside) = normalizePLine2 $ join2PPoint2 myMidPoint innerPoint
-    (NPLine2 pLineToOutside) = normalizePLine2 $ join2PPoint2 innerPoint $ eToPPoint2 outsidePoint
+    (NPLine2 pLineToInside) = normalizePLine2 $ join2PPoints myMidPoint innerPoint
+    (NPLine2 pLineToOutside) = normalizePLine2 $ join2PPoints innerPoint $ eToPPoint2 outsidePoint
     innerPoint      = fromMaybe (dumpError2) maybeInnerPoint
     minPoint        = fst $ minMaxPoints triangle
     outsidePoint    = Point2 (xOf minPoint - 0.00000001 , yOf minPoint - 0.00000001)
@@ -1183,6 +1171,7 @@ prop_ConcaveChevronQuadFacesInOrder a b c d e f = doTest $ randomConcaveChevronQ
         concaveChevronQuadAsSegs = lineSegsOfContour concaveChevronQuad
         firstSeg = onlyOneOf concaveChevronQuadAsSegs
 
+{-
 -- | Test of dimensional accuracy.
 -- make sure that the measured distance between two points that have been placed as close as possible is less than the amount of error placing both points added to the amount of error of doing a measurement of distance.
 prop_PPointWithinErrRange :: ℝ -> ℝ -> Bool
@@ -1191,8 +1180,9 @@ prop_PPointWithinErrRange x y
   | otherwise = (p1 /= p2) || (res == 0 || error "the same, but distance?")
   where
     (res, UlpSum resErr) = distanceBetweenCPPointsWithErr p1 p2
-    (p1, PPoint2PosErr p1Err) = makeCPPoint2WithErr x y
-    (p2, PPoint2PosErr p2Err) = makeCPPoint2WithErr (x + realToFrac p1Err) (y + realToFrac p1Err)
+    p1 = makePPoint2 x y
+    p2 = makePPoint2 (x + realToFrac p1Err) (y + realToFrac p1Err)
+-}
 
 prop_LineSegWithinErrRange :: ℝ -> ℝ -> ℝ -> ℝ -> Bool
 prop_LineSegWithinErrRange x1 y1 rawX2 rawY2
@@ -1223,22 +1213,21 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
               <> "ulpTotal2: " <> show ulpTotal2 <> "\n"
               <> "distance1Err: " <> show distance1Err <> "\n"
               <> "distance2Err: " <> show distance2Err <> "\n"
-              <> "PPoint1ULP: " <> show ulpSumP1 <> "\n"
-              <> "PPoint2ULP: " <> show ulpSumP2 <> "\n"
               <> "PLine1ULP: " <> show ulpPLine <> "\n"
               <> "PLine: " <> show pLine <> "\n"
               <> "NPLine: " <> show nPLine <> "\n"
               <> "PPoint1: " <> show pPoint1 <> "\n"
               <> "PPoint2: " <> show pPoint2 <> "\n"
     -- distance1 and distance2 should be 0, in an ideal world.
-    (distance1, UlpSum distance1Err) = distanceCPPointToNPLineWithErr pPoint1 nPLine
-    (distance2, UlpSum distance2Err) = distanceCPPointToNPLineWithErr pPoint2 nPLine
-    (pPoint1, PPoint2PosErr ulpSumP1) = makeCPPoint2WithErr x1 y1
-    (pPoint2, PPoint2PosErr ulpSumP2) = makeCPPoint2WithErr x2 y2
-    (nPLine, UlpSum nPLineErr) = normalizePLine2WithErr pLine
-    (pLine, UlpSum ulpPLine) = pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2))
-    ulpTotal1 = ulpSumP1 + ulpPLine + distance1Err + nPLineErr
-    ulpTotal2 = ulpSumP2 + ulpPLine + distance2Err + nPLineErr
+    (distance1, (PPoint2Err (UlpSum distance1Err) _, _, _, _, _, _, _)) = distancePPointToPLineWithErr pPoint1 nPLine
+    (distance2, (PPoint2Err (UlpSum distance2Err) _, _, _, _, _, _, _)) = distancePPointToPLineWithErr pPoint2 nPLine
+    pPoint1, pPoint2 :: (ProjectivePoint, PPoint2Err)
+    pPoint1 = (makePPoint2 x1 y1, mempty)
+    pPoint2 = (makePPoint2 x2 y2, mempty)
+    nPLine@(_,PLine2Err _ (UlpSum nPLineErr) _ _ _) = normalizePLine2WithErr pLine
+    (pLine, PLine2Err _ _ _ (UlpSum ulpPLine) _) = pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2))
+    ulpTotal1 = ulpPLine + distance1Err + nPLineErr
+    ulpTotal2 = ulpPLine + distance2Err + nPLineErr
     -- make sure we do not try to create a 0 length line segment.
     (x2,y2)
      | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
@@ -1258,23 +1247,22 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
               <> "ulpTotal2: " <> show ulpTotal2 <> "\n"
               <> "distance1Err: " <> show distance1Err <> "\n"
               <> "distance2Err: " <> show distance2Err <> "\n"
-              <> "PPoint1ULP: " <> show ulpSumP1 <> "\n"
-              <> "PPoint2ULP: " <> show ulpSumP2 <> "\n"
               <> "PLine1ULP: " <> show ulpPLine <> "\n"
               <> "PLine1NormULP: " <> show normErr <> "\n"
               <> "PLine1: " <> show pLine1 <> "\n"
-              <> "NPLine1(vec): " <> show lvec <> "\n"
               <> "PPoint1: " <> show pPoint1 <> "\n"
               <> "PPoint2: " <> show pPoint2 <> "\n"
     -- distance1 and distance2 should be 0, in an ideal world.
-    (distance1, UlpSum distance1Err) = distancePPointToPLineWithErr (PPoint2 pPoint1) pLine1
-    (distance2, UlpSum distance2Err) = distancePPointToPLineWithErr (PPoint2 pPoint2) pLine1
-    (CPPoint2 pPoint1, PPoint2PosErr ulpSumP1) = makeCPPoint2WithErr x1 y1
-    (CPPoint2 pPoint2, PPoint2PosErr ulpSumP2) = makeCPPoint2WithErr x2 y2
-    (pLine1, UlpSum ulpPLine) = join2CPPoint2WithErr (CPPoint2 pPoint1) (CPPoint2 pPoint2)
-    (NPLine2 lvec, UlpSum normErr) = normalizePLine2WithErr pLine1
-    ulpTotal1 = ulpSumP1 + ulpPLine + distance1Err
-    ulpTotal2 = ulpSumP2 + ulpPLine + distance2Err
+    (distance1, distance1RawErr) = distancePPointToPLineWithErr (pPoint1,mempty) (pLine1,mempty)
+    (distance2, distance2RawErr) = distancePPointToPLineWithErr (pPoint2,mempty) (pLine1,mempty)
+    pPoint1 = makePPoint2 x1 y1
+    pPoint2 = makePPoint2 x2 y2
+    (pLine1, (_,_,(PLine2Err ulpPLine _ _ _ _))) = join2PPointsWithErr pPoint1 pPoint2
+    (_, PLine2Err _ (UlpSum normErr) _ _ _) = normalizePLine2WithErr pLine1
+    distance1Err = (\(PPoint2Err _ cErr, PLine2Err _ _ _ transErr _, _, _, _, _, _) -> cErr <> transErr) distance1RawErr
+    distance2Err = (\(PPoint2Err _ cErr, PLine2Err _ _ _ transErr _, _, _, _, _, _) -> cErr <> transErr) distance2RawErr
+    ulpTotal1 = ulpVal $ ulpPLine <> distance1Err
+    ulpTotal2 = ulpVal $ ulpPLine <> distance2Err
     -- make sure we do not try to create a 0 length line segment.
     (x2,y2)
      | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
@@ -1294,20 +1282,20 @@ prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
               <> "distance2: " <> show res2 <> "\n"
               <> "PLine: " <> show pLine <> "\n"
               <> "PLineULP: " <> show ulpPLine <> "\n"
-              <> "PPoint1ULP: " <> show ulpSumP1 <> "\n"
-              <> "PPoint2ULP: " <> show ulpSumP2 <> "\n"
               <> "ulpTotal1: " <> show ulpTotal1 <> "\n"
               <> "ulpTotal2: " <> show ulpTotal2 <> "\n"
     -- res should be d, in an ideal world.
-    (res1,UlpSum res1Err) = distancePPointToPLineWithErr perp1 pLine
-    (res2,UlpSum res2Err) = distancePPointToPLineWithErr perp2 pLine
-    (perp1, UlpSum ulpSumPerp1) = pPointOnPerpWithErr pLine (PPoint2 pPoint1) d
-    (perp2, UlpSum ulpSumPerp2) = pPointOnPerpWithErr pLine (PPoint2 pPoint2) d
-    (CPPoint2 pPoint1, PPoint2PosErr ulpSumP1) = makeCPPoint2WithErr x1 y1
-    (CPPoint2 pPoint2, PPoint2PosErr ulpSumP2) = makeCPPoint2WithErr x2 y2
-    (pLine, UlpSum ulpPLine) = join2CPPoint2WithErr (CPPoint2 pPoint1) (CPPoint2 pPoint2)
-    ulpTotal1 = ulpSumP1 + ulpPLine + res1Err + ulpSumPerp1
-    ulpTotal2 = ulpSumP2 + ulpPLine + res2Err + ulpSumPerp2
+    (res1, res1RawErr) = distancePPointToPLineWithErr (perp1, mempty) (pLine, mempty)
+    (res2, res2RawErr) = distancePPointToPLineWithErr (perp2, mempty) (pLine, mempty)
+    (perp1, ulpSumPerp1) = pPointOnPerpWithErr pLine pPoint1 d
+    (perp2, ulpSumPerp2) = pPointOnPerpWithErr pLine pPoint2 d
+    pPoint1 = makePPoint2 x1 y1
+    pPoint2 = makePPoint2 x2 y2
+    (pLine, (_,_,PLine2Err ulpPLine _ _ _ _)) = join2PPointsWithErr pPoint1 pPoint2
+    res1Err = (\(PPoint2Err _ cErr, PLine2Err _ _ _ transErr _, _, _, _, _, _) -> cErr <> transErr) res1RawErr
+    res2Err = (\(PPoint2Err _ cErr, PLine2Err _ _ _ transErr _, _, _, _, _, _) -> cErr <> transErr) res2RawErr
+    ulpTotal1 = ulpVal $ ulpPLine <> res1Err <> ulpSumPerp1
+    ulpTotal2 = ulpVal $ ulpPLine <> res2Err <> ulpSumPerp2
     d :: ℝ
     d = coerce rawD
     -- make sure we do not try to create a 0 length line segment.
@@ -1319,18 +1307,19 @@ prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
 
 prop_obtuseBisectorOnBiggerSide_makeENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Expectation
 prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
-  | testFirstLine = pLineIsLeft bisector pl1 --> Just True
-  | otherwise     = pLineIsLeft pl2 bisector --> Just True
+  | testFirstLine = pLineIsLeft (bisector, mempty) pl1 --> Just True
+  | otherwise     = pLineIsLeft (pl2, pl2Err) (bisector, mempty) --> Just True
   where
-    pl1 = eToPLine2 $ getFirstLineSeg eNode
-    pl2 = flipPLine2 $ eToPLine2 $ getLastLineSeg eNode
+    pl1 = eToPLine2WithErr $ getFirstLineSeg eNode
+    pl2 = flipPLine2 pl2Raw
+    (pl2Raw, pl2Err) =  eToPLine2WithErr $ getLastLineSeg eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
     bisector = flipPLine2 $ outOf eNode
 
 prop_obtuseBisectorOnBiggerSide_makeINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> Expectation
-prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound > realToFrac (1-angleErr), angleFound < realToFrac (-1 + angleErr :: Rounded 'TowardInf ℝ)) --> (True, False)
+prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound > 1, angleFound < (-1)) --> (True, False)
   where
-    (angleFound, UlpSum angleErr) = angleBetweenWithErr bisector1 bisector2
+    (angleFound, _) = angleBetweenWithErr bisector1 bisector2
     eNode = randomENode x y d1 rawR1 d2 rawR2
     iNode = randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2
     bisector1 = normalizePLine2 $ outOf iNode
@@ -1340,7 +1329,7 @@ prop_eNodeTowardIntersection1 :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Pos
 prop_eNodeTowardIntersection1 x y d1 rawR1 d2 rawR2 = l1TowardIntersection --> True
   where
     l1TowardIntersection = towardIntersection (eToPPoint2 $ startPoint l1) pl1 eNodePoint
-    (eNodePoint, _) = canonicalizePPoint2WithErr $ pPointOf eNode
+    eNodePoint = pPointOf eNode
     l1 = getFirstLineSeg eNode
     pl1 = eToPLine2 l1
     eNode = randomENode x y d1 rawR1 d2 rawR2
@@ -1349,16 +1338,16 @@ prop_eNodeAwayFromIntersection2 :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> P
 prop_eNodeAwayFromIntersection2 x y d1 rawR1 d2 rawR2 = l2TowardIntersection --> False
   where
     l2TowardIntersection = towardIntersection (eToPPoint2 $ endPoint l2) pl2 eNodePoint
-    (eNodePoint, _) = canonicalizePPoint2WithErr $ pPointOf eNode
+    eNodePoint = pPointOf eNode
     l2 = getLastLineSeg eNode
     pl2 = eToPLine2 l2
     eNode = randomENode x y d1 rawR1 d2 rawR2
 
 prop_translateRotateMoves :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Expectation
-prop_translateRotateMoves x y rawD rawR = distanceBetweenCPPoints (canonicalizePPoint2 $ translateRotatePPoint2 pPoint d r) cPPoint /= 0 --> True
+prop_translateRotateMoves x y rawD rawR = distanceBetweenPPoints (translateRotatePPoint2 pPoint d r) cPPoint /= 0 --> True
   where
     pPoint = eToPPoint2 $ Point2 (x,y)
-    cPPoint = makeCPPoint2 x y
+    cPPoint = makePPoint2 x y
     r,d::ℝ
     r = coerce rawR
     d = coerce rawD
@@ -1366,7 +1355,7 @@ prop_translateRotateMoves x y rawD rawR = distanceBetweenCPPoints (canonicalizeP
 -- |ensure that a random PLine, when normed, is approximately equal to what went in.
 prop_NormPLineIsPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
 prop_NormPLineIsPLine x y dx dy = normalizePLine2 (randomPLine x y dx dy)
-                                  `myAngleBetween`
+                                  `sameDirection`
                                   normalizePLine2 ((\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ randomPLine x y dx dy)
 
 prop_PLinesIntersectAtOrigin :: NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> Bool
@@ -1374,13 +1363,12 @@ prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
   | foundDistance < realToFrac errSum = True
   | otherwise = error "wtf"
   where
-    (originPPoint2, PPoint2PosErr originErr) = makeCPPoint2WithErr 0 0
-    (foundDistance, UlpSum distanceErr) = distanceBetweenCPPointsWithErr originPPoint2 intersectionCPPoint2
-    (intersectionCPPoint2, UlpSum canonicalizationErr) = canonicalizePPoint2WithErr intersectionPPoint2
-    (intersectionPPoint2, UlpSum intersectionErr) = pLineIntersectionWithErr randomPLine1 randomPLine2
-    (randomPLine1, UlpSum pline1Err) = randomPLineThroughOrigin x y
-    (randomPLine2, UlpSum pline2Err) = randomPLineThroughOrigin x2 y2
-    errSum = intersectionErr + originErr + pline1Err + pline2Err + distanceErr + canonicalizationErr
+    originPPoint2 = makePPoint2 0 0
+    (foundDistance, (_,_,_,distanceErr)) = distanceBetweenPPointsWithErr (originPPoint2,mempty) (intersectionPPoint2, intersectionErr)
+    (intersectionPPoint2, (intersectionErr@(PPoint2Err intersectionAddErr _),_,_)) = pLineIntersectionWithErr randomPLine1 randomPLine2
+    randomPLine1@(_, PLine2Err _ _ _ pline1Err _) = randomPLineThroughOrigin x y
+    randomPLine2@(_, PLine2Err _ _ _ pline2Err _) = randomPLineThroughOrigin x2 y2
+    errSum = ulpVal $ intersectionAddErr <> pline1Err <> pline2Err <> distanceErr
     x,x2,y2 :: ℝ
     x = coerce rawX
     x2
@@ -1398,17 +1386,15 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
                 <> show foundDistance <> "\n"
                 <> show errSum <> "\n"
                 <> show targetPPoint2 <> "\n"
-                <> show targetErr <> "\n"
                 <> show foundDistance <> "\n"
                 <> show distanceErr <> "\n"
   where
-    (targetPPoint2, PPoint2PosErr targetErr) = makeCPPoint2WithErr (coerce targetX) (coerce targetY)
-    (foundDistance, UlpSum distanceErr) = distanceBetweenCPPointsWithErr targetPPoint2 intersectionCPPoint2
-    (intersectionCPPoint2, UlpSum canonicalizationErr) = canonicalizePPoint2WithErr intersectionPPoint2
-    (intersectionPPoint2, UlpSum intersectionErr) = pLineIntersectionWithErr randomPLine1 randomPLine2
-    (randomPLine1, UlpSum pline1Err) = randomPLineWithErr x y targetX targetY
-    (randomPLine2, UlpSum pline2Err) = randomPLineWithErr x2 y2 targetX targetY
-    errSum = intersectionErr + targetErr + pline1Err + pline2Err + distanceErr + canonicalizationErr
+    targetPPoint2 = makePPoint2 (coerce targetX) (coerce targetY)
+    (foundDistance, (_,_,_,distanceErr)) = distanceBetweenPPointsWithErr (targetPPoint2,mempty) (intersectionPPoint2, intersectionErr)
+    (intersectionPPoint2, (intersectionErr@(PPoint2Err intersectionAddErr _),_,_)) = pLineIntersectionWithErr randomPLine1 randomPLine2
+    randomPLine1@(_, PLine2Err _ _ _ pline1Ulp _) = randomPLineWithErr x y targetX targetY
+    randomPLine2@(_, PLine2Err _ _ _ pline2Ulp _) = randomPLineWithErr x2 y2 targetX targetY
+    errSum = ulpVal $ intersectionAddErr <> pline1Ulp <> pline2Ulp <> distanceErr 
     x,x2,y2 :: ℝ
     x = coerce rawX
     x2
@@ -1444,12 +1430,14 @@ facetFlakeySpec = do
   describe "Arcs (Skeleton/Concave)" $ do
     it "finds the outside arc of two intersecting lines (inverted makeENode)" $
       property prop_obtuseBisectorOnBiggerSide_makeENode
+    it "finds the outside arc of two intersecting lines (makeINode)" $
+      property prop_obtuseBisectorOnBiggerSide_makeINode
 
 facetSpec :: Spec
 facetSpec = do
   describe "Stability (Points)" $ do
-    it "placing a Point within a the error range of another point results in a point a distance away thats less than the sum of the two errors" $
-      property prop_PPointWithinErrRange
+--    it "placing a Point within a the error range of another point results in a point a distance away thats less than the sum of the two errors" $
+--      property prop_PPointWithinErrRange
     it "both of the points used to join a PLine2 are within UlpSum of the PLine2" $
       property prop_PLineWithinErrRange2
     it "a point on the perpendicular bisector is within distance+UlpSum of a PLine2" $
@@ -1571,8 +1559,6 @@ facetSpec = do
       property prop_ConcaveChevronQuadHasStraightSkeleton
     it "only generates one generation for a concave chevron quad" $
       property prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount
-    it "finds the outsideArc of two intersecting lines (makeINode)" $
-      property prop_obtuseBisectorOnBiggerSide_makeINode
     it "sees that the first input line into an ENode is toward the point" $
       property prop_eNodeTowardIntersection1
     it "sees that the second input line into an ENode is away from the point" $
@@ -1581,27 +1567,30 @@ facetSpec = do
       property prop_translateRotateMoves
     it "finds the arc resulting from a node at the intersection of the outArc of two nodes (corner3 and corner4 of c2)" $
       averageNodes c2c3E1 c2c4E1 --> INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                           (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
+                                           (NPLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
                                            (slist [])
-                                           (Just (PLine2 (GVec [GVal 0.48706362218573185 (singleton (GEZero 1)), GVal 0.9807852804032305 (singleton (GEPlus 1)), GVal 0.19509032201612822 (singleton (GEPlus 2))])))
+                                           (Just (NPLine2 (GVec [GVal 0.48706362218573185 (singleton (GEZero 1)), GVal 0.9807852804032305 (singleton (GEPlus 1)), GVal 0.19509032201612822 (singleton (GEPlus 2))]),
+                                                  PLine2Err (UlpSum 2.498001805406602e-16) (UlpSum 6.730727086790011e-16) mempty mempty mempty))
     it "finds the outside arc of two PLines intersecting at 90 degrees (c2)" $
       averageNodes c2c2E1 c2c3E1 --> INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (slist [])
-                                           (Just (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 2))])))
+                                           (Just (NPLine2 (GVec [GVal (-1.0) (singleton (GEPlus 2))]),
+                                                  PLine2Err (UlpSum 2.220446049250313e-16) (UlpSum 1.1102230246251567e-15) mempty mempty mempty))
     it "finds the outside arc of two PLines intersecting at 90 degrees (c2)" $
       averageNodes c2c3E1 c2c2E1 --> INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (slist [])
-                                           (Just (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 2))])))
+                                           (Just (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 2))]),
+                                                  PLine2Err (UlpSum 2.220446049250313e-16) (UlpSum 1.1102230246251567e-15) mempty mempty mempty))
     it "finds the outside arc of two PLines intersecting at 90 degrees (c7)" $
-      averageNodes c7c1E1 c7c2E1 --> INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                           (PLine2 (GVec [GVal 1.0606601717798212 (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+      averageNodes c7c1E1 c7c2E1 --> INode (NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
+                                           (NPLine2 (GVec [GVal 1.0606601717798212 (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (slist [])
-                                           (Just (PLine2 (GVec [GVal 0.75 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))])))
+                                           (Just (NPLine2 (GVec [GVal 0.75 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]),PLine2Err (UlpSum 2.220446049250313e-16) (UlpSum 6.66133814775094e-16) mempty mempty mempty))
   describe "Motorcycles (Skeleton/Motorcycles)" $ do
     it "finds the motorcycle in our second simple shape" $
-      convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,0.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (PLine2 (GVec [GVal 1.414213562373095 (singleton (GEPlus 1))])) (UlpSum 2.220446049250313e-16) 2.8284271247461903]
+      convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,0.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (NPLine2 (GVec [GVal 1.0 (singleton (GEPlus 1))])) (PLine2Err (UlpSum 2.220446049250313e-16) (UlpSum 6.66133814775094e-16) mempty mempty mempty)]
   describe "Cells (Skeleton/Cells)" $ do
     it "finds the remains from the first cell of our first simple shape." $
       remainderFrom (findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []) -->

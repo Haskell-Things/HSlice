@@ -26,9 +26,9 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, getOutsideArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, towardIntersection) where
+module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=), (-), (/), realToFrac)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), mempty, realToFrac)
 
 import Prelude as PL (head, last, tail, init)
 
@@ -37,8 +37,6 @@ import Data.Either (lefts,rights)
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, isNothing, fromMaybe)
 
 import Data.List (takeWhile, dropWhile, sortBy, nub)
-
-import Numeric.Rounded.Hardware (getRounded)
 
 import Data.List.Extra (unsnoc)
 
@@ -50,17 +48,19 @@ import Slist as SL (head, last, tail)
 
 import Graphics.Implicit.Definitions (ℝ)
 
+import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getOutsideArcWithErr)
+
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, mapWithFollower, fudgeFactor, startPoint, distance)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, mapWithFollower, fudgeFactor, startPoint)
 
-import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
+import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), ulpVal)
 
-import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, isCollinear, isParallel, isAntiCollinear, noIntersection)
+import Graphics.Slicer.Math.Intersections (intersectionBetween, noIntersection, intersectionOf, isCollinear, isParallel, isAntiCollinear, isAntiParallel,outputsIntersect)
 
-import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenCPPoints, distancePPointToPLine, eToPLine2, getInsideArc, join2CPPoint2, normalizePLine2)
+import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distancePPointToPLine, eToPLine2, getInsideArc)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), CPPoint2(CPPoint2), PPoint2(PPoint2), flipPLine2, getFirstArcWithErr, distanceBetweenCPPointsWithErr, pLineIsLeft, angleBetweenWithErr, distancePPointToPLineWithErr, flipPLine2, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf, errOfOut), Pointable(canPoint, pPointOf), ProjectiveLine, PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), flipPLine2, distanceBetweenPPointsWithErr, pLineIsLeft, distancePPointToPLineWithErr, flipPLine2)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
@@ -111,7 +111,7 @@ findINodes inSegSets
         where
           firstSeg = SL.head $ slist $ SL.head inSegSets
           lastSeg = SL.head $ slist $ SL.last inSegSets
-      [a] -> INodeSet $ slist [[makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just $ flipPLine2 $ outOf a)]]
+      [a] -> INodeSet $ slist [[makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just (flipPLine2 $ outOf a, errOfOut a))]]
         where
           firstSeg = fromMaybe (error "no first segment?") $ safeHead $ slist longSide
           lastSeg = SL.last $ slist longSide
@@ -163,22 +163,26 @@ errorIfLeft :: Either PartialNodes INodeSet -> INodeSet
 errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure
 errorIfLeft (Right val)    = val
 
--- | For a given par of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
+-- | For a given piar of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
 --  Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
 --  Note: assumes outOf the two input nodes is already normalized.
 averageNodes :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> INode
 averageNodes n1 n2
   | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n" <> dumpInput
   | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\n" <> dumpInput
-  | isParallel (outOf n1) (outOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
-  | isCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
+  | isParallel (outOf n1, errOfOut n1) (outOf n2, errOfOut n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
+  | isAntiParallel (outOf n1, errOfOut n1) (outOf n2, errOfOut n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
+  | isCollinear (outOf n1, errOfOut n1) (outOf n2, errOfOut n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
   | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
-  | n1Distance < getRounded n1Err = error $ "intersection is AT the point of n1!\n" <> dumpInput
-  | n2Distance < getRounded n2Err = error $ "intersection is AT the point of n2!\n" <> dumpInput
-  | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (normalizePLine2 $ outOf n1) (pPointOf n2) (normalizePLine2 $ outOf n2)
+  | n1Distance < n1Err = error $ "intersection is AT the point of n1!\n" <> dumpInput
+  | n2Distance < n2Err = error $ "intersection is AT the point of n2!\n" <> dumpInput
+  | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArcWithErr (pPointOf n1) (outOf n1) (pPointOf n2) (outOf n2)
   where
-    (n1Distance, UlpSum n1Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf n1) (outOf n2)) (canonicalizePPoint2 $ pPointOf n1)
-    (n2Distance, UlpSum n2Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf n1) (outOf n2)) (canonicalizePPoint2 $ pPointOf n2)
+    (n1Distance, n1RawErr) = distanceBetweenPPointsWithErr (outputsIntersect n1 n2,mempty) (pPointOf n1,mempty)
+    (n2Distance, n2RawErr) = distanceBetweenPPointsWithErr (outputsIntersect n1 n2,mempty) (pPointOf n2,mempty)
+    n1Err, n2Err :: ℝ
+    n1Err = realToFrac $ ulpVal $ (\(_,_,PLine2Err _ _ _ a _,b) -> a <> b) n1RawErr
+    n2Err = realToFrac $ ulpVal $ (\(_,_,PLine2Err _ _ _ a _,b) -> a <> b) n2RawErr
     dumpInput =    "Node1: " <> show n1
                 <> "\nNode2: " <> show n2
                 <> "\nNode1Out: " <> show (outOf n1)
@@ -187,46 +191,16 @@ averageNodes n1 n2
                 <> "\nNode2PPoint: " <> show (pPointOf n2) <> "\n"
 
 -- | Take a pair of arcables, and return their outOfs, in a sorted order.
-sortedPair :: (Arcable a, Arcable b) => a -> b -> [PLine2]
-sortedPair n1 n2 = sortedPLines [outOf n1, outOf n2]
-
--- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
--- Note: we normalize our output lines.
--- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
--- FIXME: should return amount of error.
-getOutsideArc :: PPoint2 -> NPLine2 -> PPoint2 -> NPLine2 -> PLine2
-getOutsideArc ppoint1 npline1 ppoint2 npline2
-  | npline1 == npline2 = error "need to be able to return two PLines."
-  | noIntersection pline1 pline2 = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
-  | l1TowardPoint && l2TowardPoint = flipPLine2 $ getInsideArc pline1 (flipPLine2 pline2)
-  | l1TowardPoint                  = flipPLine2 $ getInsideArc pline1 pline2
-  | l2TowardPoint                  = getInsideArc pline1 pline2
-  | otherwise                      = getInsideArc pline1 (flipPLine2 pline2)
-    where
-      pline1 = (\(NPLine2 v) -> PLine2 v) npline1
-      pline2 = (\(NPLine2 v) -> PLine2 v) npline2
-      intersectionPoint = intersectionOf pline1 pline2
-      l1TowardPoint = towardIntersection ppoint1 pline1 intersectionPoint
-      l2TowardPoint = towardIntersection ppoint2 pline2 intersectionPoint
-
--- Determine if the line segment formed by the two given points starts with the first point, or the second.
--- Note that due to numeric uncertainty, we cannot rely on Eq here, and must check the sign of the angle.
--- FIXME: shouldn't we be given an error component in our inputs?
-towardIntersection :: PPoint2 -> PLine2 -> CPPoint2 -> Bool
-towardIntersection pp1 pl1 pp2
-  | d <= realToFrac dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
-  | otherwise = angleFound > realToFrac angleErr
-  where
-    (angleFound, UlpSum angleErr) = angleBetweenWithErr newPLine (normalizePLine2 pl1)
-    (d, UlpSum dErr) = distanceBetweenCPPointsWithErr (canonicalizePPoint2 pp1) pp2
-    newPLine = normalizePLine2 $ join2CPPoint2 (canonicalizePPoint2 pp1) pp2
+sortedPair :: (Arcable a, Arcable b) => a -> b -> [ProjectiveLine]
+sortedPair n1 n2
+  | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n"
+ | otherwise = sortedPLines [outOf n1, outOf n2]
 
 -- | Make a first generation node.
 makeENode :: Point2 -> Point2 -> Point2 -> ENode
-makeENode p1 p2 p3 = ENode (p1,p2,p3) arc arcErr arcMag
+makeENode p1 p2 p3 = ENode (p1,p2,p3) arc arcErr
   where
     (arc, arcErr) = getFirstArcWithErr p1 p2 p3
-    arcMag = (distance p1 p2 + distance p2 p3) / 2
 
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
 makeENodes :: [LineSeg] -> [ENode]
@@ -241,7 +215,7 @@ makeENodes segs = case segs of
 eNodesOfOutsideContour :: Contour -> [ENode]
 eNodesOfOutsideContour contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower concavePLines $ lineSegsOfContour contour)
   where
-    onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe ENode
+    onlyNodes :: ((LineSeg, LineSeg), Maybe ProjectiveLine) -> Maybe ENode
     onlyNodes ((seg1, seg2), Just _) = Just $ makeENode (startPoint seg1) (startPoint seg2) (endPoint seg2)
     onlyNodes ((_, _), Nothing) = Nothing
 
@@ -251,7 +225,7 @@ eNodesOfOutsideContour contour = catMaybes $ onlyNodes <$> zip (linePairs contou
 convexNodes :: Contour -> [Node]
 convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower convexPLines $ linesOfContour contour)
   where
-    onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe Node
+    onlyNodes :: ((LineSeg, LineSeg), Maybe ProjectiveLine) -> Maybe Node
     onlyNodes ((seg1, seg2), maybePLine)
       | isJust maybePLine = Just $ Node (Left (seg1,seg2)) $ fromJust maybePLine
       | otherwise         = Nothing
@@ -262,8 +236,10 @@ convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWith
 -- FIXME: shouldn't this be pulled into PGA.hs, as part of an outsIntersectIn?
 nodesAreAntiCollinear :: (Pointable a, Arcable a, Pointable b, Arcable b) => a -> b -> Bool
 nodesAreAntiCollinear node1 node2
-  | hasArc node1 && hasArc node2 && isAntiCollinear (outOf node1) (outOf node2) = True
-  | canPoint node1 && canPoint node2 && hasArc node1 && hasArc node2 = (distancePPointToPLine (pPointOf node1) (outOf node2) < fudgeFactor*50) && (distancePPointToPLine (pPointOf node2) (outOf node1) < fudgeFactor*50)
+  | not (hasArc node1) || not (hasArc node2) = False
+  | isAntiCollinear (outOf node1, errOfOut node1) (outOf node2, errOfOut node2) = True
+  -- FIXME: this looks totally bogus. what are we trying here?
+  | canPoint node1 && canPoint node2 = (distancePPointToPLine (pPointOf node1,mempty) (outOf node2, errOfOut node2) < fudgeFactor*50) && (distancePPointToPLine (pPointOf node2,mempty) (outOf node1,errOfOut node1) < fudgeFactor*50)
   | otherwise = False
 
 -- | Walk the result tree, and find our enodes. Used to test the property that a walk of our result tree should result in the input ENodes in order.
@@ -277,7 +253,7 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodes
         Nothing -> []
         (Just (ancestorGens,workingGen)) -> concat $ findENodesOfInRecursive <$> nub (insOf (onlyINodeIn workingGen) <> maybePLineOut (onlyINodeIn workingGen))
           where
-            maybePLineOut :: INode -> [PLine2]
+            maybePLineOut :: INode -> [ProjectiveLine]
             maybePLineOut myINode = if hasArc myINode
                                     then [outOf myINode]
                                     else []
@@ -285,7 +261,7 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodes
             onlyINodeIn :: [INode] -> INode
             onlyINodeIn [oneItem] = oneItem
             onlyINodeIn a = error $ "more than one inode: " <> show a <> "\n"
-            findENodesOfInRecursive :: PLine2 -> [ENode]
+            findENodesOfInRecursive :: ProjectiveLine -> [ENode]
             findENodesOfInRecursive myPLine
               | isENode myPLine = [myENode]
               | otherwise = -- must be an INode. recurse.
@@ -295,7 +271,7 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodes
                     where
                       -- strip the new last generation until it only contains the INode matching myPLine.
                       lastGenWithOnlyMyINode :: [[INode]]
-                      lastGenWithOnlyMyINode = case filter (\a -> outOf a == myPLine) newLastGen of
+                      lastGenWithOnlyMyINode = case filter (\a -> hasArc a && outOf a == myPLine) newLastGen of
                                                  [] -> []
                                                  a -> [[first a]]
                                                    where
@@ -305,7 +281,7 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodes
               where
                 myENode = fromMaybe (error "could not find ENode?") $ findENodeByOutput eNodeSet myPLine
                 -- Determine if a PLine matches the output of an ENode.
-                isENode :: PLine2 -> Bool
+                isENode :: ProjectiveLine -> Bool
                 isENode myPLine2 = isJust $ findENodeByOutput eNodeSet myPLine2
 findENodesInOrder a b = error $ "cannot find ENodes for :" <> show a <> "\n" <> show b <> "\n"
 
@@ -420,9 +396,9 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
     indexTo iNodes = iNodesBeforePLine iNodes <> iNodesAfterPLine iNodes
       where
         iNodesBeforePLine :: [INode] -> [INode]
-        iNodesBeforePLine = filter (\a -> firstPLine `pLineIsLeft` firstInOf a /= Just False)
+        iNodesBeforePLine = filter (\a -> (firstPLine, mempty) `pLineIsLeft` (firstInOf a, mempty) /= Just False)
         -- nodes in the right order, after the divide.
-        iNodesAfterPLine myINodes = withoutFlippedINodes $ filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) myINodes
+        iNodesAfterPLine myINodes = withoutFlippedINodes $ filter (\a -> (firstPLine, mempty) `pLineIsLeft` (firstInOf a, mempty) == Just False) myINodes
         withoutFlippedINodes maybeFlippedINodes = case flippedINodeOf maybeFlippedINodes of
                                                     Nothing -> maybeFlippedINodes
                                                     (Just a) -> filter (/= a) maybeFlippedINodes
@@ -469,9 +445,9 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
     -- check to see if an INode can be merged with another INode.
     canMergeWith :: INode -> INode -> Bool
-    canMergeWith inode1@(INode _ _ _ maybeOut) inode2 = isJust maybeOut && hasIn inode2 (outOf inode1)
+    canMergeWith inode1 inode2 = hasArc inode1 && hasIn inode2 (outOf inode1)
       where
-        hasIn :: INode -> PLine2 -> Bool
+        hasIn :: INode -> ProjectiveLine -> Bool
         hasIn iNode pLine2 = case filter (==pLine2) $ insOf iNode of
                                [] -> False
                                [_] -> True
@@ -490,7 +466,7 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
     flipINodePair iNode1 iNode2@(INode _ _ _ maybeOut2) = one [orderInsByENodes newINode1] <> one [orderInsByENodes newINode2]
       where
         -- like iNode2, only with our flipped connecting line.
-        newINode1 = makeINode (withoutConnectingPLine $ insOf iNode2) (Just newConnectingPLine)
+        newINode1 = makeINode (withoutConnectingPLine $ insOf iNode2) (Just (newConnectingPLine, mempty))
         -- like iNode1, but with our flipped connecting line in, and iNode2's original out.
         newINode2 = makeINode ([newConnectingPLine] <> insOf iNode1) maybeOut2
         newConnectingPLine = flipPLine2 oldConnectingPLine
@@ -535,12 +511,12 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
     -- | Sort a generation by the first in PLine.
     sortGeneration :: [INode] -> [INode]
-    sortGeneration = sortBy (\a b -> if firstInOf a `pLineIsLeft` firstInOf b == Just False then LT else GT)
+    sortGeneration = sortBy (\a b -> if (firstInOf a, mempty) `pLineIsLeft` (firstInOf b, mempty) == Just False then LT else GT)
 
     -- Find an inode connecting the first and last ENode, if it exists.
     -- FIXME: this functions, but i don't know why. :)
     flippedINodeOf :: [INode] -> Maybe INode
-    flippedINodeOf inodes = case filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) inodes of
+    flippedINodeOf inodes = case filter (\a -> (firstPLine, mempty) `pLineIsLeft` (firstInOf a, mempty) == Just False) inodes of
                               [] -> Nothing
                               [a] -> -- if there is only one result, it's going to only point to enodes.
                                 Just a
@@ -566,10 +542,11 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
     -- | add together a child and it's parent.
     addINodeToParent :: INode -> INode -> INode
-    addINodeToParent (INode _ _ _ Nothing) _ = error "cannot merge a child inode with no output!"
-    addINodeToParent iNode1@(INode _ _ _ (Just out1)) iNode2@(INode _ _ _ out2) = orderInsByENodes $ makeINode (insOf iNode1 <> withoutPLine out1 (insOf iNode2)) out2
+    addINodeToParent iNode1 iNode2@(INode _ _ _ out2)
+      | hasArc iNode1 == False = error "cannot merge a child inode with no output!"
+      | otherwise = orderInsByENodes $ makeINode (insOf iNode1 <> withoutPLine (outOf iNode1) (insOf iNode2)) out2
       where
-        withoutPLine :: PLine2 -> [PLine2] -> [PLine2]
+        withoutPLine :: ProjectiveLine -> [ProjectiveLine] -> [ProjectiveLine]
         withoutPLine myPLine = filter (/= myPLine)
 
     -- Order the input nodes of an INode.
@@ -597,7 +574,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                    else
                      -- Construct an INode with two identical inputs, and return it.
                      -- FIXME: shouldn't we be able to return an empty set, instead?
-                     Right $ INodeSet $ one [INode (outOf eNode) (outOf eNode) (slist []) Nothing]
+                     Right $ INodeSet $ one [makeINode [(outOf eNode),(outOf eNode)] Nothing]
                  [iNode] -> handleTwoNodes eNode iNode
                  (_:_) -> handleThreeOrMoreNodes
     [eNode1,eNode2] -> case iNodes of
@@ -612,7 +589,9 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     --   Handle the the case of two nodes.
     handleTwoNodes :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Either PartialNodes INodeSet
     handleTwoNodes node1 node2
-      | isCollinear (outOf node1) (outOf node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
+      | hasArc node1 == False = error "ran across a node without an output?"
+      | hasArc node2 == False = error "ran across a node without an output?"
+      | isCollinear (outOf node1, errOfOut node1) (outOf node2, errOfOut node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
       | nodesAreAntiCollinear node1 node2 && contourLooped = Right $ INodeSet $ one [makeLastPair node1 node2]
       | contourLooped = -- this is a complete loop, so this last INode will be re-written in sortINodesByENodes anyways.
         Right $ INodeSet $ one [makeINode (sortedPLines [outOf node1,outOf node2]) Nothing]
@@ -623,6 +602,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
 
     --   Handle the the case of 3 or more nodes.
     handleThreeOrMoreNodes
+      | any (not . hasArc) iNodes = error "found an Inode without an output!"
       | endsAtSamePoint && contourLooped = Right $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) <> (outOf <$> iNodes)) Nothing]
       -- FIXME: this can happen for non-loops. which means this Nothing is wrong. it should be the result of the intersection tree from the first and last node in the segment.
       | endsAtSamePoint && not contourLooped = error $ show $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) <> (outOf <$> iNodes)) Nothing]
@@ -663,15 +643,18 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
           where
             pairCloseEnough a b = res < realToFrac errRes
               where
-                (res, UlpSum errRes) = distanceBetweenCPPointsWithErr a b
+                (res, (_,_,_,UlpSum errRes)) = distanceBetweenPPointsWithErr (a,mempty) (b,mempty)
         linesCloseEnough =
           case lineIntersections of
             [] -> []
             [a] -> case pointIntersections of
                      [] -> error "one line, no points.. makes no sense."
-                     (x:_) -> [and pointsCloseEnough && foundDistance < realToFrac foundErr]
+                     (x:_) -> [and pointsCloseEnough && foundDistance < realToFrac (ulpVal totalErr)]
                        where
-                         (foundDistance, UlpSum foundErr) = distancePPointToPLineWithErr ((\(CPPoint2 v) -> PPoint2 v) x) a
+                         (foundDistance, (pPointErr, pLineErr, _, _, _, _, _)) = distancePPointToPLineWithErr (x,mempty) (a,mempty)
+                         relevantPPointErr (PPoint2Err unlikeErr canonicalizeErr) = unlikeErr <> canonicalizeErr
+                         relevantPLineErr (PLine2Err _ _ _ transErr _) = transErr
+                         totalErr = relevantPPointErr pPointErr <> relevantPLineErr pLineErr
             (_:_) -> error
                      $ "detected multiple lines?\n"
                      <> show lineIntersections <> "\n"
@@ -849,20 +832,20 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
     distanceToIntersection :: (Pointable a, Arcable a, Show a, Pointable b, Arcable b, Show b) => a -> b -> Maybe ℝ
     distanceToIntersection node1 node2
-      | canPoint node1
-        && canPoint node2
-        && intersectsInPoint node1 node2 =
-        Just $ distanceBetweenCPPoints (canonicalizePPoint2 $ pPointOf node1) (intersectionOf (outOf node1) (outOf node2))
+      | canPoint node1 && canPoint node2 &&
+        hasArc node1 && hasArc node2 &&
+        intersectsInPoint node1 node2 =
+        Just $ distanceBetweenPPoints (pPointOf node1) (intersectionOf (outOf node1) (outOf node2))
                `max`
-               distanceBetweenCPPoints (canonicalizePPoint2 $ pPointOf node2) (intersectionOf (outOf node1) (outOf node2))
+               distanceBetweenPPoints (pPointOf node2) (intersectionOf (outOf node1) (outOf node2))
       | otherwise = Nothing
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Bool
     intersectsInPoint node1 node2
-      | hasArc node1 && hasArc node2 = not (noIntersection (outOf node1) (outOf node2))
+      | hasArc node1 && hasArc node2 = not (noIntersection (outOf node1, errOfOut node1) (outOf node2,errOfOut node2))
                                        && (dist1 >= realToFrac dist1Err)
                                        && (dist2 >= realToFrac dist2Err)
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, UlpSum dist1Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf node1) (outOf node2)) (canonicalizePPoint2 $ pPointOf node1)
-        (dist2, UlpSum dist2Err) = distanceBetweenCPPointsWithErr (intersectionOf (outOf node1) (outOf node2)) (canonicalizePPoint2 $ pPointOf node2)
+        (dist1, (_,_,_, UlpSum dist1Err)) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1) (outOf node2),mempty) (pPointOf node1,mempty)
+        (dist2, (_,_,_, UlpSum dist2Err)) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1) (outOf node2),mempty) (pPointOf node2,mempty)

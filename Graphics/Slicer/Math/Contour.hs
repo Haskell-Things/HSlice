@@ -24,7 +24,7 @@
 -- | functions for handling contours.
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, maybeFlipContour, firstPointPairOfContour, insideIsLeft, innerContourPoint, pointFarOutsideContour) where
 
-import Prelude ((==), (&&), (*), (<), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, (-), not, realToFrac)
+import Prelude ((==), (&&), (*), (<), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, mempty, minimum, min, (-), not, realToFrac)
 
 import Data.List(partition, reverse, sortBy)
 
@@ -44,15 +44,17 @@ import Slist.Size (Size(Infinity))
 
 import Graphics.Implicit.Definitions (ℝ)
 
+import Graphics.Slicer.Math.ContourIntersections (contourIntersectionCount)
+
 import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, lineSegsOfContour, minMaxPoints, xOf, yOf, startPoint, endPoint, fudgeFactor, makeLineSeg)
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
-import Graphics.Slicer.Math.Intersections (contourIntersectionCount, noIntersection)
+import Graphics.Slicer.Math.Intersections (noIntersection)
 
-import Graphics.Slicer.Math.Lossy (eToPPoint2, join2PPoint2, pPointBetweenPPoints)
+import Graphics.Slicer.Math.Lossy (pLineFromEndpoints, pPointBetweenPPoints)
 
-import Graphics.Slicer.Math.PGA (PPoint2, pLineFromEndpointsWithErr, pLineIsLeft, pPointOnPerpWithErr, pToEPoint2)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, PLine2Err(PLine2Err), eToPPoint2, join2PPointsWithErr, pLineFromEndpointsWithErr, pLineIsLeft, pPointOnPerpWithErr, pToEPoint2)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -225,17 +227,17 @@ followingLineSeg x = followingLineSegLooped x x
 -- | Check if the left hand side of the first line segment of a contour is toward the inside of the contour.
 insideIsLeft :: Contour -> Maybe Bool
 insideIsLeft contour
-  | isJust (innerContourPoint contour) = Just $ pLineIsLeft pline1 pLineToInside == Just True
+  | isJust (innerContourPoint contour) = Just $ pLineIsLeft pline1 (pLineToInside, plineToInsideErr) == Just True
   | otherwise = Nothing
   where
     (p1, p2)      = firstPointPairOfContour contour
-    myMidPoint    = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
-    pLineToInside = join2PPoint2 myMidPoint innerPoint
+    midPoint      = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
     innerPoint    = fromJust $ innerContourPoint contour
-    (pline1,_)    = pLineFromEndpointsWithErr p1 p2
+    pline1        = pLineFromEndpointsWithErr p1 p2
+    (pLineToInside,(mpCulp, ipCulp, plineToInsideErr)) = join2PPointsWithErr midPoint innerPoint
 
 -- | Find a point on the interior of a given contour, on the perpendicular bisector of the first line segment, a given distance away from the line segment.
-innerContourPoint :: Contour -> Maybe PPoint2
+innerContourPoint :: Contour -> Maybe ProjectivePoint
 innerContourPoint contour
   | odd numIntersections && perpErr < realToFrac minDistanceFromSeg = Just perpPoint
   | odd numIntersections = error "cannot ensure perp point is on right side of contour."
@@ -244,7 +246,7 @@ innerContourPoint contour
   | otherwise = Nothing
   where
     (p1, p2)       = firstPointPairOfContour contour
-    source         = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 p2)
+    source         = pLineFromEndpoints p1 p2
     myMidPoint     = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
     (perpPoint, UlpSum perpErr) = pPointOnPerpWithErr source myMidPoint minDistanceFromSeg
     (otherPoint, UlpSum otherErr) = pPointOnPerpWithErr source myMidPoint (-minDistanceFromSeg)
@@ -267,10 +269,10 @@ pointFarOutsideContour contour
   where
     minPoint      = fst (minMaxPoints contour)
     (p1, p2)      = firstPointPairOfContour contour
-    firstPLine    = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 p2)
-    pline1        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint1)
-    pline2        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint2)
-    pline3        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint3)
+    firstPLine    = pLineFromEndpointsWithErr p1 p2
+    pline1        = pLineFromEndpointsWithErr p1 outsidePoint1
+    pline2        = pLineFromEndpointsWithErr p1 outsidePoint2
+    pline3        = pLineFromEndpointsWithErr p1 outsidePoint3
     outsidePoint1 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.1)
     outsidePoint2 = Point2 (xOf minPoint - 0.2 , yOf minPoint - 0.1)
     outsidePoint3 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.2)
@@ -288,11 +290,11 @@ pointFarOutsideContours contour1 contour2
     minPoint      = Point2 (min (xOf minPoint1) (xOf minPoint2),min (yOf minPoint1) (yOf minPoint2))
     (p1, p2)      = firstPointPairOfContour contour1
     (p3, p4)      = firstPointPairOfContour contour2
-    firstPLine    = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 p2)
-    secondPLine   = join2PPoint2 (eToPPoint2 p3) (eToPPoint2 p4)
-    pline1        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint1)
-    pline2        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint2)
-    pline3        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint3)
+    firstPLine    = pLineFromEndpointsWithErr p1 p2
+    secondPLine   = pLineFromEndpointsWithErr p3 p4
+    pline1        = pLineFromEndpointsWithErr p1 outsidePoint1
+    pline2        = pLineFromEndpointsWithErr p1 outsidePoint2
+    pline3        = pLineFromEndpointsWithErr p1 outsidePoint3
     outsidePoint1 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.1)
     outsidePoint2 = Point2 (xOf minPoint - 0.2 , yOf minPoint - 0.1)
     outsidePoint3 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.2)
