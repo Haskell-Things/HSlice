@@ -104,7 +104,7 @@ instance Semigroup ErrVal where
    | e1 == mempty = e2
    | e2 == mempty = e1
    | otherwise = error $ "tried to <> two ErrVals with different basises.\n" <> show b1 <> "\n" <> show b2 <> "\n"
-   
+
 instance Monoid ErrVal where
   mempty = ErrVal mempty mempty
 
@@ -317,12 +317,12 @@ likeVecPairWithErr' vec1 vec2 = results
                 res :: ℝ
                 res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest ℝ)
                 resErr = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac resErrRaw
-                resErrRaw = (realToFrac r1 * realToFrac r2 :: Rounded 'TowardInf ℝ) 
+                resErrRaw = (realToFrac r1 * realToFrac r2 :: Rounded 'TowardInf ℝ)
 -- | Generate the unlike product of a vector pair. multiply only the values in the basis vector sets that are not the same between the two GVecs.
 unlikeVecPair :: GVec -> GVec -> [Either GRVal GVal]
 unlikeVecPair vec1 vec2 = fstEither <$> unlikeVecPairWithErr vec1 vec2
   where
-        fstEither v = case v of 
+        fstEither v = case v of
                     (Left (c,_)) -> Left c
                     (Right (c,_)) -> Right c
 
@@ -497,7 +497,7 @@ withoutPairs (r, (a:|b:xs)) = prependI a $ withoutPairs (r,b:|xs)
 -- if the vector set contains only the scalar vector, eliminate it.
 prependI :: GNum -> (a,NonEmpty GNum) -> (a, NonEmpty GNum)
 prependI num (r,nums) = (r, newPrependI num nums)
-  where 
+  where
     newPrependI :: GNum -> NonEmpty GNum -> NonEmpty GNum
     newPrependI n ns
       | ns == (G0:|[]) = n:|[]
@@ -565,7 +565,7 @@ infixl 9 ⎤+
     mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> rawRes
     res = foldl' addValWithErr [] $ postProcessEitherVals <$> rawRes
     rawRes = unlikeVecPairWithErr v1 v2
- 
+
 -- | Our "reductive" operator.
 (⨅) :: GVec -> GVec -> GVec
 infixl 9 ⨅

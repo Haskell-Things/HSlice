@@ -97,7 +97,7 @@ motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle)
                                            (outputIntersectsPLine motorcycle (eToPLine2 lineSeg, mempty))
                   (WithENode eNode) -> distanceBetweenPPoints
                                        (pPointOf eNode)
-                                       (outputIntersectsPLine eNode (translatePLine2WithErr (eToPLine2 $ getFirstLineSeg eNode) 1)) 
+                                       (outputIntersectsPLine eNode (translatePLine2WithErr (eToPLine2 $ getFirstLineSeg eNode) 1))
                   (WithMotorcycle motorcycle2) -> mSpeedOf motorcycle2
     mSpeedOf :: Motorcycle -> ℝ
     mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _ _) = distanceBetweenPPoints

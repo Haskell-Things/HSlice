@@ -187,7 +187,7 @@ pLineIntersectionWithErr (pl1,pl1Err) (pl2,pl2Err) = (res, (pl1Err <> npl1Err, p
 --   If the weights are equal, the distance will be right between the two points.
 -- FIXME: how do we account for input error here?
 pPointBetweenPPointsWithErr :: (ProjectivePoint,PPoint2Err) -> (ProjectivePoint, PPoint2Err) -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, [ErrVal], [ErrVal], [ErrVal], UlpSum))
-pPointBetweenPPointsWithErr start stop weight1 weight2 
+pPointBetweenPPointsWithErr start stop weight1 weight2
   | isNothing foundVal = error "tried to generate an ideal point?"
   | otherwise = (res, resErr)
   where
@@ -523,7 +523,6 @@ onSegment ls i =
     midFudgeFactor = realToFrac (ulpVal midDistanceErr) + errAtPPoint (eToPLine2WithErr ls) (startPoint ls) (endPoint ls) mid
     endFudgeFactor = realToFrac (ulpVal endDistanceErr) + errAtPPoint (eToPLine2WithErr ls) (startPoint ls) (endPoint ls) end
 
-
 -- | when given a PLine, and two points guaranteed to be on it, return the maximum distance between a given projective point on the PLine and the 'real' line.
 -- FIXME: accept a error on the projectivePoint, and return an error estimate.
 errAtPPoint :: (ProjectiveLine, PLine2Err) -> Point2 -> Point2 -> ProjectivePoint -> ℝ
@@ -575,7 +574,7 @@ errAtPPoint (inPLine, inPLineErr@(PLine2Err _ _ _ _ (pLineJoinAddErr, pLineJoinM
 --    yInterceptAt = eToPPoint2 (Point2 (0, fromRight 0 (fromJust $ yIntercept pline)))
     yInterceptFuzz = (errY * (1 + fst (distancePPointToPLineWithErr (errPoint,mempty) yOrigin)))
     yOrigin = (rawYOrigin, rawYOriginErr)
-    (rawYOrigin, (_, _, rawYOriginErr)) = join2PPointsWithErr origin (eToPPoint2 $ Point2 (0,1))    
+    (rawYOrigin, (_, _, rawYOriginErr)) = join2PPointsWithErr origin (eToPPoint2 $ Point2 (0,1))
     (pline, _) = normalizePLine2WithErr inPLine
     errX, errY, errT :: ℝ
     errX = abs $ realToFrac $ ulpVal $ (eValOf mempty $ getVal [GEPlus 1] pLineJoinAddErr) <> (eValOf mempty $ getVal [GEPlus 1] pLineJoinMulErr)
@@ -594,7 +593,7 @@ xIntercept inPLine
   | isNothing rawY = Just $ Left inPLine
   -- we have an X and a Y? this line passes through the origin.
   | isNothing rawT = Just $ Right $ 0
-  | otherwise = error "we should never get here" 
+  | otherwise = error "we should never get here"
   where
     pLineVals = case inPLine of
                   (NPLine2 (GVec vals)) -> vals
@@ -615,7 +614,7 @@ yIntercept inPLine
   | isNothing rawX = Just $ Left inPLine
   -- we have an X and a Y? this line passes through the origin.
   | isNothing rawT = Just $ Right $ 0
-  | otherwise = error "we should never get here" 
+  | otherwise = error "we should never get here"
   where
     pLineVals = case inPLine of
                   (NPLine2 (GVec vals)) -> vals
@@ -746,7 +745,6 @@ meet2PLine2WithErr pl1 pl2 = (PPoint2 res,
              (NPLine2 vec) -> (vec,mempty)
              pl@(PLine2 _) -> (\(PLine2 vec,err) -> (vec,err)) $ normalizePLine2WithErr pl
 
-
 eToPPoint2 :: Point2 -> ProjectivePoint
 eToPPoint2 (Point2 (x,y)) = PPoint2 res
   where
@@ -835,7 +833,6 @@ dual2DErrs vals = filter (\(ErrVal a _) -> a /= mempty)
       where
         realValue (ErrVal r gnums) = if gnums == singleton G0 then r else mempty
 
-
 -- | perform basis coersion. ensure all of the required '0' components exist. required before using basis sensitive raw operators.
 forceBasis :: [Set GNum] -> GVec -> GVec
 forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
@@ -860,7 +857,7 @@ forcePLine2Basis ln
                                                      (PLine2 p@(GVec [GVal _ g1, GVal _ g2, GVal _ g3])) -> (p,True, Just g1,Just g2, Just g3)
                                                      (NPLine2 p) -> (p, False, Nothing, Nothing, Nothing)
                                                      (PLine2 p) -> (p, False, Nothing, Nothing, Nothing)
-    
+
 -- | runtime basis coersion. ensure all of the '0' components exist on a Projective Point.
 forceProjectivePointBasis :: ProjectivePoint -> ProjectivePoint
 forceProjectivePointBasis point
@@ -879,7 +876,7 @@ forceProjectivePointBasis point
                                                      (CPPoint2 p) -> (p, False, Nothing, Nothing, Nothing)
                                                      (PPoint2 p) -> (p, False, Nothing, Nothing, Nothing)
 
--- | Reverse a line. same line, but pointed in the other direction. 
+-- | Reverse a line. same line, but pointed in the other direction.
 flipPLine2 :: ProjectiveLine -> ProjectiveLine
 flipPLine2 pline = res
   where
@@ -978,7 +975,7 @@ canonicalizePPoint2WithErr point
     (GVec scaledVals, _) = divVecScalarWithErr newVec $ valOf 1 foundVal
     rawVals = case point of
                 (PPoint2 (GVec v)) -> v
-                (CPPoint2 (GVec v)) -> v                
+                (CPPoint2 (GVec v)) -> v
     foundVal = getVal [GEPlus 1, GEPlus 2] rawVals
     ulpSum = if valOf 0 foundVal < 1 && valOf 0 foundVal > -1
              then ulpOfPPoint2 res
@@ -1003,7 +1000,7 @@ normalizePLine2WithErr pl = (res, resErr)
     (res, resErr) = case norm of
             1.0 -> (NPLine2 vec, mempty)
             _ -> (NPLine2 scaledVec, PLine2Err mempty normErr mempty mempty mempty)
-    (scaledVec, _) = divVecScalarWithErr vec norm 
+    (scaledVec, _) = divVecScalarWithErr vec norm
     (norm, normErr) = normOfPLine2WithErr pl
     vec = case pl of
             (PLine2 v) -> v

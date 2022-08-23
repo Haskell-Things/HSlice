@@ -1394,7 +1394,7 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
     (intersectionPPoint2, (_, _, intersectionErr@(PPoint2Err intersectionAddErr _))) = pLineIntersectionWithErr randomPLine1 randomPLine2
     randomPLine1@(_, PLine2Err _ _ _ pline1Ulp _) = randomPLineWithErr x y targetX targetY
     randomPLine2@(_, PLine2Err _ _ _ pline2Ulp _) = randomPLineWithErr x2 y2 targetX targetY
-    errSum = ulpVal $ pline1Ulp <> pline2Ulp <> distanceErr 
+    errSum = ulpVal $ pline1Ulp <> pline2Ulp <> distanceErr
     x,x2,y2 :: ℝ
     x = coerce rawX
     x2

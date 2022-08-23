@@ -106,10 +106,10 @@ getInsideArcWithErr pline1 pline2
       (NPLine2 pv1)             = flipPLine2 npline1
       (npline1, npline1Err) = case pline1 of
               a@(NPLine2 _) -> (a,mempty)
-              a@(PLine2 _) -> normalizePLine2WithErr a        
+              a@(PLine2 _) -> normalizePLine2WithErr a
       (npline2, npline2Err) = case pline2 of
               a@(NPLine2 _) -> (a,mempty)
-              a@(PLine2 _) -> normalizePLine2WithErr a        
+              a@(PLine2 _) -> normalizePLine2WithErr a
       pv2 = case pline2 of
               (NPLine2 a) -> a
               (PLine2 a) -> a
