@@ -24,18 +24,20 @@ module Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getOutsideArcWithErr, towa
 
 import Prelude (Bool, ($), (>), (<=), (<>), (==), (&&), (||), error, mempty, otherwise, realToFrac, show)
 
-import Graphics.Slicer.Math.Definitions (Point2, addPoints, distance, scalePoint)
+import Graphics.Slicer.Definitions (ℝ)
+
+import Graphics.Slicer.Math.Definitions (Point2, addPoints, distance, makeLineSeg, scalePoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
 
 import Graphics.Slicer.Math.Intersections (isCollinear, isAntiCollinear, isParallel, isAntiParallel, intersectionOf)
 
-import Graphics.Slicer.Math.PGA (PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err(PLine2Err), ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetweenWithErr, distanceBetweenPPointsWithErr, flipPLine2, join2PPointsWithErr, normalizePLine2WithErr, pLineFromEndpointsWithErr, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetweenWithErr, distanceBetweenPPointsWithErr, eToPLine2WithErr, flipPLine2, join2PPointsWithErr, normalizePLine2WithErr)
 
 -- | Get a PLine along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
 -- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
 -- FIXME: shouldn't we be given an error component in our inputs?
-getOutsideArcWithErr :: ProjectivePoint -> ProjectiveLine -> ProjectivePoint -> ProjectiveLine -> (ProjectiveLine,PLine2Err)
+getOutsideArcWithErr :: ProjectivePoint -> ProjectiveLine -> ProjectivePoint -> ProjectiveLine -> (ProjectiveLine,(PLine2Err, PLine2Err, PLine2Err))
 getOutsideArcWithErr ppoint1 pline1 ppoint2 pline2
   | pline1 == pline2 = error $ "cannot have two identical input lines:\n" <> show pline1 <> "\n" <> show pline2 <> "\n"
   | isCollinear (pline1,mempty) (pline2,mempty) ||
@@ -49,12 +51,11 @@ getOutsideArcWithErr ppoint1 pline1 ppoint2 pline2
   | otherwise                      = getInsideArcWithErr pline1 (flipPLine2 pline2)
     where
       flipFst (a,b) = (flipPLine2 a,b)
-      intersectionPoint = intersectionOf pline1 pline2
+      intersectionPoint = intersectionOf (pline1,mempty) (pline2,mempty)
       l1TowardPoint = towardIntersection ppoint1 pline1 intersectionPoint
       l2TowardPoint = towardIntersection ppoint2 pline2 intersectionPoint
 
 -- Determine if the line segment formed by the two given points starts with the first point, or the second.
--- Note that due to numeric uncertainty, we cannot rely on Eq here, and must check the sign of the angle.
 -- FIXME: shouldn't we be given an error component in our inputs?
 towardIntersection :: ProjectivePoint -> ProjectiveLine -> ProjectivePoint -> Bool
 towardIntersection pp1 pl1 pp2
@@ -63,7 +64,8 @@ towardIntersection pp1 pl1 pp2
   where
     (angleFound, _) = angleBetweenWithErr newPLine pl1
     (d, (_,_,PLine2Err _ _ _ transErr _, canonicalizeErr)) = distanceBetweenPPointsWithErr (pp1,mempty) (pp2,mempty)
-    (newPLine, joinErr) = join2PPointsWithErr pp1 pp2
+    (newPLine, _) = join2PPointsWithErr pp1 pp2
+    totalErr :: ℝ
     totalErr = realToFrac $ ulpVal $ transErr <> canonicalizeErr
 
 -- | Get a PLine in the direction of the inside of the contour, given three points on the edge of the contour.
@@ -77,13 +79,13 @@ getFirstArcWithErr p1 p2 p3
     -- only used for the quad case.
     -- FIXME: how do we track error from normalization?
     (NPLine2 quadRes, _) = normalizePLine2WithErr quad
-    (quad, quadPLineErr) = pLineFromEndpointsWithErr p2 $ scalePoint 0.5 $ addPoints p1 p3
+    (quad, quadPLineErr) = eToPLine2WithErr (makeLineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3)
     -- used for all other cases.
-    (insideArc, PLine2Err _ insideArcNormErr _ _ _) = getInsideArcWithErr (PLine2 side1) (PLine2 side2)
+    (insideArc, (_,_,PLine2Err _ insideArcNormErr _ _ _)) = getInsideArcWithErr (PLine2 side1) (PLine2 side2)
     (NPLine2 side1, PLine2Err _ side1NormErr _ _ _) = normalizePLine2WithErr side1Raw
-    (side1Raw, PLine2Err _ _ side1AngleErr side1TranslateErr _) = pLineFromEndpointsWithErr p1 p2
+    (side1Raw, PLine2Err _ _ side1AngleErr side1TranslateErr _) = eToPLine2WithErr (makeLineSeg p1 p2)
     (NPLine2 side2, PLine2Err _ side2NormErr _ _ _) = normalizePLine2WithErr side2Raw
-    (side2Raw, PLine2Err _ _ side2AngleErr side2TranslateErr _) = pLineFromEndpointsWithErr p2 p3
+    (side2Raw, PLine2Err _ _ side2AngleErr side2TranslateErr _) = eToPLine2WithErr (makeLineSeg p2 p3)
     insideArcErr = PLine2Err
                    mempty
                    (side1NormErr <> side2NormErr <> insideArcNormErr)
@@ -93,11 +95,11 @@ getFirstArcWithErr p1 p2 p3
 
 -- | Get a Projective Line along the angle bisector of the intersection of the two given lines, pointing in the 'acute' direction.
 --   Note that we know that the inside is to the right of the first line given, and that the first line points toward the intersection.
-getInsideArcWithErr :: ProjectiveLine -> ProjectiveLine -> (ProjectiveLine, PLine2Err)
+getInsideArcWithErr :: ProjectiveLine -> ProjectiveLine -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
 getInsideArcWithErr pline1 pline2
    -- FIXME: remove this Eq usage!
   | npline1 == npline2 = error "need to be able to return two PLines."
-  | otherwise = (res, resNormErr <> PLine2Err addErr mempty mempty mempty mempty)
+  | otherwise = (res, (npline1Err, npline2Err, resNormErr <> PLine2Err addErr mempty mempty mempty mempty))
   where
       (res, resNormErr) = normalizePLine2WithErr $ PLine2 rawPLine2
       (rawPLine2, addErr)       = addVecPairWithErr pv1 pv2

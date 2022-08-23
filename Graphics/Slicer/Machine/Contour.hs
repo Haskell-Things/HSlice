@@ -19,7 +19,7 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude (($), otherwise, Eq, (<>), show, error, (==), (&&), Show, mempty, not)
+import Prelude (($), fst, otherwise, Eq, (<>), show, error, (==), (&&), Show, not)
 
 import Data.List (null, foldl')
 
@@ -35,9 +35,7 @@ import Graphics.Slicer.Math.Intersections (noIntersection, intersectionOf)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.Lossy (eToPLine2, translatePLine2)
-
-import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, pToEPoint2, translatePLine2WithErr)
+import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, pToEPoint2, eToPLine2WithErr, translatePLine2WithErr)
 
 import Graphics.Slicer.Definitions(ℝ)
 
@@ -101,13 +99,12 @@ modifyContour pathWidth contour direction
                                        (Just (middleSegs,lastSeg)) -> middleSegs <> if noIntersection (inwardAdjustWithErr lastSeg) (inwardAdjustWithErr oneSeg)
                                                                                     then maybeToList (combineLineSegs lastSeg oneSeg)
                                                                                     else [lastSeg,oneSeg]
-        inwardAdjustWithErr l1 = translatePLine2WithErr (eToPLine2 l1) (if direction == Inward then pathWidth else (-pathWidth))
-        inwardAdjust l1 = translatePLine2 (eToPLine2 l1) (if direction == Inward then pathWidth else (-pathWidth))
+        inwardAdjustWithErr l1 = translatePLine2WithErr (fst $ eToPLine2WithErr l1) (if direction == Inward then pathWidth else (-pathWidth))
         findLineSeg :: LineSeg -> LineSeg -> LineSeg -> Maybe LineSeg
         findLineSeg previousln ln nextln
           -- The ideal case.
           | isIntersection previousln ln &&
-            isIntersection ln nextln        = Just $ makeLineSeg (pToEPoint2 $ intersectionOf (inwardAdjust previousln) (inwardAdjust ln)) (pToEPoint2 $ intersectionOf (inwardAdjust ln) (inwardAdjust nextln))
+            isIntersection ln nextln        = Just $ makeLineSeg (pToEPoint2 $ intersectionOf (inwardAdjustWithErr previousln) (inwardAdjustWithErr ln)) (pToEPoint2 $ intersectionOf (inwardAdjustWithErr ln) (inwardAdjustWithErr nextln))
           | otherwise = error $ "no intersection?\n" <> show (isIntersection previousln ln) <> "\n" <> show (isIntersection ln nextln) <> "\n" <> show previousln <> "\n" <> show ln <> "\n" <> show nextln <> "\n"
           where
-            isIntersection l1 l2 = not $ noIntersection (eToPLine2 l1,mempty) (eToPLine2 l2,mempty)
+            isIntersection l1 l2 = not $ noIntersection (eToPLine2WithErr l1) (eToPLine2WithErr l2)

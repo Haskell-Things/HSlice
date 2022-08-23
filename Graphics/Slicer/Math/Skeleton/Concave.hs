@@ -174,12 +174,13 @@ averageNodes n1 n2
   | isAntiParallel (outOf n1, errOfOut n1) (outOf n2, errOfOut n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
   | isCollinear (outOf n1, errOfOut n1) (outOf n2, errOfOut n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
   | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
-  | n1Distance < n1Err = error $ "intersection is AT the point of n1!\n" <> dumpInput
-  | n2Distance < n2Err = error $ "intersection is AT the point of n2!\n" <> dumpInput
-  | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArcWithErr (pPointOf n1) (outOf n1) (pPointOf n2) (outOf n2)
+  | n1Distance < n1Err = error $ "intersection is AT the point of n1!\n" <> show n1Distance <> "\n" <> show n2Distance <> "\n" <> show intersection <> "\n" <> dumpInput
+  | n2Distance < n2Err = error $ "intersection is AT the point of n2!\n" <> show n1Distance <> "\n" <> show n2Distance <> "\n" <> show intersection <> "\n" <> dumpInput
+  | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ (\(a, (_, _, b)) -> (a,b)) $ getOutsideArcWithErr (pPointOf n1) (outOf n1) (pPointOf n2) (outOf n2)
   where
-    (n1Distance, n1RawErr) = distanceBetweenPPointsWithErr (outputsIntersect n1 n2,mempty) (pPointOf n1,mempty)
-    (n2Distance, n2RawErr) = distanceBetweenPPointsWithErr (outputsIntersect n1 n2,mempty) (pPointOf n2,mempty)
+    (n1Distance, n1RawErr) = distanceBetweenPPointsWithErr (intersection, mempty) (pPointOf n1,mempty)
+    (n2Distance, n2RawErr) = distanceBetweenPPointsWithErr (intersection, mempty) (pPointOf n2,mempty)
+    intersection = outputsIntersect n1 n2
     n1Err, n2Err :: ℝ
     n1Err = realToFrac $ ulpVal $ (\(_,_,PLine2Err _ _ _ a _,b) -> a <> b) n1RawErr
     n2Err = realToFrac $ ulpVal $ (\(_,_,PLine2Err _ _ _ a _,b) -> a <> b) n2RawErr
@@ -238,7 +239,7 @@ nodesAreAntiCollinear :: (Pointable a, Arcable a, Pointable b, Arcable b) => a -
 nodesAreAntiCollinear node1 node2
   | not (hasArc node1) || not (hasArc node2) = False
   | isAntiCollinear (outOf node1, errOfOut node1) (outOf node2, errOfOut node2) = True
-  -- FIXME: this looks totally bogus. what are we trying here?
+  -- handle nodes that JUST BARELY miss each other.
   | canPoint node1 && canPoint node2 = (distancePPointToPLine (pPointOf node1,mempty) (outOf node2, errOfOut node2) < fudgeFactor*50) && (distancePPointToPLine (pPointOf node2,mempty) (outOf node1,errOfOut node1) < fudgeFactor*50)
   | otherwise = False
 
@@ -635,8 +636,8 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
       | and $ isJust <$> intersections = and $ pointsCloseEnough <> linesCloseEnough
       | otherwise = False
       where
-        intersections = mapWithFollower intersectionBetween ((outOf <$> nonAntiCollinearNodes eNodes (antiCollinearNodePairsOf eNodes) <> firstAntiCollinearNodes (antiCollinearNodePairsOf eNodes)) <>
-                                                             (outOf <$> nonAntiCollinearNodes iNodes (antiCollinearNodePairsOf iNodes) <> firstAntiCollinearNodes (antiCollinearNodePairsOf iNodes)))
+        intersections = mapWithFollower intersectionBetween (((\a -> (outOf a, errOfOut a)) <$> nonAntiCollinearNodes eNodes (antiCollinearNodePairsOf eNodes) <> firstAntiCollinearNodes (antiCollinearNodePairsOf eNodes)) <>
+                                                             ((\a -> (outOf a, errOfOut a)) <$> nonAntiCollinearNodes iNodes (antiCollinearNodePairsOf iNodes) <> firstAntiCollinearNodes (antiCollinearNodePairsOf iNodes)))
         pointIntersections = rights $ catMaybes intersections
         lineIntersections = lefts $ catMaybes intersections
         pointsCloseEnough = mapWithFollower pairCloseEnough pointIntersections
@@ -649,12 +650,13 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
             [] -> []
             [a] -> case pointIntersections of
                      [] -> error "one line, no points.. makes no sense."
-                     (x:_) -> [and pointsCloseEnough && foundDistance < realToFrac (ulpVal totalErr)]
+                     (x:_) -> [and pointsCloseEnough && foundDistance < totalErr]
                        where
-                         (foundDistance, (pPointErr, pLineErr, _, _, _, _, _)) = distancePPointToPLineWithErr (x,mempty) (a,mempty)
-                         relevantPPointErr (PPoint2Err unlikeErr canonicalizeErr) = unlikeErr <> canonicalizeErr
+                         (foundDistance, (pPointErr, pLineErr, _, _, _, _, _, _)) = distancePPointToPLineWithErr (x,mempty) a
+                         relevantPPointErr (PPoint2Err _ canonicalizeErr) = canonicalizeErr
                          relevantPLineErr (PLine2Err _ _ _ transErr _) = transErr
-                         totalErr = relevantPPointErr pPointErr <> relevantPLineErr pLineErr
+                         totalErr :: ℝ
+                         totalErr = realToFrac $ ulpVal $ relevantPPointErr pPointErr <> relevantPLineErr pLineErr
             (_:_) -> error
                      $ "detected multiple lines?\n"
                      <> show lineIntersections <> "\n"
@@ -835,9 +837,9 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
       | canPoint node1 && canPoint node2 &&
         hasArc node1 && hasArc node2 &&
         intersectsInPoint node1 node2 =
-        Just $ distanceBetweenPPoints (pPointOf node1) (intersectionOf (outOf node1) (outOf node2))
+        Just $ distanceBetweenPPoints (pPointOf node1) (intersectionOf (outOf node1,errOfOut node1) (outOf node2,errOfOut node2))
                `max`
-               distanceBetweenPPoints (pPointOf node2) (intersectionOf (outOf node1) (outOf node2))
+               distanceBetweenPPoints (pPointOf node2) (intersectionOf (outOf node1,errOfOut node1) (outOf node2,errOfOut node2))
       | otherwise = Nothing
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Bool
@@ -847,5 +849,5 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                                        && (dist2 >= realToFrac dist2Err)
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, (_,_,_, UlpSum dist1Err)) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1) (outOf node2),mempty) (pPointOf node1,mempty)
-        (dist2, (_,_,_, UlpSum dist2Err)) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1) (outOf node2),mempty) (pPointOf node2,mempty)
+        (dist1, (_,_,_, UlpSum dist1Err)) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1,errOfOut node1) (outOf node2, errOfOut node2),mempty) (pPointOf node1,mempty)
+        (dist2, (_,_,_, UlpSum dist2Err)) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1,errOfOut node1) (outOf node2, errOfOut node2),mempty) (pPointOf node2,mempty)

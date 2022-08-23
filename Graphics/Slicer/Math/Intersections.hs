@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Math.Intersections (noIntersection, intersectionOf, intersectionBetween, isCollinear, isAntiCollinear, isParallel, isAntiParallel, outputIntersectsPLine, outputsIntersect) where
 
-import Prelude (Bool, Show, ($), (<), (<>), (==), (||), (&&), Maybe(Just, Nothing), Either(Right, Left), error, mempty, otherwise, realToFrac, show)
+import Prelude (Bool, Show, ($), (<), (<>), (==), (||), (&&), Maybe(Just, Nothing), Either(Right, Left), error, otherwise, realToFrac, show)
 
 import Graphics.Slicer.Definitions (ℝ)
 
@@ -51,9 +51,8 @@ isAntiParallel :: (ProjectiveLine,PLine2Err) -> (ProjectiveLine,PLine2Err) -> Bo
 isAntiParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiParallel
 
 -- | Get the intersection point of two lines we know have an intersection point.
--- FIXME: kill this off, intersectionBetween is better..
-intersectionOf :: ProjectiveLine -> ProjectiveLine -> ProjectivePoint
-intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn (pl1, mempty) (pl2, mempty)
+intersectionOf :: (ProjectiveLine,PLine2Err) -> (ProjectiveLine,PLine2Err) -> ProjectivePoint
+intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
   where
     saneIntersection PAntiCollinear     = error $ "cannot get the intersection of anti-collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
     saneIntersection PCollinear         = error $ "cannot get the intersection of collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
@@ -63,13 +62,13 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn (pl1, mempty) (pl2
 
 -- | Get the intersection point of two lines. if they are collinear, returns a line, and if they are parallel, returns Nothing.
 -- FIXME: adding two different types of error.
-intersectionBetween :: ProjectiveLine -> ProjectiveLine -> Maybe (Either ProjectiveLine ProjectivePoint)
-intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn (pl1, mempty) (pl2, mempty)
+intersectionBetween :: (ProjectiveLine,PLine2Err) -> (ProjectiveLine,PLine2Err) -> Maybe (Either (ProjectiveLine,PLine2Err) ProjectivePoint)
+intersectionBetween pl1@(rawPl1,_) pl2@(rawPl2,_) = saneIntersection $ plinesIntersectIn pl1 pl2
   where
-    (foundDistance, foundDistanceErr)   = distanceBetweenPLinesWithErr pl1 pl2
+    (foundDistance, foundDistanceErr)   = distanceBetweenPLinesWithErr rawPl1 rawPl2
     foundErr :: ℝ
     -- FIXME: combines multiple types of error.
-    foundErr                            = (\(PLine2Err _ n1 _ _ _, PLine2Err _ n2 _ _ _, a, b) -> realToFrac $ ulpVal $ a <> b <> n1 <> n2) foundDistanceErr
+    foundErr                            = (\(PLine2Err _ n1 _ _ _, PLine2Err _ n2 _ _ _, _, b) -> realToFrac $ ulpVal $ b <> n1 <> n2) foundDistanceErr
     saneIntersection PCollinear         = Just $ Left pl1
     saneIntersection PAntiCollinear     = Just $ Left pl1
     saneIntersection PParallel          = if foundDistance < foundErr

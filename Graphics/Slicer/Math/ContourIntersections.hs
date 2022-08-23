@@ -34,7 +34,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighbors, startPoint, distance, lineSegsOfContour, endPoint, fudgeFactor, makeLineSeg)
 
-import Graphics.Slicer.Math.PGA (PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), ProjectivePoint, Intersection(HitEndPoint, HitStartPoint, NoIntersection), ProjectiveLine, intersectsWith, pToEPoint2, outputIntersectsLineSeg, ulpOfLineSeg)
+import Graphics.Slicer.Math.PGA (PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), ProjectivePoint, Intersection(HitEndPoint, HitStartPoint, NoIntersection), ProjectiveLine, PLine2Err, intersectsWith, pToEPoint2, outputIntersectsLineSeg, ulpOfLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -88,7 +88,7 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
         openCircuit v = Just <$> v
 
 -- | Get the intersections between a PLine2 and a contour as a series of points. always returns an even number of intersections.
-getPLine2Intersections :: ProjectiveLine -> Contour -> [Point2]
+getPLine2Intersections :: (ProjectiveLine,PLine2Err) -> Contour -> [Point2]
 getPLine2Intersections pLine c
   | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show pLine <> "\n" <> show res <> "\n"
   | otherwise = res

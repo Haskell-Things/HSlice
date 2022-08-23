@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersectio
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2, join2PPoints, pLineFromEndpoints)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), eToPPoint2, flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translatePLine2WithErr, opposingDirection, outputIntersectsLineSeg, pLineFromEndpointsWithErr, ulpOfLineSeg)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), eToPLine2WithErr, eToPPoint2, flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translatePLine2WithErr, opposingDirection, outputIntersectsLineSeg, ulpOfLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -181,12 +181,14 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (rotateLeft $ li
       | otherwise                        = Just (fst resPLine, snd resPLine, distance p1 p2 + distance p2 p3)
         where
           resPLine = motorcycleFromPoints p1 p2 p3
-          pl1 = pLineFromEndpointsWithErr p1 p2
-          pl2 = pLineFromEndpointsWithErr p2 p3
+          pl1 = eToPLine2WithErr $ makeLineSeg p1 p2
+          pl2 = eToPLine2WithErr $ makeLineSeg p2 p3
 
 -- | generate the PLine2 of a motorcycle created by the three points given.
 motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, PLine2Err)
-motorcycleFromPoints p1 p2 p3 = getOutsideArcWithErr (eToPPoint2 p1) (pLineFromEndpoints p1 p2) (eToPPoint2 p3) (flipPLine2 $ pLineFromEndpoints p2 p3)
+motorcycleFromPoints p1 p2 p3 = (res, resErr)
+  where
+    (res,(_,_,resErr)) = getOutsideArcWithErr (eToPPoint2 p1) (pLineFromEndpoints p1 p2) (eToPPoint2 p3) (flipPLine2 $ pLineFromEndpoints p2 p3)
 
 -- | Find where a motorcycle intersects a set of line segments, if it does.
 motorcycleMightIntersectWith :: [LineSeg] -> Motorcycle -> Maybe (LineSeg, Either Point2 ProjectivePoint)

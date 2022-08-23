@@ -112,11 +112,11 @@ import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, pointsO
 
 import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPoint, mapWithFollower, startPoint, makeLineSeg)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf, UlpSum)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf, UlpSum)
 
-import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoints, pPointBetweenPPoints)
+import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoints, pPointBetweenPPoints, translateRotatePPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint(CPPoint2, PPoint2), ProjectiveLine(NPLine2, PLine2), PLine2Err, eToPPoint2, hasArc, flipPLine2, pToEPoint2, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, outOf, pPointOf)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(CPPoint2, PPoint2), ProjectiveLine(NPLine2, PLine2), PLine2Err, eToPLine2WithErr, eToPPoint2, hasArc, flipPLine2, pToEPoint2, ulpOfLineSeg, normalizePLine2WithErr, outOf, pPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode)
 
@@ -151,7 +151,7 @@ instance GanjaAble LineSeg where
 instance GanjaAble ProjectivePoint where
   toGanja ppoint varname = (
     "  var " <> varname <> " = "
-      <> showFullPrecision (valOf 0 (getVals [GEPlus 1, GEPlus 2] vals)) <> "e12"
+      <> showFullPrecision (valOf 0 (getVal [GEPlus 1, GEPlus 2] vals)) <> "e12"
       <> (if e02 >= 0 then "+" <> showFullPrecision e02 else showFullPrecision e02)
       <> "e02"
       <> (if e01 >= 0 then "+" <> showFullPrecision e01 else showFullPrecision e01)
@@ -159,8 +159,8 @@ instance GanjaAble ProjectivePoint where
     ,
     "    " <> varname <> ", " <> show varname <> ",\n")
     where
-      e02 = valOf 0 (getVals [GEZero 1, GEPlus 2] vals)
-      e01 = valOf 0 (getVals [GEZero 1, GEPlus 1] vals)
+      e02 = valOf 0 (getVal [GEZero 1, GEPlus 2] vals)
+      e01 = valOf 0 (getVal [GEZero 1, GEPlus 1] vals)
       -- because ganja's website does not handle scientific notation.
       showFullPrecision v = showFFloat Nothing v ""
       vals = case ppoint of
@@ -170,7 +170,7 @@ instance GanjaAble ProjectivePoint where
 instance GanjaAble ProjectiveLine where
   toGanja pline varname = (
     "  var " <> varname <> " = "
-      <> showFullPrecision (valOf 0 (getVals [GEPlus 1] vals)) <> "e1"
+      <> showFullPrecision (valOf 0 (getVal [GEPlus 1] vals)) <> "e1"
       <> (if e2 >= 0 then "+" <> showFullPrecision e2 else showFullPrecision e2)
       <> "e2"
       <> (if e0 >= 0 then "+" <> showFullPrecision e0 else showFullPrecision e0)
@@ -178,8 +178,8 @@ instance GanjaAble ProjectiveLine where
     ,
     "    " <> varname <> ", " <> show varname <> ",\n")
     where
-      e2 = valOf 0 (getVals [GEPlus 2] vals)
-      e0 = valOf 0 (getVals [GEZero 1] vals)
+      e2 = valOf 0 (getVal [GEPlus 2] vals)
+      e0 = valOf 0 (getVal [GEZero 1] vals)
       -- because ganja's website does not handle scientific notation.
       showFullPrecision v = showFFloat Nothing v ""
       vals = case pline of
@@ -659,11 +659,11 @@ randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
     intersectionPPoint = eToPPoint2 intersectionPoint
 
 randomINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> INode
-randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,maybeFlippedpl2] (Just bisector1)
+randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,maybeFlippedpl2] $ Just (bisector1,bisectorErr)
   where
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
-    pl1 = (\(NPLine2 a) -> PLine2 a) $ eToPLine2 $ getFirstLineSeg eNode
+    pl1 = (\(NPLine2 a) -> PLine2 a) $ fst $ normalizePLine2WithErr $ eToPLine2 $ getFirstLineSeg eNode
     pl2 = (\(NPLine2 a) -> PLine2 a) $ flipPLine2 $ eToPLine2 $ getLastLineSeg eNode
     intersectionPPoint = pPointOf eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
@@ -671,7 +671,7 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
     pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
     maybeFlippedpl1 = if flipIn1 then flipPLine2 pl1 else pl1
     maybeFlippedpl2 = if flipIn2 then flipPLine2 pl2 else pl2
-    bisector1 = getOutsideArcWithErr pp1 maybeFlippedpl1 pp2 maybeFlippedpl2
+    (bisector1, (_, _, bisectorErr)) = getOutsideArcWithErr pp1 maybeFlippedpl1 pp2 maybeFlippedpl2
 
 -- | A helper function. constructs a random PLine.
 randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> ProjectiveLine
@@ -679,7 +679,7 @@ randomPLine x y dx dy = fst $ randomPLineWithErr x y dx dy
 
 -- | A helper function. constructs a random PLine.
 randomPLineWithErr :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (ProjectiveLine, PLine2Err)
-randomPLineWithErr x y dx dy = pLineFromEndpointsWithErr (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
+randomPLineWithErr x y dx dy = eToPLine2WithErr $ makeLineSeg (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
 
 -- | A helper function. constructs a random LineSeg.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
@@ -693,11 +693,11 @@ randomLineSegWithErr x1 y1 x2 y2 = (res, ulpSum)
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
 randomPLineThroughOrigin :: ℝ -> ℝ -> (ProjectiveLine, PLine2Err)
-randomPLineThroughOrigin x y = pLineFromEndpointsWithErr (Point2 (x,y)) (Point2 (0,0))
+randomPLineThroughOrigin x y = eToPLine2WithErr $ makeLineSeg (Point2 (x,y)) (Point2 (0,0))
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
 randomPLineThroughPoint :: ℝ -> ℝ -> ℝ -> (ProjectiveLine, PLine2Err)
-randomPLineThroughPoint x y d = pLineFromEndpointsWithErr (Point2 (x,y)) (Point2 (d,d))
+randomPLineThroughPoint x y d = eToPLine2WithErr $ makeLineSeg (Point2 (x,y)) (Point2 (d,d))
 
 -- | A line segment ending at the origin. additionally, guaranteed not to be on the X = Y line.
 randomLineSegFromPointNotX1Y1 :: ℝ -> ℝ -> ℝ -> (LineSeg, UlpSum)
