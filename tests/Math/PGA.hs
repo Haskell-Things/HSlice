@@ -87,6 +87,7 @@ import Graphics.Slicer.Math.Ganja (ListThree, Radian(Radian), cellFrom, edgesOf,
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
 
+-- | simple tests on contours.
 contourSpec :: Spec
 contourSpec = do
   describe "Contours (math/contour)" $ do
@@ -1287,8 +1288,8 @@ prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
               <> "PLine: " <> show pLine <> "\n"
               <> "PLineAddErr: " <> show plineAddErr <> "\n"
     -- res should be d, in an ideal world.
-    (res1, res1RawErr) = distancePPointToPLineWithErr (perp1, mempty) (pLine, mempty)
-    (res2, res2RawErr) = distancePPointToPLineWithErr (perp2, mempty) (pLine, mempty)
+    (res1, _) = distancePPointToPLineWithErr (perp1, mempty) (pLine, mempty)
+    (res2, _) = distancePPointToPLineWithErr (perp2, mempty) (pLine, mempty)
     (perp1, _) = pPointOnPerpWithErr pLine pPoint1 d
     (perp2, _) = pPointOnPerpWithErr pLine pPoint2 d
     pPoint1 = makePPoint2 x1 y1
@@ -1365,7 +1366,7 @@ prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
   where
     originPPoint2 = makePPoint2 0 0
     (foundDistance, (_,_,_,distanceErr)) = distanceBetweenPPointsWithErr (originPPoint2,mempty) (intersectionPPoint2, intersectionErr)
-    (intersectionPPoint2, (_, _, intersectionErr@(PPoint2Err intersectionAddErr _))) = pLineIntersectionWithErr randomPLine1 randomPLine2
+    (intersectionPPoint2, (_, _, intersectionErr)) = pLineIntersectionWithErr randomPLine1 randomPLine2
     randomPLine1@(_, PLine2Err _ _ _ pline1Err _) = randomPLineThroughOrigin x y
     randomPLine2@(_, PLine2Err _ _ _ pline2Err _) = randomPLineThroughOrigin x2 y2
     errSum = ulpVal $ pline1Err <> pline2Err <> distanceErr
@@ -1391,7 +1392,7 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
   where
     targetPPoint2 = makePPoint2 (coerce targetX) (coerce targetY)
     (foundDistance, (_,_,_,distanceErr)) = distanceBetweenPPointsWithErr (targetPPoint2,mempty) (intersectionPPoint2, intersectionErr)
-    (intersectionPPoint2, (_, _, intersectionErr@(PPoint2Err intersectionAddErr _))) = pLineIntersectionWithErr randomPLine1 randomPLine2
+    (intersectionPPoint2, (_, _, intersectionErr)) = pLineIntersectionWithErr randomPLine1 randomPLine2
     randomPLine1@(_, PLine2Err _ _ _ pline1Ulp _) = randomPLineWithErr x y targetX targetY
     randomPLine2@(_, PLine2Err _ _ _ pline2Ulp _) = randomPLineWithErr x2 y2 targetX targetY
     errSum = ulpVal $ pline1Ulp <> pline2Ulp <> distanceErr
