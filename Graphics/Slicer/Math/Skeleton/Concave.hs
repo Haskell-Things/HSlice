@@ -17,7 +17,7 @@
  -}
 
 {-
-   This contains a geometric solver handling the creation of a straight skeleton for all concave contours without holes
+-- This contains a geometric solver handling the creation of a straight skeleton for all concave contours without holes
 -}
 
 -- inherit instances when deriving.
@@ -52,13 +52,13 @@ import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getOutsideArcWithErr)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, mapWithFollower, fudgeFactor, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, mapWithFollower, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), ulpVal)
 
 import Graphics.Slicer.Math.Intersections (intersectionBetween, noIntersection, intersectionOf, isCollinear, isParallel, isAntiCollinear, isAntiParallel,outputsIntersect)
 
-import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distancePPointToPLine, eToPLine2, getInsideArc)
+import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToPLine2, getInsideArc)
 
 import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf, errOfOut), Pointable(canPoint, pPointOf), ProjectiveLine, PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), flipPLine2, distanceBetweenPPointsWithErr, pLineIsLeft, distancePPointToPLineWithErr, flipPLine2)
 
@@ -235,12 +235,10 @@ convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWith
 -- | A better anticollinear checker.
 -- distance is used here to get a better anticollinear than PGA has, because we have a point, and floating point hurts us.
 -- FIXME: shouldn't this be pulled into PGA.hs, as part of an outsIntersectIn?
-nodesAreAntiCollinear :: (Pointable a, Arcable a, Pointable b, Arcable b) => a -> b -> Bool
+nodesAreAntiCollinear :: (Arcable a, Arcable b) => a -> b -> Bool
 nodesAreAntiCollinear node1 node2
   | not (hasArc node1) || not (hasArc node2) = False
   | isAntiCollinear (outOf node1, errOfOut node1) (outOf node2, errOfOut node2) = True
-  -- handle nodes that JUST BARELY miss each other.
-  | canPoint node1 && canPoint node2 = (distancePPointToPLine (pPointOf node1,mempty) (outOf node2, errOfOut node2) < fudgeFactor*50) && (distancePPointToPLine (pPointOf node2,mempty) (outOf node1,errOfOut node1) < fudgeFactor*50)
   | otherwise = False
 
 -- | Walk the result tree, and find our enodes. Used to test the property that a walk of our result tree should result in the input ENodes in order.
@@ -828,7 +826,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     intersectingNeighboringNodePairsOf inNodePairs = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> inNodePairs
 
     -- | find nodes that have output segments that are antiCollinear with one another.
-    antiCollinearNodePairsOf :: (Pointable a, Arcable a) => [a] -> [(a, a)]
+    antiCollinearNodePairsOf :: (Arcable a) => [a] -> [(a, a)]
     antiCollinearNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if nodesAreAntiCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
 
     -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
