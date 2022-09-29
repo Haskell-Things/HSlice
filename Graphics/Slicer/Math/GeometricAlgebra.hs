@@ -24,8 +24,10 @@
 -- for getVal and valOf. --
 {-# LANGUAGE MultiParamTypeClasses, AllowAmbiguousTypes #-}
 
+{-# LANGUAGE TupleSections #-}
+
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addErrPair, addValPairWithErr, eValOf, getVal, subValPairWithErr, valOf, addVal, subVal, addVecPair, addVecPairWithErr,  subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, ulpVal, unlikeVecPair, UlpSum(UlpSum), ErrVal(ErrVal)) where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addErrPair, addErr, addValPairWithErr, eValOf, getVal, subValPairWithErr, valOf, addVal, subVal, addVecPair, addVecPairWithErr,  subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, ulpVal, unlikeVecPair, UlpSum(UlpSum), ErrVal(ErrVal)) where
 
 import Prelude (Eq, Num, Semigroup((<>)), Monoid(mempty), Show(show), Ord(compare), Ordering(EQ), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac)
 
@@ -71,11 +73,19 @@ data GNum =
   deriving (Eq, Generic, NFData, Show, Ord)
 
 -- | A value in geometric algebra. this will have duplicate members filtered out, and the members will be in order.
-data GVal = GVal { _real :: !ℝ, _basis :: !(Set GNum) }
+data GVal = GVal
+  -- _real ::
+  !ℝ
+  -- _basis ::
+  !(Set GNum)
   deriving (Eq, Generic, NFData, Show)
 
 -- | A value in geometric algebra, in need of reduction. this may have duplicate members, or members out of order.
-data GRVal = GRVal { _r :: !ℝ, _i :: !(NonEmpty GNum) }
+data GRVal = GRVal
+  -- real component
+  !ℝ
+  -- basis vector
+  !(NonEmpty GNum)
   deriving (Eq, Generic, NFData, Show)
 
 -- | A constantly increasing sum of error. Used for increasing our error bars proportonally to error from the FPU.
@@ -88,10 +98,14 @@ instance Semigroup UlpSum where
 instance Monoid UlpSum where
   mempty = UlpSum 0
 
-data ErrVal = ErrVal { _ulpVal :: !UlpSum, _ulpBasis :: !(Set GNum) }
+data ErrVal = ErrVal
+  -- { _ulpVal ::
+              !UlpSum
+  -- _ulpBasis ::
+              !(Set GNum)
   deriving (Eq, Generic, NFData, Show)
 
-data ErrRVal = ErrRVal { _ulpRVal :: !UlpSum, _ulpRBasis :: (NonEmpty GNum) }
+data ErrRVal = ErrRVal { _ulpRVal :: !UlpSum, _ulpRBasis :: NonEmpty GNum }
   deriving (Eq, Generic, NFData, Show)
 
 -- Fake instance. do not try to order by ErrVal.
@@ -127,7 +141,7 @@ instance UniqueVals GVal where
   getVal nums vs = case matches of
                       [] -> Nothing
                       [oneMatch@(GVal v _)] -> if v == 0 then Nothing else Just oneMatch
-                      multiMatch@(_:_) -> error $ "found multiple candidates:\n" <> show multiMatch <> "\nWas using getVals on:\n" <> show vs <> "when searching for:\n" <> show nums <> "\n"
+                      multiMatch@(_:_) -> error $ "found multiple candidates:\n" <> show multiMatch <> "\nWas using getVals on:\n" <> show vs <> "\nWas searching for:\n" <> show nums <> "\n"
     where
       matches = P.filter (\(GVal _ n) -> n == fromAscList nums) vs
 
@@ -136,7 +150,7 @@ instance UniqueVals ErrVal where
   getVal nums vs = case matches of
                       [] -> Nothing
                       [oneMatch@(ErrVal v _)] -> if v == mempty then Nothing else Just oneMatch
-                      multiMatch@(_:_) -> error $ "found multiple candidates:\n" <> show multiMatch <> "\nWas using getVals on:\n" <> show vs <> "when searching for:\n" <> show nums <> "\n"
+                      multiMatch@(_:_) -> error $ "found multiple candidates:\n" <> show multiMatch <> "\nWas using getVals on:\n" <> show vs <> "\nWas searching for:\n" <> show nums <> "\n"
     where
       matches = P.filter (\(ErrVal _ n) -> n == fromAscList nums) vs
 
@@ -182,7 +196,7 @@ subValPairWithErr v1@(GVal r1 i1) (GVal r2 i2)
 -- | Add a geometric value to a list of geometric values.
 --   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
 addVal :: [GVal] -> GVal -> [GVal]
-addVal dst src = fst <$> addValWithErr ((\a -> (a,mempty)) <$> dst) src
+addVal dst src = fst <$> addValWithErr ((,mempty) <$> dst) src
 
 -- | Add a geometric value to a list of geometric values.
 --   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
@@ -236,8 +250,8 @@ addVecPairWithErr :: GVec -> GVec -> (GVec, [ErrVal])
 addVecPairWithErr (GVec vals1) (GVec vals2) = (resVec, resErr)
   where
     resVec = GVec $ fst <$> res
-    resErr = P.filter (\a -> a /= mempty) $ snd <$> res
-    res = foldl' addValWithErr ((\a -> (a,mempty)) <$> vals1) vals2
+    resErr = P.filter (/= mempty) $ snd <$> res
+    res = foldl' addValWithErr ((,mempty) <$> vals1) vals2
 
 -- | Subtract one vector from the other.
 subVecPair :: GVec -> GVec -> GVec
@@ -317,7 +331,7 @@ likeVecPairWithErr' vec1 vec2 = results
                 res :: ℝ
                 res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest ℝ)
                 resErr = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac resErrRaw
-                resErrRaw = (realToFrac r1 * realToFrac r2 :: Rounded 'TowardInf ℝ)
+                resErrRaw = realToFrac r1 * realToFrac r2 :: Rounded 'TowardInf ℝ
 -- | Generate the unlike product of a vector pair. multiply only the values in the basis vector sets that are not the same between the two GVecs.
 unlikeVecPair :: GVec -> GVec -> [Either GRVal GVal]
 unlikeVecPair vec1 vec2 = fstEither <$> unlikeVecPairWithErr vec1 vec2
@@ -351,7 +365,7 @@ unlikeVecPairWithErr vec1 vec2 = results
                 res :: ℝ
                 res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest ℝ)
                 resUlp = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac resUlpRaw
-                resUlpRaw = (realToFrac r1 * realToFrac r2 :: Rounded 'TowardInf ℝ)
+                resUlpRaw = realToFrac r1 * realToFrac r2 :: Rounded 'TowardInf ℝ
 
 -- | Generate the reductive product of a vector pair. multiply only values where one of the basis vectors is eliminated by the multiplication.
 reduceVecPair :: GVec -> GVec -> [GRVal]
@@ -474,14 +488,14 @@ withoutPairs (r, is@((GEPlus a):|(GEPlus b):xs))
                (Just vs) -> withoutPairs (r, vs)
   | a /= b = case nonEmpty xs of
                Nothing -> (r, is)
-               (Just _) -> prependI (GEPlus a) $ withoutPairs $ (r, GEPlus b:|xs)
+               (Just _) -> prependI (GEPlus a) $ withoutPairs (r, GEPlus b:|xs)
 withoutPairs (r, is@((GEMinus a):|(GEMinus b):xs))
   | a == b = case nonEmpty xs of
                Nothing -> (maybeNot r,G0:|[])
                (Just vs) -> withoutPairs (maybeNot r,vs)
   | a /= b = case nonEmpty xs of
                Nothing -> (r,is)
-               (Just _) -> prependI (GEMinus a) $ withoutPairs $ (r, (GEMinus b:|xs))
+               (Just _) -> prependI (GEMinus a) $ withoutPairs (r, GEMinus b:|xs)
   where
     maybeNot :: Maybe Bool -> Maybe Bool
     maybeNot Nothing = Nothing
@@ -491,7 +505,7 @@ withoutPairs (r, is@((GEZero a):|(GEZero b):xs))
   | a /= b = case nonEmpty xs of
                Nothing -> (r,is)
                (Just _) -> prependI (GEZero a) $ withoutPairs (r, GEZero b:|xs)
-withoutPairs (r, (a:|b:xs)) = prependI a $ withoutPairs (r,b:|xs)
+withoutPairs (r, a:|b:xs) = prependI a $ withoutPairs (r,b:|xs)
 
 -- | place a term on the front of the basis vector set.
 -- if the vector set contains only the scalar vector, eliminate it.
@@ -544,7 +558,7 @@ infixl 9 ⎣+
              , (addErrs, mulErrs))
   where
     vals = fst <$> res
-    addErrs = P.filter (\a -> a /= mempty) $ snd <$> res
+    addErrs = P.filter (/= mempty) $ snd <$> res
     mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> newRes
     res = foldl' addValWithErr [] $ postProcessEitherVals <$> newRes
     newRes = likeVecPairWithErr v1 v2
@@ -561,7 +575,7 @@ infixl 9 ⎤+
              , (addErrs, mulErrs))
   where
     vals = fst <$> res
-    addErrs = P.filter (\a -> a /= mempty) $ snd <$> res
+    addErrs = P.filter (/= mempty) $ snd <$> res
     mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> rawRes
     res = foldl' addValWithErr [] $ postProcessEitherVals <$> rawRes
     rawRes = unlikeVecPairWithErr v1 v2
@@ -578,7 +592,7 @@ infixl 9 ⨅+
              , (addErrs, mulErrs))
   where
     vals = fst <$> res
-    addErrs = P.filter (\a -> a /= mempty) $ snd <$> res
+    addErrs = P.filter (/= mempty) $ snd <$> res
     mulErrs = foldl' addErr [] $ postProcessErrs . snd <$> rawRes
     res = foldl' addValWithErr [] $ postProcess . fst <$> rawRes
     rawRes = reduceVecPairWithErr v1 v2

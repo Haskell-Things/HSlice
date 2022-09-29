@@ -23,11 +23,13 @@
 
 module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringPLinesVertical) where
 
-import Prelude ((+), (<$>), ($), (.), (*), sqrt, (-), Ordering(EQ, GT, LT), otherwise, (==), length, concat, not, null, (!!), fromIntegral, ceiling, (/), floor, Integer, compare)
+import Prelude ((+), (<$>), ($), (.), (*), sqrt, (-), Ordering(EQ, GT, LT), otherwise, (==), length, not, null, (!!), fromIntegral, ceiling, (/), floor, Integer, compare)
+
+import Data.List (concatMap)
 
 import Data.List.Ordered (sort)
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes)
+import Data.Maybe (Maybe(Just, Nothing), mapMaybe)
 
 import Graphics.Slicer.Definitions (ℝ)
 
@@ -46,7 +48,7 @@ data InfillType = Diag1 | Diag2 | Vert | Horiz
 -- Basically, cover the build plane in lines, then remove the portions of those lines that are not inside of the target contour.
 -- The target contour should be pre-shrunk to the innermost parameter, and the target inside contours should also be the outermost parameters.
 makeInfill :: Contour -> [Contour] -> ℝ -> InfillType -> [[LineSeg]]
-makeInfill contour insideContours ls layerType = catMaybes $ infillLineSegInside contour insideContours <$> infillCover layerType
+makeInfill contour insideContours ls layerType = mapMaybe (infillLineSegInside contour insideContours) $ infillCover layerType
     where
       infillCover Vert = coveringPLinesVertical contour ls
       infillCover Horiz = coveringPLinesHorizontal contour ls
@@ -62,7 +64,7 @@ infillLineSegInside contour childContours line
       allLines :: [LineSeg]
       allLines = makeLineSegs allPoints
         where
-          allPoints = filterTooShort . sort . concat $ getPLine2Intersections line <$> contour:childContours
+          allPoints = (filterTooShort . sort) $ concatMap (getPLine2Intersections line) (contour:childContours)
           filterTooShort :: [Point2] -> [Point2]
           filterTooShort [] = []
           filterTooShort [a] = [a]

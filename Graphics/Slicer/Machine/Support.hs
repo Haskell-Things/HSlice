@@ -29,7 +29,7 @@ import Prelude (fmap, (||), Bool, (-), (+), ($), (<$>), maximum, minimum, error,
 
 import Data.List (concat)
 
-import Data.Maybe(catMaybes)
+import Data.Maybe(mapMaybe)
 
 import Graphics.Slicer.Definitions (ℝ,ℝ2)
 
@@ -57,8 +57,8 @@ makeSupport :: Contour
             -> ℝ
             -> [LineSeg]
 makeSupport contour childContours lh ls = fmap (shortenLineBy $ 2 * lh)
-                                          $ concat $ catMaybes $ infillLineSegInside contour (addBBox childContours)
-                                          <$> coveringPLinesVertical contour ls
+                                          $ concat $ mapMaybe (infillLineSegInside contour (addBBox childContours))
+                                          $ coveringPLinesVertical contour ls
 
 -- A bounding box. a box around a contour.
 -- FIXME: built into the contours, now.

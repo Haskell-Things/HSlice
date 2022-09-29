@@ -26,7 +26,7 @@ import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<
 
 import Data.List (sortOn, dropWhile, takeWhile, transpose)
 
-import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromMaybe)
+import Data.Maybe (Maybe(Just,Nothing), mapMaybe, fromMaybe)
 
 import Safe (lastMay, initSafe)
 
@@ -38,13 +38,13 @@ import Graphics.Slicer.Math.Contour (makePointContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), (~=), mapWithFollower, mapWithPredecessor, scalePoint, addPoints, endPoint, makeLineSeg)
 
-import Graphics.Slicer.Math.Intersections (intersectionOf)
+import Graphics.Slicer.Math.Intersections (intersectionOf, isCollinear, isAntiCollinear, isParallel, isAntiParallel)
 
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face))
 
-import Graphics.Slicer.Math.Lossy (distancePPointToPLine, eToPLine2, translatePLine2)
+import Graphics.Slicer.Math.Lossy (distancePPointToPLine, eToPLine2, translatePLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, pToEPoint2, eToPLine2WithErr, pLineIsLeft, translatePLine2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, eToPLine2WithErr, pLineIsLeft, translatePLine2WithErr)
 
 import Graphics.Slicer.Machine.Infill (makeInfill, InfillType)
 
@@ -106,7 +106,28 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
                        [] -> error "no remains for an nSideRemainder?"
 
     -- | Find the closest point where two of our arcs intersect, relative to our side.
-    arcIntersections = initSafe $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf (a,mempty) (b,mempty) ,mempty) (eToPLine2WithErr edge), (a, b))) $ [firstArc] <> rawMidArcs <> [lastArc]
+    arcIntersections = initSafe $ mapWithFollower (\a b -> (distancePPointToPLine (safeIntersectionOf (a,mempty) (b,mempty) ,mempty) (eToPLine2WithErr edge), (a, b))) $ [firstArc] <> rawMidArcs <> [lastArc]
+    safeIntersectionOf a b
+      | isCollinear a b = error $ "given a colinear pair when trying to find arcIntersectioins:\n"
+                                <> show a <> "\n"
+                                <> show b <> "\n"
+                                <> showInputs
+      | isAntiCollinear a b = error $ "given an anti-colinear pair when trying to find arcIntersectioins:\n"
+                                <> show a <> "\n"
+                                <> show b <> "\n"
+                                <> showInputs
+      | isParallel a b = error $ "given a parallel pair when trying to find arcIntersectioins:\n"
+                                <> show a <> "\n"
+                                <> show b <> "\n"
+                                <> showInputs
+      | isAntiParallel a b = error $ "given an anti-parallel pair when trying to find arcIntersectioins:\n"
+                                <> show a <> "\n"
+                                <> show b <> "\n"
+                                <> showInputs
+      | otherwise = intersectionOf a b
+    showInputs = "distance: " <> show distance <> "\n"
+                 <> "insets:\n" <> show insets <> "\n"
+                 <> "face:\n" <> show face <> "\n"
     findClosestArc :: (ℝ, (ProjectiveLine, ProjectiveLine))
     findClosestArc         = case sortOn fst arcIntersections of
                                [] -> error "empty arcIntersections?"
@@ -175,7 +196,7 @@ addInset insets distance faceSet
       | otherwise = error $ "out of order lineSegs generated from faces: " <> show faceSet <> "\n" <> show lineSegSets <> "\n"
     averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
     lineSegSets = fst <$> res
-    remainingFaces = concat $ catMaybes $ snd <$> res
+    remainingFaces = concat $ mapMaybe snd res
     res = addLineSegsToFace distance (Just 1) <$> (\(Slist a _) -> a) faceSet
 
 -- | Add infill to the area of a set of faces that was not covered in lines.

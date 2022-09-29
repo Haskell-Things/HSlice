@@ -26,11 +26,11 @@
 
 module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles, lastCrashType, motorcyclesAreAntiCollinear, motorcyclesInDivision, motorcycleMightIntersectWith, motorcycleDivisor) where
 
-import Prelude (Bool(True, False), Either(Left,Right), Eq((==)), Show(show), Ordering (EQ, GT, LT), (&&), (<>), ($), (<$>), (>), (+), compare, error, fst, mempty, notElem, null, otherwise, snd, zip)
+import Prelude (Bool(True, False), Either(Left,Right), Eq((==)), Show(show), Ordering (EQ, GT, LT), (&&), (<>), ($), (>), (+), compare, error, fst, mempty, notElem, null, otherwise, snd, zip)
 
 import Prelude as PL (init, last)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromMaybe)
+import Data.Maybe( Maybe(Just,Nothing), fromMaybe, mapMaybe)
 
 import Data.List (sortBy)
 
@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersectio
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2, join2PPoints, pLineFromEndpoints)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), eToPLine2WithErr, eToPPoint2, flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translatePLine2WithErr, opposingDirection, outputIntersectsLineSeg, ulpOfLineSeg)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), eToPLine2WithErr, eToPPoint2, flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translatePLine2WithErr, opposingDirection, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -85,7 +85,7 @@ motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle)
   where
     pointOfTarget :: ProjectivePoint
     pointOfTarget = case target of
-                      (WithLineSeg lineSeg) -> case outputIntersectsLineSeg motorcycle (lineSeg, ulpOfLineSeg lineSeg) of
+                      (WithLineSeg lineSeg) -> case outputIntersectsLineSeg motorcycle lineSeg of
                                         (Right (IntersectsIn p _)) -> p
                                         v -> error $ "impossible!\n" <> show v <> "\n" <> show lineSeg <> "\n" <> show motorcycle <> "\n" <> show target <> "\n"
                       (WithENode eNode) -> pPointOf eNode
@@ -166,7 +166,7 @@ crashMotorcycles contour holes
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
 --   This function is meant to be used on the exterior contour.
 convexMotorcycles :: Contour -> [Motorcycle]
-convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (rotateLeft $ linePairs contour) (mapWithNeighbors convexPLines $ pointsOfContour contour)
+convexMotorcycles contour = mapMaybe onlyMotorcycles $ zip (rotateLeft $ linePairs contour) (mapWithNeighbors convexPLines $ pointsOfContour contour)
   where
     rotateLeft a = PL.last a : PL.init a
     onlyMotorcycles :: ((LineSeg, LineSeg), Maybe (ProjectiveLine, PLine2Err, ℝ)) -> Maybe Motorcycle
@@ -203,7 +203,7 @@ motorcycleMightIntersectWith lineSegs motorcycle
   where
     intersections = getMotorcycleSegSetIntersections motorcycle lineSegs
     results :: Slist (LineSeg, Either Point2 ProjectivePoint)
-    results = slist $ sortByDistance $ catMaybes $ filterIntersection <$> intersections
+    results = slist $ sortByDistance $ mapMaybe filterIntersection intersections
     sortByDistance :: [(LineSeg, Either Point2 ProjectivePoint)] -> [(LineSeg, Either Point2 ProjectivePoint)]
     sortByDistance = sortBy compareDistances
     motorcyclePoint = pPointOf motorcycle
@@ -229,9 +229,7 @@ motorcycleMightIntersectWith lineSegs motorcycle
                                                                        then Nothing
                                                                        else Just intersection
       where
-        intersectionPointIsBehind point = opposingDirection (outOf motorcycle) (eToPLine2 $ lineSegToIntersection point)
-          where
-            lineSegToIntersection myPoint = makeLineSeg (ePointOf motorcycle) myPoint
+        intersectionPointIsBehind point = opposingDirection (outOf motorcycle) (eToPLine2 $ makeLineSeg (ePointOf motorcycle) point)
         intersectionPPointIsBehind pPoint = opposingDirection (outOf motorcycle) (join2PPoints (pPointOf motorcycle) pPoint)
 
 -- | Find the closest place where a motorcycle intersects a contour that is not the point where it ejects from.
@@ -243,7 +241,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                                                ) $ filterIntersection a
                                               manyIntersections@(_:_) -> if len res > 0 then head res else error $ "no options: " <> show (len res) <> "\n" <> show res <> "\n"
                                                 where
-                                                  res = slist $ sortBy compareDistances $ catMaybes $ filterIntersection <$> manyIntersections
+                                                  res = slist $ sortBy compareDistances $ mapMaybe filterIntersection manyIntersections
                                                   compareDistances :: (LineSeg, Either Point2 ProjectivePoint) -> (LineSeg, Either Point2 ProjectivePoint) -> Ordering
                                                   compareDistances i1 i2 = case i1 of
                                                                              (_, Right intersectionPPoint1) ->
@@ -268,9 +266,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                                                        then Nothing
                                                                        else Just intersection
       where
-        intersectionPointIsBehind point = opposingDirection (outOf motorcycle) (eToPLine2 $ lineSegToIntersection point)
-          where
-            lineSegToIntersection myPoint = makeLineSeg (ePointOf motorcycle) myPoint
+        intersectionPointIsBehind point = opposingDirection (outOf motorcycle) (eToPLine2 $ makeLineSeg (ePointOf motorcycle) point)
         intersectionPPointIsBehind pPoint = opposingDirection (outOf motorcycle) (join2PPoints (pPointOf motorcycle) pPoint)
     motorcyclePoint = pPointOf motorcycle
     intersections = getMotorcycleContourIntersections motorcycle contour

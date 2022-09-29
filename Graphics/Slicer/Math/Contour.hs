@@ -52,9 +52,9 @@ import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (noIntersection)
 
-import Graphics.Slicer.Math.Lossy (pLineFromEndpoints, pPointBetweenPPoints)
+import Graphics.Slicer.Math.Lossy (pLineFromEndpoints, pPointBetweenPPoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, eToPLine2WithErr, eToPPoint2, join2PPointsWithErr, pLineIsLeft, pPointOnPerpWithErr, pToEPoint2)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, eToPLine2WithErr, eToPPoint2, join2PPointsWithErr, pLineIsLeft, pPointOnPerpWithErr)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -248,8 +248,8 @@ innerContourPoint contour
     (p1, p2)       = firstPointPairOfContour contour
     source         = pLineFromEndpoints p1 p2
     myMidPoint     = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
-    (perpPoint, (_,UlpSum perpErr)) = pPointOnPerpWithErr source myMidPoint minDistanceFromSeg
-    (otherPoint, (_,UlpSum otherErr)) = pPointOnPerpWithErr source myMidPoint (-minDistanceFromSeg)
+    (perpPoint, (_, _, UlpSum perpErr)) = pPointOnPerpWithErr source myMidPoint minDistanceFromSeg
+    (otherPoint, (_, _, UlpSum otherErr)) = pPointOnPerpWithErr source myMidPoint (-minDistanceFromSeg)
     numIntersections   = contourIntersectionCount contour (pToEPoint2 perpPoint, outsidePoint)
     otherIntersections = contourIntersectionCount contour (pToEPoint2 otherPoint, outsidePoint)
     outsidePoint       = pointFarOutsideContour contour

@@ -81,13 +81,13 @@
 -- so we can define a Num instance for Positive.
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), edgesOf, generationsOf, toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomPLineWithErr, randomLineSeg, cellFrom, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), edgesOf, generationsOf, toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomPLineWithErr, randomLineSeg, cellFrom, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint) where
 
 import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, Int, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
 
 import Data.Coerce (coerce)
 
-import Data.List (sort)
+import Data.List (sort, concatMap)
 
 import Data.List.Unique (allUnique)
 
@@ -112,11 +112,11 @@ import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, pointsO
 
 import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPoint, mapWithFollower, startPoint, makeLineSeg)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf, UlpSum)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf)
 
-import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoints, pPointBetweenPPoints, translateRotatePPoint2)
+import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoints, pPointBetweenPPoints, pToEPoint2, translateRotatePPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint(CPPoint2, PPoint2), ProjectiveLine(NPLine2, PLine2), PLine2Err, eToPLine2WithErr, eToPPoint2, hasArc, flipPLine2, pToEPoint2, ulpOfLineSeg, normalizePLine2WithErr, outOf, pPointOf)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(CPPoint2, PPoint2), ProjectiveLine(NPLine2, PLine2), PLine2Err, PPoint2Err, eToPLine2WithErr, eToPPoint2, hasArc, flipPLine2, normalizePLine2WithErr, outOf, pPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode)
 
@@ -126,6 +126,9 @@ import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
 class GanjaAble a where
   toGanja :: a -> String -> (String, String)
+
+instance GanjaAble String where
+  toGanja string varname = (" // " <> varname <> " -- " <> string <> "\n","")
 
 instance GanjaAble Point2 where
   toGanja (Point2 (x,y)) varname = (
@@ -167,6 +170,26 @@ instance GanjaAble ProjectivePoint where
         (PPoint2 (GVec v)) -> v
         (CPPoint2 (GVec v)) -> v
 
+instance GanjaAble (ProjectivePoint,PPoint2Err) where
+  toGanja (ppoint,pErr) varname = (
+    "  var " <> varname <> " = "
+      <> showFullPrecision (valOf 0 (getVal [GEPlus 1, GEPlus 2] vals)) <> "e12"
+      <> (if e02 >= 0 then "+" <> showFullPrecision e02 else showFullPrecision e02)
+      <> "e02"
+      <> (if e01 >= 0 then "+" <> showFullPrecision e01 else showFullPrecision e01)
+      <> "e01;\n"
+      <> "// " <> show pErr <> "\n"
+    ,
+    "    " <> varname <> ", " <> show varname <> ",\n")
+    where
+      e02 = valOf 0 (getVal [GEZero 1, GEPlus 2] vals)
+      e01 = valOf 0 (getVal [GEZero 1, GEPlus 1] vals)
+      -- because ganja's website does not handle scientific notation.
+      showFullPrecision v = showFFloat Nothing v ""
+      vals = case ppoint of
+        (PPoint2 (GVec v)) -> v
+        (CPPoint2 (GVec v)) -> v
+
 instance GanjaAble ProjectiveLine where
   toGanja pline varname = (
     "  var " <> varname <> " = "
@@ -190,7 +213,7 @@ instance GanjaAble Contour where
   toGanja contour varname = (invars, inrefs)
     where
       contourPoints = pointsOfContour contour
-      (invars, inrefs) = (concat $ fst <$> res, concat (snd <$> res) <> "    0x882288,\n" <> linePairs)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res <> "    0x882288,\n" <> linePairs)
         where
           linePairs    = concat $ mapWithFollower (\(_,a) (_,b) -> "    [" <> varname <> a <> "," <> varname <> b <> "],\n") pairs
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> pairs
@@ -230,12 +253,12 @@ instance GanjaAble Motorcycle where
 instance GanjaAble Cell where
   toGanja (Cell segsDivides) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip allSides allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
-          allSegs      = concat $ listFromSlist . fst <$> segsDivides
+          allSegs      = concatMap (listFromSlist . fst) segsDivides
           allDivides   = catMaybes $ listFromSlist $ snd <$> segsDivides
           allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
           listFromSlist (Slist a _) = a
@@ -243,7 +266,7 @@ instance GanjaAble Cell where
 instance GanjaAble CellDivide where
   toGanja (CellDivide (DividingMotorcycles firstMotorcycle (Slist moreMotorcycles _)) _) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res            = (\(a,b) -> toGanja a (varname <> b)) <$> zip allMotorcycles allStrings
           allStrings     = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
@@ -252,24 +275,24 @@ instance GanjaAble CellDivide where
 instance GanjaAble RemainingContour where
   toGanja (RemainingContour (Slist segsDivides _)) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip allSides allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
-          allSegs      = concat $ listFromSlist . fst <$> segsDivides
-          allDivides   = concat $ snd <$> segsDivides
+          allSegs      = concatMap (listFromSlist . fst) segsDivides
+          allDivides   = concatMap snd segsDivides
           allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
           listFromSlist (Slist a _) = a
 
 instance GanjaAble INode where
   toGanja inode@(INode firstPLine secondPLine (Slist rawMorePLines _) _) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> zip allPLines allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
-          allPLines    =   firstPLine:secondPLine:rawMorePLines <> (if hasArc inode then [(outOf inode)] else [])
+          allPLines    =   firstPLine:secondPLine:rawMorePLines <> (if hasArc inode then [outOf inode] else [])
 
 instance GanjaAble StraightSkeleton where
   toGanja (StraightSkeleton (Slist [[nodetree]] _) _) = toGanja nodetree
@@ -278,7 +301,7 @@ instance GanjaAble StraightSkeleton where
 instance GanjaAble NodeTree where
   toGanja (NodeTree (ENodeSet eNodeSides) iNodeSet) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip (allEdges <> allINodes) allStrings
@@ -305,7 +328,7 @@ instance GanjaAble NodeTree where
 instance GanjaAble Face where
   toGanja (Face edge firstArc (Slist arcs _) lastArc) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip (toGanja edge : allPLines) allStrings
@@ -315,9 +338,9 @@ instance GanjaAble Face where
 instance GanjaAble (Slist Face) where
   toGanja (Slist faces _) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
-          allArcs      = concat $ (\(Face _ firstArc (Slist arcs _) lastArc) -> [firstArc] <> arcs <> [lastArc]) <$> faces
+          allArcs      = concatMap (\(Face _ firstArc (Slist arcs _) lastArc) -> [firstArc] <> arcs <> [lastArc]) faces
           allEdges     = (\(Face edge _ _ _) -> toGanja edge) <$> faces
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip (allEdges <> allPLines) allStrings
@@ -332,7 +355,7 @@ dumpGanjas [f] = ganjaHeader <> vars <> ganjaFooterStart <> refs <> ganjaFooterE
     (vars, refs) = f "a"
 dumpGanjas xs = ganjaHeader <> vars <> ganjaFooterStart <> refs <> ganjaFooterEnd
   where
-    (vars, refs) =  (concat $ fst <$> res, concat $ snd <$> res)
+    (vars, refs) =  (concatMap fst res, concatMap snd res)
       where
         res          = (\(a,b) -> a b) <$> zip xs allStrings
         allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
@@ -683,13 +706,7 @@ randomPLineWithErr x y dx dy = eToPLine2WithErr $ makeLineSeg (Point2 (x, y)) (P
 
 -- | A helper function. constructs a random LineSeg.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
-randomLineSeg x y rawDx rawDy = fst $ randomLineSegWithErr x y rawDx rawDy
-
-randomLineSegWithErr :: ℝ -> ℝ -> ℝ -> ℝ -> (LineSeg, UlpSum)
-randomLineSegWithErr x1 y1 x2 y2 = (res, ulpSum)
-  where
-    res = makeLineSeg (Point2 (x1, y1)) (Point2 (x2, y2))
-    ulpSum = ulpOfLineSeg res
+randomLineSeg x y rawDx rawDy = makeLineSeg (Point2 (x,y)) (Point2 (rawDx, rawDy))
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
 randomPLineThroughOrigin :: ℝ -> ℝ -> (ProjectiveLine, PLine2Err)
@@ -700,42 +717,38 @@ randomPLineThroughPoint :: ℝ -> ℝ -> ℝ -> (ProjectiveLine, PLine2Err)
 randomPLineThroughPoint x y d = eToPLine2WithErr $ makeLineSeg (Point2 (x,y)) (Point2 (d,d))
 
 -- | A line segment ending at the origin. additionally, guaranteed not to be on the X = Y line.
-randomLineSegFromPointNotX1Y1 :: ℝ -> ℝ -> ℝ -> (LineSeg, UlpSum)
-randomLineSegFromPointNotX1Y1 rawX rawY d = (res, ulpSum)
+randomLineSegFromPointNotX1Y1 :: ℝ -> ℝ -> ℝ -> LineSeg
+randomLineSegFromPointNotX1Y1 rawX rawY d = res
   where
     res = makeLineSeg (Point2 (d, d)) (Point2 (x, y))
     (x, y)
       | rawX == 0 && rawY == 0 = (0,0.1)
       | rawX == rawY = (rawX,0.1)
       | otherwise = (rawX, rawY)
-    ulpSum = ulpOfLineSeg res
 
 -- | A line segment ending at the origin. additionally, guaranteed not to be on the X = Y line.
-randomLineSegFromOriginNotX1Y1 :: ℝ -> ℝ -> (LineSeg, UlpSum)
-randomLineSegFromOriginNotX1Y1 rawX rawY = (res, ulpSum)
+randomLineSegFromOriginNotX1Y1 :: ℝ -> ℝ -> LineSeg
+randomLineSegFromOriginNotX1Y1 rawX rawY = res
   where
     res = makeLineSeg (Point2 (0, 0)) (Point2 (x, y))
     (x, y)
       | rawX == 0 && rawY == 0 = (0,0.1)
       | rawX == rawY = (rawX,0.1)
       | otherwise = (rawX, rawY)
-    ulpSum = ulpOfLineSeg res
 
-randomX1Y1LineSegToOrigin :: NonZero ℝ -> (LineSeg, UlpSum)
-randomX1Y1LineSegToOrigin rawD = (res, ulpSum)
+randomX1Y1LineSegToOrigin :: NonZero ℝ -> LineSeg
+randomX1Y1LineSegToOrigin rawD = res
   where
     res = makeLineSeg (Point2 (d,d)) (Point2 (0,0))
     d :: ℝ
     d = coerce rawD
-    ulpSum = ulpOfLineSeg res
 
-randomX1Y1LineSegToPoint :: NonZero ℝ -> ℝ -> (LineSeg, UlpSum)
-randomX1Y1LineSegToPoint rawD1 d2 = (res, ulpSum)
+randomX1Y1LineSegToPoint :: NonZero ℝ -> ℝ -> LineSeg
+randomX1Y1LineSegToPoint rawD1 d2 = res
   where
     res = makeLineSeg (Point2 (d1,d1)) (Point2 (d2,d2))
     d1 :: ℝ
     d1 = coerce rawD1
-    ulpSum = ulpOfLineSeg res
 
 -- | combine two lists. for feeding into randomStarPoly.
 makePairs :: [a] -> [b] -> [(a,b)]

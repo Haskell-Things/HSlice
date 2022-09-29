@@ -20,15 +20,19 @@
    This file contains code for examining and retrieving the intersection of two projective lines.
 -}
 
-module Graphics.Slicer.Math.Intersections (noIntersection, intersectionOf, intersectionBetween, isCollinear, isAntiCollinear, isParallel, isAntiParallel, outputIntersectsPLine, outputsIntersect) where
+module Graphics.Slicer.Math.Intersections (noIntersection, intersectionOf, intersectionBetween, intersectionsAtSamePoint, isCollinear, isAntiCollinear, isParallel, isAntiParallel, outputIntersectsPLine, outputsIntersect) where
 
-import Prelude (Bool, Show, ($), (<), (<>), (==), (||), (&&), Maybe(Just, Nothing), Either(Right, Left), error, otherwise, realToFrac, show)
+import Prelude (Bool(True), Show, ($), (<), (<>), (==), (||), (&&), (<$>), Maybe(Just, Nothing), Either(Right, Left), and, error, otherwise, realToFrac, show)
 
-import Graphics.Slicer.Definitions (ℝ)
+import Data.Either (rights, lefts)
+
+import Data.Maybe (catMaybes, isJust)
+
+import Graphics.Slicer.Math.Definitions(mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc,errOfOut,outOf), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err(PLine2Err), ProjectiveLine, ProjectivePoint, distanceBetweenPLinesWithErr, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc,errOfOut,outOf), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectivePoint, distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, distanceBetweenPLinesWithErr, pLineErrAtPPoint, pLineFuzziness, plinesIntersectIn, pPointFuzziness)
 
 -- | check if two lines cannot intersect.
 noIntersection :: (ProjectiveLine,PLine2Err) -> (ProjectiveLine,PLine2Err) -> Bool
@@ -62,22 +66,19 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
 
 -- | Get the intersection point of two lines. if they are collinear, returns a line, and if they are parallel, returns Nothing.
 -- FIXME: adding two different types of error.
-intersectionBetween :: (ProjectiveLine,PLine2Err) -> (ProjectiveLine,PLine2Err) -> Maybe (Either (ProjectiveLine,PLine2Err) ProjectivePoint)
+intersectionBetween :: (ProjectiveLine,PLine2Err) -> (ProjectiveLine,PLine2Err) -> Maybe (Either (ProjectiveLine,PLine2Err) (ProjectivePoint, PPoint2Err))
 intersectionBetween pl1@(rawPl1,_) pl2@(rawPl2,_) = saneIntersection $ plinesIntersectIn pl1 pl2
   where
-    (foundDistance, foundDistanceErr)   = distanceBetweenPLinesWithErr rawPl1 rawPl2
-    foundErr :: ℝ
-    -- FIXME: combines multiple types of error.
-    foundErr                            = (\(PLine2Err _ n1 _ _ _, PLine2Err _ n2 _ _ _, _, b) -> realToFrac $ ulpVal $ b <> n1 <> n2) foundDistanceErr
+    (foundDistance, (_,_,_,foundErr))   = distanceBetweenPLinesWithErr rawPl1 rawPl2
     saneIntersection PCollinear         = Just $ Left pl1
     saneIntersection PAntiCollinear     = Just $ Left pl1
-    saneIntersection PParallel          = if foundDistance < foundErr
+    saneIntersection PParallel          = if foundDistance < realToFrac (ulpVal foundErr)
                                           then Just $ Left pl1
                                           else Nothing
-    saneIntersection PAntiParallel      = if foundDistance < foundErr
+    saneIntersection PAntiParallel      = if foundDistance < realToFrac (ulpVal foundErr)
                                           then Just $ Left pl1
                                           else Nothing
-    saneIntersection (IntersectsIn p _) = Just $ Right p
+    saneIntersection (IntersectsIn p (_,_,_,pErr)) = Just $ Right (p, pErr)
 
 -- | find out where the output of an Arcable intersects a given PLine2. errors if no intersection.
 outputIntersectsPLine :: (Arcable a, Show a) => a -> (ProjectiveLine,PLine2Err) -> ProjectivePoint
@@ -99,3 +100,52 @@ outputsIntersect node1 node2
   where
     res = plinesIntersectIn (outOf node1, errOfOut node1) (outOf node2, errOfOut node2)
 
+-- find out if all of the possible intersections between all of the given nodes are close enough to be considered the same.
+intersectionsAtSamePoint :: [(ProjectiveLine,PLine2Err)] -> Bool
+intersectionsAtSamePoint nodeOutsAndErrs
+  = case nodeOutsAndErrs of
+      [] -> error "given an empty list."
+      [a] -> error $ "asked to check for same point intersection of:\n" <> show a <> "\n"
+      [a,b] -> isJust $ intersectionBetween a b
+      _ -> and (isJust <$> intersections) && pointsCloseEnough && linesCloseEnough
+      where
+        intersections = mapWithFollower myIntersectionBetween nodeOutsAndErrs
+          where
+            myIntersectionBetween a b = case intersectionBetween a b of
+                                          Nothing -> Nothing
+                                          (Just (Right p)) -> Just $ Right (a,b,p)
+                                          (Just (Left l)) -> Just $ Left (a,b,l)
+        -- intersections that resulted in a point.
+        pointIntersections :: [((ProjectiveLine,PLine2Err), (ProjectiveLine,PLine2Err), (ProjectivePoint,PPoint2Err))]
+        pointIntersections = rights $ catMaybes intersections
+        -- intersections that resulted in a line, but are not anticollinear.
+        lineIntersections = lefts $ catMaybes intersections
+        pointsCloseEnough = and $ mapWithFollower pairCloseEnough pointIntersections
+          where
+            pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res < realToFrac errSum
+              where
+                errSum = ulpVal $ resErr <> pPointFuzziness point1
+                                         <> pLineErrAtPPoint a1 c1
+                                         <> pLineErrAtPPoint b1 c1
+                                         <> pPointFuzziness point2
+                                         <> pLineErrAtPPoint a2 c2
+                                         <> pLineErrAtPPoint b2 c2
+                (res, (_,_,_,_,resErr)) = distanceBetweenPPointsWithErr point1 point2
+        linesCloseEnough =
+          case lineIntersections of
+            [] -> True
+            [(a1,b1,l1)] -> case pointIntersections of
+                           [] -> error "one line, no points.. makes no sense."
+                           ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < realToFrac errSum
+                             where
+                               (foundDistance, (_, _, _, _, _, _, _, _, resErr)) = distancePPointToPLineWithErr ppoint1 l1
+                               errSum = ulpVal $ resErr <> pPointFuzziness ppoint1
+                                                        <> pLineErrAtPPoint a2 p1
+                                                        <> pLineErrAtPPoint b2 p1
+                                                        <> pLineFuzziness a1
+                                                        <> pLineFuzziness b1
+                                                        <> pLineFuzziness l1
+            (_:_) -> error
+                     $ "detected multiple lines?\n"
+                     <> show lineIntersections <> "\n"
+                     <> show pointIntersections <> "\n"

@@ -31,7 +31,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<), (*), mempty, realToFrac, snd)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, (||), (<>), show, (<), (*), mempty, snd)
 
 import Prelude as PL (head, last)
 
@@ -43,7 +43,7 @@ import Data.List.NonEmpty (NonEmpty)
 
 import Data.List.Unique (count_)
 
-import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust)
+import Data.Maybe (Maybe(Just,Nothing), isJust, mapMaybe)
 
 import Slist (len, cons, slist, isEmpty, safeLast)
 
@@ -51,18 +51,26 @@ import Slist as SL (last, head, init)
 
 import Slist.Type (Slist(Slist))
 
+import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint)
+
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (eToPPoint2, pToEPoint2, plinesIntersectIn, PIntersection(IntersectsIn), flipPLine2, ProjectiveLine(PLine2), PLine2Err, pLineIsLeft, distanceBetweenPPointsWithErr, Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, errOfOut), ProjectivePoint(CPPoint2,PPoint2))
+import Graphics.Slicer.Math.PGA (eToPPoint2, PLine2Err, pToEPoint2WithErr, plinesIntersectIn, PIntersection(IntersectsIn), flipPLine2, ProjectiveLine(PLine2), pLineIsLeft, Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, errOfOut), ProjectivePoint(CPPoint2,PPoint2))
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
-import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), addVecPair)
+import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
 -- FIXME: provide our own Eq instance, cause floats suck? :)
-data ENode = ENode { _inPoints :: !(Point2, Point2, Point2), _arcOut :: !ProjectiveLine, _arcErr :: PLine2Err}
+data ENode = ENode
+  -- _inPoints ::
+  !(Point2, Point2, Point2)
+  --_arcOut ::
+  !ProjectiveLine
+  -- _arcErr ::
+  PLine2Err
   deriving Eq
   deriving stock Show
 
@@ -75,12 +83,23 @@ instance Arcable ENode where
 instance Pointable ENode where
   -- an ENode always contains a point.
   canPoint _ = True
+  canEPoint _ = True
   pPointOf a = eToPPoint2 $ ePointOf a
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
+  errOfPPoint = mempty
+  errOfEPoint = mempty
 
 -- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
-data INode = INode { _firstInArc :: !ProjectiveLine, _secondInArc :: !ProjectiveLine, _moreInArcs :: !(Slist ProjectiveLine), _outArc :: !(Maybe (ProjectiveLine,PLine2Err)) }
+data INode = INode
+   --_firstInArc ::
+   !ProjectiveLine
+   -- _secondInArc ::
+   !ProjectiveLine
+   -- _moreInArcs ::
+   !(Slist ProjectiveLine)
+   -- _outArc ::
+   !(Maybe (ProjectiveLine,PLine2Err))
   deriving Eq
   deriving stock Show
 
@@ -88,10 +107,10 @@ instance Arcable INode where
   -- an INode might just end here.
   hasArc (INode _ _ _ outArc) = isJust outArc
   outOf (INode _ _ _ outArc) = case outArc of
-                                 (Just rawOutArc) -> fst $ rawOutArc
+                                 (Just rawOutArc) -> fst rawOutArc
                                  Nothing -> error "tried to get an outArc that has no output arc."
   errOfOut (INode _ _ _ outArc) = case outArc of
-                                 (Just rawOutArc) -> snd $ rawOutArc
+                                 (Just rawOutArc) -> snd rawOutArc
                                  Nothing -> error "tried to get an outArc that has no output arc."
 
 instance Pointable INode where
@@ -104,11 +123,12 @@ instance Pointable INode where
                   else remainder
         where
           remainder :: Slist (ProjectiveLine, PLine2Err)
-          remainder = cons (firstPLine, mempty) $ cons (secondPLine, mempty) $ (\a -> (a, mempty)) <$> morePLines
+          remainder = cons (firstPLine, mempty) $ cons (secondPLine, mempty) $ (, mempty) <$> morePLines
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
         where
           saneIntersect (IntersectsIn _ _) = True
           saneIntersect _                  = False
+  canEPoint _ = False
   -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? angle based, etc?
   pPointOf iNode@(INode firstPLine secondPLine (Slist rawPLines _) _)
     | allPointsSame = case results of
@@ -121,25 +141,19 @@ instance Pointable INode where
                     (Just a) -> fst a
     where
       results = intersectionsOfPairs allPLines
-      allPointsSame = case intersectionsOfPairs allPLines of
-                        [] -> error $ "no intersection of pairs for " <> show allPLines <> "\nINode: " <> show iNode <> "\n"
-                        [_] -> True
-                        points -> and $ mapWithFollower distanceWithinErr points
-                          where
-                            distanceWithinErr a b = res < realToFrac err
-                              where
-                                (res, (_,_,_,(UlpSum err))) = distanceBetweenPPointsWithErr (a,mempty) (b,mempty)
+      allPointsSame = intersectionsAtSamePoint ((\(Slist l _) -> l) allPLines) 
       allPLines = if hasArc iNode
                   then slist $ nub $ (outOf iNode, errOfOut iNode) : remainder
                   else slist $ nub remainder
         where
           remainder :: [(ProjectiveLine, PLine2Err)]
-          remainder = (\a -> (a,mempty)) <$> firstPLine : secondPLine : rawPLines
-      intersectionsOfPairs (Slist pLines _) = catMaybes $ (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) <$> getPairs pLines
+          remainder = (,mempty) <$> firstPLine : secondPLine : rawPLines
+      intersectionsOfPairs (Slist pLines _) = mapMaybe (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
         where
           saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
           saneIntersect _                  = Nothing
-  ePointOf a = pToEPoint2 $ pPointOf a
+  ePointOf a = fst $ pToEPoint2WithErr $ pPointOf a
+  errOfEPoint a = snd $ pToEPoint2WithErr $ pPointOf a
 
 -- Produce a list of the inputs to a given INode.
 insOf :: INode -> [ProjectiveLine]

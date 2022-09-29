@@ -33,6 +33,7 @@ module Graphics.Slicer.Math.Lossy (
   pLineFromEndpoints,
   pPointBetweenPPoints,
   pPointOnPerp,
+  pToEPoint2,
   translatePLine2,
   translateRotatePPoint2
   ) where
@@ -46,7 +47,7 @@ import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr, getOu
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, ProjectivePoint, PPoint2Err, PLine2Err, angleBetweenWithErr, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, join2PPointsWithErr, normalizePLine2WithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, translatePLine2WithErr, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, ProjectivePoint, PPoint2Err, PLine2Err, angleBetweenWithErr, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, join2PPointsWithErr, normalizePLine2WithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEPoint2WithErr, translatePLine2WithErr, translateRotatePPoint2WithErr)
 
 angleBetween :: ProjectiveLine -> ProjectiveLine -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetweenWithErr nPLine1 nPLine2
@@ -99,6 +100,9 @@ pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ pPointBetweenP
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
 pPointOnPerp :: ProjectiveLine -> ProjectivePoint -> ℝ -> ProjectivePoint
 pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
+
+pToEPoint2 :: ProjectivePoint -> Point2
+pToEPoint2 ppoint = fst $ pToEPoint2WithErr ppoint
 
 -- | translate a ProjectiveLine along it's perpendicular bisector.
 translatePLine2 :: ProjectiveLine -> ℝ -> ProjectiveLine

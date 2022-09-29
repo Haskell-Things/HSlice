@@ -32,41 +32,52 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
 
 import Graphics.Slicer.Math.Intersections (isCollinear, isAntiCollinear, isParallel, isAntiParallel, intersectionOf)
 
-import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetweenWithErr, distanceBetweenPPointsWithErr, eToPLine2WithErr, flipPLine2, join2PPointsWithErr, normalizePLine2WithErr)
+import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetweenWithErr, canonicalizePPoint2WithErr, distanceBetweenPPointsWithErr, eToPLine2WithErr, flipPLine2, join2PPointsWithErr, normalizePLine2WithErr)
 
 -- | Get a PLine along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
 -- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
 -- FIXME: shouldn't we be given an error component in our inputs?
 getOutsideArcWithErr :: ProjectivePoint -> ProjectiveLine -> ProjectivePoint -> ProjectiveLine -> (ProjectiveLine,(PLine2Err, PLine2Err, PLine2Err))
 getOutsideArcWithErr ppoint1 pline1 ppoint2 pline2
-  | pline1 == pline2 = error $ "cannot have two identical input lines:\n" <> show pline1 <> "\n" <> show pline2 <> "\n"
-  | isCollinear (pline1,mempty) (pline2,mempty) ||
-    isAntiCollinear (pline1,mempty) (pline2,mempty) = error "need to be able to return two Plines."
-  | isParallel  (pline1,mempty) (pline2,mempty) ||
-    isAntiParallel (pline1,mempty) (pline2,mempty) = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
-  | ppoint1 == ppoint2 = error $ "cannot have two identical input points:\n" <> show ppoint1 <> "\n" <> show ppoint2 <> "\n"
-  | l1TowardPoint && l2TowardPoint = flipFst $ getInsideArcWithErr pline1 (flipPLine2 pline2)
-  | l1TowardPoint                  = flipFst $ getInsideArcWithErr pline1 pline2
-  | l2TowardPoint                  = getInsideArcWithErr pline1 pline2
-  | otherwise                      = getInsideArcWithErr pline1 (flipPLine2 pline2)
+  | npline1 == npline2 = error $ "cannot have two identical input lines:\n" <> show pline1 <> "\n" <> show pline2 <> "\n"
+  | isCollinear (npline1,npline1Err) (npline2,npline2Err) ||
+    isAntiCollinear (npline1,npline1Err) (npline2,npline2Err) = error "need to be able to return two Plines."
+  | isParallel  (npline1,npline1Err) (npline2,npline2Err) ||
+    isAntiParallel (npline1,npline1Err) (npline2,npline2Err) = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
+  | cppoint1 == cppoint2 = error $ "cannot have two identical input points:\n" <> show ppoint1 <> "\n" <> show ppoint2 <> "\n"
+  | intersectionPoint == cppoint1 = error $ "intersection of plines is at first ppoint:\n"
+                                          <> show ppoint1 <> "\n"
+                                          <> show pline1 <> "\n"
+                                          <> show pline2 <> "\n"
+  | intersectionPoint == cppoint2 = error $ "intersection of plines is at second ppoint:\n"
+                                          <> show ppoint2 <> "\n"
+                                          <> show pline1 <> "\n"
+                                          <> show pline2 <> "\n"
+  | l1TowardPoint && l2TowardPoint = flipFst $ getInsideArcWithErr npline1 (flipPLine2 npline2)
+  | l1TowardPoint                  = flipFst $ getInsideArcWithErr npline1 npline2
+  | l2TowardPoint                  = getInsideArcWithErr npline1 npline2
+  | otherwise                      = getInsideArcWithErr npline1 (flipPLine2 npline2)
     where
       flipFst (a,b) = (flipPLine2 a,b)
-      intersectionPoint = intersectionOf (pline1,mempty) (pline2,mempty)
-      l1TowardPoint = towardIntersection ppoint1 pline1 intersectionPoint
-      l2TowardPoint = towardIntersection ppoint2 pline2 intersectionPoint
+      intersectionPoint = intersectionOf (npline1,npline1Err) (npline2,npline2Err)
+      l1TowardPoint = towardIntersection (cppoint1,c1Err) (npline1,npline1Err) (intersectionPoint,mempty)
+      l2TowardPoint = towardIntersection (cppoint2,c2Err) (npline2,npline2Err) (intersectionPoint,mempty)
+      (npline1, npline1Err) = normalizePLine2WithErr pline1
+      (npline2, npline2Err) = normalizePLine2WithErr pline2
+      (cppoint1,c1Err) = canonicalizePPoint2WithErr ppoint1
+      (cppoint2,c2Err) = canonicalizePPoint2WithErr ppoint2
 
 -- Determine if the line segment formed by the two given points starts with the first point, or the second.
--- FIXME: shouldn't we be given an error component in our inputs?
-towardIntersection :: ProjectivePoint -> ProjectiveLine -> ProjectivePoint -> Bool
-towardIntersection pp1 pl1 pp2
+towardIntersection :: (ProjectivePoint,PPoint2Err) -> (ProjectiveLine,PLine2Err) -> (ProjectivePoint,PPoint2Err) -> Bool
+towardIntersection pp1@(rawPp1,_) pl1@(rawPl1,_) pp2@(rawPp2,_)
   | d <= totalErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
   | otherwise = angleFound > 0
   where
-    (angleFound, _) = angleBetweenWithErr newPLine pl1
-    (d, (_,_,PLine2Err _ _ _ transErr _, canonicalizeErr)) = distanceBetweenPPointsWithErr (pp1,mempty) (pp2,mempty)
-    (newPLine, _) = join2PPointsWithErr pp1 pp2
+    (angleFound, _) = angleBetweenWithErr newPLine rawPl1
+    (d, (_,_,_,_,dErr)) = distanceBetweenPPointsWithErr pp1 pp2
+    (newPLine, _) = join2PPointsWithErr rawPp1 rawPp2
     totalErr :: ℝ
-    totalErr = realToFrac $ ulpVal $ transErr <> canonicalizeErr
+    totalErr = realToFrac $ ulpVal dErr
 
 -- | Get a PLine in the direction of the inside of the contour, given three points on the edge of the contour.
 -- FIXME: outputs that are normalized should be using the right constructor.
@@ -81,17 +92,12 @@ getFirstArcWithErr p1 p2 p3
     (NPLine2 quadRes, _) = normalizePLine2WithErr quad
     (quad, quadPLineErr) = eToPLine2WithErr (makeLineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3)
     -- used for all other cases.
-    (insideArc, (_,_,PLine2Err _ insideArcNormErr _ _ _)) = getInsideArcWithErr (PLine2 side1) (PLine2 side2)
-    (NPLine2 side1, PLine2Err _ side1NormErr _ _ _) = normalizePLine2WithErr side1Raw
-    (side1Raw, PLine2Err _ _ side1AngleErr side1TranslateErr _) = eToPLine2WithErr (makeLineSeg p1 p2)
-    (NPLine2 side2, PLine2Err _ side2NormErr _ _ _) = normalizePLine2WithErr side2Raw
-    (side2Raw, PLine2Err _ _ side2AngleErr side2TranslateErr _) = eToPLine2WithErr (makeLineSeg p2 p3)
-    insideArcErr = PLine2Err
-                   mempty
-                   (side1NormErr <> side2NormErr <> insideArcNormErr)
-                   (side1AngleErr <> side2AngleErr)
-                   (side1TranslateErr <> side2TranslateErr)
-                   mempty
+    (insideArc, (_,_,insideArcRawErr)) = getInsideArcWithErr (PLine2 side1) (PLine2 side2)
+    (NPLine2 side1, side1NormErr) = normalizePLine2WithErr side1Raw
+    (side1Raw, side1RawErr) = eToPLine2WithErr (makeLineSeg p1 p2)
+    (NPLine2 side2, side2NormErr) = normalizePLine2WithErr side2Raw
+    (side2Raw, side2RawErr) = eToPLine2WithErr (makeLineSeg p2 p3)
+    insideArcErr = side1NormErr <> side1RawErr <> side2NormErr <> side2RawErr <> insideArcRawErr
 
 -- | Get a Projective Line along the angle bisector of the intersection of the two given lines, pointing in the 'acute' direction.
 --   Note that we know that the inside is to the right of the first line given, and that the first line points toward the intersection.
@@ -99,17 +105,13 @@ getInsideArcWithErr :: ProjectiveLine -> ProjectiveLine -> (ProjectiveLine, (PLi
 getInsideArcWithErr pline1 pline2
    -- FIXME: remove this Eq usage!
   | npline1 == npline2 = error "need to be able to return two PLines."
-  | otherwise = (res, (npline1Err, npline2Err, resNormErr <> PLine2Err addErr mempty mempty mempty mempty))
+  | otherwise = (res, (npline1Err, npline2Err, resNormErr <> PLine2Err addErr mempty mempty (mempty, mempty)))
   where
       (res, resNormErr) = normalizePLine2WithErr $ PLine2 rawPLine2
       (rawPLine2, addErr)       = addVecPairWithErr pv1 pv2
       (NPLine2 pv1)             = flipPLine2 npline1
-      (npline1, npline1Err) = case pline1 of
-              a@(NPLine2 _) -> (a,mempty)
-              a@(PLine2 _) -> normalizePLine2WithErr a
-      (npline2, npline2Err) = case pline2 of
-              a@(NPLine2 _) -> (a,mempty)
-              a@(PLine2 _) -> normalizePLine2WithErr a
+      (npline1, npline1Err) = normalizePLine2WithErr pline1
+      (npline2, npline2Err) = normalizePLine2WithErr pline2
       pv2 = case pline2 of
               (NPLine2 a) -> a
               (PLine2 a) -> a

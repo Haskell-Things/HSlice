@@ -34,7 +34,9 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighbors, startPoint, distance, lineSegsOfContour, endPoint, fudgeFactor, makeLineSeg)
 
-import Graphics.Slicer.Math.PGA (PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), ProjectivePoint, Intersection(HitEndPoint, HitStartPoint, NoIntersection), ProjectiveLine, PLine2Err, intersectsWith, pToEPoint2, outputIntersectsLineSeg, ulpOfLineSeg)
+import Graphics.Slicer.Math.Lossy (pToEPoint2)
+
+import Graphics.Slicer.Math.PGA (PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), ProjectivePoint, Intersection(HitEndPoint, HitStartPoint, NoIntersection), ProjectiveLine, PLine2Err, intersectsWith, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -49,7 +51,7 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _ _) segs = strip
     mightIntersect :: Maybe LineSeg -> Maybe (Either Intersection PIntersection)
     mightIntersect maybeSeg = case maybeSeg of
                                 Nothing -> Nothing
-                                (Just seg) -> Just $ outputIntersectsLineSeg m (seg, ulpOfLineSeg seg)
+                                (Just seg) -> Just $ outputIntersectsLineSeg m seg
     shortCircuit :: [(Maybe LineSeg, Maybe (Either Intersection PIntersection))] -> [Maybe (LineSeg, Either Intersection PIntersection)]
     shortCircuit items = shortCircuitItem <$> items
       where
@@ -65,10 +67,8 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _ _) segs = strip
 -- | Get all possible intersections between the motorcycle and the contour.
 -- Filters out the input and output segment of the motorcycle.
 getMotorcycleContourIntersections :: Motorcycle -> Contour -> [(LineSeg, Either Point2 ProjectivePoint)]
-getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _ _) c = stripInSegOutSeg $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip contourLines $ willIntersect <$> contourLines
+getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _ _) c = stripInSegOutSeg $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip contourLines $ outputIntersectsLineSeg m <$> contourLines
   where
-    willIntersect :: LineSeg -> Either Intersection PIntersection
-    willIntersect mySeg = outputIntersectsLineSeg m (mySeg, ulpOfLineSeg mySeg)
     openCircuit v = Just <$> v
     contourLines = lineSegsOfContour c
     stripInSegOutSeg :: [(LineSeg, Either Point2 ProjectivePoint)] -> [(LineSeg, Either Point2 ProjectivePoint)]

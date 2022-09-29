@@ -28,6 +28,8 @@ module Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason(INodeCrossesDivide
 
 import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, elem, filter, null, otherwise, ($), (<$>), (==), error, (<>), show, (&&), compare, concat, (/=), (||), (<), (<=), fst, snd, (*), mempty)
 
+import Data.Bifunctor (second)
+
 import Data.Either(Either(Left, Right))
 
 import Data.List (elemIndex, sortBy, dropWhile, takeWhile, nub)
@@ -54,9 +56,9 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, dist
 
 import Graphics.Slicer.Math.Intersections (outputIntersectsPLine, outputsIntersect, isAntiCollinear)
 
-import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToNPLine2, eToPLine2)
+import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToNPLine2, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), ProjectivePoint, angleBetweenWithErr, distanceBetweenPPointsWithErr, eToPPoint2, join2PPointsWithErr, pToEPoint2)
+import Graphics.Slicer.Math.PGA (Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), ProjectivePoint, angleBetweenWithErr, distanceBetweenPPointsWithErr, eToPPoint2, join2PPointsWithErr)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving (Show, Eq)
@@ -363,7 +365,7 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
         [_] -> NodeTree eNodes $ INodeSet $ init gens
         (_:_) -> NodeTree eNodes $ INodeSet $ init gens <> one [makeINode (nub $ insOf $ lastINodeOf iNodeGens) (Just myOut)]
           where
-            myOut = (fst joinOut, (\(_,_,a) -> a) $ snd joinOut)
+            myOut = second (\(_,_,a) -> a) joinOut
             joinOut = join2PPointsWithErr (finalPointOfNodeTree nodeTree) myCrossover
     -- | find the last resolvable point in a NodeTree
     finalPointOfNodeTree (NodeTree _ iNodeGens)
