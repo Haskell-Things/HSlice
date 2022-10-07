@@ -100,7 +100,7 @@ outputsIntersect node1 node2
   where
     res = plinesIntersectIn (outOf node1, errOfOut node1) (outOf node2, errOfOut node2)
 
--- find out if all of the possible intersections between all of the given nodes are close enough to be considered the same.
+-- | find out if all of the possible intersections between all of the given nodes are close enough to be considered intersecting at the same point.
 intersectionsAtSamePoint :: [(ProjectiveLine,PLine2Err)] -> Bool
 intersectionsAtSamePoint nodeOutsAndErrs
   = case nodeOutsAndErrs of
@@ -122,7 +122,8 @@ intersectionsAtSamePoint nodeOutsAndErrs
         lineIntersections = lefts $ catMaybes intersections
         pointsCloseEnough = and $ mapWithFollower pairCloseEnough pointIntersections
           where
-            pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res < realToFrac errSum
+            -- Minor optimization: first check against resErr, then actually use the fuzziness.
+            pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res < realToFrac (ulpVal resErr) || res < realToFrac errSum
               where
                 errSum = ulpVal $ resErr <> pPointFuzziness point1
                                          <> pLineErrAtPPoint a1 c1

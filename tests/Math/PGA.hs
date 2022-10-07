@@ -22,22 +22,22 @@
 
 {-# LANGUAGE DataKinds #-}
 
-module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, contourSpec, lineSpec) where
+module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, facetStatSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), error, (/=), (<=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, mempty, realToFrac, sqrt, (<), (>), (-), (/), (*), (.))
+import Prelude (($), Bool(True, False), (<$>), (==), error, (/=), (<=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, snd, length, mempty, realToFrac, sqrt, (<), (>), (-), (/), (*), (.))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
 
 -- QuickCheck, for writing properties.
 import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive))
-
+import Test.QuickCheck.Property (Result, label , liftBool, succeeded, Property)
 import Data.Coerce (coerce)
 
 import Data.Either (Either(Left, Right), rights)
 
-import Data.List (foldl')
+import Data.List (concat, foldl', transpose)
 
 import Data.Maybe (fromMaybe, fromJust, Maybe(Just, Nothing))
 
@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersection
 import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, pLineErrAtPPoint, eToPPoint2, eToPLine2WithErr, join2PPointsWithErr, pLineIntersectionWithErr, translatePLine2WithErr, angleBetweenWithErr, flipPLine2, makePPoint2, normalizePLine2WithErr, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, pLineErrAtPPoint, eToPPoint2, eToPLine2WithErr, join2PPointsWithErr, pLineIntersectionWithErr, translatePLine2WithErr, angleBetweenWithErr, flipPLine2, makePPoint2, normalizePLine2WithErr, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, idealNormPPoint2WithErr, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -913,16 +913,24 @@ prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions trian
     minPoint        = fst $ minMaxPoints triangle
     outsidePoint    = Point2 (xOf minPoint - 0.00000001 , yOf minPoint - 0.00000001)
 
-prop_TriangleMotorcyclesEndAtSamePoint  :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Bool
+prop_TriangleMotorcyclesEndAtSamePoint  :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Property
 prop_TriangleMotorcyclesEndAtSamePoint centerX centerY rawRadians rawDists
-  | intersectionsAtSamePoint nodeOutsAndErrs = intersectionsAtSamePoint nodeOutsAndErrs
-  | otherwise = error $ "missed!\n"
-                      <> "Triangle: " <> show triangle <> "\n"
-                      <> "ENodes: " <> show eNodes <> "\n"
-                      <> "Intersections: " <> show intersections <> "\n"
-                      <> show nodeOutsAndErrs <> "\n"
-                      <> dumpGanjas ((toGanja <$> eNodes) <> (toGanja <$> intersections) <> (toGanja . show <$> distances) <> (toGanja . show <$> fuzziness)) <> "\n"
+  = label ("Triangle: " <> show triangle <> "\n"
+           <> "ENodes: " <> show eNodes <> "\n"
+           <> "Intersections: " <> show intersections <> "\n"
+           <> show nodeOutsAndErrs <> "\n"
+           <> dumpGanjas ( (toGanja <$> eNodes)
+                        <> concat (transpose [(toGanja <$> intersections)
+                                             ,(toGanja . show <$> fuzziness)
+                                             ,(toGanja . show <$> idealNorms)
+                                             ,(toGanja . show <$> idealNormErrs)
+                                             ,(toGanja . show <$> distances)
+                                             , [toGanja $ show retVal]])))
+           $ liftBool True
   where
+    retVal = intersectionsAtSamePoint nodeOutsAndErrs
+    idealNorms = fst . idealNormPPoint2WithErr <$> (fst <$> intersections)
+    idealNormErrs = snd . idealNormPPoint2WithErr <$> (fst <$> intersections)
     intersections = rights $ fromJust <$> mapWithFollower intersectionBetween nodeOutsAndErrs
     fuzziness = pPointFuzziness <$> intersections
     distances = mapWithFollower distanceBetweenPPointsWithErr intersections
@@ -1454,6 +1462,12 @@ facetFlakeySpec = do
     it "finds the outside arc of two intersecting lines (makeINode)" $
       property prop_obtuseBisectorOnBiggerSide_makeINode
 
+facetStatSpec :: Spec
+facetStatSpec = do
+  describe "Triangles" $ do
+   it "finds that all motorcycles intersect at the same point in a triangle" $
+      property prop_TriangleMotorcyclesEndAtSamePoint 
+
 facetSpec :: Spec
 facetSpec = do
 --  describe "Stability (Points)" $ do
@@ -1492,8 +1506,8 @@ facetSpec = do
       property prop_AxisAligned45DegreeAnglesInENode
     it "finds no divides in a triangle" $
       property prop_TriangleNoDivides
-    it "finds that all motorcycles intersect at the same point in a triangle" $
-      property prop_TriangleMotorcyclesEndAtSamePoint
+--    it "finds that all motorcycles intersect at the same point in a triangle" $
+--      property prop_TriangleMotorcyclesEndAtSamePoint
     it "finds the straight skeleton of a triangle (property)" $
       property prop_TriangleHasStraightSkeleton
     it "only generates one generation for a triangle" $

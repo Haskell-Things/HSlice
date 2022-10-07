@@ -44,6 +44,7 @@ module Graphics.Slicer.Math.PGA(
   eToPLine2WithErr,
   eToPPoint2,
   flipPLine2,
+  idealNormPPoint2WithErr,
   intersectsWith,
   intersectsWithErr,
   join2PPointsWithErr,
@@ -273,7 +274,7 @@ distanceBetweenPPointsWithErr (ppoint1,p1Err) (ppoint2,p2Err)
 
 -- | determine the amount of error in resolving a projective point.
 pPointFuzziness :: (ProjectivePoint,PPoint2Err) -> UlpSum
-pPointFuzziness (inPPoint, inErr) = UlpSum $ sumTotal * realToFrac (1+(1000*(abs angleIn +realToFrac ( abs (sumVals angleUnlikeAddErr)) + realToFrac (abs (sumVals angleUnlikeMulErr)))))
+pPointFuzziness (inPPoint, inErr) = UlpSum $ sumTotal * realToFrac (1+(1000*(abs angleIn + realToFrac ( abs (sumVals angleUnlikeAddErr) + abs (sumVals angleUnlikeMulErr)))))
   where
     sumTotal = sumVals pJoinAddErr
                + sumVals pJoinMulErr
