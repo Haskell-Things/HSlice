@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (outputIntersectsPLine, outputsInterse
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToNPLine2, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), ProjectivePoint, angleBetweenWithErr, distanceBetweenPPointsWithErr, eToPPoint2, join2PPointsWithErr)
+import Graphics.Slicer.Math.PGA (Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), ProjectivePoint, angleBetweenWithErr, eToPPoint2, join2PPointsWithErr)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving (Show, Eq)
@@ -186,7 +186,7 @@ findNextCell (RemainingContour (Slist [(Slist lineSegs _, divides)] _) ) =
       case elemIndex (fst $ fst div1) contourSegs `compare` elemIndex (fst $ fst div2) contourSegs of
         LT -> LT
         GT -> GT
-        EQ -> fst (distanceBetweenPPointsWithErr (startPPoint $ fst $ fst div1,mempty) (toPPoint2 $ snd $ fst div1, mempty)) `compare` fst (distanceBetweenPPointsWithErr (startPPoint $ fst $ fst div2,mempty) (toPPoint2 $ snd $ fst div2,mempty))
+        EQ -> distanceBetweenPPoints (startPPoint $ fst $ fst div1) (toPPoint2 $ snd $ fst div1) `compare` distanceBetweenPPoints (startPPoint $ fst $ fst div2) (toPPoint2 $ snd $ fst div2)
       where
         toPPoint2 :: Either Point2 ProjectivePoint -> ProjectivePoint
         toPPoint2 (Left point2) = eToPPoint2 point2

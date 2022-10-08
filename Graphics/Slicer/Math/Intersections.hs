@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Math.Intersections (noIntersection, intersectionOf, intersectionBetween, intersectionsAtSamePoint, isCollinear, isAntiCollinear, isParallel, isAntiParallel, outputIntersectsPLine, outputsIntersect) where
 
-import Prelude (Bool(True), Show, ($), (<), (<>), (==), (||), (&&), (<$>), Maybe(Just, Nothing), Either(Right, Left), and, error, otherwise, realToFrac, show)
+import Prelude (Bool(True), Show, ($), (<), (<=), (<>), (==), (||), (&&), (<$>), Maybe(Just, Nothing), Either(Right, Left), and, error, otherwise, realToFrac, show)
 
 import Data.Either (rights, lefts)
 
@@ -123,7 +123,7 @@ intersectionsAtSamePoint nodeOutsAndErrs
         pointsCloseEnough = and $ mapWithFollower pairCloseEnough pointIntersections
           where
             -- Minor optimization: first check against resErr, then actually use the fuzziness.
-            pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res < realToFrac (ulpVal resErr) || res < realToFrac errSum
+            pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= realToFrac (ulpVal resErr) || res < realToFrac errSum
               where
                 errSum = ulpVal $ resErr <> pPointFuzziness point1
                                          <> pLineErrAtPPoint a1 c1

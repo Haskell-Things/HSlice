@@ -115,7 +115,7 @@ data PIntersection =
 plinesIntersectIn :: (ProjectiveLine,PLine2Err) -> (ProjectiveLine,PLine2Err) -> PIntersection
 plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
   | isNothing canonicalizedIntersection
-  || (idealNorm < realToFrac (ulpVal idnErr)
+  || (idealNorm <= realToFrac (ulpVal idnErr)
      && (sameDirection pl1 pl2 ||
          opposingDirection pl1 pl2)) = if sameDirection pl1 pl2
                                        then PCollinear
