@@ -28,7 +28,7 @@
 
 module Graphics.Slicer.Formats.STL.Facets (facetsFromSTL, buildAsciiSTL) where
 
-import Prelude (($), (==), error, otherwise, (<$>), (<>), show, isNaN, isInfinite, (<), (||), isNegativeZero, (-), mconcat, concat)
+import Prelude (($), (==), error, otherwise, (<$>), (<>), show, isNaN, isInfinite, (<), (||), isNegativeZero, (-), mconcat)
 
 import Control.Parallel.Strategies (using, rdeepseq, parBuffer)
 
@@ -39,6 +39,8 @@ import Data.ByteString.Builder(Builder, stringUtf8, charUtf8, intDec, byteString
 import Data.ByteString.Char8(lines, words, unpack, breakSubstring, break, null, drop)
 
 import Data.Either (Either(Left, Right), rights, lefts)
+
+import Data.List (concatMap)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes)
 
@@ -113,7 +115,7 @@ readVertexOrNormal s = readVertexOrNormal' $ words s
                                    ["vertex" ,xs,ys,zs] -> case (readMaybe $ unpack xs,readMaybe $ unpack ys,readMaybe $ unpack zs) of
                                                              (Just xv, Just yv, Just zv) -> Just $ Left $ Point3 (xv,yv,zv)
                                                              (_maybex, _maybey, _maybez) -> error "error reading vertex point."
-                                   (x:xs) -> error $ "unexpected input in STL file: " <> show x <> " " <> concat (show <$> xs) <> "\n"
+                                   (xs) -> error $ "unexpected input in STL file: " <> concatMap show xs <> "\n"
 
 ----------------------------------------------------------------
 ----------- Functions to deal with ASCII STL writing -----------
