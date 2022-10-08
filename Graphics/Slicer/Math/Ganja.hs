@@ -447,6 +447,7 @@ instance (Ord a, Num a, Fractional a) => Fractional (Positive a) where
   fromRational a = Positive $ fromRational a
 
 -- | Generate a random triangle.
+-- FIXME: what stops this from trying to generate a triangle with all three points on the same line?
 randomTriangle :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Contour
 randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX centerY $ makePairs dists radians
   where
