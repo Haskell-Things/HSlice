@@ -45,7 +45,7 @@ import Data.Eq ((==), (/=))
 
 import Data.Function ((.), ($))
 
-import Data.List (length, zip, zipWith, maximum, minimum, concat, uncons)
+import Data.List (concatMap, length, zip, zipWith, maximum, minimum, concat, uncons)
 
 import Data.List.Extra (unsnoc)
 
@@ -154,7 +154,7 @@ layers print fs = catMaybes <$> rawContours
   where
     rawContours = [cleanContour <$> getContours (allIntersections $ zHeightOfMiddleOfLayer layerNo) | layerNo <- [0,1..lastLayer] ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
     allIntersections :: ℝ -> [(Point2,Point2)]
-    allIntersections zLayer = catMaybes $ triIntersects zLayer <$> fs
+    allIntersections zLayer = mapMaybe (triIntersects zLayer) fs
     zs = [zOf . fst <$> triPoints | triPoints <- sidesOf <$> fs ] `using` parListChunk (div (length fs) (fromFastℕ threads)) rseq
     zmax = maximum $ concat zs
     lastLayer :: Fastℕ
@@ -314,7 +314,7 @@ sliceLayer printer print@(Print _ infill _ _ _ _ ls outerWallBeforeInner _ _ _ _
      | firstPointOfInfill lines /= Nothing = [addFeedRate travelFeedRate $ make2DTravelGCode (lastPointOfContour source) $ fromMaybe (Point2 (0,0)) $ firstPointOfInfill lines]
      | otherwise = []
     renderContourTreeSet :: ContourTreeSet -> [GCode]
-    renderContourTreeSet (ContourTreeSet firstContourTree moreContourTrees) = renderContourTree firstContourTree <> concat (renderContourTree <$> moreContourTrees)
+    renderContourTreeSet (ContourTreeSet firstContourTree moreContourTrees) = renderContourTree firstContourTree <> concatMap renderContourTree  moreContourTrees
       where
         renderContourTree :: ContourTree -> [GCode]
         renderContourTree (ContourTree firstContour subContours) = renderSurface firstContour (interiorContours subContours) <> renderSubTrees subContours
@@ -368,17 +368,17 @@ sliceLayer printer print@(Print _ infill _ _ _ _ ls outerWallBeforeInner _ _ _ _
           outsideContour = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*0.5)
           outsideContourInnerWall = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*1.5)
           outsideContourSkeleton = findStraightSkeleton outsideContourRaw insideContoursRaw
-          childContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
+          childContours = mapMaybe cleanContour $ mapMaybe res insideContoursRaw
             where
               res c = expandContour (pathWidth*0.5) (outsideContourRaw:filter (/= c) insideContoursRaw) c
-          childContoursInnerWalls = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
+          childContoursInnerWalls = mapMaybe cleanContour $ mapMaybe res insideContoursRaw
             where
               res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
           -- FIXME: handle multiple infillOutsideContours
           infillLineSegs = mapEveryOther (\l -> reverse $ flipLineSeg <$> l) $ makeInfill infillOutsideContour infillChildContours (ls * (1/infill)) $ getInfillType print layerNumber
             where
               infillOutsideContour = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*2)
-              infillChildContours = mapMaybe cleanContour $ catMaybes $ res <$> insideContoursRaw
+              infillChildContours = mapMaybe cleanContour $ mapMaybe res insideContoursRaw
                 where
                   res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
           drawOuterContour c = GCMarkOuterWallStart : gcodeForContour lh pathWidth outerWallFeedRate c
