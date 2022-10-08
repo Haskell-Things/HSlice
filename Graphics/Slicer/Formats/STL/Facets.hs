@@ -115,7 +115,7 @@ readVertexOrNormal s = readVertexOrNormal' $ words s
                                    ["vertex" ,xs,ys,zs] -> case (readMaybe $ unpack xs,readMaybe $ unpack ys,readMaybe $ unpack zs) of
                                                              (Just xv, Just yv, Just zv) -> Just $ Left $ Point3 (xv,yv,zv)
                                                              (_maybex, _maybey, _maybez) -> error "error reading vertex point."
-                                   (x:xs) -> error $ "unexpected input in STL file: " <> show x <> " " <> concatMap show xs <> "\n"
+                                   (xs) -> error $ "unexpected input in STL file: " <> concatMap show xs <> "\n"
 
 ----------------------------------------------------------------
 ----------- Functions to deal with ASCII STL writing -----------
