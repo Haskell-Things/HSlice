@@ -157,13 +157,13 @@ addValPair v1 v2 = fst $ addValPairWithErr v1 v2
 -- | Add two geometric values together.
 addValPairWithErr :: GVal -> GVal -> ([GVal], UlpSum)
 addValPairWithErr v1@(GVal r1 i1) v2@(GVal r2 i2)
-  | r1 == 0 && r2 == 0      = ([],UlpSum 0)
-  | r1 == 0                 = ([v2],UlpSum 0)
-  | r2 == 0                 = ([v1],UlpSum 0)
-  | i1 == i2 && r1 == (-r2) = ([],UlpSum 0)
+  | r1 == 0 && r2 == 0      = ([],mempty)
+  | r1 == 0                 = ([v2],mempty)
+  | r2 == 0                 = ([v1],mempty)
+  | i1 == i2 && r1 == (-r2) = ([],mempty)
   | i1 == i2                = ([GVal res i1]
                               , UlpSum $ abs $ realToFrac $ doubleUlp res)
-  | otherwise               = (sort [v1,v2],UlpSum 0)
+  | otherwise               = (sort [v1,v2],mempty)
   where
     res :: ℝ
     res = realToFrac (realToFrac r1 + realToFrac r2 :: Rounded 'ToNearest ℝ)
@@ -177,14 +177,14 @@ subValPair v1@(GVal r1 i1) (GVal r2 i2)
 -- | Add a geometric value to a list of geometric values.
 --   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
 addVal :: [GVal] -> GVal -> [GVal]
-addVal dst src = fst $ addValWithErr (dst, UlpSum 0) src
+addVal dst src = fst $ addValWithErr (dst, mempty) src
 
 -- | Add a geometric value to a list of geometric values.
 --   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
 addValWithErr :: ([GVal], UlpSum) -> GVal -> ([GVal], UlpSum)
 addValWithErr dst@(dstVals, dstUlp@(UlpSum dstErr)) src@(GVal r1 _)
   | r1 == 0 = dst
-  | null dstVals = ([src], UlpSum 0)
+  | null dstVals = ([src], mempty)
   | otherwise = case sameBasis src dstVals of
                   Nothing  -> (insertSet src dstVals, dstUlp)
                   (Just a) -> if rOf a == (-r1)
@@ -215,7 +215,7 @@ addVecPair (GVec vals1) (GVec vals2) = GVec $ foldl' addVal vals1 vals2
 addVecPairWithErr :: GVec -> GVec -> (GVec, UlpSum)
 addVecPairWithErr (GVec vals1) (GVec vals2) = (GVec res, resUlp)
   where
-    (res, resUlp) = foldl' addValWithErr (vals1,UlpSum 0) vals2
+    (res, resUlp) = foldl' addValWithErr (vals1,mempty) vals2
 
 -- | Subtract one vector from the other.
 subVecPair :: GVec -> GVec -> GVec
@@ -448,7 +448,7 @@ infixl 9 ⎣+
 (⎣+) v1 v2 = (GVec newVals
              , ulpTotal)
   where
-    (newVals, addValErr) = foldl' addValWithErr ([], UlpSum 0) $ postProcessVals . fst <$> res
+    (newVals, addValErr) = foldl' addValWithErr ([], mempty) $ postProcessVals . fst <$> res
     res = likeVecPairWithErr v1 v2
     ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) addValErr (snd <$> res)
 
@@ -463,7 +463,7 @@ infixl 9 ⎤+
 (⎤+) v1 v2 = (GVec newVals
              , ulpTotal)
   where
-    (newVals, addValErr) = foldl' addValWithErr ([], UlpSum 0) $ postProcessVals . fst <$> res
+    (newVals, addValErr) = foldl' addValWithErr ([], mempty) $ postProcessVals . fst <$> res
     res = unlikeVecPairWithErr v1 v2
     ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) addValErr (snd <$> res)
 
@@ -478,7 +478,7 @@ infixl 9 ⨅+
 (⨅+) v1 v2 = (GVec newVals
              , ulpTotal)
   where
-    (newVals, addValErr) = foldl' addValWithErr ([], UlpSum 0) $ postProcess . fst <$> res
+    (newVals, addValErr) = foldl' addValWithErr ([], mempty) $ postProcess . fst <$> res
     res = reduceVecPairWithErr v1 v2
     ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) addValErr (snd <$> res)
 
