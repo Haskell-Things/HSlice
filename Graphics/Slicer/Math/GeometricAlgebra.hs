@@ -67,12 +67,20 @@ data GNum =
   | G0            -- A scalar type. short lived.
   deriving (Eq, Generic, NFData, Show, Ord)
 
--- | A value in geometric algebra.
-data GVal = GVal { _real :: !ℝ, _basis :: !(Set GNum) }
+-- | A value in geometric algebra. this will have duplicate members filtered out, and the members will be in order.
+data GVal = GVal
+  -- _real ::
+  !ℝ
+  -- _basis ::
+  !(Set GNum)
   deriving (Eq, Generic, NFData, Show)
 
--- | A value in geometric algebra, in need of reduction. this may have duplicat members, or members out of order.
-data GRVal = GRVal { _r :: !ℝ, _i :: !(NonEmpty GNum) }
+-- | A value in geometric algebra, in need of reduction. this may have duplicate members, or members out of order.
+data GRVal = GRVal
+  -- real component
+  !ℝ
+  -- basis vector
+  !(NonEmpty GNum)
   deriving (Eq, Generic, NFData, Show)
 
 -- | A constantly increasing sum of error. Used for increasing our error bars proportonally to error from the FPU.
@@ -449,16 +457,14 @@ infixl 9 ⋅
 infixl 9 •
 (•) vec1 vec2 = GVec $ foldl' addVal [] $ postProcessFilter <$> mulVecPair vec1 vec2
 
--- | Simplify a GVec, and return any scalar component.
+-- |  Return any scalar component of the given GVec.
 scalarPart :: GVec -> ℝ
-scalarPart (GVec gVals) = sum $ realValue <$> vals
+scalarPart (GVec vals) = sum $ realValue <$> vals
   where
-    vals = gVals
     realValue (GVal r gnums) = if gnums == singleton G0 then r else 0
 
--- | Simplify a GVec, and return any component that is not a scalar.
+-- | Return any non-scalar component of the given GVec.
 vectorPart :: GVec -> GVec
-vectorPart (GVec gVals) = GVec $ foldl' addVal [] $ P.filter noRealValue vals
+vectorPart (GVec vals) = GVec $ foldl' addVal [] $ P.filter noRealValue vals
   where
-    vals = gVals
     noRealValue (GVal _ gnums) = gnums /= singleton G0
