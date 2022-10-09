@@ -28,7 +28,7 @@ import Prelude (Eq, (<$>), ($), error, (==), (&&), Show)
 
 import Data.List.Extra(nubOrd)
 
-import Data.Maybe(catMaybes, Maybe(Just, Nothing))
+import Data.Maybe(catMaybes, mapMaybe, Maybe(Just, Nothing))
 
 import Data.Bifunctor (bimap)
 
@@ -72,7 +72,7 @@ triIntersects v f = res matchingEdges
     -- ignore triangles that are exactly aligned with the plane.
     trimIntersections [_,_,_] = Nothing
     trimIntersections _ = error "unpossible!"
-    matchingEdges = catMaybes $ edgeOnPlane <$> sidesOf f
+    matchingEdges = mapMaybe edgeOnPlane $ sidesOf f
       where
         edgeOnPlane :: (Point3,Point3) -> Maybe (Point2,Point2)
         edgeOnPlane (start,stop) = if zOf start == zOf stop && zOf start == v
