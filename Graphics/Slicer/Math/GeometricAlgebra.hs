@@ -140,7 +140,6 @@ instance UniqueVals GVal where
     where
       matches = P.filter (\(GVal _ n) -> n == fromAscList nums) vs
 
-
 instance UniqueVals ErrVal where
   -- | Extract a value from a list of values.
   getVal nums vs = case matches of
