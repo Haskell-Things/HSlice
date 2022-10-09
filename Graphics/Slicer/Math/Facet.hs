@@ -23,11 +23,11 @@
 -- | The purpose of this file is to hold facet based arithmatic. really for if we need a better 'admesh' while debugging ImplicitCAD.
 module Graphics.Slicer.Math.Facet (Facet(Facet), sidesOf, shiftFacet, facetIntersects) where
 
-import Prelude (Eq, (<$>), ($), error, (==), (&&), Show)
+import Prelude (Eq, ($), error, (==), (&&), Show)
 
 import Data.List.Extra(nubOrd)
 
-import Data.Maybe(catMaybes, Maybe(Just, Nothing))
+import Data.Maybe(mapMaybe, Maybe(Just, Nothing))
 
 import Data.Bifunctor (bimap)
 
@@ -52,24 +52,23 @@ shiftFacet p (Facet (s1,s2,s3) n1) = Facet (bimap (addPoints p) (addPoints p) s1
                                            ) n1
 
 -- | allow us to use mapping functions against the tuple of sides.
-sidesOf :: Facet -> [(Point3,Point3)]
+sidesOf :: Facet -> [(Point3, Point3)]
 sidesOf (Facet (a,b,c) _) = [a,b,c]
 
 -- | determine where a facet intersects a plane at a given z value
-facetIntersects :: ℝ -> Facet -> Maybe (Point2,Point2)
+facetIntersects :: ℝ -> Facet -> Maybe (Point2, Point2)
 facetIntersects v f = case matchingEdge of
                         [] -> Nothing
                         [oneEdge] ->Just oneEdge
-                        (_:_) -> trimIntersections $ nubOrd $ catMaybes intersections
+                        (_:_) -> trimIntersections $ nubOrd $ mapMaybe (`pointAtZValue` v) $ sidesOf f
   where
-    matchingEdge = catMaybes $ edgeOnPlane <$> sidesOf f
-    edgeOnPlane :: (Point3,Point3) -> Maybe (Point2,Point2)
+    matchingEdge = mapMaybe edgeOnPlane $ sidesOf f
+    edgeOnPlane :: (Point3, Point3) -> Maybe (Point2, Point2)
     edgeOnPlane (start,stop) = if zOf start == zOf stop && zOf start == v
                                then Just (flatten start, flatten stop)
                                else Nothing
-    intersections = (`pointAtZValue` v) <$> sidesOf f
     -- Get rid of the case where a facet intersects the plane at one point
-    trimIntersections :: [Point2] -> Maybe (Point2,Point2)
+    trimIntersections :: [Point2] -> Maybe (Point2, Point2)
     trimIntersections []      = Nothing
     trimIntersections [_]     = Nothing
     trimIntersections [p1,p2] = Just (p1,p2)
