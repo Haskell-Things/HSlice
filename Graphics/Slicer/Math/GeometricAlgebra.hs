@@ -390,23 +390,23 @@ postProcess :: GRVal -> GVal
 postProcess val = grValToGVal $ stripPairs $ sortBasis val
 
 -- | a post processor, to clean up a GRVal into a GVal. may be given a GVal, in which case it short circuits.
-postProcessFilter :: Either GRVal GVal -> GVal
-postProcessFilter (Right gval) = gval
-postProcessFilter (Left grval) = grValToGVal $ stripPairs $ sortBasis grval
+postProcessVals :: Either GRVal GVal -> GVal
+postProcessVals (Right gval) = gval
+postProcessVals (Left grval) = grValToGVal $ stripPairs $ sortBasis grval
 
--- Convert a GRval to a GVal. only to be used in postProcess and postProcessFilter.
+-- Convert a GRval to a GVal. only to be used in postProcess and postProcessVals.
 grValToGVal :: GRVal -> GVal
 grValToGVal (GRVal r i) = GVal r (fromAscList (toList i))
 
 -- | Our "like" operator. unicode point u+23a3.
 (⎣) :: GVec -> GVec -> GVec
 infixl 9 ⎣
-(⎣) v1 v2 = GVec $ postProcessFilter <$> likeVecPair v1 v2
+(⎣) v1 v2 = GVec $ postProcessVals <$> likeVecPair v1 v2
 -- | Our "like" operator. unicode point u+23a3.
 
 (⎣+) :: GVec -> GVec -> (GVec, UlpSum)
 infixl 9 ⎣+
-(⎣+) v1 v2 = (GVec $ postProcessFilter . fst <$> res
+(⎣+) v1 v2 = (GVec $ postProcessVals . fst <$> res
              , ulpTotal)
   where
     res = likeVecPairWithErr v1 v2
@@ -423,7 +423,7 @@ infixl 9 ⎤+
 (⎤+) v1 v2 = (GVec newVals
              , ulpTotal)
   where
-    (newVals, addValErr) = foldl' addValWithErr ([], UlpSum 0) $ postProcessFilter . fst <$> res
+    (newVals, addValErr) = foldl' addValWithErr ([], UlpSum 0) $ postProcessVals . fst <$> res
     res = unlikeVecPairWithErr v1 v2
     ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) addValErr (snd <$> res)
 
@@ -445,17 +445,17 @@ infixl 9 ⨅+
 -- | A wedge operator. gets the wedge product of the two arguments. note that wedge = reductive minus unlike.
 (∧) :: GVec -> GVec -> GVec
 infixl 9 ∧
-(∧) v1 v2 = GVec $ foldl' addVal [] $ (\(GVec a) -> a) (subVecPair (GVec $ postProcess <$> reduceVecPair v1 v2) (GVec $ postProcessFilter <$> unlikeVecPair v1 v2))
+(∧) v1 v2 = GVec $ foldl' addVal [] $ (\(GVec a) -> a) (subVecPair (GVec $ postProcess <$> reduceVecPair v1 v2) (GVec $ postProcessVals <$> unlikeVecPair v1 v2))
 
 -- | A dot operator. gets the dot product of the two arguments. note that dot = reductive plus like.
 (⋅) :: GVec -> GVec -> GVec
 infixl 9 ⋅
-(⋅) v1 v2 = GVec $ foldl' addVal (postProcessFilter <$> likeVecPair v1 v2) (postProcess <$> reduceVecPair v1 v2)
+(⋅) v1 v2 = GVec $ foldl' addVal (postProcessVals <$> likeVecPair v1 v2) (postProcess <$> reduceVecPair v1 v2)
 
 -- | A geometric product operator. Gets the geometric product of the two arguments.
 (•) :: GVec -> GVec -> GVec
 infixl 9 •
-(•) vec1 vec2 = GVec $ foldl' addVal [] $ postProcessFilter <$> mulVecPair vec1 vec2
+(•) vec1 vec2 = GVec $ foldl' addVal [] $ postProcessVals <$> mulVecPair vec1 vec2
 
 -- |  Return any scalar component of the given GVec.
 scalarPart :: GVec -> ℝ
