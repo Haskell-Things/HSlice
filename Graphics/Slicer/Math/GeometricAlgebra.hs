@@ -24,7 +24,7 @@
 -- | Our geometric algebra library.
 module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, getVal, subValPair, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
 
-import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac)
+import Prelude (Eq, Monoid(mempty), Ord (compare), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac, ulpVal)
 
 import Prelude as P (filter)
 
@@ -83,9 +83,15 @@ data GRVal = GRVal
   !(NonEmpty GNum)
   deriving (Eq, Generic, NFData, Show)
 
--- | A constantly increasing sum of error. Used for increasing our error bars proportonally to error from the FPU.
-newtype UlpSum = UlpSum (Rounded 'TowardInf ℝ)
-  deriving (Show, Eq)
+-- | A constantly increasing sum of error. Used for increasing our error bars proportonally to error collected from the FPU during calculations.
+newtype UlpSum = UlpSum { ulpVal :: Rounded 'TowardInf ℝ }
+  deriving (Show, Eq, Generic, NFData, Ord)
+
+instance Semigroup UlpSum where
+  (<>) (UlpSum sum1) (UlpSum sum2) = UlpSum $ sum1 + sum2
+
+instance Monoid UlpSum where
+  mempty = UlpSum 0
 
 -- When sorting gvals, sort the basis, THEN sort the multiplier.
 instance Ord GVal where
