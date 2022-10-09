@@ -22,7 +22,7 @@
 {-# LANGUAGE DataKinds #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, getVal, subValPair, ulpVal, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, eValOf, getVal, subValPair, ulpVal, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
 
 import Prelude (Eq, Monoid(mempty), Ord(compare), Ordering(EQ), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac)
 
@@ -140,10 +140,15 @@ instance UniqueVals GVal where
     where
       matches = P.filter (\(GVal _ n) -> n == fromAscList nums) vs
 
--- | Return the value of a vector, OR a given value, if the vector requested is not found.
+-- | Return the value of a (vector, or bivector, or trivector, or...), OR a given value, if the vector requested is not found.
 valOf :: ℝ -> Maybe GVal -> ℝ
 valOf r Nothing = r
 valOf _ (Just (GVal v _)) = v
+
+-- | Return the error component saved from a calculation that produced a vector, OR return a given value, if the error component requested is not found.
+eValOf :: UlpSum -> Maybe ErrVal -> UlpSum
+eValOf r Nothing = r
+eValOf _ (Just (ErrVal v _)) = v
 
 -- | Add two geometric values together.
 addValPair :: GVal -> GVal -> [GVal]
