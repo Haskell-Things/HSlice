@@ -445,19 +445,27 @@ infixl 9 ⨅+
 -- | A wedge operator. gets the wedge product of the two arguments. note that wedge = reductive minus unlike.
 (∧) :: GVec -> GVec -> GVec
 infixl 9 ∧
-(∧) v1 v2 = GVec $ foldl' addVal [] $ (\(GVec a) -> a) (subVecPair (GVec $ postProcess <$> reduceVecPair v1 v2) (GVec $ postProcessVals <$> unlikeVecPair v1 v2))
+(∧) v1 v2 = vals
+  where
+    vals = subVecPair (GVec resReduce) (GVec resUnlike)
+    resUnlike = foldl' addVal [] $ postProcessVals <$> unlikeVecPair v1 v2
+    resReduce = foldl' addVal [] $ postProcess <$> reduceVecPair v1 v2
 
 -- | A dot operator. gets the dot product of the two arguments. note that dot = reductive plus like.
 (⋅) :: GVec -> GVec -> GVec
 infixl 9 ⋅
-(⋅) v1 v2 = GVec $ foldl' addVal (postProcessVals <$> likeVecPair v1 v2) (postProcess <$> reduceVecPair v1 v2)
+(⋅) v1 v2 = vals
+  where
+    vals = addVecPair (GVec resReduce) (GVec resLike)
+    resLike = foldl' addVal [] $ postProcessVals <$> likeVecPair v1 v2
+    resReduce = foldl' addVal [] $ postProcess <$> reduceVecPair v1 v2
 
 -- | A geometric product operator. Gets the geometric product of the two arguments.
 (•) :: GVec -> GVec -> GVec
 infixl 9 •
-(•) vec1 vec2 = GVec $ foldl' addVal [] $ postProcessVals <$> mulVecPair vec1 vec2
+(•) v1 v2 = GVec $ foldl' addVal [] $ postProcessVals <$> mulVecPair v1 v2
 
--- |  Return any scalar component of the given GVec.
+-- | Return any scalar component of the given GVec.
 scalarPart :: GVec -> ℝ
 scalarPart (GVec vals) = sum $ realValue <$> vals
   where
