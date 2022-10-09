@@ -69,7 +69,7 @@ module Graphics.Slicer.Math.PGA(
   ulpOfPLine2
   ) where
 
-import Prelude (Eq((==),(/=)), Show, Ord, ($), (*), (-), Bool, (&&), (<$>), otherwise, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.), realToFrac)
+import Prelude (Eq((==),(/=)), Show, Ord, ($), (*), (-), Bool, (&&), (<$>), mempty, otherwise, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.), realToFrac)
 
 import GHC.Generics (Generic)
 
@@ -95,7 +95,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, scalePoint, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalar, getVals, mulScalarVec, scalarPart, valOf, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalar, getVal, mulScalarVec, scalarPart, valOf, vectorPart)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
@@ -125,7 +125,7 @@ plinesIntersectIn pl1 pl2
                                         else PAntiCollinear
   | intersectAngle > maxAngle         = PParallel
   | intersectAngle < minAngle         = PAntiParallel
-  | otherwise                         = IntersectsIn res (resUlp, intersectUlp, npl1Ulp, npl2Ulp, UlpSum iaErr, UlpSum 0)
+  | otherwise                         = IntersectsIn res (resUlp, intersectUlp, npl1Ulp, npl2Ulp, UlpSum iaErr, mempty)
   where
     -- floor values.
     minAngle, maxAngle :: ℝ
@@ -154,10 +154,10 @@ pLineIsLeft pl1 pl2
     -- | Find the cosine of the angle between the two lines. results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when "right".
     angleCos :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
     angleCos (NPLine2 lvec1) (NPLine2 lvec2)
-      | isNothing canonicalizedIntersection = (0, UlpSum 0)
+      | isNothing canonicalizedIntersection = (0, mempty)
       | otherwise = (angle, iPointErr)
       where
-        angle = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
+        angle = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
         (CPPoint2 iPointVec, iPointErr) = fromJust canonicalizedIntersection
         motor                          = addVecPair (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
         antiMotor                      = addVecPair (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
@@ -190,7 +190,7 @@ cPPointBetweenCPPointsWithErr (CPPoint2 rawStartPoint) (CPPoint2 rawStopPoint) w
   | otherwise = canonicalizePPoint2WithErr $ PPoint2 res
   where
     res = addVecPair (mulScalarVec weight1 rawStartPoint) (mulScalarVec weight2 rawStopPoint)
-    foundVal = getVals [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) res
+    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) res
 
 distancePPointToPLineWithErr :: PPoint2 -> PLine2 -> (ℝ, UlpSum)
 distancePPointToPLineWithErr point line = (res, UlpSum $ resErr + normErr + nPVecErr)
@@ -212,7 +212,7 @@ distanceCPPointToNPLineWithErr point (NPLine2 nplvec)
     (CPPoint2 npvec)               = forceCPPoint2Basis point
     (linePoint, UlpSum lpErr)      = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
     ulpTotal                       = UlpSum $ lpErr + perpLineErr + newPLineErr + resErr
-    foundVal                       = getVals [GEPlus 1, GEPlus 2] $ (\(CPPoint2 (GVec vals)) -> vals) point
+    foundVal                       = getVal [GEPlus 1, GEPlus 2] $ (\(CPPoint2 (GVec vals)) -> vals) point
 
 -- | Determine if two points are on the same side of a given line.
 pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
@@ -222,8 +222,8 @@ pPointsOnSameSideOfPLine point1 point2 line
      abs foundP2 < realToFrac unlikeP2Err    = Nothing
     | otherwise = Just $ isPositive foundP1 == isPositive foundP2
   where
-    foundP1 = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1
-    foundP2 = valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2
+    foundP1 = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1
+    foundP2 = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2
     (GVec unlikeP1, UlpSum unlikeP1Err) = pv1 ⎤+ lv1
     (GVec unlikeP2, UlpSum unlikeP2Err) = pv2 ⎤+ lv1
     (PPoint2 pv1) = forcePPoint2Basis point1
@@ -410,8 +410,8 @@ pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
   | hasIntersection && startDistance <= ulpStartSum = Left $ HitStartPoint l1
   | hasIntersection && endDistance <= ulpEndSum = Left $ HitEndPoint l1
   | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum $ realToFrac ulpStartSum, UlpSum $ realToFrac ulpEndSum, UlpSum pl1Err, UlpSum pl2Err, UlpSum rawIntersectErr, UlpSum rawIntersectionErr)
-  | hasRawIntersection = Left $ NoIntersection rawIntersection (UlpSum $ realToFrac ulpStartSum, UlpSum $ realToFrac ulpEndSum, UlpSum 0, UlpSum 0)
-  | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0)
+  | hasRawIntersection = Left $ NoIntersection rawIntersection (UlpSum $ realToFrac ulpStartSum, UlpSum $ realToFrac ulpEndSum, mempty, mempty)
+  | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (mempty, mempty, mempty, mempty)
   where
     (startDistance, UlpSum startDistanceErr) = distanceBetweenCPPointsWithErr rawIntersection start
     (endDistance, UlpSum endDistanceErr) = distanceBetweenCPPointsWithErr rawIntersection end
@@ -428,7 +428,7 @@ pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
     dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nl1Err: " <> show l1Err <> "\nrawIntersectErr: " <> show rawIntersectErr <> "\n"
     hasIntersection = hasRawIntersection && onSegment l1 rawIntersection ulpStartSum ulpEndSum
     hasRawIntersection = valOf 0 foundVal /= 0
-    foundVal = getVals [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
+    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
     (rawIntersection, UlpSum rawIntersectionErr) = canonicalizePPoint2WithErr rawIntersect
     (rawIntersect, UlpSum rawIntersectErr) = pLineIntersectionWithErr pl1 pl2
@@ -450,7 +450,7 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
   | hasIntersection && end2Distance <= ulpEndSum2 = Left $ HitEndPoint l2
   | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum $ realToFrac ulpStartSum1, UlpSum $ realToFrac ulpEndSum1, UlpSum $ realToFrac ulpStartSum2, UlpSum $ realToFrac ulpEndSum2, UlpSum ulpTotal, UlpSum rawIntersectErr)
   | hasRawIntersection = Left $ NoIntersection rawIntersection (UlpSum $ realToFrac ulpStartSum1, UlpSum $ realToFrac ulpEndSum1, UlpSum $ realToFrac ulpStartSum2, UlpSum $ realToFrac ulpEndSum2)
-  | otherwise = Left $ NoIntersection ((\(PPoint2 p) -> CPPoint2 p) rawIntersect) (UlpSum 0, UlpSum 0, UlpSum 0, UlpSum 0)
+  | otherwise = Left $ NoIntersection ((\(PPoint2 p) -> CPPoint2 p) rawIntersect) (mempty, mempty, mempty, mempty)
   where
     ulpStartSum1, ulpEndSum1, ulpStartSum2, ulpEndSum2 :: ℝ
     ulpStartSum1 = realToFrac $ ulpTotal+start1DistanceErr
@@ -478,7 +478,7 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
     dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nl1Err: " <> show l1Err <> "\nrawIntersectErr: " <> show rawIntersectErr <> "\n"
     hasIntersection = hasRawIntersection && onSegment l1 rawIntersection ulpStartSum1 ulpEndSum1 && onSegment l2 rawIntersection ulpStartSum2 ulpEndSum2
     hasRawIntersection = valOf 0 foundVal /= 0
-    foundVal = getVals [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
+    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
     (rawIntersection, UlpSum rawIntersectionErr) = canonicalizePPoint2WithErr rawIntersect
     (rawIntersect, UlpSum rawIntersectErr) = pLineIntersectionWithErr pl1 pl2
@@ -690,22 +690,22 @@ pPointToPoint2 point@(PPoint2 (GVec rawVals))
  | otherwise = Just $ Point2 (xVal, yVal)
   where
     (CPPoint2 (GVec vals)) = fst $ canonicalizePPoint2WithErr point
-    xVal = negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] vals
-    yVal =          valOf 0 $ getVals [GEZero 1, GEPlus 1] vals
-    e12Val = valOf 0 (getVals [GEPlus 1, GEPlus 2] rawVals)
+    xVal = negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals
+    yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
+    e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
 
 -- | Reverse a vector. Really, take every value in it, and recompute it in the reverse order of the vectors (so instead of e0∧e1, e1∧e0). which has the effect of negating bi and tri-vectors.
 reverseGVec :: GVec -> GVec
 reverseGVec vec = GVec $ foldl' addVal []
                   [
-                    GVal           realVal                                                (singleton G0)
-                  , GVal (         valOf 0 $ getVals [GEZero 1] vals)                     (singleton (GEZero 1))
-                  , GVal (         valOf 0 $ getVals [GEPlus 1] vals)                     (singleton (GEPlus 1))
-                  , GVal (         valOf 0 $ getVals [GEPlus 2] vals)                     (singleton (GEPlus 2))
-                  , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 1] vals)           (fromList [GEZero 1, GEPlus 1])
-                  , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] vals)           (fromList [GEZero 1, GEPlus 2])
-                  , GVal (negate $ valOf 0 $ getVals [GEPlus 1, GEPlus 2] vals)           (fromList [GEPlus 1, GEPlus 2])
-                  , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 1, GEPlus 2])
+                    GVal           realVal                                               (singleton G0)
+                  , GVal (         valOf 0 $ getVal [GEZero 1] vals)                     (singleton (GEZero 1))
+                  , GVal (         valOf 0 $ getVal [GEPlus 1] vals)                     (singleton (GEPlus 1))
+                  , GVal (         valOf 0 $ getVal [GEPlus 2] vals)                     (singleton (GEPlus 2))
+                  , GVal (negate $ valOf 0 $ getVal [GEZero 1, GEPlus 1] vals)           (fromList [GEZero 1, GEPlus 1])
+                  , GVal (negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals)           (fromList [GEZero 1, GEPlus 2])
+                  , GVal (negate $ valOf 0 $ getVal [GEPlus 1, GEPlus 2] vals)           (fromList [GEPlus 1, GEPlus 2])
+                  , GVal (negate $ valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 1, GEPlus 2])
                   ]
   where
     realVal     = scalarPart vec
@@ -715,14 +715,14 @@ reverseGVec vec = GVec $ foldl' addVal []
 dual2DGVec :: GVec -> GVec
 dual2DGVec vec = GVec $ foldl' addVal []
                  [
-                   GVal           realVal                                                (fromList [GEZero 1, GEPlus 1, GEPlus 2])
-                 , GVal (         valOf 0 $ getVals [GEZero 1] vals)                     (fromList [GEPlus 1, GEPlus 2])
-                 , GVal (negate $ valOf 0 $ getVals [GEPlus 1] vals)                     (fromList [GEZero 1, GEPlus 2])
-                 , GVal (         valOf 0 $ getVals [GEPlus 2] vals)                     (fromList [GEZero 1, GEPlus 1])
-                 , GVal (         valOf 0 $ getVals [GEZero 1, GEPlus 1] vals)           (singleton (GEPlus 2))
-                 , GVal (negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] vals)           (singleton (GEPlus 1))
-                 , GVal (         valOf 0 $ getVals [GEPlus 1, GEPlus 2] vals)           (singleton (GEZero 1))
-                 , GVal (         valOf 0 $ getVals [GEZero 1, GEPlus 1, GEPlus 2] vals) (singleton G0)
+                   GVal           realVal                                               (fromList [GEZero 1, GEPlus 1, GEPlus 2])
+                 , GVal (         valOf 0 $ getVal [GEZero 1] vals)                     (fromList [GEPlus 1, GEPlus 2])
+                 , GVal (negate $ valOf 0 $ getVal [GEPlus 1] vals)                     (fromList [GEZero 1, GEPlus 2])
+                 , GVal (         valOf 0 $ getVal [GEPlus 2] vals)                     (fromList [GEZero 1, GEPlus 1])
+                 , GVal (         valOf 0 $ getVal [GEZero 1, GEPlus 1] vals)           (singleton (GEPlus 2))
+                 , GVal (negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals)           (singleton (GEPlus 1))
+                 , GVal (         valOf 0 $ getVal [GEPlus 1, GEPlus 2] vals)           (singleton (GEZero 1))
+                 , GVal (         valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] vals) (singleton G0)
                  ]
   where
     realVal     = scalarPart vec
@@ -733,7 +733,7 @@ forceBasis :: [Set GNum] -> GVec -> GVec
 forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
   where
     forceVal :: [GVal] -> Set GNum -> GVal
-    forceVal has needs = GVal (valOf 0 $ getVals (elems needs) has) needs
+    forceVal has needs = GVal (valOf 0 $ getVal (elems needs) has) needs
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a PLine2.
 forcePLine2Basis :: PLine2 -> PLine2
@@ -766,9 +766,9 @@ forceCPPoint2Basis (CPPoint2 pvec)            = CPPoint2 $ forceBasis [fromList 
 flipPLine2 :: PLine2 -> PLine2
 flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl' addVal []
                                   [
-                                    GVal (negate $ valOf 0 $ getVals [GEZero 1] vals) (singleton (GEZero 1))
-                                  , GVal (negate $ valOf 0 $ getVals [GEPlus 1] vals) (singleton (GEPlus 1))
-                                  , GVal (negate $ valOf 0 $ getVals [GEPlus 2] vals) (singleton (GEPlus 2))
+                                    GVal (negate $ valOf 0 $ getVal [GEZero 1] vals) (singleton (GEZero 1))
+                                  , GVal (negate $ valOf 0 $ getVal [GEPlus 1] vals) (singleton (GEPlus 1))
+                                  , GVal (negate $ valOf 0 $ getVal [GEPlus 2] vals) (singleton (GEPlus 2))
                                   ]
 
 eToPLine2WithErr :: LineSeg -> (PLine2, UlpSum)
@@ -790,9 +790,9 @@ pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2)) = (PLine2 $ GVec $ f
 -- | Get the sum of the error involved in storing the values in a given PLine2.
 ulpOfPLine2 :: PLine2 -> UlpSum
 ulpOfPLine2 (PLine2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleUlp . (\(GVal r _) -> r) <$> catMaybes
-                                   [getVals [GEZero 1] vals
-                                   ,getVals [GEPlus 1] vals
-                                   ,getVals [GEPlus 2] vals]
+                                   [getVal [GEZero 1] vals
+                                   ,getVal [GEPlus 1] vals
+                                   ,getVal [GEPlus 2] vals]
 
 -- | Get the sum of the error involved in storing the values in a given Line Segment.
 ulpOfLineSeg :: LineSeg -> UlpSum
@@ -801,9 +801,9 @@ ulpOfLineSeg (LineSeg (Point2 (x1,y1)) (Point2 (x2,y2))) = UlpSum $ sum $ abs . 
 -- | Get the sum of the error involved in storing the values in a given PPoint2.
 ulpOfCPPoint2 :: CPPoint2 -> UlpSum
 ulpOfCPPoint2 (CPPoint2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleUlp . (\(GVal r _) -> r) <$> catMaybes
-                                       [getVals [GEZero 1, GEPlus 1] vals
-                                       ,getVals [GEZero 1, GEPlus 2] vals
-                                       ,getVals [GEPlus 1, GEPlus 2] vals]
+                                       [getVal [GEZero 1, GEPlus 1] vals
+                                       ,getVal [GEZero 1, GEPlus 2] vals
+                                       ,getVal [GEPlus 1, GEPlus 2] vals]
 
 --------------------------------------------------------------
 ---- Utillity functions that use sqrt(), or divVecScalar. ----
@@ -812,7 +812,7 @@ ulpOfCPPoint2 (CPPoint2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleU
 -- | find the idealized norm of a projective point (ideal or not).
 idealNormPPoint2WithErr :: PPoint2 -> (ℝ, UlpSum)
 idealNormPPoint2WithErr ppoint@(PPoint2 (GVec rawVals))
-  | preRes == 0 = (0, UlpSum 0)
+  | preRes == 0 = (0, mempty)
   | otherwise   = (res, ulpTotal)
   where
     res = sqrt preRes
@@ -823,10 +823,10 @@ idealNormPPoint2WithErr ppoint@(PPoint2 (GVec rawVals))
                + abs (realToFrac $ doubleUlp preRes)
                + abs (realToFrac $ doubleUlp res)
     (x,y)
-     | e12Val == 0 = ( negate $ valOf 0 $ getVals [GEZero 1, GEPlus 2] rawVals
-                     ,          valOf 0 $ getVals [GEZero 1, GEPlus 1] rawVals)
+     | e12Val == 0 = ( negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals
+                     ,          valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals)
      | otherwise = (\(Point2 (x1,y1)) -> (x1,y1)) $ pToEPoint2 ppoint
-    e12Val = valOf 0 (getVals [GEPlus 1, GEPlus 2] rawVals)
+    e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
 
 -- | canonicalize a euclidian point.
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.
@@ -839,19 +839,19 @@ canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
   | otherwise = (res, ulpSum)
   where
     res = CPPoint2 $ GVec $ foldl' addVal []
-          $  ( if isNothing (getVals [GEZero 1, GEPlus 1] scaledVals)
+          $  ( if isNothing (getVal [GEZero 1, GEPlus 1] scaledVals)
                then []
-               else [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] scaledVals) (fromList [GEZero 1, GEPlus 1])]
+               else [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 1] scaledVals) (fromList [GEZero 1, GEPlus 1])]
              )
-          <> ( if isNothing (getVals [GEZero 1, GEPlus 2] scaledVals)
+          <> ( if isNothing (getVal [GEZero 1, GEPlus 2] scaledVals)
                then []
-               else [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] scaledVals) (fromList [GEZero 1, GEPlus 2])]
+               else [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] scaledVals) (fromList [GEZero 1, GEPlus 2])]
              )
           <> [GVal 1 (fromList [GEPlus 1, GEPlus 2])]
-    newVec = GVec $ addVal [GVal (valOf 0 $ getVals [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1])]
-                           (GVal (valOf 0 $ getVals [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
+    newVec = GVec $ addVal [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1])]
+                           (GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
     (GVec scaledVals) = divVecScalar newVec $ valOf 1 foundVal
-    foundVal = getVals [GEPlus 1, GEPlus 2] rawVals
+    foundVal = getVal [GEPlus 1, GEPlus 2] rawVals
     ulpSum = ulpOfCPPoint2 res
 
 -- | Canonicalize the intersection resulting from two PLines.
@@ -864,7 +864,7 @@ canonicalizeIntersectionWithErr pl1 pl2
     (cpp1, UlpSum canonicalizationErr) = canonicalizePPoint2WithErr pp1
     (pp1, UlpSum intersectionErr) = pLineIntersectionWithErr pl1 pl2
     ulpTotal = UlpSum $ intersectionErr + canonicalizationErr
-    foundVal = getVals [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
+    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
 
 -- | Normalize a PLine2.
 normalizePLine2WithErr :: PLine2 -> (NPLine2, UlpSum)
@@ -889,8 +889,8 @@ sqNormOfPLine2WithErr :: PLine2 -> (ℝ, UlpSum)
 sqNormOfPLine2WithErr (PLine2 (GVec vals)) = (res, ulpTotal)
   where
     res = a*a+b*b
-    a = valOf 0 $ getVals [GEPlus 1] vals
-    b = valOf 0 $ getVals [GEPlus 2] vals
+    a = valOf 0 $ getVal [GEPlus 1] vals
+    b = valOf 0 $ getVal [GEPlus 2] vals
     ulpTotal = UlpSum
                $ abs (realToFrac $ doubleUlp $ a*a)
                + abs (realToFrac $ doubleUlp $ b*b)
