@@ -401,16 +401,17 @@ grValToGVal (GRVal r i) = GVal r (fromAscList (toList i))
 -- | Our "like" operator. unicode point u+23a3.
 (⎣) :: GVec -> GVec -> GVec
 infixl 9 ⎣
-(⎣) v1 v2 = GVec $ postProcessVals <$> likeVecPair v1 v2
+(⎣) v1 v2 = fst $ v1 ⎣+ v2
 -- | Our "like" operator. unicode point u+23a3.
 
 (⎣+) :: GVec -> GVec -> (GVec, UlpSum)
 infixl 9 ⎣+
-(⎣+) v1 v2 = (GVec $ postProcessVals . fst <$> res
+(⎣+) v1 v2 = (GVec newVals
              , ulpTotal)
   where
+    (newVals, addValErr) = foldl' addValWithErr ([], UlpSum 0) $ postProcessVals . fst <$> res
     res = likeVecPairWithErr v1 v2
-    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) (UlpSum 0) (snd <$> res)
+    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) addValErr (snd <$> res)
 
 -- | Our "unlike" operator. unicode point u+23a4.
 (⎤) :: GVec -> GVec -> GVec
@@ -456,7 +457,7 @@ infixl 9 ∧
 infixl 9 ⋅
 (⋅) v1 v2 = vals
   where
-    vals = addVecPair (GVec resReduce) (GVec resLike)
+    vals = addVecPair (GVec resLike) (GVec resReduce)
     resLike = foldl' addVal [] $ postProcessVals <$> likeVecPair v1 v2
     resReduce = foldl' addVal [] $ postProcess <$> reduceVecPair v1 v2
 
