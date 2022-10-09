@@ -93,6 +93,30 @@ instance Semigroup UlpSum where
 instance Monoid UlpSum where
   mempty = UlpSum 0
 
+data ErrVal = ErrVal
+  -- { _ulpVal ::
+              !UlpSum
+  -- _ulpBasis ::
+              !(Set GNum)
+  deriving (Eq, Generic, NFData, Show)
+
+data ErrRVal = ErrRVal { _ulpRVal :: !UlpSum, _ulpRBasis :: NonEmpty GNum }
+  deriving (Eq, Generic, NFData, Show)
+
+-- Fake instance. do not try to order by ErrVal.
+instance Ord ErrVal where
+  compare _ _ = EQ
+
+instance Semigroup ErrVal where
+  (<>) e1@(ErrVal a1 b1) e2@(ErrVal a2 b2)
+   | b1 == b2 = ErrVal (a1 <> a2) b1
+   | e1 == mempty = e2
+   | e2 == mempty = e1
+   | otherwise = error $ "tried to <> two ErrVals with different basises.\n" <> show b1 <> "\n" <> show b2 <> "\n"
+
+instance Monoid ErrVal where
+  mempty = ErrVal mempty mempty
+
 -- When sorting gvals, sort the basis, THEN sort the multiplier.
 instance Ord GVal where
   (GVal r1 i1) `compare` (GVal r2 i2)
