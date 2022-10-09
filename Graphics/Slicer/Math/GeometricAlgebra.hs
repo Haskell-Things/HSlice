@@ -140,6 +140,16 @@ instance UniqueVals GVal where
     where
       matches = P.filter (\(GVal _ n) -> n == fromAscList nums) vs
 
+
+instance UniqueVals ErrVal where
+  -- | Extract a value from a list of values.
+  getVal nums vs = case matches of
+                      [] -> Nothing
+                      [oneMatch@(ErrVal v _)] -> if v == mempty then Nothing else Just oneMatch
+                      multiMatch@(_:_) -> error $ "found multiple candidates:\n" <> show multiMatch <> "\nWas using getVals on:\n" <> show vs <> "\nWas searching for:\n" <> show nums <> "\n"
+    where
+      matches = P.filter (\(ErrVal _ n) -> n == fromAscList nums) vs
+
 -- | Return the value of a (vector, or bivector, or trivector, or...), OR a given value, if the vector requested is not found.
 valOf :: ℝ -> Maybe GVal -> ℝ
 valOf r Nothing = r
