@@ -22,7 +22,7 @@
 {-# LANGUAGE DataKinds #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, getVals, subValPair, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
+module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, getVal, subValPair, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
 
 import Prelude (Eq, Show(show), Ord(compare), (==), (/=), (+), (<>), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac)
 
@@ -98,11 +98,11 @@ newtype GVec = GVec [GVal]
   deriving (Eq, Generic, NFData, Show, Ord)
 
 -- | Extract a value from a vector.
-getVals :: [GNum] -> [GVal] -> Maybe GVal
-getVals nums vs = case matches of
-                    [] -> Nothing
-                    [oneMatch] -> Just oneMatch
-                    multiMatch@(_:_) -> error $ "found multiple candidates" <> show multiMatch <> " when using getVals on " <> show vs <> "when searching for " <> show nums <> "\n"
+getVal :: [GNum] -> [GVal] -> Maybe GVal
+getVal nums vs = case matches of
+                   [] -> Nothing
+                   [oneMatch] -> Just oneMatch
+                   multiMatch@(_:_) -> error $ "found multiple candidates" <> show multiMatch <> " when using getVal on " <> show vs <> "when searching for " <> show nums <> "\n"
   where
     matches = P.filter (\(GVal _ n) -> n == fromAscList nums) vs
 

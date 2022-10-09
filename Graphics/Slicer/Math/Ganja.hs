@@ -110,7 +110,7 @@ import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, pointsO
 
 import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPoint, mapWithFollower, startPoint, makeLineSeg)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVals, valOf, UlpSum)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf, UlpSum)
 
 import Graphics.Slicer.Math.Lossy (eToPLine2, eToPPoint2, join2PPoint2, normalizePLine2, pPointBetweenPPoints)
 
@@ -149,7 +149,7 @@ instance GanjaAble LineSeg where
 instance GanjaAble PPoint2 where
   toGanja (PPoint2 (GVec vals)) varname = (
     "  var " <> varname <> " = "
-      <> showFullPrecision (valOf 0 (getVals [GEPlus 1, GEPlus 2] vals)) <> "e12"
+      <> showFullPrecision (valOf 0 (getVal [GEPlus 1, GEPlus 2] vals)) <> "e12"
       <> (if e02 >= 0 then "+" <> showFullPrecision e02 else showFullPrecision e02)
       <> "e02"
       <> (if e01 >= 0 then "+" <> showFullPrecision e01 else showFullPrecision e01)
@@ -157,15 +157,15 @@ instance GanjaAble PPoint2 where
     ,
     "    " <> varname <> ", " <> show varname <> ",\n")
     where
-      e02 = valOf 0 (getVals [GEZero 1, GEPlus 2] vals)
-      e01 = valOf 0 (getVals [GEZero 1, GEPlus 1] vals)
+      e02 = valOf 0 (getVal [GEZero 1, GEPlus 2] vals)
+      e01 = valOf 0 (getVal [GEZero 1, GEPlus 1] vals)
       -- because ganja's website does not handle scientific notation.
       showFullPrecision v = showFFloat Nothing v ""
 
 instance GanjaAble PLine2 where
   toGanja (PLine2 (GVec vals)) varname = (
     "  var " <> varname <> " = "
-      <> showFullPrecision (valOf 0 (getVals [GEPlus 1] vals)) <> "e1"
+      <> showFullPrecision (valOf 0 (getVal [GEPlus 1] vals)) <> "e1"
       <> (if e2 >= 0 then "+" <> showFullPrecision e2 else showFullPrecision e2)
       <> "e2"
       <> (if e0 >= 0 then "+" <> showFullPrecision e0 else showFullPrecision e0)
@@ -173,8 +173,8 @@ instance GanjaAble PLine2 where
     ,
     "    " <> varname <> ", " <> show varname <> ",\n")
     where
-      e2 = valOf 0 (getVals [GEPlus 2] vals)
-      e0 = valOf 0 (getVals [GEZero 1] vals)
+      e2 = valOf 0 (getVal [GEPlus 2] vals)
+      e0 = valOf 0 (getVal [GEZero 1] vals)
       -- because ganja's website does not handle scientific notation.
       showFullPrecision v = showFFloat Nothing v ""
 
