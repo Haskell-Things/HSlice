@@ -48,7 +48,7 @@ import Graphics.Slicer.Math.ContourIntersections (contourIntersectionCount)
 
 import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, lineSegsOfContour, minMaxPoints, xOf, yOf, startPoint, endPoint, fudgeFactor, makeLineSeg)
 
-import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
+import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.Intersections (noIntersection)
 
@@ -239,17 +239,17 @@ insideIsLeft contour
 -- | Find a point on the interior of a given contour, on the perpendicular bisector of the first line segment, a given distance away from the line segment.
 innerContourPoint :: Contour -> Maybe ProjectivePoint
 innerContourPoint contour
-  | odd numIntersections && perpErr < realToFrac minDistanceFromSeg = Just perpPoint
+  | odd numIntersections && ulpVal perpErr < realToFrac minDistanceFromSeg = Just perpPoint
   | odd numIntersections = error "cannot ensure perp point is on right side of contour."
-  | odd otherIntersections && otherErr < realToFrac minDistanceFromSeg = Just otherPoint
+  | odd otherIntersections && ulpVal otherErr < realToFrac minDistanceFromSeg = Just otherPoint
   | odd otherIntersections = error "cannot ensure other point is on the right side of the contour."
   | otherwise = Nothing
   where
     (p1, p2)       = firstPointPairOfContour contour
     source         = pLineFromEndpoints p1 p2
     myMidPoint     = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
-    (perpPoint, (_, _, UlpSum perpErr)) = pPointOnPerpWithErr source myMidPoint minDistanceFromSeg
-    (otherPoint, (_, _, UlpSum otherErr)) = pPointOnPerpWithErr source myMidPoint (-minDistanceFromSeg)
+    (perpPoint, (_, _, perpErr)) = pPointOnPerpWithErr source myMidPoint minDistanceFromSeg
+    (otherPoint, (_, _, otherErr)) = pPointOnPerpWithErr source myMidPoint (-minDistanceFromSeg)
     numIntersections   = contourIntersectionCount contour (pToEPoint2 perpPoint, outsidePoint)
     otherIntersections = contourIntersectionCount contour (pToEPoint2 otherPoint, outsidePoint)
     outsidePoint       = pointFarOutsideContour contour

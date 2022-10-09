@@ -52,7 +52,7 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, mapWithFollower, startPoint)
 
-import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), ulpVal)
+import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.Intersections (noIntersection, intersectionsAtSamePoint, intersectionOf, isCollinear, isParallel, isAntiCollinear, isAntiParallel, outputsIntersect)
 
@@ -815,9 +815,9 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
     intersectsInPoint :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Bool
     intersectsInPoint node1 node2
       | hasArc node1 && hasArc node2 = not (noIntersection (outOf node1, errOfOut node1) (outOf node2,errOfOut node2))
-                                       && not (dist1 <= realToFrac dist1Err)
-                                       && not (dist2 <= realToFrac dist2Err)
+                                       && not (dist1 <= realToFrac (ulpVal dist1Err))
+                                       && not (dist2 <= realToFrac (ulpVal dist2Err))
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, (_,_,_,_, UlpSum dist1Err)) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1,errOfOut node1) (outOf node2, errOfOut node2),mempty) (pPointOf node1,mempty)
-        (dist2, (_,_,_,_,  UlpSum dist2Err)) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1,errOfOut node1) (outOf node2, errOfOut node2),mempty) (pPointOf node2,mempty)
+        (dist1, (_,_,_,_, dist1Err)) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1,errOfOut node1) (outOf node2, errOfOut node2),mempty) (pPointOf node1,mempty)
+        (dist2, (_,_,_,_, dist2Err)) = distanceBetweenPPointsWithErr (intersectionOf (outOf node1,errOfOut node1) (outOf node2, errOfOut node2),mempty) (pPointOf node2,mempty)
