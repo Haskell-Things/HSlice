@@ -97,14 +97,18 @@ instance Ord GVal where
 newtype GVec = GVec [GVal]
   deriving (Eq, Generic, NFData, Show, Ord)
 
--- | Extract a value from a vector.
-getVal :: [GNum] -> [GVal] -> Maybe GVal
-getVal nums vs = case matches of
-                   [] -> Nothing
-                   [oneMatch] -> Just oneMatch
-                   multiMatch@(_:_) -> error $ "found multiple candidates" <> show multiMatch <> " when using getVal on " <> show vs <> "when searching for " <> show nums <> "\n"
-  where
-    matches = P.filter (\(GVal _ n) -> n == fromAscList nums) vs
+-- | a list contains geometric values that can be queried.
+class UniqueVals a where
+  getVal :: [GNum] -> [a] -> Maybe a
+
+instance UniqueVals GVal where
+  -- | Extract a value from a list of values.
+  getVal nums vs = case matches of
+                      [] -> Nothing
+                      [oneMatch@(GVal v _)] -> if v == 0 then Nothing else Just oneMatch
+                      multiMatch@(_:_) -> error $ "found multiple candidates:\n" <> show multiMatch <> "\nWas using getVals on:\n" <> show vs <> "\nWas searching for:\n" <> show nums <> "\n"
+    where
+      matches = P.filter (\(GVal _ n) -> n == fromAscList nums) vs
 
 -- | Return the value of a vector, OR a given value, if the vector requested is not found.
 valOf :: ℝ -> Maybe GVal -> ℝ
