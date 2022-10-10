@@ -398,57 +398,87 @@ sortBasis :: GRVal -> GRVal
 sortBasis (GRVal r i) = if shouldFlip then GRVal (-r) basis else GRVal r basis
   where
     (shouldFlip, basis) = sortBasis' i
-    -- sort a set of wedged basis vectors. must return an ideal result, along with wehther the associated real value should be flipped or not.
-    sortBasis'  :: NonEmpty GNum -> (Bool, NonEmpty GNum)
-    sortBasis' thisBasis
-      -- If the basis part of calling sortBasis'' once vs calling sortBasis'' twice doesn't change, we are done sorting.
-      | basisOf sortOnce == basisOf recurseTwice = sortOnce
-      -- If not, recurse.
-      | otherwise                                = recurseTwice
-      where
-        sortOnce = sortBasis'' thisBasis
-        recurseTwice :: (Bool, NonEmpty GNum)
-        recurseTwice = (flipOf (sortBasis'' $ basisOf sortOnce) /= flipOf sortOnce, basisOf $ sortBasis'' $ basisOf sortOnce)
-        basisOf = snd
-        flipOf  = fst
-        -- sort a set of wedged basis vectors. may not provide an ideal result, but should return a better result, along with whether the associated real value should be flipped or not.
-        sortBasis'' :: NonEmpty GNum -> (Bool, NonEmpty GNum)
-        sortBasis'' (a:|[])     = (False,a:|[])
-        sortBasis'' (a:|[b])    = if a > b then (True, b:|[a]) else (False, a:|[b])
-        sortBasis'' (a:|(b:xs)) = if a > b
-                               then (not $ flipOf $ sortBasis'' (a:|xs), b `cons` basisOf (sortBasis'' (a:|xs)))
-                               else (      flipOf $ sortBasis'' (b:|xs), a `cons` basisOf (sortBasis'' (b:|xs)))
+
+-- | For a multi-basis value where each basis is wedged against one another, sort the basis vectors.
+sortErrBasis :: ErrRVal -> ErrRVal
+sortErrBasis (ErrRVal r i) = ErrRVal r basis
+  where
+    (_, basis) = sortBasis' i
+
+-- | sort a set of wedged basis vectors. must return an ideal result, along with wehther the associated real value should be flipped or not.
+sortBasis'  :: NonEmpty GNum -> (Bool, NonEmpty GNum)
+sortBasis' thisBasis
+  -- If the basis part of calling sortBasis'' once vs calling sortBasis'' twice doesn't change, we are done sorting.
+  | basisOf sortOnce == basisOf recurseTwice = sortOnce
+  -- If not, recurse.
+  | otherwise                                = recurseTwice
+  where
+    sortOnce = sortBasis'' thisBasis
+    recurseTwice :: (Bool, NonEmpty GNum)
+    recurseTwice = (flipOf (sortBasis'' $ basisOf sortOnce) /= flipOf sortOnce, basisOf $ sortBasis'' $ basisOf sortOnce)
+    basisOf = snd
+    flipOf  = fst
+    -- sort a set of wedged basis vectors. may not provide an ideal result, but should return a better result, along with whether the associated real value should be flipped or not.
+    sortBasis'' :: NonEmpty GNum -> (Bool, NonEmpty GNum)
+    sortBasis'' (a:|[])     = (False,a:|[])
+    sortBasis'' (a:|[b])    = if a > b then (True, b:|[a]) else (False, a:|[b])
+    sortBasis'' (a:|(b:xs)) = if a > b
+                              then (not $ flipOf $ sortBasis'' (a:|xs), b `cons` basisOf (sortBasis'' (a:|xs)))
+                              else (      flipOf $ sortBasis'' (b:|xs), a `cons` basisOf (sortBasis'' (b:|xs)))
 
 -- | for a multi-basis value with each basis wedged against one another, where they are in ascending order, we can end up with vectors that have multiple occurances of the same basis vector. strip these out, negating the real part as appropriate.
 stripPairs :: GRVal -> GRVal
-stripPairs = withoutPairs
+stripPairs (GRVal real vals)
+  | isJust flipRes = if flipRes == Just False
+                  then GRVal real res
+                  else GRVal (-real) res
+  | otherwise = GRVal 0 (G0:|[])
   where
-    withoutPairs :: GRVal -> GRVal
-    withoutPairs (GRVal r (oneI:|[]))  = GRVal r (oneI:|[])
-    withoutPairs (GRVal r is@((GEPlus a):|(GEPlus b):xs))
-      | a == b = case nonEmpty xs of
-                   Nothing -> GRVal r (G0:|[])
-                   (Just vals) -> withoutPairs $ GRVal r vals
-      | a /= b = case nonEmpty xs of
-                   Nothing -> GRVal r is
-                   (Just _) -> prependI (GEPlus a) $ withoutPairs $ GRVal r (GEPlus b:|xs)
-    withoutPairs (GRVal r is@((GEMinus a):|(GEMinus b):xs))
-      | a == b = case nonEmpty xs of
-                   Nothing -> GRVal (-r) (G0:|[])
-                   (Just vals) -> withoutPairs $ GRVal (-r) vals
-      | a /= b = case nonEmpty xs of
-                   Nothing -> GRVal r is
-                   (Just _) -> prependI (GEMinus a) $ withoutPairs $ GRVal r (GEMinus b:|xs)
-    withoutPairs (GRVal r is@((GEZero a):|(GEZero b):xs))
-      | a == b = GRVal 0 (G0:|[])
-      | a /= b = case nonEmpty xs of
-                   Nothing -> GRVal r is
-                   (Just _) -> prependI (GEZero a) $ withoutPairs $ GRVal r (GEZero b:|xs)
-    withoutPairs (GRVal r (a:|b:xs)) = prependI a $ withoutPairs $ GRVal r (b:|xs)
-    prependI :: GNum -> GRVal -> GRVal
-    prependI num (GRVal r nums) = if nums == (G0:|[])
-                                  then GRVal r (num:|[])
-                                  else GRVal r (num `cons` nums)
+    (flipRes, res) = withoutPairs (Just False, vals)
+
+stripErrPairs :: ErrRVal -> ErrRVal
+stripErrPairs (ErrRVal real vals) = ErrRVal real res
+  where
+    (_, res) = withoutPairs (Just False, vals)
+
+-- | eliminate basis pairs from the given basis set.
+-- the maybe bool tracks whether the result should be thrown away (two identical GEZeros), or if the result should have its value inverted.
+withoutPairs :: (Maybe Bool, NonEmpty GNum) -> (Maybe Bool, NonEmpty GNum)
+withoutPairs (_, oneI:|[]) = (Just False, oneI:|[])
+withoutPairs (r, is@((GEPlus a):|(GEPlus b):xs))
+  | a == b = case nonEmpty xs of
+               Nothing -> (r, G0:|[])
+               (Just vs) -> withoutPairs (r, vs)
+  | a /= b = case nonEmpty xs of
+               Nothing -> (r, is)
+               (Just _) -> prependI (GEPlus a) $ withoutPairs (r, GEPlus b:|xs)
+withoutPairs (r, is@((GEMinus a):|(GEMinus b):xs))
+  | a == b = case nonEmpty xs of
+               Nothing -> (maybeNot r,G0:|[])
+               (Just vs) -> withoutPairs (maybeNot r,vs)
+  | a /= b = case nonEmpty xs of
+               Nothing -> (r,is)
+               (Just _) -> prependI (GEMinus a) $ withoutPairs (r, GEMinus b:|xs)
+  where
+    maybeNot :: Maybe Bool -> Maybe Bool
+    maybeNot Nothing = Nothing
+    maybeNot (Just v) = Just $ not v
+withoutPairs (r, is@((GEZero a):|(GEZero b):xs))
+  | a == b = (Nothing,G0:|[])
+  | a /= b = case nonEmpty xs of
+               Nothing -> (r,is)
+               (Just _) -> prependI (GEZero a) $ withoutPairs (r, GEZero b:|xs)
+withoutPairs (r, a:|b:xs) = prependI a $ withoutPairs (r,b:|xs)
+
+-- | place a term on the front of the basis vector set.
+-- if the vector set contains only the scalar vector, eliminate it.
+prependI :: GNum -> (a,NonEmpty GNum) -> (a, NonEmpty GNum)
+prependI num (r,nums) = (r, newPrependI num nums)
+  where
+    newPrependI :: GNum -> NonEmpty GNum -> NonEmpty GNum
+    newPrependI n ns
+      | ns == (G0:|[]) = n:|[]
+      | otherwise      = n `cons` ns
 
 -- | a post processor, to clean up a GRVal into a GVal.
 postProcess :: GRVal -> GVal
