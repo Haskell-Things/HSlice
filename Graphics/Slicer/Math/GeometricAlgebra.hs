@@ -88,7 +88,7 @@ data GRVal = GRVal
   !(NonEmpty GNum)
   deriving (Eq, Generic, NFData, Show)
 
--- | A constantly increasing sum of error. Used for increasing our error bars proportonally to error from the FPU.
+-- | A constantly increasing sum of error. Used for increasing our error bars proportonally to error collected from the FPU during calculations.
 newtype UlpSum = UlpSum { ulpVal :: Rounded 'TowardInf ℝ }
   deriving (Show, Eq, Generic, NFData, Ord)
 
@@ -154,12 +154,12 @@ instance UniqueVals ErrVal where
     where
       matches = P.filter (\(ErrVal _ n) -> n == fromAscList nums) vs
 
--- | Return the value of a vector, OR a given value, if the vector requested is not found.
+-- | Return the value of a (vector, or bivector, or trivector, or...), OR a given value, if the vector requested is not found.
 valOf :: ℝ -> Maybe GVal -> ℝ
 valOf r Nothing = r
 valOf _ (Just (GVal v _)) = v
 
--- | Return the value of a vector, OR a given value, if the vector requested is not found.
+-- | Return the error component saved from a calculation that produced a vector, OR return a given value, if the error component requested is not found.
 eValOf :: UlpSum -> Maybe ErrVal -> UlpSum
 eValOf r Nothing = r
 eValOf _ (Just (ErrVal v _)) = v
@@ -548,7 +548,6 @@ grValToGVal (GRVal r i) = GVal r (fromAscList (toList i))
 -- | Our "like" operator. unicode point u+23a3.
 (⎣) :: GVec -> GVec -> GVec
 infixl 9 ⎣
---(⎣) v1 v2 = GVec $ postProcessVals <$> likeVecPair v1 v2
 (⎣) v1 v2 = fst $ v1 ⎣+ v2
 
 -- | Our "like" operator, returning calculation error. unicode point u+23a3.
@@ -611,7 +610,7 @@ infixl 9 ∧
 infixl 9 ⋅
 (⋅) v1 v2 = vals
   where
-    vals = addVecPair (GVec resReduce) (GVec resLike)
+    vals = addVecPair (GVec resLike) (GVec resReduce)
     resLike = foldl' addVal [] $ postProcessVals <$> likeVecPair v1 v2
     resReduce = foldl' addVal [] $ postProcess <$> reduceVecPair v1 v2
 
@@ -620,7 +619,7 @@ infixl 9 ⋅
 infixl 9 •
 (•) v1 v2 = GVec $ foldl' addVal [] $ postProcessVals <$> mulVecPair v1 v2
 
--- |  Return any scalar component of the given GVec.
+-- | Return any scalar component of the given GVec.
 scalarPart :: GVec -> ℝ
 scalarPart (GVec vals) = sum $ realValue <$> vals
   where
