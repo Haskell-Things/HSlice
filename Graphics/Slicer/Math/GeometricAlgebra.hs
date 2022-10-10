@@ -213,6 +213,7 @@ addValWithErr dst@(dstVals, dstUlp@(UlpSum dstErr)) src@(GVal r1 _)
 
 -- | Subtract a geometric value from a list of geometric values.
 --   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
+-- FIXME: error component?
 subVal :: [GVal] -> GVal -> [GVal]
 subVal dst (GVal r i) = addVal dst $ GVal (-r) i
 
@@ -227,13 +228,16 @@ addVecPairWithErr (GVec vals1) (GVec vals2) = (GVec res, resUlp)
     (res, resUlp) = foldl' addValWithErr (vals1,mempty) vals2
 
 -- | Subtract one vector from the other.
+-- FIXME: error component?
 subVecPair :: GVec -> GVec -> GVec
 subVecPair (GVec vals1) (GVec vals2) = GVec $ foldl' subVal vals1 vals2
 
 -- | Multiply a vector by a scalar. arguments are given in this order for maximum readability.
-mulScalarVec :: ℝ -> GVec -> GVec
-mulScalarVec s (GVec vals) = GVec $ mulVal s <$> vals
+mulScalarVecWithErr :: ℝ -> GVec -> (GVec,[ErrVal])
+mulScalarVecWithErr s (GVec vals) = (GVec resVals, resErr)
   where
+    resVals =  mulVal s <$> vals
+    resErr = (\(GVal a b) -> ErrVal (UlpSum $ abs $ realToFrac $ doubleUlp a) b) <$> resVals
     mulVal s1 (GVal r i) = GVal (s1*r) i
 
 -- | Divide a vector by a scalar. arguments are given in this order for maximum readability.
