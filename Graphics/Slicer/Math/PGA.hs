@@ -95,7 +95,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, scalePoint, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalar, getVal, mulScalarVecWithErr, scalarPart, valOf, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, valOf, vectorPart)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
@@ -805,9 +805,9 @@ ulpOfCPPoint2 (CPPoint2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleU
                                        ,getVal [GEZero 1, GEPlus 2] vals
                                        ,getVal [GEPlus 1, GEPlus 2] vals]
 
---------------------------------------------------------------
----- Utillity functions that use sqrt(), or divVecScalar. ----
---------------------------------------------------------------
+---------------------------------------------------------------------
+---- Utillity functions that use sqrt(), or divVecScalarWithErr. ----
+---------------------------------------------------------------------
 
 -- | find the idealized norm of a projective point (ideal or not).
 idealNormPPoint2WithErr :: PPoint2 -> (ℝ, UlpSum)
@@ -850,7 +850,7 @@ canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
           <> [GVal 1 (fromList [GEPlus 1, GEPlus 2])]
     newVec = GVec $ addVal [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1])]
                            (GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
-    (GVec scaledVals) = divVecScalar newVec $ valOf 1 foundVal
+    (GVec scaledVals, _) = divVecScalarWithErr newVec $ valOf 1 foundVal
     foundVal = getVal [GEPlus 1, GEPlus 2] rawVals
     ulpSum = ulpOfCPPoint2 res
 
@@ -871,7 +871,7 @@ normalizePLine2WithErr :: PLine2 -> (NPLine2, UlpSum)
 normalizePLine2WithErr pl@(PLine2 vec) = (res, ulpTotal)
   where
     res = (\(PLine2 a) -> NPLine2 a) rawRes
-    rawRes = PLine2 $ divVecScalar vec normOfMyPLine
+    rawRes = PLine2 $ fst $ divVecScalarWithErr vec normOfMyPLine
     (normOfMyPLine, UlpSum normErr) = normOfPLine2WithErr pl
     ulpTotal = UlpSum $ normErr + resErr
     (UlpSum resErr) = ulpOfPLine2 rawRes

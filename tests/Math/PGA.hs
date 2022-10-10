@@ -54,7 +54,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), roundPoint2, startPoint, distance, xOf, yOf, minMaxPoints, makeLineSeg, endPoint)
 
 -- Our Geometric Algebra library.
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenCPPoints, distanceBetweenNPLine2s, distancePPointToPLine, eToCPPoint2, eToPLine2, eToPPoint2, getFirstArc, join2PPoint2, makeCPPoint2, makePPoint2, normalizePLine2, pPointOnPerp)
 
@@ -186,7 +186,7 @@ geomAlgSpec = do
       GVec [GVal 2 (singleton G0)] • GVec [GVal 1 (singleton (GEPlus 1))] --> GVec [GVal 2 (singleton (GEPlus 1))]
     -- 2e1/2 = e1
     it "divides a (multi)vector by a scalar" $
-      divVecScalar (GVec [GVal 2 (singleton (GEPlus 1))]) 2 --> GVec [GVal 1 (singleton (GEPlus 1))]
+      divVecScalarWithErr (GVec [GVal 2 (singleton (GEPlus 1))]) 2 --> (GVec [GVal 1 (singleton (GEPlus 1))],[ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))])
     -- 1e1|1e2 = 0
     it "the dot product of two orthoginal basis vectors is nothing" $
       GVec [GVal 1 (singleton (GEPlus 1))] ⋅ GVec [GVal 1 (singleton (GEPlus 2))] --> GVec []
