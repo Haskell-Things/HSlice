@@ -208,6 +208,20 @@ addValWithErr dst@(dstVals, dstUlp@(UlpSum dstErr)) src@(GVal r1 _)
     iOf (GVal _ i) = i
     rOf (GVal r _) = r
 
+addErr :: [ErrVal] -> ErrVal -> [ErrVal]
+addErr dstErrs src@(ErrVal _ i1)
+  | src == mempty = dstErrs
+  | dstErrs == mempty = [src]
+  | otherwise = case sameI i1 dstErrs of
+      Nothing -> sort $ dstErrs <> [src]
+      Just match -> sort $ diffI i1 dstErrs <> [match <> src]
+        where
+          diffI :: Set GNum -> [ErrVal] -> [ErrVal]
+          diffI i = P.filter (\(ErrVal _ i2) -> i2 /= i)
+  where
+    sameI :: Set GNum -> [ErrVal] -> Maybe ErrVal
+    sameI i errs = headMay $ P.filter (\(ErrVal _ i2) -> i2 == i) errs
+
 -- | Subtract a geometric value from a list of geometric values.
 --   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
 -- FIXME: error component?
