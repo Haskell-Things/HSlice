@@ -218,7 +218,7 @@ subVal dst (GVal r i) = addVal dst $ GVal (-r) i
 
 -- | Add two vectors together.
 addVecPair :: GVec -> GVec -> GVec
-addVecPair (GVec vals1) (GVec vals2) = GVec $ foldl' addVal vals1 vals2
+addVecPair vec1 vec2 = fst $ addVecPairWithErr vec1 vec2
 
 -- | Add two vectors together.
 addVecPairWithErr :: GVec -> GVec -> (GVec, UlpSum)
