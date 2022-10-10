@@ -252,9 +252,11 @@ mulScalarVecWithErr s (GVec vals) = (GVec resVals, resErr)
     mulVal s1 (GVal r i) = GVal (s1*r) i
 
 -- | Divide a vector by a scalar. arguments are given in this order for maximum readability.
-divVecScalar :: GVec -> ℝ -> GVec
-divVecScalar (GVec vals) s = GVec $ divVal s <$> vals
+divVecScalarWithErr :: GVec -> ℝ -> (GVec,[ErrVal])
+divVecScalarWithErr (GVec vals) s = (GVec resVals, resErr)
   where
+    resVals = divVal s <$> vals
+    resErr = (\(GVal a b) -> ErrVal (UlpSum $ abs $ realToFrac $ doubleUlp a) b) <$> resVals
     divVal s1 (GVal r i) = GVal (r/s1) i
 
 -- | Divide a vector by a scalar, high precision (read: slow) version. arguments are given in this order for maximum readability.
