@@ -372,7 +372,7 @@ mulVecPair :: GVec -> GVec -> [Either GRVal GVal]
 mulVecPair vec1 vec2 = results
   where
     results = mulVecPair' vec1 vec2
-    -- cycle through one list of vectors, and generate a pair with the second list.
+    -- | cycle through one list of vectors, and generate a pair with the second list.
     mulVecPair' :: GVec -> GVec -> [Either GRVal GVal]
     mulVecPair' (GVec v1) (GVec v2) = concatMap (mulvals v2) v1
       where
@@ -484,12 +484,27 @@ prependI num (r,nums) = (r, newPrependI num nums)
 postProcess :: GRVal -> GVal
 postProcess val = grValToGVal $ stripPairs $ sortBasis val
 
+postProcessErrs :: ErrRVal -> ErrVal
+postProcessErrs val = errRValToErrVal $ stripErrPairs $ sortErrBasis val
+  where
+    errRValToErrVal (ErrRVal r i) = ErrVal r (fromAscList (toList i))
+
 -- | a post processor, to clean up a GRVal into a GVal. may be given a GVal, in which case it short circuits.
 postProcessVals :: Either GRVal GVal -> GVal
 postProcessVals (Right gval) = gval
 postProcessVals (Left grval) = grValToGVal $ stripPairs $ sortBasis grval
 
--- Convert a GRval to a GVal. only to be used in postProcess and postProcessVals.
+postProcessEitherVals :: Either (GRVal, ErrRVal) (GVal, ErrVal) -> GVal
+postProcessEitherVals (Right (v,_)) = v
+postProcessEitherVals (Left (v,_)) = grValToGVal $ stripPairs $ sortBasis v
+
+postProcessEitherErrs :: Either (GRVal, ErrRVal) (GVal, ErrVal) -> ErrVal
+postProcessEitherErrs (Right (_,v)) = v
+postProcessEitherErrs (Left (_,v)) = errRValToErrVal $ stripErrPairs $ sortErrBasis v
+  where
+    errRValToErrVal (ErrRVal r i) = ErrVal r (fromAscList (toList i))
+
+-- | Convert a GRval to a GVal. only to be used in postProcess and postProcessVals.
 grValToGVal :: GRVal -> GVal
 grValToGVal (GRVal r i) = GVal r (fromAscList (toList i))
 
