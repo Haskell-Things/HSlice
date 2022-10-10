@@ -42,7 +42,7 @@ import Data.List.NonEmpty (NonEmpty((:|)), toList, cons, nonEmpty)
 
 import Data.List.Ordered (sort, insertSet)
 
-import Data.Maybe (Maybe(Just, Nothing))
+import Data.Maybe (Maybe(Just, Nothing), isJust)
 
 import Data.Number.BigFloat (BigFloat, PrecPlus20, Eps1)
 
