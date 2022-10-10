@@ -22,7 +22,7 @@
 {-# LANGUAGE DataKinds #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, eValOf, getVal, subValPair, ulpVal, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVecWithErr, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
+module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPairWithErr, eValOf, getVal, subValPair, ulpVal, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVecWithErr, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
 
 import Prelude (Eq, Monoid(mempty), Ord(compare), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac)
 
@@ -160,10 +160,6 @@ eValOf r Nothing = r
 eValOf _ (Just (ErrVal v _)) = v
 
 -- | Add two geometric values together.
-addValPair :: GVal -> GVal -> [GVal]
-addValPair v1 v2 = fst $ addValPairWithErr v1 v2
-
--- | Add two geometric values together.
 addValPairWithErr :: GVal -> GVal -> ([GVal], UlpSum)
 addValPairWithErr v1@(GVal r1 i1) v2@(GVal r2 i2)
   | r1 == 0 && r2 == 0      = ([],mempty)
@@ -178,10 +174,11 @@ addValPairWithErr v1@(GVal r1 i1) v2@(GVal r2 i2)
     res = realToFrac (realToFrac r1 + realToFrac r2 :: Rounded 'ToNearest ℝ)
 
 -- | Subtract a geometric value from another geometric value.
+-- FIXME: error component?
 subValPair :: GVal -> GVal -> [GVal]
 subValPair v1@(GVal r1 i1) (GVal r2 i2)
   | i1 == i2 && r1 == r2 = []
-  | otherwise            = addValPair v1 $ GVal (-r2) i2
+  | otherwise            = fst $ addValPairWithErr v1 $ GVal (-r2) i2
 
 -- | Add a geometric value to a list of geometric values.
 --   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.

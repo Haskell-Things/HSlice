@@ -54,7 +54,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), roundPoint2, startPoint, distance, xOf, yOf, minMaxPoints, makeLineSeg, endPoint)
 
 -- Our Geometric Algebra library.
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPair, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤), UlpSum(UlpSum))
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPair, addVal, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalar, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenCPPoints, distanceBetweenNPLine2s, distancePPointToPLine, eToCPPoint2, eToPLine2, eToPPoint2, getFirstArc, join2PPoint2, makeCPPoint2, makePPoint2, normalizePLine2, pPointOnPerp)
 
@@ -150,10 +150,10 @@ geomAlgSpec = do
   describe "GVals (Math/GeometricAlgebra)" $ do
     -- 1e1+1e1 = 2e1
     it "adds two values with a common basis vector" $
-      addValPair (GVal 1 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 1))) --> [GVal 2 (singleton (GEPlus 1))]
+      addValPairWithErr (GVal 1 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 1))) --> ([GVal 2 (singleton (GEPlus 1))], UlpSum 4.440892098500626e-16)
     -- 1e1+1e2 = e1+e2
     it "adds two values with different basis vectors" $
-      addValPair (GVal 1 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 2))) --> [GVal 1 (singleton (GEPlus 1)), GVal 1 (singleton (GEPlus 2))]
+      addValPairWithErr (GVal 1 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 2))) --> ([GVal 1 (singleton (GEPlus 1)), GVal 1 (singleton (GEPlus 2))], UlpSum 0)
     -- 2e1-1e1 = e1
     it "subtracts two values with a common basis vector" $
       subValPair (GVal 2 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 1))) --> [GVal 1 (singleton (GEPlus 1))]
