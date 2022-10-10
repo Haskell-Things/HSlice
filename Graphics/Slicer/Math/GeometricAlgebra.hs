@@ -24,7 +24,7 @@
 -- | Our geometric algebra library.
 module Graphics.Slicer.Math.GeometricAlgebra(GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPair, eValOf, getVal, subValPair, ulpVal, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVec, divVecScalar, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
 
-import Prelude (Eq, Monoid(mempty), Ord(compare), Ordering(EQ), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac)
+import Prelude (Eq, Monoid(mempty), Ord(compare), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac)
 
 import Prelude as P (filter)
 
@@ -105,14 +105,14 @@ data ErrRVal = ErrRVal { _ulpRVal :: !UlpSum, _ulpRBasis :: NonEmpty GNum }
 
 -- Fake instance. do not try to order by ErrVal.
 instance Ord ErrVal where
-  compare _ _ = EQ
+  compare (ErrVal _ a) (ErrVal _ b) = compare a b
 
 instance Semigroup ErrVal where
-  (<>) e1@(ErrVal a1 b1) e2@(ErrVal a2 b2)
-   | b1 == b2 = ErrVal (a1 <> a2) b1
+  (<>) e1@(ErrVal r1 i1) e2@(ErrVal r2 i2)
    | e1 == mempty = e2
    | e2 == mempty = e1
-   | otherwise = error $ "tried to <> two ErrVals with different basises.\n" <> show b1 <> "\n" <> show b2 <> "\n"
+   | i1 == i2 = ErrVal (r1 <> r2) i1
+   | otherwise = error $ "tried to <> two ErrVals with different basises.\n" <> show i1 <> "\n" <> show i2 <> "\n"
 
 instance Monoid ErrVal where
   mempty = ErrVal mempty mempty
