@@ -599,7 +599,7 @@ infixl 9 ⨅+
     res = reduceVecPairWithErr v1 v2
     newVals = fst <$> rawRes
     addValErr = sumErrVals $ snd <$> rawRes
-    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) addValErr (snd <$> res)
+    ulpTotal = addValErr <> (sumErrVals $ postProcessErrs . snd <$> res)
 
 -- | A wedge operator. gets the wedge product of the two arguments. note that wedge = reductive minus unlike.
 (∧) :: GVec -> GVec -> GVec
