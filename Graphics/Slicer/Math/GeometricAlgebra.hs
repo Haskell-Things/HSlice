@@ -177,10 +177,6 @@ addValPairWithErr v1@(GVal r1 i1) v2@(GVal r2 i2)
     res = realToFrac (realToFrac r1 + realToFrac r2 :: Rounded 'ToNearest ℝ)
     resErr = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac (realToFrac r1 + realToFrac r2 :: Rounded 'TowardInf ℝ)
 
--- | Subtract a geometric value from another geometric value.
-subValPair :: GVal -> GVal -> [GVal]
-subValPair v1 v2 = fst <$> subValPairWithErr v1 v2
-
 -- | Subtract a geometric value from another geometric value, providing our error quotent.
 subValPairWithErr :: GVal -> GVal -> [(GVal, ErrVal)]
 subValPairWithErr v1@(GVal r1 i1) (GVal r2 i2)
@@ -465,10 +461,6 @@ mulVecPairWithErr vec1 vec2 = results
             res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest ℝ)
             resUlp = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac resUlpRaw
             resUlpRaw = realToFrac r1 * realToFrac r2 :: Rounded 'TowardInf ℝ
-            simplifyVal v G0 = Right $ GVal v (singleton G0)
-            simplifyVal v (GEPlus _) = Right $ GVal v (singleton G0)
-            simplifyVal v (GEMinus _) = Right $ GVal (-v) (singleton G0)
-            simplifyVal _ (GEZero _) = Right $ GVal 0 (singleton G0)
             simplify :: (ℝ -> Set GNum -> c) -> ℝ -> GNum -> c
             simplify fn v G0 = fn v (singleton G0)
             simplify fn v (GEPlus _) = fn v (singleton G0)
@@ -710,6 +702,16 @@ infixl 9 ⋅+
 (•) :: GVec -> GVec -> GVec
 infixl 9 •
 (•) v1 v2 = GVec $ foldl' addVal [] $ postProcessVals <$> mulVecPair v1 v2
+
+-- | A geometric product operator. Gets the geometric product of the two arguments.
+(•+) :: GVec -> GVec -> (GVec, [ErrVal])
+infixl 9 •+
+(•+) v1 v2 = (GVec vals, geomMulErrs)
+  where
+    vals = fst <$> geomRes'
+    geomMulErrs = foldl' addErr [] $ postProcessEitherErrs <$> geomRes
+    geomRes' = foldl' addValWithErr [] $ postProcessEitherVals <$> geomRes
+    geomRes = mulVecPairWithErr v1 v2
 
 -- | Return the scalar component of the given GVec.
 scalarPart :: GVec -> ℝ
