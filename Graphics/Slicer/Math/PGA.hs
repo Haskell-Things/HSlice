@@ -95,7 +95,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, scalePoint, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, valOf, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, valOf, vectorPart)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
@@ -268,20 +268,22 @@ pPointOnPerpWithErr pline rppoint d = (PPoint2 res,
     (perpLine,UlpSum perpPLineErr) = lvec ⨅+ pvec
     (PLine2 lvec)                  = forcePLine2Basis $ PLine2 rlvec
     (PPoint2 pvec)                 = forcePPoint2Basis rppoint
-    (motor, UlpSum motorErr) = addVecPairWithErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
+    motorUlp = sumErrVals motorErr
+    (motor, motorErr) = addVecPairWithErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
     gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
     gaIErr :: Rounded 'TowardInf ℝ
     gaIErr = abs $ realToFrac $ doubleUlp $ d/2
-    ulpTotal = UlpSum $ gaIErr + perpPLineErr + lErr + motorErr
+    ulpTotal = motorUlp <> (UlpSum $ gaIErr + perpPLineErr + lErr)
 
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Abuses the property that translation of a line is expressed on the GEZero component.
 -- WARNING: multiple calls to this will stack up nErr needlessly.
 translatePLine2WithErr :: PLine2 -> ℝ -> (PLine2, UlpSum)
-translatePLine2WithErr pLine@(PLine2 rawPLine) d = (PLine2 res, UlpSum $ resErr + nErr)
+translatePLine2WithErr pLine@(PLine2 rawPLine) d = (PLine2 res, resUlp <> UlpSum nErr)
   where
-    (res, UlpSum resErr) = addVecPairWithErr m rawPLine
+    (res, resErr) = addVecPairWithErr m rawPLine
+    resUlp = sumErrVals resErr
     m = GVec [GVal (d*n) (singleton (GEZero 1))]
     (n, UlpSum nErr) = normOfPLine2WithErr pLine
 
