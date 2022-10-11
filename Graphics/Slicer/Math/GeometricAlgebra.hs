@@ -21,6 +21,9 @@
 
 {-# LANGUAGE DataKinds #-}
 
+-- So we can map applying (,mempty) to a list.
+{-# LANGUAGE TupleSections #-}
+
 -- | Our geometric algebra library.
 module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPairWithErr, eValOf, getVal, subValPair, ulpVal, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
 
@@ -221,7 +224,7 @@ subVal dst (GVal r i) = addVal dst $ GVal (-r) i
 
 -- | Subtract a geometric value from a list of geometric values.
 subValWithErr :: [(GVal, ErrVal)] -> GVal -> [(GVal, ErrVal)]
-subValWithErr = dst (GVal r i) = addValWithErr dst $ GVal (-r) i
+subValWithErr dst (GVal r i) = addValWithErr dst $ GVal (-r) i
 
 -- | add an error quotent to a list of error quotents.
 addErr :: [ErrVal] -> ErrVal -> [ErrVal]
@@ -246,7 +249,9 @@ addVecPair vec1 vec2 = fst $ addVecPairWithErr vec1 vec2
 addVecPairWithErr :: GVec -> GVec -> (GVec, UlpSum)
 addVecPairWithErr (GVec vals1) (GVec vals2) = (GVec res, resUlp)
   where
-    (res, resUlp) = foldl' addValWithErr (vals1,mempty) vals2
+    rawRes = foldl' addValWithErr ((,mempty) <$> vals1) vals2
+    res = fst <$> rawRes
+    resUlp = sumErrVals $ snd <$> rawRes
 
 -- | Subtract one vector from the other.
 -- FIXME: error component?
@@ -533,8 +538,10 @@ infixl 9 ⎣+
 (⎣+) v1 v2 = (GVec newVals
              , ulpTotal)
   where
-    (newVals, addValErr) = foldl' addValWithErr ([], mempty) $ postProcessVals . fst <$> res
+    rawRes = foldl' addValWithErr [] $ postProcessVals . fst <$> res
     res = likeVecPairWithErr v1 v2
+    newVals = fst <$> rawRes
+    addValErr = sumErrVals $ snd <$> rawRes
     ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) addValErr (snd <$> res)
 
 -- | Our "unlike" operator. unicode point u+23a4.
@@ -548,8 +555,10 @@ infixl 9 ⎤+
 (⎤+) v1 v2 = (GVec newVals
              , ulpTotal)
   where
-    (newVals, addValErr) = foldl' addValWithErr ([], mempty) $ postProcessVals . fst <$> res
+    rawRes = foldl' addValWithErr [] $ postProcessVals . fst <$> res
     res = unlikeVecPairWithErr v1 v2
+    newVals = fst <$> rawRes
+    addValErr = sumErrVals $ snd <$> rawRes
     ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) addValErr (snd <$> res)
 
 -- | Our "reductive" operator.
@@ -563,8 +572,10 @@ infixl 9 ⨅+
 (⨅+) v1 v2 = (GVec newVals
              , ulpTotal)
   where
-    (newVals, addValErr) = foldl' addValWithErr ([], mempty) $ postProcess . fst <$> res
+    rawRes = foldl' addValWithErr [] $ postProcess . fst <$> res
     res = reduceVecPairWithErr v1 v2
+    newVals = fst <$> rawRes
+    addValErr = sumErrVals $ snd <$> rawRes
     ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) addValErr (snd <$> res)
 
 -- | A wedge operator. gets the wedge product of the two arguments. note that wedge = reductive minus unlike.
