@@ -245,12 +245,12 @@ addVecPair :: GVec -> GVec -> GVec
 addVecPair vec1 vec2 = fst $ addVecPairWithErr vec1 vec2
 
 -- | Add two vectors together.
-addVecPairWithErr :: GVec -> GVec -> (GVec, UlpSum)
-addVecPairWithErr (GVec vals1) (GVec vals2) = (GVec res, resUlp)
+addVecPairWithErr :: GVec -> GVec -> (GVec, [ErrVal])
+addVecPairWithErr (GVec vals1) (GVec vals2) = (resVec, resErr)
   where
-    rawRes = foldl' addValWithErr ((,mempty) <$> vals1) vals2
-    res = fst <$> rawRes
-    resUlp = sumErrVals $ snd <$> rawRes
+    resVec = GVec $ fst <$> res
+    resErr = P.filter (/= mempty) $ snd <$> res
+    res = foldl' addValWithErr ((,mempty) <$> vals1) vals2
 
 -- | Subtract one vector from the other.
 -- FIXME: error component?
