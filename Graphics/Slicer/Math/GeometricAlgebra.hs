@@ -373,32 +373,37 @@ reduceVecPair :: GVec -> GVec -> [GRVal]
 reduceVecPair vec1 vec2 = fst <$> reduceVecPairWithErr vec1 vec2
 
 -- | Generate the reductive product of a vector pair. multiply only values where one of the basis vectors is eliminated by the multiplication.
-reduceVecPairWithErr :: GVec -> GVec -> [(GRVal, UlpSum)]
+reduceVecPairWithErr :: GVec -> GVec -> [(GRVal, ErrRVal)]
 reduceVecPairWithErr vec1 vec2 = results
   where
     results = reduceVecPair' vec1 vec2
-    -- cycle through one list of vectors, and generate a pair with the second list. multiplies only the values where one set has some common vectors with the other set, but they do not have identical sets.
-    reduceVecPair' :: GVec -> GVec -> [(GRVal, UlpSum)]
+    -- | cycle through one list of vectors, and generate a pair with the second list. multiplies only the values where one set has some common vectors with the other set, but they do not have identical sets.
+    reduceVecPair' :: GVec -> GVec -> [(GRVal, ErrRVal)]
     reduceVecPair' (GVec v1) (GVec v2) = concatMap (multiplyReducing v1) v2
       where
-        multiplyReducing :: [GVal] -> GVal -> [(GRVal, UlpSum)]
+        multiplyReducing :: [GVal] -> GVal -> [(GRVal, ErrRVal)]
         multiplyReducing vals val@(GVal _ i) = flip mulReducingPair val <$> P.filter (\(GVal _ i2) -> i2 `common` i) (P.filter (\(GVal _ i2) -> i2 `hasDifferentZeros` i) $ P.filter (\(GVal _ i2) -> i2 /= i) vals)
           where
-            hasDifferentZeros :: Set GNum -> Set GNum -> Bool
-            hasDifferentZeros nums1 nums2 = disjoint (S.filter isGEZero nums1) (S.filter isGEZero nums2)
-            isGEZero :: GNum -> Bool
-            isGEZero (GEZero _) = True
-            isGEZero _          = False
             common :: Set GNum -> Set GNum -> Bool
             common a b = not $ disjoint a b
-            mulReducingPair (GVal r1 i1) (GVal r2 i2) = case nonEmpty (elems i1) of
-                                                          Nothing -> error "empty set?"
-                                                          (Just newI1) -> case nonEmpty (elems i2) of
-                                                                            Nothing -> error "empty set?"
-                                                                            (Just newI2) -> (GRVal res (newI1 <> newI2), UlpSum $ abs $ realToFrac $ doubleUlp res)
-                                                                              where
-                                                                                res :: ℝ
-                                                                                res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest ℝ)
+            hasDifferentZeros :: Set GNum -> Set GNum -> Bool
+            hasDifferentZeros nums1 nums2 = disjoint (S.filter isGEZero nums1) (S.filter isGEZero nums2)
+              where
+                isGEZero :: GNum -> Bool
+                isGEZero (GEZero _) = True
+                isGEZero _          = False
+            mulReducingPair (GVal r1 i1) (GVal r2 i2) =
+              case nonEmpty (elems i1) of
+                Nothing -> error "empty set?"
+                (Just newI1) ->
+                  case nonEmpty (elems i2) of
+                    Nothing -> error "empty set?"
+                    (Just newI2) -> (GRVal res (newI1 <> newI2), ErrRVal resUlp (newI1 <> newI2))
+                      where
+                        res :: ℝ
+                        res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest ℝ)
+                        resUlp = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac resUlpRaw
+                        resUlpRaw = (realToFrac r1 * realToFrac r2 :: Rounded 'TowardInf ℝ)
 
 -- | Generate the geometric product of a vector pair.
 mulVecPair :: GVec -> GVec -> [Either GRVal GVal]
