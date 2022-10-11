@@ -218,9 +218,8 @@ addValWithErr dstVals src@(GVal r1 _)
 
 -- | Subtract a geometric value from a list of geometric values.
 --   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
--- FIXME: error component?
 subVal :: [GVal] -> GVal -> [GVal]
-subVal dst (GVal r i) = addVal dst $ GVal (-r) i
+subVal dst src = fst <$> subValWithErr ((,mempty) <$> dst) src
 
 -- | Subtract a geometric value from a list of geometric values.
 subValWithErr :: [(GVal, ErrVal)] -> GVal -> [(GVal, ErrVal)]
