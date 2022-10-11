@@ -556,7 +556,6 @@ infixl 9 ⎣+
 (⎣+) v1 v2 = (GVec vals
              , ulpTotal)
   where
-    vals :: [GVal]
     vals = foldl' addVal [] $ postProcessEitherVals <$> res
     addErrs = P.filter (/= mempty) $ postProcessEitherErrs <$> res
     mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> res
@@ -571,14 +570,14 @@ infixl 9 ⎤
 -- | Our "unlike" operator. unicode point u+23a4.
 (⎤+) :: GVec -> GVec -> (GVec, UlpSum)
 infixl 9 ⎤+
-(⎤+) v1 v2 = (GVec newVals
+(⎤+) v1 v2 = (GVec vals
              , ulpTotal)
   where
-    rawRes = foldl' addValWithErr [] $ postProcessVals . fst <$> res
+    vals = foldl' addVal [] $ postProcessEitherVals <$> res
+    addErrs = P.filter (/= mempty) $ postProcessEitherErrs <$> res
+    mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> res
+    ulpTotal = sumErrVals addErrs <> sumErrVals mulErrs
     res = unlikeVecPairWithErr v1 v2
-    newVals = fst <$> rawRes
-    addValErr = sumErrVals $ snd <$> rawRes
-    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) addValErr (snd <$> res)
 
 -- | Our "reductive" operator.
 (⨅) :: GVec -> GVec -> GVec
