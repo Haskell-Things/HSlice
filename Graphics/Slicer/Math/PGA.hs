@@ -95,7 +95,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, scalePoint, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalar, getVal, mulScalarVec, scalarPart, valOf, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, valOf, vectorPart)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
@@ -189,7 +189,7 @@ cPPointBetweenCPPointsWithErr (CPPoint2 rawStartPoint) (CPPoint2 rawStopPoint) w
   | valOf 0 foundVal == 0 = error "tried to generate an ideal point?"
   | otherwise = canonicalizePPoint2WithErr $ PPoint2 res
   where
-    res = addVecPair (mulScalarVec weight1 rawStartPoint) (mulScalarVec weight2 rawStopPoint)
+    res = addVecPair (fst $ mulScalarVecWithErr weight1 rawStartPoint) (fst $ mulScalarVecWithErr weight2 rawStopPoint)
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) res
 
 distancePPointToPLineWithErr :: PPoint2 -> PLine2 -> (ℝ, UlpSum)
@@ -268,20 +268,22 @@ pPointOnPerpWithErr pline rppoint d = (PPoint2 res,
     (perpLine,UlpSum perpPLineErr) = lvec ⨅+ pvec
     (PLine2 lvec)                  = forcePLine2Basis $ PLine2 rlvec
     (PPoint2 pvec)                 = forcePPoint2Basis rppoint
-    (motor, UlpSum motorErr) = addVecPairWithErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
+    motorUlp = sumErrVals motorErr
+    (motor, motorErr) = addVecPairWithErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
     gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
     gaIErr :: Rounded 'TowardInf ℝ
     gaIErr = abs $ realToFrac $ doubleUlp $ d/2
-    ulpTotal = UlpSum $ gaIErr + perpPLineErr + lErr + motorErr
+    ulpTotal = motorUlp <> (UlpSum $ gaIErr + perpPLineErr + lErr)
 
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Abuses the property that translation of a line is expressed on the GEZero component.
 -- WARNING: multiple calls to this will stack up nErr needlessly.
 translatePLine2WithErr :: PLine2 -> ℝ -> (PLine2, UlpSum)
-translatePLine2WithErr pLine@(PLine2 rawPLine) d = (PLine2 res, UlpSum $ resErr + nErr)
+translatePLine2WithErr pLine@(PLine2 rawPLine) d = (PLine2 res, resUlp <> UlpSum nErr)
   where
-    (res, UlpSum resErr) = addVecPairWithErr m rawPLine
+    (res, resErr) = addVecPairWithErr m rawPLine
+    resUlp = sumErrVals resErr
     m = GVec [GVal (d*n) (singleton (GEZero 1))]
     (n, UlpSum nErr) = normOfPLine2WithErr pLine
 
@@ -295,7 +297,7 @@ translateRotatePPoint2 ppoint d rotation = PPoint2 $ translator•pvec•reverse
         (PLine2 xLineVec) = forcePLine2Basis $ fst $ pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (1,0))
     (PLine2 angledLineThroughPPoint2) = forcePLine2Basis $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
       where
-        rotator = addVecPair (mulScalarVec (sin $ rotation/2) pvec) (GVec [GVal (cos $ rotation/2) (singleton G0)])
+        rotator = addVecPair (fst $ mulScalarVecWithErr (sin $ rotation/2) pvec) (GVec [GVal (cos $ rotation/2) (singleton G0)])
     translator = addVecPair (angledLineThroughPPoint2 • gaIScaled) (GVec [GVal 1 (singleton G0)])
       where
         -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
@@ -805,9 +807,9 @@ ulpOfCPPoint2 (CPPoint2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleU
                                        ,getVal [GEZero 1, GEPlus 2] vals
                                        ,getVal [GEPlus 1, GEPlus 2] vals]
 
---------------------------------------------------------------
----- Utillity functions that use sqrt(), or divVecScalar. ----
---------------------------------------------------------------
+---------------------------------------------------------------------
+---- Utillity functions that use sqrt(), or divVecScalarWithErr. ----
+---------------------------------------------------------------------
 
 -- | find the idealized norm of a projective point (ideal or not).
 idealNormPPoint2WithErr :: PPoint2 -> (ℝ, UlpSum)
@@ -850,7 +852,7 @@ canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
           <> [GVal 1 (fromList [GEPlus 1, GEPlus 2])]
     newVec = GVec $ addVal [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1])]
                            (GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
-    (GVec scaledVals) = divVecScalar newVec $ valOf 1 foundVal
+    (GVec scaledVals, _) = divVecScalarWithErr newVec $ valOf 1 foundVal
     foundVal = getVal [GEPlus 1, GEPlus 2] rawVals
     ulpSum = ulpOfCPPoint2 res
 
@@ -871,7 +873,7 @@ normalizePLine2WithErr :: PLine2 -> (NPLine2, UlpSum)
 normalizePLine2WithErr pl@(PLine2 vec) = (res, ulpTotal)
   where
     res = (\(PLine2 a) -> NPLine2 a) rawRes
-    rawRes = PLine2 $ divVecScalar vec normOfMyPLine
+    rawRes = PLine2 $ fst $ divVecScalarWithErr vec normOfMyPLine
     (normOfMyPLine, UlpSum normErr) = normOfPLine2WithErr pl
     ulpTotal = UlpSum $ normErr + resErr
     (UlpSum resErr) = ulpOfPLine2 rawRes
