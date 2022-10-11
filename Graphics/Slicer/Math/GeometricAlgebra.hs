@@ -580,14 +580,18 @@ infixl 9 ⋅
 infixl 9 •
 (•) v1 v2 = GVec $ foldl' addVal [] $ postProcessVals <$> mulVecPair v1 v2
 
--- | Return any scalar component of the given GVec.
+-- | Return the scalar component of the given GVec.
 scalarPart :: GVec -> ℝ
 scalarPart (GVec vals) = sum $ realValue <$> vals
   where
     realValue (GVal r gnums) = if gnums == singleton G0 then r else 0
 
--- | Return any non-scalar component of the given GVec.
+-- | Return the non-scalar component of the given GVec.
 vectorPart :: GVec -> GVec
 vectorPart (GVec vals) = GVec $ foldl' addVal [] $ P.filter noRealValue vals
   where
     noRealValue (GVal _ gnums) = gnums /= singleton G0
+
+-- | Temporary hack.
+sumErrVals :: [ErrVal] -> UlpSum
+sumErrVals errVals = sum $ ulpVal <$> errVals
