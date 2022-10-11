@@ -335,31 +335,38 @@ likeVecPairWithErr' vec1 vec2 = results
 
 -- | Generate the unlike product of a vector pair. multiply only the values in the basis vector sets that are not the same between the two GVecs.
 unlikeVecPair :: GVec -> GVec -> [Either GRVal GVal]
-unlikeVecPair vec1 vec2 = fst <$> unlikeVecPairWithErr vec1 vec2
+unlikeVecPair vec1 vec2 = fstEither <$> unlikeVecPairWithErr vec1 vec2
+  where
+        fstEither v = case v of
+                    (Left (c,_)) -> Left c
+                    (Right (c,_)) -> Right c
 
-unlikeVecPairWithErr :: GVec -> GVec -> [(Either GRVal GVal, UlpSum)]
+unlikeVecPairWithErr :: GVec -> GVec -> [Either (GRVal,ErrRVal) (GVal, ErrVal)]
 unlikeVecPairWithErr vec1 vec2 = results
   where
     results = unlikeVecPair' vec1 vec2
     -- cycle through one list of vectors, and generate a pair with the second list when the two basis vectors are not the same.
-    unlikeVecPair' :: GVec -> GVec -> [(Either GRVal GVal, UlpSum)]
+    unlikeVecPair' :: GVec -> GVec -> [Either (GRVal,ErrRVal) (GVal, ErrVal)]
     unlikeVecPair' (GVec v1) (GVec v2) = concatMap (multiplyUnlike v1) v2
       where
-        multiplyUnlike :: [GVal] -> GVal -> [(Either GRVal GVal, UlpSum)]
+        multiplyUnlike :: [GVal] -> GVal -> [Either (GRVal,ErrRVal) (GVal, ErrVal)]
         multiplyUnlike vals val@(GVal _ i) = mulUnlikePair val <$> P.filter (\(GVal _ i2) -> i2 /= i) vals
           where
+            mulUnlikePair :: GVal -> GVal -> Either (GRVal, ErrRVal) (GVal, ErrVal)
             mulUnlikePair (GVal r1 i1) (GVal r2 i2)
-              | i1 == singleton G0 = (Right $ GVal res i2, resUlp)
-              | i2 == singleton G0 = (Right $ GVal res i1, resUlp)
+              | i1 == singleton G0 = Right (GVal res i2, ErrVal resUlp i2)
+              | i2 == singleton G0 = Right (GVal res i1, ErrVal resUlp i1)
               | otherwise = case nonEmpty (elems i1) of
                               Nothing -> error "empty set?"
                               (Just newI1) -> case nonEmpty (elems i2) of
                                                 Nothing -> error "empty set?"
-                                                (Just newI2) -> (Left $ GRVal res (newI1 <> newI2), resUlp)
+                                                (Just newI2) -> Left (GRVal res (newI1 <> newI2),
+                                                                      ErrRVal resUlp (newI1 <> newI2))
               where
                 res :: ℝ
                 res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest ℝ)
-                resUlp = UlpSum $ abs $ realToFrac $ doubleUlp res
+                resUlp = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac resUlpRaw
+                resUlpRaw = realToFrac r1 * realToFrac r2 :: Rounded 'TowardInf ℝ
 
 -- | Generate the reductive product of a vector pair. multiply only values where one of the basis vectors is eliminated by the multiplication.
 reduceVecPair :: GVec -> GVec -> [GRVal]
