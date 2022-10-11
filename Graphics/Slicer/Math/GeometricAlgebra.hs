@@ -439,6 +439,47 @@ mulVecPair vec1 vec2 = results
             simplifyVal v (GEMinus _) = Right $ GVal (-v) (singleton G0)
             simplifyVal _ (GEZero _) = Right $ GVal 0 (singleton G0)
 
+-- | Generate the geometric product of a vector pair, preserving the error quotents.
+mulVecPairWithErr :: GVec -> GVec -> [Either (GRVal, ErrRVal) (GVal, ErrVal)]
+mulVecPairWithErr vec1 vec2 = results
+  where
+    results = mulVecPairWithErr' vec1 vec2
+    -- | cycle through one list of vectors, and generate a pair with the second list.
+    mulVecPairWithErr' :: GVec -> GVec -> [Either (GRVal, ErrRVal) (GVal, ErrVal)]
+    mulVecPairWithErr' (GVec v1) (GVec v2) = concatMap (mulvals v2) v1
+      where
+        mulvals :: [GVal] -> GVal -> [Either (GRVal, ErrRVal) (GVal, ErrVal)]
+        mulvals vals val = mulValPairWithErr val <$> vals
+        mulValPairWithErr :: GVal -> GVal -> Either (GRVal, ErrRVal) (GVal, ErrVal)
+        mulValPairWithErr  (GVal r1 i1) (GVal r2 i2)
+          | i1 == i2 && size i1 == 1 = Right (simplify GVal res (elemAt 0 i1), simplifyAbs ErrVal resUlp (elemAt 0 i1))
+          | i1 == singleton G0       = Right (GVal res i2, ErrVal resUlp i2)
+          | i2 == singleton G0       = Right (GVal res i1, ErrVal resUlp i1)
+          | otherwise = case nonEmpty (elems i1) of
+                          Nothing -> error "empty set?"
+                          (Just newI1) -> case nonEmpty (elems i2) of
+                                            Nothing -> error "empty set?"
+                                            (Just newI2) -> Left (GRVal res (newI1 <> newI2), ErrRVal resUlp (newI1 <> newI2))
+          where
+            res :: ℝ
+            res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest ℝ)
+            resUlp = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac resUlpRaw
+            resUlpRaw = realToFrac r1 * realToFrac r2 :: Rounded 'TowardInf ℝ
+            simplifyVal v G0 = Right $ GVal v (singleton G0)
+            simplifyVal v (GEPlus _) = Right $ GVal v (singleton G0)
+            simplifyVal v (GEMinus _) = Right $ GVal (-v) (singleton G0)
+            simplifyVal _ (GEZero _) = Right $ GVal 0 (singleton G0)
+            simplify :: (ℝ -> Set GNum -> c) -> ℝ -> GNum -> c
+            simplify fn v G0 = fn v (singleton G0)
+            simplify fn v (GEPlus _) = fn v (singleton G0)
+            simplify fn v (GEMinus _) = fn (-v) (singleton G0)
+            simplify fn _ (GEZero _) = fn 0 (singleton G0)
+            simplifyAbs :: Monoid c => (a -> Set GNum -> c) -> a -> GNum -> c
+            simplifyAbs fn v G0 = fn v (singleton G0)
+            simplifyAbs fn v (GEPlus _) = fn v (singleton G0)
+            simplifyAbs fn v (GEMinus _) = fn v (singleton G0)
+            simplifyAbs _ _ (GEZero _) = mempty
+
 -- | For a multi-basis value where each basis vector is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
 sortBasis :: GRVal -> GRVal
 sortBasis (GRVal r i) = if shouldFlip then GRVal (-r) basis else GRVal r basis
