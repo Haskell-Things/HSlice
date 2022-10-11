@@ -25,7 +25,7 @@
 {-# LANGUAGE TupleSections #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPairWithErr, eValOf, getVal, subValPair, sumErrVals, ulpVal, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
+module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (⋅+), (∧), (∧+), addValPairWithErr, eValOf, getVal, subValPair, sumErrVals, ulpVal, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
 
 import Prelude (Eq, Monoid(mempty), Ord(compare), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac)
 
@@ -225,6 +225,14 @@ subVal dst src = fst <$> subValWithErr ((,mempty) <$> dst) src
 subValWithErr :: [(GVal, ErrVal)] -> GVal -> [(GVal, ErrVal)]
 subValWithErr dst (GVal r i) = addValWithErr dst $ GVal (-r) i
 
+-- | subtract the second vector from the first vector.
+subVecPairWithErr :: GVec -> GVec -> (GVec, [ErrVal])
+subVecPairWithErr (GVec vals1) (GVec vals2) = (resVec, resErr)
+  where
+    resVec = GVec $ fst <$> res
+    resErr = P.filter (/= mempty) $ snd <$> res
+    res = foldl' subValWithErr ((,mempty) <$> vals1) vals2
+
 -- | add an error quotent to a list of error quotents.
 addErr :: [ErrVal] -> ErrVal -> [ErrVal]
 addErr dstErrs src@(ErrVal _ i1)
@@ -244,7 +252,7 @@ addErr dstErrs src@(ErrVal _ i1)
 addVecPair :: GVec -> GVec -> GVec
 addVecPair vec1 vec2 = fst $ addVecPairWithErr vec1 vec2
 
--- | Add two vectors together.
+-- | Add two vectors together, preserving the error quotents.
 addVecPairWithErr :: GVec -> GVec -> (GVec, [ErrVal])
 addVecPairWithErr (GVec vals1) (GVec vals2) = (resVec, resErr)
   where
@@ -561,11 +569,12 @@ infixl 9 ⎣+
 (⎣+) v1 v2 = (GVec vals
              , ulpTotal)
   where
-    vals = foldl' addVal [] $ postProcessEitherVals <$> res
-    addErrs = P.filter (/= mempty) $ postProcessEitherErrs <$> res
-    mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> res
+    vals = fst <$> res
+    addErrs = P.filter (/= mempty) $ snd <$> res
+    res = foldl' addValWithErr [] $ postProcessEitherVals <$> likeRes
+    mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> likeRes
     ulpTotal = sumErrVals addErrs <> sumErrVals mulErrs
-    res = likeVecPairWithErr v1 v2
+    likeRes = likeVecPairWithErr v1 v2
 
 -- | Our "unlike" operator. unicode point u+23a4.
 (⎤) :: GVec -> GVec -> GVec
@@ -578,11 +587,12 @@ infixl 9 ⎤+
 (⎤+) v1 v2 = (GVec vals
              , ulpTotal)
   where
-    vals = foldl' addVal [] $ postProcessEitherVals <$> res
-    addErrs = P.filter (/= mempty) $ postProcessEitherErrs <$> res
-    mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> res
+    vals = fst <$> res
+    addErrs = P.filter (/= mempty) $ snd <$> res
+    res = foldl' addValWithErr [] $ postProcessEitherVals <$> unlikeRes
+    mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> unlikeRes
     ulpTotal = sumErrVals addErrs <> sumErrVals mulErrs
-    res = unlikeVecPairWithErr v1 v2
+    unlikeRes = unlikeVecPairWithErr v1 v2
 
 -- | Our "reductive" operator.
 (⨅) :: GVec -> GVec -> GVec
@@ -599,16 +609,34 @@ infixl 9 ⨅+
     res = reduceVecPairWithErr v1 v2
     newVals = fst <$> rawRes
     addValErr = sumErrVals $ snd <$> rawRes
-    ulpTotal = addValErr <> (sumErrVals $ postProcessErrs . snd <$> res)
+    mulVarErr = sumErrVals $ postProcessErrs . snd <$> res
+    ulpTotal = addValErr <> mulVarErr
 
 -- | A wedge operator. gets the wedge product of the two arguments. note that wedge = reductive minus unlike.
 (∧) :: GVec -> GVec -> GVec
 infixl 9 ∧
-(∧) v1 v2 = vals
+(∧) v1 v2 = vec
   where
-    vals = subVecPair (GVec resReduce) (GVec resUnlike)
+    vec = subVecPair (GVec resReduce) (GVec resUnlike)
     resUnlike = foldl' addVal [] $ postProcessVals <$> unlikeVecPair v1 v2
     resReduce = foldl' addVal [] $ postProcess <$> reduceVecPair v1 v2
+
+-- | A wedge operator that preserves error. gets the wedge product of the two arguments. note that wedge = reductive minus unlike.
+(∧+) :: GVec -> GVec -> (GVec, ([ErrVal], [ErrVal], [ErrVal], [ErrVal], [ErrVal]))
+infixl 9 ∧+
+(∧+) v1 v2 = (vec, (unlikeMulErrs, unlikeAddErrs, reduceMulErrs, reduceAddErrs, vecSubErrs))
+  where
+    (vec, vecSubErrs) = subVecPairWithErr (GVec reduceVals) (GVec unlikeVals)
+    unlikeVals = fst <$> unlikeRes'
+    unlikeAddErrs = snd <$> unlikeRes'
+    unlikeRes' = foldl' addValWithErr [] $ postProcessEitherVals <$> unlikeRes
+    unlikeMulErrs =foldl' addErr [] $ postProcessEitherErrs <$> unlikeRes
+    unlikeRes = unlikeVecPairWithErr v1 v2
+    reduceVals = fst <$> reduceRes'
+    reduceAddErrs = snd <$> reduceRes'
+    reduceRes' = foldl' addValWithErr [] $ postProcess . fst <$> reduceRes
+    reduceMulErrs = postProcessErrs . snd <$> reduceRes
+    reduceRes = reduceVecPairWithErr v1 v2
 
 -- | A dot operator. gets the dot product of the two arguments. note that dot = reductive plus like.
 (⋅) :: GVec -> GVec -> GVec
@@ -618,6 +646,24 @@ infixl 9 ⋅
     vals = addVecPair (GVec resLike) (GVec resReduce)
     resLike = foldl' addVal [] $ postProcessVals <$> likeVecPair v1 v2
     resReduce = foldl' addVal [] $ postProcess <$> reduceVecPair v1 v2
+
+-- | A dot operator that preserves error. gets the dot product of the two arguments.
+-- Note that dot product = reductive product plus like product.
+(⋅+) :: GVec -> GVec -> (GVec, ([ErrVal], [ErrVal], [ErrVal], [ErrVal]))
+infixl 9 ⋅+
+(⋅+) v1 v2 = (vec
+              , (likeMulErrs, reduceMulErrs, reduceAddErrs, vecAddErrs))
+  where
+    (vec, vecAddErrs) = addVecPairWithErr (GVec reduceVals) (GVec likeVals)
+    likeVals = fst <$> likeRes'
+    likeMulErrs = foldl' addErr [] $ postProcessEitherErrs <$> likeRes
+    likeRes' = foldl' addValWithErr [] $ postProcessEitherVals <$> likeRes
+    likeRes = likeVecPairWithErr v1 v2
+    reduceVals = fst <$> reduceRes'
+    reduceAddErrs = snd <$> reduceRes'
+    reduceRes' = foldl' addValWithErr [] $ postProcess . fst <$> reduceRes
+    reduceMulErrs = postProcessErrs . snd <$> reduceRes
+    reduceRes = reduceVecPairWithErr v1 v2
 
 -- | A geometric product operator. Gets the geometric product of the two arguments.
 (•) :: GVec -> GVec -> GVec
