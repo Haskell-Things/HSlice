@@ -160,7 +160,7 @@ eValOf r Nothing = r
 eValOf _ (Just (ErrVal v _)) = v
 
 -- | Add two geometric values together.
-addValPairWithErr :: GVal -> GVal -> [(GVal,ErrVal)]
+addValPairWithErr :: GVal -> GVal -> [(GVal, ErrVal)]
 addValPairWithErr v1@(GVal r1 i1) v2@(GVal r2 i2)
   | r1 == 0 && r2 == 0      = []
   | r1 == 0                 = [(v2,mempty)]
@@ -175,11 +175,14 @@ addValPairWithErr v1@(GVal r1 i1) v2@(GVal r2 i2)
     resErr = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac (realToFrac r1 + realToFrac r2 :: Rounded 'TowardInf ℝ)
 
 -- | Subtract a geometric value from another geometric value.
--- FIXME: error component?
 subValPair :: GVal -> GVal -> [GVal]
-subValPair v1@(GVal r1 i1) (GVal r2 i2)
+subValPair v1 v2 = fst <$> subValPairWithErr v1 v2
+
+-- | Subtract a geometric value from another geometric value, providing our error quotent.
+subValPairWithErr :: GVal -> GVal -> [(GVal, ErrVal)]
+subValPairWithErr v1@(GVal r1 i1) (GVal r2 i2)
   | i1 == i2 && r1 == r2 = []
-  | otherwise            = fst $ addValPairWithErr v1 $ GVal (-r2) i2
+  | otherwise            = addValPairWithErr v1 $ GVal (-r2) i2
 
 -- | Add a geometric value to a list of geometric values.
 --   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
@@ -595,4 +598,4 @@ vectorPart (GVec vals) = GVec $ foldl' addVal [] $ P.filter noRealValue vals
 
 -- | Temporary hack.
 sumErrVals :: [ErrVal] -> UlpSum
-sumErrVals errVals = sum $ ulpVal <$> errVals
+sumErrVals errVals = UlpSum $ sum $ ulpVal . (\(ErrVal a _) -> a) <$> errVals

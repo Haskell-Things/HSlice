@@ -25,7 +25,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, (/=), (<=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, realToFrac, sqrt, (<), (>), (-), (/), (||), (*))
+import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, (/=), (<=), mempty, otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, realToFrac, sqrt, (<), (>), (-), (/), (||), (*))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -150,10 +150,10 @@ geomAlgSpec = do
   describe "GVals (Math/GeometricAlgebra)" $ do
     -- 1e1+1e1 = 2e1
     it "adds two values with a common basis vector" $
-      addValPairWithErr (GVal 1 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 1))) --> ([GVal 2 (singleton (GEPlus 1))], UlpSum 4.440892098500626e-16)
+      addValPairWithErr (GVal 1 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 1))) --> [(GVal 2 (singleton (GEPlus 1)), ErrVal (UlpSum 4.440892098500626e-16) (singleton (GEPlus 1)))]
     -- 1e1+1e2 = e1+e2
     it "adds two values with different basis vectors" $
-      addValPairWithErr (GVal 1 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 2))) --> ([GVal 1 (singleton (GEPlus 1)), GVal 1 (singleton (GEPlus 2))], UlpSum 0)
+      addValPairWithErr (GVal 1 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 2))) --> [(GVal 1 (singleton (GEPlus 1)), mempty), (GVal 1 (singleton (GEPlus 2)), mempty)]
     -- 2e1-1e1 = e1
     it "subtracts two values with a common basis vector" $
       subValPair (GVal 2 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 1))) --> [GVal 1 (singleton (GEPlus 1))]
