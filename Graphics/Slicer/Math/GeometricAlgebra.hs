@@ -25,7 +25,7 @@
 {-# LANGUAGE TupleSections #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPairWithErr, eValOf, getVal, subValPair, sumErrVals, ulpVal, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair, UlpSum(UlpSum)) where
+module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•), (⋅), (∧), addValPairWithErr, eValOf, getVal, subValPair, sumErrVals, ulpVal, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
 
 import Prelude (Eq, Monoid(mempty), Ord(compare), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac)
 
@@ -318,7 +318,7 @@ likeVecPairWithErr' vec1 vec2 = results
                               (Just newi) -> Left (GRVal res (newi <> newi), ErrRVal resErr (newi <> newi))
                               Nothing -> error "empty set?"
               where
-                simplify :: Num a => (a -> Set GNum -> c) -> a -> GNum -> c
+                simplify :: (ℝ -> Set GNum -> c) -> ℝ -> GNum -> c
                 simplify fn v G0 = fn v (singleton G0)
                 simplify fn v (GEPlus _) = fn v (singleton G0)
                 simplify fn v (GEMinus _) = fn (-v) (singleton G0)
@@ -332,6 +332,7 @@ likeVecPairWithErr' vec1 vec2 = results
                 res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest ℝ)
                 resErr = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac resErrRaw
                 resErrRaw = realToFrac r1 * realToFrac r2 :: Rounded 'TowardInf ℝ
+
 -- | Generate the unlike product of a vector pair. multiply only the values in the basis vector sets that are not the same between the two GVecs.
 unlikeVecPair :: GVec -> GVec -> [Either GRVal GVal]
 unlikeVecPair vec1 vec2 = fst <$> unlikeVecPairWithErr vec1 vec2
@@ -545,14 +546,15 @@ infixl 9 ⎣
 
 (⎣+) :: GVec -> GVec -> (GVec, UlpSum)
 infixl 9 ⎣+
-(⎣+) v1 v2 = (GVec newVals
+(⎣+) v1 v2 = (GVec vals
              , ulpTotal)
   where
-    rawRes = foldl' addValWithErr [] $ postProcessVals . fst <$> res
+    vals :: [GVal]
+    vals = foldl' addVal [] $ postProcessEitherVals <$> res
+    addErrs = P.filter (/= mempty) $ postProcessEitherErrs <$> res
+    mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> res
+    ulpTotal = sumErrVals addErrs <> sumErrVals mulErrs
     res = likeVecPairWithErr v1 v2
-    newVals = fst <$> rawRes
-    addValErr = sumErrVals $ snd <$> rawRes
-    ulpTotal = foldl' (\(UlpSum a) (UlpSum b) -> UlpSum $ a + b) addValErr (snd <$> res)
 
 -- | Our "unlike" operator. unicode point u+23a4.
 (⎤) :: GVec -> GVec -> GVec
