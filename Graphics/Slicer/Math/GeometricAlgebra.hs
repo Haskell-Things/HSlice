@@ -285,42 +285,53 @@ hpDivVecScalar (GVec vals) s = GVec $ divVal s <$> vals
 -- actually a wrapper to make use of the fact that gvec1 `likeVecPair` gvec2 == gvec2 `likeVecPair` gvec1.
 likeVecPair :: GVec -> GVec -> [Either GRVal GVal]
 likeVecPair a b
-  | a > b     = fst <$> likeVecPairWithErr' a b
-  | otherwise = fst <$> likeVecPairWithErr' b a
+  | a > b     = fstEither <$> likeVecPairWithErr' a b
+  | otherwise = fstEither <$> likeVecPairWithErr' b a
+  where
+    fstEither v = case v of
+                    (Left (c,_)) -> Left c
+                    (Right (c,_)) -> Right c
 
 -- | Calculate the like product of a vector pair.
 -- actually a wrapper to make use of the fact that gvec1 `likeVecPair` gvec2 == gvec2 `likeVecPair` gvec1.
-likeVecPairWithErr :: GVec -> GVec -> [(Either GRVal GVal, UlpSum)]
+likeVecPairWithErr :: GVec -> GVec -> [Either (GRVal,ErrRVal) (GVal, ErrVal)]
 likeVecPairWithErr a b
   | a > b     = likeVecPairWithErr' a b
   | otherwise = likeVecPairWithErr' b a
 
 -- | Generate the like product of a vector pair. multiply only the values in the basis vector sets that are common between the two GVecs.
-likeVecPairWithErr' :: GVec -> GVec -> [(Either GRVal GVal, UlpSum)]
+likeVecPairWithErr' :: GVec -> GVec -> [Either (GRVal,ErrRVal) (GVal, ErrVal)]
 likeVecPairWithErr' vec1 vec2 = results
   where
     results = likeVecPair'' vec1 vec2
     -- cycle through one list, and generate a pair with the second list when the two basis vectors are the same.
-    likeVecPair'' :: GVec -> GVec -> [(Either GRVal GVal, UlpSum)]
+    likeVecPair'' :: GVec -> GVec -> [Either (GRVal,ErrRVal) (GVal, ErrVal)]
     likeVecPair'' (GVec v1) (GVec v2) = concatMap (multiplyLike v1) v2
       where
-        multiplyLike :: [GVal] -> GVal -> [(Either GRVal GVal, UlpSum)]
+        multiplyLike :: [GVal] -> GVal -> [Either (GRVal,ErrRVal) (GVal, ErrVal)]
         multiplyLike vals val@(GVal _ i1) = mulLikePair val <$> P.filter (\(GVal _ i2) -> i2 == i1) vals
           where
+            mulLikePair :: GVal -> GVal -> Either (GRVal,ErrRVal) (GVal, ErrVal)
             mulLikePair (GVal r1 i) (GVal r2 _)
-              | size i == 1 = (simplifyVal res (elemAt 0 i), resUlp)
+              | size i == 1 = Right (simplify GVal res (elemAt 0 i), simplifyAbs ErrVal resErr (elemAt 0 i))
               | otherwise = case nonEmpty (elems i) of
-                              (Just newi) -> (Left $ GRVal res (newi <> newi), resUlp)
+                              (Just newi) -> Left (GRVal res (newi <> newi), ErrRVal resErr (newi <> newi))
                               Nothing -> error "empty set?"
               where
-                simplifyVal v G0 = Right $ GVal v (singleton G0)
-                simplifyVal v (GEPlus _) = Right $ GVal v (singleton G0)
-                simplifyVal v (GEMinus _) = Right $ GVal (-v) (singleton G0)
-                simplifyVal _ (GEZero _) = Right $ GVal 0 (singleton G0)
+                simplify :: Num a => (a -> Set GNum -> c) -> a -> GNum -> c
+                simplify fn v G0 = fn v (singleton G0)
+                simplify fn v (GEPlus _) = fn v (singleton G0)
+                simplify fn v (GEMinus _) = fn (-v) (singleton G0)
+                simplify fn _ (GEZero _) = fn 0 (singleton G0)
+                simplifyAbs :: Monoid c => (a -> Set GNum -> c) -> a -> GNum -> c
+                simplifyAbs fn v G0 = fn v (singleton G0)
+                simplifyAbs fn v (GEPlus _) = fn v (singleton G0)
+                simplifyAbs fn v (GEMinus _) = fn v (singleton G0)
+                simplifyAbs _ _ (GEZero _) = mempty
                 res :: ℝ
                 res = realToFrac (realToFrac r1 * realToFrac r2 :: Rounded 'ToNearest ℝ)
-                resUlp = UlpSum $ abs $ realToFrac $ doubleUlp res
-
+                resErr = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac resErrRaw
+                resErrRaw = realToFrac r1 * realToFrac r2 :: Rounded 'TowardInf ℝ
 -- | Generate the unlike product of a vector pair. multiply only the values in the basis vector sets that are not the same between the two GVecs.
 unlikeVecPair :: GVec -> GVec -> [Either GRVal GVal]
 unlikeVecPair vec1 vec2 = fst <$> unlikeVecPairWithErr vec1 vec2
