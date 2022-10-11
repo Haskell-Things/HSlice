@@ -393,19 +393,19 @@ mulVecPair vec1 vec2 = results
             simplifyVal v (GEMinus _) = Right $ GVal (-v) (singleton G0)
             simplifyVal _ (GEZero _) = Right $ GVal 0 (singleton G0)
 
--- | For a multi-basis value where each basis is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
+-- | For a multi-basis value where each basis vector is wedged against one another, sort the basis vectors remembering to invert the value if necessary.
 sortBasis :: GRVal -> GRVal
 sortBasis (GRVal r i) = if shouldFlip then GRVal (-r) basis else GRVal r basis
   where
     (shouldFlip, basis) = sortBasis' i
 
--- | For a multi-basis value where each basis is wedged against one another, sort the basis vectors.
+-- | For a multi-basis error quotent where each basis vector is wedged against one another, just sort the basis vectors.
 sortErrBasis :: ErrRVal -> ErrRVal
 sortErrBasis (ErrRVal r i) = ErrRVal r basis
   where
     (_, basis) = sortBasis' i
 
--- | sort a set of wedged basis vectors. must return an ideal result, along with wehther the associated real value should be flipped or not.
+-- | Sort a set of basis vectors. Must return an ideal result, along with wehther the associated real value should be flipped or not.
 sortBasis'  :: NonEmpty GNum -> (Bool, NonEmpty GNum)
 sortBasis' thisBasis
   -- If the basis part of calling sortBasis'' once vs calling sortBasis'' twice doesn't change, we are done sorting.
@@ -418,7 +418,7 @@ sortBasis' thisBasis
     recurseTwice = (flipOf (sortBasis'' $ basisOf sortOnce) /= flipOf sortOnce, basisOf $ sortBasis'' $ basisOf sortOnce)
     basisOf = snd
     flipOf  = fst
-    -- sort a set of wedged basis vectors. may not provide an ideal result, but should return a better result, along with whether the associated real value should be flipped or not.
+    -- | sort a set of wedged basis vectors. may not provide an ideal result, but should return a better result, along with whether the associated real value should be flipped or not.
     sortBasis'' :: NonEmpty GNum -> (Bool, NonEmpty GNum)
     sortBasis'' (a:|[])     = (False,a:|[])
     sortBasis'' (a:|[b])    = if a > b then (True, b:|[a]) else (False, a:|[b])
@@ -426,7 +426,7 @@ sortBasis' thisBasis
                               then (not $ flipOf $ sortBasis'' (a:|xs), b `cons` basisOf (sortBasis'' (a:|xs)))
                               else (      flipOf $ sortBasis'' (b:|xs), a `cons` basisOf (sortBasis'' (b:|xs)))
 
--- | for a multi-basis value with each basis wedged against one another, where they are in ascending order, we can end up with vectors that have multiple occurances of the same basis vector. strip these out, negating the real part as appropriate.
+-- | For a multi-basis value with each basis wedged against one another, where they are in ascending order, we can end up with vectors that have multiple occurances of the same basis vector. strip these out, negating the real part as appropriate.
 stripPairs :: GRVal -> GRVal
 stripPairs (GRVal real vals)
   | isJust flipRes = if flipRes == Just False
@@ -436,13 +436,14 @@ stripPairs (GRVal real vals)
   where
     (flipRes, res) = withoutPairs (Just False, vals)
 
+-- | For a multi-basis value with each basis wedged against one another, where they are in ascending order, we can end up with vectors that have multiple occurances of the same basis vector. strip these out, negating the real part as appropriate.
 stripErrPairs :: ErrRVal -> ErrRVal
 stripErrPairs (ErrRVal real vals) = ErrRVal real res
   where
     (_, res) = withoutPairs (Just False, vals)
 
--- | eliminate basis pairs from the given basis set.
--- the maybe bool tracks whether the result should be thrown away (two identical GEZeros), or if the result should have its value inverted.
+-- | Perform elimination of basis pairs from the given basis set. only works right if the basis set has been sorted first.
+-- The maybe bool tracks whether the result should be thrown away (two identical GEZeros), or if the result should have its value inverted.
 withoutPairs :: (Maybe Bool, NonEmpty GNum) -> (Maybe Bool, NonEmpty GNum)
 withoutPairs (_, oneI:|[]) = (Just False, oneI:|[])
 withoutPairs (r, is@((GEPlus a):|(GEPlus b):xs))
@@ -480,33 +481,36 @@ prependI num (r,nums) = (r, newPrependI num nums)
       | ns == (G0:|[]) = n:|[]
       | otherwise      = n `cons` ns
 
--- | a post processor, to clean up a GRVal into a GVal.
+-- | A post processor, to convert a GRVal into a GVal. this sorts the basis vectors as part of the conversion.
 postProcess :: GRVal -> GVal
 postProcess val = grValToGVal $ stripPairs $ sortBasis val
 
-postProcessErrs :: ErrRVal -> ErrVal
-postProcessErrs val = errRValToErrVal $ stripErrPairs $ sortErrBasis val
-  where
-    errRValToErrVal (ErrRVal r i) = ErrVal r (fromAscList (toList i))
-
--- | a post processor, to clean up a GRVal into a GVal. may be given a GVal, in which case it short circuits.
+-- | A post processor, to convert a GRVal into a GVal. this sorts the basis vectors as part of the conversion. it may be given a GVal, in which case it short circuits.
 postProcessVals :: Either GRVal GVal -> GVal
 postProcessVals (Right gval) = gval
 postProcessVals (Left grval) = grValToGVal $ stripPairs $ sortBasis grval
 
+-- | A post processor, to convert a GRVal into a GVal, preserving the attached error. this sorts the basis vectors as part of the conversion. it may be given a GVal, in which case it short circuits.
 postProcessEitherVals :: Either (GRVal, ErrRVal) (GVal, ErrVal) -> GVal
 postProcessEitherVals (Right (v,_)) = v
 postProcessEitherVals (Left (v,_)) = grValToGVal $ stripPairs $ sortBasis v
 
+-- | Type Conversion of a GRval to a GVal. only to be used in postProcess, postProcessVals, and postProcessEitherVals.
+grValToGVal :: GRVal -> GVal
+grValToGVal (GRVal r i) = GVal r (fromAscList (toList i))
+
+-- | A post processor, to convert a ErrRVal into an ErrVal. this sorts the basis vectors as part of the conversion.
+postProcessErrs :: ErrRVal -> ErrVal
+postProcessErrs val = errRValToErrVal $ stripErrPairs $ sortErrBasis val
+
+-- | A post processor, to convert a ErrRVal into an ErrVal, preserving the attached error. this sorts the basis vectors as part of the conversion. it may be given an ErrVal, in which case it short circuits.
 postProcessEitherErrs :: Either (GRVal, ErrRVal) (GVal, ErrVal) -> ErrVal
 postProcessEitherErrs (Right (_,v)) = v
 postProcessEitherErrs (Left (_,v)) = errRValToErrVal $ stripErrPairs $ sortErrBasis v
-  where
-    errRValToErrVal (ErrRVal r i) = ErrVal r (fromAscList (toList i))
 
--- | Convert a GRval to a GVal. only to be used in postProcess and postProcessVals.
-grValToGVal :: GRVal -> GVal
-grValToGVal (GRVal r i) = GVal r (fromAscList (toList i))
+-- | Type conversion of an ErrRVal to an ErrVal. only safe to use from postProcessErrs and postProcessEitherErrs.
+errRValToErrVal :: ErrRVal -> ErrVal
+errRValToErrVal (ErrRVal r i) = ErrVal r (fromAscList (toList i))
 
 -- | Our "like" operator. unicode point u+23a3.
 (⎣) :: GVec -> GVec -> GVec
