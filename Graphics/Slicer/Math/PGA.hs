@@ -936,9 +936,9 @@ eToPLine2WithErr l1 = (res, resErr)
   where
     (res, (_, _, resErr)) = join2PPointsWithErr (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
 
---------------------------------------------------------------
+---------------------------------------------------------------------
 ---- Utillity functions that use sqrt(), or divVecScalarWithErr. ----
---------------------------------------------------------------
+---------------------------------------------------------------------
 
 -- | find the idealized norm of a projective point (ideal or not).
 idealNormPPoint2WithErr :: ProjectivePoint -> (ℝ, UlpSum)

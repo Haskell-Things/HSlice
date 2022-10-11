@@ -52,7 +52,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), mapWithFollower, roundPoint2, startPoint, distance, xOf, yOf, minMaxPoints, makeLineSeg, endPoint)
 
 -- Our Geometric Algebra library.
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), addValPairWithErr, subValPairWithErr, addVal, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤), UlpSum(UlpSum), ErrVal(ErrVal))
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addVal, addValPairWithErr, subVal, subValPairWithErr, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersectionBetween)
 
@@ -158,7 +158,7 @@ geomAlgSpec = do
       addValPairWithErr (GVal 1 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 2))) --> [(GVal 1 (singleton (GEPlus 1)), mempty), (GVal 1 (singleton (GEPlus 2)), mempty)]
     -- 2e1-1e1 = e1
     it "subtracts two values with a common basis vector" $
-      subValPairWithErr (GVal 2 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 1))) --> [(GVal 1 (singleton (GEPlus 1)),ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1)))]
+      subValPairWithErr (GVal 2 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 1))) --> [(GVal 1 (singleton (GEPlus 1)), ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1)))]
     -- 1e1-1e2 = e1-e2
     it "subtracts two values with different basis vectors" $
       subValPairWithErr (GVal 1 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 2))) --> [(GVal 1 (singleton (GEPlus 1)), mempty), (GVal (-1.0) (singleton (GEPlus 2)),mempty)]
@@ -182,7 +182,7 @@ geomAlgSpec = do
     it "subtracts a (multi)vector from another (multi)vector" $
       subVecPair (GVec [GVal 1 (singleton (GEPlus 1))]) (GVec [GVal 1 (singleton (GEPlus 1))]) --> GVec []
     -- 2*1e1 = 2e1
-    it "multiplies a (multi)vector by a scalar" $
+    it "multiplies a (multi)vector by a scalar (mulScalarVecWithErr)" $
       mulScalarVecWithErr 2 (GVec [GVal 1 (singleton (GEPlus 1))]) --> (GVec [GVal 2 (singleton (GEPlus 1))],[ErrVal (UlpSum 4.440892098500626e-16) (singleton (GEPlus 1))])
     it "multiplies a (multi)vector by a scalar (G0)" $
       GVec [GVal 2 (singleton G0)] • GVec [GVal 1 (singleton (GEPlus 1))] --> GVec [GVal 2 (singleton (GEPlus 1))]
