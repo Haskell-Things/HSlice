@@ -160,18 +160,19 @@ eValOf r Nothing = r
 eValOf _ (Just (ErrVal v _)) = v
 
 -- | Add two geometric values together.
-addValPairWithErr :: GVal -> GVal -> ([GVal], UlpSum)
+addValPairWithErr :: GVal -> GVal -> [(GVal,ErrVal)]
 addValPairWithErr v1@(GVal r1 i1) v2@(GVal r2 i2)
-  | r1 == 0 && r2 == 0      = ([],mempty)
-  | r1 == 0                 = ([v2],mempty)
-  | r2 == 0                 = ([v1],mempty)
-  | i1 == i2 && r1 == (-r2) = ([],mempty)
-  | i1 == i2                = ([GVal res i1]
-                              , UlpSum $ abs $ realToFrac $ doubleUlp res)
-  | otherwise               = (sort [v1,v2],mempty)
+  | r1 == 0 && r2 == 0      = []
+  | r1 == 0                 = [(v2,mempty)]
+  | r2 == 0                 = [(v1,mempty)]
+  | i1 == i2 && r1 == (-r2) = []
+  | i1 == i2                = [(GVal res i1
+                              , ErrVal resErr i1)]
+  | otherwise               = sort [(v1,mempty),(v2,mempty)]
   where
     res :: ℝ
     res = realToFrac (realToFrac r1 + realToFrac r2 :: Rounded 'ToNearest ℝ)
+    resErr = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac (realToFrac r1 + realToFrac r2 :: Rounded 'TowardInf ℝ)
 
 -- | Subtract a geometric value from another geometric value.
 -- FIXME: error component?
