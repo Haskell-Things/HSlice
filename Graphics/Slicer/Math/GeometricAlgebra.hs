@@ -187,31 +187,43 @@ subValPairWithErr v1@(GVal r1 i1) (GVal r2 i2)
 -- | Add a geometric value to a list of geometric values.
 --   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
 addVal :: [GVal] -> GVal -> [GVal]
-addVal dst src = fst $ addValWithErr (dst, mempty) src
+addVal dst src = fst <$> addValWithErr ((,mempty) <$> dst) src
 
 -- | Add a geometric value to a list of geometric values.
 --   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
-addValWithErr :: ([GVal], UlpSum) -> GVal -> ([GVal], UlpSum)
-addValWithErr dst@(dstVals, dstUlp@(UlpSum dstErr)) src@(GVal r1 _)
-  | r1 == 0 = dst
-  | null dstVals = ([src], mempty)
-  | otherwise = case sameBasis src dstVals of
-                  Nothing  -> (insertSet src dstVals, dstUlp)
-                  (Just a) -> if rOf a == (-r1)
-                              then (diffBasis src dstVals, dstUlp)
-                              else (insertSet (GVal newVal $ iOf src) (diffBasis src dstVals)
-                                ,UlpSum $ dstErr + abs ( realToFrac $ doubleUlp newVal))
+addValWithErr :: [(GVal, ErrVal)] -> GVal -> [(GVal, ErrVal)]
+addValWithErr dstVals src@(GVal r1 _)
+  | r1 == 0 = dstVals
+  | null dstVals = [(src, mempty)]
+  | otherwise = case sameI src dstVals of
+                  Nothing  -> insertSet (src,mempty) dstVals
+                  (Just (a,e)) -> if rOf a == (-r1)
+                                  then diffI src dstVals
+                                  else insertSet (GVal newVal $ iOf src, newErr) (diffI src dstVals)
                     where
                       newVal :: ℝ
                       newVal = realToFrac (realToFrac (rOf a) + realToFrac r1 :: Rounded 'ToNearest ℝ)
+                      newErrVal = (realToFrac (rOf a) + realToFrac r1 :: Rounded 'TowardInf ℝ)
+                      newErr = e <> ErrVal (UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac newErrVal ) (iOf src)
   where
-    sameBasis :: GVal -> [GVal] -> Maybe GVal
-    sameBasis val srcVals = headMay $ P.filter (\(GVal _ i) -> i == iOf val) srcVals
-    diffBasis :: GVal -> [GVal] -> [GVal]
-    diffBasis val = P.filter (\(GVal _ i) -> i /= iOf val)
+    sameI :: GVal -> [(GVal,ErrVal)] -> Maybe (GVal,ErrVal)
+    sameI val srcVals = headMay $ P.filter (\(GVal _ i,_) -> i == iOf val) srcVals
+    diffI :: GVal -> [(GVal,ErrVal)] -> [(GVal,ErrVal)]
+    diffI val = P.filter (\(GVal _ i,_) -> i /= iOf val)
     iOf (GVal _ i) = i
     rOf (GVal r _) = r
 
+-- | Subtract a geometric value from a list of geometric values.
+--   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
+-- FIXME: error component?
+subVal :: [GVal] -> GVal -> [GVal]
+subVal dst (GVal r i) = addVal dst $ GVal (-r) i
+
+-- | Subtract a geometric value from a list of geometric values.
+subValWithErr :: [(GVal, ErrVal)] -> GVal -> [(GVal, ErrVal)]
+subValWithErr = dst (GVal r i) = addValWithErr dst $ GVal (-r) i
+
+-- | add an error quotent to a list of error quotents.
 addErr :: [ErrVal] -> ErrVal -> [ErrVal]
 addErr dstErrs src@(ErrVal _ i1)
   | src == mempty = dstErrs
@@ -225,12 +237,6 @@ addErr dstErrs src@(ErrVal _ i1)
   where
     sameI :: Set GNum -> [ErrVal] -> Maybe ErrVal
     sameI i errs = headMay $ P.filter (\(ErrVal _ i2) -> i2 == i) errs
-
--- | Subtract a geometric value from a list of geometric values.
---   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
--- FIXME: error component?
-subVal :: [GVal] -> GVal -> [GVal]
-subVal dst (GVal r i) = addVal dst $ GVal (-r) i
 
 -- | Add two vectors together.
 addVecPair :: GVec -> GVec -> GVec
