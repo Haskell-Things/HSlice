@@ -245,22 +245,22 @@ distanceBetweenCPPointsWithErr cpoint1 cpoint2 = (res, ulpTotal)
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
 distanceBetweenNPLine2sWithErr :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
-distanceBetweenNPLine2sWithErr (NPLine2 pv1) (NPLine2 pv2) = (ideal, idealUlpSum <> resUlpSum)
+distanceBetweenNPLine2sWithErr (NPLine2 pv1) (NPLine2 pv2) = (ideal, resUlpSum)
   where
-    (ideal, idealUlpSum) = idealNormPPoint2WithErr $ PPoint2 res
-    resUlpSum = sumErrVals resErr
-    (res, resErr) = p1 ⎣+ p2
+    (ideal, idealUlpSum) = idealNormPPoint2WithErr $ PPoint2 likeRes
+    resUlpSum = idealUlpSum <> sumErrVals likeMulErr <> sumErrVals likeAddErr
+    (likeRes, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
     (PLine2 p1) = forcePLine2Basis $ PLine2 pv1
     (PLine2 p2) = forcePLine2Basis $ PLine2 pv2
 
 -- | Return the sine of the angle between the two lines, along with the error. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
 -- FIXME: not generating large enough ULPs. why?
 angleBetweenWithErr :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
-angleBetweenWithErr (NPLine2 pv1) (NPLine2 pv2) = (scalarPart res
+angleBetweenWithErr (NPLine2 pv1) (NPLine2 pv2) = (scalarPart likeRes
                                                   , ulpSum)
   where
-    ulpSum = sumErrVals resErr
-    (res, resErr) = p1 ⎣+ p2
+    ulpSum = sumErrVals likeMulErr <> sumErrVals likeAddErr
+    (likeRes, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
     (PLine2 p1) = forcePLine2Basis $ PLine2 pv1
     (PLine2 p2) = forcePLine2Basis $ PLine2 pv2
 
