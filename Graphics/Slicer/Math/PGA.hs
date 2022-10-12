@@ -95,7 +95,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, scalePoint, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, valOf, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf, vectorPart)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
@@ -207,25 +207,27 @@ distanceCPPointToNPLineWithErr point (NPLine2 nplvec)
   where
     (res, UlpSum resErr)           = normOfPLine2WithErr newPLine
     (newPLine, UlpSum newPLineErr) = join2CPPoint2WithErr point linePoint
-    (perpLine, UlpSum perpLineErr) = lvec ⨅+ npvec
+    (perpLine, (plMulErr,plAddErr))= lvec ⨅+ npvec
     (PLine2 lvec)                  = forcePLine2Basis (PLine2 nplvec)
     (CPPoint2 npvec)               = forceCPPoint2Basis point
     (linePoint, UlpSum lpErr)      = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
-    ulpTotal                       = UlpSum $ lpErr + perpLineErr + newPLineErr + resErr
+    ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr <> UlpSum (lpErr + newPLineErr + resErr)
     foundVal                       = getVal [GEPlus 1, GEPlus 2] $ (\(CPPoint2 (GVec vals)) -> vals) point
 
 -- | Determine if two points are on the same side of a given line.
 pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
 pPointsOnSameSideOfPLine point1 point2 line
   -- Return nothing if one of the points is on the line.
-  |  abs foundP1 < realToFrac unlikeP1Err ||
-     abs foundP2 < realToFrac unlikeP2Err    = Nothing
+  |  abs foundP1 < realToFrac (ulpVal unlikeP1UlpSum) ||
+     abs foundP2 < realToFrac (ulpVal unlikeP2UlpSum)    = Nothing
     | otherwise = Just $ isPositive foundP1 == isPositive foundP2
   where
     foundP1 = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1
     foundP2 = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2
-    (GVec unlikeP1, UlpSum unlikeP1Err) = pv1 ⎤+ lv1
-    (GVec unlikeP2, UlpSum unlikeP2Err) = pv2 ⎤+ lv1
+    unlikeP1UlpSum = sumErrVals unlikeP1MulErr <> sumErrVals unlikeP1AddErr
+    unlikeP2UlpSum = sumErrVals unlikeP2MulErr <> sumErrVals unlikeP2AddErr
+    (GVec unlikeP1, (unlikeP1MulErr, unlikeP1AddErr)) = pv1 ⎤+ lv1
+    (GVec unlikeP2, (unlikeP2MulErr, unlikeP2AddErr)) = pv2 ⎤+ lv1
     (PPoint2 pv1) = forcePPoint2Basis point1
     (PPoint2 pv2) = forcePPoint2Basis point2
     (PLine2 lv1) = forcePLine2Basis line
@@ -241,10 +243,11 @@ distanceBetweenCPPointsWithErr cpoint1 cpoint2 = (res, ulpTotal)
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
 distanceBetweenNPLine2sWithErr :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
-distanceBetweenNPLine2sWithErr (NPLine2 pv1) (NPLine2 pv2) = (ideal, UlpSum $ idealErr + resErr)
+distanceBetweenNPLine2sWithErr (NPLine2 pv1) (NPLine2 pv2) = (ideal, idealUlpSum <> resUlpSum)
   where
-    (ideal, UlpSum idealErr) = idealNormPPoint2WithErr $ PPoint2 res
-    (res, UlpSum resErr) = p1 ⎣+ p2
+    (ideal, idealUlpSum) = idealNormPPoint2WithErr $ PPoint2 res
+    resUlpSum = sumErrVals resErr
+    (res, resErr) = p1 ⎣+ p2
     (PLine2 p1) = forcePLine2Basis $ PLine2 pv1
     (PLine2 p2) = forcePLine2Basis $ PLine2 pv2
 
@@ -254,7 +257,8 @@ angleBetweenWithErr :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
 angleBetweenWithErr (NPLine2 pv1) (NPLine2 pv2) = (scalarPart res
                                                   , ulpSum)
   where
-    (res, ulpSum) = p1 ⎣+ p2
+    ulpSum = sumErrVals resErr
+    (res, resErr) = p1 ⎣+ p2
     (PLine2 p1) = forcePLine2Basis $ PLine2 pv1
     (PLine2 p2) = forcePLine2Basis $ PLine2 pv2
 
@@ -264,17 +268,16 @@ pPointOnPerpWithErr pline rppoint d = (PPoint2 res,
                                         ulpTotal)
   where
     res = motor•pvec•reverseGVec motor
-    (NPLine2 rlvec,UlpSum lErr)    = normalizePLine2WithErr pline
-    (perpLine,UlpSum perpPLineErr) = lvec ⨅+ pvec
+    (NPLine2 rlvec, lErr)          = normalizePLine2WithErr pline
+    (perpLine, (plMulErr,plAddErr))= lvec ⨅+ pvec
     (PLine2 lvec)                  = forcePLine2Basis $ PLine2 rlvec
     (PPoint2 pvec)                 = forcePPoint2Basis rppoint
     motorUlp = sumErrVals motorErr
     (motor, motorErr) = addVecPairWithErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
     gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
-    gaIErr :: Rounded 'TowardInf ℝ
-    gaIErr = abs $ realToFrac $ doubleUlp $ d/2
-    ulpTotal = motorUlp <> (UlpSum $ gaIErr + perpPLineErr + lErr)
+    gaIErr = UlpSum $ abs $ realToFrac $ doubleUlp $ d/2
+    ulpTotal = motorUlp <> sumErrVals plMulErr <> sumErrVals plAddErr <> gaIErr <>lErr
 
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Abuses the property that translation of a line is expressed on the GEZero component.
@@ -611,10 +614,12 @@ class Arcable a where
 
 -- | The join operator in 2D PGA, which is implemented as the meet operator operating in the dual space.
 (∨+) :: GVec -> GVec -> (GVec, UlpSum)
-(∨+) a b = (dual2DGVec $ GVec $ foldl' addVal [] res
+(∨+) a b = (vec
            , ulpSum)
   where
-    (GVec res, ulpSum) = dual2DGVec a ⎤+ dual2DGVec b
+    vec = dual2DGVec $ res
+    ulpSum = sumErrVals mulErr <> sumErrVals addErr
+    (res, (addErr, mulErr)) = dual2DGVec a ⎤+ dual2DGVec b
 infixl 9 ∨+
 
 -- | a typed join function. join two points, returning a line.
@@ -639,9 +644,10 @@ join2CPPoint2WithErr pp1 pp2 = (PLine2 res,
 -- | A typed meet function. the meeting of two lines is a point.
 meet2PLine2WithErr :: NPLine2 -> NPLine2 -> (PPoint2, UlpSum)
 meet2PLine2WithErr (NPLine2 plr1) (NPLine2 plr2) = (PPoint2 res,
-                                                    resUlp)
+                                                    ulpSum)
   where
-    (res, resUlp) = pv1 ⎤+ pv2
+    ulpSum = sumErrVals mulErr <> sumErrVals addErr
+    (res, (addErr, mulErr)) = pv1 ⎤+ pv2
     (PLine2 pv1) = forcePLine2Basis $ PLine2 plr1
     (PLine2 pv2) = forcePLine2Basis $ PLine2 plr2
 
