@@ -25,7 +25,7 @@
 {-# LANGUAGE TupleSections #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•+), (•), (⋅), (⋅+), (∧), (∧+), addValPairWithErr, eValOf, getVal, sumErrVals, ulpVal, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subValPairWithErr, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
+module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•+), (•), (⋅+), (⋅), (∧+), (∧), addErr, addVal, addValPairWithErr, addVecPair, addVecPairWithErr, eValOf, getVal, mulScalarVecWithErr, subVal, subValPairWithErr, subVecPair, sumErrVals, valOf, divVecScalarWithErr, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
 
 import Prelude (Eq, Monoid(mempty), Ord(compare), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac)
 
@@ -595,18 +595,17 @@ errRValToErrVal (ErrRVal r i) = ErrVal r (fromAscList (toList i))
 (⎣) :: GVec -> GVec -> GVec
 infixl 9 ⎣
 (⎣) v1 v2 = fst $ v1 ⎣+ v2
--- | Our "like" operator. unicode point u+23a3.
 
-(⎣+) :: GVec -> GVec -> (GVec, UlpSum)
+-- | Our "like" operator, returning calculation error. unicode point u+23a3.
+(⎣+) :: GVec -> GVec -> (GVec, ([ErrVal], [ErrVal]))
 infixl 9 ⎣+
 (⎣+) v1 v2 = (GVec vals
-             , ulpTotal)
+             , (addErrs, mulErrs))
   where
     vals = fst <$> res
     addErrs = P.filter (/= mempty) $ snd <$> res
     res = foldl' addValWithErr [] $ postProcessEitherVals <$> likeRes
     mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> likeRes
-    ulpTotal = sumErrVals addErrs <> sumErrVals mulErrs
     likeRes = likeVecPairWithErr v1 v2
 
 -- | Our "unlike" operator. unicode point u+23a4.
