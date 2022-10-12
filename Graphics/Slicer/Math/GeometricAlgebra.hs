@@ -613,17 +613,16 @@ infixl 9 ⎣+
 infixl 9 ⎤
 (⎤) v1 v2 = fst $ v1 ⎤+ v2
 
--- | Our "unlike" operator. unicode point u+23a4.
-(⎤+) :: GVec -> GVec -> (GVec, UlpSum)
+-- | Our "unlike" operator, with attached Error bounds. unicode point u+23a4.
+(⎤+) :: GVec -> GVec -> (GVec, ([ErrVal], [ErrVal]))
 infixl 9 ⎤+
 (⎤+) v1 v2 = (GVec vals
-             , ulpTotal)
+             , (addErrs, mulErrs))
   where
     vals = fst <$> res
     addErrs = P.filter (/= mempty) $ snd <$> res
     res = foldl' addValWithErr [] $ postProcessEitherVals <$> unlikeRes
     mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> unlikeRes
-    ulpTotal = sumErrVals addErrs <> sumErrVals mulErrs
     unlikeRes = unlikeVecPairWithErr v1 v2
 
 -- | Our "reductive" operator.
