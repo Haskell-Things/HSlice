@@ -27,7 +27,7 @@
 {-# LANGUAGE TupleSections #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•+), (•), (⋅), (⋅+), (∧), (∧+), addErr, addValPairWithErr, eValOf, getVal, sumErrVals, ulpVal, valOf, addVal, subVal, addVecPair, addVecPairWithErr, subValPairWithErr, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
+module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•+), (•), (⋅+), (⋅), (∧+), (∧), addErr, addVal, addValPairWithErr, addValWithErr, addVecPair, addVecPairWithErr, eValOf, getVal, mulScalarVecWithErr, subVal, subValPairWithErr, subVecPair, sumErrVals, ulpVal, valOf, divVecScalarWithErr, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
 
 import Prelude (Eq, Monoid(mempty), Ord(compare), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac)
 
@@ -599,16 +599,16 @@ infixl 9 ⎣
 (⎣) v1 v2 = fst $ v1 ⎣+ v2
 
 -- | Our "like" operator, returning calculation error. unicode point u+23a3.
-(⎣+) :: GVec -> GVec -> (GVec, ([ErrVal], [ErrVal]))
+(⎣+) :: GVec -> GVec -> (GVec, [ErrVal])
 infixl 9 ⎣+
 (⎣+) v1 v2 = (GVec vals
-             , (addErrs, mulErrs))
+             , mulErrs)
   where
     vals = fst <$> res
-    addErrs = P.filter (/= mempty) $ snd <$> res
-    mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> newRes
-    res = foldl' addValWithErr [] $ postProcessEitherVals <$> newRes
-    newRes = likeVecPairWithErr v1 v2
+    -- NOTE: like values will never have an addition error.
+    res = foldl' addValWithErr [] $ postProcessEitherVals <$> likeRes
+    mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> likeRes
+    likeRes = likeVecPairWithErr v1 v2
 
 -- | Our "unlike" operator. unicode point u+23a4.
 (⎤) :: GVec -> GVec -> GVec
@@ -619,7 +619,7 @@ infixl 9 ⎤
 (⎤+) :: GVec -> GVec -> (GVec, ([ErrVal], [ErrVal]))
 infixl 9 ⎤+
 (⎤+) v1 v2 = (GVec vals
-             , (addErrs, mulErrs))
+             , (mulErrs, addErrs))
   where
     vals = fst <$> res
     addErrs = P.filter (/= mempty) $ snd <$> res
@@ -636,13 +636,13 @@ infixl 9 ⨅
 (⨅+) :: GVec -> GVec -> (GVec, ([ErrVal],[ErrVal]))
 infixl 9 ⨅+
 (⨅+) v1 v2 = (GVec vals
-             , (addErrs, mulErrs))
+             , (mulErrs, addErrs))
   where
     vals = fst <$> res
     addErrs = P.filter (/= mempty) $ snd <$> res
-    mulErrs = foldl' addErr [] $ postProcessErrs . snd <$> rawRes
-    res = foldl' addValWithErr [] $ postProcess . fst <$> rawRes
-    rawRes = reduceVecPairWithErr v1 v2
+    res = foldl' addValWithErr [] $ postProcess . fst <$> reduceRes
+    mulErrs = foldl' addErr [] $ postProcessErrs . snd <$> reduceRes
+    reduceRes = reduceVecPairWithErr v1 v2
 
 -- | A wedge operator. gets the wedge product of the two arguments. note that wedge = reductive minus unlike.
 (∧) :: GVec -> GVec -> GVec
@@ -686,9 +686,12 @@ infixl 9 ⋅+
 (⋅+) v1 v2 = (vec
               , (likeMulErrs, reduceMulErrs, reduceAddErrs, vecAddErrs))
   where
-    (vec, vecAddErrs) = addVecPairWithErr (GVec reduceVals) (GVec likeVals)
+    vecAddErrs = P.filter (/= mempty) $ vecAddErrsRaw
+    (vec, vecAddErrsRaw) = addVecPairWithErr (GVec reduceVals) (GVec likeVals)
     likeVals = fst <$> likeRes'
     likeMulErrs = foldl' addErr [] $ postProcessEitherErrs <$> likeRes
+    -- note that for like operations, there will be no Err component here.
+    -- FIXME: implement addValWithoutErr, to raise this to the type level?
     likeRes' = foldl' addValWithErr [] $ postProcessEitherVals <$> likeRes
     likeRes = likeVecPairWithErr v1 v2
     reduceVals = fst <$> reduceRes'
@@ -703,11 +706,12 @@ infixl 9 •
 (•) v1 v2 = GVec $ foldl' addVal [] $ postProcessVals <$> mulVecPair v1 v2
 
 -- | A geometric product operator. Gets the geometric product of the two arguments.
-(•+) :: GVec -> GVec -> (GVec, [ErrVal])
+(•+) :: GVec -> GVec -> (GVec, ([ErrVal], [ErrVal]))
 infixl 9 •+
-(•+) v1 v2 = (GVec vals, geomMulErrs)
+(•+) v1 v2 = (GVec vals, (geomMulErrs, geomAddErrs))
   where
     vals = fst <$> geomRes'
+    geomAddErrs = snd <$> geomRes'
     geomMulErrs = foldl' addErr [] $ postProcessEitherErrs <$> geomRes
     geomRes' = foldl' addValWithErr [] $ postProcessEitherVals <$> geomRes
     geomRes = mulVecPairWithErr v1 v2

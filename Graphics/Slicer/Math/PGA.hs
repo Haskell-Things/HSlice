@@ -298,7 +298,7 @@ pLineFuzziness (inPLine, inErr) = transErr
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
 -- FIXME: accept input error amounts, take input error amounts into consideration.
-distanceBetweenPLinesWithErr :: ProjectiveLine -> ProjectiveLine -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
+distanceBetweenPLinesWithErr :: ProjectiveLine -> ProjectiveLine -> (ℝ, (PLine2Err, PLine2Err, [ErrVal], UlpSum))
 distanceBetweenPLinesWithErr pl1 pl2 = (res, resErr)
   where
     (res, idealErr) = idealNormPPoint2WithErr $ PPoint2 like
@@ -311,12 +311,12 @@ distanceBetweenPLinesWithErr pl1 pl2 = (res, resErr)
 
 -- | Return the sine of the angle between the two lines, along with the error.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
-angleBetweenWithErr :: ProjectiveLine -> ProjectiveLine -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal],[ErrVal]), UlpSum))
+angleBetweenWithErr :: ProjectiveLine -> ProjectiveLine -> (ℝ, (PLine2Err, PLine2Err, [ErrVal], UlpSum))
 angleBetweenWithErr pl1 pl2 = (res, resErr)
   where
-    (res, scalarErr) = (scalarPart like, ulpVal (eValOf mempty $ getVal [G0] likeAddErr) + ulpVal (eValOf mempty $ getVal [G0] likeMulErr))
-    resErr = (pv1Err, pv2Err, (likeAddErr, likeMulErr), UlpSum scalarErr)
-    (like, (likeAddErr, likeMulErr)) = p1 ⎣+ p2
+    (res, scalarErr) = (scalarPart like, eValOf mempty $ getVal [G0] likeMulErr)
+    resErr = (pv1Err, pv2Err, likeMulErr, scalarErr)
+    (like, likeMulErr) = p1 ⎣+ p2
     (NPLine2 p1) = forcePLine2Basis np1
     (NPLine2 p2) = forcePLine2Basis np2
     (np1,pv1Err) = normalizePLine2WithErr pl1
