@@ -241,10 +241,11 @@ distanceBetweenCPPointsWithErr cpoint1 cpoint2 = (res, ulpTotal)
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
 distanceBetweenNPLine2sWithErr :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
-distanceBetweenNPLine2sWithErr (NPLine2 pv1) (NPLine2 pv2) = (ideal, UlpSum $ idealErr + resErr)
+distanceBetweenNPLine2sWithErr (NPLine2 pv1) (NPLine2 pv2) = (ideal, idealUlpSum <> resUlpSum)
   where
-    (ideal, UlpSum idealErr) = idealNormPPoint2WithErr $ PPoint2 res
-    (res, UlpSum resErr) = p1 ⎣+ p2
+    (ideal, idealUlpSum) = idealNormPPoint2WithErr $ PPoint2 res
+    resUlpSum = sumErrVals resErr
+    (res, resErr) = p1 ⎣+ p2
     (PLine2 p1) = forcePLine2Basis $ PLine2 pv1
     (PLine2 p2) = forcePLine2Basis $ PLine2 pv2
 
@@ -254,7 +255,8 @@ angleBetweenWithErr :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
 angleBetweenWithErr (NPLine2 pv1) (NPLine2 pv2) = (scalarPart res
                                                   , ulpSum)
   where
-    (res, ulpSum) = p1 ⎣+ p2
+    ulpSum = sumErrVals resErr
+    (res, resErr) = p1 ⎣+ p2
     (PLine2 p1) = forcePLine2Basis $ PLine2 pv1
     (PLine2 p2) = forcePLine2Basis $ PLine2 pv2
 
