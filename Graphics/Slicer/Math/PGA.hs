@@ -1,6 +1,6 @@
 {- ORMOLU_DISABLE -}
 {-
- - Copyright 2020 Julia Longtin
+ - Copyright 2020-2022 Julia Longtin
  -
  - This program is free software: you can redistribute it and/or modify
  - it under the terms of the GNU Affero General Public License as published by
@@ -95,7 +95,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, scalePoint, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf, vectorPart)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
@@ -144,6 +144,8 @@ plinesIntersectIn pl1 pl2
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: PLine2 -> PLine2 -> Maybe Bool
 pLineIsLeft pl1 pl2
+  | pl1 == pl2                    = Nothing
+  | npl1 == npl2                  = Nothing
   | abs res < realToFrac ulpTotal = Nothing
   | otherwise                     = Just $ res > 0
   where
@@ -272,12 +274,11 @@ pPointOnPerpWithErr pline rppoint d = (PPoint2 res,
     (perpLine, (plMulErr,plAddErr))= lvec ⨅+ pvec
     (PLine2 lvec)                  = forcePLine2Basis $ PLine2 rlvec
     (PPoint2 pvec)                 = forcePPoint2Basis rppoint
-    motorUlp = sumErrVals motorErr
-    (motor, motorErr) = addVecPairWithErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
+    motor = addVecPairWithoutErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
     gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
     gaIErr = UlpSum $ abs $ realToFrac $ doubleUlp $ d/2
-    ulpTotal = motorUlp <> sumErrVals plMulErr <> sumErrVals plAddErr <> gaIErr <>lErr
+    ulpTotal = sumErrVals plMulErr <> sumErrVals plAddErr <> gaIErr <>lErr
 
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Abuses the property that translation of a line is expressed on the GEZero component.

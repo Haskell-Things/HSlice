@@ -25,7 +25,7 @@
 {-# LANGUAGE TupleSections #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•+), (•), (⋅+), (⋅), (∧+), (∧), addErr, addVal, addValPairWithErr, addValWithErr, addVecPair, addVecPairWithErr, eValOf, getVal, mulScalarVecWithErr, subVal, subValPairWithErr, subVecPair, sumErrVals, valOf, divVecScalarWithErr, scalarPart, ulpVal, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
+module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•+), (•), (⋅+), (⋅), (∧+), (∧), addErr, addVal, addValPairWithErr, addValWithErr, addVecPair, addVecPairWithErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, subVal, subValPairWithErr, subVecPair, sumErrVals, valOf, divVecScalarWithErr, scalarPart, ulpVal, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
 
 import Prelude (Eq, Monoid(mempty), Ord(compare), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac)
 
@@ -39,7 +39,7 @@ import Data.Bits.Floating.Ulp (doubleUlp)
 
 import Data.Either (Either(Left, Right))
 
-import Data.List (foldl')
+import Data.List (all, foldl')
 
 import Data.List.NonEmpty (NonEmpty((:|)), toList, cons, nonEmpty)
 
@@ -254,6 +254,17 @@ addVecPairWithErr (GVec vals1) (GVec vals2) = (resVec, resErr)
   where
     resVec = GVec $ fst <$> res
     resErr = P.filter (/= mempty) $ snd <$> res
+    res = foldl' addValWithErr ((,mempty) <$> vals1) vals2
+
+-- | Add two vectors together, and ensure that there is not any error produced by the operation
+addVecPairWithoutErr :: GVec -> GVec -> GVec
+addVecPairWithoutErr (GVec vals1) (GVec vals2)
+  | all (== mempty) (snd <$> res) = resVec
+  | otherwise = error $ "Condition failed: Error found when adding vec pairs:\n"
+                      <> show vals1 <> "\n"
+                      <> show vals2 <> "\n"
+  where
+    resVec = GVec $ fst <$> res
     res = foldl' addValWithErr ((,mempty) <$> vals1) vals2
 
 -- | Subtract one vector from the other.
