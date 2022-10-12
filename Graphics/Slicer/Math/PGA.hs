@@ -69,7 +69,7 @@ module Graphics.Slicer.Math.PGA(
   ulpOfPLine2
   ) where
 
-import Prelude (Eq((==),(/=)), Show, Ord, ($), (*), (-), Bool, (&&), (<$>), mempty, otherwise, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.), realToFrac)
+import Prelude (Eq((==),(/=)), Show, Ord, ($), (*), (-), Bool, (&&), (<$>), mempty, otherwise, signum, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.), realToFrac)
 
 import GHC.Generics (Generic)
 
@@ -188,20 +188,22 @@ pPointBetweenPPointsWithErr start stop weight1 weight2 = (PPoint2 cRes, UlpSum $
 
 cPPointBetweenCPPointsWithErr :: CPPoint2 -> CPPoint2 -> ℝ -> ℝ -> (CPPoint2, UlpSum)
 cPPointBetweenCPPointsWithErr (CPPoint2 rawStartPoint) (CPPoint2 rawStopPoint) weight1 weight2
-  | valOf 0 foundVal == 0 = error "tried to generate an ideal point?"
+  | isNothing foundVal = error "tried to generate an ideal point?"
   | otherwise = (res, ulpSum)
   where
-    ulpSum = resUlpSum <> sumErrVals addVecResErr
     (res, resUlpSum) = canonicalizePPoint2WithErr $ PPoint2 addVecRes
+    ulpSum = resUlpSum <> sumErrVals addVecResErr <> sumErrVals weighedStartErr <> sumErrVals weighedStopErr
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) addVecRes
-    (addVecRes, addVecResErr) = addVecPairWithErr (fst $ mulScalarVecWithErr weight1 rawStartPoint) (fst $ mulScalarVecWithErr weight2 rawStopPoint)
+    (addVecRes, addVecResErr) = addVecPairWithErr weighedStart weighedStop
+    (weighedStart, weighedStartErr) = mulScalarVecWithErr weight1 rawStartPoint
+    (weighedStop, weighedStopErr) = mulScalarVecWithErr weight2 rawStopPoint
 
 distancePPointToPLineWithErr :: PPoint2 -> PLine2 -> (ℝ, UlpSum)
-distancePPointToPLineWithErr point line = (res, UlpSum $ resErr + normErr + nPVecErr)
+distancePPointToPLineWithErr point line = (res, resErr <> normErr <> nPVecErr)
   where
-    (res, UlpSum resErr)         = distanceCPPointToNPLineWithErr rnpvec normedLine
-    (rnpvec, UlpSum nPVecErr)    = canonicalizePPoint2WithErr point
-    (normedLine, UlpSum normErr) = normalizePLine2WithErr line
+    (res, resErr)         = distanceCPPointToNPLineWithErr rnpvec normedLine
+    (rnpvec, nPVecErr)    = canonicalizePPoint2WithErr point
+    (normedLine, normErr) = normalizePLine2WithErr line
 
 -- FIXME: use the distance to increase ULP appropriately?
 distanceCPPointToNPLineWithErr :: CPPoint2 -> NPLine2 -> (ℝ, UlpSum)
@@ -209,13 +211,13 @@ distanceCPPointToNPLineWithErr point (NPLine2 nplvec)
   | valOf 0 foundVal == 0 = error "attempted to get the distance of an ideal point."
   | otherwise = (res, ulpTotal)
   where
-    (res, UlpSum resErr)           = normOfPLine2WithErr newPLine
-    (newPLine, UlpSum newPLineErr) = join2CPPoint2WithErr point linePoint
+    (res, resErr)                  = normOfPLine2WithErr newPLine
+    (newPLine, newPLineErr)        = join2CPPoint2WithErr point linePoint
     (perpLine, (plMulErr,plAddErr))= lvec ⨅+ npvec
     (PLine2 lvec)                  = forcePLine2Basis (PLine2 nplvec)
     (CPPoint2 npvec)               = forceCPPoint2Basis point
-    (linePoint, UlpSum lpErr)      = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
-    ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr <> UlpSum (lpErr + newPLineErr + resErr)
+    (linePoint, lpErr)             = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
+    ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr <> resErr <> newPLineErr <>  lpErr
     foundVal                       = getVal [GEPlus 1, GEPlus 2] $ (\(CPPoint2 (GVec vals)) -> vals) point
 
 -- | Determine if two points are on the same side of a given line.
@@ -224,7 +226,7 @@ pPointsOnSameSideOfPLine point1 point2 line
   -- Return nothing if one of the points is on the line.
   |  abs foundP1 < realToFrac (ulpVal unlikeP1UlpSum) ||
      abs foundP2 < realToFrac (ulpVal unlikeP2UlpSum)    = Nothing
-    | otherwise = Just $ isPositive foundP1 == isPositive foundP2
+    | otherwise = Just $ signum foundP1 == signum foundP2
   where
     foundP1 = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1
     foundP2 = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2
@@ -235,8 +237,6 @@ pPointsOnSameSideOfPLine point1 point2 line
     (PPoint2 pv1) = forcePPoint2Basis point1
     (PPoint2 pv2) = forcePPoint2Basis point2
     (PLine2 lv1) = forcePLine2Basis line
-    isPositive :: ℝ -> Bool
-    isPositive i = i > 0
 
 distanceBetweenCPPointsWithErr :: CPPoint2 -> CPPoint2 -> (ℝ, UlpSum)
 distanceBetweenCPPointsWithErr cpoint1 cpoint2 = (res, ulpTotal)
