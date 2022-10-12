@@ -118,7 +118,7 @@ data PIntersection =
 plinesIntersectIn :: PLine2 -> PLine2 -> PIntersection
 plinesIntersectIn pl1 pl2
   | isNothing canonicalizedIntersection
-  || (idealNorm < realToFrac idnErr
+  || (idealNorm <= realToFrac (ulpVal idnErr)
      && (intersectAngle > maxAngle ||
          intersectAngle < minAngle )) = if intersectAngle > 0
                                         then PCollinear
@@ -131,7 +131,7 @@ plinesIntersectIn pl1 pl2
     minAngle, maxAngle :: ℝ
     minAngle = realToFrac (-1 + realToFrac iaErr :: Rounded 'TowardNegInf ℝ)
     maxAngle = realToFrac $ 1 - iaErr
-    (idealNorm, UlpSum idnErr) = idealNormPPoint2WithErr intersectPoint
+    (idealNorm, idnErr) = idealNormPPoint2WithErr intersectPoint
     (intersectAngle, UlpSum iaErr) = angleBetweenWithErr npl1 npl2
     -- FIXME: how much do the potential normalization errors have an effect on the resultant angle?
     (npl1, npl1Ulp) = normalizePLine2WithErr pl1
@@ -149,10 +149,10 @@ pLineIsLeft pl1 pl2
   | abs res < realToFrac ulpTotal = Nothing
   | otherwise                     = Just $ res > 0
   where
-    (res, UlpSum resErr)   = angleCos npl1 npl2
-    (npl1, UlpSum npl1Err) = normalizePLine2WithErr pl1
-    (npl2, UlpSum npl2Err) = normalizePLine2WithErr pl2
-    ulpTotal = npl1Err + npl2Err + resErr
+    (res, resErr)   = angleCos npl1 npl2
+    (npl1, npl1Err) = normalizePLine2WithErr pl1
+    (npl2, npl2Err) = normalizePLine2WithErr pl2
+    ulpTotal = ulpVal $ npl1Err <> npl2Err <> resErr
     -- | Find the cosine of the angle between the two lines. results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when "right".
     angleCos :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
     angleCos (NPLine2 lvec1) (NPLine2 lvec2)
@@ -161,9 +161,9 @@ pLineIsLeft pl1 pl2
       where
         angle = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
         (CPPoint2 iPointVec, iPointErr) = fromJust canonicalizedIntersection
-        motor                          = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
-        antiMotor                      = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
-        canonicalizedIntersection      = canonicalizeIntersectionWithErr pline1 pline2
+        motor                     = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
+        antiMotor                 = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
+        canonicalizedIntersection = canonicalizeIntersectionWithErr pline1 pline2
         -- I, the infinite point.
         gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
         pline1 = PLine2 lvec1
@@ -173,10 +173,10 @@ pLineIsLeft pl1 pl2
 pLineIntersectionWithErr :: PLine2 -> PLine2 -> (PPoint2, UlpSum)
 pLineIntersectionWithErr pl1 pl2 = (res, ulpTotal)
   where
-    (res, UlpSum resErr) = meet2PLine2WithErr pLine1 pLine2
-    (pLine1, UlpSum pl1Err) = normalizePLine2WithErr pl1
-    (pLine2, UlpSum pl2Err) = normalizePLine2WithErr pl2
-    ulpTotal = UlpSum $ resErr + pl1Err + pl2Err
+    (res, resErr) = meet2PLine2WithErr npl1 npl2
+    (npl1, npl1Err) = normalizePLine2WithErr pl1
+    (npl2, npl2Err) = normalizePLine2WithErr pl2
+    ulpTotal = resErr <> npl1Err <> npl2Err
 
 -- NOTE: returns a canonicalized point.
 pPointBetweenPPointsWithErr :: PPoint2 -> PPoint2 -> ℝ -> ℝ -> (PPoint2, UlpSum)
