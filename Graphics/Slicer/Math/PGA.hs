@@ -95,7 +95,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, scalePoint, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addVal, addVecPair, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf, vectorPart)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
@@ -576,10 +576,12 @@ getFirstArcWithErr p1 p2 p3
 getInsideArcWithErr :: PLine2 -> PLine2 -> (PLine2, UlpSum)
 getInsideArcWithErr pline1 pline2@(PLine2 pv2)
   | pline1 == pline2 = error "need to be able to return two PLines."
-  | otherwise = (PLine2 rawRes, resULP)
+  | otherwise = (PLine2 normRes, ulpSum)
   where
-      (NPLine2 rawRes, resULP) = normalizePLine2WithErr $ PLine2 $ addVecPair flippedPV1 pv2
-      (PLine2 flippedPV1) = flipPLine2 pline1
+    ulpSum = resUlp <> sumErrVals addVecErr
+    (NPLine2 normRes, resUlp) = normalizePLine2WithErr $ PLine2 $ addVecRes
+    (addVecRes, addVecErr) = addVecPairWithErr flippedPV1 pv2
+    (PLine2 flippedPV1) = flipPLine2 pline1
 
 ------------------------------------------------
 ----- And now draw the rest of the algebra -----
@@ -672,7 +674,7 @@ makeCPPoint2WithErr :: ℝ -> ℝ -> (CPPoint2, PPoint2PosErr)
 makeCPPoint2WithErr x y = (pPoint
                          , posErr)
   where
-    pPoint = CPPoint2 $ GVec $ foldl' addVal [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
+    pPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
     posErr = PPoint2PosErr $ abs (realToFrac $ doubleUlp $ negate x) -- + abs (realToFrac $ doubleUlp y)
 
 -- | Create a euclidian point from a projective point.
@@ -707,7 +709,7 @@ pPointToPoint2 point@(PPoint2 (GVec rawVals))
 
 -- | Reverse a vector. Really, take every value in it, and recompute it in the reverse order of the vectors (so instead of e0∧e1, e1∧e0). which has the effect of negating bi and tri-vectors.
 reverseGVec :: GVec -> GVec
-reverseGVec vec = GVec $ foldl' addVal []
+reverseGVec vec = GVec $ foldl' addValWithoutErr []
                   [
                     GVal           realVal                                               (singleton G0)
                   , GVal (         valOf 0 $ getVal [GEZero 1] vals)                     (singleton (GEZero 1))
@@ -724,7 +726,7 @@ reverseGVec vec = GVec $ foldl' addVal []
 
 -- | get the dual of a vector. for a point, find a line, for a line, a point...
 dual2DGVec :: GVec -> GVec
-dual2DGVec vec = GVec $ foldl' addVal []
+dual2DGVec vec = GVec $ foldl' addValWithoutErr []
                  [
                    GVal           realVal                                               (fromList [GEZero 1, GEPlus 1, GEPlus 2])
                  , GVal (         valOf 0 $ getVal [GEZero 1] vals)                     (fromList [GEPlus 1, GEPlus 2])
@@ -775,7 +777,7 @@ forceCPPoint2Basis (CPPoint2 pvec)            = CPPoint2 $ forceBasis [fromList 
 
 -- | Reverse a line. same line, but pointed in the other direction.
 flipPLine2 :: PLine2 -> PLine2
-flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl' addVal []
+flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl' addValWithoutErr []
                                   [
                                     GVal (negate $ valOf 0 $ getVal [GEZero 1] vals) (singleton (GEZero 1))
                                   , GVal (negate $ valOf 0 $ getVal [GEPlus 1] vals) (singleton (GEPlus 1))
@@ -786,7 +788,7 @@ eToPLine2WithErr :: LineSeg -> (PLine2, UlpSum)
 eToPLine2WithErr l1 = pLineFromEndpointsWithErr (startPoint l1) (endPoint l1)
 
 pLineFromEndpointsWithErr :: Point2 -> Point2 -> (PLine2, UlpSum)
-pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2)) = (PLine2 $ GVec $ foldl' addVal [] [ GVal c (singleton (GEZero 1)), GVal a (singleton (GEPlus 1)), GVal b (singleton (GEPlus 2)) ], ulpTotal)
+pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2)) = (PLine2 $ GVec $ foldl' addValWithoutErr [] [ GVal c (singleton (GEZero 1)), GVal a (singleton (GEPlus 1)), GVal b (singleton (GEPlus 2)) ], ulpTotal)
   where
     a=y2-y1
     b=x1-x2
@@ -849,7 +851,7 @@ canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
   | valOf 1 foundVal == 1 = ((\(PPoint2 v) -> CPPoint2 v) point, ulpSum)
   | otherwise = (res, ulpSum)
   where
-    res = CPPoint2 $ GVec $ foldl' addVal []
+    res = CPPoint2 $ GVec $ foldl' addValWithoutErr []
           $  ( if isNothing (getVal [GEZero 1, GEPlus 1] scaledVals)
                then []
                else [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 1] scaledVals) (fromList [GEZero 1, GEPlus 1])]
@@ -859,8 +861,8 @@ canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
                else [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] scaledVals) (fromList [GEZero 1, GEPlus 2])]
              )
           <> [GVal 1 (fromList [GEPlus 1, GEPlus 2])]
-    newVec = GVec $ addVal [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1])]
-                           (GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
+    newVec = GVec $ addValWithoutErr [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1])]
+                                     (GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
     (GVec scaledVals, _) = divVecScalarWithErr newVec $ valOf 1 foundVal
     foundVal = getVal [GEPlus 1, GEPlus 2] rawVals
     ulpSum = ulpOfCPPoint2 res
