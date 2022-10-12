@@ -161,8 +161,8 @@ pLineIsLeft pl1 pl2
       where
         angle = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
         (CPPoint2 iPointVec, iPointErr) = fromJust canonicalizedIntersection
-        motor                          = addVecPair (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
-        antiMotor                      = addVecPair (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
+        motor                          = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
+        antiMotor                      = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
         canonicalizedIntersection      = canonicalizeIntersectionWithErr pline1 pline2
         -- I, the infinite point.
         gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
@@ -189,10 +189,12 @@ pPointBetweenPPointsWithErr start stop weight1 weight2 = (PPoint2 cRes, UlpSum $
 cPPointBetweenCPPointsWithErr :: CPPoint2 -> CPPoint2 -> ℝ -> ℝ -> (CPPoint2, UlpSum)
 cPPointBetweenCPPointsWithErr (CPPoint2 rawStartPoint) (CPPoint2 rawStopPoint) weight1 weight2
   | valOf 0 foundVal == 0 = error "tried to generate an ideal point?"
-  | otherwise = canonicalizePPoint2WithErr $ PPoint2 res
+  | otherwise = (res, ulpSum)
   where
-    res = addVecPair (fst $ mulScalarVecWithErr weight1 rawStartPoint) (fst $ mulScalarVecWithErr weight2 rawStopPoint)
-    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) res
+    ulpSum = resUlpSum <> sumErrVals addVecResErr
+    (res, resUlpSum) = canonicalizePPoint2WithErr $ PPoint2 addVecRes
+    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) addVecRes
+    (addVecRes, addVecResErr) = addVecPairWithErr (fst $ mulScalarVecWithErr weight1 rawStartPoint) (fst $ mulScalarVecWithErr weight2 rawStopPoint)
 
 distancePPointToPLineWithErr :: PPoint2 -> PLine2 -> (ℝ, UlpSum)
 distancePPointToPLineWithErr point line = (res, UlpSum $ resErr + normErr + nPVecErr)
@@ -301,8 +303,8 @@ translateRotatePPoint2 ppoint d rotation = PPoint2 $ translator•pvec•reverse
         (PLine2 xLineVec) = forcePLine2Basis $ fst $ pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (1,0))
     (PLine2 angledLineThroughPPoint2) = forcePLine2Basis $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
       where
-        rotator = addVecPair (fst $ mulScalarVecWithErr (sin $ rotation/2) pvec) (GVec [GVal (cos $ rotation/2) (singleton G0)])
-    translator = addVecPair (angledLineThroughPPoint2 • gaIScaled) (GVec [GVal 1 (singleton G0)])
+        rotator = addVecPairWithoutErr (fst $ mulScalarVecWithErr (sin $ rotation/2) pvec) (GVec [GVal (cos $ rotation/2) (singleton G0)])
+    translator = addVecPairWithoutErr (angledLineThroughPPoint2 • gaIScaled) (GVec [GVal 1 (singleton G0)])
       where
         -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
         gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
