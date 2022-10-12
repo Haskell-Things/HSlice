@@ -642,9 +642,9 @@ infixl 9 ⎤+
 (⎤+) v1 v2 = (GVec vals
              , (mulErrs, addErrs))
   where
-    vals = fst <$> res
-    addErrs = P.filter (/= mempty) $ snd <$> res
-    res = foldl' addValWithErr [] $ postProcessEitherVals <$> unlikeRes
+    vals = fst <$> unlikeRes'
+    addErrs = P.filter (/= mempty) $ snd <$> unlikeRes'
+    unlikeRes' = foldl' addValWithErr [] $ postProcessEitherVals <$> unlikeRes
     mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> unlikeRes
     unlikeRes = unlikeVecPairWithErr v1 v2
 
