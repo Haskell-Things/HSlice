@@ -27,9 +27,9 @@
 {-# LANGUAGE TupleSections #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•+), (•), (⋅+), (⋅), (∧+), (∧), addErr, addVal, addValPairWithErr, addValWithErr, addVecPair, addVecPairWithErr, eValOf, getVal, mulScalarVecWithErr, subVal, subValPairWithErr, subVecPair, sumErrVals, ulpVal, valOf, divVecScalarWithErr, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
+module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•+), (•), (⋅+), (⋅), (∧+), (∧), addErr, addValPairWithErr, addValWithErr, addValWithoutErr, addVecPair, addVecPairWithErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, subVal, subValPairWithErr, subVecPair, sumErrVals, ulpVal, valOf, divVecScalarWithErr, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
 
-import Prelude (Eq, Monoid(mempty), Ord(compare), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), null, realToFrac, abs, (.), realToFrac)
+import Prelude (Eq, Monoid(mempty), Ord(compare), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), not, null, realToFrac, abs, (.), realToFrac)
 
 import Prelude as P (filter)
 
@@ -214,6 +214,23 @@ addValWithErr dstVals src@(GVal r1 _)
     iOf (GVal _ i) = i
     rOf (GVal r _) = r
 
+-- | Add a geometric value to a list of geometric values.
+--   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
+addValWithoutErr :: [GVal] -> GVal -> [GVal]
+addValWithoutErr dstVals src@(GVal r1 _)
+  | r1 == 0 = dstVals
+  | null dstVals = [src]
+  | otherwise = case sameI src dstVals of
+                  Nothing  -> insertSet src dstVals
+                  (Just a) -> error $ "Condition failed: found two values with the same basis vector to add:\n"
+                                   <> show dstVals <> "\n"
+                                   <> show a <> "\n"
+                                   <> show src <> "\n"
+  where
+    sameI :: GVal -> [GVal] -> Maybe GVal
+    sameI val srcVals = headMay $ P.filter (\a -> iOf a == iOf val) srcVals
+    iOf (GVal _ i) = i
+
 -- | Subtract a geometric value from a list of geometric values.
 --   Assumes the list of values is in ascending order by basis vector, so we can find items with matching basis vectors easily.
 subVal :: [GVal] -> GVal -> [GVal]
@@ -257,6 +274,12 @@ addVecPairWithErr (GVec vals1) (GVec vals2) = (resVec, resErr)
     resVec = GVec $ fst <$> res
     resErr = P.filter (/= mempty) $ snd <$> res
     res = foldl' addValWithErr ((,mempty) <$> vals1) vals2
+
+-- | Add two vectors together, and ensure that there is not any error produced by the operation
+addVecPairWithoutErr :: GVec -> GVec -> GVec
+addVecPairWithoutErr (GVec vals1) (GVec vals2) = GVec vals
+  where
+    vals = foldl' addValWithoutErr vals1 vals2
 
 -- | Subtract one vector from the other.
 -- FIXME: error component?
@@ -599,14 +622,14 @@ infixl 9 ⎣
 (⎣) v1 v2 = fst $ v1 ⎣+ v2
 
 -- | Our "like" operator, returning calculation error. unicode point u+23a3.
-(⎣+) :: GVec -> GVec -> (GVec, [ErrVal])
+(⎣+) :: GVec -> GVec -> (GVec, ([ErrVal], [ErrVal]))
 infixl 9 ⎣+
 (⎣+) v1 v2 = (GVec vals
-             , mulErrs)
+             , (mulErrs, addErrs))
   where
-    vals = fst <$> res
-    -- NOTE: like values will never have an addition error.
-    res = foldl' addValWithErr [] $ postProcessEitherVals <$> likeRes
+    vals = fst <$> likeRes'
+    addErrs = P.filter (/= mempty) $ snd <$> likeRes'
+    likeRes'= foldl' addValWithErr [] $ postProcessEitherVals <$> likeRes
     mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> likeRes
     likeRes = likeVecPairWithErr v1 v2
 
@@ -621,9 +644,9 @@ infixl 9 ⎤+
 (⎤+) v1 v2 = (GVec vals
              , (mulErrs, addErrs))
   where
-    vals = fst <$> res
-    addErrs = P.filter (/= mempty) $ snd <$> res
-    res = foldl' addValWithErr [] $ postProcessEitherVals <$> unlikeRes
+    vals = fst <$> unlikeRes'
+    addErrs = P.filter (/= mempty) $ snd <$> unlikeRes'
+    unlikeRes' = foldl' addValWithErr [] $ postProcessEitherVals <$> unlikeRes
     mulErrs = foldl' addErr [] $ postProcessEitherErrs <$> unlikeRes
     unlikeRes = unlikeVecPairWithErr v1 v2
 
@@ -660,12 +683,12 @@ infixl 9 ∧+
   where
     (vec, vecSubErrs) = subVecPairWithErr (GVec reduceVals) (GVec unlikeVals)
     unlikeVals = fst <$> unlikeRes'
-    unlikeAddErrs = snd <$> unlikeRes'
+    unlikeAddErrs = P.filter (/= mempty) $ snd <$> unlikeRes'
     unlikeRes' = foldl' addValWithErr [] $ postProcessEitherVals <$> unlikeRes
     unlikeMulErrs =foldl' addErr [] $ postProcessEitherErrs <$> unlikeRes
     unlikeRes = unlikeVecPairWithErr v1 v2
     reduceVals = fst <$> reduceRes'
-    reduceAddErrs = snd <$> reduceRes'
+    reduceAddErrs = P.filter (/= mempty) $ snd <$> reduceRes'
     reduceRes' = foldl' addValWithErr [] $ postProcess . fst <$> reduceRes
     reduceMulErrs = postProcessErrs . snd <$> reduceRes
     reduceRes = reduceVecPairWithErr v1 v2
@@ -681,21 +704,20 @@ infixl 9 ⋅
 
 -- | A dot operator that preserves error. gets the dot product of the two arguments.
 -- Note that dot product = reductive product plus like product.
-(⋅+) :: GVec -> GVec -> (GVec, ([ErrVal], [ErrVal], [ErrVal], [ErrVal]))
+(⋅+) :: GVec -> GVec -> (GVec, ([ErrVal], [ErrVal], [ErrVal], [ErrVal], [ErrVal]))
 infixl 9 ⋅+
 (⋅+) v1 v2 = (vec
-              , (likeMulErrs, reduceMulErrs, reduceAddErrs, vecAddErrs))
+              , (likeMulErrs, reduceMulErrs, likeAddErrs, reduceAddErrs, vecAddErrs))
   where
     vecAddErrs = P.filter (/= mempty) $ vecAddErrsRaw
     (vec, vecAddErrsRaw) = addVecPairWithErr (GVec reduceVals) (GVec likeVals)
     likeVals = fst <$> likeRes'
+    likeAddErrs = P.filter (/= mempty) $ snd <$> likeRes'
     likeMulErrs = foldl' addErr [] $ postProcessEitherErrs <$> likeRes
-    -- note that for like operations, there will be no Err component here.
-    -- FIXME: implement addValWithoutErr, to raise this to the type level?
     likeRes' = foldl' addValWithErr [] $ postProcessEitherVals <$> likeRes
     likeRes = likeVecPairWithErr v1 v2
     reduceVals = fst <$> reduceRes'
-    reduceAddErrs = snd <$> reduceRes'
+    reduceAddErrs = P.filter (/= mempty) $ snd <$> reduceRes'
     reduceRes' = foldl' addValWithErr [] $ postProcess . fst <$> reduceRes
     reduceMulErrs = postProcessErrs . snd <$> reduceRes
     reduceRes = reduceVecPairWithErr v1 v2
@@ -711,7 +733,7 @@ infixl 9 •+
 (•+) v1 v2 = (GVec vals, (geomMulErrs, geomAddErrs))
   where
     vals = fst <$> geomRes'
-    geomAddErrs = snd <$> geomRes'
+    geomAddErrs = P.filter (/= mempty) $ snd <$> geomRes'
     geomMulErrs = foldl' addErr [] $ postProcessEitherErrs <$> geomRes
     geomRes' = foldl' addValWithErr [] $ postProcessEitherVals <$> geomRes
     geomRes = mulVecPairWithErr v1 v2

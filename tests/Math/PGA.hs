@@ -52,7 +52,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), mapWithFollower, roundPoint2, startPoint, distance, xOf, yOf, minMaxPoints, makeLineSeg, endPoint)
 
 -- Our Geometric Algebra library.
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addVal, addValPairWithErr, subVal, subValPairWithErr, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersectionBetween)
 
@@ -167,7 +167,7 @@ geomAlgSpec = do
       subValPairWithErr (GVal 1 (singleton (GEPlus 1))) (GVal 1 (singleton (GEPlus 1))) --> []
     -- 1e0+1e1+1e2 = e0+e1+e2
     it "adds a value to a list of values" $
-      addVal [GVal 1 (singleton (GEZero 1)), GVal 1 (singleton (GEPlus 1))] (GVal 1 (singleton (GEPlus 2))) --> [GVal 1 (singleton (GEZero 1)), GVal 1 (singleton (GEPlus 1)), GVal 1 (singleton (GEPlus 2))]
+      addValWithErr [(GVal 1 (singleton (GEZero 1)),mempty), (GVal 1 (singleton (GEPlus 1)), mempty)] (GVal 1 (singleton (GEPlus 2))) --> [(GVal 1 (singleton (GEZero 1)),mempty), (GVal 1 (singleton (GEPlus 1)),mempty), (GVal 1 (singleton (GEPlus 2)),mempty)]
     -- 2e1+1e2-1e1 = e1+e2
     it "subtracts a value from a list of values" $
       subVal [GVal 2 (singleton (GEPlus 1)), GVal 1 (singleton (GEPlus 2))] (GVal 1 (singleton (GEPlus 1))) --> [GVal 1 (singleton (GEPlus 1)), GVal 1 (singleton (GEPlus 2))]

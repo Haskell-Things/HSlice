@@ -1,6 +1,6 @@
 {- ORMOLU_DISABLE -}
 {-
- - Copyright 2022 Julia Longtin
+ - Copyright 2020-2022 Julia Longtin
  -
  - This program is free software: you can redistribute it and/or modify
  - it under the terms of the GNU Affero General Public License as published by
@@ -66,7 +66,7 @@ module Graphics.Slicer.Math.PGA(
   translateRotatePPoint2WithErr
   ) where
 
-import Prelude (Eq((==),(/=)), Monoid(mempty), Semigroup, Show, Ord, ($), (*), (-), Bool, (&&), (<$>), not, null, otherwise, (>), (>=), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, filter, fst,  realToFrac, signum)
+import Prelude (Eq((==),(/=)), Monoid(mempty), Semigroup((<>)), Show(show), Ord, ($), (*), (-), Bool, (&&), (<$>), (>), (>=), (<=), (+), (/), (||), (<), abs, cos, error, filter, fst, negate, otherwise, realToFrac, signum, sin, sqrt)
 
 import GHC.Generics (Generic)
 
@@ -92,7 +92,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, makeLineSeg, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addErr, addVal, addVecPair, addVecPairWithErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, ulpVal, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, ulpVal, valOf)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
@@ -118,8 +118,8 @@ plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
   || (idealNorm <= realToFrac (ulpVal idnErr)
      && (sameDirection pl1 pl2 ||
          opposingDirection pl1 pl2)) = if sameDirection pl1 pl2
-                                       then PCollinear
-                                       else PAntiCollinear
+                                        then PCollinear
+                                        else PAntiCollinear
   | sameDirection pl1 pl2            = if d < parallelFuzziness
                                        then PCollinear
                                        else PParallel
@@ -139,7 +139,7 @@ plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
     npline1@(npl1, npl1Err) = normalizePLine2WithErr pl1
     npline2@(npl2, npl2Err) = normalizePLine2WithErr pl2
 
--- | Check if the second line's direction points to the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
+-- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Maybe Bool
 pLineIsLeft (pl1, pl1Err) (pl2, pl2Err)
   | pl1 == pl2                    = Nothing
@@ -155,15 +155,14 @@ pLineIsLeft (pl1, pl1Err) (pl2, pl2Err)
     angleCos :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> (ℝ, PPoint2Err)
     angleCos (pline1, pline1Err) (pline2, pline2Err)
       | isNothing canonicalizedIntersection = (0, mempty)
-      | not (null motorErr) || not (null antiMotorErr) = error "impossible?"
       | otherwise = (angle, iPointErr)
       where
         angle = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
-        (motor,motorErr)          = addVecPairWithErr (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
-        (antiMotor,antiMotorErr)  = addVecPairWithErr (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
+        (CPPoint2 iPointVec,(_,_,iPointErr)) = fromJust canonicalizedIntersection
+        motor                     = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
+        antiMotor                 = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
         canonicalizedIntersection = canonicalizeIntersectionWithErr (pline1, pline1Err) (pline2, pline2Err)
         -- safe, because we only accept normalized PLines.
-        (CPPoint2 iPointVec,(_,_,iPointErr)) = fromJust canonicalizedIntersection
         -- I, the infinite point.
         gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
         lvec1 = case pline1 of
@@ -298,7 +297,7 @@ pLineFuzziness (inPLine, inErr) = transErr
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
 -- FIXME: accept input error amounts, take input error amounts into consideration.
-distanceBetweenPLinesWithErr :: ProjectiveLine -> ProjectiveLine -> (ℝ, (PLine2Err, PLine2Err, [ErrVal], UlpSum))
+distanceBetweenPLinesWithErr :: ProjectiveLine -> ProjectiveLine -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
 distanceBetweenPLinesWithErr pl1 pl2 = (res, resErr)
   where
     (res, idealErr) = idealNormPPoint2WithErr $ PPoint2 like
@@ -311,12 +310,12 @@ distanceBetweenPLinesWithErr pl1 pl2 = (res, resErr)
 
 -- | Return the sine of the angle between the two lines, along with the error.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
-angleBetweenWithErr :: ProjectiveLine -> ProjectiveLine -> (ℝ, (PLine2Err, PLine2Err, [ErrVal], UlpSum))
+angleBetweenWithErr :: ProjectiveLine -> ProjectiveLine -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal],[ErrVal]), UlpSum))
 angleBetweenWithErr pl1 pl2 = (res, resErr)
   where
-    (res, scalarErr) = (scalarPart like, eValOf mempty $ getVal [G0] likeMulErr)
-    resErr = (pv1Err, pv2Err, likeMulErr, scalarErr)
-    (like, likeMulErr) = p1 ⎣+ p2
+    (res, scalarErr) = (scalarPart like, (eValOf mempty $ getVal [G0] likeMulErr) <> (eValOf mempty $ getVal [G0] likeMulErr))
+    resErr = (pv1Err, pv2Err, (likeMulErr,likeAddErr), scalarErr)
+    (like, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
     (NPLine2 p1) = forcePLine2Basis np1
     (NPLine2 p2) = forcePLine2Basis np2
     (np1,pv1Err) = normalizePLine2WithErr pl1
@@ -344,19 +343,18 @@ opposingDirection a b = res <= minAngle
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
 pPointOnPerpWithErr :: ProjectiveLine -> ProjectivePoint -> ℝ -> (ProjectivePoint, (PLine2Err,([ErrVal],[ErrVal]), UlpSum))
-pPointOnPerpWithErr pline rppoint d
-  | not (null motorErr) = error "impossible!"
-  | otherwise = (res, (rlErr, perpPLineErr, ulpTotal))
+pPointOnPerpWithErr pline rppoint d = (res, (rlErr, perpPLineErr, ulpTotal))
   where
     res = case valOf 0 ( getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) resRaw) of
             1 -> CPPoint2 resRaw
             _ -> PPoint2 resRaw
     resRaw = motor•pvec•reverseGVec motor
     (perpLine,perpPLineErr) = lvec ⨅+ pvec
-    (PLine2 lvec)           = forcePLine2Basis $ PLine2 rlvec
-    (motor, motorErr)       = addVecPairWithErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
+    (PLine2 lvec) = forcePLine2Basis $ PLine2 rlvec
+    motor = addVecPairWithoutErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
-    gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
+      where
+        gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
     gaIErr = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac (realToFrac d / 2 :: Rounded 'TowardInf ℝ)
     ulpTotal = gaIErr <> lErr
     pvec = case forceProjectivePointBasis rppoint of
@@ -391,9 +389,10 @@ translateRotatePPoint2WithErr ppoint d rotation = (PPoint2 res, scaledPVecErr)
       where
         (PLine2 xLineVec) = forcePLine2Basis $ fst $ eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (1,0))
     (PLine2 angledLineThroughPPoint2) = forcePLine2Basis $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
-    rotator = addVecPair scaledPVec (GVec [GVal (cos $ rotation/2) (singleton G0)])
+      where
+        rotator = addVecPairWithoutErr scaledPVec (GVec [GVal (cos $ rotation/2) (singleton G0)])
     (scaledPVec, scaledPVecErr) = mulScalarVecWithErr (sin $ rotation/2) pvec
-    translator = addVecPair (angledLineThroughPPoint2 • gaIScaled) (GVec [GVal 1 (singleton G0)])
+    translator = addVecPairWithoutErr (angledLineThroughPPoint2 • gaIScaled) (GVec [GVal 1 (singleton G0)])
       where
         -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
         gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
@@ -478,7 +477,7 @@ pLineIntersectsLineSeg pl1@(_, pl1Err) l1
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
     (rawIntersection, (_, _, rawIntersectionErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizeIntersectionWithErr pl1 pl2
-    (rawIntersect, rawIntersectErr) = pLineIntersectionWithErr pl1 pl2
+    (rawIntersect, _) = pLineIntersectionWithErr pl1 pl2
     pl2@(_, pl2Err) = eToPLine2WithErr l1
 
 -- | Check if/where two line segments intersect.
@@ -794,7 +793,7 @@ eToPPoint2 (Point2 (x,y)) = PPoint2 res
 makePPoint2 :: ℝ -> ℝ -> ProjectivePoint
 makePPoint2 x y = pPoint
   where
-    pPoint = CPPoint2 $ GVec $ foldl' addVal [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
+    pPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
 
 -- | Create a euclidian point from a projective point.
 pToEPoint2 :: ProjectivePoint -> Point2
@@ -828,7 +827,7 @@ projectivePointToPoint2 point
 
 -- | Reverse a vector. Really, take every value in it, and recompute it in the reverse order of the vectors (so instead of e0∧e1, e1∧e0). which has the effect of negating bi and tri-vectors.
 reverseGVec :: GVec -> GVec
-reverseGVec vec@(GVec vals) = GVec $ foldl' addVal []
+reverseGVec vec@(GVec vals) = GVec $ foldl' addValWithoutErr []
                   [
                     GVal           realVal                                               (singleton G0)
                   , GVal (         valOf 0 $ getVal [GEZero 1] vals)                     (singleton (GEZero 1))
@@ -844,7 +843,7 @@ reverseGVec vec@(GVec vals) = GVec $ foldl' addVal []
 
 -- | get the dual of a vector. for a point, find a line, for a line, a point...
 dual2DGVec :: GVec -> GVec
-dual2DGVec gVec@(GVec vals) = GVec $ foldl' addVal []
+dual2DGVec gVec@(GVec vals) = GVec $ foldl' addValWithoutErr []
                  [
                    GVal           realVal                                               (fromList [GEZero 1, GEPlus 1, GEPlus 2])
                  , GVal (         valOf 0 $ getVal [GEZero 1] vals)                     (fromList [GEPlus 1, GEPlus 2])
@@ -924,7 +923,7 @@ flipPLine2 pline = res
     (res,vals) = case pline of
             (PLine2 (GVec v)) -> (PLine2 rawRes, v)
             (NPLine2 (GVec v)) -> (NPLine2 rawRes,v)
-    rawRes = GVec $ foldl' addVal []
+    rawRes = GVec $ foldl' addValWithoutErr []
              [
                GVal (negate $ valOf 0 $ getVal [GEZero 1] vals) (singleton (GEZero 1))
              , GVal (negate $ valOf 0 $ getVal [GEPlus 1] vals) (singleton (GEPlus 1))
@@ -976,7 +975,7 @@ canonicalizePPoint2WithErr point = case point of
       -- Handle the ID case.
       | valOf 1 foundVal == 1 = (CPPoint2 (GVec rawVals), mempty)
       | otherwise = (res, PPoint2Err mempty scaledErrs mempty mempty mempty mempty mempty)
-    res = CPPoint2 $ GVec $ foldl' addVal []
+    res = CPPoint2 $ GVec $ foldl' addValWithoutErr []
           $  ( if isNothing (getVal [GEZero 1, GEPlus 1] scaledVals)
                then []
                else [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 1] scaledVals) (fromList [GEZero 1, GEPlus 1])]
