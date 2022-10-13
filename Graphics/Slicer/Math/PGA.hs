@@ -33,12 +33,12 @@ module Graphics.Slicer.Math.PGA(
   Arcable(hasArc, outOf, ulpOfOut, outUlpMag),
   Pointable(canPoint, pPointOf, ePointOf),
   PPoint2PosErr(PPoint2PosErr),
+  ProjectivePoint2,
   angleBetweenWithErr,
   combineConsecutiveLineSegs,
   canonicalizePPoint2WithErr,
-  cPPointBetweenCPPointsWithErr,
   cPToEPoint2,
-  distanceBetweenCPPointsWithErr,
+  distanceBetweenPPointsWithErr,
   distanceBetweenNPLine2sWithErr,
   distanceCPPointToNPLineWithErr,
   distancePPointToPLineWithErr,
@@ -173,33 +173,27 @@ pLineIntersectionWithErr pl1 pl2 = (res, ulpTotal)
     (npl2, npl2Err) = normalize pl2
     ulpTotal = resErr <> npl1Err <> npl2Err
 
--- NOTE: returns a canonicalized point.
+-- FIXME: automatically raise addVecRes to a CPPoint2 if it turns out to be canonical?
 pPointBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (PPoint2, UlpSum)
-pPointBetweenPPointsWithErr start stop weight1 weight2 = (PPoint2 cRes, UlpSum $ cResErr + cStartErr + cStopErr)
-  where
-    (CPPoint2 cRes, UlpSum cResErr) = cPPointBetweenCPPointsWithErr cStart cStop weight1 weight2
-    (cStart, UlpSum cStartErr) = canonicalize start
-    (cStop, UlpSum cStopErr) = canonicalize stop
-
-cPPointBetweenCPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (CPPoint2, UlpSum)
-cPPointBetweenCPPointsWithErr startP stopP weight1 weight2
+pPointBetweenPPointsWithErr startP stopP weight1 weight2
   | isNothing foundVal = error "tried to generate an ideal point?"
-  | otherwise = (res, ulpSum)
+  | otherwise = (PPoint2 addVecRes, ulpSum)
   where
-    (res, resUlpSum) = canonicalizePPoint2WithErr $ PPoint2 addVecRes
-    ulpSum = resUlpSum <> sumErrVals addVecResErr <> sumErrVals weighedStartErr <> sumErrVals weighedStopErr
+    ulpSum = sumErrVals addVecResErr <> sumErrVals weighedStartErr <> sumErrVals weighedStopErr
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) addVecRes
     (addVecRes, addVecResErr) = addVecPairWithErr weighedStart weighedStop
     (weighedStart, weighedStartErr) = mulScalarVecWithErr weight1 rawStartPoint
     (weighedStop, weighedStopErr) = mulScalarVecWithErr weight2 rawStopPoint
-    rawStartPoint = vecOfP startP
-    rawStopPoint = vecOfP stopP
+    rawStartPoint = vecOfP startP'
+    rawStopPoint = vecOfP stopP'
+    (startP', _) = canonicalize startP
+    (stopP', _) = canonicalize stopP
 
-distancePPointToPLineWithErr :: (ProjectiveLine2 b) => PPoint2 -> b -> (ℝ, UlpSum)
+distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
 distancePPointToPLineWithErr point line = (res, resErr <> normErr <> nPVecErr)
   where
     (res, resErr)         = distanceCPPointToNPLineWithErr rnpvec normedLine
-    (rnpvec, nPVecErr)    = canonicalizePPoint2WithErr point
+    (rnpvec, nPVecErr)    = canonicalize point
     (normedLine, normErr) = normalize line
 
 -- FIXME: use the distance to increase ULP appropriately?
@@ -216,7 +210,7 @@ distanceCPPointToNPLineWithErr point line
     (linePoint, lpErr)             = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
     ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr <> resErr <> newPLineErr <>  lpErr
     foundVal                       = getVal [GEPlus 1, GEPlus 2] $ (\(CPPoint2 (GVec vals)) -> vals) point
-    (NPLine2 nplvec,_)               = normalize line
+    (NPLine2 nplvec,_)             = normalize line
 
 -- | Determine if two points are on the same side of a given line.
 pPointsOnSameSideOfPLine :: (ProjectiveLine2 c) => PPoint2 -> PPoint2 -> c -> Maybe Bool
@@ -236,12 +230,14 @@ pPointsOnSameSideOfPLine point1 point2 line
     (PPoint2 pv2) = forcePPoint2Basis point2
     lv1 = vecOfL $ forcePLine2Basis line
 
-distanceBetweenCPPointsWithErr :: CPPoint2 -> CPPoint2 -> (ℝ, UlpSum)
-distanceBetweenCPPointsWithErr cpoint1 cpoint2 = (res, ulpTotal)
+distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (ℝ, UlpSum)
+distanceBetweenPPointsWithErr point1 point2 = (res, ulpTotal)
   where
     (res, UlpSum resErr)           = normOfPLine2WithErr newPLine
     (newPLine, UlpSum newPLineErr) = join2CPPoint2WithErr cpoint1 cpoint2
     ulpTotal                       = UlpSum $ resErr + newPLineErr
+    (cpoint1, _) = canonicalize point1
+    (cpoint2, _) = canonicalize point2
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
 distanceBetweenNPLine2sWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
@@ -403,7 +399,7 @@ outputIntersectsLineSeg source (l1, UlpSum l1Err)
     (rawIntersection, UlpSum rawIntersectionErr) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizeIntersectionWithErr pl1 pl2
     (canonicalizedSource, UlpSum canonicalizedSourceErr) = canonicalizePPoint2WithErr $ pPointOf source
-    (intersectionDistance, UlpSum intersectionDistanceErr) = distanceBetweenCPPointsWithErr canonicalizedSource rawIntersection
+    (intersectionDistance, UlpSum intersectionDistanceErr) = distanceBetweenPPointsWithErr canonicalizedSource rawIntersection
 
 -- | A type alias, for cases where either input is acceptable.
 type SegOrPLine2WithErr = Either (LineSeg, UlpSum) (PLine2,UlpSum)
@@ -444,8 +440,8 @@ pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
   | hasRawIntersection = Left $ NoIntersection rawIntersection (UlpSum $ realToFrac ulpStartSum, UlpSum $ realToFrac ulpEndSum, mempty, mempty)
   | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (mempty, mempty, mempty, mempty)
   where
-    (startDistance, UlpSum startDistanceErr) = distanceBetweenCPPointsWithErr rawIntersection start
-    (endDistance, UlpSum endDistanceErr) = distanceBetweenCPPointsWithErr rawIntersection end
+    (startDistance, UlpSum startDistanceErr) = distanceBetweenPPointsWithErr rawIntersection start
+    (endDistance, UlpSum endDistanceErr) = distanceBetweenPPointsWithErr rawIntersection end
     (start, PPoint2PosErr startErr) = eToCPPoint2WithErr $ startPoint l1
     (end, PPoint2PosErr endErr) = eToCPPoint2WithErr $ endPoint l1
     ulpStartSum, ulpEndSum :: ℝ
@@ -488,10 +484,10 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
     ulpStartSum2 = realToFrac $ ulpTotal+start2DistanceErr
     ulpEndSum1 = realToFrac $ ulpTotal+end1Err
     ulpEndSum2 = realToFrac $ ulpTotal+end2Err
-    (start1Distance, UlpSum start1DistanceErr) = distanceBetweenCPPointsWithErr rawIntersection start1
-    (start2Distance, UlpSum start2DistanceErr) = distanceBetweenCPPointsWithErr rawIntersection start2
-    (end1Distance, UlpSum end1DistanceErr) = distanceBetweenCPPointsWithErr rawIntersection end1
-    (end2Distance, UlpSum end2DistanceErr) = distanceBetweenCPPointsWithErr rawIntersection end2
+    (start1Distance, UlpSum start1DistanceErr) = distanceBetweenPPointsWithErr rawIntersection start1
+    (start2Distance, UlpSum start2DistanceErr) = distanceBetweenPPointsWithErr rawIntersection start2
+    (end1Distance, UlpSum end1DistanceErr) = distanceBetweenPPointsWithErr rawIntersection end1
+    (end2Distance, UlpSum end2DistanceErr) = distanceBetweenPPointsWithErr rawIntersection end2
     (start1, PPoint2PosErr start1Err) = eToCPPoint2WithErr $ startPoint l1
     (end1, PPoint2PosErr end1Err) = eToCPPoint2WithErr $ endPoint l1
     (start2, PPoint2PosErr start2Err) = eToCPPoint2WithErr $ startPoint l2
@@ -521,11 +517,11 @@ onSegment ls i startUlp endUlp =
   || (midDistance <= (lengthOfSegment/2) + midFudgeFactor)
   || (endDistance <= endFudgeFactor)
   where
-    (startDistance, UlpSum startDistanceErr) = distanceBetweenCPPointsWithErr start i
-    (midDistance, UlpSum midDistanceErr) = distanceBetweenCPPointsWithErr mid i
-    (endDistance, UlpSum endDistanceErr) = distanceBetweenCPPointsWithErr end i
+    (startDistance, UlpSum startDistanceErr) = distanceBetweenPPointsWithErr start i
+    (midDistance, UlpSum midDistanceErr) = distanceBetweenPPointsWithErr mid i
+    (endDistance, UlpSum endDistanceErr) = distanceBetweenPPointsWithErr end i
     (start, PPoint2PosErr startErr) = eToCPPoint2WithErr $ startPoint ls
-    (mid, UlpSum midErr) = cPPointBetweenCPPointsWithErr start end 0.5 0.5
+    (mid, UlpSum midErr) = pPointBetweenPPointsWithErr start end 0.5 0.5
     (end, PPoint2PosErr endErr) = eToCPPoint2WithErr $ endPoint ls
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
     startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ

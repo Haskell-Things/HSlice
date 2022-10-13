@@ -48,9 +48,9 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, distance, map
 
 import Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, intersectionOf, isAntiCollinear, noIntersection)
 
-import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, cPPointBetweenCPPoints, distanceBetweenCPPoints, eToNPLine2, eToCPPoint2, eToPLine2, normalizePLine2, pLineFromEndpoints, translatePLine2)
+import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, pPointBetweenPPoints, distanceBetweenPPoints, eToNPLine2, eToCPPoint2, eToPLine2, normalizePLine2, pLineFromEndpoints, translatePLine2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PPoint2(PPoint2), Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), cPToEPoint2, flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), plinesIntersectIn, angleBetweenWithErr, outputIntersectsLineSeg, ulpOfPLine2, ulpOfLineSeg)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PPoint2, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), cPToEPoint2, flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), plinesIntersectIn, angleBetweenWithErr, outputIntersectsLineSeg, ulpOfPLine2, ulpOfLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -79,7 +79,7 @@ motorcycleToENode (Motorcycle (seg1,seg2) mcpath mcUlp mcMag) = ENode (startPoin
 
 -- | Find the point where the propogation from a motorcycle equals the propogation of what it impacts, taking into account the weight of a motorcycle, and the weight of what it impacts.
 motorcycleDivisor :: Motorcycle -> MotorcycleIntersection -> PPoint2
-motorcycleDivisor motorcycle target = (\(CPPoint2 v) -> PPoint2 v) $ cPPointBetweenCPPoints (canonicalizePPoint2 $ pPointOf motorcycle) pointOfTarget (tSpeedOf target) (mSpeedOf motorcycle)
+motorcycleDivisor motorcycle target = pPointBetweenPPoints (canonicalizePPoint2 $ pPointOf motorcycle) pointOfTarget (tSpeedOf target) (mSpeedOf motorcycle)
   where
     pointOfTarget :: CPPoint2
     pointOfTarget = case target of
@@ -90,11 +90,11 @@ motorcycleDivisor motorcycle target = (\(CPPoint2 v) -> PPoint2 v) $ cPPointBetw
                       (WithMotorcycle motorcycle2) -> canonicalizePPoint2 $ pPointOf motorcycle2
     tSpeedOf :: MotorcycleIntersection -> ℝ
     tSpeedOf myTarget = case myTarget of
-                  (WithLineSeg lineSeg) -> distanceBetweenCPPoints (justIntersectsIn $ plinesIntersectIn (translatePLine2 (eToPLine2 lineSeg) 1) (outOf motorcycle)) (justIntersectsIn $ plinesIntersectIn (eToPLine2 lineSeg) (outOf motorcycle))
-                  (WithENode eNode) -> distanceBetweenCPPoints (canonicalizePPoint2 $ pPointOf eNode) (justIntersectsIn $ plinesIntersectIn (translatePLine2 (eToPLine2 $ getFirstLineSeg eNode) 1) (outOf eNode))
+                  (WithLineSeg lineSeg) -> distanceBetweenPPoints (justIntersectsIn $ plinesIntersectIn (translatePLine2 (eToPLine2 lineSeg) 1) (outOf motorcycle)) (justIntersectsIn $ plinesIntersectIn (eToPLine2 lineSeg) (outOf motorcycle))
+                  (WithENode eNode) -> distanceBetweenPPoints (canonicalizePPoint2 $ pPointOf eNode) (justIntersectsIn $ plinesIntersectIn (translatePLine2 (eToPLine2 $ getFirstLineSeg eNode) 1) (outOf eNode))
                   (WithMotorcycle motorcycle2) -> mSpeedOf motorcycle2
     mSpeedOf :: Motorcycle -> ℝ
-    mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _ _ _) = distanceBetweenCPPoints (canonicalizePPoint2 $ pPointOf myMotorcycle) (justIntersectsIn $ plinesIntersectIn (translatePLine2 (eToPLine2 seg1) 1) (outOf myMotorcycle))
+    mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _ _ _) = distanceBetweenPPoints (canonicalizePPoint2 $ pPointOf myMotorcycle) (justIntersectsIn $ plinesIntersectIn (translatePLine2 (eToPLine2 seg1) 1) (outOf myMotorcycle))
     justIntersectsIn :: PIntersection -> CPPoint2
     justIntersectsIn res = case res of
                              (IntersectsIn p _) -> p
@@ -148,7 +148,7 @@ crashMotorcycles contour holes
             | intersectionIsBehind mot2 = Nothing
             -- FIXME: this should be providing a distance to intersectionPPoint along the motorcycle to check.
             | otherwise = case getMotorcycleContourIntersections mot1 contour of
-                          [] -> case distanceBetweenCPPoints (canonicalizePPoint2 $ pPointOf mot1) intersectionPPoint `compare` distanceBetweenCPPoints (canonicalizePPoint2 $ pPointOf mot2) intersectionPPoint of
+                          [] -> case distanceBetweenPPoints (canonicalizePPoint2 $ pPointOf mot1) intersectionPPoint `compare` distanceBetweenPPoints (canonicalizePPoint2 $ pPointOf mot2) intersectionPPoint of
                                  GT -> Just $ Collision (mot1, mot2, slist []) (Just mot2) Normal
                                  LT -> Just $ Collision (mot1, mot2, slist []) (Just mot1) Normal
                                  EQ -> Just $ Collision (mot1, mot2, slist []) (Just mot1) SideSwipe
@@ -234,15 +234,15 @@ motorcycleMightIntersectWith lineSegs motorcycle
                                (_, Right intersectionPPoint1) ->
                                  case i2 of
                                    (_, Right intersectionPPoint2) ->
-                                     distanceBetweenCPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenCPPoints motorcyclePoint intersectionPPoint2
+                                     distanceBetweenPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenPPoints motorcyclePoint intersectionPPoint2
                                    (_, Left intersectionPoint2) ->
-                                     distanceBetweenCPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenCPPoints motorcyclePoint (eToCPPoint2 intersectionPoint2)
+                                     distanceBetweenPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenPPoints motorcyclePoint (eToCPPoint2 intersectionPoint2)
                                (_, Left intersectionPoint1) ->
                                  case i2 of
                                    (_, Right intersectionPPoint2) ->
-                                     distanceBetweenCPPoints motorcyclePoint (eToCPPoint2 intersectionPoint1) `compare` distanceBetweenCPPoints motorcyclePoint intersectionPPoint2
+                                     distanceBetweenPPoints motorcyclePoint (eToCPPoint2 intersectionPoint1) `compare` distanceBetweenPPoints motorcyclePoint intersectionPPoint2
                                    (_, Left intersectionPoint2) ->
-                                     distanceBetweenCPPoints motorcyclePoint (eToCPPoint2 intersectionPoint1) `compare` distanceBetweenCPPoints motorcyclePoint (eToCPPoint2 intersectionPoint2)
+                                     distanceBetweenPPoints motorcyclePoint (eToCPPoint2 intersectionPoint1) `compare` distanceBetweenPPoints motorcyclePoint (eToCPPoint2 intersectionPoint2)
     filterIntersection :: (LineSeg, Either Point2 CPPoint2) -> Maybe (LineSeg, Either Point2 CPPoint2)
     filterIntersection intersection = case intersection of
                                         (_, Right intersectionCPPoint) -> if intersectionCPPointIsBehind intersectionCPPoint
@@ -276,15 +276,15 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                                                              (_, Right intersectionPPoint1) ->
                                                                                case i2 of
                                                                                  (_, Right intersectionPPoint2) ->
-                                                                                   distanceBetweenCPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenCPPoints motorcyclePoint intersectionPPoint2
+                                                                                   distanceBetweenPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenPPoints motorcyclePoint intersectionPPoint2
                                                                                  (_, Left intersectionPoint2) ->
-                                                                                   distanceBetweenCPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenCPPoints motorcyclePoint (eToCPPoint2 intersectionPoint2)
+                                                                                   distanceBetweenPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenPPoints motorcyclePoint (eToCPPoint2 intersectionPoint2)
                                                                              (_, Left intersectionPoint1) ->
                                                                                case i2 of
                                                                                  (_, Right intersectionPPoint2) ->
-                                                                                   distanceBetweenCPPoints motorcyclePoint (eToCPPoint2 intersectionPoint1) `compare` distanceBetweenCPPoints motorcyclePoint intersectionPPoint2
+                                                                                   distanceBetweenPPoints motorcyclePoint (eToCPPoint2 intersectionPoint1) `compare` distanceBetweenPPoints motorcyclePoint intersectionPPoint2
                                                                                  (_, Left intersectionPoint2) ->
-                                                                                   distanceBetweenCPPoints motorcyclePoint (eToCPPoint2 intersectionPoint1) `compare` distanceBetweenCPPoints motorcyclePoint (eToCPPoint2 intersectionPoint2)
+                                                                                   distanceBetweenPPoints motorcyclePoint (eToCPPoint2 intersectionPoint1) `compare` distanceBetweenPPoints motorcyclePoint (eToCPPoint2 intersectionPoint2)
   where
     filterIntersection :: (LineSeg, Either Point2 CPPoint2) -> Maybe (LineSeg, Either Point2 CPPoint2)
     filterIntersection intersection = case intersection of

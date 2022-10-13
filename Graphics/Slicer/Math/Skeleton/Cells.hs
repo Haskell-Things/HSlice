@@ -56,9 +56,9 @@ import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionOf)
 
-import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenCPPoints, eToCPPoint2, eToNPLine2, eToPLine2, eToPPoint2, join2PPoint2, normalizePLine2)
+import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, eToCPPoint2, eToNPLine2, eToPLine2, eToPPoint2, join2PPoint2, normalizePLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), CPPoint2, PIntersection(PAntiCollinear, IntersectsIn), angleBetweenWithErr, distanceBetweenCPPointsWithErr, plinesIntersectIn, cPToEPoint2)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), CPPoint2, PIntersection(PAntiCollinear, IntersectsIn), angleBetweenWithErr, distanceBetweenPPointsWithErr, plinesIntersectIn, cPToEPoint2)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving (Show, Eq)
@@ -127,8 +127,8 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
           where
             cMotorcyclePoint = canonicalizePPoint2 $ pPointOf myMotorcycle
             cNodePoint = canonicalizePPoint2 $ pPointOf oneNode
-            motorcycleENodeDistance = distanceBetweenCPPoints cMotorcyclePoint cNodePoint
-            motorcycleLineSegDistance = distanceBetweenCPPoints cMotorcyclePoint $ justIntersectsIn $ plinesIntersectIn (outOf myMotorcycle) (eToPLine2 $ fst $ motorcycleIntersectsAt myContour myMotorcycle)
+            motorcycleENodeDistance = distanceBetweenPPoints cMotorcyclePoint cNodePoint
+            motorcycleLineSegDistance = distanceBetweenPPoints cMotorcyclePoint $ justIntersectsIn $ plinesIntersectIn (outOf myMotorcycle) (eToPLine2 $ fst $ motorcycleIntersectsAt myContour myMotorcycle)
         (_:_) -> error "more than one opposing exterior node. cannot yet handle this situation."
       where
         justIntersectsIn :: PIntersection -> CPPoint2
@@ -190,7 +190,7 @@ findNextCell (RemainingContour (Slist [(Slist lineSegs _, divides)] _) ) =
       case elemIndex (fst $ fst div1) contourSegs `compare` elemIndex (fst $ fst div2) contourSegs of
         LT -> LT
         GT -> GT
-        EQ -> fst (distanceBetweenCPPointsWithErr (startPPoint $ fst $ fst div1) (toPPoint2 $ snd $ fst div1)) `compare` fst (distanceBetweenCPPointsWithErr (startPPoint $ fst $ fst div2) (toPPoint2 $ snd $ fst div2))
+        EQ -> fst (distanceBetweenPPointsWithErr (startPPoint $ fst $ fst div1) (toPPoint2 $ snd $ fst div1)) `compare` fst (distanceBetweenPPointsWithErr (startPPoint $ fst $ fst div2) (toPPoint2 $ snd $ fst div2))
       where
         toPPoint2 :: Either Point2 CPPoint2 -> CPPoint2
         toPPoint2 (Left point2) = eToCPPoint2 point2
