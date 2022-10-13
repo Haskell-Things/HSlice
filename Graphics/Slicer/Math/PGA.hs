@@ -193,16 +193,16 @@ cPPointBetweenCPPointsWithErr (CPPoint2 rawStartPoint) (CPPoint2 rawStopPoint) w
     (weighedStart, weighedStartErr) = mulScalarVecWithErr weight1 rawStartPoint
     (weighedStop, weighedStopErr) = mulScalarVecWithErr weight2 rawStopPoint
 
-distancePPointToPLineWithErr :: PPoint2 -> PLine2 -> (ℝ, UlpSum)
+distancePPointToPLineWithErr :: (ProjectiveLine2 b) => PPoint2 -> b -> (ℝ, UlpSum)
 distancePPointToPLineWithErr point line = (res, resErr <> normErr <> nPVecErr)
   where
     (res, resErr)         = distanceCPPointToNPLineWithErr rnpvec normedLine
     (rnpvec, nPVecErr)    = canonicalizePPoint2WithErr point
-    (normedLine, normErr) = normalizePLine2WithErr line
+    (normedLine, normErr) = normalize line
 
 -- FIXME: use the distance to increase ULP appropriately?
-distanceCPPointToNPLineWithErr :: CPPoint2 -> NPLine2 -> (ℝ, UlpSum)
-distanceCPPointToNPLineWithErr point (NPLine2 nplvec)
+distanceCPPointToNPLineWithErr :: (ProjectiveLine2 b) => CPPoint2 -> b -> (ℝ, UlpSum)
+distanceCPPointToNPLineWithErr point line
   | valOf 0 foundVal == 0 = error "attempted to get the distance of an ideal point."
   | otherwise = (res, ulpTotal)
   where
@@ -214,6 +214,7 @@ distanceCPPointToNPLineWithErr point (NPLine2 nplvec)
     (linePoint, lpErr)             = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
     ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr <> resErr <> newPLineErr <>  lpErr
     foundVal                       = getVal [GEPlus 1, GEPlus 2] $ (\(CPPoint2 (GVec vals)) -> vals) point
+    (NPLine2 nplvec,_)               = normalize line
 
 -- | Determine if two points are on the same side of a given line.
 pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
@@ -284,12 +285,12 @@ oppositeDirection a b = res <= minAngle
     (res, resErr) = angleBetweenWithErr a b
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
-pPointOnPerpWithErr :: PLine2 -> PPoint2 -> ℝ -> (PPoint2, UlpSum)
-pPointOnPerpWithErr pline rppoint d = (PPoint2 res,
-                                        ulpTotal)
+pPointOnPerpWithErr :: (ProjectiveLine2 a) => a -> PPoint2 -> ℝ -> (PPoint2, UlpSum)
+pPointOnPerpWithErr line rppoint d = (PPoint2 res,
+                                       ulpTotal)
   where
     res = motor•pvec•reverseGVec motor
-    (NPLine2 rlvec, lErr)          = normalizePLine2WithErr pline
+    (NPLine2 rlvec, lErr)          = normalize line
     (perpLine, (plMulErr,plAddErr))= lvec ⨅+ pvec
     (PLine2 lvec)                  = forcePLine2Basis $ PLine2 rlvec
     (PPoint2 pvec)                 = forcePPoint2Basis rppoint
@@ -636,9 +637,11 @@ class Arcable a where
 
 class ProjectiveLine2 a where
   normalize :: a -> (NPLine2, UlpSum)
+--  flip :: a -> a
 
 instance ProjectiveLine2 NPLine2 where
   normalize a = (a, mempty)
+
 
 instance ProjectiveLine2 PLine2 where
   normalize a = normalizePLine2WithErr a
