@@ -681,14 +681,16 @@ join2CPPoint2WithErr pp1 pp2 = (PLine2 res,
     (CPPoint2 pv2) = forceCPPoint2Basis pp2
 
 -- | A typed meet function. the meeting of two lines is a point.
-meet2PLine2WithErr :: NPLine2 -> NPLine2 -> (PPoint2, UlpSum)
-meet2PLine2WithErr (NPLine2 plr1) (NPLine2 plr2) = (PPoint2 res,
-                                                    ulpSum)
+meet2PLine2WithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PPoint2, UlpSum)
+meet2PLine2WithErr line1 line2 = (PPoint2 res,
+                                   ulpSum)
   where
     ulpSum = sumErrVals mulErr <> sumErrVals addErr
     (res, (addErr, mulErr)) = pv1 ⎤+ pv2
     (PLine2 pv1) = forcePLine2Basis $ PLine2 plr1
     (PLine2 pv2) = forcePLine2Basis $ PLine2 plr2
+    (NPLine2 plr1,_) = normalize line1
+    (NPLine2 plr2,_) = normalize line2
 
 newtype PPoint2PosErr = PPoint2PosErr (Rounded 'TowardInf ℝ)
 
