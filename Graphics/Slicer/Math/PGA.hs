@@ -591,15 +591,16 @@ getFirstArcWithErr p1 p2 p3
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'acute' direction.
 --   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArcWithErr outputs are normalized.
 --   Note that we know that the inside is to the right of the first line given, and that the first line points toward the intersection.
-getInsideArcWithErr :: PLine2 -> PLine2 -> (PLine2, UlpSum)
-getInsideArcWithErr pline1 pline2@(PLine2 pv2)
-  | pline1 == pline2 = error "need to be able to return two PLines."
+getInsideArcWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PLine2, UlpSum)
+getInsideArcWithErr line1 line2
+--  | pline1 == pline2 = error "need to be able to return two PLines."
   | otherwise = (PLine2 normRes, ulpSum)
   where
     ulpSum = resUlp <> sumErrVals addVecErr
-    (NPLine2 normRes, resUlp) = normalizePLine2WithErr $ PLine2 $ addVecRes
+    (NPLine2 normRes, resUlp) = normalize $ PLine2 $ addVecRes
     (addVecRes, addVecErr) = addVecPairWithErr flippedPV1 pv2
-    (PLine2 flippedPV1) = flipPLine2 pline1
+    flippedPV1 = vecOf $ flipPLine2 line1
+    pv2 = vecOf line2
 
 ------------------------------------------------
 ----- And now draw the rest of the algebra -----
@@ -637,14 +638,18 @@ class Arcable a where
 
 class ProjectiveLine2 a where
   normalize :: a -> (NPLine2, UlpSum)
---  flip :: a -> a
+  flipPLine2 :: a -> a
+  vecOf :: a -> GVec
 
 instance ProjectiveLine2 NPLine2 where
   normalize a = (a, mempty)
-
+  flipPLine2 (NPLine2 a)  = NPLine2 $ flipGVec a
+  vecOf (NPLine2 a) = a
 
 instance ProjectiveLine2 PLine2 where
   normalize a = normalizePLine2WithErr a
+  flipPLine2 (PLine2 a) = PLine2 $ flipGVec a
+  vecOf (PLine2 a) = a
 
 -- | The join operator in 2D PGA, which is implemented as the meet operator operating in the dual space.
 (∨+) :: GVec -> GVec -> (GVec, UlpSum)
@@ -805,13 +810,15 @@ forceCPPoint2Basis pt@(CPPoint2 pvec@(GVec [GVal _ gnum1, GVal _ gnum2, GVal _ g
 forceCPPoint2Basis (CPPoint2 pvec)            = CPPoint2 $ forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] pvec
 
 -- | Reverse a line. same line, but pointed in the other direction.
-flipPLine2 :: PLine2 -> PLine2
-flipPLine2 (PLine2 (GVec vals)) = PLine2 $ GVec $ foldl' addValWithoutErr []
-                                  [
-                                    GVal (negate $ valOf 0 $ getVal [GEZero 1] vals) (singleton (GEZero 1))
-                                  , GVal (negate $ valOf 0 $ getVal [GEPlus 1] vals) (singleton (GEPlus 1))
-                                  , GVal (negate $ valOf 0 $ getVal [GEPlus 2] vals) (singleton (GEPlus 2))
-                                  ]
+flipGVec :: GVec -> GVec
+flipGVec (GVec vals) = rawRes
+  where
+    rawRes = GVec $ foldl' addValWithoutErr []
+             [
+               GVal (negate $ valOf 0 $ getVal [GEZero 1] vals) (singleton (GEZero 1))
+             , GVal (negate $ valOf 0 $ getVal [GEPlus 1] vals) (singleton (GEPlus 1))
+             , GVal (negate $ valOf 0 $ getVal [GEPlus 2] vals) (singleton (GEPlus 2))
+             ]
 
 eToPLine2WithErr :: LineSeg -> (PLine2, UlpSum)
 eToPLine2WithErr l1 = pLineFromEndpointsWithErr (startPoint l1) (endPoint l1)
