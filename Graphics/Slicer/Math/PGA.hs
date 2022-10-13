@@ -112,7 +112,7 @@ data PIntersection =
   deriving (Show, Eq)
 
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
-plinesIntersectIn :: (ProjectiveLine,PLine2Err) -> (ProjectiveLine,PLine2Err) -> PIntersection
+plinesIntersectIn :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a,PLine2Err) -> (b,PLine2Err) -> PIntersection
 plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
   | isNothing canonicalizedIntersection
   || (idealNorm <= realToFrac (ulpVal idnErr)
@@ -136,8 +136,8 @@ plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
     (idealNorm, idnErr) = idealNormPPoint2WithErr res
     (res, (_, _, resErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizeIntersectionWithErr npline1 npline2
-    npline1@(npl1, npl1Err) = normalizePLine2WithErr pl1
-    npline2@(npl2, npl2Err) = normalizePLine2WithErr pl2
+    npline1@(npl1, npl1Err) = normalize pl1
+    npline2@(npl2, npl2Err) = normalize pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Maybe Bool
@@ -310,30 +310,30 @@ distanceBetweenPLinesWithErr pl1 pl2 = (res, resErr)
 
 -- | Return the sine of the angle between the two lines, along with the error.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
-angleBetweenWithErr :: ProjectiveLine -> ProjectiveLine -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal],[ErrVal]), UlpSum))
-angleBetweenWithErr pl1 pl2 = (res, resErr)
+angleBetweenWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal],[ErrVal]), UlpSum))
+angleBetweenWithErr line1 line2 = (res, resErr)
   where
     (res, scalarErr) = (scalarPart like, (eValOf mempty $ getVal [G0] likeMulErr) <> (eValOf mempty $ getVal [G0] likeMulErr))
     resErr = (pv1Err, pv2Err, (likeMulErr,likeAddErr), scalarErr)
     (like, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
     (NPLine2 p1) = forcePLine2Basis np1
     (NPLine2 p2) = forcePLine2Basis np2
-    (np1,pv1Err) = normalizePLine2WithErr pl1
-    (np2,pv2Err) = normalizePLine2WithErr pl2
+    (np1,pv1Err) = normalize line1
+    (np2,pv2Err) = normalize line2
 
 -- | A checker, to ensure two Projective Lines are going the same direction, and are parallel.
 -- FIXME: precision on inputs?
-sameDirection :: ProjectiveLine -> ProjectiveLine -> Bool
-sameDirection a b = res  >= maxAngle
+sameDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
+sameDirection a b = res >= maxAngle
   where
     -- ceiling value. a value bigger than maxAngle is considered to be going the same direction.
     maxAngle :: ℝ
-    maxAngle = 1.0 - 2 * realToFrac (ulpVal resErr)
+    maxAngle = 1.0 - realToFrac (ulpVal resErr)
     (res, (_,_,_,resErr)) = angleBetweenWithErr a b
 
 -- | A checker, to ensure two Projective Lines are going the opposite direction, and are parallel.
 -- FIXME: precision on inputs?
-opposingDirection :: ProjectiveLine -> ProjectiveLine -> Bool
+opposingDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
 opposingDirection a b = res <= minAngle
   where
     -- floor value. a value smaller than minAngle is considered to be going the opposite direction.
@@ -711,6 +711,19 @@ data ProjectiveLine =
   | NPLine2 GVec
   deriving (Generic, NFData, Show)
 
+class ProjectiveLine2 a where
+  normalize :: a -> (ProjectiveLine, PLine2Err)
+  flipPLine2 :: a -> a
+  vecOf :: a -> GVec
+
+instance ProjectiveLine2 ProjectiveLine where
+  normalize a = case a of
+                  n@(NPLine2 _) -> (n,mempty)
+                  p@(PLine2 _) -> normalizePLine2WithErr p
+  flipPLine2 a = case a of
+                   (NPLine2 v) -> NPLine2 $ flipGVec v
+                   (PLine2 v) -> PLine2 $ flipGVec v
+  
 instance Eq ProjectiveLine where
   (==) (NPLine2 gvec1) (NPLine2 gvec2) = gvec1 == gvec2
   (==) pl1 pl2 = normalizePLine2WithErr pl1 == normalizePLine2WithErr pl2
@@ -917,12 +930,9 @@ forceProjectivePointBasis point
                       (PPoint2 p) -> (p, Nothing)
 
 -- | Reverse a line. same line, but pointed in the other direction.
-flipPLine2 :: ProjectiveLine -> ProjectiveLine
-flipPLine2 pline = res
+flipGVec :: GVec -> GVec
+flipGVec (GVec vals) = rawRes
   where
-    (res,vals) = case pline of
-            (PLine2 (GVec v)) -> (PLine2 rawRes, v)
-            (NPLine2 (GVec v)) -> (NPLine2 rawRes,v)
     rawRes = GVec $ foldl' addValWithoutErr []
              [
                GVal (negate $ valOf 0 $ getVal [GEZero 1] vals) (singleton (GEZero 1))
