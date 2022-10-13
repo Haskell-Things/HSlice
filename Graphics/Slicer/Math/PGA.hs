@@ -66,7 +66,7 @@ module Graphics.Slicer.Math.PGA(
   translateRotatePPoint2WithErr
   ) where
 
-import Prelude (Bool, Eq((==),(/=)), Monoid(mempty), Semigroup((<>)), Show(show), Ord, ($), (*), (-), (&&), (<$>), (>), (>=), (<=), (+), (/), (||), (<), (.), abs, cos, error, filter, fst, negate, otherwise, realToFrac, signum, sin, sqrt)
+import Prelude (Bool, Eq((==),(/=)), Monoid(mempty), Semigroup((<>)), Show(show), Ord, ($), (*), (-), (&&), (<$>), (>), (>=), (<=), (+), (/), (||), (<), abs, cos, error, filter, fst, negate, otherwise, realToFrac, signum, sin, sqrt)
 
 import GHC.Generics (Generic)
 
@@ -118,8 +118,8 @@ plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
   || (idealNorm <= realToFrac (ulpVal idnErr)
      && (sameDirection pl1 pl2 ||
          oppositeDirection pl1 pl2)) = if sameDirection pl1 pl2
-                                        then PCollinear
-                                        else PAntiCollinear
+                                       then PCollinear
+                                       else PAntiCollinear
   | sameDirection pl1 pl2            = if d < parallelFuzziness
                                        then PCollinear
                                        else PParallel
@@ -141,7 +141,7 @@ plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe Bool
-pLineIsLeft pl1 pl2
+pLineIsLeft (pl1, pl1Err) (pl2,pl2Err)
 -- FIXME: is there a way we can use Eq on a and b?
 --  | pl1 == pl2                    = Nothing
   | npl1 == npl2                  = Nothing
@@ -166,12 +166,8 @@ pLineIsLeft pl1 pl2
         -- safe, because we only accept normalized PLines.
         -- I, the infinite point.
         gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
-        lvec1 = case pline1 of
-                  (NPLine2 vec) -> vec
-                  (PLine2 vec) -> vec
-        lvec2 = case pline2 of
-                  (NPLine2 vec) -> vec
-                  (PLine2 vec) -> vec
+        lvec1 = vecOf pline1
+        lvec2 = vecOf pline2
 
 -- | Find out where two lines intersect, returning a projective point, and the error quotents.
 -- Note: this should only be used when you can guarantee these are not collinear, or parallel.
@@ -303,8 +299,8 @@ distanceBetweenPLinesWithErr line1 line2 = (res, resErr)
     (like, likeErr) = p1 ⎣+ p2
     p1 = vecOf $ forcePLine2Basis npl1
     p2 = vecOf $ forcePLine2Basis npl2
-    (npl1,pv1Err) = normalize pl1
-    (npl2,pv2Err) = normalize pl2
+    (npl1,pv1Err) = normalize line1
+    (npl2,pv2Err) = normalize line2
 
 -- | Return the sine of the angle between the two lines, along with the error.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
@@ -336,7 +332,7 @@ oppositeDirection a b = res <= minAngle
   where
     -- floor value. a value smaller than minAngle is considered to be going the opposite direction.
     minAngle :: ℝ
-    minAngle = (-1) + 2 * realToFrac (ulpVal resErr)
+    minAngle = realToFrac (realToFrac (ulpVal resErr) + (-1) :: Rounded 'TowardNegInf ℝ)
     (res, (_,_,_,resErr)) = angleBetweenWithErr a b
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
@@ -372,7 +368,7 @@ translateProjectiveLine2WithErr lineVec d = (res, PLine2Err resErr mempty (mErr 
     mErr = UlpSum $ abs $ realToFrac $ doubleUlp tAdd
     -- the amount to add to GEZero 1 component.
     tAdd = d * n
-    (n, nErr) = normOfPLine2WithErr (Pline2 lineVec)
+    (n, nErr) = normOfPLine2WithErr (PLine2 lineVec)
     foundT = valOf 0 $ getVal [GEZero 1] $ (\(GVec vals) -> vals) lineVec
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
@@ -710,7 +706,7 @@ class ProjectiveLine2 a where
   normalize :: a -> (ProjectiveLine, PLine2Err)
   flipPLine2 :: a -> a
   forcePLine2Basis :: a -> a
-  translatePLine2WithErr :: a -> ℝ -> (a, UlpSum)
+  translatePLine2WithErr :: a -> ℝ -> (a, PLine2Err)
   vecOf :: a -> GVec
 
 instance ProjectiveLine2 ProjectiveLine where
@@ -800,8 +796,8 @@ meet2PLine2WithErr line1 line2 = (PPoint2 res,
     (res, resUnlikeErr) = pv1 ⎤+ pv2
     (NPLine2 pv1) = forcePLine2Basis npl1
     (NPLine2 pv2) = forcePLine2Basis npl2
-    (npl1,npl1Err) = normalize pl1
-    (npl2,npl2Err) = normalize pl2
+    (npl1,npl1Err) = normalize line1
+    (npl2,npl2Err) = normalize line2
 
 eToPPoint2 :: Point2 -> ProjectivePoint
 eToPPoint2 (Point2 (x,y)) = PPoint2 res
@@ -906,13 +902,11 @@ forceProjectiveLine2Basis :: GVec -> GVec
 forceProjectiveLine2Basis pvec
   | gnums == Just [singleton (GEZero 1),
                    singleton (GEPlus 1),
-                   singleton (GEPlus 2)] = ln
-  | otherwise = case ln of
-                  (PLine2 _) -> PLine2 res
-                  (NPLine2 _) -> NPLine2 res
+                   singleton (GEPlus 2)] = pvec
+  | otherwise = res
   where
     res = forceBasis [singleton (GEZero 1), singleton (GEPlus 1), singleton (GEPlus 2)] pvec
-    gnums = case ln of
+    gnums = case pvec of
               (GVec [GVal _ g1, GVal _ g2, GVal _ g3]) -> Just [g1,g2,g3]
               _ -> Nothing
 
