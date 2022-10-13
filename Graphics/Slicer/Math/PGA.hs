@@ -69,7 +69,7 @@ module Graphics.Slicer.Math.PGA(
   ulpOfPLine2
   ) where
 
-import Prelude (Bool, Eq((==),(/=)), Show, Ord, ($), (*), (-), (>=), (&&), (<$>), mempty, otherwise, signum, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, show, error, sin, cos, realToFrac, fst, sum, (.), realToFrac)
+import Prelude (Bool, Eq((==),(/=)), Show(show), Ord, ($), (*), (-), (>=), (&&), (<$>), mempty, otherwise, signum, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, error, sin, cos, realToFrac, fst, sum, (.), realToFrac)
 
 import GHC.Generics (Generic)
 
@@ -95,7 +95,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, scalePoint, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf, vectorPart)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
@@ -304,14 +304,15 @@ pPointOnPerpWithErr line rppoint d = (PPoint2 res,
 
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Abuses the property that translation of a line is expressed on the GEZero component.
--- WARNING: multiple calls to this will stack up nErr needlessly.
-translateProjectiveLine2WithErr :: GVec -> ℝ -> (GVec, UlpSum)
-translateProjectiveLine2WithErr lineVec d = (res, resUlp <> UlpSum nErr)
+translateProjectiveLine2WithErr :: GVec -> ℝ -> (GVec, PLine2Err)
+translateProjectiveLine2WithErr lineVec d = (res, PLine2Err resErr mempty nErr tErr mempty)
   where
     (res, resErr) = addVecPairWithErr m lineVec
-    resUlp = sumErrVals resErr
-    m = GVec [GVal (d*n) (singleton (GEZero 1))]
-    (n, UlpSum nErr) = normOfPLine2WithErr (PLine2 lineVec)
+    m = GVec [GVal tAdd (singleton (GEZero 1))]
+    -- the amount to add to the GEZero 1 component.
+    tAdd = d * n
+    tErr = UlpSum $ abs $ realToFrac $ doubleUlp tAdd
+    (n, nErr) = normOfPLine2WithErr (PLine2 lineVec)
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
 translateRotatePPoint2 :: PPoint2 -> ℝ -> ℝ -> PPoint2
@@ -631,15 +632,29 @@ instance ProjectiveLine2 NPLine2 where
   normalize a = (a, mempty)
   flipPLine2 (NPLine2 a)  = NPLine2 $ flipGVec a
   forcePLine2Basis (NPLine2 a) = NPLine2 $ forceProjectiveLine2Basis a
-  translatePLine2WithErr (NPLine2 a) d = (\(b,c) -> (NPLine2 b,c)) $ translateProjectiveLine2WithErr a d
+  translatePLine2WithErr (NPLine2 a) d = (\(b,(PLine2Err _ _ _ t _)) -> (NPLine2 b,t)) $ translateProjectiveLine2WithErr a d
   vecOf (NPLine2 a) = a
 
 instance ProjectiveLine2 PLine2 where
   normalize a = normalizePLine2WithErr a
   flipPLine2 (PLine2 a) = PLine2 $ flipGVec a
   forcePLine2Basis (PLine2 a) = PLine2 $ forceProjectiveLine2Basis a
-  translatePLine2WithErr (PLine2 a) d = (\(b,c) -> (PLine2 b,c)) $ translateProjectiveLine2WithErr a d
+  translatePLine2WithErr (PLine2 a) d = (\(b,(PLine2Err _ _ _ t _)) -> (PLine2 b,t)) $ translateProjectiveLine2WithErr a d
   vecOf (PLine2 a) = a
+
+-- | the two types of error of a projective line.
+data PLine2Err = PLine2Err
+  -- AddErr
+    [ErrVal]
+  -- NormalizationErr
+    [ErrVal]
+  -- NormErr
+    UlpSum
+  -- Translation Error. always in GEZero 1.
+    UlpSum
+  -- JoinErr
+    ([ErrVal], [ErrVal])
+  deriving (Eq, Show)
 
 -- | A canonicalized projective point in 2D space.
 newtype CPPoint2 = CPPoint2 GVec
@@ -894,7 +909,7 @@ idealNormPPoint2WithErr ppoint@(PPoint2 (GVec rawVals))
 -- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
 canonicalizePPoint2WithErr :: PPoint2 -> (CPPoint2, UlpSum)
 canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
-  | valOf 0 foundVal == 0 = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
+  | isNothing foundVal = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
   -- Handle the ID case.
   | valOf 1 foundVal == 1 = ((\(PPoint2 v) -> CPPoint2 v) point, ulpSum)
   | otherwise = (res, ulpSum)
