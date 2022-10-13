@@ -242,14 +242,16 @@ distanceBetweenCPPointsWithErr cpoint1 cpoint2 = (res, ulpTotal)
     ulpTotal                       = UlpSum $ resErr + newPLineErr
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
-distanceBetweenNPLine2sWithErr :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
-distanceBetweenNPLine2sWithErr (NPLine2 pv1) (NPLine2 pv2) = (ideal, resUlpSum)
+distanceBetweenNPLine2sWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
+distanceBetweenNPLine2sWithErr line1 line2 = (ideal, resUlpSum)
   where
     (ideal, idealUlpSum) = idealNormPPoint2WithErr $ PPoint2 likeRes
     resUlpSum = idealUlpSum <> sumErrVals likeMulErr <> sumErrVals likeAddErr
     (likeRes, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
-    (PLine2 p1) = forcePLine2Basis $ PLine2 pv1
-    (PLine2 p2) = forcePLine2Basis $ PLine2 pv2
+    p1 = vecOf $ forcePLine2Basis npl1
+    p2 = vecOf $ forcePLine2Basis npl2
+    (npl1, _) = normalize line1
+    (npl2, _) = normalize line2
 
 -- | Return the sine of the angle between the two lines, along with the error. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
 -- FIXME: not generating large enough ULPs. why?
