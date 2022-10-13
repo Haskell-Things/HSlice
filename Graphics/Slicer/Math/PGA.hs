@@ -305,13 +305,13 @@ pPointOnPerpWithErr line rppoint d = (PPoint2 res,
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Abuses the property that translation of a line is expressed on the GEZero component.
 -- WARNING: multiple calls to this will stack up nErr needlessly.
-translatePLine2WithErr :: PLine2 -> ℝ -> (PLine2, UlpSum)
-translatePLine2WithErr pLine@(PLine2 rawPLine) d = (PLine2 res, resUlp <> UlpSum nErr)
+translateProjectiveLine2WithErr :: GVec -> ℝ -> (GVec, UlpSum)
+translateProjectiveLine2WithErr lineVec d = (res, resUlp <> UlpSum nErr)
   where
-    (res, resErr) = addVecPairWithErr m rawPLine
+    (res, resErr) = addVecPairWithErr m lineVec
     resUlp = sumErrVals resErr
     m = GVec [GVal (d*n) (singleton (GEZero 1))]
-    (n, UlpSum nErr) = normOfPLine2WithErr pLine
+    (n, UlpSum nErr) = normOfPLine2WithErr (PLine2 lineVec)
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
 translateRotatePPoint2 :: PPoint2 -> ℝ -> ℝ -> PPoint2
@@ -624,18 +624,21 @@ class ProjectiveLine2 a where
   normalize :: a -> (NPLine2, UlpSum)
   flipPLine2 :: a -> a
   forcePLine2Basis :: a -> a
+  translatePLine2WithErr :: a -> ℝ -> (a, UlpSum)
   vecOf :: a -> GVec
 
 instance ProjectiveLine2 NPLine2 where
   normalize a = (a, mempty)
   flipPLine2 (NPLine2 a)  = NPLine2 $ flipGVec a
   forcePLine2Basis (NPLine2 a) = NPLine2 $ forceProjectiveLine2Basis a
+  translatePLine2WithErr (NPLine2 a) d = (\(b,c) -> (NPLine2 b,c)) $ translateProjectiveLine2WithErr a d
   vecOf (NPLine2 a) = a
 
 instance ProjectiveLine2 PLine2 where
   normalize a = normalizePLine2WithErr a
   flipPLine2 (PLine2 a) = PLine2 $ flipGVec a
   forcePLine2Basis (PLine2 a) = PLine2 $ forceProjectiveLine2Basis a
+  translatePLine2WithErr (PLine2 a) d = (\(b,c) -> (PLine2 b,c)) $ translateProjectiveLine2WithErr a d
   vecOf (PLine2 a) = a
 
 -- | A canonicalized projective point in 2D space.
