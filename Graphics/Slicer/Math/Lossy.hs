@@ -21,8 +21,7 @@
 module Graphics.Slicer.Math.Lossy (
   angleBetween,
   canonicalizePPoint2,
-  cPPointBetweenCPPoints,
-  distanceBetweenCPPoints,
+  distanceBetweenPPoints,
   distanceBetweenNPLine2s,
   distanceCPPointToNPLine,
   distancePPointToPLine,
@@ -50,7 +49,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2, PLine2, PPoint2(PPoint2), angleBetweenWithErr, canonicalizePPoint2WithErr, cPPointBetweenCPPointsWithErr, distanceBetweenCPPointsWithErr, distanceBetweenNPLine2sWithErr, distanceCPPointToNPLineWithErr, distancePPointToPLineWithErr, eToCPPoint2WithErr, eToPLine2WithErr, eToPPoint2WithErr, getFirstArcWithErr, getInsideArcWithErr, join2CPPoint2WithErr, join2PPoint2WithErr, makeCPPoint2WithErr, normalizePLine2WithErr, pLineFromEndpointsWithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, translatePLine2WithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2, PLine2, PPoint2(PPoint2), ProjectivePoint2, angleBetweenWithErr, canonicalizePPoint2WithErr, distanceBetweenPPointsWithErr, distanceBetweenNPLine2sWithErr, distanceCPPointToNPLineWithErr, distancePPointToPLineWithErr, eToCPPoint2WithErr, eToPLine2WithErr, eToPPoint2WithErr, getFirstArcWithErr, getInsideArcWithErr, join2CPPoint2WithErr, join2PPoint2WithErr, makeCPPoint2WithErr, normalizePLine2WithErr, pLineFromEndpointsWithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, translatePLine2WithErr)
 
 angleBetween :: NPLine2 -> NPLine2 -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetweenWithErr nPLine1 nPLine2
@@ -59,11 +58,8 @@ angleBetween nPLine1 nPLine2 = fst $ angleBetweenWithErr nPLine1 nPLine2
 canonicalizePPoint2 :: PPoint2 -> CPPoint2
 canonicalizePPoint2 point = fst $ canonicalizePPoint2WithErr point
 
-cPPointBetweenCPPoints :: CPPoint2 -> CPPoint2 -> ℝ -> ℝ -> CPPoint2
-cPPointBetweenCPPoints start stop weight1 weight2 = fst $ cPPointBetweenCPPointsWithErr start stop weight1 weight2
-
-distanceBetweenCPPoints :: CPPoint2 -> CPPoint2 -> ℝ
-distanceBetweenCPPoints point1 point2 = fst $ distanceBetweenCPPointsWithErr point1 point2
+distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
+distanceBetweenPPoints point1 point2 = fst $ distanceBetweenPPointsWithErr point1 point2
 
 distanceBetweenNPLine2s :: NPLine2 -> NPLine2 -> ℝ
 distanceBetweenNPLine2s nPLine1 nPLine2 = fst $ distanceBetweenNPLine2sWithErr nPLine1 nPLine2
@@ -127,7 +123,7 @@ pLineFromEndpoints point1 point2 = fst $ pLineFromEndpointsWithErr point1 point2
 
 -- | Find a point somewhere along the line between the two points given.
 --  requires two weights. the ratio of these weights determines the position of the found points, E.G: (2/3,1/3) is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint. weights can sum to anything.
-pPointBetweenPPoints :: PPoint2 -> PPoint2 -> ℝ -> ℝ -> PPoint2
+pPointBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> PPoint2
 pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ pPointBetweenPPointsWithErr startOfSeg stopOfSeg weight1 weight2
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
