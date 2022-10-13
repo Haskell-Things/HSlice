@@ -217,7 +217,7 @@ distanceCPPointToNPLineWithErr point line
     (NPLine2 nplvec,_)               = normalize line
 
 -- | Determine if two points are on the same side of a given line.
-pPointsOnSameSideOfPLine :: PPoint2 -> PPoint2 -> PLine2 -> Maybe Bool
+pPointsOnSameSideOfPLine :: (ProjectiveLine2 c) => PPoint2 -> PPoint2 -> c -> Maybe Bool
 pPointsOnSameSideOfPLine point1 point2 line
   -- Return nothing if one of the points is on the line.
   |  abs foundP1 < realToFrac (ulpVal unlikeP1UlpSum) ||
@@ -232,7 +232,7 @@ pPointsOnSameSideOfPLine point1 point2 line
     (GVec unlikeP2, (unlikeP2MulErr, unlikeP2AddErr)) = pv2 ⎤+ lv1
     (PPoint2 pv1) = forcePPoint2Basis point1
     (PPoint2 pv2) = forcePPoint2Basis point2
-    (PLine2 lv1) = forcePLine2Basis line
+    lv1 = vecOf $ forcePLine2Basis line
 
 distanceBetweenCPPointsWithErr :: CPPoint2 -> CPPoint2 -> (ℝ, UlpSum)
 distanceBetweenCPPointsWithErr cpoint1 cpoint2 = (res, ulpTotal)
@@ -618,6 +618,24 @@ newtype PLine2 = PLine2 GVec
 newtype NPLine2 = NPLine2 GVec
   deriving (Eq, Generic, NFData, Show)
 
+class ProjectiveLine2 a where
+  normalize :: a -> (NPLine2, UlpSum)
+  flipPLine2 :: a -> a
+  forcePLine2Basis :: a -> a
+  vecOf :: a -> GVec
+
+instance ProjectiveLine2 NPLine2 where
+  normalize a = (a, mempty)
+  flipPLine2 (NPLine2 a)  = NPLine2 $ flipGVec a
+  forcePLine2Basis (NPLine2 a) = NPLine2 $ forceProjectiveLine2Basis a
+  vecOf (NPLine2 a) = a
+
+instance ProjectiveLine2 PLine2 where
+  normalize a = normalizePLine2WithErr a
+  flipPLine2 (PLine2 a) = PLine2 $ flipGVec a
+  forcePLine2Basis (PLine2 a) = PLine2 $ forceProjectiveLine2Basis a
+  vecOf (PLine2 a) = a
+
 -- | A canonicalized projective point in 2D space.
 newtype CPPoint2 = CPPoint2 GVec
   deriving (Eq, Generic, NFData, Show)
@@ -635,21 +653,6 @@ class Arcable a where
   outOf :: a -> PLine2
   ulpOfOut :: a -> UlpSum
   outUlpMag :: a -> ℝ
-
-class ProjectiveLine2 a where
-  normalize :: a -> (NPLine2, UlpSum)
-  flipPLine2 :: a -> a
-  vecOf :: a -> GVec
-
-instance ProjectiveLine2 NPLine2 where
-  normalize a = (a, mempty)
-  flipPLine2 (NPLine2 a)  = NPLine2 $ flipGVec a
-  vecOf (NPLine2 a) = a
-
-instance ProjectiveLine2 PLine2 where
-  normalize a = normalizePLine2WithErr a
-  flipPLine2 (PLine2 a) = PLine2 $ flipGVec a
-  vecOf (PLine2 a) = a
 
 -- | The join operator in 2D PGA, which is implemented as the meet operator operating in the dual space.
 (∨+) :: GVec -> GVec -> (GVec, UlpSum)
@@ -785,13 +788,13 @@ forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
     forceVal has needs = GVal (valOf 0 $ getVal (elems needs) has) needs
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a PLine2.
-forcePLine2Basis :: PLine2 -> PLine2
-forcePLine2Basis ln@(PLine2 pvec@(GVec [GVal _ gnum1, GVal _ gnum2, GVal _ gnum3]))
+forceProjectiveLine2Basis :: GVec -> GVec
+forceProjectiveLine2Basis pvec@(GVec [GVal _ gnum1, GVal _ gnum2, GVal _ gnum3])
   | gnum1 == singleton (GEZero 1) &&
     gnum2 == singleton (GEPlus 1) &&
-    gnum3 == singleton (GEPlus 2)    = ln
-  | otherwise                        = PLine2 $ forceBasis [singleton (GEZero 1), singleton (GEPlus 1), singleton (GEPlus 2)] pvec
-forcePLine2Basis (PLine2 pvec)       = PLine2 $ forceBasis [singleton (GEZero 1), singleton (GEPlus 1), singleton (GEPlus 2)] pvec
+    gnum3 == singleton (GEPlus 2)    = pvec
+  | otherwise                        = forceBasis [singleton (GEZero 1), singleton (GEPlus 1), singleton (GEPlus 2)] pvec
+forceProjectiveLine2Basis pvec = forceBasis [singleton (GEZero 1), singleton (GEPlus 1), singleton (GEPlus 2)] pvec
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a PPoint2.
 forcePPoint2Basis :: PPoint2 -> PPoint2
