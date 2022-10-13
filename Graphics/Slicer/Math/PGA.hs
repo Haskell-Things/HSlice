@@ -847,11 +847,13 @@ pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2)) = (PLine2 $ GVec $ f
                + abs (realToFrac $ doubleUlp c)
 
 -- | Get the sum of the error involved in storing the values in a given PLine2.
-ulpOfPLine2 :: PLine2 -> UlpSum
-ulpOfPLine2 (PLine2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleUlp . (\(GVal r _) -> r) <$> catMaybes
+ulpOfPLine2 :: (ProjectiveLine2 a) => a -> UlpSum
+ulpOfPLine2 line = UlpSum $ sum $ abs . realToFrac . doubleUlp . (\(GVal r _) -> r) <$> catMaybes
                                    [getVal [GEZero 1] vals
                                    ,getVal [GEPlus 1] vals
                                    ,getVal [GEPlus 2] vals]
+  where
+    (GVec vals) = vecOf line
 
 -- | Get the sum of the error involved in storing the values in a given Line Segment.
 ulpOfLineSeg :: LineSeg -> UlpSum
@@ -917,7 +919,7 @@ canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
 -- NOTE: Returns nothing when the PLines are (anti)parallel.
 canonicalizeIntersectionWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe (CPPoint2, UlpSum)
 canonicalizeIntersectionWithErr pl1 pl2
-  | valOf 0 foundVal == 0 = Nothing
+  | isNothing foundVal = Nothing
   | otherwise = Just (cpp1, ulpTotal)
   where
     (cpp1, UlpSum canonicalizationErr) = canonicalizePPoint2WithErr pp1
@@ -926,17 +928,17 @@ canonicalizeIntersectionWithErr pl1 pl2
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
 
 -- | Normalize a PLine2.
-normalizePLine2WithErr :: PLine2 -> (NPLine2, UlpSum)
-normalizePLine2WithErr pl@(PLine2 vec) = (res, ulpTotal)
+normalizePLine2WithErr :: (ProjectiveLine2 a) => a -> (NPLine2, UlpSum)
+normalizePLine2WithErr line = (res, ulpTotal)
   where
-    res = (\(PLine2 a) -> NPLine2 a) rawRes
-    rawRes = PLine2 $ fst $ divVecScalarWithErr vec normOfMyPLine
-    (normOfMyPLine, UlpSum normErr) = normOfPLine2WithErr pl
+    res = NPLine2 $ fst $ divVecScalarWithErr vec normOfMyPLine
+    (normOfMyPLine, UlpSum normErr) = normOfPLine2WithErr line
     ulpTotal = UlpSum $ normErr + resErr
-    (UlpSum resErr) = ulpOfPLine2 rawRes
+    (UlpSum resErr) = ulpOfPLine2 res
+    vec = vecOf line
 
 -- | find the norm of a given PLine2
-normOfPLine2WithErr :: PLine2 -> (ℝ, UlpSum)
+normOfPLine2WithErr :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
 normOfPLine2WithErr pline = (res, ulpTotal)
   where
     res = sqrt sqNormOfPLine2
@@ -944,8 +946,8 @@ normOfPLine2WithErr pline = (res, ulpTotal)
     ulpTotal = UlpSum $ abs (realToFrac $ doubleUlp res) + sqNormErr
 
 -- | find the squared norm of a given PLine2
-sqNormOfPLine2WithErr :: PLine2 -> (ℝ, UlpSum)
-sqNormOfPLine2WithErr (PLine2 (GVec vals)) = (res, ulpTotal)
+sqNormOfPLine2WithErr :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
+sqNormOfPLine2WithErr line = (res, ulpTotal)
   where
     res = a*a+b*b
     a = valOf 0 $ getVal [GEPlus 1] vals
@@ -954,4 +956,4 @@ sqNormOfPLine2WithErr (PLine2 (GVec vals)) = (res, ulpTotal)
                $ abs (realToFrac $ doubleUlp $ a*a)
                + abs (realToFrac $ doubleUlp $ b*b)
                + abs (realToFrac $ doubleUlp res)
-
+    (GVec vals) = vecOf line
