@@ -140,17 +140,17 @@ plinesIntersectIn pl1 pl2
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe Bool
 pLineIsLeft pl1 pl2
-  | npl1 == npl2                  = Nothing
-  | abs res < realToFrac ulpTotal = Nothing
-  | otherwise                     = Just $ res > 0
+  | npl1 == npl2       = Nothing
+  | abs res <= 0       = Nothing
+  | otherwise          = Just $ res > 0
   where
-    (res, resErr)   = angleCos npl1 npl2
-    (npl1, npl1Err) = normalize pl1
-    (npl2, npl2Err) = normalize pl2
-    ulpTotal = ulpVal $ npl1Err <> npl2Err <> resErr
+    -- FIXME: naieve implementation. use npl1Err and npl2Err to get two angle differences.
+    (res, _) = angleCos npl1 npl2
+    (npl1, _) = normalize pl1
+    (npl2, _) = normalize pl2
     -- | Find the cosine of the angle between the two lines. results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when "right".
-    angleCos :: NPLine2 -> NPLine2 -> (ℝ, UlpSum)
-    angleCos (NPLine2 lvec1) (NPLine2 lvec2)
+    angleCos :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
+    angleCos l1 l2
       | isNothing canonicalizedIntersection = (0, mempty)
       | otherwise = (angle, iPointErr)
       where
@@ -158,11 +158,11 @@ pLineIsLeft pl1 pl2
         (CPPoint2 iPointVec, iPointErr) = fromJust canonicalizedIntersection
         motor                     = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
         antiMotor                 = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
-        canonicalizedIntersection = canonicalizeIntersectionWithErr pline1 pline2
+        canonicalizedIntersection = canonicalizeIntersectionWithErr (NPLine2 lvec1) (NPLine2 lvec2)
         -- I, the infinite point.
         gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
-        pline1 = PLine2 lvec1
-        pline2 = PLine2 lvec2
+        lvec1 = vecOf l1
+        lvec2 = vecOf l2
 
 -- | Find out where two lines intersect, returning a projective point, and the error quotent. Note that this should only be used when you can guarantee these are not collinear, or parallel.
 pLineIntersectionWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PPoint2, UlpSum)
