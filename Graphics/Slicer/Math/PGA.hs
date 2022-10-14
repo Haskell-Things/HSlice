@@ -70,7 +70,7 @@ module Graphics.Slicer.Math.PGA(
   ulpOfPLine2
   ) where
 
-import Prelude (Bool, Eq((==),(/=)), Semigroup((<>)), Show(show), Ord, ($), (*), (-), (>=), (&&), (<$>), mempty, otherwise, signum, (>), (<=), (+), sqrt, negate, (/), (||), (<), abs, error, sin, cos, realToFrac, fst, sum, (.))
+import Prelude (Bool, Eq((==),(/=)), Monoid(mempty), Semigroup((<>)), Show(show), Ord, ($), (*), (-), (>=), (&&), (<$>), otherwise, signum, (>), (<=), (+), sqrt, negate, (/), (||), (<), abs, error, sin, cos, realToFrac, fst, sum, (.))
 
 import GHC.Generics (Generic)
 
@@ -96,7 +96,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, scalePoint, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf, vectorPart)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
@@ -616,6 +616,39 @@ newtype PPoint2 = PPoint2 GVec
 newtype CPPoint2 = CPPoint2 GVec
   deriving (Eq, Generic, NFData, Show)
 
+-- | the error accumulated when calculating a projective point.
+data PPoint2Err =
+  PPoint2Err
+    -- MeetErr. max error amounts while meeting two PLines to find this point. divided into add err, and multiply err.
+    ([ErrVal], [ErrVal])
+    -- CanonicalizeErr. error caused by the divide used during canonicalization of a point.
+    [ErrVal]
+    -- AddErr. error created when adding two points to create a third point.
+    [ErrVal]
+    -- WeighedStartErr. error created when scaling one of the two input points used to create this point.
+    [ErrVal]
+    -- WeighedStopErr. error created when scaling one of the two input points used to create this point.
+    [ErrVal]
+    -- angle between the two input lines, when we generate this point via intersecting two lines.
+    ℝ
+    -- angleUnlikeErr - the error of the unlike operation that generates the angle in the previous field.
+    ([ErrVal], [ErrVal])
+  deriving (Eq, Show)
+
+instance Semigroup PPoint2Err where
+  (<>) (PPoint2Err (a1,b1) c1 d1 e1 f1 g1 (h1,i1)) (PPoint2Err (a2,b2) c2 d2 e2 f2 g2 (h2,i2)) =
+    PPoint2Err
+      (foldl' addErr a1 a2, foldl' addErr b1 b2)
+      (foldl' addErr c1 c2)
+      (foldl' addErr d1 d2)
+      (foldl' addErr e1 e2)
+      (foldl' addErr f1 f2)
+      (g1 <> g2)
+      (foldl' addErr h1 h2, foldl' addErr i1 i2)
+
+instance Monoid PPoint2Err where
+  mempty = PPoint2Err mempty mempty mempty mempty mempty mempty mempty
+
 -- | Can this node be resolved into a point in 2d space?
 class Pointable a where
   canPoint :: a -> Bool
@@ -635,7 +668,7 @@ class ProjectivePoint2 a where
   vecOfP :: a -> GVec
 
 instance ProjectivePoint2 PPoint2 where
-  canonicalize p = canonicalizePPoint2WithErr p
+  canonicalize p = (\(a, PPoint2Err _ c8izeErrs _ _ _ _ _) -> (a,sumPPointErrs c8izeErrs)) $ canonicalizePPoint2WithErr p
   vecOfP (PPoint2 a) = a
 
 instance ProjectivePoint2 CPPoint2 where
@@ -896,13 +929,6 @@ ulpOfPLine2 line = UlpSum $ sum $ abs . realToFrac . doubleUlp . (\(GVal r _) ->
 ulpOfLineSeg :: LineSeg -> UlpSum
 ulpOfLineSeg (LineSeg (Point2 (x1,y1)) (Point2 (x2,y2))) = UlpSum $ sum $ abs . realToFrac . doubleUlp <$> [x1, y1, x2, y2]
 
--- | Get the sum of the error involved in storing the values in a given PPoint2.
-ulpOfCPPoint2 :: CPPoint2 -> UlpSum
-ulpOfCPPoint2 (CPPoint2 (GVec vals)) = UlpSum $ sum $ abs . realToFrac . doubleUlp . (\(GVal r _) -> r) <$> catMaybes
-                                       [getVal [GEZero 1, GEPlus 1] vals
-                                       ,getVal [GEZero 1, GEPlus 2] vals
-                                       ,getVal [GEPlus 1, GEPlus 2] vals]
-
 ---------------------------------------------------------------------
 ---- Utillity functions that use sqrt(), or divVecScalarWithErr. ----
 ---------------------------------------------------------------------
@@ -929,12 +955,12 @@ idealNormPPoint2WithErr ppoint@(PPoint2 (GVec rawVals))
 -- | canonicalize a euclidian point.
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.
 -- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
-canonicalizePPoint2WithErr :: PPoint2 -> (CPPoint2, UlpSum)
-canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
+canonicalizePPoint2WithErr :: (ProjectivePoint2 a, Show a) => a -> (CPPoint2, PPoint2Err)
+canonicalizePPoint2WithErr point
   | isNothing foundVal = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
   -- Handle the ID case.
-  | valOf 1 foundVal == 1 = ((\(PPoint2 v) -> CPPoint2 v) point, ulpSum)
-  | otherwise = (res, ulpSum)
+  | valOf 1 foundVal == 1 = (CPPoint2 $ GVec rawVals, mempty)
+  | otherwise = (res, PPoint2Err mempty scaledErrs mempty mempty mempty mempty mempty)
   where
     res = CPPoint2 $ GVec $ foldl' addValWithoutErr []
           $  ( if isNothing (getVal [GEZero 1, GEPlus 1] scaledVals)
@@ -946,11 +972,11 @@ canonicalizePPoint2WithErr point@(PPoint2 (GVec rawVals))
                else [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] scaledVals) (fromList [GEZero 1, GEPlus 2])]
              )
           <> [GVal 1 (fromList [GEPlus 1, GEPlus 2])]
-    newVec = GVec $ addValWithoutErr [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1])]
-                                     (GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2]))
-    (GVec scaledVals, _) = divVecScalarWithErr newVec $ valOf 1 foundVal
+    newVec = GVec [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1])
+                  ,GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2])]
+    (GVec scaledVals, scaledErrs) = divVecScalarWithErr newVec $ valOf 1 foundVal
+    (GVec rawVals) = vecOfP point
     foundVal = getVal [GEPlus 1, GEPlus 2] rawVals
-    ulpSum = ulpOfCPPoint2 res
 
 -- | Canonicalize the intersection resulting from two PLines.
 -- NOTE: Returns nothing when the PLines are (anti)parallel.
@@ -998,3 +1024,9 @@ sqNormOfPLine2WithErr line = (res, ulpTotal)
                + abs (realToFrac $ doubleUlp $ b*b)
                + abs (realToFrac $ doubleUlp res)
     (GVec vals) = vecOfL line
+
+-- | Get the sum of a set of error values, when dealing with error applied to a Projective Point.
+sumPPointErrs :: [ErrVal] -> UlpSum
+sumPPointErrs errs = eValOf mempty (getVal [GEZero 1, GEPlus 1] errs)
+                  <> eValOf mempty (getVal [GEZero 1, GEPlus 2] errs)
+                  <> eValOf mempty (getVal [GEPlus 1, GEPlus 2] errs)
