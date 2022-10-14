@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
 
 import Graphics.Slicer.Math.Intersections (isCollinear, isAntiCollinear, isParallel, isAntiParallel, intersectionOf)
 
-import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetweenWithErr, canonicalize, distanceBetweenPPointsWithErr, eToPLine2WithErr, flipPLine2, join2PPointsWithErr, normalize)
+import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetweenWithErr, canonicalize, distanceBetweenPPointsWithErr, eToPLine2WithErr, flipL, join2PPointsWithErr, normalize)
 
 -- | Get a PLine along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
 -- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
@@ -53,12 +53,12 @@ getOutsideArcWithErr ppoint1 pline1 ppoint2 pline2
                                           <> show ppoint2 <> "\n"
                                           <> show pline1 <> "\n"
                                           <> show pline2 <> "\n"
-  | l1TowardPoint && l2TowardPoint = flipFst $ getInsideArcWithErr npline1 (flipPLine2 npline2)
+  | l1TowardPoint && l2TowardPoint = flipFst $ getInsideArcWithErr npline1 (flipL npline2)
   | l1TowardPoint                  = flipFst $ getInsideArcWithErr npline1 npline2
   | l2TowardPoint                  = getInsideArcWithErr npline1 npline2
-  | otherwise                      = getInsideArcWithErr npline1 (flipPLine2 npline2)
+  | otherwise                      = getInsideArcWithErr npline1 (flipL npline2)
     where
-      flipFst (a,b) = (flipPLine2 a,b)
+      flipFst (a,b) = (flipL a,b)
       intersectionPoint = intersectionOf (npline1,npline1Err) (npline2,npline2Err)
       l1TowardPoint = towardIntersection (cppoint1,c1Err) (npline1,npline1Err) (intersectionPoint,mempty)
       l2TowardPoint = towardIntersection (cppoint2,c2Err) (npline2,npline2Err) (intersectionPoint,mempty)
@@ -109,7 +109,7 @@ getInsideArcWithErr pline1 pline2
   where
       (res, resNormErr) = normalize $ PLine2 rawPLine2
       (rawPLine2, addErr)       = addVecPairWithErr pv1 pv2
-      (NPLine2 pv1)             = flipPLine2 npline1
+      (NPLine2 pv1)             = flipL npline1
       (npline1, npline1Err) = normalize pline1
       (npline2, npline2Err) = normalize pline2
       pv2 = case pline2 of

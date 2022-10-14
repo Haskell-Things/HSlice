@@ -44,7 +44,7 @@ module Graphics.Slicer.Math.PGA(
   pLineErrAtPPoint,
   eToPLine2WithErr,
   eToPPoint2,
-  flipPLine2,
+  flipL,
   idealNormPPoint2WithErr,
   intersectsWith,
   intersectsWithErr,
@@ -60,6 +60,7 @@ module Graphics.Slicer.Math.PGA(
   pPointFuzziness,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
+  pToEP,
   pToEPoint2WithErr,
   plinesIntersectIn,
   sameDirection,
@@ -134,7 +135,7 @@ plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
     parallelFuzziness = realToFrac $ ulpVal (dErr <> pLineErrAtPPoint npline1 res <> pLineErrAtPPoint npline2 res)
     -- when we're close to parallel or antiparallel, use the distance between the lines to promote to colinear/anticolinear
     (d, (_, _, _, dErr)) = distanceBetweenPLinesWithErr npl1 npl2
-    (idealNorm, idnErr) = idealNormPPoint2WithErr res
+    (idealNorm, idnErr) = idealNormOfP res
     (res, (_, _, resErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizeIntersectionWithErr npline1 npline2
     npline1@(npl1, npl1Err) = normalize pl1
@@ -295,7 +296,7 @@ pLineFuzziness (inPLine, inErr) = transErr
 distanceBetweenPLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
 distanceBetweenPLinesWithErr line1 line2 = (res, resErr)
   where
-    (res, idealErr) = idealNormPPoint2WithErr $ PPoint2 like
+    (res, idealErr) = idealNormOfP $ PPoint2 like
     resErr = (pv1Err, pv2Err, likeErr, idealErr)
     (like, likeErr) = p1 ⎣+ p2
     p1 = vecOfL $ forcePLine2Basis npl1
@@ -711,22 +712,24 @@ data ProjectiveLine =
   deriving (Generic, NFData, Show)
 
 class ProjectiveLine2 a where
-  normalize :: a -> (ProjectiveLine, PLine2Err)
-  flipPLine2 :: a -> a
+  consLikeL :: a -> (GVec -> a)
+  flipL :: a -> a
   forcePLine2Basis :: a -> a
+  normalize :: a -> (ProjectiveLine, PLine2Err)
   translatePLine2WithErr :: a -> ℝ -> (a, PLine2Err)
   vecOfL :: a -> GVec
 
 instance ProjectiveLine2 ProjectiveLine where
-  normalize a = case a of
-                  n@(NPLine2 _) -> (n,mempty)
-                  p@(PLine2 _) -> normalizePLine2WithErr p
-  flipPLine2 a = case a of
-                   (NPLine2 v) -> NPLine2 $ flipGVec v
-                   (PLine2 v) -> PLine2 $ flipGVec v
+  consLikeL a = case a of
+                  (NPLine2 _) -> NPLine2
+                  (PLine2 _) -> PLine2
+  flipL a = flipProjectiveLine a
   forcePLine2Basis a = case a of
                          (NPLine2 v) -> NPLine2 $ forceProjectiveLine2Basis v
                          (PLine2 v) -> PLine2 $ forceProjectiveLine2Basis v
+  normalize a = case a of
+                  n@(NPLine2 _) -> (n,mempty)
+                  p@(PLine2 _) -> normalizePLine2WithErr p
   translatePLine2WithErr a d = case a of
                                  (NPLine2 v) -> (\(b,c) -> (NPLine2 b,c)) $ translateProjectiveLine2WithErr v d
                                  (PLine2 v) -> (\(b,c) -> (PLine2 b,c)) $ translateProjectiveLine2WithErr v d
@@ -784,13 +787,21 @@ class Arcable a where
   errOfOut :: a -> PLine2Err
 
 class ProjectivePoint2 a where
+  consLikeP :: a -> (GVec -> a)
   canonicalize :: a -> (ProjectivePoint, PPoint2Err)
+  idealNormOfP :: a -> (ℝ, UlpSum)
+  pToEP :: a -> (Point2, PPoint2Err)
   vecOfP :: a -> GVec
 
 instance ProjectivePoint2 ProjectivePoint where
+  consLikeP p = case p of
+                  (CPPoint2 _) -> CPPoint2
+                  (PPoint2 _) -> PPoint2
   canonicalize p = case p of
                      a@(CPPoint2 _) -> (a,mempty)
                      a -> canonicalizePPoint2WithErr a
+  idealNormOfP p = idealNormPPoint2WithErr p
+  pToEP p = pToEPoint2WithErr p
   vecOfP p = case p of
                (CPPoint2 v) -> v
                (PPoint2 v) -> v
@@ -941,25 +952,22 @@ forceProjectiveLine2Basis pvec
               _ -> Nothing
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a Projective Point.
-forceProjectivePointBasis :: ProjectivePoint -> ProjectivePoint
+forceProjectivePointBasis :: (ProjectivePoint2 a) => a -> a
 forceProjectivePointBasis point
   | gnums == Just [fromList [GEZero 1, GEPlus 1],
                    fromList [GEZero 1, GEPlus 2],
                    fromList [GEPlus 1, GEPlus 2]] = point
-  | otherwise = case point of
-                  (PPoint2 _)  -> PPoint2 res
-                  (CPPoint2 _) -> CPPoint2 res
+  | otherwise = (consLikeP point) res
   where
     res = forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] pvec
-    (pvec, gnums) = case point of
-                      (CPPoint2 p@(GVec [GVal _ g1, GVal _ g2, GVal _ g3])) -> (p, Just [g1,g2,g3])
-                      (PPoint2 p@(GVec [GVal _ g1, GVal _ g2, GVal _ g3])) -> (p, Just [g1,g2,g3])
-                      (CPPoint2 p) -> (p, Nothing)
-                      (PPoint2 p) -> (p, Nothing)
+    gnums = case vals of
+              [GVal _ g1, GVal _ g2, GVal _ g3] -> Just [g1,g2,g3]
+              _                                 -> Nothing
+    pvec@(GVec vals) = vecOfP point
 
 -- | Reverse a line. same line, but pointed in the other direction.
-flipGVec :: GVec -> GVec
-flipGVec (GVec vals) = rawRes
+flipProjectiveLine :: (ProjectiveLine2 a) => a -> a
+flipProjectiveLine pline = (consLikeL pline) rawRes
   where
     rawRes = GVec $ foldl' addValWithoutErr []
              [
@@ -967,6 +975,7 @@ flipGVec (GVec vals) = rawRes
              , GVal (negate $ valOf 0 $ getVal [GEPlus 1] vals) (singleton (GEPlus 1))
              , GVal (negate $ valOf 0 $ getVal [GEPlus 2] vals) (singleton (GEPlus 2))
              ]
+    (GVec vals) = vecOfL pline
 
 eToPLine2WithErr :: LineSeg -> (ProjectiveLine, PLine2Err)
 eToPLine2WithErr l1 = (res, resErr)
@@ -978,8 +987,8 @@ eToPLine2WithErr l1 = (res, resErr)
 ---------------------------------------------------------------------
 
 -- | find the idealized norm of a projective point (ideal or not).
-idealNormPPoint2WithErr :: ProjectivePoint -> (ℝ, UlpSum)
-idealNormPPoint2WithErr point
+idealNormPPoint2WithErr :: (ProjectivePoint2 a) => a -> (ℝ, UlpSum)
+idealNormPPoint2WithErr ppoint
   | preRes == 0 = (0, mempty)
   | otherwise   = (res, ulpTotal)
   where
@@ -991,11 +1000,11 @@ idealNormPPoint2WithErr point
                + abs (realToFrac $ doubleUlp preRes)
                + abs (realToFrac $ doubleUlp res)
     (x,y)
-     | e12Val == 0 = ( negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals
-                     ,          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals)
-     | otherwise = (\(Point2 (x1,y1)) -> (x1,y1)) $ pToEPoint2 point
-    e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] vals)
-    (GVec vals) = vecOfP point
+     | e12Val == 0 = ( negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals
+                     ,          valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals)
+     | otherwise = (\(Point2 (x1,y1),_) -> (x1,y1)) $ pToEP ppoint
+    e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
+    (GVec rawVals) = vecOfP ppoint
 
 -- | canonicalize a euclidian point.
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.

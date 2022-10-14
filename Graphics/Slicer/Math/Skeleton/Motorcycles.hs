@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersectio
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2, join2PPoints, pLineFromEndpoints)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), eToPLine2WithErr, eToPPoint2, flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translatePLine2WithErr, oppositeDirection, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), eToPLine2WithErr, eToPPoint2, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translatePLine2WithErr, oppositeDirection, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -188,7 +188,7 @@ convexMotorcycles contour = mapMaybe onlyMotorcycles $ zip (rotateLeft $ linePai
 motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, PLine2Err)
 motorcycleFromPoints p1 p2 p3 = (res, resErr)
   where
-    (res,(_,_,resErr)) = getOutsideArcWithErr (eToPPoint2 p1) (pLineFromEndpoints p1 p2) (eToPPoint2 p3) (flipPLine2 $ pLineFromEndpoints p2 p3)
+    (res,(_,_,resErr)) = getOutsideArcWithErr (eToPPoint2 p1) (pLineFromEndpoints p1 p2) (eToPPoint2 p3) (flipL $ pLineFromEndpoints p2 p3)
 
 -- | Find where a motorcycle intersects a set of line segments, if it does.
 motorcycleMightIntersectWith :: [LineSeg] -> Motorcycle -> Maybe (LineSeg, Either Point2 ProjectivePoint)
