@@ -62,7 +62,7 @@ module Graphics.Slicer.Math.PGA(
   pPointBetweenPPointsWithErr,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
-  pToEPoint2,
+  pToEP,
   plinesIntersectIn,
   translatePLine2WithErr,
   translateRotatePPoint2,
@@ -128,7 +128,7 @@ plinesIntersectIn pl1 pl2
   | oppositeDirection pl1 pl2        = PAntiParallel
   | otherwise                        = IntersectsIn res (resUlp, intersectUlp, npl1Ulp, npl2Ulp, iaErr, mempty)
   where
-    (idealNorm, idnErr) = idealNormPPoint2WithErr intersectPoint
+    (idealNorm, idnErr) = idealNormOfP intersectPoint
     (_, iaErr) = angleBetweenWithErr pl1 pl2
     -- FIXME: how much do the potential normalization errors have an effect on the resultant angle?
     (intersectPoint, intersectUlp) = pLineIntersectionWithErr pl1 pl2
@@ -244,7 +244,7 @@ distanceBetweenPPointsWithErr point1 point2 = (res, ulpTotal)
 distanceBetweenNPLine2sWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
 distanceBetweenNPLine2sWithErr line1 line2 = (ideal, resUlpSum)
   where
-    (ideal, idealUlpSum) = idealNormPPoint2WithErr $ PPoint2 likeRes
+    (ideal, idealUlpSum) = idealNormOfP $ PPoint2 likeRes
     resUlpSum = idealUlpSum <> sumErrVals likeMulErr <> sumErrVals likeAddErr
     (likeRes, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
     p1 = vecOfL $ forcePLine2Basis npl1
@@ -665,19 +665,20 @@ class Arcable a where
 
 class ProjectivePoint2 a where
   canonicalize :: a -> (CPPoint2, UlpSum)
-  pPtoEP :: a -> (Point2, UlpSum)
+  pToEP :: a -> (Point2, UlpSum)
   idealNormOfP :: a -> (ℝ, UlpSum)
   vecOfP :: a -> GVec
 
 instance ProjectivePoint2 PPoint2 where
   canonicalize p = (\(a, PPoint2Err _ c8izeErrs _ _ _ _ _) -> (a,sumPPointErrs c8izeErrs)) $ canonicalizePPoint2WithErr p
   idealNormOfP a = idealNormPPoint2WithErr a
-  pPtoEP a = fromMaybe (error "created an infinite point when trying to convert from a Projective point to a euclidian one.") $ pPointToPoint2 a
+  pToEP a = fromMaybe (error "created an infinite point when trying to convert from a Projective point to a euclidian one.") $ pPointToPoint2 a
   vecOfP (PPoint2 a) = a
 
 instance ProjectivePoint2 CPPoint2 where
   canonicalize p = (p, mempty)
   idealNormOfP a = idealNormPPoint2WithErr a
+  pToEP a = fromMaybe (error "created an infinite point when trying to convert from a Projective point to a euclidian one.") $ pPointToPoint2 a
   vecOfP (CPPoint2 a) = a
 
 -- | A projective line in 2D space.
@@ -795,14 +796,6 @@ makeCPPoint2WithErr x y = (pPoint
   where
     pPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
     posErr = PPoint2PosErr $ abs (realToFrac $ doubleUlp $ negate x) -- + abs (realToFrac $ doubleUlp y)
-
--- | Create a euclidian point from a projective point.
-pToEPoint2 :: PPoint2 -> Point2
-pToEPoint2 ppoint
-  | isNothing res = error "created an infinite point when trying to convert from a PPoint2 to a Point2"
-  | otherwise = fst $ fromJust res
-  where
-    res = pPointToPoint2 ppoint
 
 -- | Create a euclidian point from a projective point.
 cPToEPoint2 :: CPPoint2 -> Point2
@@ -954,7 +947,7 @@ idealNormPPoint2WithErr ppoint
     (x,y)
      | e12Val == 0 = ( negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals
                      ,          valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals)
-     | otherwise = (\(Point2 (x1,y1),_) -> (x1,y1)) $ pPtoEP ppoint
+     | otherwise = (\(Point2 (x1,y1),_) -> (x1,y1)) $ pToEP ppoint
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
     (GVec rawVals) = vecOfP ppoint
 
