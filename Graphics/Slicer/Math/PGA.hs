@@ -679,6 +679,8 @@ data PLine2Err = PLine2Err
     [ErrVal]
   -- NormErr
     UlpSum
+  -- SqNormErr
+    UlpSum
   -- Translation Error. always in GEZero 1.
     UlpSum
   -- JoinErr
