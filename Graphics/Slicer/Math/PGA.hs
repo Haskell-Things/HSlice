@@ -70,7 +70,7 @@ module Graphics.Slicer.Math.PGA(
   ulpOfPLine2
   ) where
 
-import Prelude (Bool, Eq((==),(/=)), Show(show), Ord, ($), (*), (-), (>=), (&&), (<$>), mempty, otherwise, signum, (>), (<=), (+), sqrt, negate, (/), (||), (<), (<>), abs, error, sin, cos, realToFrac, fst, sum, (.), realToFrac)
+import Prelude (Bool, Eq((==),(/=)), Semigroup((<>)), Show(show), Ord, ($), (*), (-), (>=), (&&), (<$>), mempty, otherwise, signum, (>), (<=), (+), sqrt, negate, (/), (||), (<), abs, error, sin, cos, realToFrac, fst, sum, (.))
 
 import GHC.Generics (Generic)
 
@@ -96,7 +96,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, scalePoint, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf, vectorPart)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
@@ -203,13 +203,13 @@ distanceCPPointToNPLineWithErr point line
   | valOf 0 foundVal == 0 = error "attempted to get the distance of an ideal point."
   | otherwise = (res, ulpTotal)
   where
-    (res, resErr)                  = normOfPLine2WithErr newPLine
+    (res, _)                       = normOfPLine2WithErr newPLine
     (newPLine, newPLineErr)        = join2CPPoint2WithErr point linePoint
     (perpLine, (plMulErr,plAddErr))= lvec ⨅+ npvec
     (PLine2 lvec)                  = forcePLine2Basis (PLine2 nplvec)
     (CPPoint2 npvec)               = forceCPPoint2Basis point
     (linePoint, lpErr)             = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
-    ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr <> resErr <> newPLineErr <>  lpErr
+    ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr {- <> resErr -} <> newPLineErr <>  lpErr
     foundVal                       = getVal [GEPlus 1, GEPlus 2] $ (\(CPPoint2 (GVec vals)) -> vals) point
     (NPLine2 nplvec,_)             = normalize line
 
@@ -234,9 +234,9 @@ pPointsOnSameSideOfPLine point1 point2 line
 distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (ℝ, UlpSum)
 distanceBetweenPPointsWithErr point1 point2 = (res, ulpTotal)
   where
-    (res, UlpSum resErr)           = normOfPLine2WithErr newPLine
-    (newPLine, UlpSum newPLineErr) = join2CPPoint2WithErr cpoint1 cpoint2
-    ulpTotal                       = UlpSum $ resErr + newPLineErr
+    (res, _)                = normOfPLine2WithErr newPLine
+    (newPLine, newPLineUlp) = join2CPPoint2WithErr cpoint1 cpoint2
+    ulpTotal                = newPLineUlp -- resErr -- <> PLine2Err _ _ _ _ _ newPLineUlp
     (cpoint1, _) = canonicalize point1
     (cpoint2, _) = canonicalize point2
 
@@ -304,13 +304,13 @@ pPointOnPerpWithErr line rppoint d = (PPoint2 res,
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Abuses the property that translation of a line is expressed on the GEZero component.
 translateProjectiveLine2WithErr :: GVec -> ℝ -> (GVec, PLine2Err)
-translateProjectiveLine2WithErr lineVec d = (res, PLine2Err resErr mempty nErr tErr mempty)
+translateProjectiveLine2WithErr lineVec d = (res, nErr <> PLine2Err resUlp mempty mempty mempty tUlp mempty)
   where
-    (res, resErr) = addVecPairWithErr m lineVec
+    (res, resUlp) = addVecPairWithErr m lineVec
     m = GVec [GVal tAdd (singleton (GEZero 1))]
     -- the amount to add to the GEZero 1 component.
     tAdd = d * n
-    tErr = UlpSum $ abs $ realToFrac $ doubleUlp tAdd
+    tUlp = UlpSum $ abs $ realToFrac $ doubleUlp tAdd
     (n, nErr) = normOfPLine2WithErr (PLine2 lineVec)
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
@@ -661,14 +661,14 @@ instance ProjectiveLine2 NPLine2 where
   normalize a = (a, mempty)
   flipPLine2 (NPLine2 a)  = NPLine2 $ flipGVec a
   forcePLine2Basis (NPLine2 a) = NPLine2 $ forceProjectiveLine2Basis a
-  translatePLine2WithErr (NPLine2 a) d = (\(b,(PLine2Err _ _ _ t _)) -> (NPLine2 b,t)) $ translateProjectiveLine2WithErr a d
+  translatePLine2WithErr (NPLine2 a) d = (\(b,(PLine2Err _ _ _ _ t _)) -> (NPLine2 b,t)) $ translateProjectiveLine2WithErr a d
   vecOfL (NPLine2 a) = a
 
 instance ProjectiveLine2 PLine2 where
-  normalize a = normalizePLine2WithErr a
+  normalize a = (\(b,(PLine2Err _ _ c d _ _)) -> (b,c <> d)) $ normalizePLine2WithErr a
   flipPLine2 (PLine2 a) = PLine2 $ flipGVec a
   forcePLine2Basis (PLine2 a) = PLine2 $ forceProjectiveLine2Basis a
-  translatePLine2WithErr (PLine2 a) d = (\(b,(PLine2Err _ _ _ t _)) -> (PLine2 b,t)) $ translateProjectiveLine2WithErr a d
+  translatePLine2WithErr (PLine2 a) d = (\(b,(PLine2Err _ _ _ _ t _)) -> (PLine2 b,t)) $ translateProjectiveLine2WithErr a d
   vecOfL (PLine2 a) = a
 
 -- | the two types of error of a projective line.
@@ -683,9 +683,18 @@ data PLine2Err = PLine2Err
     UlpSum
   -- Translation Error. always in GEZero 1.
     UlpSum
-  -- JoinErr
+  -- Join Error. when a PLine2 is constructed via join.
     ([ErrVal], [ErrVal])
   deriving (Eq, Show)
+
+instance Semigroup PLine2Err where
+  (<>) (PLine2Err a1 b1 c1 d1 e1 (f1,g1)) (PLine2Err a2 b2 c2 d2 e2 (f2,g2)) =
+    PLine2Err (foldl' addErr a1 a2)
+              (foldl' addErr b1 b2)
+              (c1 <> c2)
+              (d1 <> d2)
+              (e1 <> e2)
+              (foldl' addErr f1 f2,foldl' addErr g1 g2)
 
 -- | The join operator in 2D PGA, which is implemented as the meet operator operating in the dual space.
 (∨+) :: GVec -> GVec -> (GVec, UlpSum)
@@ -693,8 +702,8 @@ data PLine2Err = PLine2Err
            , ulpSum)
   where
     vec = dual2DGVec $ res
-    ulpSum = sumErrVals mulErr <> sumErrVals addErr
-    (res, (addErr, mulErr)) = dual2DGVec a ⎤+ dual2DGVec b
+    ulpSum = sumErrVals unlikeMulErr <> sumErrVals unlikeAddErr
+    (res, (unlikeAddErr, unlikeMulErr)) = dual2DGVec a ⎤+ dual2DGVec b
 infixl 9 ∨+
 
 -- | a typed join function. join two points, returning a line.
@@ -702,10 +711,10 @@ join2PPoint2WithErr :: PPoint2 -> PPoint2 -> (PLine2, UlpSum)
 join2PPoint2WithErr pp1 pp2 = (res,
                                errTotal)
   where
-    (res,UlpSum resErr)  = join2CPPoint2WithErr cp1 cp2
-    (cp1, UlpSum pv1Err) = canonicalizePPoint2WithErr pp1
-    (cp2, UlpSum pv2Err) = canonicalizePPoint2WithErr pp2
-    errTotal = UlpSum $ resErr + pv1Err + pv2Err
+    (res, resErr) = join2CPPoint2WithErr cp1 cp2
+    (cp1, pv1Err) = canonicalizePPoint2WithErr pp1
+    (cp2, pv2Err) = canonicalizePPoint2WithErr pp2
+    errTotal = resErr <> pv1Err <> pv2Err
 
 -- | a typed join function. join two points, returning a line.
 join2CPPoint2WithErr :: CPPoint2 -> CPPoint2 -> (PLine2, UlpSum)
@@ -721,8 +730,8 @@ meet2PLine2WithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PPoin
 meet2PLine2WithErr line1 line2 = (PPoint2 res,
                                    ulpSum)
   where
-    ulpSum = sumErrVals mulErr <> sumErrVals addErr
-    (res, (addErr, mulErr)) = pv1 ⎤+ pv2
+    ulpSum = sumErrVals unlikeMulErr <> sumErrVals unlikeAddErr
+    (res, (unlikeMulErr, unlikeAddErr)) = pv1 ⎤+ pv2
     (PLine2 pv1) = forcePLine2Basis $ PLine2 plr1
     (PLine2 pv2) = forcePLine2Basis $ PLine2 plr2
     (NPLine2 plr1,_) = normalize line1
@@ -956,30 +965,28 @@ canonicalizeIntersectionWithErr pl1 pl2
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
 
 -- | Normalize a PLine2.
-normalizePLine2WithErr :: (ProjectiveLine2 a) => a -> (NPLine2, UlpSum)
+normalizePLine2WithErr :: (ProjectiveLine2 a) => a -> (NPLine2, PLine2Err)
 normalizePLine2WithErr line = (res, resErr)
   where
     (res, resErr) = case norm of
-                      1.0 -> (NPLine2 vec, normErr)
-                      _ -> (NPLine2 $ scaledVec, ulpTotal)
-    (scaledVec, _) = divVecScalarWithErr vec norm
+                      1.0 -> (NPLine2 vec      , normErr)
+                      _   -> (NPLine2 scaledVec, normErr <> PLine2Err mempty scaledVecErrs mempty mempty mempty mempty)
+    (scaledVec, scaledVecErrs) = divVecScalarWithErr vec norm
     (norm, normErr) = normOfPLine2WithErr line
-    ulpTotal = normErr <> ulpOfPLine2 res
     vec = vecOfL line
 
--- | find the norm of a given ProjectiveLine.
-normOfPLine2WithErr :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
+-- | find the norm of a given Projective Line.
+normOfPLine2WithErr :: (ProjectiveLine2 a) => a -> (ℝ, PLine2Err)
 normOfPLine2WithErr pline = (res, resErr)
   where
     (res, resErr) = case sqNormOfPLine2 of
-                      1.0 -> (1.0, sqNormErr)
-                      _ -> (sqrt sqNormOfPLine2, ulpTotal)
-    (sqNormOfPLine2, sqNormErr) = sqNormOfPLine2WithErr pline
+                      1.0 -> (1.0                , PLine2Err mempty mempty mempty sqNormUlp mempty mempty)
+                      _   -> (sqrt sqNormOfPLine2, PLine2Err mempty mempty rawResUlp sqNormUlp mempty mempty)
+    (sqNormOfPLine2, sqNormUlp) = sqNormOfPLine2WithErr pline
     rawRes = sqrt sqNormOfPLine2
-    -- FIXME: these are two types of error. track them separately in PLine2Err?
-    ulpTotal = UlpSum (abs $ realToFrac $ doubleUlp rawRes) <> sqNormErr
+    rawResUlp = UlpSum (abs $ realToFrac $ doubleUlp rawRes)
 
--- | find the squared norm of a given ProjectiveLine
+-- | find the squared norm of a given Projective Line.
 sqNormOfPLine2WithErr :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
 sqNormOfPLine2WithErr line = (res, ulpTotal)
   where
