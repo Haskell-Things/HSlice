@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
 
 import Graphics.Slicer.Math.Intersections (isCollinear, isAntiCollinear, isParallel, isAntiParallel, intersectionOf)
 
-import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetweenWithErr, canonicalizePPoint2WithErr, distanceBetweenPPointsWithErr, eToPLine2WithErr, flipPLine2, join2PPointsWithErr, normalizePLine2WithErr)
+import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetweenWithErr, canonicalizePPoint2WithErr, distanceBetweenPPointsWithErr, eToPLine2WithErr, flipPLine2, join2PPointsWithErr, normalize)
 
 -- | Get a PLine along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
 -- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
@@ -62,8 +62,8 @@ getOutsideArcWithErr ppoint1 pline1 ppoint2 pline2
       intersectionPoint = intersectionOf (npline1,npline1Err) (npline2,npline2Err)
       l1TowardPoint = towardIntersection (cppoint1,c1Err) (npline1,npline1Err) (intersectionPoint,mempty)
       l2TowardPoint = towardIntersection (cppoint2,c2Err) (npline2,npline2Err) (intersectionPoint,mempty)
-      (npline1, npline1Err) = normalizePLine2WithErr pline1
-      (npline2, npline2Err) = normalizePLine2WithErr pline2
+      (npline1, npline1Err) = normalize pline1
+      (npline2, npline2Err) = normalize pline2
       (cppoint1,c1Err) = canonicalizePPoint2WithErr ppoint1
       (cppoint2,c2Err) = canonicalizePPoint2WithErr ppoint2
 
@@ -89,13 +89,13 @@ getFirstArcWithErr p1 p2 p3
   where
     -- only used for the quad case.
     -- FIXME: how do we track error from normalization?
-    (NPLine2 quadRes, _) = normalizePLine2WithErr quad
+    (NPLine2 quadRes, _) = normalize quad
     (quad, quadPLineErr) = eToPLine2WithErr (makeLineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3)
     -- used for all other cases.
     (insideArc, (_,_,insideArcRawErr)) = getInsideArcWithErr (PLine2 side1) (PLine2 side2)
-    (NPLine2 side1, side1NormErr) = normalizePLine2WithErr side1Raw
+    (NPLine2 side1, side1NormErr) = normalize side1Raw
     (side1Raw, side1RawErr) = eToPLine2WithErr (makeLineSeg p1 p2)
-    (NPLine2 side2, side2NormErr) = normalizePLine2WithErr side2Raw
+    (NPLine2 side2, side2NormErr) = normalize side2Raw
     (side2Raw, side2RawErr) = eToPLine2WithErr (makeLineSeg p2 p3)
     insideArcErr = side1NormErr <> side1RawErr <> side2NormErr <> side2RawErr <> insideArcRawErr
 
@@ -107,11 +107,11 @@ getInsideArcWithErr pline1 pline2
   | npline1 == npline2 = error "need to be able to return two PLines."
   | otherwise = (res, (npline1Err, npline2Err, resNormErr <> PLine2Err addErr mempty mempty mempty (mempty, mempty)))
   where
-      (res, resNormErr) = normalizePLine2WithErr $ PLine2 rawPLine2
+      (res, resNormErr) = normalize $ PLine2 rawPLine2
       (rawPLine2, addErr)       = addVecPairWithErr pv1 pv2
       (NPLine2 pv1)             = flipPLine2 npline1
-      (npline1, npline1Err) = normalizePLine2WithErr pline1
-      (npline2, npline2Err) = normalizePLine2WithErr pline2
+      (npline1, npline1Err) = normalize pline1
+      (npline2, npline2Err) = normalize pline2
       pv2 = case pline2 of
               (NPLine2 a) -> a
               (PLine2 a) -> a

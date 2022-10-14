@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersection
 import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, pLineErrAtPPoint, eToPPoint2, eToPLine2WithErr, join2PPointsWithErr, pLineIntersectionWithErr, translatePLine2WithErr, angleBetweenWithErr, flipPLine2, makePPoint2, normalizePLine2WithErr, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, idealNormPPoint2WithErr, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, pLineErrAtPPoint, eToPPoint2, eToPLine2WithErr, join2PPointsWithErr, pLineIntersectionWithErr, translatePLine2WithErr, angleBetweenWithErr, flipPLine2, makePPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, idealNormPPoint2WithErr, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -405,11 +405,11 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
     (rawBisectorStart, _) = pPointBetweenPPointsWithErr (sourceStart,mempty) (sourceEnd,mempty) 0.5 0.5
     (bisectorEnd, (_,_,bisectorEndRawErr)) = pPointOnPerpWithErr nPLine4 rawBisectorStart d
     (pline3, (_,_,pline3Err)) = join2PPointsWithErr rawBisectorStart bisectorEnd
-    (normedPLine3, norm3Err) = normalizePLine2WithErr pline3
+    (normedPLine3, norm3Err) = normalize pline3
     sourceStart = makePPoint2 x y
     sourceEnd = makePPoint2 x2 y2
     (pline4, (_,_,pline4Err)) = join2PPointsWithErr sourceStart sourceEnd
-    (nPLine4, norm4Err) = normalizePLine2WithErr pline4
+    (nPLine4, norm4Err) = normalize pline4
     errTotal3 = ulpVal bisectorEndRawErr
     errTotal4 = ulpVal bisectorEndRawErr
     x2,d :: ℝ
@@ -462,8 +462,8 @@ prop_PerpTranslateID x y dx dy rawT
                 <> "res: " <> show res <> "\n"
   where
     res = distanceBetweenPLines resNPLine origNPLine
-    (resNPLine, resNErr) = normalizePLine2WithErr resPLine
-    (origNPLine, origNErr) = normalizePLine2WithErr origPLine
+    (resNPLine, resNErr) = normalize resPLine
+    (origNPLine, origNErr) = normalize origPLine
     (resPLine, resTransErr) = translatePLine2WithErr translatedPLine (-t)
     (translatedPLine, origTransErr) = translatePLine2WithErr origPLine t
     (origPLine, origPLineErr) = randomPLineWithErr x y dx dy
@@ -510,7 +510,7 @@ prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
     intersect3 = outputIntersectsLineSeg eNode lineSeg1
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
-    (NPLine2 bisector1, bisector1Err) = normalizePLine2WithErr bisector
+    (NPLine2 bisector1, bisector1Err) = normalize bisector
     (bisector, bisectorRawErr) = eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
     bisector2 = getFirstArc (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
@@ -563,7 +563,7 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
     intersect3 = outputIntersectsLineSeg eNode lineSeg1
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
-    (NPLine2 bisector1, bisector1Err) = normalizePLine2WithErr bisector
+    (NPLine2 bisector1, bisector1Err) = normalize bisector
     (bisector, bisectorErr) = eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
@@ -1250,7 +1250,7 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
     pPoint1, pPoint2 :: (ProjectivePoint, PPoint2Err)
     pPoint1@(rawPPoint1,_) = (makePPoint2 x1 y1, mempty)
     pPoint2@(rawPPoint2,_) = (makePPoint2 x2 y2, mempty)
-    nPLine@(_,PLine2Err _ _ nPLineErr _ _) = normalizePLine2WithErr pLine
+    nPLine@(_,PLine2Err _ _ nPLineErr _ _) = normalize pLine
     (pLine, pLineErr) = eToPLine2WithErr $ makeLineSeg (Point2 (x1,y1)) (Point2 (x2,y2))
     ulpTotal1 = pLineErrAtPPoint nPLine rawPPoint1 <> nPLineErr
     ulpTotal2 = pLineErrAtPPoint nPLine rawPPoint2 <> nPLineErr
@@ -1286,7 +1286,7 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
     pLineErrAtPPoint1 = pLineErrAtPPoint (pLine1, pline1Err) pPoint1
     pLineErrAtPPoint2 = pLineErrAtPPoint (pLine1, pline1Err) pPoint2
     (pLine1, (_,_,pline1Err)) = join2PPointsWithErr pPoint1 pPoint2
-    (_, normErr) = normalizePLine2WithErr pLine1
+    (_, normErr) = normalize pLine1
     -- make sure we do not try to create a 0 length line segment.
     (x2,y2)
      | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0

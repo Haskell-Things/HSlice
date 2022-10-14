@@ -50,7 +50,7 @@ module Graphics.Slicer.Math.PGA(
   intersectsWithErr,
   join2PPointsWithErr,
   makePPoint2,
-  normalizePLine2WithErr,
+  normalize,
   outputIntersectsLineSeg,
   oppositeDirection,
   pLineFuzziness,
@@ -291,7 +291,7 @@ pLineFuzziness (inPLine, inErr) = transErr
   where
     transErr = eValOf mempty (getVal [GEZero 1] resAddErr) <> eValOf mempty (getVal [GEZero 1] resMulErr)
     (PLine2Err _ _ _ _ (resAddErr, resMulErr)) = inErr <> nplineErr
-    (_, nplineErr) = normalizePLine2WithErr inPLine
+    (_, nplineErr) = normalize inPLine
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
 -- FIXME: accept input error amounts, take input error amounts into consideration.
@@ -359,7 +359,7 @@ pPointOnPerpWithErr pline rppoint d = (res, (rlErr, perpPLineErr, ulpTotal))
              (PPoint2 a) -> a
              (CPPoint2 a) -> a
     lErr = pLineErrAtPPoint nPLine rppoint
-    nPLine@((NPLine2 rlvec),rlErr) = normalizePLine2WithErr pline
+    nPLine@((NPLine2 rlvec),rlErr) = normalize pline
 
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Uses the property that translation of a line is expressed on the GEZero component.
@@ -579,7 +579,7 @@ pLineErrAtPPoint (inPLine, inPLineErr) errPoint
     yInterceptIsRight = isJust (yIntercept npline) && isRight (fromJust $ yIntercept npline)
     -- NOTE: can't check a distance here, because distancePPointToPLineWithErr calls this. ;)
     yInterceptFuzz = errY * (1 + abs yPos)
-    (npline, PLine2Err pLineAddErr pLineNormalizationErr pLineNormErr _ (pLineJoinAddErr, pLineJoinMulErr)) = normalizePLine2WithErr inPLine
+    (npline, PLine2Err pLineAddErr pLineNormalizationErr pLineNormErr _ (pLineJoinAddErr, pLineJoinMulErr)) = normalize inPLine
     errX, errY, errT :: ℝ
     errX = abs $ realToFrac $ ulpVal $ eValOf mempty (getVal [GEPlus 1] pLineAddErr)
                                     <> eValOf mempty (getVal [GEPlus 1] pLineNormalizationErr)
@@ -609,7 +609,7 @@ xIntercept inPLine
   | isNothing rawT = Just $ Right 0
   | otherwise = error "we should never get here"
   where
-    (NPLine2 (GVec pLineVals),_) = normalizePLine2WithErr inPLine
+    (NPLine2 (GVec pLineVals),_) = normalize inPLine
     rawT = getVal [GEZero 1] pLineVals
     rawX = getVal [GEPlus 1] pLineVals
     rawY = getVal [GEPlus 2] pLineVals
@@ -628,7 +628,7 @@ yIntercept inPLine
   | isNothing rawT = Just $ Right 0
   | otherwise = error "we should never get here"
   where
-    (NPLine2 (GVec pLineVals),_) = normalizePLine2WithErr inPLine
+    (NPLine2 (GVec pLineVals),_) = normalize inPLine
     rawT = getVal [GEZero 1] pLineVals
     rawX = getVal [GEPlus 1] pLineVals
     rawY = getVal [GEPlus 2] pLineVals
@@ -1031,20 +1031,15 @@ canonicalizeIntersectionWithErr pl1 pl2
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
 
 -- | Normalize a Projective Line.
--- FIXME: return the error of divVecScalarWithErr
-normalizePLine2WithErr :: ProjectiveLine -> (ProjectiveLine, PLine2Err)
-normalizePLine2WithErr pl = case pl of
-                              npl@(NPLine2 _) -> (npl,mempty)
-                              _ -> (res, resErr)
+normalizePLine2WithErr :: (ProjectiveLine2 a) => a -> (ProjectiveLine, PLine2Err)
+normalizePLine2WithErr line = (res, resErr)
   where
     (res, resErr) = case norm of
-            1.0 -> (NPLine2 vec, mempty)
-            _ -> (NPLine2 scaledVec, PLine2Err mempty scaledVecErr normErr mempty (mempty,mempty))
+                      1.0 -> (NPLine2 vec, mempty)
+                      _ -> (NPLine2 scaledVec, PLine2Err mempty scaledVecErr normErr mempty (mempty,mempty))
     (scaledVec, scaledVecErr) = divVecScalarWithErr vec norm
-    (norm, normErr) = normOfPLine2WithErr pl
-    vec = case pl of
-            (PLine2 v) -> v
-            (NPLine2 v) -> v
+    (norm, normErr) = normOfPLine2WithErr line
+    vec = vecOfL line
 
 -- | find the norm of a given PLine2
 normOfPLine2WithErr :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
