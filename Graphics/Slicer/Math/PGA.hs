@@ -958,22 +958,26 @@ normalizePLine2WithErr :: (ProjectiveLine2 a) => a -> (NPLine2, UlpSum)
 normalizePLine2WithErr line = (res, resErr)
   where
     (res, resErr) = case norm of
-                      1.0 -> (NPLine2 vec, mempty)
+                      1.0 -> (NPLine2 vec, normErr)
                       _ -> (NPLine2 $ scaledVec, ulpTotal)
     (scaledVec, _) = divVecScalarWithErr vec norm
     (norm, normErr) = normOfPLine2WithErr line
     ulpTotal = normErr <> ulpOfPLine2 res
     vec = vecOfL line
 
--- | find the norm of a given PLine2
+-- | find the norm of a given ProjectiveLine.
 normOfPLine2WithErr :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
-normOfPLine2WithErr pline = (res, ulpTotal)
+normOfPLine2WithErr pline = (res, resErr)
   where
-    res = sqrt sqNormOfPLine2
-    (sqNormOfPLine2, UlpSum sqNormErr) = sqNormOfPLine2WithErr pline
-    ulpTotal = UlpSum $ abs (realToFrac $ doubleUlp res) + sqNormErr
+    (res, resErr) = case sqNormOfPLine2 of
+                      1.0 -> (1.0, sqNormErr)
+                      _ -> (sqrt sqNormOfPLine2, ulpTotal)
+    (sqNormOfPLine2, sqNormErr) = sqNormOfPLine2WithErr pline
+    rawRes = sqrt sqNormOfPLine2
+    -- FIXME: these are two types of error. track them separately in PLine2Err?
+    ulpTotal = UlpSum (abs $ realToFrac $ doubleUlp rawRes) <> sqNormErr
 
--- | find the squared norm of a given PLine2
+-- | find the squared norm of a given ProjectiveLine
 sqNormOfPLine2WithErr :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
 sqNormOfPLine2WithErr line = (res, ulpTotal)
   where
