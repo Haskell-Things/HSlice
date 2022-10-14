@@ -36,7 +36,7 @@ module Graphics.Slicer.Math.PGA(
   Pointable(canPoint, canEPoint, pPointOf, ePointOf, errOfPPoint, errOfEPoint),
   PPoint2Err(PPoint2Err),
   angleBetweenWithErr,
-  canonicalizePPoint2WithErr,
+  canonicalize,
   combineConsecutiveLineSegs,
   distanceBetweenPPointsWithErr,
   distanceBetweenPLinesWithErr,
@@ -223,7 +223,7 @@ distancePPointToPLineWithErr (rawPoint,rawPointErr) (rawLine,rawLineErr)
     foundVal = getVal [GEPlus 1, GEPlus 2] pVals
     point@(CPPoint2 pVec@(GVec pVals)) = forceProjectivePointBasis cpoint
     pointErr = cPointErr <> rawPointErr
-    (cpoint, cPointErr) = canonicalizePPoint2WithErr rawPoint
+    (cpoint, cPointErr) = canonicalize rawPoint
 
 -- | Determine if two points are on the same side of a given line.
 -- Returns nothing if one of the points is on the line.
@@ -283,7 +283,7 @@ pPointFuzziness (inPPoint, inErr) = UlpSum $ sumTotal * realToFrac (1+(1000*(abs
                    + ulpVal (eValOf mempty $ getVal [GEZero 1, GEPlus 2] errs)
                    + ulpVal (eValOf mempty $ getVal [GEPlus 1, GEPlus 2] errs)
     (PPoint2Err (pJoinAddErr, pJoinMulErr) pCanonicalizeErr pAddErr pIn1MulErr pIn2MulErr angleIn (angleUnlikeAddErr,angleUnlikeMulErr)) = cpErr <> inErr
-    (_, cpErr) = canonicalizePPoint2WithErr inPPoint
+    (_, cpErr) = canonicalize inPPoint
 
 -- | determine the amount of error in resolving a projective line.
 pLineFuzziness :: (ProjectiveLine,PLine2Err) -> UlpSum
@@ -671,7 +671,7 @@ data ProjectivePoint =
 
 instance Eq ProjectivePoint where
   (==) (CPPoint2 a1) (CPPoint2 a2) = a1 == a2
-  (==) p1 p2 = fst (canonicalizePPoint2WithErr p1) == fst (canonicalizePPoint2WithErr p2)
+  (==) p1 p2 = fst (canonicalize p1) == fst (canonicalize p2)
 
 -- | the error accumulated when calculating a projective point.
 data PPoint2Err = PPoint2Err
@@ -806,8 +806,8 @@ join2PPointsWithErr pp1 pp2 = (PLine2 res,
 
     (CPPoint2 pv1) = forceProjectivePointBasis cp1
     (CPPoint2 pv2) = forceProjectivePointBasis cp2
-    (cp1, pv1Ulp) = canonicalizePPoint2WithErr pp1
-    (cp2, pv2Ulp) = canonicalizePPoint2WithErr pp2
+    (cp1, pv1Ulp) = canonicalize pp1
+    (cp2, pv2Ulp) = canonicalize pp2
 
 -- | A typed meet function. the meeting of two lines is a point.
 meet2PLine2WithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
@@ -859,7 +859,7 @@ projectivePointToPoint2 point
  | e12Val == 1 = Just (Point2 (xVal, yVal), errs)
  | otherwise = Just (Point2 (xVal, yVal), errs)
   where
-    (CPPoint2 (GVec vals),errs) = canonicalizePPoint2WithErr point
+    (CPPoint2 (GVec vals),errs) = canonicalize point
     xVal = negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] vals)
@@ -1032,7 +1032,7 @@ canonicalizeIntersectionWithErr pl1 pl2
   | isNothing foundVal = Nothing
   | otherwise = Just (cpp1, (pl1ResErr, pl2ResErr, intersectionErr <> canonicalizationErr))
   where
-    (cpp1, canonicalizationErr) = canonicalizePPoint2WithErr pp1
+    (cpp1, canonicalizationErr) = canonicalize pp1
     (pp1, (pl1ResErr, pl2ResErr, intersectionErr)) = pLineIntersectionWithErr pl1 pl2
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
 
@@ -1047,7 +1047,7 @@ normalizePLine2WithErr line = (res, resErr)
     (norm, normErr) = normOfPLine2WithErr line
     vec = vecOfL line
 
--- | find the norm of a given Projective Line
+-- | find the norm of a given Projective Line.
 normOfPLine2WithErr :: (ProjectiveLine2 a) => a -> (ℝ, PLine2Err)
 normOfPLine2WithErr pline = (res, resErr)
   where
@@ -1058,7 +1058,7 @@ normOfPLine2WithErr pline = (res, resErr)
     rawRes = sqrt sqNormOfPLine2
     rawResUlp = UlpSum (abs $ realToFrac $ doubleUlp rawRes)
 
--- | find the squared norm of a given Projective Line
+-- | find the squared norm of a given Projective Line.
 sqNormOfPLine2WithErr :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
 sqNormOfPLine2WithErr line = (res, ulpTotal)
   where

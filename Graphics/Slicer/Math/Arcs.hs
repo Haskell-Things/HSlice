@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
 
 import Graphics.Slicer.Math.Intersections (isCollinear, isAntiCollinear, isParallel, isAntiParallel, intersectionOf)
 
-import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetweenWithErr, canonicalizePPoint2WithErr, distanceBetweenPPointsWithErr, eToPLine2WithErr, flipPLine2, join2PPointsWithErr, normalize)
+import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetweenWithErr, canonicalize, distanceBetweenPPointsWithErr, eToPLine2WithErr, flipPLine2, join2PPointsWithErr, normalize)
 
 -- | Get a PLine along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
 -- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
@@ -64,8 +64,8 @@ getOutsideArcWithErr ppoint1 pline1 ppoint2 pline2
       l2TowardPoint = towardIntersection (cppoint2,c2Err) (npline2,npline2Err) (intersectionPoint,mempty)
       (npline1, npline1Err) = normalize pline1
       (npline2, npline2Err) = normalize pline2
-      (cppoint1,c1Err) = canonicalizePPoint2WithErr ppoint1
-      (cppoint2,c2Err) = canonicalizePPoint2WithErr ppoint2
+      (cppoint1,c1Err) = canonicalize ppoint1
+      (cppoint2,c2Err) = canonicalize ppoint2
 
 -- Determine if the line segment formed by the two given points starts with the first point, or the second.
 towardIntersection :: (ProjectivePoint,PPoint2Err) -> (ProjectiveLine,PLine2Err) -> (ProjectivePoint,PPoint2Err) -> Bool
