@@ -131,7 +131,7 @@ intersectionsAtSamePoint nodeOutsAndErrs
                                          <> pPointFuzziness point2
                                          <> pLineErrAtPPoint a2 c2
                                          <> pLineErrAtPPoint b2 c2
-                (res, (_,_,_,_,resErr)) = distanceBetweenPPointsWithErr point1 point2
+                (res, (_,_,_,resErr)) = distanceBetweenPPointsWithErr point1 point2
         linesCloseEnough =
           case lineIntersections of
             [] -> True
@@ -139,7 +139,7 @@ intersectionsAtSamePoint nodeOutsAndErrs
                            [] -> error "one line, no points.. makes no sense."
                            ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < realToFrac errSum
                              where
-                               (foundDistance, (_, _, _, _, _, _, _, _, resErr)) = distancePPointToPLineWithErr ppoint1 l1
+                               (foundDistance, (_, _, _, _, _, _,  _, resErr)) = distancePPointToPLineWithErr ppoint1 l1
                                errSum = ulpVal $ resErr <> pPointFuzziness ppoint1
                                                         <> pLineErrAtPPoint a2 p1
                                                         <> pLineErrAtPPoint b2 p1

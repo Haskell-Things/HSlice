@@ -74,7 +74,7 @@ towardIntersection pp1@(rawPp1,_) pl1@(rawPl1,_) pp2@(rawPp2,_)
   | otherwise = angleFound > 0
   where
     (angleFound, _) = angleBetweenWithErr newPLine rawPl1
-    (d, (_,_,_,_,dErr)) = distanceBetweenPPointsWithErr pp1 pp2
+    (d, (_,_,_,dErr)) = distanceBetweenPPointsWithErr pp1 pp2
     (newPLine, _) = join2PPointsWithErr rawPp1 rawPp2
     totalErr :: ℝ
     totalErr = realToFrac $ ulpVal dErr
@@ -105,7 +105,7 @@ getInsideArcWithErr :: ProjectiveLine -> ProjectiveLine -> (ProjectiveLine, (PLi
 getInsideArcWithErr pline1 pline2
    -- FIXME: remove this Eq usage!
   | npline1 == npline2 = error "need to be able to return two PLines."
-  | otherwise = (res, (npline1Err, npline2Err, resNormErr <> PLine2Err addErr mempty mempty mempty (mempty, mempty)))
+  | otherwise = (res, (npline1Err, npline2Err, resNormErr <> PLine2Err addErr mempty mempty mempty mempty mempty))
   where
       (res, resNormErr) = normalize $ PLine2 rawPLine2
       (rawPLine2, addErr)       = addVecPairWithErr pv1 pv2
