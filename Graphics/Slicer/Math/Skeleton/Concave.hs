@@ -804,9 +804,11 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
     -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
     distanceToIntersection :: (Pointable a, Arcable a, Show a, Pointable b, Arcable b, Show b) => a -> b -> Maybe ℝ
     distanceToIntersection node1 node2
-      | canPoint node1 && canPoint node2 &&
-        hasArc node1 && hasArc node2 &&
-        intersectsInPoint node1 node2 =
+      | canPoint node1
+        && canPoint node2
+        && hasArc node1
+        && hasArc node2
+        && intersectsInPoint node1 node2 =
         Just $ distanceBetweenPPoints (pPointOf node1) (intersectionOf (outOf node1,errOfOut node1) (outOf node2,errOfOut node2))
                `max`
                distanceBetweenPPoints (pPointOf node2) (intersectionOf (outOf node1,errOfOut node1) (outOf node2,errOfOut node2))

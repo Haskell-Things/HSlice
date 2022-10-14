@@ -1250,7 +1250,7 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
     pPoint1, pPoint2 :: (ProjectivePoint, PPoint2Err)
     pPoint1@(rawPPoint1,_) = (makePPoint2 x1 y1, mempty)
     pPoint2@(rawPPoint2,_) = (makePPoint2 x2 y2, mempty)
-    nPLine@(_,PLine2Err _ _ nPLineErr _) = normalizePLine2WithErr pLine
+    nPLine@(_,PLine2Err _ _ nPLineErr _ _) = normalizePLine2WithErr pLine
     (pLine, pLineErr) = eToPLine2WithErr $ makeLineSeg (Point2 (x1,y1)) (Point2 (x2,y2))
     ulpTotal1 = pLineErrAtPPoint nPLine rawPPoint1 <> nPLineErr
     ulpTotal2 = pLineErrAtPPoint nPLine rawPPoint2 <> nPLineErr
@@ -1607,27 +1607,27 @@ facetSpec = do
                                            (NPLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
                                            (slist [])
                                            (Just (NPLine2 (GVec [GVal 0.48706362218573185 (singleton (GEZero 1)), GVal 0.9807852804032305 (singleton (GEPlus 1)), GVal 0.19509032201612822 (singleton (GEPlus 2))]),
-                                                  PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1)), ErrVal (UlpSum 2.7755575615628911e-17) (singleton (GEPlus 2))] [ErrVal (UlpSum 5.551115123125783e-17) (singleton (GEZero 1)), ErrVal (UlpSum 1.1102230246251565e-16) (singleton (GEPlus 1)), ErrVal (UlpSum 2.7755575615628911e-17) (singleton (GEPlus 2))] (UlpSum 6.730727086790011e-16) mempty))
+                                                  PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1)), ErrVal (UlpSum 2.7755575615628911e-17) (singleton (GEPlus 2))] [ErrVal (UlpSum 5.551115123125783e-17) (singleton (GEZero 1)), ErrVal (UlpSum 1.1102230246251565e-16) (singleton (GEPlus 1)), ErrVal (UlpSum 2.7755575615628911e-17) (singleton (GEPlus 2))] (UlpSum 6.730727086790011e-16) mempty mempty))
     it "finds the outside arc of two PLines intersecting at 90 degrees (c2)" $
       averageNodes c2c2E1 c2c3E1 --> INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (slist [])
                                            (Just (NPLine2 (GVec [GVal (-1.0) (singleton (GEPlus 2))]),
-                                                  PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] (UlpSum 1.1102230246251567e-15) mempty))
+                                                  PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] (UlpSum 1.1102230246251567e-15) mempty mempty))
     it "finds the outside arc of two PLines intersecting at 90 degrees (c2)" $
       averageNodes c2c3E1 c2c2E1 --> INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (slist [])
                                            (Just (NPLine2 (GVec [GVal (-1.0) (singleton (GEPlus 2))]),
-                                                  PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] (UlpSum 1.1102230246251567e-15) mempty))
+                                                  PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] (UlpSum 1.1102230246251567e-15) mempty mempty))
     it "finds the outside arc of two PLines intersecting at 90 degrees (c7)" $
       averageNodes c7c1E1 c7c2E1 --> INode (NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
                                            (NPLine2 (GVec [GVal 1.0606601717798212 (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
                                            (slist [])
-                                           (Just (NPLine2 (GVec [GVal 0.75 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]),PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] [ErrVal (UlpSum 1.1102230246251565e-16) (singleton (GEZero 1)),ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] (UlpSum 6.66133814775094e-16) mempty))
+                                           (Just (NPLine2 (GVec [GVal 0.75 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]),PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] [ErrVal (UlpSum 1.1102230246251565e-16) (singleton (GEZero 1)),ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] (UlpSum 6.66133814775094e-16) mempty mempty))
   describe "Motorcycles (Skeleton/Motorcycles)" $ do
     it "finds the motorcycle in our second simple shape" $
-      convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,0.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (NPLine2 (GVec [GVal 1.0 (singleton (GEPlus 1))])) (PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] (UlpSum 6.66133814775094e-16) mempty)]
+      convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,0.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (NPLine2 (GVec [GVal 1.0 (singleton (GEPlus 1))])) (PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] (UlpSum 6.66133814775094e-16) mempty mempty)]
   describe "Cells (Skeleton/Cells)" $ do
     it "finds the remains from the first cell of our first simple shape." $
       remainderFrom (findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []) -->

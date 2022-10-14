@@ -47,12 +47,12 @@ import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr, getOu
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, ProjectivePoint, PPoint2Err, PLine2Err, angleBetweenWithErr, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, join2PPointsWithErr, normalizePLine2WithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEPoint2WithErr, translatePLine2WithErr, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err, angleBetweenWithErr, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, join2PPointsWithErr, normalizePLine2WithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEPoint2WithErr, translatePLine2WithErr, translateRotatePPoint2WithErr)
 
 angleBetween :: ProjectiveLine -> ProjectiveLine -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetweenWithErr nPLine1 nPLine2
 
-distanceBetweenPPoints :: ProjectivePoint -> ProjectivePoint -> ℝ
+distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
 distanceBetweenPPoints point1 point2 = fst $ distanceBetweenPPointsWithErr (point1,mempty) (point2,mempty)
 
 distanceBetweenPLines :: ProjectiveLine -> ProjectiveLine -> ℝ
