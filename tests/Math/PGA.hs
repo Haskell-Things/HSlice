@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenNPLine2s, distancePPointToPLine, eToCPPoint2, eToPLine2, eToPPoint2, getFirstArc, join2PPoint2, makeCPPoint2, makePPoint2, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PPoint2PosErr(PPoint2PosErr), canonicalizePPoint2WithErr, pPointBetweenPPointsWithErr, distanceBetweenPPointsWithErr, distanceCPPointToNPLineWithErr, join2CPPoint2WithErr, pLineIntersectionWithErr, translatePLine2WithErr, translateRotatePPoint2, angleBetweenWithErr, flipPLine2, makeCPPoint2WithErr, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PPoint2PosErr(PPoint2PosErr), canonicalize, pPointBetweenPPointsWithErr, distanceBetweenPPointsWithErr, distanceCPPointToNPLineWithErr, join2CPPoint2WithErr, pLineIntersectionWithErr, translatePLine2WithErr, translateRotatePPoint2, angleBetweenWithErr, flipPLine2, makeCPPoint2WithErr, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -402,7 +402,7 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
     (angle2, UlpSum angle2Err) = angleBetweenWithErr normedPLine3 normedPLine4
     (PPoint2 rawBisectorStart, UlpSum bisectorStartErr) = pPointBetweenPPointsWithErr sourceStart sourceEnd 0.5 0.5
     (bisectorEndRaw, UlpSum bisectorEndRawErr) = pPointOnPerpWithErr pline4 (PPoint2 rawBisectorStart) d
-    (bisectorEnd, UlpSum bisectorEndErr) = canonicalizePPoint2WithErr bisectorEndRaw
+    (bisectorEnd, UlpSum bisectorEndErr) = canonicalize bisectorEndRaw
     (pline3, UlpSum pline3Err) = join2CPPoint2WithErr (CPPoint2 rawBisectorStart) bisectorEnd
     (normedPLine3, UlpSum norm3Err) = normalize pline3
     (sourceStart, PPoint2PosErr sourceStartErr) = makeCPPoint2WithErr x y
@@ -1340,7 +1340,7 @@ prop_eNodeTowardIntersection1 :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Pos
 prop_eNodeTowardIntersection1 x y d1 rawR1 d2 rawR2 = l1TowardIntersection --> True
   where
     l1TowardIntersection = towardIntersection (eToPPoint2 $ startPoint l1) pl1 eNodePoint
-    (eNodePoint, _) = canonicalizePPoint2WithErr $ pPointOf eNode
+    (eNodePoint, _) = canonicalize $ pPointOf eNode
     l1 = getFirstLineSeg eNode
     pl1 = eToPLine2 l1
     eNode = randomENode x y d1 rawR1 d2 rawR2
@@ -1349,7 +1349,7 @@ prop_eNodeAwayFromIntersection2 :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> P
 prop_eNodeAwayFromIntersection2 x y d1 rawR1 d2 rawR2 = l2TowardIntersection --> False
   where
     l2TowardIntersection = towardIntersection (eToPPoint2 $ endPoint l2) pl2 eNodePoint
-    (eNodePoint, _) = canonicalizePPoint2WithErr $ pPointOf eNode
+    (eNodePoint, _) = canonicalize $ pPointOf eNode
     l2 = getLastLineSeg eNode
     pl2 = eToPLine2 l2
     eNode = randomENode x y d1 rawR1 d2 rawR2
@@ -1376,7 +1376,7 @@ prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
   where
     (originPPoint2, PPoint2PosErr originErr) = makeCPPoint2WithErr 0 0
     (foundDistance, UlpSum distanceErr) = distanceBetweenPPointsWithErr originPPoint2 intersectionCPPoint2
-    (intersectionCPPoint2, UlpSum canonicalizationErr) = canonicalizePPoint2WithErr intersectionPPoint2
+    (intersectionCPPoint2, UlpSum canonicalizationErr) = canonicalize intersectionPPoint2
     (intersectionPPoint2, UlpSum intersectionErr) = pLineIntersectionWithErr randomPLine1 randomPLine2
     (randomPLine1, UlpSum pline1Err) = randomPLineThroughOrigin x y
     (randomPLine2, UlpSum pline2Err) = randomPLineThroughOrigin x2 y2
@@ -1404,7 +1404,7 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
   where
     (targetPPoint2, PPoint2PosErr targetErr) = makeCPPoint2WithErr (coerce targetX) (coerce targetY)
     (foundDistance, UlpSum distanceErr) = distanceBetweenPPointsWithErr targetPPoint2 intersectionCPPoint2
-    (intersectionCPPoint2, UlpSum canonicalizationErr) = canonicalizePPoint2WithErr intersectionPPoint2
+    (intersectionCPPoint2, UlpSum canonicalizationErr) = canonicalize intersectionPPoint2
     (intersectionPPoint2, UlpSum intersectionErr) = pLineIntersectionWithErr randomPLine1 randomPLine2
     (randomPLine1, UlpSum pline1Err) = randomPLineWithErr x y targetX targetY
     (randomPLine2, UlpSum pline2Err) = randomPLineWithErr x2 y2 targetX targetY

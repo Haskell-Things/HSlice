@@ -37,7 +37,7 @@ module Graphics.Slicer.Math.PGA(
   ProjectivePoint2,
   angleBetweenWithErr,
   combineConsecutiveLineSegs,
-  canonicalizePPoint2WithErr,
+  canonicalize,
   cPToEPoint2,
   distanceBetweenPPointsWithErr,
   distanceBetweenNPLine2sWithErr,
@@ -399,7 +399,7 @@ outputIntersectsLineSeg source (l1, UlpSum l1Err)
                     <> show source <> "\n"
     (rawIntersection, UlpSum rawIntersectionErr) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizeIntersectionWithErr pl1 pl2
-    (canonicalizedSource, UlpSum canonicalizedSourceErr) = canonicalizePPoint2WithErr $ pPointOf source
+    (canonicalizedSource, UlpSum canonicalizedSourceErr) = canonicalize $ pPointOf source
     (intersectionDistance, UlpSum intersectionDistanceErr) = distanceBetweenPPointsWithErr canonicalizedSource rawIntersection
 
 -- | A type alias, for cases where either input is acceptable.
@@ -458,7 +458,7 @@ pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
     hasRawIntersection = valOf 0 foundVal /= 0
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
-    (rawIntersection, UlpSum rawIntersectionErr) = canonicalizePPoint2WithErr rawIntersect
+    (rawIntersection, UlpSum rawIntersectionErr) = canonicalize rawIntersect
     (rawIntersect, UlpSum rawIntersectErr) = pLineIntersectionWithErr pl1 pl2
     (pl2, UlpSum pl2Err) = eToPLine2WithErr l1
 
@@ -508,7 +508,7 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
     hasRawIntersection = valOf 0 foundVal /= 0
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
-    (rawIntersection, UlpSum rawIntersectionErr) = canonicalizePPoint2WithErr rawIntersect
+    (rawIntersection, UlpSum rawIntersectionErr) = canonicalize rawIntersect
     (rawIntersect, UlpSum rawIntersectErr) = pLineIntersectionWithErr pl1 pl2
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
@@ -712,8 +712,8 @@ join2PPoint2WithErr pp1 pp2 = (res,
                                errTotal)
   where
     (res, resErr) = join2CPPoint2WithErr cp1 cp2
-    (cp1, pv1Err) = canonicalizePPoint2WithErr pp1
-    (cp2, pv2Err) = canonicalizePPoint2WithErr pp2
+    (cp1, pv1Err) = canonicalize pp1
+    (cp2, pv2Err) = canonicalize pp2
     errTotal = resErr <> pv1Err <> pv2Err
 
 -- | a typed join function. join two points, returning a line.
@@ -783,7 +783,7 @@ pPointToPoint2 point@(PPoint2 (GVec rawVals))
  | e12Val == 1 = Just $ Point2 (xVal, yVal)
  | otherwise = Just $ Point2 (xVal, yVal)
   where
-    (CPPoint2 (GVec vals)) = fst $ canonicalizePPoint2WithErr point
+    (CPPoint2 (GVec vals)) = fst $ canonicalize point
     xVal = negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
@@ -959,7 +959,7 @@ canonicalizeIntersectionWithErr pl1 pl2
   | isNothing foundVal = Nothing
   | otherwise = Just (cpp1, ulpTotal)
   where
-    (cpp1, UlpSum canonicalizationErr) = canonicalizePPoint2WithErr pp1
+    (cpp1, UlpSum canonicalizationErr) = canonicalize pp1
     (pp1, UlpSum intersectionErr) = pLineIntersectionWithErr pl1 pl2
     ulpTotal = UlpSum $ intersectionErr + canonicalizationErr
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
