@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenNPLine2s, distancePPointToPLine, eToCPPoint2, eToPLine2, eToPPoint2, getFirstArc, join2PPoint2, makeCPPoint2, makePPoint2, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PPoint2PosErr(PPoint2PosErr), canonicalizePPoint2WithErr, pPointBetweenPPointsWithErr, distanceBetweenPPointsWithErr, distanceCPPointToNPLineWithErr, join2CPPoint2WithErr, pLineIntersectionWithErr, translatePLine2WithErr, translateRotatePPoint2, angleBetweenWithErr, flipPLine2, makeCPPoint2WithErr, normalizePLine2WithErr, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PPoint2PosErr(PPoint2PosErr), canonicalizePPoint2WithErr, pPointBetweenPPointsWithErr, distanceBetweenPPointsWithErr, distanceCPPointToNPLineWithErr, join2CPPoint2WithErr, pLineIntersectionWithErr, translatePLine2WithErr, translateRotatePPoint2, angleBetweenWithErr, flipPLine2, makeCPPoint2WithErr, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -404,11 +404,11 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
     (bisectorEndRaw, UlpSum bisectorEndRawErr) = pPointOnPerpWithErr pline4 (PPoint2 rawBisectorStart) d
     (bisectorEnd, UlpSum bisectorEndErr) = canonicalizePPoint2WithErr bisectorEndRaw
     (pline3, UlpSum pline3Err) = join2CPPoint2WithErr (CPPoint2 rawBisectorStart) bisectorEnd
-    (normedPLine3, UlpSum norm3Err) = normalizePLine2WithErr pline3
+    (normedPLine3, UlpSum norm3Err) = normalize pline3
     (sourceStart, PPoint2PosErr sourceStartErr) = makeCPPoint2WithErr x y
     (sourceEnd, PPoint2PosErr sourceEndErr) = makeCPPoint2WithErr x2 y2
     (pline4, UlpSum pline4Err) = join2CPPoint2WithErr sourceStart sourceEnd
-    (normedPLine4, UlpSum norm4Err) = normalizePLine2WithErr pline4
+    (normedPLine4, UlpSum norm4Err) = normalize pline4
     errTotal3 = angle2Err + norm3Err + pline3Err + pline4Err + norm4Err + bisectorStartErr + bisectorEndRawErr + bisectorEndErr + sourceStartErr + sourceEndErr
     errTotal4 = angle2Err + norm3Err + pline3Err + pline4Err + norm4Err + bisectorStartErr + bisectorEndRawErr + bisectorEndErr + sourceStartErr + sourceEndErr
     x2 :: ℝ
@@ -463,8 +463,8 @@ prop_PerpTranslateID x y dx dy rawT
                 <> "resErr: " <> show resErr <> "\n"
   where
     res = distanceBetweenNPLine2s resNPLine origNPLine
-    (resNPLine, UlpSum resNErr) = normalizePLine2WithErr resPLine
-    (origNPLine, UlpSum origNErr) = normalizePLine2WithErr origPLine
+    (resNPLine, UlpSum resNErr) = normalize resPLine
+    (origNPLine, UlpSum origNErr) = normalize origPLine
     (resPLine, UlpSum resPLineErr) = translatePLine2WithErr translatedPLine (-t)
     (translatedPLine, UlpSum translatedPLineErr) = translatePLine2WithErr origPLine t
     (origPLine, UlpSum origPLineErr) = randomPLineWithErr x y dx dy
@@ -513,7 +513,7 @@ prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
     intersect4 = outputIntersectsLineSeg eNode (lineSeg2, lineSeg2Err)
     -- note that our bisector always intersects the origin.
     (bisector, UlpSum bisectorUlp) = pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (x3,y3))
-    (NPLine2 bisector1, UlpSum bisector1Ulp) = normalizePLine2WithErr bisector
+    (NPLine2 bisector1, UlpSum bisector1Ulp) = normalize bisector
     bisector1Err = bisectorUlp + bisector1Ulp
     bisector2 = getFirstArc (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
@@ -567,7 +567,7 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
     intersect3 = outputIntersectsLineSeg eNode (lineSeg1, lineSeg1Err)
     intersect4 = outputIntersectsLineSeg eNode (lineSeg2, lineSeg2Err)
     -- note that our bisector always intersects the origin.
-    (NPLine2 bisector1, UlpSum bisector1Ulp) = normalizePLine2WithErr bisector
+    (NPLine2 bisector1, UlpSum bisector1Ulp) = normalize bisector
     (bisector, UlpSum bisectorUlp) = pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (x3,y3))
     bisector1Err = bisectorUlp + bisector1Ulp
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
@@ -1235,7 +1235,7 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
     (distance2, UlpSum distance2Err) = distanceCPPointToNPLineWithErr pPoint2 nPLine
     (pPoint1, PPoint2PosErr ulpSumP1) = makeCPPoint2WithErr x1 y1
     (pPoint2, PPoint2PosErr ulpSumP2) = makeCPPoint2WithErr x2 y2
-    (nPLine, UlpSum nPLineErr) = normalizePLine2WithErr pLine
+    (nPLine, UlpSum nPLineErr) = normalize pLine
     (pLine, UlpSum ulpPLine) = pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2))
     ulpTotal1 = ulpSumP1 + ulpPLine + distance1Err + nPLineErr
     ulpTotal2 = ulpSumP2 + ulpPLine + distance2Err + nPLineErr
@@ -1272,7 +1272,7 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
     (CPPoint2 pPoint1, PPoint2PosErr ulpSumP1) = makeCPPoint2WithErr x1 y1
     (CPPoint2 pPoint2, PPoint2PosErr ulpSumP2) = makeCPPoint2WithErr x2 y2
     (pLine1, UlpSum ulpPLine) = join2CPPoint2WithErr (CPPoint2 pPoint1) (CPPoint2 pPoint2)
-    (NPLine2 lvec, UlpSum normErr) = normalizePLine2WithErr pLine1
+    (NPLine2 lvec, UlpSum normErr) = normalize pLine1
     ulpTotal1 = ulpSumP1 + ulpPLine + distance1Err
     ulpTotal2 = ulpSumP2 + ulpPLine + distance2Err
     -- make sure we do not try to create a 0 length line segment.

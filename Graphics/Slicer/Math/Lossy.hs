@@ -49,7 +49,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2, PLine2, PPoint2(PPoint2), ProjectivePoint2, angleBetweenWithErr, canonicalizePPoint2WithErr, distanceBetweenPPointsWithErr, distanceBetweenNPLine2sWithErr, distanceCPPointToNPLineWithErr, distancePPointToPLineWithErr, eToCPPoint2WithErr, eToPLine2WithErr, eToPPoint2WithErr, getFirstArcWithErr, getInsideArcWithErr, join2CPPoint2WithErr, join2PPoint2WithErr, makeCPPoint2WithErr, normalizePLine2WithErr, pLineFromEndpointsWithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, translatePLine2WithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2, PLine2, PPoint2(PPoint2), ProjectiveLine2, ProjectivePoint2, angleBetweenWithErr, canonicalizePPoint2WithErr, distanceBetweenPPointsWithErr, distanceBetweenNPLine2sWithErr, distanceCPPointToNPLineWithErr, distancePPointToPLineWithErr, eToCPPoint2WithErr, eToPLine2WithErr, eToPPoint2WithErr, getFirstArcWithErr, getInsideArcWithErr, join2CPPoint2WithErr, join2PPoint2WithErr, makeCPPoint2WithErr, normalize, pLineFromEndpointsWithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, translatePLine2WithErr)
 
 angleBetween :: NPLine2 -> NPLine2 -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetweenWithErr nPLine1 nPLine2
@@ -78,7 +78,7 @@ eToCPPoint2 point = fst $ eToCPPoint2WithErr point
 
 -- | Create a normalized projective line from a euclidian line segment.
 eToNPLine2 :: LineSeg -> NPLine2
-eToNPLine2 l1 = normalizePLine2 $ fst $ eToPLine2WithErr l1
+eToNPLine2 l1 = fst $ normalize $ fst $ eToPLine2WithErr l1
 
 -- | Create an un-normalized projective line from a euclidian line segment.
 eToPLine2 :: LineSeg -> PLine2
@@ -114,8 +114,8 @@ makePPoint2 :: ℝ -> ℝ -> PPoint2
 makePPoint2 x y = (\(CPPoint2 p) -> PPoint2 p) $ fst $ makeCPPoint2WithErr x y
 
 -- | Normalize a PLine2.
-normalizePLine2 :: PLine2 -> NPLine2
-normalizePLine2 pl = fst $ normalizePLine2WithErr pl
+normalizePLine2 :: (ProjectiveLine2 a) => a -> NPLine2
+normalizePLine2 pl = fst $ normalize pl
 
 -- | Create a projective line from a pair of euclidian points.
 pLineFromEndpoints :: Point2 -> Point2 -> PLine2

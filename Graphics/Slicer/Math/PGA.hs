@@ -24,15 +24,16 @@
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
 module Graphics.Slicer.Math.PGA(
+  Arcable(hasArc, outOf, ulpOfOut, outUlpMag),
+  CPPoint2(CPPoint2),
   Intersection(HitStartPoint, HitEndPoint, NoIntersection),
   NPLine2(NPLine2),
   PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn),
   PLine2(PLine2),
-  PPoint2(PPoint2),
-  CPPoint2(CPPoint2),
-  Arcable(hasArc, outOf, ulpOfOut, outUlpMag),
   Pointable(canPoint, pPointOf, ePointOf),
+  PPoint2(PPoint2),
   PPoint2PosErr(PPoint2PosErr),
+  ProjectiveLine2,
   ProjectivePoint2,
   angleBetweenWithErr,
   combineConsecutiveLineSegs,
@@ -53,7 +54,7 @@ module Graphics.Slicer.Math.PGA(
   join2PPoint2WithErr,
   join2CPPoint2WithErr,
   makeCPPoint2WithErr,
-  normalizePLine2WithErr,
+  normalize,
   outputIntersectsLineSeg,
   pLineFromEndpointsWithErr,
   pLineIntersectionWithErr,
@@ -382,8 +383,8 @@ outputIntersectsLineSeg source (l1, UlpSum l1Err)
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * realToFrac travelUlpMul * abs (realToFrac angle + angleErr)
     (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
-    (npl1, UlpSum npl1Err) = normalizePLine2WithErr pl1
-    (npl2, UlpSum npl2Err) = normalizePLine2WithErr pl2
+    (npl1, UlpSum npl1Err) = normalize pl1
+    (npl2, UlpSum npl2Err) = normalize pl2
     (pl2, UlpSum pl2Err) = eToPLine2WithErr l1
     -- the multiplier to account for distance between our Pointable, and where it intersects.
     travelUlpMul
@@ -413,16 +414,16 @@ intersectsWithErr (Left l1@(rawL1,_))       (Right pl1@(rawPL1,_))     =        
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
     (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
-    (npl1, _) = normalizePLine2WithErr rawPL1
-    (npl2, _) = normalizePLine2WithErr pl2
+    (npl1, _) = normalize rawPL1
+    (npl2, _) = normalize pl2
     (pl2, _) = eToPLine2WithErr rawL1
 intersectsWithErr (Right pl1@(rawPL1,_))     (Left l1@(rawL1,_))       =         pLineIntersectsLineSeg pl1 l1 ulpScale
   where
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
     (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
-    (npl1, _) = normalizePLine2WithErr rawPL1
-    (npl2, _) = normalizePLine2WithErr pl2
+    (npl1, _) = normalize rawPL1
+    (npl2, _) = normalize pl2
     (pl2, _) = eToPLine2WithErr rawL1
 
 -- | Check if/where a line segment and a PLine intersect.
@@ -500,8 +501,8 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
       | otherwise = pl1Err + pl2Err + l1Err + ulpL2 + (rawIntersectErr * ulpScale)
     ulpScale = 120 + ulpMultiplier * (realToFrac angle+angleErr) * (realToFrac angle+angleErr)
     (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
-    (npl1, _) = normalizePLine2WithErr pl1
-    (npl2, _) = normalizePLine2WithErr pl2
+    (npl1, _) = normalize pl1
+    (npl2, _) = normalize pl2
     dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nl1Err: " <> show l1Err <> "\nrawIntersectErr: " <> show rawIntersectErr <> "\n"
     hasIntersection = hasRawIntersection && onSegment l1 rawIntersection ulpStartSum1 ulpEndSum1 && onSegment l2 rawIntersection ulpStartSum2 ulpEndSum2
     hasRawIntersection = valOf 0 foundVal /= 0
@@ -571,13 +572,13 @@ getFirstArcWithErr p1 p2 p3
   | otherwise = (insideArc, UlpSum $ side1Err + side2Err + insideArcErr)
   where
     (insideArc, UlpSum insideArcErr) = getInsideArcWithErr (PLine2 side1) (PLine2 side2)
-    (NPLine2 side1, UlpSum side1NormErr) = normalizePLine2WithErr side1Raw
+    (NPLine2 side1, UlpSum side1NormErr) = normalize side1Raw
     (side1Raw, UlpSum side1RawErr) = pLineFromEndpointsWithErr p1 p2
     side1Err = side1NormErr+side1RawErr
-    (NPLine2 side2, UlpSum side2NormErr) = normalizePLine2WithErr side2Raw
+    (NPLine2 side2, UlpSum side2NormErr) = normalize side2Raw
     (side2Raw, UlpSum side2RawErr) = pLineFromEndpointsWithErr p2 p3
     side2Err = side2NormErr+side2RawErr
-    (NPLine2 quadRes, UlpSum quadResErr) = normalizePLine2WithErr quad
+    (NPLine2 quadRes, UlpSum quadResErr) = normalize quad
     (quad, UlpSum quadErr) = pLineFromEndpointsWithErr p2 $ scalePoint 0.5 $ addPoints p1 p3
     {-
     scaleSide ps1 ps2 t v
@@ -954,12 +955,14 @@ canonicalizeIntersectionWithErr pl1 pl2
 
 -- | Normalize a PLine2.
 normalizePLine2WithErr :: (ProjectiveLine2 a) => a -> (NPLine2, UlpSum)
-normalizePLine2WithErr line = (res, ulpTotal)
+normalizePLine2WithErr line = (res, resErr)
   where
-    res = NPLine2 $ fst $ divVecScalarWithErr vec normOfMyPLine
-    (normOfMyPLine, UlpSum normErr) = normOfPLine2WithErr line
-    ulpTotal = UlpSum $ normErr + resErr
-    (UlpSum resErr) = ulpOfPLine2 res
+    (res, resErr) = case norm of
+                      1.0 -> (NPLine2 vec, mempty)
+                      _ -> (NPLine2 $ scaledVec, ulpTotal)
+    (scaledVec, _) = divVecScalarWithErr vec norm
+    (norm, normErr) = normOfPLine2WithErr line
+    ulpTotal = normErr <> ulpOfPLine2 res
     vec = vecOfL line
 
 -- | find the norm of a given PLine2
