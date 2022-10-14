@@ -36,9 +36,9 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
-import Graphics.Slicer.Math.Lossy (normalizePLine2)
+import Graphics.Slicer.Math.Lossy (normalizePLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, cPToEPoint2, distanceBetweenNPLine2sWithErr, outputIntersectsLineSeg, plinesIntersectIn, ulpOfLineSeg)
+import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, distanceBetweenNPLine2sWithErr, outputIntersectsLineSeg, plinesIntersectIn, ulpOfLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -103,7 +103,7 @@ getPLine2Intersections pLine c
     getPoints vs = getPoint <$> vs
       where
         getPoint (_, Left v) = v
-        getPoint (_, Right v) = cPToEPoint2 v
+        getPoint (_, Right v) = pToEPoint2 v
 
 -- | filter the intersections given.
 -- The purpose of this function is to ensure we only count the crossing of a line (segment) across a contour's edge more than once. so if it hits a sttartpoint, make sure we don't count the endpoint.. etc.

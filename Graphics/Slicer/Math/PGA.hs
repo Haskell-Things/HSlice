@@ -38,7 +38,6 @@ module Graphics.Slicer.Math.PGA(
   angleBetweenWithErr,
   combineConsecutiveLineSegs,
   canonicalize,
-  cPToEPoint2,
   distanceBetweenPPointsWithErr,
   distanceBetweenNPLine2sWithErr,
   distanceCPPointToNPLineWithErr,
@@ -797,14 +796,6 @@ makeCPPoint2WithErr x y = (pPoint
     pPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
     posErr = PPoint2PosErr $ abs (realToFrac $ doubleUlp $ negate x) -- + abs (realToFrac $ doubleUlp y)
 
--- | Create a euclidian point from a projective point.
-cPToEPoint2 :: CPPoint2 -> Point2
-cPToEPoint2 (CPPoint2 rawPoint)
-  | isNothing res = error "created an infinite point when trying to convert from a Projective point to a euclidian one."
-  | otherwise = fst $ fromJust res
-  where
-    res = pPointToPoint2 $ PPoint2 rawPoint
-
 -- | Maybe create a euclidian point from a projective point.
 -- FIXME: canonicalization certainly does...
 pPointToPoint2 :: (ProjectivePoint2 a) => a -> Maybe (Point2, UlpSum)
@@ -989,7 +980,7 @@ canonicalizeIntersectionWithErr pl1 pl2
     ulpTotal = intersectionErr <> canonicalizationErr
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
 
--- | Normalize a PLine2.
+-- | Normalize a Projective Line.
 normalizePLine2WithErr :: (ProjectiveLine2 a) => a -> (NPLine2, PLine2Err)
 normalizePLine2WithErr line = (res, resErr)
   where
