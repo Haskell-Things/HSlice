@@ -84,7 +84,7 @@ import Data.List (foldl')
 
 import Data.List.Ordered (sort, foldt)
 
-import Data.Maybe (Maybe(Just, Nothing), maybeToList, catMaybes, fromJust, isNothing, maybeToList)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromJust, fromMaybe, isNothing, maybeToList)
 
 import Data.Set (Set, singleton, fromList, elems)
 
@@ -665,14 +665,19 @@ class Arcable a where
 
 class ProjectivePoint2 a where
   canonicalize :: a -> (CPPoint2, UlpSum)
+  pPtoEP :: a -> (Point2, UlpSum)
+  idealNormOfP :: a -> (ℝ, UlpSum)
   vecOfP :: a -> GVec
 
 instance ProjectivePoint2 PPoint2 where
   canonicalize p = (\(a, PPoint2Err _ c8izeErrs _ _ _ _ _) -> (a,sumPPointErrs c8izeErrs)) $ canonicalizePPoint2WithErr p
+  idealNormOfP a = idealNormPPoint2WithErr a
+  pPtoEP a = fromMaybe (error "created an infinite point when trying to convert from a Projective point to a euclidian one.") $ pPointToPoint2 a
   vecOfP (PPoint2 a) = a
 
 instance ProjectivePoint2 CPPoint2 where
   canonicalize p = (p, mempty)
+  idealNormOfP a = idealNormPPoint2WithErr a
   vecOfP (CPPoint2 a) = a
 
 -- | A projective line in 2D space.
@@ -795,31 +800,31 @@ makeCPPoint2WithErr x y = (pPoint
 pToEPoint2 :: PPoint2 -> Point2
 pToEPoint2 ppoint
   | isNothing res = error "created an infinite point when trying to convert from a PPoint2 to a Point2"
-  | otherwise = fromJust res
+  | otherwise = fst $ fromJust res
   where
     res = pPointToPoint2 ppoint
 
 -- | Create a euclidian point from a projective point.
 cPToEPoint2 :: CPPoint2 -> Point2
 cPToEPoint2 (CPPoint2 rawPoint)
-  | isNothing res = error "created an infinite point when trying to convert from a PPoint2 to a Point2"
-  | otherwise = fromJust res
+  | isNothing res = error "created an infinite point when trying to convert from a Projective point to a euclidian one."
+  | otherwise = fst $ fromJust res
   where
     res = pPointToPoint2 $ PPoint2 rawPoint
 
 -- | Maybe create a euclidian point from a projective point.
--- FIXME: does negate cause a precision loss?
 -- FIXME: canonicalization certainly does...
-pPointToPoint2 :: PPoint2 -> Maybe Point2
-pPointToPoint2 point@(PPoint2 (GVec rawVals))
+pPointToPoint2 :: (ProjectivePoint2 a) => a -> Maybe (Point2, UlpSum)
+pPointToPoint2 ppoint
  | e12Val == 0 = Nothing
- | e12Val == 1 = Just $ Point2 (xVal, yVal)
- | otherwise = Just $ Point2 (xVal, yVal)
+ | e12Val == 1 = Just (Point2 (xVal, yVal), cpErr)
+ | otherwise = Just (Point2 (xVal, yVal), cpErr)
   where
-    (CPPoint2 (GVec vals)) = fst $ canonicalize point
+    (CPPoint2 (GVec vals), cpErr) = canonicalize ppoint
     xVal = negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
+    (GVec rawVals) = vecOfP ppoint
 
 -- | Reverse a vector. Really, take every value in it, and recompute it in the reverse order of the vectors (so instead of e0∧e1, e1∧e0). which has the effect of negating bi and tri-vectors.
 reverseGVec :: GVec -> GVec
@@ -934,8 +939,8 @@ ulpOfLineSeg (LineSeg (Point2 (x1,y1)) (Point2 (x2,y2))) = UlpSum $ sum $ abs . 
 ---------------------------------------------------------------------
 
 -- | find the idealized norm of a projective point (ideal or not).
-idealNormPPoint2WithErr :: PPoint2 -> (ℝ, UlpSum)
-idealNormPPoint2WithErr ppoint@(PPoint2 (GVec rawVals))
+idealNormPPoint2WithErr :: (ProjectivePoint2 a) => a -> (ℝ, UlpSum)
+idealNormPPoint2WithErr ppoint
   | preRes == 0 = (0, mempty)
   | otherwise   = (res, ulpTotal)
   where
@@ -949,8 +954,9 @@ idealNormPPoint2WithErr ppoint@(PPoint2 (GVec rawVals))
     (x,y)
      | e12Val == 0 = ( negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals
                      ,          valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals)
-     | otherwise = (\(Point2 (x1,y1)) -> (x1,y1)) $ pToEPoint2 ppoint
+     | otherwise = (\(Point2 (x1,y1),_) -> (x1,y1)) $ pPtoEP ppoint
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
+    (GVec rawVals) = vecOfP ppoint
 
 -- | canonicalize a euclidian point.
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.
@@ -985,9 +991,9 @@ canonicalizeIntersectionWithErr pl1 pl2
   | isNothing foundVal = Nothing
   | otherwise = Just (cpp1, ulpTotal)
   where
-    (cpp1, UlpSum canonicalizationErr) = canonicalize pp1
-    (pp1, UlpSum intersectionErr) = pLineIntersectionWithErr pl1 pl2
-    ulpTotal = UlpSum $ intersectionErr + canonicalizationErr
+    (cpp1, canonicalizationErr) = canonicalize pp1
+    (pp1, intersectionErr) = pLineIntersectionWithErr pl1 pl2
+    ulpTotal = intersectionErr <> canonicalizationErr
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
 
 -- | Normalize a PLine2.
