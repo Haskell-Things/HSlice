@@ -730,7 +730,7 @@ instance ProjectiveLine2 ProjectiveLine where
                (NPLine2 v) -> v
                (PLine2 v) -> v
   
-instance Eq ProjectiveLine2 where
+instance Eq ProjectiveLine where
   (==) (NPLine2 gvec1) (NPLine2 gvec2) = gvec1 == gvec2
   (==) pl1 pl2 = normalize pl1 == normalize pl2
 
