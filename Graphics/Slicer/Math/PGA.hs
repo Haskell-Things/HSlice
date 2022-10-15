@@ -675,7 +675,7 @@ instance ProjectivePoint2 PPoint2 where
   consLikeP (PPoint2 _) = PPoint2
   forceBasisOfP a = forceProjectivePointBasis a
   idealNormOfP a = idealNormPPoint2WithErr a
-  pToEP a = fromMaybe (error "created an infinite point when trying to convert from a Projective point to a euclidian one.") $ pPointToPoint2 a
+  pToEP a = fromMaybe (error "created an infinite point when trying to convert from a Projective point to a euclidian one.") $ projectivePointToPoint2 a
   vecOfP (PPoint2 a) = a
 
 instance ProjectivePoint2 CPPoint2 where
@@ -683,7 +683,7 @@ instance ProjectivePoint2 CPPoint2 where
   consLikeP (CPPoint2 _) = CPPoint2
   forceBasisOfP a = forceProjectivePointBasis a
   idealNormOfP a = idealNormPPoint2WithErr a
-  pToEP a = fromMaybe (error "created an infinite point when trying to convert from a Projective point to a euclidian one.") $ pPointToPoint2 a
+  pToEP a = fromMaybe (error "created an infinite point when trying to convert from a Projective point to a euclidian one.") $ projectivePointToPoint2 a
   vecOfP (CPPoint2 a) = a
 
 -- | A projective line in 2D space.
@@ -807,13 +807,12 @@ makeCPPoint2WithErr x y = (pPoint
 
 -- | Maybe create a euclidian point from a projective point.
 -- FIXME: canonicalization certainly does...
-pPointToPoint2 :: (ProjectivePoint2 a) => a -> Maybe (Point2, UlpSum)
-pPointToPoint2 ppoint
+projectivePointToPoint2 :: (ProjectivePoint2 a) => a -> Maybe (Point2, UlpSum)
+projectivePointToPoint2 ppoint
  | e12Val == 0 = Nothing
- | e12Val == 1 = Just (Point2 (xVal, yVal), cpErr)
- | otherwise = Just (Point2 (xVal, yVal), cpErr)
+ | otherwise = Just (Point2 (xVal, yVal), cpErrs)
   where
-    (CPPoint2 (GVec vals), cpErr) = canonicalize ppoint
+    (CPPoint2 (GVec vals), cpErrs) = canonicalize ppoint
     xVal = negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
