@@ -50,7 +50,7 @@ import Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, get
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, pPointBetweenPPoints, distanceBetweenPPoints, eToNPLine2, eToCPPoint2, eToPLine2, normalizePLine2, pLineFromEndpoints, pToEPoint2, translatePLine2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PPoint2, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), flipPLine2, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), plinesIntersectIn, angleBetweenWithErr, outputIntersectsLineSeg, ulpOfPLine2, ulpOfLineSeg)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PPoint2, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), plinesIntersectIn, angleBetweenWithErr, outputIntersectsLineSeg, ulpOfPLine2, ulpOfLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -194,9 +194,9 @@ motorcycleFromPoints p1 p2 p3 = getOutsideArc (pLineFromEndpoints p1 p2) (pLineF
                                        <> "PLine1: " <> show pline1 <> "\n"
                                        <> "PLine2: " <> show pline2 <> "\n"
                                        <> "result: " <> show (plinesIntersectIn pline1 pline2) <> "\n"
-      | otherwise = flipPLine2 $ PLine2 $ addVecPair flippedNPV1 npv2
+      | otherwise = flipL $ PLine2 $ addVecPair flippedNPV1 npv2
       where
-        (PLine2 flippedNPV1) = flipPLine2 $ (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 pline1
+        (PLine2 flippedNPV1) = flipL $ (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 pline1
         (NPLine2 npv2) = normalizePLine2 pline2
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them.

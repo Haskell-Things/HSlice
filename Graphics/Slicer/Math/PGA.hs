@@ -45,7 +45,7 @@ module Graphics.Slicer.Math.PGA(
   eToCPPoint2WithErr,
   eToPLine2WithErr,
   eToPPoint2WithErr,
-  flipPLine2,
+  flipL,
   getInsideArcWithErr,
   getFirstArcWithErr,
   intersectsWith,
@@ -206,7 +206,7 @@ distanceCPPointToNPLineWithErr point line
     (newPLine, newPLineErr)        = join2CPPoint2WithErr point linePoint
     (perpLine, (plMulErr,plAddErr))= lvec ⨅+ npvec
     (PLine2 lvec)                  = forcePLine2Basis (PLine2 nplvec)
-    (CPPoint2 npvec)               = forceCPPoint2Basis point
+    (CPPoint2 npvec)               = forceBasisOfP point
     (linePoint, lpErr)             = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
     ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr {- <> resErr -} <> newPLineErr <>  lpErr
     foundVal                       = getVal [GEPlus 1, GEPlus 2] $ (\(CPPoint2 (GVec vals)) -> vals) point
@@ -226,8 +226,8 @@ pPointsOnSameSideOfPLine point1 point2 line
     unlikeP2UlpSum = sumErrVals unlikeP2MulErr <> sumErrVals unlikeP2AddErr
     (GVec unlikeP1, (unlikeP1MulErr, unlikeP1AddErr)) = pv1 ⎤+ lv1
     (GVec unlikeP2, (unlikeP2MulErr, unlikeP2AddErr)) = pv2 ⎤+ lv1
-    (PPoint2 pv1) = forcePPoint2Basis point1
-    (PPoint2 pv2) = forcePPoint2Basis point2
+    (PPoint2 pv1) = forceBasisOfP point1
+    (PPoint2 pv2) = forceBasisOfP point2
     lv1 = vecOfL $ forcePLine2Basis line
 
 distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (ℝ, UlpSum)
@@ -293,7 +293,7 @@ pPointOnPerpWithErr line rppoint d = (PPoint2 res,
     (NPLine2 rlvec, lErr)          = normalize line
     (perpLine, (plMulErr,plAddErr))= lvec ⨅+ pvec
     (PLine2 lvec)                  = forcePLine2Basis $ PLine2 rlvec
-    (PPoint2 pvec)                 = forcePPoint2Basis rppoint
+    (PPoint2 pvec)                 = forceBasisOfP rppoint
     motor = addVecPairWithoutErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
     gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
@@ -600,7 +600,7 @@ getInsideArcWithErr line1 line2
     ulpSum = resUlp <> sumErrVals addVecErr
     (NPLine2 normRes, resUlp) = normalize $ PLine2 $ addVecRes
     (addVecRes, addVecErr) = addVecPairWithErr flippedPV1 pv2
-    flippedPV1 = vecOfL $ flipPLine2 line1
+    flippedPV1 = vecOfL $ flipL line1
     pv2 = vecOfL line2
 
 ------------------------------------------------
@@ -664,18 +664,24 @@ class Arcable a where
 
 class ProjectivePoint2 a where
   canonicalize :: a -> (CPPoint2, UlpSum)
-  pToEP :: a -> (Point2, UlpSum)
+  consLikeP :: a -> (GVec -> a)
+  forceBasisOfP :: a -> a
   idealNormOfP :: a -> (ℝ, UlpSum)
+  pToEP :: a -> (Point2, UlpSum)
   vecOfP :: a -> GVec
 
 instance ProjectivePoint2 PPoint2 where
   canonicalize p = (\(a, PPoint2Err _ c8izeErrs _ _ _ _ _) -> (a,sumPPointErrs c8izeErrs)) $ canonicalizePPoint2WithErr p
+  consLikeP (PPoint2 _) = PPoint2
+  forceBasisOfP a = forceProjectivePointBasis a
   idealNormOfP a = idealNormPPoint2WithErr a
   pToEP a = fromMaybe (error "created an infinite point when trying to convert from a Projective point to a euclidian one.") $ pPointToPoint2 a
   vecOfP (PPoint2 a) = a
 
 instance ProjectivePoint2 CPPoint2 where
   canonicalize p = (p, mempty)
+  consLikeP (CPPoint2 _) = CPPoint2
+  forceBasisOfP a = forceProjectivePointBasis a
   idealNormOfP a = idealNormPPoint2WithErr a
   pToEP a = fromMaybe (error "created an infinite point when trying to convert from a Projective point to a euclidian one.") $ pPointToPoint2 a
   vecOfP (CPPoint2 a) = a
@@ -689,23 +695,26 @@ newtype NPLine2 = NPLine2 GVec
   deriving (Eq, Generic, NFData, Show)
 
 class ProjectiveLine2 a where
-  normalize :: a -> (NPLine2, UlpSum)
-  flipPLine2 :: a -> a
+  consLikeL :: a -> (GVec -> a)
+  flipL :: a -> a
   forcePLine2Basis :: a -> a
+  normalize :: a -> (NPLine2, UlpSum)
   translatePLine2WithErr :: a -> ℝ -> (a, UlpSum)
   vecOfL :: a -> GVec
 
 instance ProjectiveLine2 NPLine2 where
+  consLikeL (NPLine2 _) = NPLine2
+  flipL a = flipProjectiveLine a
+  forcePLine2Basis a = forceProjectiveLine2Basis a
   normalize a = (a, mempty)
-  flipPLine2 (NPLine2 a)  = NPLine2 $ flipGVec a
-  forcePLine2Basis (NPLine2 a) = NPLine2 $ forceProjectiveLine2Basis a
   translatePLine2WithErr (NPLine2 a) d = (\(b,(PLine2Err _ _ _ _ t _)) -> (NPLine2 b,t)) $ translateProjectiveLine2WithErr a d
   vecOfL (NPLine2 a) = a
 
 instance ProjectiveLine2 PLine2 where
+  consLikeL (PLine2 _) = PLine2
+  flipL a = flipProjectiveLine a
+  forcePLine2Basis a = forceProjectiveLine2Basis a
   normalize a = (\(b,(PLine2Err _ _ c d _ _)) -> (b,c <> d)) $ normalizePLine2WithErr a
-  flipPLine2 (PLine2 a) = PLine2 $ flipGVec a
-  forcePLine2Basis (PLine2 a) = PLine2 $ forceProjectiveLine2Basis a
   translatePLine2WithErr (PLine2 a) d = (\(b,(PLine2Err _ _ _ _ t _)) -> (PLine2 b,t)) $ translateProjectiveLine2WithErr a d
   vecOfL (PLine2 a) = a
 
@@ -760,8 +769,8 @@ join2CPPoint2WithErr pp1 pp2 = (PLine2 res,
                                 resUlp)
   where
     (res,resUlp)  = pv1 ∨+ pv2
-    (CPPoint2 pv1) = forceCPPoint2Basis pp1
-    (CPPoint2 pv2) = forceCPPoint2Basis pp2
+    (CPPoint2 pv1) = forceBasisOfP pp1
+    (CPPoint2 pv2) = forceBasisOfP pp2
 
 -- | A typed meet function. the meeting of two lines is a point.
 meet2PLine2WithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PPoint2, UlpSum)
@@ -852,35 +861,36 @@ forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
     forceVal has needs = GVal (valOf 0 $ getVal (elems needs) has) needs
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a PLine2.
-forceProjectiveLine2Basis :: GVec -> GVec
-forceProjectiveLine2Basis pvec@(GVec [GVal _ gnum1, GVal _ gnum2, GVal _ gnum3])
-  | gnum1 == singleton (GEZero 1) &&
-    gnum2 == singleton (GEPlus 1) &&
-    gnum3 == singleton (GEPlus 2)    = pvec
-  | otherwise                        = forceBasis [singleton (GEZero 1), singleton (GEPlus 1), singleton (GEPlus 2)] pvec
-forceProjectiveLine2Basis pvec = forceBasis [singleton (GEZero 1), singleton (GEPlus 1), singleton (GEPlus 2)] pvec
+forceProjectiveLine2Basis :: (ProjectiveLine2 a) => a -> a
+forceProjectiveLine2Basis line
+  | gnums == Just [singleton (GEZero 1),
+                   singleton (GEPlus 1),
+                   singleton (GEPlus 2)] = line
+  | otherwise                            = (consLikeL line) res
+  where
+    res = forceBasis [singleton (GEZero 1), singleton (GEPlus 1), singleton (GEPlus 2)] pvec
+    gnums = case vals of
+              [GVal _ g1, GVal _ g2, GVal _ g3] -> Just [g1,g2,g3]
+              _                                 -> Nothing
+    pvec@(GVec vals) = vecOfL line
 
--- | runtime basis coersion. ensure all of the '0' components exist on a PPoint2.
-forcePPoint2Basis :: PPoint2 -> PPoint2
-forcePPoint2Basis pt@(PPoint2 pvec@(GVec [GVal _ gnum1, GVal _ gnum2, GVal _ gnum3]))
-  | gnum1 == fromList [GEZero 1, GEPlus 1] &&
-    gnum2 == fromList [GEZero 1, GEPlus 2] &&
-    gnum3 == fromList [GEPlus 1, GEPlus 2]    = pt
-  | otherwise                                 = PPoint2 $ forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] pvec
-forcePPoint2Basis (PPoint2 pvec)              = PPoint2 $ forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] pvec
-
--- | runtime basis coersion. ensure all of the '0' components exist on a PPoint2.
-forceCPPoint2Basis :: CPPoint2 -> CPPoint2
-forceCPPoint2Basis pt@(CPPoint2 pvec@(GVec [GVal _ gnum1, GVal _ gnum2, GVal _ gnum3]))
-  | gnum1 == fromList [GEZero 1, GEPlus 1] &&
-    gnum2 == fromList [GEZero 1, GEPlus 2] &&
-    gnum3 == fromList [GEPlus 1, GEPlus 2]    = pt
-  | otherwise                                 = CPPoint2 $ forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] pvec
-forceCPPoint2Basis (CPPoint2 pvec)            = CPPoint2 $ forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] pvec
+-- | runtime basis coersion. ensure all of the '0' components exist on a Projective Point.
+forceProjectivePointBasis :: (ProjectivePoint2 a) => a -> a
+forceProjectivePointBasis point
+  | gnums == Just [fromList [GEZero 1, GEPlus 1],
+                   fromList [GEZero 1, GEPlus 2],
+                   fromList [GEPlus 1, GEPlus 2]] = point
+  | otherwise = (consLikeP point) res
+  where
+    res = forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] pvec
+    gnums = case vals of
+              [GVal _ g1, GVal _ g2, GVal _ g3] -> Just [g1,g2,g3]
+              _                                 -> Nothing
+    pvec@(GVec vals) = vecOfP point
 
 -- | Reverse a line. same line, but pointed in the other direction.
-flipGVec :: GVec -> GVec
-flipGVec (GVec vals) = rawRes
+flipProjectiveLine :: (ProjectiveLine2 a) => a -> a
+flipProjectiveLine pline = (consLikeL pline) rawRes
   where
     rawRes = GVec $ foldl' addValWithoutErr []
              [
@@ -888,22 +898,16 @@ flipGVec (GVec vals) = rawRes
              , GVal (negate $ valOf 0 $ getVal [GEPlus 1] vals) (singleton (GEPlus 1))
              , GVal (negate $ valOf 0 $ getVal [GEPlus 2] vals) (singleton (GEPlus 2))
              ]
+    (GVec vals) = vecOfL pline
 
 eToPLine2WithErr :: LineSeg -> (PLine2, UlpSum)
 eToPLine2WithErr l1 = pLineFromEndpointsWithErr (startPoint l1) (endPoint l1)
 
+
 pLineFromEndpointsWithErr :: Point2 -> Point2 -> (PLine2, UlpSum)
-pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2)) = (PLine2 $ GVec $ foldl' addValWithoutErr [] [ GVal c (singleton (GEZero 1)), GVal a (singleton (GEPlus 1)), GVal b (singleton (GEPlus 2)) ], ulpTotal)
+pLineFromEndpointsWithErr start stop = (res, resErr)
   where
-    a=y2-y1
-    b=x1-x2
-    c=y1*x2-x1*y2
-    ulpTotal = UlpSum
-               $ abs (realToFrac $ doubleUlp $ y1*x2)
-               + abs (realToFrac $ doubleUlp $ x1*y2)
-               + abs (realToFrac $ doubleUlp a)
-               + abs (realToFrac $ doubleUlp b)
-               + abs (realToFrac $ doubleUlp c)
+    (res, resErr) = join2PPoint2WithErr (fst $ eToPPoint2WithErr start) (fst $ eToPPoint2WithErr stop)
 
 -- | Get the sum of the error involved in storing the values in a given PLine2.
 ulpOfPLine2 :: (ProjectiveLine2 a) => a -> UlpSum

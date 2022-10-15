@@ -114,7 +114,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), 
 
 import Graphics.Slicer.Math.Lossy (eToPLine2, eToPPoint2, join2PPoint2, normalizePLine2, pPointBetweenPPoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), flipPLine2, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, outOf, pPointOf, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), flipL, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, outOf, pPointOf, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
 
@@ -656,13 +656,13 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
     pl1 = (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ getFirstLineSeg eNode
-    pl2 = (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ flipPLine2 $ eToPLine2 $ getLastLineSeg eNode
+    pl2 = (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ flipL $ eToPLine2 $ getLastLineSeg eNode
     intersectionPPoint = pPointOf eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
     pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
     pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
-    maybeFlippedpl1 = if flipIn1 then flipPLine2 pl1 else pl1
-    maybeFlippedpl2 = if flipIn2 then flipPLine2 pl2 else pl2
+    maybeFlippedpl1 = if flipIn1 then flipL pl1 else pl1
+    maybeFlippedpl2 = if flipIn2 then flipL pl2 else pl2
     bisector1 = (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ getOutsideArc pp1 (normalizePLine2 maybeFlippedpl1) pp2 (normalizePLine2 maybeFlippedpl2)
 
 -- | A helper function. constructs a random PLine.

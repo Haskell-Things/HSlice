@@ -60,7 +60,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, 
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, distancePPointToPLine, eToPLine2, getInsideArc, join2CPPoint2, normalizePLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), CPPoint2(CPPoint2), PPoint2(PPoint2), flipPLine2, getFirstArcWithErr, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetweenWithErr, distancePPointToPLineWithErr, flipPLine2, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), CPPoint2(CPPoint2), PPoint2(PPoint2), flipL, getFirstArcWithErr, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetweenWithErr, distancePPointToPLineWithErr, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
@@ -107,11 +107,11 @@ findINodes inSegSets
   | len inSegSets == 2 =
     -- Two walls, no closed ends. solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
     case initialENodes of
-      [] -> INodeSet $ slist [[makeINode [getInsideArc (flipPLine2 $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArc (eToPLine2 firstSeg) (flipPLine2 $ eToPLine2 lastSeg)] Nothing]]
+      [] -> INodeSet $ slist [[makeINode [getInsideArc (flipL $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArc (eToPLine2 firstSeg) (flipL $ eToPLine2 lastSeg)] Nothing]]
         where
           firstSeg = SL.head $ slist $ SL.head inSegSets
           lastSeg = SL.head $ slist $ SL.last inSegSets
-      [a] -> INodeSet $ slist [[makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just $ flipPLine2 $ outOf a)]]
+      [a] -> INodeSet $ slist [[makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just $ flipL $ outOf a)]]
         where
           firstSeg = fromMaybe (error "no first segment?") $ safeHead $ slist longSide
           lastSeg = SL.last $ slist longSide
@@ -198,10 +198,10 @@ getOutsideArc :: PPoint2 -> NPLine2 -> PPoint2 -> NPLine2 -> PLine2
 getOutsideArc ppoint1 npline1 ppoint2 npline2
   | npline1 == npline2 = error "need to be able to return two PLines."
   | noIntersection pline1 pline2 = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
-  | l1TowardPoint && l2TowardPoint = flipPLine2 $ getInsideArc pline1 (flipPLine2 pline2)
-  | l1TowardPoint                  = flipPLine2 $ getInsideArc pline1 pline2
+  | l1TowardPoint && l2TowardPoint = flipL $ getInsideArc pline1 (flipL pline2)
+  | l1TowardPoint                  = flipL $ getInsideArc pline1 pline2
   | l2TowardPoint                  = getInsideArc pline1 pline2
-  | otherwise                      = getInsideArc pline1 (flipPLine2 pline2)
+  | otherwise                      = getInsideArc pline1 (flipL pline2)
     where
       pline1 = (\(NPLine2 v) -> PLine2 v) npline1
       pline2 = (\(NPLine2 v) -> PLine2 v) npline2
@@ -493,7 +493,7 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
         newINode1 = makeINode (withoutConnectingPLine $ insOf iNode2) (Just newConnectingPLine)
         -- like iNode1, but with our flipped connecting line in, and iNode2's original out.
         newINode2 = makeINode ([newConnectingPLine] <> insOf iNode1) maybeOut2
-        newConnectingPLine = flipPLine2 oldConnectingPLine
+        newConnectingPLine = flipL oldConnectingPLine
         oldConnectingPLine = case iNodeInsOf iNode2 of
                                [] -> error "could not find old connecting PLine."
                                [v] -> v

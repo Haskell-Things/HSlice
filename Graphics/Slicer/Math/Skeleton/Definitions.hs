@@ -55,7 +55,7 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, eToPLine2, eToPPoint2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipPLine2, PLine2(PLine2), pLineIsLeft, distanceBetweenPPointsWithErr, Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, ulpOfOut, outUlpMag), CPPoint2(CPPoint2), PPoint2(PPoint2))
+import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), pLineIsLeft, distanceBetweenPPointsWithErr, Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, ulpOfOut, outUlpMag), CPPoint2(CPPoint2), PPoint2(PPoint2))
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
@@ -320,7 +320,7 @@ concavePLines seg1 seg2
   | otherwise                          = Nothing
   where
     (PLine2 pv1) = eToPLine2 seg1
-    (PLine2 pv2) = flipPLine2 $ eToPLine2 seg2
+    (PLine2 pv2) = flipL $ eToPLine2 seg2
 
 -- | check if an INodeSet is empty.
 hasNoINodes :: INodeSet -> Bool
