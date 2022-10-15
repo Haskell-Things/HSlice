@@ -95,7 +95,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, scalePoint, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf, vectorPart)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
@@ -821,9 +821,9 @@ pPointToPoint2 ppoint
 
 -- | Reverse a vector. Really, take every value in it, and recompute it in the reverse order of the vectors (so instead of e0∧e1, e1∧e0). which has the effect of negating bi and tri-vectors.
 reverseGVec :: GVec -> GVec
-reverseGVec vec = GVec $ foldl' addValWithoutErr []
+reverseGVec (GVec vals) = GVec $ foldl' addValWithoutErr []
                   [
-                    GVal           realVal                                               (singleton G0)
+                    GVal (         valOf 0 $ getVal [G0] vals)                           (singleton G0)
                   , GVal (         valOf 0 $ getVal [GEZero 1] vals)                     (singleton (GEZero 1))
                   , GVal (         valOf 0 $ getVal [GEPlus 1] vals)                     (singleton (GEPlus 1))
                   , GVal (         valOf 0 $ getVal [GEPlus 2] vals)                     (singleton (GEPlus 2))
@@ -832,15 +832,12 @@ reverseGVec vec = GVec $ foldl' addValWithoutErr []
                   , GVal (negate $ valOf 0 $ getVal [GEPlus 1, GEPlus 2] vals)           (fromList [GEPlus 1, GEPlus 2])
                   , GVal (negate $ valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 1, GEPlus 2])
                   ]
-  where
-    realVal     = scalarPart vec
-    (GVec vals) = vectorPart vec
 
 -- | get the dual of a vector. for a point, find a line, for a line, a point...
 dual2DGVec :: GVec -> GVec
-dual2DGVec vec = GVec $ foldl' addValWithoutErr []
+dual2DGVec (GVec vals) = GVec $ foldl' addValWithoutErr []
                  [
-                   GVal           realVal                                               (fromList [GEZero 1, GEPlus 1, GEPlus 2])
+                   GVal (         valOf 0 $ getVal [G0] vals)                           (fromList [GEZero 1, GEPlus 1, GEPlus 2])
                  , GVal (         valOf 0 $ getVal [GEZero 1] vals)                     (fromList [GEPlus 1, GEPlus 2])
                  , GVal (negate $ valOf 0 $ getVal [GEPlus 1] vals)                     (fromList [GEZero 1, GEPlus 2])
                  , GVal (         valOf 0 $ getVal [GEPlus 2] vals)                     (fromList [GEZero 1, GEPlus 1])
@@ -849,9 +846,6 @@ dual2DGVec vec = GVec $ foldl' addValWithoutErr []
                  , GVal (         valOf 0 $ getVal [GEPlus 1, GEPlus 2] vals)           (singleton (GEZero 1))
                  , GVal (         valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] vals) (singleton G0)
                  ]
-  where
-    realVal     = scalarPart vec
-    (GVec vals) = vectorPart vec
 
 -- | perform basis coersion. ensure all of the required '0' components exist. required before using basis sensitive raw operators.
 forceBasis :: [Set GNum] -> GVec -> GVec
@@ -860,13 +854,13 @@ forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
     forceVal :: [GVal] -> Set GNum -> GVal
     forceVal has needs = GVal (valOf 0 $ getVal (elems needs) has) needs
 
--- | runtime basis coersion. ensure all of the '0' components exist on a PLine2.
+-- | runtime basis coersion. ensure all of the '0' components exist on a Projective Line.
 forceProjectiveLine2Basis :: (ProjectiveLine2 a) => a -> a
 forceProjectiveLine2Basis line
   | gnums == Just [singleton (GEZero 1),
                    singleton (GEPlus 1),
                    singleton (GEPlus 2)] = line
-  | otherwise                            = (consLikeL line) res
+  | otherwise = (consLikeL line) res
   where
     res = forceBasis [singleton (GEZero 1), singleton (GEPlus 1), singleton (GEPlus 2)] pvec
     gnums = case vals of
