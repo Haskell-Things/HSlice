@@ -22,7 +22,7 @@ module Graphics.Slicer.Math.Lossy (
   angleBetween,
   canonicalizePPoint2,
   distanceBetweenPPoints,
-  distanceBetweenNPLine2s,
+  distanceBetweenPLines,
   distanceCPPointToNPLine,
   distancePPointToPLine,
   eToCPPoint2,
@@ -49,7 +49,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2, PLine2, PPoint2(PPoint2), ProjectiveLine2, ProjectivePoint2, angleBetweenWithErr, canonicalize, distanceBetweenPPointsWithErr, distanceBetweenNPLine2sWithErr, distanceCPPointToNPLineWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, getFirstArcWithErr, getInsideArcWithErr, join2CPPoint2WithErr, join2PP, makeCPPoint2, normalize, pLineFromEndpointsWithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEP, translatePLine2WithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2, PLine2, PPoint2(PPoint2), ProjectiveLine2, ProjectivePoint2, angleBetweenWithErr, canonicalize, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distanceCPPointToNPLineWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, getFirstArcWithErr, getInsideArcWithErr, join2CPPoint2WithErr, join2PP, makeCPPoint2, normalize, pLineFromEndpointsWithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEP, translatePLine2WithErr)
 
 angleBetween :: NPLine2 -> NPLine2 -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetweenWithErr nPLine1 nPLine2
@@ -61,8 +61,8 @@ canonicalizePPoint2 point = fst $ canonicalize point
 distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
 distanceBetweenPPoints point1 point2 = fst $ distanceBetweenPPointsWithErr point1 point2
 
-distanceBetweenNPLine2s :: NPLine2 -> NPLine2 -> ℝ
-distanceBetweenNPLine2s nPLine1 nPLine2 = fst $ distanceBetweenNPLine2sWithErr nPLine1 nPLine2
+distanceBetweenPLines :: (ProjectiveLine2 a) => a -> a -> ℝ
+distanceBetweenPLines nPLine1 nPLine2 = fst $ distanceBetweenPLinesWithErr nPLine1 nPLine2
 
 -- | Find the unsigned distance between a point and a line.
 distanceCPPointToNPLine :: CPPoint2 -> NPLine2 -> ℝ

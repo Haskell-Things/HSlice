@@ -56,7 +56,7 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour),
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
-import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenNPLine2s, distancePPointToPLine, eToCPPoint2, eToPLine2, getFirstArc, join2PPoint2, makePPoint2, normalizePLine2, pPointOnPerp)
+import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToCPPoint2, eToPLine2, getFirstArc, join2PPoint2, makePPoint2, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
 import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), canonicalize, pPointBetweenPPointsWithErr, distanceBetweenPPointsWithErr, distanceCPPointToNPLineWithErr, eToPPoint2, join2CPPoint2WithErr, pLineIntersectionWithErr, translatePLine2WithErr, translateRotatePPoint2, angleBetweenWithErr, flipL, makeCPPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
@@ -457,19 +457,15 @@ prop_PerpTranslateID x y dx dy rawT
                 $ "failed:\n"
                 <> "origPLine: " <> show origPLine <> "\n"
                 <> "resPLine: " <> show resPLine <> "\n"
-                <> "origNPline: " <> show origNPLine <> "\n"
-                <> "resNPline: " <> show resNPLine <> "\n"
                 <> "res: " <> show res <> "\n"
                 <> "resErr: " <> show resErr <> "\n"
   where
-    res = distanceBetweenNPLine2s resNPLine origNPLine
-    (resNPLine, UlpSum resNErr) = normalize resPLine
-    (origNPLine, UlpSum origNErr) = normalize origPLine
+    res = distanceBetweenPLines resPLine origPLine
     (resPLine, UlpSum resPLineErr) = translatePLine2WithErr translatedPLine (-t)
     (translatedPLine, UlpSum translatedPLineErr) = translatePLine2WithErr origPLine t
     (origPLine, UlpSum origPLineErr) = randomPLineWithErr x y dx dy
     resErr, t :: ℝ
-    resErr = realToFrac (resPLineErr + translatedPLineErr + origPLineErr + resNErr + origNErr)
+    resErr = realToFrac (resPLineErr + translatedPLineErr + origPLineErr)
     t = coerce rawT
 
 pgaSpec :: Spec

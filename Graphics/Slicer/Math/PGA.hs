@@ -35,10 +35,10 @@ module Graphics.Slicer.Math.PGA(
   ProjectiveLine2,
   ProjectivePoint2,
   angleBetweenWithErr,
-  combineConsecutiveLineSegs,
   canonicalize,
+  combineConsecutiveLineSegs,
   distanceBetweenPPointsWithErr,
-  distanceBetweenNPLine2sWithErr,
+  distanceBetweenPLinesWithErr,
   distanceCPPointToNPLineWithErr,
   distancePPointToPLineWithErr,
   eToPLine2WithErr,
@@ -238,8 +238,8 @@ distanceBetweenPPointsWithErr point1 point2 = (res, ulpTotal)
     (cpoint2, _) = canonicalize point2
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
-distanceBetweenNPLine2sWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
-distanceBetweenNPLine2sWithErr line1 line2 = (ideal, resUlpSum)
+distanceBetweenPLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
+distanceBetweenPLinesWithErr line1 line2 = (ideal, resUlpSum)
   where
     (ideal, idealUlpSum) = idealNormOfP $ PPoint2 likeRes
     resUlpSum = idealUlpSum <> sumErrVals likeMulErr <> sumErrVals likeAddErr
