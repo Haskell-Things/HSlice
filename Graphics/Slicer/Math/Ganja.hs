@@ -112,9 +112,9 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPo
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf, UlpSum)
 
-import Graphics.Slicer.Math.Lossy (eToPLine2, eToPPoint2, join2PPoint2, normalizePLine2, pPointBetweenPPoints, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoint2, normalizePLine2, pPointBetweenPPoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (PPoint2(PPoint2), PLine2(PLine2), flipL, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, outOf, pPointOf, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), PLine2(PLine2), PPoint2(PPoint2), eToPPoint2, flipL, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, outOf, pPointOf, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
 
@@ -634,7 +634,7 @@ randomStarPoly centerX centerY radianDistPairs = fromMaybe dumpError $ maybeFlip
     dumpError          = error $ "failed to flip a contour:" <> dumpGanjas [toGanja contour, toGanja (Point2 (centerX, centerY)), toGanja outsidePLine] <> "\n"
       where
         outsidePLine   = join2PPoint2 myMidPoint outsidePoint
-        outsidePoint   = eToPPoint2 $ pointFarOutsideContour contour
+        outsidePoint   = (\(CPPoint2 a) -> PPoint2 a) $ eToPPoint2 $ pointFarOutsideContour contour
         myMidPoint     = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
         (p1, p2)       = firstPointPairOfContour contour
 

@@ -41,17 +41,16 @@ module Graphics.Slicer.Math.PGA(
   distanceBetweenNPLine2sWithErr,
   distanceCPPointToNPLineWithErr,
   distancePPointToPLineWithErr,
-  eToCPPoint2WithErr,
   eToPLine2WithErr,
-  eToPPoint2WithErr,
+  eToPPoint2,
   flipL,
   getInsideArcWithErr,
   getFirstArcWithErr,
   intersectsWith,
   intersectsWithErr,
-  join2PPoint2WithErr,
+  join2PP,
   join2CPPoint2WithErr,
-  makeCPPoint2WithErr,
+  makeCPPoint2,
   normalize,
   outputIntersectsLineSeg,
   pLineFromEndpointsWithErr,
@@ -212,7 +211,7 @@ distanceCPPointToNPLineWithErr point line
     (NPLine2 nplvec,_)             = normalize line
 
 -- | Determine if two points are on the same side of a given line.
-pPointsOnSameSideOfPLine :: (ProjectiveLine2 c) => PPoint2 -> PPoint2 -> c -> Maybe Bool
+pPointsOnSameSideOfPLine :: (ProjectivePoint2 a, ProjectivePoint2 b, ProjectiveLine2 c) => a -> b -> c -> Maybe Bool
 pPointsOnSameSideOfPLine point1 point2 line
   -- Return nothing if one of the points is on the line.
   |  abs foundP1 < realToFrac (ulpVal unlikeP1UlpSum) ||
@@ -225,8 +224,8 @@ pPointsOnSameSideOfPLine point1 point2 line
     unlikeP2UlpSum = sumErrVals unlikeP2MulErr <> sumErrVals unlikeP2AddErr
     (GVec unlikeP1, (unlikeP1MulErr, unlikeP1AddErr)) = pv1 ⎤+ lv1
     (GVec unlikeP2, (unlikeP2MulErr, unlikeP2AddErr)) = pv2 ⎤+ lv1
-    (PPoint2 pv1) = forceBasisOfP point1
-    (PPoint2 pv2) = forceBasisOfP point2
+    pv1 = vecOfP $ forceBasisOfP point1
+    pv2 = vecOfP $ forceBasisOfP point2
     lv1 = vecOfL $ forceBasisOfL line
 
 distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (ℝ, UlpSum)
@@ -312,10 +311,10 @@ translateProjectiveLine2WithErr lineVec d = (res, nErr <> PLine2Err resUlp mempt
     (n, nErr) = normOfPLine2WithErr (PLine2 lineVec)
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
-translateRotatePPoint2 :: PPoint2 -> ℝ -> ℝ -> PPoint2
+translateRotatePPoint2 :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> PPoint2
 translateRotatePPoint2 ppoint d rotation = PPoint2 $ translator•pvec•reverseGVec translator
   where
-    (PPoint2 pvec)      = ppoint
+    pvec = vecOfP ppoint
     xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pvec
       where
         (PLine2 xLineVec) = forceBasisOfL $ fst $ pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (1,0))
@@ -431,7 +430,7 @@ pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
   | plinesIntersectIn pl1 pl2 == PAntiParallel = Right PAntiParallel
   | plinesIntersectIn pl1 pl2 == PCollinear = Right PCollinear
   | plinesIntersectIn pl1 pl2 == PAntiCollinear = Right PAntiCollinear
-  | hasRawIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (startErr + endErr + startDistanceErr+endDistanceErr+ulpTotal) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nulpScale: " <> show ulpScale <> "\nrawIntersect" <> show rawIntersect <> dumpULPs
+  | hasRawIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (startDistanceErr+endDistanceErr+ulpTotal) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nulpScale: " <> show ulpScale <> "\nrawIntersect" <> show rawIntersect <> dumpULPs
   | hasIntersection && valOf 0 foundVal == 0 = error "intersection, but cannot cannonicalize."
   | hasIntersection && startDistance <= ulpStartSum = Left $ HitStartPoint l1
   | hasIntersection && endDistance <= ulpEndSum = Left $ HitEndPoint l1
@@ -441,8 +440,8 @@ pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
   where
     (startDistance, UlpSum startDistanceErr) = distanceBetweenPPointsWithErr rawIntersection start
     (endDistance, UlpSum endDistanceErr) = distanceBetweenPPointsWithErr rawIntersection end
-    (start, UlpSum startErr) = eToCPPoint2WithErr $ startPoint l1
-    (end, UlpSum endErr) = eToCPPoint2WithErr $ endPoint l1
+    start = eToPPoint2 $ startPoint l1
+    end = eToPPoint2 $ endPoint l1
     ulpStartSum, ulpEndSum :: ℝ
     ulpStartSum = realToFrac $ ulpTotal+startDistanceErr
     ulpEndSum = realToFrac $ ulpTotal+endDistanceErr
@@ -465,8 +464,8 @@ lineSegIntersectsLineSeg :: (LineSeg, UlpSum) -> (LineSeg, UlpSum) -> Either Int
 lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
   | plinesIntersectIn pl1 pl2 == PParallel = Right PParallel
   | plinesIntersectIn pl1 pl2 == PAntiParallel = Right PAntiParallel
-  | hasRawIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (start1Err + end1Err + start1DistanceErr+end1DistanceErr+ulpTotal) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
-  | hasRawIntersection && distance (startPoint l2) (endPoint l2) < realToFrac (start2Err + end2Err + start2DistanceErr+end2DistanceErr+ulpTotal) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
+  | hasRawIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (start1DistanceErr+end1DistanceErr+ulpTotal) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
+  | hasRawIntersection && distance (startPoint l2) (endPoint l2) < realToFrac (start2DistanceErr+end2DistanceErr+ulpTotal) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nulpTotal: " <> show ulpTotal <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
   | hasIntersection && plinesIntersectIn pl1 pl2 == PCollinear = Right PCollinear
   | hasIntersection && plinesIntersectIn pl1 pl2 == PAntiCollinear = Right PAntiCollinear
   -- FIXME: why do we return a start/endpoint here?
@@ -481,16 +480,16 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
     ulpStartSum1, ulpEndSum1, ulpStartSum2, ulpEndSum2 :: ℝ
     ulpStartSum1 = realToFrac $ ulpTotal+start1DistanceErr
     ulpStartSum2 = realToFrac $ ulpTotal+start2DistanceErr
-    ulpEndSum1 = realToFrac $ ulpTotal+end1Err
-    ulpEndSum2 = realToFrac $ ulpTotal+end2Err
+    ulpEndSum1 = realToFrac $ ulpTotal
+    ulpEndSum2 = realToFrac $ ulpTotal
     (start1Distance, UlpSum start1DistanceErr) = distanceBetweenPPointsWithErr rawIntersection start1
     (start2Distance, UlpSum start2DistanceErr) = distanceBetweenPPointsWithErr rawIntersection start2
     (end1Distance, UlpSum end1DistanceErr) = distanceBetweenPPointsWithErr rawIntersection end1
     (end2Distance, UlpSum end2DistanceErr) = distanceBetweenPPointsWithErr rawIntersection end2
-    (start1, UlpSum start1Err) = eToCPPoint2WithErr $ startPoint l1
-    (end1, UlpSum end1Err) = eToCPPoint2WithErr $ endPoint l1
-    (start2, UlpSum start2Err) = eToCPPoint2WithErr $ startPoint l2
-    (end2, UlpSum end2Err) = eToCPPoint2WithErr $ endPoint l2
+    start1 = eToPPoint2 $ startPoint l1
+    end1 = eToPPoint2 $ endPoint l1
+    start2 = eToPPoint2 $ startPoint l2
+    end2 = eToPPoint2 $ endPoint l2
     (pl1, UlpSum pl1Err) = eToPLine2WithErr l1
     (pl2, UlpSum pl2Err) = eToPLine2WithErr l2
     -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
@@ -519,14 +518,14 @@ onSegment ls i startUlp endUlp =
     (startDistance, UlpSum startDistanceErr) = distanceBetweenPPointsWithErr start i
     (midDistance, UlpSum midDistanceErr) = distanceBetweenPPointsWithErr mid i
     (endDistance, UlpSum endDistanceErr) = distanceBetweenPPointsWithErr end i
-    (start, UlpSum startErr) = eToCPPoint2WithErr $ startPoint ls
+    start = eToPPoint2 $ startPoint ls
     (mid, UlpSum midErr) = pPointBetweenPPointsWithErr start end 0.5 0.5
-    (end, UlpSum endErr) = eToCPPoint2WithErr $ endPoint ls
+    end = eToPPoint2 $ endPoint ls
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
     startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ
-    startFudgeFactor = realToFrac $ realToFrac startUlp + startDistanceErr + startErr
+    startFudgeFactor = realToFrac $ realToFrac startUlp + startDistanceErr
     midFudgeFactor = realToFrac $ abs (realToFrac $ doubleUlp lengthOfSegment) + midDistanceErr + midErr
-    endFudgeFactor = realToFrac $ realToFrac endUlp + endDistanceErr + endErr
+    endFudgeFactor = realToFrac $ realToFrac endUlp + endDistanceErr
 
 -- | Combine consecutive line segments. expects line segments with their end points connecting, EG, a contour generated by makeContours.
 combineConsecutiveLineSegs :: [LineSeg] -> [LineSeg]
@@ -652,7 +651,6 @@ class Pointable a where
   canPoint :: a -> Bool
   pPointOf :: a -> PPoint2
   ePointOf :: a -> Point2
---  ulpOfPoint :: a -> UlpSum
 
 -- | does this node have an output (resulting) pLine?
 class Arcable a where
@@ -666,6 +664,7 @@ class ProjectivePoint2 a where
   consLikeP :: a -> (GVec -> a)
   forceBasisOfP :: a -> a
   idealNormOfP :: a -> (ℝ, UlpSum)
+  join2PP :: a -> a -> (PLine2, UlpSum)
   pToEP :: a -> (Point2, UlpSum)
   vecOfP :: a -> GVec
 
@@ -674,6 +673,7 @@ instance ProjectivePoint2 PPoint2 where
   consLikeP (PPoint2 _) = PPoint2
   forceBasisOfP a = forceProjectivePointBasis a
   idealNormOfP a = idealNormPPoint2WithErr a
+  join2PP a b = join2ProjectivePointsWithErr a b
   pToEP a = fromMaybe (error "created an infinite point when trying to convert from a Projective point to a euclidian one.") $ projectivePointToPoint2 a
   vecOfP (PPoint2 a) = a
 
@@ -682,6 +682,7 @@ instance ProjectivePoint2 CPPoint2 where
   consLikeP (CPPoint2 _) = CPPoint2
   forceBasisOfP a = forceProjectivePointBasis a
   idealNormOfP a = idealNormPPoint2WithErr a
+  join2PP a b = join2ProjectivePointsWithErr a b
   pToEP a = fromMaybe (error "created an infinite point when trying to convert from a Projective point to a euclidian one.") $ projectivePointToPoint2 a
   vecOfP (CPPoint2 a) = a
 
@@ -705,8 +706,8 @@ class ProjectiveLine2 a where
 instance ProjectiveLine2 NPLine2 where
   consLikeL (NPLine2 _) = NPLine2
   flipL a = flipProjectiveLine a
-  forceBasisOfL a = forceProjectiveLine2Basis a
-  meetOf2PL a b = meet2PLine2WithErr a b
+  forceBasisOfL a = forceProjectiveLineBasis a
+  meetOf2PL a b = meet2ProjectiveLinesWithErr a b
   normalize a = (a, mempty)
   translatePLine2WithErr (NPLine2 a) d = (\(b,(PLine2Err _ _ _ _ t _)) -> (NPLine2 b,t)) $ translateProjectiveLine2WithErr a d
   vecOfL (NPLine2 a) = a
@@ -714,8 +715,8 @@ instance ProjectiveLine2 NPLine2 where
 instance ProjectiveLine2 PLine2 where
   consLikeL (PLine2 _) = PLine2
   flipL a = flipProjectiveLine a
-  forceBasisOfL a = forceProjectiveLine2Basis a
-  meetOf2PL a b = meet2PLine2WithErr a b
+  forceBasisOfL a = forceProjectiveLineBasis a
+  meetOf2PL a b = meet2ProjectiveLinesWithErr a b
   normalize a = (\(b,(PLine2Err _ _ c d _ _)) -> (b,c <> d)) $ normalizePLine2WithErr a
   translatePLine2WithErr (PLine2 a) d = (\(b,(PLine2Err _ _ _ _ t _)) -> (PLine2 b,t)) $ translateProjectiveLine2WithErr a d
   vecOfL (PLine2 a) = a
@@ -756,8 +757,8 @@ instance Semigroup PLine2Err where
 infixl 9 ∨+
 
 -- | a typed join function. join two points, returning a line.
-join2PPoint2WithErr :: PPoint2 -> PPoint2 -> (PLine2, UlpSum)
-join2PPoint2WithErr pp1 pp2 = (res,
+join2ProjectivePointsWithErr ::(ProjectivePoint2 a) => a -> a -> (PLine2, UlpSum)
+join2ProjectivePointsWithErr pp1 pp2 = (res,
                                errTotal)
   where
     (res, resErr) = join2CPPoint2WithErr cp1 cp2
@@ -775,37 +776,30 @@ join2CPPoint2WithErr pp1 pp2 = (PLine2 res,
     (CPPoint2 pv2) = forceBasisOfP pp2
 
 -- | A typed meet function. the meeting of two lines is a point.
-meet2PLine2WithErr :: (ProjectiveLine2 a) => a -> a -> (PPoint2, UlpSum)
-meet2PLine2WithErr line1 line2 = (PPoint2 res,
+meet2ProjectiveLinesWithErr :: (ProjectiveLine2 a) => a -> a -> (PPoint2, UlpSum)
+meet2ProjectiveLinesWithErr line1 line2 = (PPoint2 res,
                                    ulpSum)
   where
     ulpSum = sumErrVals unlikeMulErr <> sumErrVals unlikeAddErr
     (res, (unlikeMulErr, unlikeAddErr)) = pv1 ⎤+ pv2
-    (PLine2 pv1) = forceBasisOfL $ PLine2 plr1
-    (PLine2 pv2) = forceBasisOfL $ PLine2 plr2
-    (NPLine2 plr1,_) = normalize line1
-    (NPLine2 plr2,_) = normalize line2
+    (NPLine2 pv1) = forceBasisOfL npl1
+    (NPLine2 pv2) = forceBasisOfL npl2
+    (npl1,_) = normalize line1
+    (npl2,_) = normalize line2
 
-eToPPoint2WithErr :: Point2 -> (PPoint2, UlpSum)
-eToPPoint2WithErr (Point2 (x,y)) = (PPoint2 res, resUlp)
+eToPPoint2 :: Point2 -> CPPoint2
+eToPPoint2 (Point2 (x,y)) = res
   where
-    (CPPoint2 res, resUlp) = makeCPPoint2WithErr x y
-
-eToCPPoint2WithErr :: Point2 -> (CPPoint2, UlpSum)
-eToCPPoint2WithErr (Point2 (x,y)) = (res, resUlp)
-  where
-    (res, resUlp) = makeCPPoint2WithErr x y
+    res = makeCPPoint2 x y
 
 -- | Create a canonical euclidian projective point from the given coordinates, with error.
 -- FIXME: is there any chance of loss of precision on y?
-makeCPPoint2WithErr :: ℝ -> ℝ -> (CPPoint2, UlpSum)
-makeCPPoint2WithErr x y = (pPoint
-                         , posErr)
+makeCPPoint2 :: ℝ -> ℝ -> CPPoint2
+makeCPPoint2 x y = pPoint
   where
-    pPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
-    posErr = UlpSum $ abs (realToFrac $ doubleUlp $ negate x) -- + abs (realToFrac $ doubleUlp y)
+    pPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1])]
 
--- | Maybe create a euclidian point from a projective point.
+-- | Maybe create a euclidian point from a projective point. Will fail if the projective point is ideal.
 projectivePointToPoint2 :: (ProjectivePoint2 a) => a -> Maybe (Point2, UlpSum)
 projectivePointToPoint2 ppoint
  | e12Val == 0 = Nothing
@@ -853,8 +847,8 @@ forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
     forceVal has needs = GVal (valOf 0 $ getVal (elems needs) has) needs
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a Projective Line.
-forceProjectiveLine2Basis :: (ProjectiveLine2 a) => a -> a
-forceProjectiveLine2Basis line
+forceProjectiveLineBasis :: (ProjectiveLine2 a) => a -> a
+forceProjectiveLineBasis line
   | gnums == Just [singleton (GEZero 1),
                    singleton (GEPlus 1),
                    singleton (GEPlus 2)] = line
@@ -895,11 +889,10 @@ flipProjectiveLine pline = (consLikeL pline) rawRes
 eToPLine2WithErr :: LineSeg -> (PLine2, UlpSum)
 eToPLine2WithErr l1 = pLineFromEndpointsWithErr (startPoint l1) (endPoint l1)
 
-
 pLineFromEndpointsWithErr :: Point2 -> Point2 -> (PLine2, UlpSum)
 pLineFromEndpointsWithErr start stop = (res, resErr)
   where
-    (res, resErr) = join2PPoint2WithErr (fst $ eToPPoint2WithErr start) (fst $ eToPPoint2WithErr stop)
+    (res, resErr) = join2PP (eToPPoint2 start) (eToPPoint2 stop)
 
 -- | Get the sum of the error involved in storing the values in a given PLine2.
 ulpOfPLine2 :: (ProjectiveLine2 a) => a -> UlpSum

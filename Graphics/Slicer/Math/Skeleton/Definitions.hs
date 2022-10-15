@@ -53,9 +53,9 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, eToPLine2, eToPPoint2, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), pLineIsLeft, distanceBetweenPPointsWithErr, Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, ulpOfOut, outUlpMag), CPPoint2(CPPoint2), PPoint2(PPoint2))
+import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), pLineIsLeft, distanceBetweenPPointsWithErr, Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, ulpOfOut, outUlpMag), CPPoint2(CPPoint2), PPoint2(PPoint2), eToPPoint2)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
@@ -78,7 +78,7 @@ instance Arcable ENode where
 instance Pointable ENode where
   -- an ENode always contains a point.
   canPoint _ = True
-  pPointOf a = eToPPoint2 $ ePointOf a
+  pPointOf a = (\(CPPoint2 v) -> PPoint2 v) $ eToPPoint2 $ ePointOf a
   ePointOf (ENode (_,centerPoint,_) _ _ _) = centerPoint
 
 -- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
@@ -162,7 +162,7 @@ instance Arcable Motorcycle where
 instance Pointable Motorcycle where
   -- A motorcycle always contains a point.
   canPoint _ = True
-  pPointOf a = eToPPoint2 $ ePointOf a
+  pPointOf a = (\(CPPoint2 v) -> PPoint2 v) $ eToPPoint2 $ ePointOf a
   ePointOf (Motorcycle (_, LineSeg point _) _ _ _) = point
 
 -- | The motorcycles that are involved in dividing two cells.

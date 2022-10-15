@@ -56,9 +56,9 @@ import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionOf)
 
-import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, eToCPPoint2, eToNPLine2, eToPLine2, eToPPoint2, join2PPoint2, normalizePLine2, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, eToCPPoint2, eToNPLine2, eToPLine2, join2PPoint2, normalizePLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), CPPoint2, PIntersection(PAntiCollinear, IntersectsIn), angleBetweenWithErr, distanceBetweenPPointsWithErr, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), CPPoint2(CPPoint2), Pointable(canPoint, ePointOf, pPointOf), PIntersection(PAntiCollinear, IntersectsIn), PPoint2(PPoint2), angleBetweenWithErr, distanceBetweenPPointsWithErr, eToPPoint2, plinesIntersectIn)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving (Show, Eq)
@@ -415,7 +415,7 @@ crossoverINodes nodeTree@(NodeTree _ (INodeSet (Slist iNodes _))) cellDivision =
   where
     nodeCrosses :: INode -> Bool
     nodeCrosses a = Just False `elem` (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)
-    pointOnSide = eToPPoint2 $ pointInCell nodeTree cellDivision
+    pointOnSide = (\(CPPoint2 a) -> PPoint2 a) $ eToPPoint2 $ pointInCell nodeTree cellDivision
     pointInCell cell (CellDivide (DividingMotorcycles m _) _)
       | firstSegOf cell == lastCSegOf m = endPoint $ firstSegOf cell
       | lastSegOf cell == firstCSegOf m = startPoint $ lastSegOf cell

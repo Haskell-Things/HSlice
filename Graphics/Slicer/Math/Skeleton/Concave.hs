@@ -60,7 +60,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, 
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, distancePPointToPLine, eToPLine2, getInsideArc, join2CPPoint2, normalizePLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), CPPoint2(CPPoint2), PPoint2(PPoint2), flipL, getFirstArcWithErr, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetweenWithErr, distancePPointToPLineWithErr, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), ProjectivePoint2, CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, flipL, getFirstArcWithErr, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetweenWithErr, distancePPointToPLineWithErr, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
@@ -194,7 +194,7 @@ sortedPair n1 n2 = sortedPLines [outOf n1, outOf n2]
 -- Note: we normalize our output lines.
 -- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
 -- FIXME: should return amount of error.
-getOutsideArc :: PPoint2 -> NPLine2 -> PPoint2 -> NPLine2 -> PLine2
+getOutsideArc :: (ProjectivePoint2 a, Show a) => a -> NPLine2 -> a -> NPLine2 -> PLine2
 getOutsideArc ppoint1 npline1 ppoint2 npline2
   | npline1 == npline2 = error "need to be able to return two PLines."
   | noIntersection pline1 pline2 = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
@@ -212,14 +212,14 @@ getOutsideArc ppoint1 npline1 ppoint2 npline2
 -- Determine if the line segment formed by the two given points starts with the first point, or the second.
 -- Note that due to numeric uncertainty, we cannot rely on Eq here, and must check the sign of the angle.
 -- FIXME: shouldn't we be given an error component in our inputs?
-towardIntersection :: PPoint2 -> PLine2 -> CPPoint2 -> Bool
+towardIntersection :: (ProjectivePoint2 a, Show a) => a -> PLine2 -> CPPoint2 -> Bool
 towardIntersection pp1 pl1 pp2
   | d <= realToFrac dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
   | otherwise = angleFound > realToFrac angleErr
   where
     (angleFound, UlpSum angleErr) = angleBetweenWithErr newPLine (normalizePLine2 pl1)
-    (d, UlpSum dErr) = distanceBetweenPPointsWithErr (canonicalizePPoint2 pp1) pp2
-    newPLine = normalizePLine2 $ join2CPPoint2 (canonicalizePPoint2 pp1) pp2
+    (d, UlpSum dErr) = distanceBetweenPPointsWithErr (fst $ canonicalize pp1) pp2
+    newPLine = normalizePLine2 $ join2CPPoint2 (fst $ canonicalize pp1) pp2
 
 -- | Make a first generation node.
 makeENode :: Point2 -> Point2 -> Point2 -> ENode
