@@ -724,9 +724,7 @@ instance ProjectiveLine2 ProjectiveLine where
                   (NPLine2 _) -> NPLine2
                   (PLine2 _) -> PLine2
   flipL a = flipProjectiveLine a
-  forcePLine2Basis a = case a of
-                         (NPLine2 v) -> NPLine2 $ forceProjectiveLine2Basis v
-                         (PLine2 v) -> PLine2 $ forceProjectiveLine2Basis v
+  forcePLine2Basis a = forceProjectiveLine2Basis a
   normalize a = case a of
                   n@(NPLine2 _) -> (n,mempty)
                   p@(PLine2 _) -> normalizePLine2WithErr p
@@ -939,17 +937,18 @@ forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
     forceVal has needs = GVal (valOf 0 $ getVal (elems needs) has) needs
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a ProjectiveLine.
-forceProjectiveLine2Basis :: GVec -> GVec
-forceProjectiveLine2Basis pvec
+forceProjectiveLine2Basis :: (ProjectiveLine2 a) => a -> a
+forceProjectiveLine2Basis line
   | gnums == Just [singleton (GEZero 1),
                    singleton (GEPlus 1),
-                   singleton (GEPlus 2)] = pvec
-  | otherwise = res
+                   singleton (GEPlus 2)] = (consLikeL line) pvec
+  | otherwise = (consLikeL line) res
   where
     res = forceBasis [singleton (GEZero 1), singleton (GEPlus 1), singleton (GEPlus 2)] pvec
-    gnums = case pvec of
-              (GVec [GVal _ g1, GVal _ g2, GVal _ g3]) -> Just [g1,g2,g3]
+    gnums = case vals of
+              [GVal _ g1, GVal _ g2, GVal _ g3] -> Just [g1,g2,g3]
               _ -> Nothing
+    pvec@(GVec vals) = vecOfL line
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a Projective Point.
 forceProjectivePointBasis :: (ProjectivePoint2 a) => a -> a
