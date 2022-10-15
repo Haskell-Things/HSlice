@@ -167,7 +167,7 @@ pLineIsLeft pl1 pl2
 pLineIntersectionWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PPoint2, UlpSum)
 pLineIntersectionWithErr pl1 pl2 = (res, ulpTotal)
   where
-    (res, resErr) = meet2PLine2WithErr npl1 npl2
+    (res, resErr) = meetOf2PL npl1 npl2
     (npl1, npl1Err) = normalize pl1
     (npl2, npl2Err) = normalize pl2
     ulpTotal = resErr <> npl1Err <> npl2Err
@@ -204,7 +204,7 @@ distanceCPPointToNPLineWithErr point line
     (res, _)                       = normOfPLine2WithErr newPLine
     (newPLine, newPLineErr)        = join2CPPoint2WithErr point linePoint
     (perpLine, (plMulErr,plAddErr))= lvec ⨅+ npvec
-    (PLine2 lvec)                  = forcePLine2Basis (PLine2 nplvec)
+    (PLine2 lvec)                  = forceBasisOfL (PLine2 nplvec)
     (CPPoint2 npvec)               = forceBasisOfP point
     (linePoint, lpErr)             = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
     ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr {- <> resErr -} <> newPLineErr <>  lpErr
@@ -227,7 +227,7 @@ pPointsOnSameSideOfPLine point1 point2 line
     (GVec unlikeP2, (unlikeP2MulErr, unlikeP2AddErr)) = pv2 ⎤+ lv1
     (PPoint2 pv1) = forceBasisOfP point1
     (PPoint2 pv2) = forceBasisOfP point2
-    lv1 = vecOfL $ forcePLine2Basis line
+    lv1 = vecOfL $ forceBasisOfL line
 
 distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (ℝ, UlpSum)
 distanceBetweenPPointsWithErr point1 point2 = (res, ulpTotal)
@@ -245,8 +245,8 @@ distanceBetweenNPLine2sWithErr line1 line2 = (ideal, resUlpSum)
     (ideal, idealUlpSum) = idealNormOfP $ PPoint2 likeRes
     resUlpSum = idealUlpSum <> sumErrVals likeMulErr <> sumErrVals likeAddErr
     (likeRes, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
-    p1 = vecOfL $ forcePLine2Basis npl1
-    p2 = vecOfL $ forcePLine2Basis npl2
+    p1 = vecOfL $ forceBasisOfL npl1
+    p2 = vecOfL $ forceBasisOfL npl2
     (npl1, _) = normalize line1
     (npl2, _) = normalize line2
 
@@ -258,8 +258,8 @@ angleBetweenWithErr pl1 pl2 = (scalarPart likeRes
   where
     ulpSum = sumErrVals likeMulErr <> sumErrVals likeAddErr
     (likeRes, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
-    (PLine2 p1) = forcePLine2Basis $ PLine2 pv1
-    (PLine2 p2) = forcePLine2Basis $ PLine2 pv2
+    (PLine2 p1) = forceBasisOfL $ PLine2 pv1
+    (PLine2 p2) = forceBasisOfL $ PLine2 pv2
     (NPLine2 pv1, _) = normalize pl1
     (NPLine2 pv2, _) = normalize pl2
 
@@ -291,7 +291,7 @@ pPointOnPerpWithErr line rppoint d = (PPoint2 res,
     res = motor•pvec•reverseGVec motor
     (NPLine2 rlvec, lErr)          = normalize line
     (perpLine, (plMulErr,plAddErr))= lvec ⨅+ pvec
-    (PLine2 lvec)                  = forcePLine2Basis $ PLine2 rlvec
+    (PLine2 lvec)                  = forceBasisOfL $ PLine2 rlvec
     (PPoint2 pvec)                 = forceBasisOfP rppoint
     motor = addVecPairWithoutErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
@@ -318,8 +318,8 @@ translateRotatePPoint2 ppoint d rotation = PPoint2 $ translator•pvec•reverse
     (PPoint2 pvec)      = ppoint
     xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pvec
       where
-        (PLine2 xLineVec) = forcePLine2Basis $ fst $ pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (1,0))
-    (PLine2 angledLineThroughPPoint2) = forcePLine2Basis $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
+        (PLine2 xLineVec) = forceBasisOfL $ fst $ pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (1,0))
+    (PLine2 angledLineThroughPPoint2) = forceBasisOfL $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
       where
         rotator = addVecPairWithoutErr (fst $ mulScalarVecWithErr (sin $ rotation/2) pvec) (GVec [GVal (cos $ rotation/2) (singleton G0)])
     translator = addVecPairWithoutErr (angledLineThroughPPoint2 • gaIScaled) (GVec [GVal 1 (singleton G0)])
@@ -696,7 +696,8 @@ newtype NPLine2 = NPLine2 GVec
 class ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
-  forcePLine2Basis :: a -> a
+  forceBasisOfL :: a -> a
+  meetOf2PL :: a -> a -> (PPoint2, UlpSum)
   normalize :: a -> (NPLine2, UlpSum)
   translatePLine2WithErr :: a -> ℝ -> (a, UlpSum)
   vecOfL :: a -> GVec
@@ -704,7 +705,8 @@ class ProjectiveLine2 a where
 instance ProjectiveLine2 NPLine2 where
   consLikeL (NPLine2 _) = NPLine2
   flipL a = flipProjectiveLine a
-  forcePLine2Basis a = forceProjectiveLine2Basis a
+  forceBasisOfL a = forceProjectiveLine2Basis a
+  meetOf2PL a b = meet2PLine2WithErr a b
   normalize a = (a, mempty)
   translatePLine2WithErr (NPLine2 a) d = (\(b,(PLine2Err _ _ _ _ t _)) -> (NPLine2 b,t)) $ translateProjectiveLine2WithErr a d
   vecOfL (NPLine2 a) = a
@@ -712,7 +714,8 @@ instance ProjectiveLine2 NPLine2 where
 instance ProjectiveLine2 PLine2 where
   consLikeL (PLine2 _) = PLine2
   flipL a = flipProjectiveLine a
-  forcePLine2Basis a = forceProjectiveLine2Basis a
+  forceBasisOfL a = forceProjectiveLine2Basis a
+  meetOf2PL a b = meet2PLine2WithErr a b
   normalize a = (\(b,(PLine2Err _ _ c d _ _)) -> (b,c <> d)) $ normalizePLine2WithErr a
   translatePLine2WithErr (PLine2 a) d = (\(b,(PLine2Err _ _ _ _ t _)) -> (PLine2 b,t)) $ translateProjectiveLine2WithErr a d
   vecOfL (PLine2 a) = a
@@ -772,14 +775,14 @@ join2CPPoint2WithErr pp1 pp2 = (PLine2 res,
     (CPPoint2 pv2) = forceBasisOfP pp2
 
 -- | A typed meet function. the meeting of two lines is a point.
-meet2PLine2WithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PPoint2, UlpSum)
+meet2PLine2WithErr :: (ProjectiveLine2 a) => a -> a -> (PPoint2, UlpSum)
 meet2PLine2WithErr line1 line2 = (PPoint2 res,
                                    ulpSum)
   where
     ulpSum = sumErrVals unlikeMulErr <> sumErrVals unlikeAddErr
     (res, (unlikeMulErr, unlikeAddErr)) = pv1 ⎤+ pv2
-    (PLine2 pv1) = forcePLine2Basis $ PLine2 plr1
-    (PLine2 pv2) = forcePLine2Basis $ PLine2 plr2
+    (PLine2 pv1) = forceBasisOfL $ PLine2 plr1
+    (PLine2 pv2) = forceBasisOfL $ PLine2 plr2
     (NPLine2 plr1,_) = normalize line1
     (NPLine2 plr2,_) = normalize line2
 
