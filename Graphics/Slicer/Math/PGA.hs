@@ -61,7 +61,6 @@ module Graphics.Slicer.Math.PGA(
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
   pToEP,
-  pToEPoint2WithErr,
   plinesIntersectIn,
   sameDirection,
   translatePLine2WithErr,
@@ -869,7 +868,7 @@ pToEPoint2WithErr ppoint
   where
     res = projectivePointToPoint2 ppoint
 
--- | Maybe create a euclidian point from a projective point. will fail if the projective point is ideal.
+-- | Maybe create a euclidian point from a projective point. Will fail if the projective point is ideal.
 projectivePointToPoint2 :: (ProjectivePoint2 a) => a -> Maybe (Point2, PPoint2Err)
 projectivePointToPoint2 ppoint
  | e12Val == 0 = Nothing

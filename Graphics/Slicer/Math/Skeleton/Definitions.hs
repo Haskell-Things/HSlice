@@ -55,7 +55,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint)
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (eToPPoint2, PLine2Err, pToEPoint2WithErr, plinesIntersectIn, PIntersection(IntersectsIn), flipL, ProjectiveLine(PLine2), pLineIsLeft, Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, errOfOut), ProjectivePoint(CPPoint2,PPoint2))
+import Graphics.Slicer.Math.PGA (eToPPoint2, PLine2Err, pToEP, plinesIntersectIn, PIntersection(IntersectsIn), flipL, ProjectiveLine(PLine2), pLineIsLeft, Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, errOfOut), ProjectivePoint(CPPoint2,PPoint2))
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
@@ -152,8 +152,8 @@ instance Pointable INode where
         where
           saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
           saneIntersect _                  = Nothing
-  ePointOf a = fst $ pToEPoint2WithErr $ pPointOf a
-  errOfEPoint a = snd $ pToEPoint2WithErr $ pPointOf a
+  ePointOf a = fst $ pToEP $ pPointOf a
+  errOfEPoint a = snd $ pToEP $ pPointOf a
 
 -- Produce a list of the inputs to a given INode.
 insOf :: INode -> [ProjectiveLine]
