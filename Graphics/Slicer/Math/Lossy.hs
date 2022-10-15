@@ -32,8 +32,6 @@ module Graphics.Slicer.Math.Lossy (
   getInsideArc,
   join2CPPoint2,
   join2PPoint2,
-  makePPoint2,
-  makeCPPoint2,
   normalizePLine2,
   pLineFromEndpoints,
   pPointBetweenPPoints,
@@ -49,7 +47,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2, PLine2, PPoint2(PPoint2), ProjectiveLine2, ProjectivePoint2, angleBetweenWithErr, canonicalize, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distanceCPPointToNPLineWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, getFirstArcWithErr, getInsideArcWithErr, join2CPPoint2WithErr, join2PP, makeCPPoint2, normalize, pLineFromEndpointsWithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEP, translatePLine2WithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, angleBetweenWithErr, canonicalize, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distanceCPPointToNPLineWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, getFirstArcWithErr, getInsideArcWithErr, join2PP, normalize, pLineFromEndpointsWithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEP, translateL)
 
 angleBetween :: NPLine2 -> NPLine2 -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetweenWithErr nPLine1 nPLine2
@@ -96,13 +94,8 @@ join2PPoint2 :: (ProjectivePoint2 a) => a -> a -> PLine2
 join2PPoint2 pp1 pp2 = fst $ join2PP pp1 pp2
 
 -- | a typed join function. join two points, returning a line.
-join2CPPoint2 :: CPPoint2 -> CPPoint2 -> PLine2
-join2CPPoint2 pp1 pp2 = fst $ join2CPPoint2WithErr pp1 pp2
-
--- | create a euclidian projective point from the given coordinates.
---   Really, just wraps makeCPPoint2
-makePPoint2 :: ℝ -> ℝ -> PPoint2
-makePPoint2 x y = (\(CPPoint2 p) -> PPoint2 p) $ makeCPPoint2 x y
+join2CPPoint2 :: (ProjectivePoint2 a) => a -> a -> PLine2
+join2CPPoint2 pp1 pp2 = fst $ join2PP pp1 pp2
 
 -- | Normalize a PLine2.
 normalizePLine2 :: (ProjectiveLine2 a) => a -> NPLine2
@@ -121,9 +114,9 @@ pPointBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> �
 pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ pPointBetweenPPointsWithErr startOfSeg stopOfSeg weight1 weight2
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
-pPointOnPerp :: PLine2 -> PPoint2 -> ℝ -> PPoint2
+pPointOnPerp :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> PPoint2
 pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
 
 -- | translate a PLine2 along it's perpendicular bisector.
 translatePLine2 :: PLine2 -> ℝ -> PLine2
-translatePLine2 pline distance = fst $ translatePLine2WithErr pline distance
+translatePLine2 pline distance = fst $ translateL pline distance
