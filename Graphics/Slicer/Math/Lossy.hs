@@ -47,7 +47,7 @@ import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr, getOu
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err, angleBetweenWithErr, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, join2PPointsWithErr, normalize, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEPoint2WithErr, translatePLine2WithErr, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err, angleBetweenWithErr, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, join2PP, normalize, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEPoint2WithErr, translatePLine2WithErr, translateRotatePPoint2WithErr)
 
 angleBetween :: ProjectiveLine -> ProjectiveLine -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetweenWithErr nPLine1 nPLine2
@@ -82,7 +82,7 @@ getOutsideArc a b c d = fst $ getOutsideArcWithErr a b c d
 
 -- | a typed join function. join two points, returning a line.
 join2PPoints :: ProjectivePoint -> ProjectivePoint -> ProjectiveLine
-join2PPoints pp1 pp2 = fst $ join2PPointsWithErr pp1 pp2
+join2PPoints pp1 pp2 = fst $ join2PP pp1 pp2
 
 -- | Normalize a ProjectiveLine.
 normalizePLine2 :: ProjectiveLine -> ProjectiveLine

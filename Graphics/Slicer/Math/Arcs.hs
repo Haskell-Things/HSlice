@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
 
 import Graphics.Slicer.Math.Intersections (isCollinear, isAntiCollinear, isParallel, isAntiParallel, intersectionOf)
 
-import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetweenWithErr, canonicalize, distanceBetweenPPointsWithErr, eToPLine2WithErr, flipL, join2PPointsWithErr, normalize)
+import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetweenWithErr, canonicalize, distanceBetweenPPointsWithErr, eToPLine2WithErr, flipL, join2PP, normalize)
 
 -- | Get a PLine along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
 -- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
@@ -75,7 +75,7 @@ towardIntersection pp1@(rawPp1,_) pl1@(rawPl1,_) pp2@(rawPp2,_)
   where
     (angleFound, _) = angleBetweenWithErr newPLine rawPl1
     (d, (_,_,_,dErr)) = distanceBetweenPPointsWithErr pp1 pp2
-    (newPLine, _) = join2PPointsWithErr rawPp1 rawPp2
+    (newPLine, _) = join2PP rawPp1 rawPp2
     totalErr :: ℝ
     totalErr = realToFrac $ ulpVal dErr
 

@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersection
 import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, pLineErrAtPPoint, eToPPoint2, eToPLine2WithErr, join2PPointsWithErr, pLineIntersectionWithErr, translatePLine2WithErr, angleBetweenWithErr, flipL, makePPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, idealNormPPoint2WithErr, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, pLineErrAtPPoint, eToPPoint2, eToPLine2WithErr, join2PP, pLineIntersectionWithErr, translatePLine2WithErr, angleBetweenWithErr, flipL, makePPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, idealNormPPoint2WithErr, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -404,11 +404,11 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
     (angle2, angle2Err) = angleBetweenWithErr normedPLine3 nPLine4
     (rawBisectorStart, _) = pPointBetweenPPointsWithErr (sourceStart,mempty) (sourceEnd,mempty) 0.5 0.5
     (bisectorEnd, (_,_,bisectorEndRawErr)) = pPointOnPerpWithErr nPLine4 rawBisectorStart d
-    (pline3, (_,_,pline3Err)) = join2PPointsWithErr rawBisectorStart bisectorEnd
+    (pline3, (_,_,pline3Err)) = join2PP rawBisectorStart bisectorEnd
     (normedPLine3, norm3Err) = normalize pline3
     sourceStart = makePPoint2 x y
     sourceEnd = makePPoint2 x2 y2
-    (pline4, (_,_,pline4Err)) = join2PPointsWithErr sourceStart sourceEnd
+    (pline4, (_,_,pline4Err)) = join2PP sourceStart sourceEnd
     (nPLine4, norm4Err) = normalize pline4
     errTotal3 = ulpVal bisectorEndRawErr
     errTotal4 = ulpVal bisectorEndRawErr
@@ -1285,7 +1285,7 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
     pPoint2 = makePPoint2 x2 y2
     pLineErrAtPPoint1 = pLineErrAtPPoint (pLine1, pline1Err) pPoint1
     pLineErrAtPPoint2 = pLineErrAtPPoint (pLine1, pline1Err) pPoint2
-    (pLine1, (_,_,pline1Err)) = join2PPointsWithErr pPoint1 pPoint2
+    (pLine1, (_,_,pline1Err)) = join2PP pPoint1 pPoint2
     (_, normErr) = normalize pLine1
     -- make sure we do not try to create a 0 length line segment.
     (x2,y2)
@@ -1317,7 +1317,7 @@ prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
     pPoint2 = makePPoint2 x2 y2
     pLineErrAtPPoint1 = pLineErrAtPPoint (pLine, pLineErr) pPoint1
     pLineErrAtPPoint2 = pLineErrAtPPoint (pLine, pLineErr) pPoint2
-    (pLine, (_,_,pLineErr)) = join2PPointsWithErr pPoint1 pPoint2
+    (pLine, (_,_,pLineErr)) = join2PP pPoint1 pPoint2
     d :: ℝ
     d = coerce rawD
     -- make sure we do not try to create a 0 length line segment.

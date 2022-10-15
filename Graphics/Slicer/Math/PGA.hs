@@ -48,7 +48,7 @@ module Graphics.Slicer.Math.PGA(
   idealNormPPoint2WithErr,
   intersectsWith,
   intersectsWithErr,
-  join2PPointsWithErr,
+  join2PP,
   makePPoint2,
   normalize,
   outputIntersectsLineSeg,
@@ -214,15 +214,15 @@ distancePPointToPLineWithErr (rawPoint,rawPointErr) (rawLine,rawLineErr)
     -- FIXME: how does the error in newPLine effect the found norm here?
     (res, normErr)            = normOfPLine2WithErr newPLine
     -- FIXME: how does the error in linePoint and point effect this result?
-    (newPLine, newPLineErr)   = join2PPointsWithErr point linePoint
+    (newPLine, newPLineErr)   = join2PP point linePoint
     -- FIXME: how does perpLineErr effect the result of canonicalizeIntersectionWithErr?
     (linePoint, lastPointErr) = fromJust $ canonicalizeIntersectionWithErr (nline, nlineErr) (PLine2 perpLine, mempty)
     (perpLine, perpLineErr)   = lVec ⨅+ pVec
-    nline@(NPLine2 lVec) = forcePLine2Basis nline
+    nline@(NPLine2 lVec) = forceBasisOfPL nline
     nlineErr = rawNLineErr <> rawLineErr
     (_, rawNLineErr) = normalize rawLine
     foundVal = getVal [GEPlus 1, GEPlus 2] pVals
-    point@(CPPoint2 pVec@(GVec pVals)) = forceProjectivePointBasis cpoint
+    point@(CPPoint2 pVec@(GVec pVals)) = forceBasisOfPP cpoint
     pointErr = cPointErr <> rawPointErr
     (cpoint, cPointErr) = canonicalize rawPoint
 
@@ -244,9 +244,9 @@ pPointsOnSameSideOfPLine point1 point2 line
     foundP2 = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2
     (GVec unlikeP1, (unlikeP1MulErr, unlikeP1AddErr)) = pv1 ⎤+ lv1
     (GVec unlikeP2, (unlikeP2MulErr, unlikeP2AddErr)) = pv2 ⎤+ lv1
-    (PPoint2 pv1) = forceProjectivePointBasis point1
-    (PPoint2 pv2) = forceProjectivePointBasis point2
-    lv1 = vecOfL $ forcePLine2Basis line
+    (PPoint2 pv1) = forceBasisOfPP point1
+    (PPoint2 pv2) = forceBasisOfPP point2
+    lv1 = vecOfL $ forceBasisOfPL line
 
 -- | Find the unsigned distance between two projective points.
 distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a,PPoint2Err) -> (b,PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum))
@@ -264,7 +264,7 @@ distanceBetweenPPointsWithErr (ppoint1,p1Err) (ppoint2,p2Err)
     -- FIXME: how does the error in newPLine effect the found norm here?
     (res, normErr) = normOfPLine2WithErr newPLine
     -- FIXME: how does error in canonicalization effect the PLine generated here?
-    (newPLine, (_, _, newPLineErrRaw)) = join2PPointsWithErr cppoint1 cppoint2
+    (newPLine, (_, _, newPLineErrRaw)) = join2PP cppoint1 cppoint2
     c1Err = rawC1Err <> p1Err
     c2Err = rawC2Err <> p2Err
     (cppoint1,rawC1Err) = canonicalize ppoint1
@@ -299,8 +299,8 @@ distanceBetweenPLinesWithErr line1 line2 = (res, resErr)
     (res, idealErr) = idealNormOfP $ PPoint2 like
     resErr = (pv1Err, pv2Err, likeErr, idealErr)
     (like, likeErr) = p1 ⎣+ p2
-    p1 = vecOfL $ forcePLine2Basis npl1
-    p2 = vecOfL $ forcePLine2Basis npl2
+    p1 = vecOfL $ forceBasisOfPL npl1
+    p2 = vecOfL $ forceBasisOfPL npl2
     (npl1,pv1Err) = normalize line1
     (npl2,pv2Err) = normalize line2
 
@@ -312,8 +312,8 @@ angleBetweenWithErr line1 line2 = (res, resErr)
     (res, scalarErr) = (scalarPart like, (eValOf mempty $ getVal [G0] likeMulErr) <> (eValOf mempty $ getVal [G0] likeMulErr))
     resErr = (pv1Err, pv2Err, (likeMulErr,likeAddErr), scalarErr)
     (like, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
-    (NPLine2 p1) = forcePLine2Basis np1
-    (NPLine2 p2) = forcePLine2Basis np2
+    (NPLine2 p1) = forceBasisOfPL np1
+    (NPLine2 p2) = forceBasisOfPL np2
     (np1,pv1Err) = normalize line1
     (np2,pv2Err) = normalize line2
 
@@ -346,14 +346,14 @@ pPointOnPerpWithErr pline rppoint d = (res, (rlErr, perpPLineErr, ulpTotal))
             _ -> PPoint2 resRaw
     resRaw = motor•pvec•reverseGVec motor
     (perpLine,perpPLineErr) = lvec ⨅+ pvec
-    (PLine2 lvec) = forcePLine2Basis $ PLine2 rlvec
+    (PLine2 lvec) = forceBasisOfPL $ PLine2 rlvec
     motor = addVecPairWithoutErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
       where
         gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
     gaIErr = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac (realToFrac d / 2 :: Rounded 'TowardInf ℝ)
     ulpTotal = gaIErr <> lErr
-    pvec = case forceProjectivePointBasis rppoint of
+    pvec = case forceBasisOfPP rppoint of
              (PPoint2 a) -> a
              (CPPoint2 a) -> a
     lErr = pLineErrAtPPoint nPLine rppoint
@@ -378,8 +378,8 @@ translateRotatePPoint2WithErr ppoint d rotation = (PPoint2 res, scaledPVecErr)
     res = translator•pvec•reverseGVec translator
     xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pvec
       where
-        (PLine2 xLineVec) = forcePLine2Basis $ fst $ eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (1,0))
-    (PLine2 angledLineThroughPPoint2) = forcePLine2Basis $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
+        (PLine2 xLineVec) = forceBasisOfPL $ fst $ eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (1,0))
+    (PLine2 angledLineThroughPPoint2) = forceBasisOfPL $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
       where
         rotator = addVecPairWithoutErr scaledPVec (GVec [GVal (cos $ rotation/2) (singleton G0)])
     (scaledPVec, scaledPVecErr) = mulScalarVecWithErr (sin $ rotation/2) pvec
@@ -714,7 +714,7 @@ data ProjectiveLine =
 class ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
-  forcePLine2Basis :: a -> a
+  forceBasisOfPL :: a -> a
   normalize :: a -> (ProjectiveLine, PLine2Err)
   translatePLine2WithErr :: a -> ℝ -> (a, PLine2Err)
   vecOfL :: a -> GVec
@@ -724,7 +724,7 @@ instance ProjectiveLine2 ProjectiveLine where
                   (NPLine2 _) -> NPLine2
                   (PLine2 _) -> PLine2
   flipL a = flipProjectiveLine a
-  forcePLine2Basis a = forceProjectiveLine2Basis a
+  forceBasisOfPL a = forceProjectiveLineBasis a
   normalize a = case a of
                   n@(NPLine2 _) -> (n,mempty)
                   p@(PLine2 _) -> normalizePLine2WithErr p
@@ -785,9 +785,11 @@ class Arcable a where
   errOfOut :: a -> PLine2Err
 
 class ProjectivePoint2 a where
-  consLikeP :: a -> (GVec -> a)
   canonicalize :: a -> (ProjectivePoint, PPoint2Err)
+  consLikeP :: a -> (GVec -> a)
+  forceBasisOfPP :: a -> a
   idealNormOfP :: a -> (ℝ, UlpSum)
+  join2PP :: a -> a -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
   pToEP :: a -> (Point2, PPoint2Err)
   vecOfP :: a -> GVec
 
@@ -796,9 +798,11 @@ instance ProjectivePoint2 ProjectivePoint where
                   (CPPoint2 _) -> CPPoint2
                   (PPoint2 _) -> PPoint2
   canonicalize p = case p of
-                     a@(CPPoint2 _) -> (a,mempty)
-                     a -> canonicalizePPoint2WithErr a
+                     (CPPoint2 _) -> (p,mempty)
+                     _ -> canonicalizePPoint2WithErr p
+  forceBasisOfPP p = forceProjectivePointBasis p
   idealNormOfP p = idealNormPPoint2WithErr p
+  join2PP p1 p2 = join2ProjectivePointsWithErr p1 p2
   pToEP p = pToEPoint2WithErr p
   vecOfP p = case p of
                (CPPoint2 v) -> v
@@ -813,14 +817,14 @@ instance ProjectivePoint2 ProjectivePoint where
 infixl 9 ∨+
 
 -- | a typed join function. join two points, returning a line.
-join2PPointsWithErr :: ProjectivePoint -> ProjectivePoint -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
-join2PPointsWithErr pp1 pp2 = (PLine2 res,
-                               (pv1Ulp, pv2Ulp, PLine2Err mempty mempty mempty mempty mempty resUlp))
+join2ProjectivePointsWithErr :: (ProjectivePoint2 a) => a -> a -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
+join2ProjectivePointsWithErr pp1 pp2 = (PLine2 res,
+                                        (pv1Ulp, pv2Ulp, PLine2Err mempty mempty mempty mempty mempty resUlp))
   where
     (res,resUlp)  = pv1 ∨+ pv2
 
-    (CPPoint2 pv1) = forceProjectivePointBasis cp1
-    (CPPoint2 pv2) = forceProjectivePointBasis cp2
+    (CPPoint2 pv1) = forceBasisOfPP cp1
+    (CPPoint2 pv2) = forceBasisOfPP cp2
     (cp1, pv1Ulp) = canonicalize pp1
     (cp2, pv2Ulp) = canonicalize pp2
 
@@ -833,8 +837,8 @@ meet2PLine2WithErr line1 line2 = (PPoint2 res,
   where
     (iAngleErr,(_,_,iAngleUnlikeErr,_)) = angleBetweenWithErr npl1 npl2
     (res, resUnlikeErr) = pv1 ⎤+ pv2
-    (NPLine2 pv1) = forcePLine2Basis npl1
-    (NPLine2 pv2) = forcePLine2Basis npl2
+    (NPLine2 pv1) = forceBasisOfPL npl1
+    (NPLine2 pv2) = forceBasisOfPL npl2
     (npl1,npl1Err) = normalize line1
     (npl2,npl2Err) = normalize line2
 
@@ -869,9 +873,9 @@ pToEPoint2WithErr ppoint
 projectivePointToPoint2 :: (ProjectivePoint2 a) => a -> Maybe (Point2, PPoint2Err)
 projectivePointToPoint2 ppoint
  | e12Val == 0 = Nothing
- | otherwise = Just (Point2 (xVal, yVal), errs)
+ | otherwise = Just (Point2 (xVal, yVal), cpErrs)
   where
-    (CPPoint2 (GVec vals),errs) = canonicalize ppoint
+    (CPPoint2 (GVec vals), cpErrs) = canonicalize ppoint
     xVal = negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
@@ -931,8 +935,8 @@ forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
     forceVal has needs = GVal (valOf 0 $ getVal (elems needs) has) needs
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a Projective Line.
-forceProjectiveLine2Basis :: (ProjectiveLine2 a) => a -> a
-forceProjectiveLine2Basis line
+forceProjectiveLineBasis :: (ProjectiveLine2 a) => a -> a
+forceProjectiveLineBasis line
   | gnums == Just [singleton (GEZero 1),
                    singleton (GEPlus 1),
                    singleton (GEPlus 2)] = line
@@ -973,7 +977,7 @@ flipProjectiveLine pline = (consLikeL pline) rawRes
 eToPLine2WithErr :: LineSeg -> (ProjectiveLine, PLine2Err)
 eToPLine2WithErr l1 = (res, resErr)
   where
-    (res, (_, _, resErr)) = join2PPointsWithErr (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
+    (res, (_, _, resErr)) = join2PP (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
 
 ---------------------------------------------------------------------
 ---- Utillity functions that use sqrt(), or divVecScalarWithErr. ----
