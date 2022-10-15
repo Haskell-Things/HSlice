@@ -941,13 +941,13 @@ forceProjectiveLine2Basis :: (ProjectiveLine2 a) => a -> a
 forceProjectiveLine2Basis line
   | gnums == Just [singleton (GEZero 1),
                    singleton (GEPlus 1),
-                   singleton (GEPlus 2)] = (consLikeL line) pvec
+                   singleton (GEPlus 2)] = line
   | otherwise = (consLikeL line) res
   where
     res = forceBasis [singleton (GEZero 1), singleton (GEPlus 1), singleton (GEPlus 2)] pvec
     gnums = case vals of
               [GVal _ g1, GVal _ g2, GVal _ g3] -> Just [g1,g2,g3]
-              _ -> Nothing
+              _                                 -> Nothing
     pvec@(GVec vals) = vecOfL line
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a Projective Point.
