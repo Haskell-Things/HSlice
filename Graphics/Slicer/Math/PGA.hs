@@ -865,19 +865,17 @@ pToEPoint2WithErr ppoint
   where
     res = projectivePointToPoint2 ppoint
 
--- | Maybe create a euclidian point from a projective point.
--- FIXME: does negate cause a precision loss?
--- FIXME: canonicalization certainly does...
-projectivePointToPoint2 :: ProjectivePoint -> Maybe (Point2, PPoint2Err)
-projectivePointToPoint2 point
+-- | Maybe create a euclidian point from a projective point. will fail if the projective point is ideal.
+projectivePointToPoint2 :: (ProjectivePoint2 a) => a -> Maybe (Point2, PPoint2Err)
+projectivePointToPoint2 ppoint
  | e12Val == 0 = Nothing
- | e12Val == 1 = Just (Point2 (xVal, yVal), errs)
  | otherwise = Just (Point2 (xVal, yVal), errs)
   where
-    (CPPoint2 (GVec vals),errs) = canonicalize point
+    (CPPoint2 (GVec vals),errs) = canonicalize ppoint
     xVal = negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
-    e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] vals)
+    e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
+    (GVec rawVals) = vecOfP ppoint
 
 -- | Reverse a vector. Really, take every value in it, and recompute it in the reverse order of the vectors (so instead of e0∧e1, e1∧e0). which has the effect of negating bi and tri-vectors.
 reverseGVec :: GVec -> GVec
