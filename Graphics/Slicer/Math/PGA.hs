@@ -32,7 +32,6 @@ module Graphics.Slicer.Math.PGA(
   PLine2(PLine2),
   Pointable(canPoint, pPointOf, ePointOf),
   PPoint2(PPoint2),
-  PPoint2PosErr(PPoint2PosErr),
   ProjectiveLine2,
   ProjectivePoint2,
   angleBetweenWithErr,
@@ -442,8 +441,8 @@ pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
   where
     (startDistance, UlpSum startDistanceErr) = distanceBetweenPPointsWithErr rawIntersection start
     (endDistance, UlpSum endDistanceErr) = distanceBetweenPPointsWithErr rawIntersection end
-    (start, PPoint2PosErr startErr) = eToCPPoint2WithErr $ startPoint l1
-    (end, PPoint2PosErr endErr) = eToCPPoint2WithErr $ endPoint l1
+    (start, UlpSum startErr) = eToCPPoint2WithErr $ startPoint l1
+    (end, UlpSum endErr) = eToCPPoint2WithErr $ endPoint l1
     ulpStartSum, ulpEndSum :: ℝ
     ulpStartSum = realToFrac $ ulpTotal+startDistanceErr
     ulpEndSum = realToFrac $ ulpTotal+endDistanceErr
@@ -488,10 +487,10 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
     (start2Distance, UlpSum start2DistanceErr) = distanceBetweenPPointsWithErr rawIntersection start2
     (end1Distance, UlpSum end1DistanceErr) = distanceBetweenPPointsWithErr rawIntersection end1
     (end2Distance, UlpSum end2DistanceErr) = distanceBetweenPPointsWithErr rawIntersection end2
-    (start1, PPoint2PosErr start1Err) = eToCPPoint2WithErr $ startPoint l1
-    (end1, PPoint2PosErr end1Err) = eToCPPoint2WithErr $ endPoint l1
-    (start2, PPoint2PosErr start2Err) = eToCPPoint2WithErr $ startPoint l2
-    (end2, PPoint2PosErr end2Err) = eToCPPoint2WithErr $ endPoint l2
+    (start1, UlpSum start1Err) = eToCPPoint2WithErr $ startPoint l1
+    (end1, UlpSum end1Err) = eToCPPoint2WithErr $ endPoint l1
+    (start2, UlpSum start2Err) = eToCPPoint2WithErr $ startPoint l2
+    (end2, UlpSum end2Err) = eToCPPoint2WithErr $ endPoint l2
     (pl1, UlpSum pl1Err) = eToPLine2WithErr l1
     (pl2, UlpSum pl2Err) = eToPLine2WithErr l2
     -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
@@ -520,9 +519,9 @@ onSegment ls i startUlp endUlp =
     (startDistance, UlpSum startDistanceErr) = distanceBetweenPPointsWithErr start i
     (midDistance, UlpSum midDistanceErr) = distanceBetweenPPointsWithErr mid i
     (endDistance, UlpSum endDistanceErr) = distanceBetweenPPointsWithErr end i
-    (start, PPoint2PosErr startErr) = eToCPPoint2WithErr $ startPoint ls
+    (start, UlpSum startErr) = eToCPPoint2WithErr $ startPoint ls
     (mid, UlpSum midErr) = pPointBetweenPPointsWithErr start end 0.5 0.5
-    (end, PPoint2PosErr endErr) = eToCPPoint2WithErr $ endPoint ls
+    (end, UlpSum endErr) = eToCPPoint2WithErr $ endPoint ls
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
     startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ
     startFudgeFactor = realToFrac $ realToFrac startUlp + startDistanceErr + startErr
@@ -784,29 +783,26 @@ meet2PLine2WithErr line1 line2 = (PPoint2 res,
     (NPLine2 plr1,_) = normalize line1
     (NPLine2 plr2,_) = normalize line2
 
-newtype PPoint2PosErr = PPoint2PosErr (Rounded 'TowardInf ℝ)
-
-eToPPoint2WithErr :: Point2 -> (PPoint2, PPoint2PosErr)
+eToPPoint2WithErr :: Point2 -> (PPoint2, UlpSum)
 eToPPoint2WithErr (Point2 (x,y)) = (PPoint2 res, resUlp)
   where
     (CPPoint2 res, resUlp) = makeCPPoint2WithErr x y
 
-eToCPPoint2WithErr :: Point2 -> (CPPoint2, PPoint2PosErr)
+eToCPPoint2WithErr :: Point2 -> (CPPoint2, UlpSum)
 eToCPPoint2WithErr (Point2 (x,y)) = (res, resUlp)
   where
     (res, resUlp) = makeCPPoint2WithErr x y
 
 -- | Create a canonical euclidian projective point from the given coordinates, with error.
 -- FIXME: is there any chance of loss of precision on y?
-makeCPPoint2WithErr :: ℝ -> ℝ -> (CPPoint2, PPoint2PosErr)
+makeCPPoint2WithErr :: ℝ -> ℝ -> (CPPoint2, UlpSum)
 makeCPPoint2WithErr x y = (pPoint
                          , posErr)
   where
     pPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
-    posErr = PPoint2PosErr $ abs (realToFrac $ doubleUlp $ negate x) -- + abs (realToFrac $ doubleUlp y)
+    posErr = UlpSum $ abs (realToFrac $ doubleUlp $ negate x) -- + abs (realToFrac $ doubleUlp y)
 
 -- | Maybe create a euclidian point from a projective point.
--- FIXME: canonicalization certainly does...
 projectivePointToPoint2 :: (ProjectivePoint2 a) => a -> Maybe (Point2, UlpSum)
 projectivePointToPoint2 ppoint
  | e12Val == 0 = Nothing
