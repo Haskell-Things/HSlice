@@ -881,9 +881,9 @@ projectivePointToPoint2 point
 
 -- | Reverse a vector. Really, take every value in it, and recompute it in the reverse order of the vectors (so instead of e0∧e1, e1∧e0). which has the effect of negating bi and tri-vectors.
 reverseGVec :: GVec -> GVec
-reverseGVec vec@(GVec vals) = GVec $ foldl' addValWithoutErr []
+reverseGVec (GVec vals) = GVec $ foldl' addValWithoutErr []
                   [
-                    GVal           realVal                                               (singleton G0)
+                    GVal (         valOf 0 $ getVal [G0] vals)                           (singleton G0)
                   , GVal (         valOf 0 $ getVal [GEZero 1] vals)                     (singleton (GEZero 1))
                   , GVal (         valOf 0 $ getVal [GEPlus 1] vals)                     (singleton (GEPlus 1))
                   , GVal (         valOf 0 $ getVal [GEPlus 2] vals)                     (singleton (GEPlus 2))
@@ -892,14 +892,12 @@ reverseGVec vec@(GVec vals) = GVec $ foldl' addValWithoutErr []
                   , GVal (negate $ valOf 0 $ getVal [GEPlus 1, GEPlus 2] vals)           (fromList [GEPlus 1, GEPlus 2])
                   , GVal (negate $ valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 1, GEPlus 2])
                   ]
-  where
-    realVal     = scalarPart vec
 
 -- | get the dual of a vector. for a point, find a line, for a line, a point...
 dual2DGVec :: GVec -> GVec
-dual2DGVec gVec@(GVec vals) = GVec $ foldl' addValWithoutErr []
+dual2DGVec (GVec vals) = GVec $ foldl' addValWithoutErr []
                  [
-                   GVal           realVal                                               (fromList [GEZero 1, GEPlus 1, GEPlus 2])
+                   GVal (         valOf 0 $ getVal [G0] vals)                           (fromList [GEZero 1, GEPlus 1, GEPlus 2])
                  , GVal (         valOf 0 $ getVal [GEZero 1] vals)                     (fromList [GEPlus 1, GEPlus 2])
                  , GVal (negate $ valOf 0 $ getVal [GEPlus 1] vals)                     (fromList [GEZero 1, GEPlus 2])
                  , GVal (         valOf 0 $ getVal [GEPlus 2] vals)                     (fromList [GEZero 1, GEPlus 1])
@@ -908,8 +906,6 @@ dual2DGVec gVec@(GVec vals) = GVec $ foldl' addValWithoutErr []
                  , GVal (         valOf 0 $ getVal [GEPlus 1, GEPlus 2] vals)           (singleton (GEZero 1))
                  , GVal (         valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] vals) (singleton G0)
                  ]
-  where
-    realVal     = scalarPart gVec
 
 -- | get the dual of a vector. for a point, find a line, for a line, a point...
 dual2DErrs :: [ErrVal] -> [ErrVal]
@@ -936,7 +932,7 @@ forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
     forceVal :: [GVal] -> Set GNum -> GVal
     forceVal has needs = GVal (valOf 0 $ getVal (elems needs) has) needs
 
--- | runtime basis coersion. ensure all of the '0' components exist on a ProjectiveLine.
+-- | runtime basis coersion. ensure all of the '0' components exist on a Projective Line.
 forceProjectiveLine2Basis :: (ProjectiveLine2 a) => a -> a
 forceProjectiveLine2Basis line
   | gnums == Just [singleton (GEZero 1),
