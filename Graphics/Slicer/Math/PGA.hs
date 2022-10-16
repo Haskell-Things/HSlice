@@ -81,7 +81,7 @@ import Data.List (foldl')
 
 import Data.List.Ordered (sort, foldt)
 
-import Data.Maybe (Maybe(Just, Nothing), maybeToList, fromJust, isJust, isNothing, maybeToList)
+import Data.Maybe (Maybe(Just, Nothing), maybeToList, fromJust, fromMaybe, isJust, isNothing, maybeToList)
 
 import Data.Set (Set, singleton, fromList, elems)
 
@@ -797,7 +797,7 @@ instance ProjectivePoint2 ProjectivePoint where
   forceBasisOfP p = forceProjectivePointBasis p
   idealNormOfP p = idealNormPPoint2WithErr p
   join2PP p1 p2 = join2ProjectivePointsWithErr p1 p2
-  pToEP p = pToEPoint2WithErr p
+  pToEP p = fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point") $ projectivePointToPoint2 p
   vecOfP p = case p of
                (CPPoint2 v) -> v
                (PPoint2 v) -> v
@@ -846,14 +846,6 @@ makePPoint2 :: ℝ -> ℝ -> ProjectivePoint
 makePPoint2 x y = pPoint
   where
     pPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
-
--- | Create a euclidian point from a projective point.
-pToEPoint2WithErr :: (ProjectivePoint2 a) => a -> (Point2, PPoint2Err)
-pToEPoint2WithErr ppoint
-  | isNothing res = error "created an infinite point when trying to convert from a PPoint2 to a Point2"
-  | otherwise = fromJust res
-  where
-    res = projectivePointToPoint2 ppoint
 
 -- | Maybe create a euclidian point from a projective point. Will fail if the projective point is ideal.
 projectivePointToPoint2 :: (ProjectivePoint2 a) => a -> Maybe (Point2, PPoint2Err)
