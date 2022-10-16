@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToCPPoint2, eToPLine2, getFirstArc, join2PPoint2, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), canonicalize, pPointBetweenPPointsWithErr, distanceBetweenPPointsWithErr, distanceCPPointToNPLineWithErr, eToPPoint2, pLineIntersectionWithErr, translateL, translateRotatePPoint2, angleBetweenWithErr, flipL, join2PP, makePPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), canonicalize, pPointBetweenPPointsWithErr, distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, eToPPoint2, pLineIntersectionWithErr, translateL, translateRotatePPoint2, angleBetweenWithErr, flipL, join2PP, makePPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -1225,8 +1225,8 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
               <> "PPoint1: " <> show pPoint1 <> "\n"
               <> "PPoint2: " <> show pPoint2 <> "\n"
     -- distance1 and distance2 should be 0, in an ideal world.
-    (distance1, UlpSum distance1Err) = distanceCPPointToNPLineWithErr pPoint1 nPLine
-    (distance2, UlpSum distance2Err) = distanceCPPointToNPLineWithErr pPoint2 nPLine
+    (distance1, UlpSum distance1Err) = distancePPointToPLineWithErr pPoint1 nPLine
+    (distance2, UlpSum distance2Err) = distancePPointToPLineWithErr pPoint2 nPLine
     pPoint1 = makePPoint2 x1 y1
     pPoint2 = makePPoint2 x2 y2
     (nPLine, UlpSum nPLineErr) = normalize pLine

@@ -42,7 +42,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf)
 
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face))
 
-import Graphics.Slicer.Math.Lossy (eToNPLine2, eToPLine2, distanceCPPointToNPLine, translatePLine2, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (eToNPLine2, eToPLine2, distancePPointToPLine, translatePLine2, pToEPoint2)
 
 import Graphics.Slicer.Math.PGA (PLine2, pLineIsLeft)
 
@@ -92,10 +92,10 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
 
     -- | what is the distance from the edge to the place we can no longer place lines.
     distanceUntilEnd = case midArcs of
-                         (Slist [] 0) -> distanceCPPointToNPLine (intersectionOf firstArc lastArc) (eToNPLine2 edge)
+                         (Slist [] 0) -> distancePPointToPLine (intersectionOf firstArc lastArc) (eToNPLine2 edge)
                          (Slist [oneArc] 1) -> if firstArcLonger
-                                               then distanceCPPointToNPLine (intersectionOf firstArc oneArc) (eToNPLine2 edge)
-                                               else distanceCPPointToNPLine (intersectionOf oneArc lastArc) (eToNPLine2 edge)
+                                               then distancePPointToPLine (intersectionOf firstArc oneArc) (eToNPLine2 edge)
+                                               else distancePPointToPLine (intersectionOf oneArc lastArc) (eToNPLine2 edge)
                          (Slist _ _) -> closestArcDistance
 
     -----------------------------------------------------------
@@ -106,7 +106,7 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
                        [] -> error "no remains for an nSideRemainder?"
 
     -- | Find the closest point where two of our arcs intersect, relative to our side.
-    arcIntersections = initSafe $ mapWithFollower (\a b -> (distanceCPPointToNPLine (intersectionOf a b) (eToNPLine2 edge), (a, b))) $ [firstArc] <> rawMidArcs <> [lastArc]
+    arcIntersections = initSafe $ mapWithFollower (\a b -> (distancePPointToPLine (intersectionOf a b) (eToNPLine2 edge), (a, b))) $ [firstArc] <> rawMidArcs <> [lastArc]
     findClosestArc :: (ℝ, (PLine2, PLine2))
     findClosestArc         = case sortOn fst arcIntersections of
                                [] -> error "empty arcIntersections?"
@@ -140,13 +140,13 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     midArc = case midArcs of
                (Slist [oneArc] 1) -> oneArc
                (Slist _ _) -> error $ "evaluated midArc with the wrong insets of items\nd: " <> show distance <> "\nn: " <> show insets <> "\nFace: " <> show face <> "\n"
-    threeSideRemainder     = if distanceCPPointToNPLine (intersectionOf firstArc midArc) (eToNPLine2 edge) /= distanceCPPointToNPLine (intersectionOf midArc lastArc) (eToNPLine2 edge)
+    threeSideRemainder     = if distancePPointToPLine (intersectionOf firstArc midArc) (eToNPLine2 edge) /= distancePPointToPLine (intersectionOf midArc lastArc) (eToNPLine2 edge)
                              then subRemains
                              else Nothing
     (subSides, subRemains) = if firstArcLonger
                              then addLineSegsToFace distance insets (Face finalSide firstArc (slist []) midArc)
                              else addLineSegsToFace distance insets (Face finalSide midArc   (slist []) lastArc)
-    firstArcLonger         = distanceCPPointToNPLine (intersectionOf firstArc midArc) (eToNPLine2 edge) > distanceCPPointToNPLine (intersectionOf midArc lastArc) (eToNPLine2 edge)
+    firstArcLonger         = distancePPointToPLine (intersectionOf firstArc midArc) (eToNPLine2 edge) > distancePPointToPLine (intersectionOf midArc lastArc) (eToNPLine2 edge)
     ----------------------------------------------
     -- functions only used by a three-sided n-gon.
     ----------------------------------------------

@@ -23,7 +23,6 @@ module Graphics.Slicer.Math.Lossy (
   canonicalizePPoint2,
   distanceBetweenPPoints,
   distanceBetweenPLines,
-  distanceCPPointToNPLine,
   distancePPointToPLine,
   eToCPPoint2,
   eToNPLine2,
@@ -47,7 +46,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, angleBetweenWithErr, canonicalize, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distanceCPPointToNPLineWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, getFirstArcWithErr, getInsideArcWithErr, join2PP, normalize, pLineFromEndpointsWithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEP, translateL)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, angleBetweenWithErr, canonicalize, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, getFirstArcWithErr, getInsideArcWithErr, join2PP, normalize, pLineFromEndpointsWithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEP, translateL)
 
 angleBetween :: NPLine2 -> NPLine2 -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetweenWithErr nPLine1 nPLine2
@@ -63,11 +62,7 @@ distanceBetweenPLines :: (ProjectiveLine2 a) => a -> a -> ℝ
 distanceBetweenPLines nPLine1 nPLine2 = fst $ distanceBetweenPLinesWithErr nPLine1 nPLine2
 
 -- | Find the unsigned distance between a point and a line.
-distanceCPPointToNPLine :: CPPoint2 -> NPLine2 -> ℝ
-distanceCPPointToNPLine point line = fst $ distanceCPPointToNPLineWithErr point line
-
--- | Find the unsigned distance between a point and a line.
-distancePPointToPLine :: (ProjectivePoint2 a) => a -> PLine2 -> ℝ
+distancePPointToPLine :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> ℝ
 distancePPointToPLine point line = fst $ distancePPointToPLineWithErr point line
 
 -- | Create a projective point from a euclidian point.

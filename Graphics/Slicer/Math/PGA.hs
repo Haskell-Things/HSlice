@@ -39,7 +39,6 @@ module Graphics.Slicer.Math.PGA(
   combineConsecutiveLineSegs,
   distanceBetweenPPointsWithErr,
   distanceBetweenPLinesWithErr,
-  distanceCPPointToNPLineWithErr,
   distancePPointToPLineWithErr,
   eToPLine2WithErr,
   eToPPoint2,
@@ -186,28 +185,22 @@ pPointBetweenPPointsWithErr startP stopP weight1 weight2
     (startP', _) = canonicalize startP
     (stopP', _) = canonicalize stopP
 
-distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
-distancePPointToPLineWithErr point line = (res, resErr <> normErr <> nPVecErr)
-  where
-    (res, resErr)         = distanceCPPointToNPLineWithErr rnpvec normedLine
-    (rnpvec, nPVecErr)    = canonicalize point
-    (normedLine, normErr) = normalize line
-
 -- FIXME: use the distance to increase ULP appropriately?
-distanceCPPointToNPLineWithErr :: (ProjectiveLine2 b) => CPPoint2 -> b -> (ℝ, UlpSum)
-distanceCPPointToNPLineWithErr point line
+distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
+distancePPointToPLineWithErr point line
   | valOf 0 foundVal == 0 = error "attempted to get the distance of an ideal point."
   | otherwise = (res, ulpTotal)
   where
     (res, _)                       = normOfPLine2WithErr newPLine
     (newPLine, newPLineErr)        = join2PP point linePoint
     (perpLine, (plMulErr,plAddErr))= lvec ⨅+ npvec
-    (PLine2 lvec)                  = forceBasisOfL (PLine2 nplvec)
-    (CPPoint2 npvec)               = forceBasisOfP point
+    lvec                           = vecOfL $ forceBasisOfL (PLine2 nplvec)
+    npvec                          = vecOfP $ forceBasisOfP point
     (linePoint, lpErr)             = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
     ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr {- <> resErr -} <> newPLineErr <>  lpErr
-    foundVal                       = getVal [GEPlus 1, GEPlus 2] $ (\(CPPoint2 (GVec vals)) -> vals) point
+    foundVal                       = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP $ point
     (NPLine2 nplvec,_)             = normalize line
+
 
 -- | Determine if two points are on the same side of a given line.
 pPointsOnSameSideOfPLine :: (ProjectivePoint2 a, ProjectivePoint2 b, ProjectiveLine2 c) => a -> b -> c -> Maybe Bool
@@ -256,8 +249,8 @@ angleBetweenWithErr pl1 pl2 = (scalarPart likeRes
   where
     ulpSum = sumErrVals likeMulErr <> sumErrVals likeAddErr
     (likeRes, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
-    (PLine2 p1) = forceBasisOfL $ PLine2 pv1
-    (PLine2 p2) = forceBasisOfL $ PLine2 pv2
+    p1 = vecOfL $ forceBasisOfL $ PLine2 pv1
+    p2 = vecOfL $ forceBasisOfL $ PLine2 pv2
     (NPLine2 pv1, _) = normalize pl1
     (NPLine2 pv2, _) = normalize pl2
 
@@ -316,8 +309,8 @@ translateRotatePPoint2 ppoint d rotation = PPoint2 $ translator•pvec•reverse
     pvec = vecOfP ppoint
     xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pvec
       where
-        (PLine2 xLineVec) = forceBasisOfL $ fst $ pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (1,0))
-    (PLine2 angledLineThroughPPoint2) = forceBasisOfL $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
+        xLineVec = vecOfL $ forceBasisOfL $ fst $ pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (1,0))
+    angledLineThroughPPoint2 = vecOfL $ forceBasisOfL $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
       where
         rotator = addVecPairWithoutErr (fst $ mulScalarVecWithErr (sin $ rotation/2) pvec) (GVec [GVal (cos $ rotation/2) (singleton G0)])
     translator = addVecPairWithoutErr (angledLineThroughPPoint2 • gaIScaled) (GVec [GVal 1 (singleton G0)])
@@ -663,7 +656,7 @@ class ProjectivePoint2 a where
   consLikeP :: a -> (GVec -> a)
   forceBasisOfP :: a -> a
   idealNormOfP :: a -> (ℝ, UlpSum)
-  join2PP :: a -> a -> (PLine2, UlpSum)
+  join2PP :: (ProjectivePoint2 b) => a -> b -> (PLine2, UlpSum)
   pToEP :: a -> (Point2, UlpSum)
   vecOfP :: a -> GVec
 
@@ -673,7 +666,7 @@ instance ProjectivePoint2 PPoint2 where
   forceBasisOfP a = forceProjectivePointBasis a
   idealNormOfP a = idealNormPPoint2WithErr a
   join2PP a b = join2ProjectivePointsWithErr a b
-  pToEP a = fromMaybe (error "created an infinite point when trying to convert from a Projective point to a euclidian one.") $ projectivePointToPoint2 a
+  pToEP a = fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToPoint2 a
   vecOfP (PPoint2 a) = a
 
 instance ProjectivePoint2 CPPoint2 where
@@ -682,7 +675,7 @@ instance ProjectivePoint2 CPPoint2 where
   forceBasisOfP a = forceProjectivePointBasis a
   idealNormOfP a = idealNormPPoint2WithErr a
   join2PP a b = join2ProjectivePointsWithErr a b
-  pToEP a = fromMaybe (error "created an infinite point when trying to convert from a Projective point to a euclidian one.") $ projectivePointToPoint2 a
+  pToEP a = fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToPoint2 a
   vecOfP (CPPoint2 a) = a
 
 -- | A projective line in 2D space.
@@ -756,7 +749,7 @@ instance Semigroup PLine2Err where
 infixl 9 ∨+
 
 -- | a typed join function. join two points, returning a line.
-join2ProjectivePointsWithErr ::(ProjectivePoint2 a) => a -> a -> (PLine2, UlpSum)
+join2ProjectivePointsWithErr ::(ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (PLine2, UlpSum)
 join2ProjectivePointsWithErr pp1 pp2 = (PLine2 res,
                                errTotal)
   where
@@ -784,8 +777,7 @@ eToPPoint2 (Point2 (x,y)) = res
   where
     res = makePPoint2 x y
 
--- | Create a canonical euclidian projective point from the given coordinates, with error.
--- FIXME: is there any chance of loss of precision on y?
+-- | Create a canonical euclidian projective point from the given coordinates.
 makePPoint2 :: ℝ -> ℝ -> CPPoint2
 makePPoint2 x y = pPoint
   where
@@ -879,7 +871,9 @@ flipProjectiveLine pline = (consLikeL pline) rawRes
     (GVec vals) = vecOfL pline
 
 eToPLine2WithErr :: LineSeg -> (PLine2, UlpSum)
-eToPLine2WithErr l1 = pLineFromEndpointsWithErr (startPoint l1) (endPoint l1)
+eToPLine2WithErr l1 = (res, resErr)
+  where
+    (res, resErr) = join2PP (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
 
 pLineFromEndpointsWithErr :: Point2 -> Point2 -> (PLine2, UlpSum)
 pLineFromEndpointsWithErr start stop = (res, resErr)
