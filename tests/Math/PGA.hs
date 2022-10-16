@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersection
 import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, pLineErrAtPPoint, eToPPoint2, eToPLine2WithErr, join2PP, pLineIntersectionWithErr, translateL, angleBetweenWithErr, flipL, makePPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, idealNormPPoint2WithErr, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, pLineErrAtPPoint, eToPPoint2, eToPLine2WithErr, join2PP, pLineIntersectionWithErr, translateL, angleBetweenWithErr, flipL, makePPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -922,15 +922,11 @@ prop_TriangleMotorcyclesEndAtSamePoint centerX centerY rawRadians rawDists
            <> dumpGanjas ( (toGanja <$> eNodes)
                         <> concat (transpose [(toGanja <$> intersections)
                                              ,(toGanja . show <$> fuzziness)
-                                             ,(toGanja . show <$> idealNorms)
-                                             ,(toGanja . show <$> idealNormErrs)
                                              ,(toGanja . show <$> distances)
                                              , [toGanja $ show retVal]])))
            $ liftBool True
   where
     retVal = intersectionsAtSamePoint nodeOutsAndErrs
-    idealNorms = fst . idealNormPPoint2WithErr <$> (fst <$> intersections)
-    idealNormErrs = snd . idealNormPPoint2WithErr <$> (fst <$> intersections)
     intersections = rights $ fromJust <$> mapWithFollower intersectionBetween nodeOutsAndErrs
     fuzziness = pPointFuzziness <$> intersections
     distances = mapWithFollower distanceBetweenPPointsWithErr intersections

@@ -45,7 +45,6 @@ module Graphics.Slicer.Math.PGA(
   eToPLine2WithErr,
   eToPPoint2,
   flipL,
-  idealNormPPoint2WithErr,
   intersectsWith,
   intersectsWithErr,
   join2PP,
@@ -783,7 +782,7 @@ class ProjectivePoint2 a where
   consLikeP :: a -> (GVec -> a)
   forceBasisOfP :: a -> a
   idealNormOfP :: a -> (ℝ, UlpSum)
-  join2PP :: a -> a -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
+  join2PP :: (ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
   pToEP :: a -> (Point2, PPoint2Err)
   vecOfP :: a -> GVec
 
@@ -811,7 +810,7 @@ instance ProjectivePoint2 ProjectivePoint where
 infixl 9 ∨+
 
 -- | a typed join function. join two points, returning a line.
-join2ProjectivePointsWithErr :: (ProjectivePoint2 a) => a -> a -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
+join2ProjectivePointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
 join2ProjectivePointsWithErr pp1 pp2 = (PLine2 res,
                                         (pv1Ulp, pv2Ulp, PLine2Err mempty mempty mempty mempty mempty resUlp))
   where
