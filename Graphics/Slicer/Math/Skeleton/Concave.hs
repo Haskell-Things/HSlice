@@ -50,6 +50,8 @@ import Slist as SL (head, last, tail)
 
 import Graphics.Implicit.Definitions (ℝ)
 
+import Graphics.Slicer.Math.Arcs (getFirstArcWithErr)
+
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, mapWithFollower, fudgeFactor, startPoint, distance)
@@ -60,7 +62,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, 
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, distancePPointToPLine, eToPLine2, getInsideArc, join2CPPoint2, normalizePLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), ProjectivePoint2, CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, flipL, getFirstArcWithErr, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetweenWithErr, distancePPointToPLineWithErr, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), ProjectivePoint2, CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, flipL, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetweenWithErr, distancePPointToPLineWithErr, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 

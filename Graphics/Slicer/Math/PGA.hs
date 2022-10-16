@@ -30,8 +30,10 @@ module Graphics.Slicer.Math.PGA(
   NPLine2(NPLine2),
   PIntersection (PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn),
   PLine2(PLine2),
+  PLine2Err(PLine2Err),
   Pointable(canPoint, pPointOf, ePointOf),
   PPoint2(PPoint2),
+  PPoint2Err,
   ProjectiveLine2,
   ProjectivePoint2,
   angleBetweenWithErr,
@@ -43,8 +45,6 @@ module Graphics.Slicer.Math.PGA(
   eToPLine2WithErr,
   eToPPoint2,
   flipL,
-  getInsideArcWithErr,
-  getFirstArcWithErr,
   intersectsWith,
   intersectsWithErr,
   join2PP,
@@ -61,7 +61,8 @@ module Graphics.Slicer.Math.PGA(
   translateL,
   translateRotatePPoint2,
   ulpOfLineSeg,
-  ulpOfPLine2
+  ulpOfPLine2,
+  vecOfL
   ) where
 
 import Prelude (Bool, Eq((==),(/=)), Monoid(mempty), Semigroup((<>)), Show(show), Ord, ($), (*), (-), (>=), (&&), (<$>), otherwise, signum, (>), (<=), (+), sqrt, negate, (/), (||), (<), abs, error, sin, cos, realToFrac, fst, sum, (.))
@@ -88,7 +89,7 @@ import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf, TowardNegInf))
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, scalePoint, startPoint, endPoint, distance)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, endPoint, distance)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf)
 
@@ -547,51 +548,6 @@ combineConsecutiveLineSegs lines = case lines of
         sameLineSeg = plinesIntersectIn (fst $ eToPLine2WithErr l1) (fst $ eToPLine2WithErr l2) == PCollinear
         sameMiddlePoint = p2 == addPoints p1 s1
 
--- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
---   Note that we normalize our output, but return it as a PLine2. this is safe, because double normalization (if it happens) only raises the ULP.
-getFirstArcWithErr :: Point2 -> Point2 -> Point2 -> (PLine2, UlpSum)
-getFirstArcWithErr p1 p2 p3
-  -- since we hawe two equal sides, we can draw a point ot the other side of the quad, and use it for constructing.
-  | distance p2 p1 == distance p2 p3 = (PLine2 quadRes, UlpSum $ quadErr + quadResErr)
-  {-
-  | distance p2 p1 > distance p2 p3 = scaleSide p1 p3 True (distance p2 p1 / distance p2 p3)
-  | otherwise = scaleSide p3 p1 True (distance p2 p3 / distance p2 p1)
-  -}
-  | otherwise = (insideArc, UlpSum $ side1Err + side2Err + insideArcErr)
-  where
-    (insideArc, UlpSum insideArcErr) = getInsideArcWithErr (PLine2 side1) (PLine2 side2)
-    (NPLine2 side1, UlpSum side1NormErr) = normalize side1Raw
-    (side1Raw, UlpSum side1RawErr) = eToPLine2WithErr (LineSeg p1 p2)
-    side1Err = side1NormErr+side1RawErr
-    (NPLine2 side2, UlpSum side2NormErr) = normalize side2Raw
-    (side2Raw, UlpSum side2RawErr) = eToPLine2WithErr (LineSeg  p2 p3)
-    side2Err = side2NormErr+side2RawErr
-    (NPLine2 quadRes, UlpSum quadResErr) = normalize quad
-    (quad, UlpSum quadErr) = eToPLine2WithErr $ LineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3
-    {-
-    scaleSide ps1 ps2 t v
-      | t == True = (PLine2 scaledRes, UlpSum $ scaledUlp + scaledResUlp)
-      | otherwise = (flipPLine2 $ PLine2 scaledRes, UlpSum $ scaledUlp + scaledResUlp)
-      where
-        (NPLine2 scaledRes, UlpSum scaledResUlp) = normalizePLine2WithErr scaled
-        -- FIXME: poor ULP tracking on this linear math.
-        (scaled, UlpSum scaledUlp) = pLineFromEndpointsWithErr p2 $ scalePoint 0.5 $ addPoints ps1 $ addPoints p2 $ scalePoint v $ addPoints ps2 $ negatePoint p2
-    -}
-
--- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'acute' direction.
---   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArcWithErr outputs are normalized.
---   Note that we know that the inside is to the right of the first line given, and that the first line points toward the intersection.
-getInsideArcWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PLine2, UlpSum)
-getInsideArcWithErr line1 line2
---  | pline1 == pline2 = error "need to be able to return two PLines."
-  | otherwise = (PLine2 normRes, ulpSum)
-  where
-    ulpSum = resUlp <> sumErrVals addVecErr
-    (NPLine2 normRes, resUlp) = normalize $ PLine2 $ addVecRes
-    (addVecRes, addVecErr) = addVecPairWithErr flippedPV1 pv2
-    flippedPV1 = vecOfL $ flipL line1
-    pv2 = vecOfL line2
-
 ------------------------------------------------
 ----- And now draw the rest of the algebra -----
 ------------------------------------------------
@@ -737,6 +693,9 @@ instance Semigroup PLine2Err where
               (e1 <> e2)
               (foldl' addErr f1 f2,foldl' addErr g1 g2)
 
+instance Monoid PLine2Err where
+  mempty = PLine2Err mempty mempty mempty mempty mempty mempty
+
 -- | The join operator in 2D PGA, which is implemented as the meet operator operating in the dual space.
 (∨+) :: GVec -> GVec -> (GVec, UlpSum)
 (∨+) a b = (vec
@@ -748,7 +707,7 @@ instance Semigroup PLine2Err where
 infixl 9 ∨+
 
 -- | a typed join function. join two points, returning a line.
-join2ProjectivePointsWithErr ::(ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (PLine2, UlpSum)
+join2ProjectivePointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (PLine2, UlpSum)
 join2ProjectivePointsWithErr pp1 pp2 = (PLine2 res,
                                errTotal)
   where
@@ -766,8 +725,8 @@ meet2ProjectiveLinesWithErr line1 line2 = (PPoint2 res,
   where
     ulpSum = sumErrVals unlikeMulErr <> sumErrVals unlikeAddErr
     (res, (unlikeMulErr, unlikeAddErr)) = pv1 ⎤+ pv2
-    (NPLine2 pv1) = forceBasisOfL npl1
-    (NPLine2 pv2) = forceBasisOfL npl2
+    pv1 = vecOfL $ forceBasisOfL npl1
+    pv2 = vecOfL $ forceBasisOfL npl2
     (npl1,_) = normalize line1
     (npl2,_) = normalize line2
 

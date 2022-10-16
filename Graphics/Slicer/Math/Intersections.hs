@@ -20,7 +20,7 @@
 
 module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getPLine2Intersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
 
-import Prelude (Bool, Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, Int, (<), (*), (||), (==), length, odd, realToFrac)
+import Prelude (Bool, Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, Int, (<), (*), (||), (==), fst, length, odd, realToFrac)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
@@ -36,9 +36,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
-import Graphics.Slicer.Math.Lossy (pToEPoint2)
-
-import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, distanceBetweenPLinesWithErr, outputIntersectsLineSeg, plinesIntersectIn, ulpOfLineSeg)
+import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, distanceBetweenPLinesWithErr, outputIntersectsLineSeg, plinesIntersectIn, pToEP, ulpOfLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -103,7 +101,7 @@ getPLine2Intersections pLine c
     getPoints vs = getPoint <$> vs
       where
         getPoint (_, Left v) = v
-        getPoint (_, Right v) = pToEPoint2 v
+        getPoint (_, Right v) = fst $ pToEP v
 
 -- | filter the intersections given.
 -- The purpose of this function is to ensure we only count the crossing of a line (segment) across a contour's edge more than once. so if it hits a sttartpoint, make sure we don't count the endpoint.. etc.

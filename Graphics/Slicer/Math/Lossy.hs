@@ -46,7 +46,9 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, angleBetweenWithErr, canonicalize, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, getFirstArcWithErr, getInsideArcWithErr, join2PP, normalize, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEP, translateL)
+import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr)
+
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, angleBetweenWithErr, canonicalize, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, join2PP, normalize, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEP, translateL)
 
 angleBetween :: NPLine2 -> NPLine2 -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetweenWithErr nPLine1 nPLine2

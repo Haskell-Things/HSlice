@@ -26,6 +26,7 @@ library
         Graphics.Slicer.Machine.Contour
         Graphics.Slicer.Mechanics.Definitions
         Graphics.Slicer.Machine.GCode
+        Graphics.Slicer.Math.Arcs
         Graphics.Slicer.Math.CheckFacets
         Graphics.Slicer.Math.Contour
         Graphics.Slicer.Math.Definitions

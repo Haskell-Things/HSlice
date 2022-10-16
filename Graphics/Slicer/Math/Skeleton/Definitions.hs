@@ -53,9 +53,8 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), pLineIsLeft, distanceBetweenPPointsWithErr, Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, ulpOfOut, outUlpMag), CPPoint2(CPPoint2), PPoint2(PPoint2), eToPPoint2)
+import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), pLineIsLeft, distanceBetweenPPointsWithErr, Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, ulpOfOut, outUlpMag), CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, eToPLine2WithErr, eToPPoint2, pToEP, vecOfL)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
@@ -126,7 +125,7 @@ instance Pointable INode where
                           where
                             distanceWithinErr a b = res < realToFrac err
                               where
-                                (res, UlpSum err) = distanceBetweenPPointsWithErr (canonicalizePPoint2 a) (canonicalizePPoint2 b)
+                                (res, UlpSum err) = distanceBetweenPPointsWithErr (fst $ canonicalize a) (fst $ canonicalize b)
       allPLines = if hasArc iNode
                   then slist $ nub $ outOf iNode : firstPLine : secondPLine : rawPLines
                   else slist $ nub $ firstPLine : secondPLine : rawPLines
@@ -134,7 +133,7 @@ instance Pointable INode where
         where
           saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
           saneIntersect _                  = Nothing
-  ePointOf a = pToEPoint2 $ pPointOf a
+  ePointOf a = fst $ pToEP $ pPointOf a
 
 -- Produce a list of the inputs to a given INode.
 insOf :: INode -> [PLine2]
@@ -316,11 +315,12 @@ ancestorsOf (INodeSet generations)
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe PLine2
 concavePLines seg1 seg2
-  | Just True == pLineIsLeft (eToPLine2 seg1) (eToPLine2 seg2) = Just $ PLine2 $ addVecPair pv1 pv2
+  | Just True == pLineIsLeft (fst $ eToPLine2WithErr seg1) (fst $ eToPLine2WithErr seg2) = Just $ PLine2 $ addVecPair pv1 pv2
   | otherwise                          = Nothing
   where
-    (PLine2 pv1) = eToPLine2 seg1
-    (PLine2 pv2) = flipL $ eToPLine2 seg2
+    (PLine2 pv1,_) = eToPLine2WithErr seg1
+    pv2 = vecOfL $ flipL pl2
+    (pl2,_) = eToPLine2WithErr seg2
 
 -- | check if an INodeSet is empty.
 hasNoINodes :: INodeSet -> Bool
