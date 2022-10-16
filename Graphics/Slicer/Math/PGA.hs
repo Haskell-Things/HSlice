@@ -283,7 +283,7 @@ pPointFuzziness (inPPoint, inErr) = UlpSum $ sumTotal * realToFrac (1+(1000*(abs
     (_, cpErr) = canonicalize inPPoint
 
 -- | determine the amount of error in resolving a projective line.
-pLineFuzziness :: (ProjectiveLine,PLine2Err) -> UlpSum
+pLineFuzziness :: (ProjectiveLine2 a) => (a,PLine2Err) -> UlpSum
 pLineFuzziness (inPLine, inErr) = transErr
   where
     transErr = tUlp <> eValOf mempty (getVal [GEZero 1] resAddErr) <> eValOf mempty (getVal [GEZero 1] resMulErr)
@@ -337,7 +337,7 @@ oppositeDirection a b = res <= minAngle
     (res, (_,_,_,resErr)) = angleBetweenWithErr a b
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
-pPointOnPerpWithErr :: ProjectiveLine -> ProjectivePoint -> ℝ -> (ProjectivePoint, (PLine2Err,([ErrVal],[ErrVal]), UlpSum))
+pPointOnPerpWithErr :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> (ProjectivePoint, (PLine2Err,([ErrVal],[ErrVal]), UlpSum))
 pPointOnPerpWithErr pline rppoint d = (res, (rlErr, perpPLineErr, ulpTotal))
   where
     res = case valOf 0 ( getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) resRaw) of
@@ -369,7 +369,7 @@ translateProjectiveLine2WithErr line d = (PLine2 res, normErr <> PLine2Err resEr
     (norm, normErr) = normOfPLine2WithErr line
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
-translateRotatePPoint2WithErr :: ProjectivePoint -> ℝ -> ℝ -> (ProjectivePoint, [ErrVal])
+translateRotatePPoint2WithErr :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> (ProjectivePoint, [ErrVal])
 translateRotatePPoint2WithErr ppoint d rotation = (PPoint2 res, scaledPVecErr)
   where
     res = translator•pvec•reverseGVec translator
@@ -849,15 +849,7 @@ makePPoint2 x y = pPoint
     pPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
 
 -- | Create a euclidian point from a projective point.
-pToEPoint2 :: ProjectivePoint -> Point2
-pToEPoint2 ppoint
-  | isNothing res = error "created an infinite point when trying to convert from a PPoint2 to a Point2"
-  | otherwise = fst $ fromJust res
-  where
-    res = projectivePointToPoint2 ppoint
-
--- | Create a euclidian point from a projective point.
-pToEPoint2WithErr :: ProjectivePoint -> (Point2, PPoint2Err)
+pToEPoint2WithErr :: (ProjectivePoint2 a) => a -> (Point2, PPoint2Err)
 pToEPoint2WithErr ppoint
   | isNothing res = error "created an infinite point when trying to convert from a PPoint2 to a Point2"
   | otherwise = fromJust res
