@@ -228,7 +228,7 @@ distancePPointToPLineWithErr (rawPoint,rawPointErr) (rawLine,rawLineErr)
 -- | Determine if two points are on the same side of a given line.
 -- Returns nothing if one of the points is on the line.
 -- FIXME: accept input error amounts, take input error amounts into consideration.
-pPointsOnSameSideOfPLine :: (ProjectiveLine2 c) => ProjectivePoint -> ProjectivePoint -> c -> Maybe Bool
+pPointsOnSameSideOfPLine :: (ProjectivePoint2 a, ProjectiveLine2 c) => a -> a -> c -> Maybe Bool
 pPointsOnSameSideOfPLine point1 point2 line
   |  abs foundP1 < foundErr1 ||
      abs foundP2 < foundErr2    = Nothing
@@ -243,8 +243,8 @@ pPointsOnSameSideOfPLine point1 point2 line
     foundP2 = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2
     (GVec unlikeP1, (unlikeP1MulErr, unlikeP1AddErr)) = pv1 ⎤+ lv1
     (GVec unlikeP2, (unlikeP2MulErr, unlikeP2AddErr)) = pv2 ⎤+ lv1
-    (PPoint2 pv1) = forceBasisOfP point1
-    (PPoint2 pv2) = forceBasisOfP point2
+    pv1 = vecOfP $ forceBasisOfP point1
+    pv2 = vecOfP $ forceBasisOfP point2
     lv1 = vecOfL $ forceBasisOfL line
 
 -- | Find the unsigned distance between two projective points.
@@ -311,8 +311,8 @@ angleBetweenWithErr line1 line2 = (res, resErr)
     (res, scalarErr) = (scalarPart like, (eValOf mempty $ getVal [G0] likeMulErr) <> (eValOf mempty $ getVal [G0] likeMulErr))
     resErr = (pv1Err, pv2Err, (likeMulErr,likeAddErr), scalarErr)
     (like, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
-    (NPLine2 p1) = forceBasisOfL np1
-    (NPLine2 p2) = forceBasisOfL np2
+    p1 = vecOfL $ forceBasisOfL np1
+    p2 = vecOfL $ forceBasisOfL np2
     (np1,pv1Err) = normalize line1
     (np2,pv2Err) = normalize line2
 
@@ -345,16 +345,14 @@ pPointOnPerpWithErr pline rppoint d = (res, (rlErr, perpPLineErr, ulpTotal))
             _ -> PPoint2 resRaw
     resRaw = motor•pvec•reverseGVec motor
     (perpLine,perpPLineErr) = lvec ⨅+ pvec
-    (PLine2 lvec) = forceBasisOfL $ PLine2 rlvec
+    lvec = vecOfL $ forceBasisOfL $ PLine2 rlvec
     motor = addVecPairWithoutErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
       where
         gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
     gaIErr = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac (realToFrac d / 2 :: Rounded 'TowardInf ℝ)
     ulpTotal = gaIErr <> lErr
-    pvec = case forceBasisOfP rppoint of
-             (PPoint2 a) -> a
-             (CPPoint2 a) -> a
+    pvec = vecOfP $ forceBasisOfP rppoint
     lErr = pLineErrAtPPoint nPLine rppoint
     nPLine@((NPLine2 rlvec),rlErr) = normalize pline
 
@@ -377,8 +375,8 @@ translateRotatePPoint2WithErr ppoint d rotation = (PPoint2 res, scaledPVecErr)
     res = translator•pvec•reverseGVec translator
     xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pvec
       where
-        (PLine2 xLineVec) = forceBasisOfL $ fst $ eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (1,0))
-    (PLine2 angledLineThroughPPoint2) = forceBasisOfL $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
+        xLineVec = vecOfL $ forceBasisOfL $ fst $ eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (1,0))
+    angledLineThroughPPoint2 = vecOfL $ forceBasisOfL $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
       where
         rotator = addVecPairWithoutErr scaledPVec (GVec [GVal (cos $ rotation/2) (singleton G0)])
     (scaledPVec, scaledPVecErr) = mulScalarVecWithErr (sin $ rotation/2) pvec
@@ -386,9 +384,7 @@ translateRotatePPoint2WithErr ppoint d rotation = (PPoint2 res, scaledPVecErr)
       where
         -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
         gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
-    pvec = case ppoint of
-             (PPoint2 vec) -> vec
-             (CPPoint2 vec) -> vec
+    pvec = vecOfP ppoint
 
 ----------------------------------------------------------
 -------------- Euclidian Mixed Interface -----------------
@@ -822,8 +818,8 @@ join2ProjectivePointsWithErr pp1 pp2 = (PLine2 res,
   where
     (res,resUlp)  = pv1 ∨+ pv2
 
-    (CPPoint2 pv1) = forceBasisOfP cp1
-    (CPPoint2 pv2) = forceBasisOfP cp2
+    pv1 = vecOfP $ forceBasisOfP cp1
+    pv2 = vecOfP $ forceBasisOfP cp2
     (cp1, pv1Ulp) = canonicalize pp1
     (cp2, pv2Ulp) = canonicalize pp2
 
@@ -836,8 +832,8 @@ meet2ProjectiveLinesWithErr line1 line2 = (PPoint2 res,
   where
     (iAngleErr,(_,_,iAngleUnlikeErr,_)) = angleBetweenWithErr npl1 npl2
     (res, resUnlikeErr) = pv1 ⎤+ pv2
-    (NPLine2 pv1) = forceBasisOfL npl1
-    (NPLine2 pv2) = forceBasisOfL npl2
+    pv1 = vecOfL $ forceBasisOfL npl1
+    pv2 = vecOfL $ forceBasisOfL npl2
     (npl1,npl1Err) = normalize line1
     (npl2,npl2Err) = normalize line2
 
