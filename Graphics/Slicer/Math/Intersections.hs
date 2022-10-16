@@ -28,7 +28,7 @@ import Data.Either (rights, lefts)
 
 import Data.Maybe (catMaybes, isJust)
 
-import Graphics.Slicer.Math.Definitions(mapWithFollower)
+import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 

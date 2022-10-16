@@ -38,6 +38,7 @@ library
         Graphics.Slicer.Math.Lossy
         Graphics.Slicer.Math.Line
         Graphics.Slicer.Math.PGA
+        Graphics.Slicer.Math.PGAPrimitives
         Graphics.Slicer.Math.Skeleton.Cells
         Graphics.Slicer.Math.Skeleton.Concave
         Graphics.Slicer.Math.Skeleton.Definitions

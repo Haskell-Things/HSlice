@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersection
 import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, pLineErrAtPPoint, eToPPoint2, eToPLine2WithErr, join2PP, pLineIntersectionWithErr, translateL, angleBetweenWithErr, flipL, makePPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, pLineErrAtPPoint, eToPPoint2, eToPLine2WithErr, join2PP, pLineIntersectionWithErr, translateL, angleBetween2PL, flipL, makePPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -401,7 +401,7 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
                 <> "angle2: " <> show angle2 <> "\n"
                 <> "angle2Err: " <> show angle2Err <> "\n"
   where
-    (angle2, angle2Err) = angleBetweenWithErr normedPLine3 nPLine4
+    (angle2, angle2Err) = angleBetween2PL normedPLine3 nPLine4
     (rawBisectorStart, _) = pPointBetweenPPointsWithErr (sourceStart,mempty) (sourceEnd,mempty) 0.5 0.5
     (bisectorEnd, (_,_,bisectorEndRawErr)) = pPointOnPerpWithErr nPLine4 rawBisectorStart d
     (pline3, (_,_,pline3Err)) = join2PP rawBisectorStart bisectorEnd
@@ -1337,7 +1337,7 @@ prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
 prop_obtuseBisectorOnBiggerSide_makeINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> Expectation
 prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound > 1, angleFound < (-1)) --> (True, False)
   where
-    (angleFound, _) = angleBetweenWithErr bisector1 bisector2
+    (angleFound, _) = angleBetween2PL bisector1 bisector2
     eNode = randomENode x y d1 rawR1 d2 rawR2
     iNode = randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2
     bisector1 = normalizePLine2 $ outOf iNode
