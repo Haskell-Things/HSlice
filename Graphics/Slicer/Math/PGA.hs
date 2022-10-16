@@ -51,7 +51,6 @@ module Graphics.Slicer.Math.PGA(
   makePPoint2,
   normalize,
   outputIntersectsLineSeg,
-  pLineFromEndpointsWithErr,
   pLineIntersectionWithErr,
   pLineIsLeft,
   pPointBetweenPPointsWithErr,
@@ -164,9 +163,9 @@ pLineIsLeft pl1 pl2
 pLineIntersectionWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PPoint2, UlpSum)
 pLineIntersectionWithErr pl1 pl2 = (res, ulpTotal)
   where
-    (res, resErr) = meetOf2PL npl1 npl2
-    (npl1, npl1Err) = normalize pl1
-    (npl2, npl2Err) = normalize pl2
+    (res, resErr) = meetOf2PL pl1 pl2
+    (_, npl1Err) = normalize pl1
+    (_, npl2Err) = normalize pl2
     ulpTotal = resErr <> npl1Err <> npl2Err
 
 -- FIXME: automatically raise addVecRes to a CPPoint2 if it turns out to be canonical?
@@ -309,7 +308,7 @@ translateRotatePPoint2 ppoint d rotation = PPoint2 $ translator•pvec•reverse
     pvec = vecOfP ppoint
     xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pvec
       where
-        xLineVec = vecOfL $ forceBasisOfL $ fst $ pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (1,0))
+        xLineVec = vecOfL $ forceBasisOfL $ fst $ eToPLine2WithErr (LineSeg (Point2 (0,0)) (Point2 (1,0)))
     angledLineThroughPPoint2 = vecOfL $ forceBasisOfL $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
       where
         rotator = addVecPairWithoutErr (fst $ mulScalarVecWithErr (sin $ rotation/2) pvec) (GVec [GVal (cos $ rotation/2) (singleton G0)])
@@ -371,9 +370,9 @@ outputIntersectsLineSeg source (l1, UlpSum l1Err)
     -- | the multiplier used to expand the hitcircle of an endpoint.
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * realToFrac travelUlpMul * abs (realToFrac angle + angleErr)
-    (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
-    (npl1, UlpSum npl1Err) = normalize pl1
-    (npl2, UlpSum npl2Err) = normalize pl2
+    (angle, UlpSum angleErr) = angleBetweenWithErr pl1 pl2
+    (_, UlpSum npl1Err) = normalize pl1
+    (_, UlpSum npl2Err) = normalize pl2
     (pl2, UlpSum pl2Err) = eToPLine2WithErr l1
     -- the multiplier to account for distance between our Pointable, and where it intersects.
     travelUlpMul
@@ -562,13 +561,13 @@ getFirstArcWithErr p1 p2 p3
   where
     (insideArc, UlpSum insideArcErr) = getInsideArcWithErr (PLine2 side1) (PLine2 side2)
     (NPLine2 side1, UlpSum side1NormErr) = normalize side1Raw
-    (side1Raw, UlpSum side1RawErr) = pLineFromEndpointsWithErr p1 p2
+    (side1Raw, UlpSum side1RawErr) = eToPLine2WithErr (LineSeg p1 p2)
     side1Err = side1NormErr+side1RawErr
     (NPLine2 side2, UlpSum side2NormErr) = normalize side2Raw
-    (side2Raw, UlpSum side2RawErr) = pLineFromEndpointsWithErr p2 p3
+    (side2Raw, UlpSum side2RawErr) = eToPLine2WithErr (LineSeg  p2 p3)
     side2Err = side2NormErr+side2RawErr
     (NPLine2 quadRes, UlpSum quadResErr) = normalize quad
-    (quad, UlpSum quadErr) = pLineFromEndpointsWithErr p2 $ scalePoint 0.5 $ addPoints p1 p3
+    (quad, UlpSum quadErr) = eToPLine2WithErr $ LineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3
     {-
     scaleSide ps1 ps2 t v
       | t == True = (PLine2 scaledRes, UlpSum $ scaledUlp + scaledResUlp)
@@ -690,7 +689,7 @@ class ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
   forceBasisOfL :: a -> a
-  meetOf2PL :: a -> a -> (PPoint2, UlpSum)
+  meetOf2PL :: (ProjectiveLine2 b) => a -> b -> (PPoint2, UlpSum)
   normalize :: a -> (NPLine2, UlpSum)
   translateL :: a -> ℝ -> (PLine2, UlpSum)
   vecOfL :: a -> GVec
@@ -761,7 +760,7 @@ join2ProjectivePointsWithErr pp1 pp2 = (PLine2 res,
     errTotal = resUlp <> pv1Ulp <> pv2Ulp
 
 -- | A typed meet function. the meeting of two lines is a point.
-meet2ProjectiveLinesWithErr :: (ProjectiveLine2 a) => a -> a -> (PPoint2, UlpSum)
+meet2ProjectiveLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PPoint2, UlpSum)
 meet2ProjectiveLinesWithErr line1 line2 = (PPoint2 res,
                                    ulpSum)
   where
@@ -874,11 +873,6 @@ eToPLine2WithErr :: LineSeg -> (PLine2, UlpSum)
 eToPLine2WithErr l1 = (res, resErr)
   where
     (res, resErr) = join2PP (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
-
-pLineFromEndpointsWithErr :: Point2 -> Point2 -> (PLine2, UlpSum)
-pLineFromEndpointsWithErr start stop = (res, resErr)
-  where
-    (res, resErr) = join2PP (eToPPoint2 start) (eToPPoint2 stop)
 
 -- | Get the sum of the error involved in storing the values in a given PLine2.
 ulpOfPLine2 :: (ProjectiveLine2 a) => a -> UlpSum

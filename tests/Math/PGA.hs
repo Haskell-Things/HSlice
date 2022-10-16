@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToCPPoint2, eToPLine2, getFirstArc, join2PPoint2, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), canonicalize, pPointBetweenPPointsWithErr, distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, eToPPoint2, pLineIntersectionWithErr, translateL, translateRotatePPoint2, angleBetweenWithErr, flipL, join2PP, makePPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pLineFromEndpointsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), canonicalize, pPointBetweenPPointsWithErr, distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, pLineIntersectionWithErr, translateL, translateRotatePPoint2, angleBetweenWithErr, flipL, join2PP, makePPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -508,7 +508,7 @@ prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
     intersect3 = outputIntersectsLineSeg eNode (lineSeg1, lineSeg1Err)
     intersect4 = outputIntersectsLineSeg eNode (lineSeg2, lineSeg2Err)
     -- note that our bisector always intersects the origin.
-    (bisector, UlpSum bisectorUlp) = pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (x3,y3))
+    (bisector, UlpSum bisectorUlp) = eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
     (NPLine2 bisector1, UlpSum bisector1Ulp) = normalize bisector
     bisector1Err = bisectorUlp + bisector1Ulp
     bisector2 = getFirstArc (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
@@ -564,7 +564,7 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
     intersect4 = outputIntersectsLineSeg eNode (lineSeg2, lineSeg2Err)
     -- note that our bisector always intersects the origin.
     (NPLine2 bisector1, UlpSum bisector1Ulp) = normalize bisector
-    (bisector, UlpSum bisectorUlp) = pLineFromEndpointsWithErr (Point2 (0,0)) (Point2 (x3,y3))
+    (bisector, UlpSum bisectorUlp) = eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
     bisector1Err = bisectorUlp + bisector1Ulp
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
@@ -1230,7 +1230,7 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
     pPoint1 = makePPoint2 x1 y1
     pPoint2 = makePPoint2 x2 y2
     (nPLine, UlpSum nPLineErr) = normalize pLine
-    (pLine, UlpSum ulpPLine) = pLineFromEndpointsWithErr (Point2 (x1,y1)) (Point2 (x2,y2))
+    (pLine, UlpSum ulpPLine) = eToPLine2WithErr $ makeLineSeg (Point2 (x1,y1)) (Point2 (x2,y2))
     ulpTotal1 = ulpPLine + distance1Err + nPLineErr
     ulpTotal2 = ulpPLine + distance2Err + nPLineErr
     -- make sure we do not try to create a 0 length line segment.

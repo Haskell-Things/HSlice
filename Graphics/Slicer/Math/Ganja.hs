@@ -114,7 +114,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), 
 
 import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoint2, normalizePLine2, pPointBetweenPPoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), PLine2(PLine2), PPoint2(PPoint2), eToPPoint2, flipL, translateRotatePPoint2, pLineFromEndpointsWithErr, ulpOfLineSeg, outOf, pPointOf, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), PLine2(PLine2), PPoint2(PPoint2), eToPLine2WithErr, eToPPoint2, flipL, translateRotatePPoint2, ulpOfLineSeg, outOf, pPointOf, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
 
@@ -671,7 +671,7 @@ randomPLine x y dx dy = fst $ randomPLineWithErr x y dx dy
 
 -- | A helper function. constructs a random PLine.
 randomPLineWithErr :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (PLine2, UlpSum)
-randomPLineWithErr x y dx dy = pLineFromEndpointsWithErr (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
+randomPLineWithErr x y dx dy = eToPLine2WithErr $ makeLineSeg (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
 
 -- | A helper function. constructs a random LineSeg.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
@@ -685,11 +685,11 @@ randomLineSegWithErr x1 y1 x2 y2 = (res, ulpSum)
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
 randomPLineThroughOrigin :: ℝ -> ℝ -> (PLine2, UlpSum)
-randomPLineThroughOrigin x y = pLineFromEndpointsWithErr (Point2 (x,y)) (Point2 (0,0))
+randomPLineThroughOrigin x y = eToPLine2WithErr $ makeLineSeg (Point2 (x,y)) (Point2 (0,0))
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
 randomPLineThroughPoint :: ℝ -> ℝ -> ℝ -> (PLine2, UlpSum)
-randomPLineThroughPoint x y d = pLineFromEndpointsWithErr (Point2 (x,y)) (Point2 (d,d))
+randomPLineThroughPoint x y d = eToPLine2WithErr $ makeLineSeg (Point2 (x,y)) (Point2 (d,d))
 
 -- | A line segment ending at the origin. additionally, guaranteed not to be on the X = Y line.
 randomLineSegFromPointNotX1Y1 :: ℝ -> ℝ -> ℝ -> (LineSeg, UlpSum)
