@@ -435,7 +435,7 @@ intersectsWithErr (Left l1)   (Right pl1) =         pLineIntersectsLineSeg pl1 l
 intersectsWithErr (Right pl1) (Left l1)   =         pLineIntersectsLineSeg pl1 l1
 
 -- | Check if/where a line segment and a PLine intersect.
-pLineIntersectsLineSeg :: (ProjectiveLine, PLine2Err) -> LineSeg -> Either Intersection PIntersection
+pLineIntersectsLineSeg :: (ProjectiveLine2 a) => (a, PLine2Err) -> LineSeg -> Either Intersection PIntersection
 pLineIntersectsLineSeg pl1@(_, pl1Err) l1
   | res == PParallel = Right PParallel
   | res == PAntiParallel = Right PAntiParallel
@@ -528,7 +528,7 @@ onSegment ls i =
 
 -- | when given a PLine, and two points guaranteed to be on it, return the maximum distance between a given projective point known to be on the PLine and the 'real' line.
 -- FIXME: accept a error on the projectivePoint, and return an error estimate.
-pLineErrAtPPoint :: (ProjectiveLine, PLine2Err) -> ProjectivePoint -> UlpSum
+pLineErrAtPPoint :: (ProjectiveLine2 a, ProjectivePoint2 b) => (a, PLine2Err) -> b -> UlpSum
 pLineErrAtPPoint (inPLine, inPLineErr) errPoint
   -- both intercepts are real. this line is not parallel or collinear to X or Y axises.
   | xInterceptIsRight && yInterceptIsRight && realToFrac (ulpVal res2Axis) < (0.0001 :: ℝ)  = res2Axis -- <> res2Axis
@@ -543,10 +543,8 @@ pLineErrAtPPoint (inPLine, inPLineErr) errPoint
   | yInterceptIsRight = resXAxis -- <> resXAxis
   | otherwise = UlpSum $ realToFrac errT
   where
-    dumpInputs = "inPLine: " <> show inPLine <> "\n"
-              <> "npline: " <> show npline <> "\n"
+    dumpInputs = "npline: " <> show npline <> "\n"
               <> "inPLineErr: " <> show inPLineErr <> "\n"
-              <> "errPoint: " <> show errPoint <> "\n"
               <> "errX: " <> show errX <> "\n"
               <> "errY: " <> show errY <> "\n"
               <> "errT: " <> show errT <> "\n"
