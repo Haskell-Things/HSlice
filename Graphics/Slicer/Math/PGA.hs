@@ -151,9 +151,9 @@ pLineIsLeft (pl1, pl1Err) (pl2,pl2Err)
   | otherwise                     = Just $ res > 0
   where
     (res, _) = angleCos (npl1, pl1Err <> npl2Err) (npl2, pl2Err <> npl2Err)
+    ulpTotal = ulpVal $ pLineFuzziness (npl1, pl1Err <> npl1Err) <> pLineFuzziness (npl2, pl2Err <> npl2Err)
     (npl1, npl1Err) = normalize pl1
     (npl2, npl2Err) = normalize pl2
-    ulpTotal = ulpVal $ pLineFuzziness (npl1, pl1Err <> npl1Err) <> pLineFuzziness (npl2, pl2Err <> npl2Err)
     -- | Find the cosine of the angle between the two lines. results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when "right".
     angleCos :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ℝ, PPoint2Err)
     angleCos (pline1, pline1Err) (pline2, pline2Err)
@@ -175,9 +175,7 @@ pLineIsLeft (pl1, pl1Err) (pl2,pl2Err)
 pLineIntersectionWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
 pLineIntersectionWithErr (pl1,pl1Err) (pl2,pl2Err) = (res, (pl1Err <> npl1Err, pl2Err <> npl2Err, resErr))
   where
-    (res, (_,_,resErr)) = meetOf2PL npl1 npl2
-    (npl1, npl1Err) = normalize pl1
-    (npl2, npl2Err) = normalize pl2
+    (res, (npl1Err,npl2Err,resErr)) = meetOf2PL pl1 pl2
 
 -- | Generate a point between the two given points, where the weights given determine "how far between".
 --   If the weights are equal, the distance will be right between the two points.
@@ -204,7 +202,7 @@ distancePPointToPLineWithErr (rawPoint,rawPointErr) (rawLine,rawLineErr)
   | isNothing foundVal = error "attempted to get the distance of an ideal point."
   | otherwise = (res, resErr)
   where
-    resErr = (pointErr, nlineErr, perpLineErr, lpErr <> lpcErr, lvErr, plErr, nplErr <> normErr, ulpSum)
+    resErr = (pointErr, nLineErr, perpLineErr, lpErr <> lpcErr, lvErr, plErr, nplErr <> normErr, ulpSum)
       where
         (lvErr, plErr, lpErr) = lastPointErr
         (_, lpcErr, nplErr)   = newPLineErr
@@ -215,11 +213,11 @@ distancePPointToPLineWithErr (rawPoint,rawPointErr) (rawLine,rawLineErr)
     -- FIXME: how does the error in linePoint and point effect this result?
     (newPLine, newPLineErr)   = join2PP point linePoint
     -- FIXME: how does perpLineErr effect the result of canonicalizeIntersectionWithErr?
-    (linePoint, lastPointErr) = fromJust $ canonicalizeIntersectionWithErr (nline, nlineErr) (PLine2 perpLine, mempty)
+    (linePoint, lastPointErr) = fromJust $ canonicalizeIntersectionWithErr (rawNLine, nLineErr) (PLine2 perpLine, mempty)
     (perpLine, perpLineErr)   = lVec ⨅+ pVec
-    nline@(NPLine2 lVec) = forceBasisOfL nline
-    nlineErr = rawNLineErr <> rawLineErr
-    (_, rawNLineErr) = normalize rawLine
+    lVec = vecOfL $ forceBasisOfL rawNLine
+    nLineErr = rawNLineErr <> rawLineErr
+    (rawNLine, rawNLineErr) = normalize rawLine
     foundVal = getVal [GEPlus 1, GEPlus 2] pVals
     point@(CPPoint2 pVec@(GVec pVals)) = forceBasisOfP cpoint
     pointErr = cPointErr <> rawPointErr
@@ -663,6 +661,7 @@ data ProjectivePoint =
 
 instance Eq ProjectivePoint where
   (==) (CPPoint2 a1) (CPPoint2 a2) = a1 == a2
+  (==) p1@(PPoint2 a1) p2@(PPoint2 a2) = a1 == a2 || fst (canonicalize p1) == fst (canonicalize p2)
   (==) p1 p2 = fst (canonicalize p1) == fst (canonicalize p2)
 
 -- | the error accumulated when calculating a projective point.
@@ -709,7 +708,7 @@ class ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
   forceBasisOfL :: a -> a
-  meetOf2PL :: a -> a -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
+  meetOf2PL :: (ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
   normalize :: a -> (ProjectiveLine, PLine2Err)
   translatePLine2WithErr :: a -> ℝ -> (ProjectiveLine, PLine2Err)
   vecOfL :: a -> GVec
@@ -731,6 +730,7 @@ instance ProjectiveLine2 ProjectiveLine where
   
 instance Eq ProjectiveLine where
   (==) (NPLine2 gvec1) (NPLine2 gvec2) = gvec1 == gvec2
+  (==) pl1@(PLine2 gvec1) pl2@(PLine2 gvec2) = gvec1 == gvec2 || normalize pl1 == normalize pl2
   (==) pl1 pl2 = normalize pl1 == normalize pl2
 
 -- | the two types of error of a projective line.
@@ -823,7 +823,7 @@ join2ProjectivePointsWithErr pp1 pp2 = (PLine2 res,
     (cp2, pv2Ulp) = canonicalize pp2
 
 -- | A typed meet function. the meeting of two lines is a point.
-meet2ProjectiveLinesWithErr :: (ProjectiveLine2 a) => a -> a -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
+meet2ProjectiveLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
 meet2ProjectiveLinesWithErr line1 line2 = (PPoint2 res,
                                (npl1Err,
                                 npl2Err,
