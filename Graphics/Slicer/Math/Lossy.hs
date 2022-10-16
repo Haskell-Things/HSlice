@@ -47,7 +47,7 @@ import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr, getOu
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err, angleBetweenWithErr, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, join2PP, normalize, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEP, translatePLine2WithErr, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err, angleBetweenWithErr, distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, join2PP, normalize, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
 angleBetween :: ProjectiveLine -> ProjectiveLine -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetweenWithErr nPLine1 nPLine2
@@ -106,7 +106,7 @@ pToEPoint2 ppoint = fst $ pToEP ppoint
 
 -- | translate a ProjectiveLine along it's perpendicular bisector.
 translatePLine2 :: ProjectiveLine -> ℝ -> ProjectiveLine
-translatePLine2 pline distance = fst $ translatePLine2WithErr pline distance
+translatePLine2 pline distance = fst $ translateL pline distance
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
 translateRotatePPoint2 :: ProjectivePoint -> ℝ -> ℝ -> ProjectivePoint

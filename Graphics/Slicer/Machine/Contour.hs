@@ -37,7 +37,7 @@ import Graphics.Slicer.Math.Line (combineLineSegs)
 
 import Graphics.Slicer.Math.Lossy (pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, eToPLine2WithErr, translatePLine2WithErr)
+import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, eToPLine2WithErr, translateL)
 
 import Graphics.Slicer.Definitions(ℝ)
 
@@ -101,7 +101,7 @@ modifyContour pathWidth contour direction
                                        (Just (middleSegs,lastSeg)) -> middleSegs <> if noIntersection (inwardAdjustWithErr lastSeg) (inwardAdjustWithErr oneSeg)
                                                                                     then maybeToList (combineLineSegs lastSeg oneSeg)
                                                                                     else [lastSeg,oneSeg]
-        inwardAdjustWithErr l1 = translatePLine2WithErr (fst $ eToPLine2WithErr l1) (if direction == Inward then pathWidth else (-pathWidth))
+        inwardAdjustWithErr l1 = translateL (fst $ eToPLine2WithErr l1) (if direction == Inward then pathWidth else (-pathWidth))
         findLineSeg :: LineSeg -> LineSeg -> LineSeg -> Maybe LineSeg
         findLineSeg previousln ln nextln
           -- The ideal case.

@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersectio
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2, join2PPoints, pLineFromEndpoints)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), eToPLine2WithErr, eToPPoint2, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translatePLine2WithErr, oppositeDirection, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), eToPLine2WithErr, eToPPoint2, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -93,16 +93,16 @@ motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle)
     tSpeedOf :: MotorcycleIntersection -> ℝ
     tSpeedOf myTarget = case myTarget of
                   (WithLineSeg lineSeg) -> distanceBetweenPPoints
-                                           (outputIntersectsPLine motorcycle (translatePLine2WithErr (eToPLine2 lineSeg) 1))
+                                           (outputIntersectsPLine motorcycle (translateL (eToPLine2 lineSeg) 1))
                                            (outputIntersectsPLine motorcycle (eToPLine2 lineSeg, mempty))
                   (WithENode eNode) -> distanceBetweenPPoints
                                        (pPointOf eNode)
-                                       (outputIntersectsPLine eNode (translatePLine2WithErr (eToPLine2 $ getFirstLineSeg eNode) 1))
+                                       (outputIntersectsPLine eNode (translateL (eToPLine2 $ getFirstLineSeg eNode) 1))
                   (WithMotorcycle motorcycle2) -> mSpeedOf motorcycle2
     mSpeedOf :: Motorcycle -> ℝ
     mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _ _) = distanceBetweenPPoints
                                                       (pPointOf myMotorcycle)
-                                                      (outputIntersectsPLine myMotorcycle (translatePLine2WithErr (eToPLine2 seg1) 1))
+                                                      (outputIntersectsPLine myMotorcycle (translateL (eToPLine2 seg1) 1))
 
 -- | Create a crash tree for all of the motorcycles in the given contour, with the given holes.
 -- FIXME: may fail, returning Nothing.

@@ -44,7 +44,7 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face))
 
 import Graphics.Slicer.Math.Lossy (distancePPointToPLine, eToPLine2, translatePLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, eToPLine2WithErr, pLineIsLeft, translatePLine2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, eToPLine2WithErr, pLineIsLeft, translateL)
 
 import Graphics.Slicer.Machine.Infill (makeInfill, InfillType)
 
@@ -79,7 +79,7 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     -- | The line segments we are placing.
     foundLineSegs          = [ makeLineSeg (pToEPoint2 $ intersectionOf newSide (firstArc,mempty)) (pToEPoint2 $ intersectionOf newSide (lastArc,mempty)) | newSide <- newSides ]
       where
-        newSides = [ translatePLine2WithErr (eToPLine2 edge) $ translateDir (-(distance+(distance * fromIntegral segmentNum))) | segmentNum <- [0..linesToRender-1] ]
+        newSides = [ translateL (eToPLine2 edge) $ translateDir (-(distance+(distance * fromIntegral segmentNum))) | segmentNum <- [0..linesToRender-1] ]
 
     -- | The line where we are no longer able to fill this face. from the firstArc to the lastArc, along the point that the lines we place stop.
     finalSide              = makeLineSeg (pToEPoint2 $ intersectionOf (finalLine,mempty) (firstArc,mempty)) (pToEPoint2 $ intersectionOf (finalLine,mempty) (lastArc,mempty))

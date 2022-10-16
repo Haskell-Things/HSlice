@@ -63,7 +63,7 @@ module Graphics.Slicer.Math.PGA(
   pToEP,
   plinesIntersectIn,
   sameDirection,
-  translatePLine2WithErr,
+  translateL,
   translateRotatePPoint2WithErr
   ) where
 
@@ -710,7 +710,7 @@ class ProjectiveLine2 a where
   forceBasisOfL :: a -> a
   meetOf2PL :: (ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
   normalize :: a -> (ProjectiveLine, PLine2Err)
-  translatePLine2WithErr :: a -> ℝ -> (ProjectiveLine, PLine2Err)
+  translateL :: a -> ℝ -> (ProjectiveLine, PLine2Err)
   vecOfL :: a -> GVec
 
 instance ProjectiveLine2 ProjectiveLine where
@@ -723,7 +723,7 @@ instance ProjectiveLine2 ProjectiveLine where
   normalize a = case a of
                   n@(NPLine2 _) -> (n,mempty)
                   p@(PLine2 _) -> normalizePLine2WithErr p
-  translatePLine2WithErr a d = translateProjectiveLine2WithErr a d
+  translateL a d = translateProjectiveLine2WithErr a d
   vecOfL a = case a of
                (NPLine2 v) -> v
                (PLine2 v) -> v
