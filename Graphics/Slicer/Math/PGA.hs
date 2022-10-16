@@ -696,6 +696,23 @@ instance Semigroup PPoint2Err where
 instance Monoid PPoint2Err where
   mempty = PPoint2Err mempty mempty mempty mempty mempty mempty mempty
 
+-- | Can this node be resolved into a point in 2d space?
+class Pointable a where
+  -- | Can this node be resolved into a point in 2d space?
+  canPoint :: a -> Bool
+  -- | does this point originate from our input set of euclidian points?
+  canEPoint :: a -> Bool
+  pPointOf :: a -> ProjectivePoint
+  ePointOf :: a -> Point2
+  errOfEPoint :: a -> PPoint2Err
+  errOfPPoint :: a -> PPoint2Err
+
+-- | does this node have an output (resulting) pLine?
+class Arcable a where
+  hasArc :: a -> Bool
+  outOf :: a -> ProjectiveLine
+  errOfOut :: a -> PLine2Err
+
 -- | A line (not a line SEGMENT) in projective space.
 -- NOTE: two constructors. one for normalized lines, one for un-normalized lines.
 data ProjectiveLine =
@@ -759,23 +776,6 @@ instance Semigroup PLine2Err where
 
 instance Monoid PLine2Err where
   mempty = PLine2Err mempty mempty mempty mempty mempty mempty
-
--- | Can this node be resolved into a point in 2d space?
-class Pointable a where
-  -- | Can this node be resolved into a point in 2d space?
-  canPoint :: a -> Bool
-  -- | does this point originate from our input set of euclidian points?
-  canEPoint :: a -> Bool
-  pPointOf :: a -> ProjectivePoint
-  ePointOf :: a -> Point2
-  errOfEPoint :: a -> PPoint2Err
-  errOfPPoint :: a -> PPoint2Err
-
--- | does this node have an output (resulting) pLine?
-class Arcable a where
-  hasArc :: a -> Bool
-  outOf :: a -> ProjectiveLine
-  errOfOut :: a -> PLine2Err
 
 class ProjectivePoint2 a where
   canonicalize :: a -> (ProjectivePoint, PPoint2Err)
