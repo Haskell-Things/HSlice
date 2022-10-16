@@ -337,7 +337,7 @@ oppositeDirection a b = res <= minAngle
     (res, (_,_,_,resErr)) = angleBetweenWithErr a b
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
-pPointOnPerpWithErr :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> (ProjectivePoint, (PLine2Err,([ErrVal],[ErrVal]), UlpSum))
+pPointOnPerpWithErr :: ProjectiveLine -> ProjectivePoint -> ℝ -> (ProjectivePoint, (PLine2Err,([ErrVal],[ErrVal]), UlpSum))
 pPointOnPerpWithErr pline rppoint d = (res, (rlErr, perpPLineErr, ulpTotal))
   where
     res = case valOf 0 ( getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) resRaw) of
@@ -563,7 +563,8 @@ pLineErrAtPPoint (inPLine, inPLineErr) errPoint
     origin = eToPPoint2 $ Point2 (0,0)
     interceptDistance = distance (Point2 (fromRight 0 $ fromJust $ xIntercept npline,0))
                                  (Point2 (0,fromRight 0 $ fromJust $ yIntercept npline))
-    (Point2 (xPos,yPos)) = pToEPoint2 errPoint
+    -- FIXME: collect this error.
+    (Point2 (xPos,yPos),_) = pToEP errPoint
     xInterceptIsRight = isJust (xIntercept npline) && isRight (fromJust $ xIntercept npline)
     -- NOTE: can't check the distance here, because distancePPointToPLineWithErr calls this. ;)
     xInterceptFuzz = errX * (1 + abs xPos)
