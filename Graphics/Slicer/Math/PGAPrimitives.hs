@@ -347,12 +347,12 @@ instance ProjectivePoint2 PPoint2 where
   idealNormOfP a = idealNormPPoint2WithErr a
   join2PP a b = crushErr $ join2ProjectivePointsWithErr a b
     where
-      crushErr (res, (PPoint2Err _ cp1Ulp _ _ _ _ _
-                     ,PPoint2Err _ cp2Ulp _ _ _ _ _
-                     ,PLine2Err _ _ _ _ _ (resMulUlp, resAddUlp))) = (res, sumErrVals resMulUlp <> sumErrVals resAddUlp <> sumErrVals cp1Ulp <> sumErrVals cp2Ulp)
+      crushErr (res, (PPoint2Err _ cp1Errs _ _ _ _ _
+                     ,PPoint2Err _ cp2Errs _ _ _ _ _
+                     ,PLine2Err _ _ _ _ _ (resMulErrs, resAddErrs))) = (res, sumErrVals resMulErrs <> sumErrVals resAddErrs <> sumErrVals cp1Errs <> sumErrVals cp2Errs)
   pToEP p = crushErr $ fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToPoint2 p
     where
-      crushErr (res, PPoint2Err _ c8izeErrs _ _ _ _ _) = (res, sumErrVals c8izeErrs)
+      crushErr (res, PPoint2Err _ cp1Errs _ _ _ _ _) = (res, sumErrVals c8izeErrs)
   vecOfP (PPoint2 a) = a
 
 instance ProjectivePoint2 CPPoint2 where
@@ -362,10 +362,12 @@ instance ProjectivePoint2 CPPoint2 where
   idealNormOfP p = idealNormPPoint2WithErr p
   join2PP a b = crushErr $ join2ProjectivePointsWithErr a b
     where
-      crushErr (res, (PPoint2Err _ cp1Ulp _ _ _ _ _
-                     ,PPoint2Err _ cp2Ulp _ _ _ _ _
-                     ,PLine2Err _ _ _ _ _ (resMulUlp, resAddUlp))) = (res, sumErrVals resMulUlp <> sumErrVals resAddUlp <> sumErrVals cp1Ulp <> sumErrVals cp2Ulp)
-  pToEP p = (\(b, _) -> (b,mempty)) $ fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToPoint2 p
+      crushErr (res, (PPoint2Err _ cp1Errs _ _ _ _ _
+                     ,PPoint2Err _ cp2Errs _ _ _ _ _
+                     ,PLine2Err _ _ _ _ _ (resMulErrs, resAddErrs))) = (res, sumErrVals resMulErrs <> sumErrVals resAddErrs <> sumErrVals cp1Errs <> sumErrVals cp2Errs)
+  pToEP p = crushErr $ fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToPoint2 p
+    where
+      crushErr (res, PPoint2Err _ cp1Errs _ _ _ _ _) = (res, sumErrVals cp1Errs)
   vecOfP (CPPoint2 v) = v
 
 -- | canonicalize a euclidian point.
