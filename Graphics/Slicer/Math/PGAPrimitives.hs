@@ -80,7 +80,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2))
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎤+), (⎣+), addErr, addValWithoutErr, addVecPairWithErr, divVecScalarWithErr, eValOf, getVal, scalarPart, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎤+), (⎣+), addErr, addValWithoutErr, addVecPairWithErr, divVecScalarWithErr, eValOf, getVal, scalarPart, sumErrVals, valOf)
 
 --------------------------------
 --- common support functions ---
@@ -209,17 +209,19 @@ instance Monoid PLine2Err where
 
 -- | Return the sine of the angle between the two lines, along with the error.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
+-- FIXME: no projective line is perfect. accept Err with these inputs.
 angleBetweenWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
 angleBetweenWithErr line1 line2 = (res, resErr)
   where
-    (res, scalarErr) = (scalarPart like,
-                        (eValOf mempty $ getVal [G0] likeMulErr) <> (eValOf mempty $ getVal [G0] likeMulErr))
-    resErr = (pv1Err, pv2Err, (likeMulErr,likeAddErr), scalarErr)
-    (like, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
-    p1 = vecOfL $ forceBasisOfL np1
-    p2 = vecOfL $ forceBasisOfL np2
-    (np1,pv1Err) = normalize line1
-    (np2,pv2Err) = normalize line2
+    res = scalarPart likeRes
+    -- FIXME: this returned ULPsum is wrong. actually try to interpret it.
+    ulpSum = sumErrVals likeMulErr <> sumErrVals likeAddErr
+    resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
+    (likeRes, (likeMulErr, likeAddErr)) = l1 ⎣+ l2
+    l1 = vecOfL $ forceBasisOfL npl1
+    l2 = vecOfL $ forceBasisOfL npl2
+    (npl1,npl1Err) = normalize line1
+    (npl2,npl2Err) = normalize line2
 
 -- | Reverse a line. same line, but pointed in the other direction.
 flipProjectiveLine :: (ProjectiveLine2 a) => a -> a
@@ -303,10 +305,10 @@ translateProjectiveLine2WithErr line d = (PLine2 res, normErr <> PLine2Err resEr
   where
     (res,resErr) = addVecPairWithErr m $ vecOfL line
     m = GVec [GVal tAdd (singleton (GEZero 1))]
-    -- the amount to add to GEZero 1 component.
+    -- the amount to add to the GEZero 1 component.
     tAdd = d * norm
     tUlp = UlpSum $ abs $ realToFrac $ doubleUlp tAdd
-    (norm, normErr) = normOfPLine2WithErr line
+    (norm, normErr) = normOfL line
 
 --------------------------------
 --- Projective Point Support ---
