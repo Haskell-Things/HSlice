@@ -91,7 +91,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVa
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(hasArc,outOf, outUlpMag, ulpOfOut), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(flipL, forceBasisOfL, meetOf2PL, normalize, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, forceBasisOfP, idealNormOfP, join2PP, pToEP, vecOfP))
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(hasArc, outOf, outUlpMag, ulpOfOut), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(flipL, forceBasisOfL, meetOf2PL, normalize, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, forceBasisOfP, idealNormOfP, join2PP, pToEP, vecOfP))
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 

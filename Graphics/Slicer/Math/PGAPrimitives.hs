@@ -23,43 +23,43 @@
 -- Primitives here are defined as functions that work on types which have an implementation of the ProjectivePoint2 or ProjectiveLine2 typeclasses.
 
 module Graphics.Slicer.Math.PGAPrimitives
-(
-  Arcable(
-    hasArc,
-    outOf,
-    outUlpMag,
-    ulpOfOut
-    ),
-  CPPoint2(CPPoint2),
-  NPLine2(NPLine2),
-  PLine2(PLine2),
-  PLine2Err(PLine2Err),
-  Pointable(
-    canPoint,
-    ePointOf,
-    pPointOf
-    ),
-  PPoint2(PPoint2),
-  PPoint2Err,
-  ProjectiveLine2(
-    flipL,
-    forceBasisOfL,
-    meetOf2PL,
-    normalize,
-    normOfL,
-    sqNormOfL,
-    translateL,
-    vecOfL
-    ),
-  ProjectivePoint2(
-    canonicalize,
-    forceBasisOfP,
-    idealNormOfP,
-    join2PP,
-    pToEP,
-    vecOfP
-    ),
-) where
+  (
+    Arcable(
+      hasArc,
+      outOf,
+      outUlpMag,
+      ulpOfOut
+      ),
+    CPPoint2(CPPoint2),
+    NPLine2(NPLine2),
+    PLine2(PLine2),
+    PLine2Err(PLine2Err),
+    Pointable(
+      canPoint,
+      ePointOf,
+      pPointOf
+      ),
+    PPoint2(PPoint2),
+    PPoint2Err,
+    ProjectiveLine2(
+      flipL,
+      forceBasisOfL,
+      meetOf2PL,
+      normalize,
+      normOfL,
+      sqNormOfL,
+      translateL,
+      vecOfL
+      ),
+    ProjectivePoint2(
+      canonicalize,
+      forceBasisOfP,
+      idealNormOfP,
+      join2PP,
+      pToEP,
+      vecOfP
+      )
+  ) where
 
 import Prelude(Bool, Eq((==)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), ($), (+), (*), (<$>), abs, error, negate, otherwise, realToFrac, sqrt)
 
@@ -284,9 +284,9 @@ translateProjectiveLine2WithErr line d = (PLine2 res, nErr <> PLine2Err resUlp m
     tUlp = UlpSum $ abs $ realToFrac $ doubleUlp tAdd
     (n, nErr) = normOfL line
 
------------------------
---- Point interface ---
------------------------
+--------------------------------
+--- Projective Point Support ---
+--------------------------------
 
 -- | A canonicalized projective point in 2D space.
 newtype CPPoint2 = CPPoint2 GVec
