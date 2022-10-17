@@ -341,7 +341,7 @@ class (Show a) => ProjectivePoint2 a where
   vecOfP :: a -> GVec
 
 instance ProjectivePoint2 PPoint2 where
-  canonicalize p = (\(a, PPoint2Err _ c8izeErrs _ _ _ _ _) -> (a,sumErrVals c8izeErrs)) $ canonicalizePPoint2WithErr p
+  canonicalize p = (\(a, PPoint2Err _ cp1Errs _ _ _ _ _) -> (a,sumErrVals cp1Errs)) $ canonicalizePPoint2WithErr p
   consLikeP (PPoint2 _) = PPoint2
   forceBasisOfP a = forceProjectivePointBasis a
   idealNormOfP a = idealNormPPoint2WithErr a
@@ -352,7 +352,7 @@ instance ProjectivePoint2 PPoint2 where
                      ,PLine2Err _ _ _ _ _ (resMulErrs, resAddErrs))) = (res, sumErrVals resMulErrs <> sumErrVals resAddErrs <> sumErrVals cp1Errs <> sumErrVals cp2Errs)
   pToEP p = crushErr $ fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToPoint2 p
     where
-      crushErr (res, PPoint2Err _ cp1Errs _ _ _ _ _) = (res, sumErrVals c8izeErrs)
+      crushErr (res, PPoint2Err _ cp1Errs _ _ _ _ _) = (res, sumErrVals cp1Errs)
   vecOfP (PPoint2 a) = a
 
 instance ProjectivePoint2 CPPoint2 where
