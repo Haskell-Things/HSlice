@@ -22,17 +22,13 @@
 
 module Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr) where
 
-import Prelude (Bool, ($), (>), (<=), (<>), (==), (&&), (||), (+), error, mempty, otherwise, realToFrac, show)
+import Prelude (($), (<>), (==), (+), otherwise)
 
-import Graphics.Slicer.Definitions (ℝ)
+import Graphics.Slicer.Math.Definitions (Point2, LineSeg(LineSeg), addPoints, distance, scalePoint)
 
-import Graphics.Slicer.Math.Definitions (Point2, LineSeg(LineSeg), addPoints, distance, makeLineSeg, scalePoint)
+import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), addVecPairWithErr, sumErrVals)
 
-import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), addVecPairWithErr, sumErrVals, ulpVal)
-
-import Graphics.Slicer.Math.Intersections (isCollinear, isAntiCollinear, isParallel, isAntiParallel, intersectionOf)
-
-import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine2, PLine2(PLine2), ProjectivePoint2, angleBetweenWithErr, canonicalize, distanceBetweenPPointsWithErr, eToPLine2WithErr, flipL, join2PP, normalize, vecOfL)
+import Graphics.Slicer.Math.PGA (ProjectiveLine2, PLine2(PLine2), eToPLine2WithErr, flipL, normalize, vecOfL)
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
 --   Note that we normalize our output, but return it as a PLine2. this is safe, because double normalization (if it happens) only raises the ULP.

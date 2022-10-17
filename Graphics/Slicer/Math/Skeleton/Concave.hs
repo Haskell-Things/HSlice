@@ -196,7 +196,7 @@ sortedPair n1 n2 = sortedPLines [outOf n1, outOf n2]
 -- Note: we normalize our output lines.
 -- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
 -- FIXME: should return amount of error.
-getOutsideArc :: (ProjectivePoint2 a, Show a) => a -> NPLine2 -> a -> NPLine2 -> PLine2
+getOutsideArc :: (ProjectivePoint2 a) => a -> NPLine2 -> a -> NPLine2 -> PLine2
 getOutsideArc ppoint1 npline1 ppoint2 npline2
   | npline1 == npline2 = error "need to be able to return two PLines."
   | noIntersection pline1 pline2 = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
@@ -214,7 +214,7 @@ getOutsideArc ppoint1 npline1 ppoint2 npline2
 -- Determine if the line segment formed by the two given points starts with the first point, or the second.
 -- Note that due to numeric uncertainty, we cannot rely on Eq here, and must check the sign of the angle.
 -- FIXME: shouldn't we be given an error component in our inputs?
-towardIntersection :: (ProjectivePoint2 a, Show a) => a -> PLine2 -> CPPoint2 -> Bool
+towardIntersection :: (ProjectivePoint2 a) => a -> PLine2 -> CPPoint2 -> Bool
 towardIntersection pp1 pl1 pp2
   | d <= realToFrac dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
   | otherwise = angleFound > realToFrac angleErr
