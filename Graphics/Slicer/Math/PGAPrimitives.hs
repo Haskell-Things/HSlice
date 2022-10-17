@@ -86,13 +86,12 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 --------------------------------
 
 -- | The join operator in 2D PGA, which is implemented as the meet operator operating in the dual space.
-(∨+) :: GVec -> GVec -> (GVec, UlpSum)
+(∨+) :: GVec -> GVec -> (GVec, ([ErrVal],[ErrVal]))
 (∨+) a b = (vec
-           , ulpSum)
+           , (unlikeMulErr, unlikeAddErr))
   where
     vec = dual2DGVec $ res
-    ulpSum = sumErrVals unlikeMulErr <> sumErrVals unlikeAddErr
-    (res, (unlikeAddErr, unlikeMulErr)) = dual2DGVec a ⎤+ dual2DGVec b
+    (res, (unlikeMulErr, unlikeAddErr)) = dual2DGVec a ⎤+ dual2DGVec b
 infixl 9 ∨+
 
 -- | get the dual of a vector. for a point, find a line, for a line, a point...
@@ -108,12 +107,6 @@ dual2DGVec (GVec vals) = GVec $ foldl' addValWithoutErr []
                  , GVal (         valOf 0 $ getVal [GEPlus 1, GEPlus 2] vals)           (singleton (GEZero 1))
                  , GVal (         valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] vals) (singleton G0)
                  ]
-
--- | Get the sum of a set of error values, when dealing with error applied to a Projective Point.
-sumPPointErrs :: [ErrVal] -> UlpSum
-sumPPointErrs errs = eValOf mempty (getVal [GEZero 1, GEPlus 1] errs)
-                  <> eValOf mempty (getVal [GEZero 1, GEPlus 2] errs)
-                  <> eValOf mempty (getVal [GEPlus 1, GEPlus 2] errs)
 
 -------------------------------
 --- Projective Line Support ---
@@ -338,7 +331,7 @@ class Arcable a where
   ulpOfOut :: a -> UlpSum
   outUlpMag :: a -> ℝ
 
-class ProjectivePoint2 a where
+class (Show a) => ProjectivePoint2 a where
   canonicalize :: a -> (CPPoint2, UlpSum)
   consLikeP :: a -> (GVec -> a)
   forceBasisOfP :: a -> a
@@ -348,27 +341,37 @@ class ProjectivePoint2 a where
   vecOfP :: a -> GVec
 
 instance ProjectivePoint2 PPoint2 where
-  canonicalize p = (\(a, PPoint2Err _ c8izeErrs _ _ _ _ _) -> (a,sumPPointErrs c8izeErrs)) $ canonicalizePPoint2WithErr p
+  canonicalize p = (\(a, PPoint2Err _ c8izeErrs _ _ _ _ _) -> (a,sumErrVals c8izeErrs)) $ canonicalizePPoint2WithErr p
   consLikeP (PPoint2 _) = PPoint2
   forceBasisOfP a = forceProjectivePointBasis a
   idealNormOfP a = idealNormPPoint2WithErr a
-  join2PP a b = join2ProjectivePointsWithErr a b
-  pToEP a = fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToPoint2 a
+  join2PP a b = crushErr $ join2ProjectivePointsWithErr a b
+    where
+      crushErr (res, (PPoint2Err _ cp1Ulp _ _ _ _ _
+                     ,PPoint2Err _ cp2Ulp _ _ _ _ _
+                     ,PLine2Err _ _ _ _ _ (resMulUlp, resAddUlp))) = (res, sumErrVals resMulUlp <> sumErrVals resAddUlp <> sumErrVals cp1Ulp <> sumErrVals cp2Ulp)
+  pToEP p = crushErr $ fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToPoint2 p
+    where
+      crushErr (res, PPoint2Err _ c8izeErrs _ _ _ _ _) = (res, sumErrVals c8izeErrs)
   vecOfP (PPoint2 a) = a
 
 instance ProjectivePoint2 CPPoint2 where
   canonicalize p = (p, mempty)
   consLikeP (CPPoint2 _) = CPPoint2
-  forceBasisOfP a = forceProjectivePointBasis a
-  idealNormOfP a = idealNormPPoint2WithErr a
-  join2PP a b = join2ProjectivePointsWithErr a b
-  pToEP a = fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToPoint2 a
-  vecOfP (CPPoint2 a) = a
+  forceBasisOfP p = forceProjectivePointBasis p
+  idealNormOfP p = idealNormPPoint2WithErr p
+  join2PP a b = crushErr $ join2ProjectivePointsWithErr a b
+    where
+      crushErr (res, (PPoint2Err _ cp1Ulp _ _ _ _ _
+                     ,PPoint2Err _ cp2Ulp _ _ _ _ _
+                     ,PLine2Err _ _ _ _ _ (resMulUlp, resAddUlp))) = (res, sumErrVals resMulUlp <> sumErrVals resAddUlp <> sumErrVals cp1Ulp <> sumErrVals cp2Ulp)
+  pToEP p = (\(b, _) -> (b,mempty)) $ fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToPoint2 p
+  vecOfP (CPPoint2 v) = v
 
 -- | canonicalize a euclidian point.
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.
 -- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
-canonicalizePPoint2WithErr :: (ProjectivePoint2 a, Show a) => a -> (CPPoint2, PPoint2Err)
+canonicalizePPoint2WithErr :: (ProjectivePoint2 a) => a -> (CPPoint2, PPoint2Err)
 canonicalizePPoint2WithErr point
   | isNothing foundVal = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
   -- Handle the ID case.
@@ -426,24 +429,23 @@ idealNormPPoint2WithErr ppoint
     (GVec rawVals) = vecOfP ppoint
 
 -- | a typed join function. join two points, returning a line.
-join2ProjectivePointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (PLine2, UlpSum)
+join2ProjectivePointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (PLine2, (PPoint2Err, PPoint2Err, PLine2Err))
 join2ProjectivePointsWithErr pp1 pp2 = (PLine2 res,
-                               errTotal)
+                                        (cp1Ulp, cp2Ulp, PLine2Err mempty mempty mempty mempty mempty resUlp))
   where
     (res,resUlp)  = pv1 ∨+ pv2
     pv1 = vecOfP $ forceBasisOfP cp1
     pv2 = vecOfP $ forceBasisOfP cp2
-    (cp1, pv1Ulp) = canonicalize pp1
-    (cp2, pv2Ulp) = canonicalize pp2
-    errTotal = resUlp <> pv1Ulp <> pv2Ulp
+    (cp1, cp1Ulp) = canonicalizePPoint2WithErr pp1
+    (cp2, cp2Ulp) = canonicalizePPoint2WithErr pp2
 
 -- | Maybe create a euclidian point from a projective point. Will fail if the projective point is ideal.
-projectivePointToPoint2 :: (ProjectivePoint2 a) => a -> Maybe (Point2, UlpSum)
+projectivePointToPoint2 :: (ProjectivePoint2 a) => a -> Maybe (Point2, PPoint2Err)
 projectivePointToPoint2 ppoint
  | e12Val == 0 = Nothing
  | otherwise = Just (Point2 (xVal, yVal), cpErrs)
   where
-    (CPPoint2 (GVec vals), cpErrs) = canonicalize ppoint
+    (CPPoint2 (GVec vals), cpErrs) = canonicalizePPoint2WithErr ppoint
     xVal = negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
