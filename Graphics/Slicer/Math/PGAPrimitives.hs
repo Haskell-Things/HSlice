@@ -372,7 +372,7 @@ class Arcable a where
   outOf :: a -> ProjectiveLine
   errOfOut :: a -> PLine2Err
 
-class ProjectivePoint2 a where
+class (Show a) => ProjectivePoint2 a where
   canonicalize :: a -> (ProjectivePoint, PPoint2Err)
   consLikeP :: a -> (GVec -> a)
   forceBasisOfP :: a -> a
@@ -400,7 +400,7 @@ instance ProjectivePoint2 ProjectivePoint where
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.
 -- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
 -- FIXME: return the error of divVecScalarWithErr
-canonicalizePPoint2WithErr :: (ProjectivePoint2 a, Show a) => a -> (ProjectivePoint, PPoint2Err)
+canonicalizePPoint2WithErr :: (ProjectivePoint2 a) => a -> (ProjectivePoint, PPoint2Err)
 canonicalizePPoint2WithErr point
   | isNothing foundVal = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
   -- Handle the ID case.
@@ -460,14 +460,13 @@ idealNormPPoint2WithErr ppoint
 -- | a typed join function. join two points, returning a line.
 join2ProjectivePointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
 join2ProjectivePointsWithErr pp1 pp2 = (PLine2 res,
-                                        (pv1Ulp, pv2Ulp, PLine2Err mempty mempty mempty mempty mempty resUlp))
+                                        (cp1Ulp, cp2Ulp, PLine2Err mempty mempty mempty mempty mempty resUlp))
   where
     (res,resUlp)  = pv1 ∨+ pv2
-
     pv1 = vecOfP $ forceBasisOfP cp1
     pv2 = vecOfP $ forceBasisOfP cp2
-    (cp1, pv1Ulp) = canonicalize pp1
-    (cp2, pv2Ulp) = canonicalize pp2
+    (cp1, cp1Ulp) = canonicalize pp1
+    (cp2, cp2Ulp) = canonicalize pp2
 
 -- | Maybe create a euclidian point from a projective point. Will fail if the projective point is ideal.
 projectivePointToPoint2 :: (ProjectivePoint2 a) => a -> Maybe (Point2, PPoint2Err)
