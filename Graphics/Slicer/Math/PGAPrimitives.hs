@@ -45,7 +45,7 @@ module Graphics.Slicer.Math.PGAPrimitives
       angleBetween2PL,
       flipL,
       forceBasisOfL,
-      meetOf2PL,
+      intersect2PL,
       normalize,
       normOfL,
       sqNormOfL,
@@ -147,7 +147,7 @@ class ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
   forceBasisOfL :: a -> a
-  meetOf2PL :: (ProjectiveLine2 b) => a -> b -> (PPoint2, UlpSum)
+  intersect2PL :: (ProjectiveLine2 b) => a -> b -> (PPoint2, (PLine2Err, PLine2Err, PPoint2Err))
   normalize :: a -> (NPLine2, UlpSum)
   normOfL :: a -> (ℝ, PLine2Err)
   sqNormOfL :: a -> (ℝ, UlpSum)
@@ -161,7 +161,7 @@ instance ProjectiveLine2 NPLine2 where
   consLikeL _ = NPLine2
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
-  meetOf2PL l1 l2 = meet2ProjectiveLinesWithErr l1 l2
+  intersect2PL l1 l2 = intersectionOfProjectiveLinesWithErr l1 l2
   normalize l = (l, mempty)
   normOfL l = normOfProjectiveLineWithErr l
   sqNormOfL l = sqNormOfProjectiveLineWithErr l
@@ -175,8 +175,8 @@ instance ProjectiveLine2 PLine2 where
   consLikeL _ = PLine2
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
-  meetOf2PL l1 l2 = meet2ProjectiveLinesWithErr l1 l2
-  normalize l = (\(b,(PLine2Err _ _ c d _ _)) -> (b,c <> d)) $ normalizePLine2WithErr l
+  intersect2PL l1 l2 = intersectionOfProjectiveLinesWithErr l1 l2
+  normalize l = (\(b,(PLine2Err _ _ c d _ _)) -> (b,c <> d)) $ normalizeProjectiveLineWithErr l
   normOfL l = normOfProjectiveLineWithErr l
   sqNormOfL l = sqNormOfProjectiveLineWithErr l
   translateL l d = (\(r,(PLine2Err _ _ _ _ t _)) -> (r,t)) $ translateProjectiveLine2WithErr l d
@@ -222,8 +222,8 @@ angleBetweenWithErr line1 line2 = (scalarPart likeRes
     (likeRes, (likeMulErr, likeAddErr)) = l1 ⎣+ l2
     l1 = vecOfL $ forceBasisOfL npl1
     l2 = vecOfL $ forceBasisOfL npl2
-    (npl1, npl1Err) = normalizePLine2WithErr line1
-    (npl2, npl2Err) = normalizePLine2WithErr line2
+    (npl1, npl1Err) = normalizeProjectiveLineWithErr line1
+    (npl2, npl2Err) = normalizeProjectiveLineWithErr line2
 
 -- | Reverse a line. same line, but pointed in the other direction.
 flipProjectiveLine :: (ProjectiveLine2 a) => a -> a
@@ -251,21 +251,37 @@ forceProjectiveLineBasis line
               _                                 -> Nothing
     vec@(GVec vals) = vecOfL line
 
--- | A typed meet function. the meeting of two lines is a point.
-meet2ProjectiveLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PPoint2, UlpSum)
-meet2ProjectiveLinesWithErr line1 line2 = (PPoint2 res,
-                                   ulpSum)
+-- | Find out where two lines intersect, returning a projective point, and the error quotent.
+-- Note that this should only be used when you can guarantee these are not collinear, or parallel.
+intersectionOfProjectiveLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PPoint2, (PLine2Err, PLine2Err, PPoint2Err))
+intersectionOfProjectiveLinesWithErr line1 line2 = (res,
+                                                    (npl1Err,
+                                                     npl2Err,
+                                                     PPoint2Err resErrs mempty mempty mempty mempty iAngleErr iAngleUnlikeErr))
   where
-    ulpSum = sumErrVals unlikeMulErr <> sumErrVals unlikeAddErr
-    (res, (unlikeMulErr, unlikeAddErr)) = pv1 ⎤+ pv2
+    -- Since the angle of intersection has an effect on how well this point was resolved, save it with the point.
+    (iAngleErr,(_,_,iAngleUnlikeErr,_)) = angleBetweenWithErr npl1 npl2
+    (res, (_,_, resErrs)) = meetOfProjectiveLinesWithErr npl1 npl2
+    (npl1, npl1Err) = normalizeProjectiveLineWithErr line1
+    (npl2, npl2Err) = normalizeProjectiveLineWithErr line2
+
+-- | A typed meet function. the meeting of two lines is a point.
+-- kept separate from pLineIntersection for verification reasons.
+meetOfProjectiveLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PPoint2, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal])))
+meetOfProjectiveLinesWithErr line1 line2 = (PPoint2 res,
+                                           (npl1Err,
+                                            npl2Err,
+                                            resUnlikeErr))
+  where
+    (res, resUnlikeErr) = pv1 ⎤+ pv2
     pv1 = vecOfL $ forceBasisOfL npl1
     pv2 = vecOfL $ forceBasisOfL npl2
-    (npl1,_) = normalize line1
-    (npl2,_) = normalize line2
+    (npl1, npl1Err) = normalizeProjectiveLineWithErr line1
+    (npl2, npl2Err) = normalizeProjectiveLineWithErr line2
 
 -- | Normalize a Projective Line.
-normalizePLine2WithErr :: (ProjectiveLine2 a) => a -> (NPLine2, PLine2Err)
-normalizePLine2WithErr line = (res, resErr)
+normalizeProjectiveLineWithErr :: (ProjectiveLine2 a) => a -> (NPLine2, PLine2Err)
+normalizeProjectiveLineWithErr line = (res, resErr)
   where
     (res, resErr) = case norm of
                       1.0 -> (NPLine2 vec      , normErr)
