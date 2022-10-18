@@ -42,6 +42,7 @@ module Graphics.Slicer.Math.PGAPrimitives
     PPoint2(PPoint2),
     PPoint2Err,
     ProjectiveLine2(
+      angleBetween2PL,
       flipL,
       forceBasisOfL,
       meetOf2PL,
@@ -79,7 +80,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2))
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎤+), addErr, addValWithoutErr, addVecPairWithErr, divVecScalarWithErr, getVal, sumErrVals, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), addErr, addValWithoutErr, addVecPairWithErr, divVecScalarWithErr, getVal, scalarPart, sumErrVals, valOf)
 
 --------------------------------
 --- common support functions ---
@@ -121,6 +122,7 @@ newtype NPLine2 = NPLine2 GVec
   deriving (Eq, Generic, NFData, Show)
 
 class ProjectiveLine2 a where
+  angleBetween2PL :: (ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
   forceBasisOfL :: a -> a
@@ -132,6 +134,9 @@ class ProjectiveLine2 a where
   vecOfL :: a -> GVec
 
 instance ProjectiveLine2 NPLine2 where
+  angleBetween2PL l1 l2 = crushErr $ angleBetweenWithErr l1 l2
+    where
+      crushErr (res, (_,_,_,ulpSum)) = (res, ulpSum)
   consLikeL _ = NPLine2
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
@@ -143,6 +148,9 @@ instance ProjectiveLine2 NPLine2 where
   vecOfL (NPLine2 v) = v
 
 instance ProjectiveLine2 PLine2 where
+  angleBetween2PL l1 l2 = crushErr $ angleBetweenWithErr l1 l2
+    where
+      crushErr (res, (_,_,_,ulpSum)) = (res, ulpSum)
   consLikeL _ = PLine2
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
@@ -184,6 +192,20 @@ instance Monoid PLine2Err where
 -- | A projective point in 2D space.
 newtype PPoint2 = PPoint2 GVec
   deriving (Eq, Ord, Generic, NFData, Show)
+
+-- | Return the sine of the angle between the two lines, along with the error.
+-- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
+angleBetweenWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
+angleBetweenWithErr pl1 pl2 = (scalarPart likeRes
+                              , resErr)
+  where
+    resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
+    ulpSum = sumErrVals likeMulErr <> sumErrVals likeAddErr
+    (likeRes, (likeMulErr, likeAddErr)) = l1 ⎣+ l2
+    l1 = vecOfL $ forceBasisOfL npl1
+    l2 = vecOfL $ forceBasisOfL npl2
+    (npl1, npl1Err) = normalizePLine2WithErr pl1
+    (npl2, npl2Err) = normalizePLine2WithErr pl2
 
 -- | Reverse a line. same line, but pointed in the other direction.
 flipProjectiveLine :: (ProjectiveLine2 a) => a -> a
@@ -268,14 +290,14 @@ sqNormOfProjectiveLineWithErr line = (res, ulpTotal)
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Abuses the property that translation of a line is expressed on the GEZero component.
 translateProjectiveLine2WithErr :: (ProjectiveLine2 a) => a -> ℝ -> (PLine2, PLine2Err)
-translateProjectiveLine2WithErr line d = (PLine2 res, nErr <> PLine2Err resUlp mempty mempty mempty tUlp mempty)
+translateProjectiveLine2WithErr line d = (PLine2 res, normErr <> PLine2Err resErrs mempty mempty mempty tUlp mempty)
   where
-    (res, resUlp) = addVecPairWithErr m $ vecOfL line
+    (res, resErrs) = addVecPairWithErr m $ vecOfL line
     m = GVec [GVal tAdd (singleton (GEZero 1))]
     -- the amount to add to the GEZero 1 component.
-    tAdd = d * n
+    tAdd = d * norm
     tUlp = UlpSum $ abs $ realToFrac $ doubleUlp tAdd
-    (n, nErr) = normOfL line
+    (norm, normErr) = normOfL line
 
 --------------------------------
 --- Projective Point Support ---

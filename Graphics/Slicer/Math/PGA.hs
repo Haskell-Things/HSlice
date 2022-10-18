@@ -36,7 +36,7 @@ module Graphics.Slicer.Math.PGA(
   PPoint2Err,
   ProjectiveLine2,
   ProjectivePoint2,
-  angleBetweenWithErr,
+  angleBetween2PL,
   canonicalize,
   combineConsecutiveLineSegs,
   distanceBetweenPPointsWithErr,
@@ -87,11 +87,11 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, getVal, mulScalarVecWithErr, sumErrVals, ulpVal, valOf)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(hasArc, outOf, outUlpMag, ulpOfOut), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(flipL, forceBasisOfL, meetOf2PL, normalize, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, forceBasisOfP, idealNormOfP, join2PP, pToEP, vecOfP))
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(hasArc, outOf, outUlpMag, ulpOfOut), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, meetOf2PL, normalize, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, forceBasisOfP, idealNormOfP, join2PP, pToEP, vecOfP))
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -122,7 +122,7 @@ plinesIntersectIn pl1 pl2
   | otherwise                        = IntersectsIn res (resUlp, intersectUlp, npl1Ulp, npl2Ulp, iaErr, mempty)
   where
     (idealNorm, idnErr) = idealNormOfP intersectPoint
-    (_, iaErr) = angleBetweenWithErr pl1 pl2
+    (_, iaErr) = angleBetween2PL pl1 pl2
     -- FIXME: how much do the potential normalization errors have an effect on the resultant angle?
     (intersectPoint, intersectUlp) = pLineIntersectionWithErr pl1 pl2
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
@@ -239,19 +239,6 @@ distanceBetweenPLinesWithErr line1 line2 = (ideal, resUlpSum)
     (npl1, _) = normalize line1
     (npl2, _) = normalize line2
 
--- | Return the sine of the angle between the two lines, along with the error. results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
--- FIXME: not generating large enough ULPs. why?
-angleBetweenWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
-angleBetweenWithErr pl1 pl2 = (scalarPart likeRes
-                              , ulpSum)
-  where
-    ulpSum = sumErrVals likeMulErr <> sumErrVals likeAddErr
-    (likeRes, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
-    p1 = vecOfL $ forceBasisOfL $ PLine2 pv1
-    p2 = vecOfL $ forceBasisOfL $ PLine2 pv2
-    (NPLine2 pv1, _) = normalize pl1
-    (NPLine2 pv2, _) = normalize pl2
-
 -- | A checker, to ensure two Projective Lines are going the same direction, and are parallel.
 -- FIXME: precision on inputs?
 sameDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
@@ -259,8 +246,8 @@ sameDirection a b = res  >= maxAngle
   where
     -- ceiling value. a value bigger than maxAngle is considered to be going the same direction.
     maxAngle :: ℝ
-    maxAngle = 1.0 - realToFrac (ulpVal resErr)
-    (res, resErr) = angleBetweenWithErr a b
+    maxAngle = realToFrac (1 - ulpVal resErr :: Rounded 'TowardInf ℝ)
+    (res, resErr) = angleBetween2PL a b
 
 -- | A checker, to ensure two Projective Lines are going the opposite direction, and are parallel.
 -- FIXME: precision on inputs?
@@ -270,7 +257,7 @@ oppositeDirection a b = res <= minAngle
     -- floor value. a value smaller than minAngle is considered to be going the opposite direction.
     minAngle :: ℝ
     minAngle = realToFrac (realToFrac (ulpVal resErr) + (-1) :: Rounded 'TowardNegInf ℝ)
-    (res, resErr) = angleBetweenWithErr a b
+    (res, resErr) = angleBetween2PL a b
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
 pPointOnPerpWithErr :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> (PPoint2, UlpSum)
@@ -357,7 +344,7 @@ outputIntersectsLineSeg source (l1, UlpSum l1Err)
     -- | the multiplier used to expand the hitcircle of an endpoint.
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * realToFrac travelUlpMul * abs (realToFrac angle + angleErr)
-    (angle, UlpSum angleErr) = angleBetweenWithErr pl1 pl2
+    (angle, UlpSum angleErr) = angleBetween2PL pl1 pl2
     (_, UlpSum npl1Err) = normalize pl1
     (_, UlpSum npl2Err) = normalize pl2
     (pl2, UlpSum pl2Err) = eToPLine2WithErr l1
@@ -388,7 +375,7 @@ intersectsWithErr (Left l1@(rawL1,_))       (Right pl1@(rawPL1,_))     =        
   where
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
-    (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
+    (angle, UlpSum angleErr) = angleBetween2PL npl1 npl2
     (npl1, _) = normalize rawPL1
     (npl2, _) = normalize pl2
     (pl2, _) = eToPLine2WithErr rawL1
@@ -396,7 +383,7 @@ intersectsWithErr (Right pl1@(rawPL1,_))     (Left l1@(rawL1,_))       =        
   where
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
-    (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
+    (angle, UlpSum angleErr) = angleBetween2PL npl1 npl2
     (npl1, _) = normalize rawPL1
     (npl2, _) = normalize pl2
     (pl2, _) = eToPLine2WithErr rawL1
@@ -475,7 +462,7 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
       | pl1Err < 0 || pl2Err < 0 || l1Err < 0 || ulpL2 < 0 || rawIntersectErr < 0 || rawIntersectionErr < 0 = error "negative ULP?\n"
       | otherwise = pl1Err + pl2Err + l1Err + ulpL2 + (rawIntersectErr * ulpScale)
     ulpScale = 120 + ulpMultiplier * (realToFrac angle+angleErr) * (realToFrac angle+angleErr)
-    (angle, UlpSum angleErr) = angleBetweenWithErr npl1 npl2
+    (angle, UlpSum angleErr) = angleBetween2PL npl1 npl2
     (npl1, _) = normalize pl1
     (npl2, _) = normalize pl2
     dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nl1Err: " <> show l1Err <> "\nrawIntersectErr: " <> show rawIntersectErr <> "\n"

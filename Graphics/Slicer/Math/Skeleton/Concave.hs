@@ -62,7 +62,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, 
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, distancePPointToPLine, eToPLine2, getInsideArc, join2CPPoint2, normalizePLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), ProjectivePoint2, CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, flipL, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetweenWithErr, distancePPointToPLineWithErr, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), ProjectivePoint2, CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, flipL, distanceBetweenPPointsWithErr, pLineIsLeft, angleBetween2PL, distancePPointToPLineWithErr, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
@@ -219,7 +219,7 @@ towardIntersection pp1 pl1 pp2
   | d <= realToFrac dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
   | otherwise = angleFound > realToFrac angleErr
   where
-    (angleFound, UlpSum angleErr) = angleBetweenWithErr newPLine (normalizePLine2 pl1)
+    (angleFound, UlpSum angleErr) = angleBetween2PL newPLine (normalizePLine2 pl1)
     (d, UlpSum dErr) = distanceBetweenPPointsWithErr (fst $ canonicalize pp1) pp2
     newPLine = normalizePLine2 $ join2CPPoint2 (fst $ canonicalize pp1) pp2
 
