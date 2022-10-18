@@ -62,7 +62,7 @@ module Graphics.Slicer.Math.PGAPrimitives
       )
   ) where
 
-import Prelude(Bool, Eq((==)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), ($), (+), (*), (<$>), abs, error, negate, otherwise, realToFrac, sqrt)
+import Prelude(Bool, Eq((==),(/=)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), ($), (+), (*), (<$>), abs, error, filter, negate, otherwise, realToFrac, sqrt)
 
 import Control.DeepSeq (NFData)
 
@@ -80,7 +80,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2))
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), addErr, addValWithoutErr, addVecPairWithErr, divVecScalarWithErr, getVal, scalarPart, sumErrVals, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), addErr, addValWithoutErr, addVecPairWithErr, divVecScalarWithErr, eValOf, getVal, scalarPart, sumErrVals, valOf)
 
 --------------------------------
 --- common support functions ---
@@ -88,10 +88,9 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 -- | The join operator in 2D PGA, which is implemented as the meet operator operating in the dual space.
 (∨+) :: GVec -> GVec -> (GVec, ([ErrVal],[ErrVal]))
-(∨+) a b = (vec
-           , (unlikeMulErr, unlikeAddErr))
+(∨+) a b = ( dual2DGVec res
+           , (dual2DErrs unlikeMulErr, dual2DErrs unlikeAddErr))
   where
-    vec = dual2DGVec $ res
     (res, (unlikeMulErr, unlikeAddErr)) = dual2DGVec a ⎤+ dual2DGVec b
 infixl 9 ∨+
 
@@ -107,6 +106,20 @@ dual2DGVec (GVec vals) = GVec $ foldl' addValWithoutErr []
                  , GVal (negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals)           (singleton (GEPlus 1))
                  , GVal (         valOf 0 $ getVal [GEPlus 1, GEPlus 2] vals)           (singleton (GEZero 1))
                  , GVal (         valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] vals) (singleton G0)
+                 ]
+
+-- | get the dual of the error component of a vector. for a point, find a line, for a line, a point...
+dual2DErrs :: [ErrVal] -> [ErrVal]
+dual2DErrs vals = filter (\(ErrVal a _) -> a /= mempty)
+                 [
+                   ErrVal (eValOf mempty $ getVal [G0] vals)                           (fromList [GEZero 1, GEPlus 1, GEPlus 2])
+                 , ErrVal (eValOf mempty $ getVal [GEZero 1] vals)                     (fromList [GEPlus 1, GEPlus 2])
+                 , ErrVal (eValOf mempty $ getVal [GEPlus 1] vals)                     (fromList [GEZero 1, GEPlus 2])
+                 , ErrVal (eValOf mempty $ getVal [GEPlus 2] vals)                     (fromList [GEZero 1, GEPlus 1])
+                 , ErrVal (eValOf mempty $ getVal [GEZero 1, GEPlus 1] vals)           (singleton (GEPlus 2))
+                 , ErrVal (eValOf mempty $ getVal [GEZero 1, GEPlus 2] vals)           (singleton (GEPlus 1))
+                 , ErrVal (eValOf mempty $ getVal [GEPlus 1, GEPlus 2] vals)           (singleton (GEZero 1))
+                 , ErrVal (eValOf mempty $ getVal [GEZero 1, GEPlus 1, GEPlus 2] vals) (singleton G0)
                  ]
 
 -------------------------------
