@@ -45,6 +45,7 @@ module Graphics.Slicer.Math.PGA(
   eToPLine2WithErr,
   eToPPoint2,
   flipL,
+  intersect2PL,
   intersectsWith,
   intersectsWithErr,
   join2PP,
@@ -53,7 +54,6 @@ module Graphics.Slicer.Math.PGA(
   outputIntersectsLineSeg,
   oppositeDirection,
   pLineFuzziness,
-  pLineIntersectionWithErr,
   pLineIsLeft,
   pPointBetweenPPointsWithErr,
   pPointFuzziness,
@@ -92,7 +92,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err(PPoint2Err), ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, meetOf2PL, normalize, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, forceBasisOfP, idealNormOfP, join2PP, pToEP, vecOfP))
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err(PPoint2Err), ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalize, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, forceBasisOfP, idealNormOfP, join2PP, pToEP, vecOfP))
   
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
@@ -167,13 +167,6 @@ pLineIsLeft (pl1, pl1Err) (pl2,pl2Err)
         gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
         lvec1 = vecOfL pline1
         lvec2 = vecOfL pline2
-
--- | Find out where two lines intersect, returning a projective point, and the error quotents.
--- Note: this should only be used when you can guarantee these are not collinear, or parallel.
-pLineIntersectionWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
-pLineIntersectionWithErr (pl1,pl1Err) (pl2,pl2Err) = (res, (pl1Err <> npl1Err, pl2Err <> npl2Err, resErr))
-  where
-    (res, (npl1Err,npl2Err,resErr)) = meetOf2PL pl1 pl2
 
 -- | Generate a point between the two given points, where the weights given determine "how far between".
 --   If the weights are equal, the distance will be right between the two points.
@@ -434,7 +427,7 @@ pLineIntersectsLineSeg pl1@(_, pl1Err) l1
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
     (rawIntersection, (_, _, rawIntersectionErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizeIntersectionWithErr pl1 pl2
-    (rawIntersect, _) = pLineIntersectionWithErr pl1 pl2
+    (rawIntersect, _) = intersect2PL pl1 pl2
     pl2@(_, pl2Err) = eToPLine2WithErr l1
 
 -- | Check if/where two line segments intersect.
@@ -469,7 +462,7 @@ lineSegIntersectsLineSeg l1 l2
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
     (rawIntersection, (_, _, rawIntersectionErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizeIntersectionWithErr (pl1,pl1Err) (pl2,pl2Err)
-    (rawIntersect, (npl1Err, npl2Err, rawIntersectErr)) = pLineIntersectionWithErr (pl1,pl1Err) (pl2,pl2Err)
+    (rawIntersect, (npl1Err, npl2Err, rawIntersectErr)) = intersect2PL (pl1,pl1Err) (pl2,pl2Err)
     start1 = eToPPoint2 $ startPoint l1
     end1 = eToPPoint2 $ endPoint l1
     start2 = eToPPoint2 $ startPoint l2
@@ -669,7 +662,7 @@ canonicalizeIntersectionWithErr pl1 pl2
   | otherwise = Just (cpp1, (pl1ResErr, pl2ResErr, intersectionErr <> canonicalizationErr))
   where
     (cpp1, canonicalizationErr) = canonicalize pp1
-    (pp1, (pl1ResErr, pl2ResErr, intersectionErr)) = pLineIntersectionWithErr pl1 pl2
+    (pp1, (pl1ResErr, pl2ResErr, intersectionErr)) = intersect2PL pl1 pl2
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
 
 sumPPointErrs :: [ErrVal] -> UlpSum

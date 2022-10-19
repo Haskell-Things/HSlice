@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersection
 import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, pLineErrAtPPoint, eToPPoint2, eToPLine2WithErr, join2PP, pLineIntersectionWithErr, translateL, angleBetween2PL, flipL, makePPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, pLineErrAtPPoint, eToPPoint2, eToPLine2WithErr, join2PP, intersect2PL, translateL, angleBetween2PL, flipL, makePPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -1386,7 +1386,7 @@ prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
   where
     originPPoint2 = makePPoint2 0 0
     (foundDistance, (_,_,_,distanceErr)) = distanceBetweenPPointsWithErr (originPPoint2,mempty) (intersectionPPoint2, intersectionErr)
-    (intersectionPPoint2, (_, _, intersectionErr)) = pLineIntersectionWithErr randomPLine1 randomPLine2
+    (intersectionPPoint2, (_, _, intersectionErr)) = intersect2PL randomPLine1 randomPLine2
     randomPLine1 = randomPLineThroughOrigin x y
     randomPLine2 = randomPLineThroughOrigin x2 y2
     errSum = ulpVal $ pLineErrAtPPoint randomPLine1 originPPoint2
@@ -1414,7 +1414,7 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
   where
     targetPPoint2 = makePPoint2 (coerce targetX) (coerce targetY)
     (foundDistance, (_,_,_, distanceErr)) = distanceBetweenPPointsWithErr (targetPPoint2,mempty) (intersectionPPoint2, intersectionErr)
-    (intersectionPPoint2, (_, _, intersectionErr)) = pLineIntersectionWithErr randomPLine1 randomPLine2
+    (intersectionPPoint2, (_, _, intersectionErr)) = intersect2PL randomPLine1 randomPLine2
     randomPLine1@(_, pline1RawErr) = randomPLineWithErr x y targetX targetY
     randomPLine2@(_, pline2RawErr) = randomPLineWithErr x2 y2 targetX targetY
     errSum = ulpVal $ pLineErrAtPPoint randomPLine1 targetPPoint2

@@ -44,7 +44,7 @@ module Graphics.Slicer.Math.PGAPrimitives
       angleBetween2PL,
       flipL,
       forceBasisOfL,
-      meetOf2PL,
+      intersect2PL,
       normalize,
       normOfL,
       sqNormOfL,
@@ -146,7 +146,7 @@ class ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
   forceBasisOfL :: a -> a
-  meetOf2PL :: (ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
+  intersect2PL :: (ProjectiveLine2 b) => (a,PLine2Err) -> (b,PLine2Err) -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
   normalize :: a -> (ProjectiveLine, PLine2Err)
   normOfL :: a -> (ℝ, PLine2Err)
   sqNormOfL :: a -> (ℝ, UlpSum)
@@ -160,7 +160,7 @@ instance ProjectiveLine2 ProjectiveLine where
                   (PLine2 _) -> PLine2
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
-  meetOf2PL l1 l2 = meet2ProjectiveLinesWithErr l1 l2
+  intersect2PL l1 l2 = intersectionOfProjectiveLinesWithErr l1 l2
   normalize l = case l of
                   n@(NPLine2 _) -> (n,mempty)
                   p@(PLine2 _) -> normalizePLine2WithErr p
@@ -204,7 +204,7 @@ instance Semigroup PLine2Err where
 instance Monoid PLine2Err where
   mempty = PLine2Err mempty mempty mempty mempty mempty mempty
 
--- | Return the sine of the angle between the two lines, along with the error.
+-- | Return the sine of the angle between the two lines, along with the error, in +-Sin.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
 -- FIXME: no projective line is perfect. accept Err with these inputs.
 angleBetweenWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
@@ -246,14 +246,24 @@ forceProjectiveLineBasis line
               _                                 -> Nothing
     vec@(GVec vals) = vecOfL line
 
--- | A typed meet function. the meeting of two lines is a point.
-meet2ProjectiveLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
-meet2ProjectiveLinesWithErr line1 line2 = (PPoint2 res,
-                               (npl1Err,
-                                npl2Err,
-                                PPoint2Err resUnlikeErr mempty mempty mempty mempty iAngleErr iAngleUnlikeErr))
+-- | Find out where two lines intersect, returning a projective point, and the error quotents.
+-- Note: this should only be used when you can guarantee these are not collinear, or parallel.
+intersectionOfProjectiveLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
+intersectionOfProjectiveLinesWithErr (line1,line1Err) (line2,line2Err) = (res, (line1Err <> npl1Err, line2Err <> npl2Err, resErr))
   where
+    (res, (_,_,resUnlikeErr)) = meetOfProjectiveLinesWithErr npl1 npl2
+    resErr = PPoint2Err resUnlikeErr mempty mempty mempty mempty iAngleErr iAngleUnlikeErr
     (iAngleErr,(_,_,iAngleUnlikeErr,_)) = angleBetweenWithErr npl1 npl2
+    (npl1, npl1Err) = normalize line1
+    (npl2, npl2Err) = normalize line2
+
+-- | A typed meet function. the meeting of two lines is a point.
+meetOfProjectiveLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, ([ErrVal],[ErrVal])))
+meetOfProjectiveLinesWithErr line1 line2 = (PPoint2 res,
+                                            (npl1Err,
+                                             npl2Err,
+                                             resUnlikeErr))
+  where
     (res, resUnlikeErr) = pv1 ⎤+ pv2
     pv1 = vecOfL $ forceBasisOfL npl1
     pv2 = vecOfL $ forceBasisOfL npl2
