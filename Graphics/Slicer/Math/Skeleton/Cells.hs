@@ -56,9 +56,9 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, dist
 
 import Graphics.Slicer.Math.Intersections (outputIntersectsPLine, outputsIntersect, isAntiCollinear)
 
-import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToNPLine2, eToPLine2, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (eToPPoint2)
+import Graphics.Slicer.Math.PGA (eToPPoint2, eToPLine2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), ProjectivePoint, angleBetween2PL, join2PP)
 
@@ -113,7 +113,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                                                where
                                                  intersectionIsBehind m = angleFound < 0
                                                    where
-                                                     (angleFound, _) = angleBetween2PL (outOf m) (eToNPLine2 $ lineSegToIntersection m)
+                                                     (angleFound, _) = angleBetween2PL (outOf m,errOfOut m) (eToPLine2WithErr $ lineSegToIntersection m)
                                                  lineSegToIntersection m = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
                                                  intersectionPPoint = outputsIntersect firstMC secondMC
                                              (Slist (_:_) _) -> error "too many motorcycles."

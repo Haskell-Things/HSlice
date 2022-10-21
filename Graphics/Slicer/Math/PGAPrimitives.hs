@@ -59,18 +59,22 @@ module Graphics.Slicer.Math.PGAPrimitives
       join2PP,
       pToEP,
       vecOfP
-      )
+      ),
+    xIntercept,
+    yIntercept
   ) where
 
-import Prelude(Bool, Eq((==),(/=)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), (||), ($), (+), (*), (<$>), abs, error, filter, fst, negate, otherwise, realToFrac, sqrt)
+import Prelude(Bool, Eq((==),(/=)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), (||), (&&), ($), (+), (*), (/), (<$>), abs, error, filter, fst, negate, otherwise, realToFrac, sqrt)
 
 import Control.DeepSeq (NFData)
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
+import Data.Either (Either(Left, Right))
+
 import Data.List (foldl', sort)
 
-import Data.Maybe (Maybe(Just,Nothing), fromMaybe, isNothing)
+import Data.Maybe (Maybe(Just,Nothing), fromMaybe, isJust, isNothing)
 
 import Data.Set (Set, elems, fromList, singleton)
 
@@ -142,7 +146,7 @@ data ProjectiveLine =
   deriving (Generic, NFData, Show)
 
 class ProjectiveLine2 a where
-  angleBetween2PL :: (ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
+  angleBetween2PL :: (ProjectiveLine2 b) => (a,PLine2Err) -> (b,PLine2Err) -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
   forceBasisOfL :: a -> a
@@ -206,10 +210,11 @@ instance Monoid PLine2Err where
 
 -- | Return the sine of the angle between the two lines, along with the error, in +-Sin.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
--- FIXME: no projective line is perfect. accept Err with these inputs.
-angleBetweenWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
-angleBetweenWithErr line1 line2 = (scalarPart likeRes
-                                  , resErr)
+angleBetweenWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a,PLine2Err) -> (b,PLine2Err) -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
+angleBetweenWithErr (line1,line1Err) (line2,line2Err)
+  | line1Err == mempty && line2Err == mempty = (scalarPart likeRes, resErr)
+  -- FIXME: here is where we take our input error into account.
+  | otherwise = (scalarPart likeRes, resErr)
   where
     resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
     -- FIXME: this returned ULPsum is wrong. actually try to interpret it.
@@ -253,7 +258,7 @@ intersectionOfProjectiveLinesWithErr (line1,line1Err) (line2,line2Err) = (res, (
   where
     (res, (_,_,resUnlikeErr)) = meetOfProjectiveLinesWithErr npl1 npl2
     resErr = PPoint2Err resUnlikeErr mempty mempty mempty mempty iAngleErr iAngleUnlikeErr
-    (iAngleErr,(_,_,iAngleUnlikeErr,_)) = angleBetweenWithErr npl1 npl2
+    (iAngleErr,(_,_,iAngleUnlikeErr,_)) = angleBetweenWithErr (npl1, npl1Err <> line1Err) (npl2, npl2Err <> line2Err)
     (npl1, npl1Err) = normalize line1
     (npl2, npl2Err) = normalize line2
 
@@ -316,6 +321,61 @@ translateProjectiveLine2WithErr line d = (PLine2 res, normErr <> PLine2Err resEr
     tAdd = d * norm
     tUlp = UlpSum $ abs $ realToFrac $ doubleUlp tAdd
     (norm, normErr) = normOfL line
+
+-----------------------------------------
+--- Projective Line Error Calculation ---
+-----------------------------------------
+
+-- | find the approximate point that a given line crosses the X axis.
+xIntercept :: (ProjectiveLine, PLine2Err) -> Maybe (Either ProjectiveLine ℝ, (PLine2Err, UlpSum))
+xIntercept (line, lineErr)
+  -- handle a line that is parallel to the X axis.
+  | isNothing rawX = Nothing
+  -- use X and T to calculate our answer
+  | isJust rawT = Just (Right xDivRes, (nplErr, xDivErr))
+  -- is colinear with the X axis.
+  | isNothing rawY = Just (Left line, (nplErr, mempty))
+  -- we have an X and a Y, but no T? this line passes through the origin.
+  | isNothing rawT = Just $ (Right 0, (nplErr, mempty))
+  | otherwise = error "totality failure: we should never get here."
+  where
+    -- negate is required, because the X value is inverted?
+    xDivRes = negate $ valOf 0 rawT / valOf 0 rawX
+    xDivErr = rawTErr <> UlpSum (realToFrac $  doubleUlp xDivRes)
+    rawTErr = eValOf mempty (getVal [GEZero 1] lAddErr)
+           <> eValOf mempty (getVal [GEZero 1] lNormalizeErr)
+           <> eValOf mempty (getVal [GEZero 1] lJoinAddErr)
+           <> eValOf mempty (getVal [GEZero 1] lJoinMulErr)
+    (PLine2Err lAddErr lNormalizeErr _ _ _ (lJoinMulErr, lJoinAddErr)) = nplErr <> lineErr
+    rawT = getVal [GEZero 1] pLineVals
+    rawX = getVal [GEPlus 1] pLineVals
+    rawY = getVal [GEPlus 2] pLineVals
+    (NPLine2 (GVec pLineVals), nplErr) = normalize line
+
+-- | find the point that a given line crosses the Y axis.
+yIntercept :: (ProjectiveLine,PLine2Err) -> Maybe (Either ProjectiveLine ℝ, (PLine2Err, UlpSum))
+yIntercept (line, lineErr)
+  -- handle a line that is parallel to the Y axis.
+  | isNothing rawY = Nothing
+  -- use Y and T to calculate our answer
+  | isJust rawT = Just $ (Right yDivRes, (nplErr, yDivErr))
+  -- is along the Y axis.
+  | isNothing rawX = Just (Left line, (nplErr,rawTErr))
+  -- we have an X and a Y? this line passes through the origin.
+  | isNothing rawT = Just (Right 0, (nplErr, rawTErr))
+  | otherwise = error "we should never get here"
+  where
+    yDivRes = valOf 0 rawT / valOf 0 rawY
+    yDivErr = rawTErr <> UlpSum (realToFrac $ doubleUlp yDivRes)
+    (PLine2Err lAddErr lNormalizeErr _ _ _ (lJoinMulErr, lJoinAddErr)) = nplErr <> lineErr
+    rawTErr = eValOf mempty (getVal [GEZero 1] lAddErr)
+           <> eValOf mempty (getVal [GEZero 1] lNormalizeErr)
+           <> eValOf mempty (getVal [GEZero 1] lJoinAddErr)
+           <> eValOf mempty (getVal [GEZero 1] lJoinMulErr)
+    rawT = getVal [GEZero 1] pLineVals
+    rawX = getVal [GEPlus 1] pLineVals
+    rawY = getVal [GEPlus 2] pLineVals
+    (NPLine2 (GVec pLineVals), nplErr) = normalize line
 
 --------------------------------
 --- Projective Point Support ---

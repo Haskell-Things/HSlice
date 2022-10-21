@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersectio
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2, join2PPoints, pLineFromEndpoints)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), eToPLine2WithErr, eToPPoint2, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), eToPLine2WithErr, eToPPoint2, flipL, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -159,9 +159,11 @@ crashMotorcycles contour holes
                           _ -> Nothing
               where
                 intersectionPPoint = outputsIntersect mot1 mot2
-                intersectionIsBehind m = oppositeDirection (outOf m) (pLineToIntersection m)
+                intersectionIsBehind m = oppositeDirection (outOf m, errOfOut m) (pLineToIntersection m)
                   where
-                    pLineToIntersection i = join2PPoints (pPointOf i) intersectionPPoint
+                    pLineToIntersection i = squashErr $ join2PP (pPointOf i) intersectionPPoint
+                      where
+                        squashErr (res,(_,_,resErr)) = (res,resErr)
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
 --   This function is meant to be used on the exterior contour.
@@ -229,8 +231,9 @@ motorcycleMightIntersectWith lineSegs motorcycle
                                                                        then Nothing
                                                                        else Just intersection
       where
-        intersectionPointIsBehind point = oppositeDirection (outOf motorcycle) (eToPLine2 $ makeLineSeg (ePointOf motorcycle) point)
-        intersectionPPointIsBehind pPoint = oppositeDirection (outOf motorcycle) (join2PPoints (pPointOf motorcycle) pPoint)
+        intersectionPointIsBehind point = oppositeDirection (outOf motorcycle,errOfOut motorcycle) (eToPLine2WithErr $ makeLineSeg (ePointOf motorcycle) point)
+        intersectionPPointIsBehind pPoint = oppositeDirection (outOf motorcycle,errOfOut motorcycle) (squashErr $ join2PP (pPointOf motorcycle) pPoint)
+        squashErr (res, (_,_,resErr)) = (res,resErr)
 
 -- | Find the closest place where a motorcycle intersects a contour that is not the point where it ejects from.
 --   If the motorcycle lands between two segments, return the second line segment, otherwise return the ProjectivePoint of the intersection with the first LineSeg.
@@ -266,8 +269,9 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                                                        then Nothing
                                                                        else Just intersection
       where
-        intersectionPointIsBehind point = oppositeDirection (outOf motorcycle) (eToPLine2 $ makeLineSeg (ePointOf motorcycle) point)
-        intersectionPPointIsBehind pPoint = oppositeDirection (outOf motorcycle) (join2PPoints (pPointOf motorcycle) pPoint)
+        intersectionPointIsBehind point = oppositeDirection (outOf motorcycle, errOfOut motorcycle) (eToPLine2WithErr $ makeLineSeg (ePointOf motorcycle) point)
+        intersectionPPointIsBehind pPoint = oppositeDirection (outOf motorcycle, errOfOut motorcycle) (squashErr $ join2PP (pPointOf motorcycle) pPoint)
+        squashErr (res, (_,_,resErr)) = (res,resErr)
     motorcyclePoint = pPointOf motorcycle
     intersections = getMotorcycleContourIntersections motorcycle contour
 
