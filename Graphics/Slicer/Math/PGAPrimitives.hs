@@ -47,6 +47,7 @@ module Graphics.Slicer.Math.PGAPrimitives
       forceBasisOfL,
       intersect2PL,
       normalize,
+      normalizeL,
       normOfL,
       sqNormOfL,
       translateL,
@@ -57,12 +58,13 @@ module Graphics.Slicer.Math.PGAPrimitives
       forceBasisOfP,
       idealNormOfP,
       join2PP,
+      join2PPWithErr,
       pToEP,
       vecOfP
       )
   ) where
 
-import Prelude(Bool, Eq((==),(/=)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), ($), (+), (*), (<$>), abs, error, filter, negate, otherwise, realToFrac, sqrt)
+import Prelude(Bool, Eq((==),(/=)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), ($), (+), (*), (<$>), (&&), abs, error, filter, negate, otherwise, realToFrac, sqrt)
 
 import Control.DeepSeq (NFData)
 
@@ -143,12 +145,13 @@ newtype NPLine2 = NPLine2 GVec
   deriving (Eq, Generic, NFData, Show)
 
 class ProjectiveLine2 a where
-  angleBetween2PL :: (ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
+  angleBetween2PL :: (ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ℝ, UlpSum)
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
   forceBasisOfL :: a -> a
   intersect2PL :: (ProjectiveLine2 b) => a -> b -> (PPoint2, (PLine2Err, PLine2Err, PPoint2Err))
   normalize :: a -> (NPLine2, UlpSum)
+  normalizeL :: a -> (NPLine2, PLine2Err)
   normOfL :: a -> (ℝ, PLine2Err)
   sqNormOfL :: a -> (ℝ, UlpSum)
   translateL :: a -> ℝ -> (PLine2, UlpSum)
@@ -163,6 +166,7 @@ instance ProjectiveLine2 NPLine2 where
   forceBasisOfL l = forceProjectiveLineBasis l
   intersect2PL l1 l2 = intersectionOfProjectiveLinesWithErr l1 l2
   normalize l = (l, mempty)
+  normalizeL l = (l, mempty)
   normOfL l = normOfProjectiveLineWithErr l
   sqNormOfL l = sqNormOfProjectiveLineWithErr l
   translateL l d = (\(r,(PLine2Err _ _ _ _ t _)) -> (r,t)) $ translateProjectiveLine2WithErr l d
@@ -176,7 +180,10 @@ instance ProjectiveLine2 PLine2 where
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
   intersect2PL l1 l2 = intersectionOfProjectiveLinesWithErr l1 l2
-  normalize l = (\(b,(PLine2Err _ _ c d _ _)) -> (b,c <> d)) $ normalizeProjectiveLineWithErr l
+  normalize l = crushErr $ normalizeProjectiveLineWithErr l
+    where
+      crushErr (res, PLine2Err _ _ c d _ _) = (res, c <> d)
+  normalizeL l = normalizeProjectiveLineWithErr l
   normOfL l = normOfProjectiveLineWithErr l
   sqNormOfL l = sqNormOfProjectiveLineWithErr l
   translateL l d = (\(r,(PLine2Err _ _ _ _ t _)) -> (r,t)) $ translateProjectiveLine2WithErr l d
@@ -212,9 +219,11 @@ instance Monoid PLine2Err where
 
 -- | Return the sine of the angle between the two lines, along with the error.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
-angleBetweenWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
-angleBetweenWithErr line1 line2 = (scalarPart likeRes
-                                  , resErr)
+angleBetweenWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
+angleBetweenWithErr (line1, line1Err) (line2, line2Err)
+  | line1Err == mempty && line2Err == mempty = (scalarPart likeRes, resErr)
+  -- FIXME: use the input errors to define our output error here.
+  | otherwise = (scalarPart likeRes, resErr)
   where
     resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
     -- FIXME: this returned ULPsum is wrong. actually try to interpret it.
@@ -260,7 +269,7 @@ intersectionOfProjectiveLinesWithErr line1 line2 = (res,
                                                      PPoint2Err resErrs mempty mempty mempty mempty iAngleErr iAngleUnlikeErr))
   where
     -- Since the angle of intersection has an effect on how well this point was resolved, save it with the point.
-    (iAngleErr,(_,_,iAngleUnlikeErr,_)) = angleBetweenWithErr npl1 npl2
+    (iAngleErr,(_,_,iAngleUnlikeErr,_)) = angleBetweenWithErr (npl1, npl1Err) (npl2, npl2Err)
     (res, (_,_, resErrs)) = meetOfProjectiveLinesWithErr npl1 npl2
     (npl1, npl1Err) = normalizeProjectiveLineWithErr line1
     (npl2, npl2Err) = normalizeProjectiveLineWithErr line2
@@ -393,6 +402,7 @@ class (Show a) => ProjectivePoint2 a where
   forceBasisOfP :: a -> a
   idealNormOfP :: a -> (ℝ, UlpSum)
   join2PP :: (ProjectivePoint2 b) => a -> b -> (PLine2, UlpSum)
+  join2PPWithErr :: (ProjectivePoint2 b) => a -> b -> (PLine2, PLine2Err)
   pToEP :: a -> (Point2, UlpSum)
   vecOfP :: a -> GVec
 
@@ -406,6 +416,9 @@ instance ProjectivePoint2 PPoint2 where
       crushErr (res, (PPoint2Err _ cp1Errs _ _ _ _ _
                      ,PPoint2Err _ cp2Errs _ _ _ _ _
                      ,PLine2Err _ _ _ _ _ (resMulErrs, resAddErrs))) = (res, sumErrVals resMulErrs <> sumErrVals resAddErrs <> sumErrVals cp1Errs <> sumErrVals cp2Errs)
+  join2PPWithErr a b = crushErr $ join2ProjectivePointsWithErr a b
+    where
+      crushErr (res, (_,_,resErr)) = (res, resErr)
   pToEP p = crushErr $ fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToPoint2 p
     where
       crushErr (res, PPoint2Err _ cp1Errs _ _ _ _ _) = (res, sumErrVals cp1Errs)
@@ -421,6 +434,9 @@ instance ProjectivePoint2 CPPoint2 where
       crushErr (res, (PPoint2Err _ cp1Errs _ _ _ _ _
                      ,PPoint2Err _ cp2Errs _ _ _ _ _
                      ,PLine2Err _ _ _ _ _ (resMulErrs, resAddErrs))) = (res, sumErrVals resMulErrs <> sumErrVals resAddErrs <> sumErrVals cp1Errs <> sumErrVals cp2Errs)
+  join2PPWithErr a b = crushErr $ join2ProjectivePointsWithErr a b
+    where
+      crushErr (res, (_,_,resErr)) = (res, resErr)
   pToEP p = crushErr $ fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToPoint2 p
     where
       crushErr (res, PPoint2Err _ cp1Errs _ _ _ _ _) = (res, sumErrVals cp1Errs)

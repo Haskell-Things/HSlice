@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToCPPoint2, eToPLine2, getFirstArc, join2PPoint2, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), canonicalize, pPointBetweenPPointsWithErr, distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, intersect2PL, translateL, translateRotatePPoint2, angleBetween2PL, flipL, join2PP, makePPoint2, normalize, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), canonicalize, pPointBetweenPPointsWithErr, distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, intersect2PL, translateL, translateRotatePPoint2, angleBetween2PL, flipL, join2PP, makePPoint2, normalize, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -399,18 +399,18 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
                 <> "angle2: " <> show angle2 <> "\n"
                 <> "angle2Err: " <> show angle2Err <> "\n"
   where
-    (angle2, UlpSum angle2Err) = angleBetween2PL normedPLine3 normedPLine4
+    (angle2, UlpSum angle2Err) = angleBetween2PL (normedPLine3, norm3Err) (normedPLine4, norm4Err)
     (PPoint2 rawBisectorStart, UlpSum bisectorStartErr) = pPointBetweenPPointsWithErr sourceStart sourceEnd 0.5 0.5
     (bisectorEndRaw, UlpSum bisectorEndRawErr) = pPointOnPerpWithErr pline4 (PPoint2 rawBisectorStart) d
     (bisectorEnd, UlpSum bisectorEndErr) = canonicalize bisectorEndRaw
     (pline3, UlpSum pline3Err) = join2PP (CPPoint2 rawBisectorStart) bisectorEnd
-    (normedPLine3, UlpSum norm3Err) = normalize pline3
+    (normedPLine3, norm3Err) = normalizeL pline3
     sourceStart = makePPoint2 x y
     sourceEnd = makePPoint2 x2 y2
     (pline4, UlpSum pline4Err) = join2PP sourceStart sourceEnd
-    (normedPLine4, UlpSum norm4Err) = normalize pline4
-    errTotal3 = angle2Err + norm3Err + pline3Err + pline4Err + norm4Err + bisectorStartErr + bisectorEndRawErr + bisectorEndErr
-    errTotal4 = angle2Err + norm3Err + pline3Err + pline4Err + norm4Err + bisectorStartErr + bisectorEndRawErr + bisectorEndErr
+    (normedPLine4, norm4Err) = normalizeL pline4
+    errTotal3 = angle2Err + pline3Err + pline4Err + bisectorStartErr + bisectorEndRawErr + bisectorEndErr
+    errTotal4 = angle2Err + pline3Err + pline4Err + bisectorStartErr + bisectorEndRawErr + bisectorEndErr
     x2 :: ℝ
     x2 = coerce rawX2
     d :: ℝ
@@ -714,7 +714,7 @@ myAngleBetween a b
                 <> show res <> "\n"
                 <> show resErr <> "\n"
   where
-    (res, UlpSum resErr) = angleBetween2PL a b
+    (res, UlpSum resErr) = angleBetween2PL (a, mempty) (b, mempty)
 
 -- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
@@ -1323,8 +1323,8 @@ prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 
     (angleFound, UlpSum angleErr) = angleBetween2PL bisector1 bisector2
     eNode = randomENode x y d1 rawR1 d2 rawR2
     iNode = randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2
-    bisector1 = normalizePLine2 $ outOf iNode
-    bisector2 = normalizePLine2 $ flipL $ outOf eNode
+    bisector1 = normalizeL $ outOf iNode
+    bisector2 = normalizeL $ flipL $ outOf eNode
 
 prop_eNodeTowardIntersection1 :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Expectation
 prop_eNodeTowardIntersection1 x y d1 rawR1 d2 rawR2 = l1TowardIntersection --> True

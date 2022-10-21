@@ -44,6 +44,7 @@ module Graphics.Slicer.Math.PGA(
   distancePPointToPLineWithErr,
   eToPLine2WithErr,
   eToPPoint2,
+  eToPL,
   flipL,
   intersect2PL,
   intersectsWith,
@@ -51,6 +52,7 @@ module Graphics.Slicer.Math.PGA(
   join2PP,
   makePPoint2,
   normalize,
+  normalizeL,
   outputIntersectsLineSeg,
   pLineIsLeft,
   pPointBetweenPPointsWithErr,
@@ -91,7 +93,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVa
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(hasArc, outOf, outUlpMag, ulpOfOut), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalize, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, forceBasisOfP, idealNormOfP, join2PP, pToEP, vecOfP))
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(hasArc, outOf, outUlpMag, ulpOfOut), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalize, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, forceBasisOfP, idealNormOfP, join2PP, join2PPWithErr, pToEP, vecOfP))
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -113,23 +115,23 @@ plinesIntersectIn :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> PInters
 plinesIntersectIn pl1 pl2
   | isNothing canonicalizedIntersection
   || (idealNorm <= realToFrac (ulpVal idnErr)
-     && (sameDirection pl1 pl2 ||
-         oppositeDirection pl1 pl2)) = if sameDirection pl1 pl2
-                                       then PCollinear
-                                       else PAntiCollinear
-  | sameDirection pl1 pl2            = PParallel
-  | oppositeDirection pl1 pl2        = PAntiParallel
-  | otherwise                        = IntersectsIn res (resUlp, mempty, npl1Ulp, npl2Ulp, iaErr, mempty)
+     && (sameDirection npl1 npl2 ||
+         oppositeDirection npl1 npl2)) = if sameDirection npl1 npl2
+                                         then PCollinear
+                                         else PAntiCollinear
+  | sameDirection npl1 npl2            = PParallel
+  | oppositeDirection npl1 npl2        = PAntiParallel
+  | otherwise                          = IntersectsIn res (resUlp, mempty, mempty, mempty, iaErr, mempty)
   where
     (idealNorm, idnErr) = idealNormOfP intersectPoint
-    (_, iaErr) = angleBetween2PL pl1 pl2
+    (_, iaErr) = angleBetween2PL npl1 npl2
     -- FIXME: how much do the potential normalization errors have an effect on the resultant angle?
     (intersectPoint, intersectUlp) = intersect2PL pl1 pl2
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
     (res, resUlp) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizeIntersectionWithErr pl1 pl2
-    (_, npl1Ulp) = normalize pl1
-    (_, npl2Ulp) = normalize pl2
+    npl1 = normalizeL pl1
+    npl2 = normalizeL pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe Bool
@@ -232,8 +234,8 @@ distanceBetweenPLinesWithErr line1 line2 = (ideal, resUlpSum)
 
 -- | A checker, to ensure two Projective Lines are going the same direction, and are parallel.
 -- FIXME: precision on inputs?
-sameDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
-sameDirection a b = res  >= maxAngle
+sameDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
+sameDirection a b = res >= maxAngle
   where
     -- ceiling value. a value bigger than maxAngle is considered to be going the same direction.
     maxAngle :: ℝ
@@ -242,7 +244,7 @@ sameDirection a b = res  >= maxAngle
 
 -- | A checker, to ensure two Projective Lines are going the opposite direction, and are parallel.
 -- FIXME: precision on inputs?
-oppositeDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
+oppositeDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 oppositeDirection a b = res <= minAngle
   where
     -- floor value. a value smaller than minAngle is considered to be going the opposite direction.
@@ -331,13 +333,13 @@ outputIntersectsLineSeg source (l1, UlpSum l1Err)
   | otherwise = pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
   where
     foundError :: ℝ
-    foundError = realToFrac $ l1Err + pl1Err + pl2Err + npl1Err + npl2Err + rawIntersectionErr + intersectionDistanceErr + canonicalizedSourceErr
+    foundError = realToFrac $ l1Err + pl1Err + pl2Err + rawIntersectionErr + intersectionDistanceErr + canonicalizedSourceErr
     -- | the multiplier used to expand the hitcircle of an endpoint.
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * realToFrac travelUlpMul * abs (realToFrac angle + angleErr)
-    (angle, UlpSum angleErr) = angleBetween2PL pl1 pl2
-    (_, UlpSum npl1Err) = normalize pl1
-    (_, UlpSum npl2Err) = normalize pl2
+    (angle, UlpSum angleErr) = angleBetween2PL (npl1, npl2Err) (npl2, npl2Err)
+    (npl1, npl1Err) = normalizeL pl1
+    (npl2, npl2Err) = normalizeL pl2
     (pl2, UlpSum pl2Err) = eToPLine2WithErr l1
     -- the multiplier to account for distance between our Pointable, and where it intersects.
     travelUlpMul
@@ -366,17 +368,17 @@ intersectsWithErr (Left l1@(rawL1,_))       (Right pl1@(rawPL1,_))     =        
   where
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
-    (angle, UlpSum angleErr) = angleBetween2PL npl1 npl2
-    (npl1, _) = normalize rawPL1
-    (npl2, _) = normalize pl2
+    (angle, UlpSum angleErr) = angleBetween2PL (npl1, npl1Err) (npl2, npl2Err)
+    (npl1, npl1Err) = normalizeL rawPL1
+    (npl2, npl2Err) = normalizeL pl2
     (pl2, _) = eToPLine2WithErr rawL1
 intersectsWithErr (Right pl1@(rawPL1,_))     (Left l1@(rawL1,_))       =         pLineIntersectsLineSeg pl1 l1 ulpScale
   where
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
-    (angle, UlpSum angleErr) = angleBetween2PL npl1 npl2
-    (npl1, _) = normalize rawPL1
-    (npl2, _) = normalize pl2
+    (angle, UlpSum angleErr) = angleBetween2PL (npl1, npl1Err) (npl2, npl2Err)
+    (npl1, npl1Err) = normalizeL rawPL1
+    (npl2, npl2Err) = normalizeL pl2
     (pl2, _) = eToPLine2WithErr rawL1
 
 -- | Check if/where a line segment and a PLine intersect.
@@ -449,15 +451,15 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
     -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
     ulpTotal = pl1Err + pl2Err + l1Err + ulpL2 
     ulpScale = 120 + ulpMultiplier * (realToFrac angle+angleErr) * (realToFrac angle+angleErr)
-    (angle, UlpSum angleErr) = angleBetween2PL npl1 npl2
-    (npl1, _) = normalize pl1
-    (npl2, _) = normalize pl2
+    (angle, UlpSum angleErr) = angleBetween2PL (npl1, npl1Err) (npl2, npl2Err)
+    (npl1, npl1Err) = normalizeL pl1
+    (npl2, npl2Err) = normalizeL pl2
     dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nl1Err: " <> show l1Err <> "\nrawIntersectErr: " <> show rawIntersectErr <> "\n"
     hasIntersection = hasRawIntersection && onSegment l1 rawIntersection ulpStartSum1 ulpEndSum1 && onSegment l2 rawIntersection ulpStartSum2 ulpEndSum2
     hasRawIntersection = valOf 0 foundVal /= 0
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
-    (rawIntersection, UlpSum rawIntersectionErr) = canonicalize rawIntersect
+    (rawIntersection, _) = canonicalize rawIntersect
     (rawIntersect, rawIntersectErr) = intersect2PL pl1 pl2
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
@@ -542,6 +544,11 @@ eToPLine2WithErr l1 = (res, resErr)
   where
     (res, resErr) = join2PP (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
 
+eToPL :: LineSeg -> (PLine2, PLine2Err)
+eToPL l1 = (res, resErr)
+  where
+    (res, resErr) = join2PPWithErr (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
+
 -- | Get the sum of the error involved in storing the values in a given PLine2.
 ulpOfPLine2 :: (ProjectiveLine2 a) => a -> UlpSum
 ulpOfPLine2 line = UlpSum $ sum $ abs . realToFrac . doubleUlp . (\(GVal r _) -> r) <$> catMaybes
@@ -564,7 +571,7 @@ canonicalizeIntersectionWithErr pl1 pl2
   | otherwise = Just (cpp1, ulpTotal)
   where
     (cpp1, canonicalizationErr) = canonicalize pp1
-    (pp1, (_, _, intersectionErr)) = intersect2PL pl1 pl2
+    (pp1, _) = intersect2PL pl1 pl2
     ulpTotal = canonicalizationErr
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
 
