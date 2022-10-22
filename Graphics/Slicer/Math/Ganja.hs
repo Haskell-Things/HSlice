@@ -81,7 +81,7 @@
 -- so we can define a Num instance for Positive.
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), edgesOf, generationsOf, toGanja, dumpGanja, dumpGanjas, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomPLineWithErr, randomLineSeg, cellFrom, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), edgesOf, generationsOf, toGanja, dumpGanja, dumpGanjas, randomPL, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomPLineWithErr, randomLineSeg, cellFrom, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr) where
 
 import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, Int, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
 
@@ -114,7 +114,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), 
 
 import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoint2, normalizePLine2, pPointBetweenPPoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), PLine2(PLine2), PPoint2(PPoint2), eToPLine2WithErr, eToPPoint2, flipL, translateRotatePPoint2, ulpOfLineSeg, outOf, pPointOf, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), PLine2(PLine2), PPoint2(PPoint2), PLine2Err, eToPLine2WithErr, eToPL, eToPPoint2, flipL, translateRotatePPoint2, ulpOfLineSeg, outOf, pPointOf, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
 
@@ -672,6 +672,10 @@ randomPLine x y dx dy = fst $ randomPLineWithErr x y dx dy
 -- | A helper function. constructs a random PLine.
 randomPLineWithErr :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (PLine2, UlpSum)
 randomPLineWithErr x y dx dy = eToPLine2WithErr $ makeLineSeg (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
+
+-- | A helper function. constructs a random PLine.
+randomPL :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (PLine2, PLine2Err)
+randomPL x y dx dy = eToPL $ makeLineSeg (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
 
 -- | A helper function. constructs a random LineSeg.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg

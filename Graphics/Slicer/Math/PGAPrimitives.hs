@@ -61,18 +61,22 @@ module Graphics.Slicer.Math.PGAPrimitives
       join2PPWithErr,
       pToEP,
       vecOfP
-      )
+      ),
+    xIntercept,
+    yIntercept
   ) where
 
-import Prelude(Bool, Eq((==),(/=)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), ($), (+), (*), (<$>), (&&), abs, error, filter, negate, otherwise, realToFrac, sqrt)
+import Prelude(Bool, Eq((==),(/=)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), ($), (+), (*), (/), (<$>), (&&), abs, error, filter, negate, otherwise, realToFrac, sqrt)
 
 import Control.DeepSeq (NFData)
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
+import Data.Either (Either(Left, Right))
+
 import Data.List (foldl', sort)
 
-import Data.Maybe (Maybe(Just,Nothing), fromMaybe, isNothing)
+import Data.Maybe (Maybe(Just,Nothing), fromMaybe, isJust, isNothing)
 
 import Data.Set (Set, elems, fromList, singleton)
 
@@ -334,6 +338,69 @@ translateProjectiveLine2WithErr line d = (PLine2 res, normErr <> PLine2Err resEr
     tAdd = d * norm
     tUlp = UlpSum $ abs $ realToFrac $ doubleUlp tAdd
     (norm, normErr) = normOfL line
+
+-----------------------------------------
+--- Projective Line Error Calculation ---
+-----------------------------------------
+
+-- | find the approximate point that a given line crosses the X axis.
+xIntercept :: (ProjectiveLine2 a) => (a, PLine2Err) -> Maybe (Either a ℝ, UlpSum)
+xIntercept (line, lineErr)
+  -- handle a line that is parallel to the X axis.
+  | isNothing rawX = Nothing
+  -- use X and T to calculate our answer
+  | isJust rawT = Just (Right xDivRes, xDivErr)
+  -- is colinear with the X axis.
+  | isNothing rawY = Just (Left line, mempty)
+  -- we have an X and a Y, but no T? this line passes through the origin.
+  | isNothing rawT = Just (Right 0, mempty)
+  | otherwise = error "totality failure: we should never get here."
+  where
+    -- negate is required, because the X value is inverted.
+    xDivRes = negate $ valOf 0 rawT / valOf 0 rawX
+    xDivErr = rawXErr <> rawTErr <> UlpSum (abs $ realToFrac $ doubleUlp xDivRes)
+    rawTErr = eValOf mempty (getVal [GEZero 1] lAddErr)
+           <> eValOf mempty (getVal [GEZero 1] lNormalizeErr)
+           <> eValOf mempty (getVal [GEZero 1] lJoinAddErr)
+           <> eValOf mempty (getVal [GEZero 1] lJoinMulErr)
+    rawXErr = eValOf mempty (getVal [GEPlus 1] lAddErr)
+           <> eValOf mempty (getVal [GEPlus 1] lNormalizeErr)
+           <> eValOf mempty (getVal [GEPlus 1] lJoinAddErr)
+           <> eValOf mempty (getVal [GEPlus 1] lJoinMulErr)
+    (PLine2Err lAddErr lNormalizeErr _ _ _ (lJoinMulErr, lJoinAddErr)) = lineErr
+    rawT = getVal [GEZero 1] pLineVals
+    rawX = getVal [GEPlus 1] pLineVals
+    rawY = getVal [GEPlus 2] pLineVals
+    (GVec pLineVals) = vecOfL line
+
+-- | find the point that a given line crosses the Y axis.
+yIntercept :: (ProjectiveLine2 a) => (a, PLine2Err) -> Maybe (Either a ℝ, UlpSum)
+yIntercept (line, lineErr)
+  -- handle a line that is parallel to the Y axis.
+  | isNothing rawY = Nothing
+  -- use Y and T to calculate our answer
+  | isJust rawT = Just $ (Right yDivRes, yDivErr)
+  -- is along the Y axis.
+  | isNothing rawX = Just (Left line, mempty)
+  -- we have an X and a Y? this line passes through the origin.
+  | isNothing rawT = Just (Right 0, mempty)
+  | otherwise = error "we should never get here"
+  where
+    yDivRes = negate $ valOf 0 rawT / valOf 0 rawY
+    yDivErr = rawYErr <> rawTErr <> UlpSum (abs $ realToFrac $ doubleUlp yDivRes)
+    rawTErr = eValOf mempty (getVal [GEZero 1] lAddErr)
+              <> eValOf mempty (getVal [GEZero 1] lNormalizeErr)
+              <> eValOf mempty (getVal [GEZero 1] lJoinAddErr)
+              <> eValOf mempty (getVal [GEZero 1] lJoinMulErr)
+    rawYErr = eValOf mempty (getVal [GEPlus 2] lAddErr)
+              <> eValOf mempty (getVal [GEPlus 2] lNormalizeErr)
+              <> eValOf mempty (getVal [GEPlus 2] lJoinAddErr)
+              <> eValOf mempty (getVal [GEPlus 2] lJoinMulErr)
+    (PLine2Err lAddErr lNormalizeErr _ _ _ (lJoinMulErr, lJoinAddErr)) = lineErr
+    rawT = getVal [GEZero 1] pLineVals
+    rawX = getVal [GEPlus 1] pLineVals
+    rawY = getVal [GEPlus 2] pLineVals
+    (GVec pLineVals) = vecOfL line
 
 --------------------------------
 --- Projective Point Support ---

@@ -25,7 +25,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, (/=), (<=), mempty, otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, realToFrac, sqrt, (<), (>), (-), (/), (||), (*))
+import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, (/=), (<=), mempty, otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, realToFrac, sqrt, (<), (>), (-), (/), (||), (*), snd)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -35,11 +35,11 @@ import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive))
 
 import Data.Coerce (coerce)
 
-import Data.Either (Either(Left, Right))
+import Data.Either (Either(Left, Right), fromRight, isLeft)
 
 import Data.List (foldl')
 
-import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
+import Data.Maybe (fromJust, fromMaybe, isNothing, Maybe(Just, Nothing))
 
 import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf))
 
@@ -54,12 +54,16 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), roundPoint2, startPoint, distance, xOf, yOf, minMaxPoints, makeLineSeg, endPoint)
 
 -- Our Geometric Algebra library.
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, ulpVal, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToCPPoint2, eToPLine2, getFirstArc, join2PPoint2, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), canonicalize, pPointBetweenPPointsWithErr, distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, intersect2PL, translateL, translateRotatePPoint2, angleBetween2PL, flipL, join2PP, makePPoint2, normalize, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalize, pPointBetweenPPointsWithErr, distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPL, eToPPoint2, intersect2PL, translateL, translateRotatePPoint2, angleBetween2PL, flipL, join2PP, makePPoint2, normalize, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, ulpOfOut, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
+
+
+-- The primitives of our PGA only library, and error estimation code.
+import Graphics.Slicer.Math.PGAPrimitives (xIntercept, yIntercept)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -83,7 +87,7 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Math.Util ((-->), (-/>))
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
-import Graphics.Slicer.Math.Ganja (ListThree, Radian(Radian), cellFrom, edgesOf, generationsOf, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, dumpGanjas, toGanja, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr)
+import Graphics.Slicer.Math.Ganja (ListThree, Radian(Radian), cellFrom, edgesOf, generationsOf, randomPL, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, dumpGanjas, toGanja, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
@@ -1409,6 +1413,63 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
       | rawY2 == y = if y == 1 then 2 else 1
       | otherwise = rawY2
 
+prop_PLineIntersectsAtXAxis :: ℝ -> ℝ -> NonZero ℝ -> ℝ -> NonZero ℝ -> Bool
+prop_PLineIntersectsAtXAxis x y rawX2 y2 m
+  -- ignore the case where the random PLine is parallel to the X axis.
+  | isNothing axisIntersection = True
+  -- Ignore the case where the random PLine is colinear to the X axis.
+  | isLeft $ fst $ fromJust axisIntersection = True
+  | foundDistance < realToFrac errSum = True
+  | otherwise = error
+                $ "wtf\n"
+                <> show foundDistance <> "\n"
+                <> show errSum <> "\n"
+                <> show axisPLine <> "\n"
+                <> show foundDistance <> "\n"
+                <> show distanceErr <> "\n"
+                <> show intersectionErr <> "\n"
+  where
+    errSum = ulpVal $ axisIntersectionErr <> distanceErr
+    (foundDistance, distanceErr) = distanceBetweenPPointsWithErr axisIntersectionPoint intersectionPPoint2
+    axisIntersectionErr = snd $ fromJust axisIntersection
+    axisIntersectionPoint = eToPPoint2 $ Point2 ((fromRight (error "not right?") $ fst $ fromJust axisIntersection), 0)
+    axisIntersection = xIntercept (randomPLine1, pline1Err)
+    (intersectionPPoint2, intersectionErr) = intersect2PL randomPLine1 axisPLine
+    (randomPLine1, pline1Err) = randomPL x y rawX2 (coerce y2)
+    (axisPLine, _) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (coerce m,0))
+    x2 :: ℝ
+    x2 = coerce rawX2
+
+prop_PLineIntersectsAtYAxis :: NonZero ℝ -> ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
+prop_PLineIntersectsAtYAxis x y x2 rawY2 m
+  -- ignore the case where the random PLine is parallel to the X axis.
+  | isNothing axisIntersection = True
+  -- Ignore the case where the random PLine is colinear to the X axis.
+  | isLeft $ fst $ fromJust axisIntersection = True
+  | foundDistance < realToFrac errSum = True
+  | otherwise = error
+                $ "wtf\n"
+                <> show foundDistance <> "\n"
+                <> show errSum <> "\n"
+                <> show randomPLine1 <> "\n"
+                <> show axisPLine <> "\n"
+                <> show axisIntersectionPoint <> "\n"
+                <> show intersectionPPoint2 <> "\n"
+                <> show foundDistance <> "\n"
+                <> show distanceErr <> "\n"
+                <> show intersectionErr <> "\n"
+  where
+    errSum = ulpVal $ axisIntersectionErr <> distanceErr
+    (foundDistance, distanceErr) = distanceBetweenPPointsWithErr axisIntersectionPoint intersectionPPoint2
+    axisIntersectionErr = snd $ fromJust axisIntersection
+    axisIntersectionPoint = eToPPoint2 $ Point2 (0,(fromRight (error "not right?") $ fst $ fromJust axisIntersection))
+    axisIntersection = yIntercept (randomPLine1, pline1Err)
+    (intersectionPPoint2, intersectionErr) = intersect2PL randomPLine1 axisPLine
+    (randomPLine1, pline1Err) = randomPL (coerce x) y (coerce x2) (coerce y2)
+    (axisPLine, axisErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (0,coerce m))
+    y2 :: ℝ
+    y2 = coerce rawY2
+
 facetFlakeySpec :: Spec
 facetFlakeySpec = do
   describe "Stability (Points)" $ do
@@ -1450,6 +1511,11 @@ facetSpec = do
       property prop_LineSegWithinErrRange
     it "a normalized line normalized again is approximately itsself" $
       property prop_NormPLineIsPLine
+  describe "Stability (Error)" $ do
+    it "finds that the X intersection of a random PLine is within the returned UlpSum" $
+      property prop_PLineIntersectsAtXAxis
+    it "finds that the Y intersection of a random PLine is within the returned UlpSum" $
+      property prop_PLineIntersectsAtYAxis
   describe "Stability (Intersections)" $ do
     it "finds that the intersection of two PLines at the origin are within the returned UlpSum" $
       property prop_PLinesIntersectAtOrigin
