@@ -34,7 +34,7 @@ import Graphics.Slicer.Math.Intersections (isCollinear, isAntiCollinear, isParal
 
 import Graphics.Slicer.Math.PGA (distanceBetweenPPointsWithErr, eToPLine2WithErr)
 
-import Graphics.Slicer.Math.PGAPrimitives (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetween2PL, canonicalize, flipL, join2PP, normalize)
+import Graphics.Slicer.Math.PGAPrimitives (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetween2PL, canonicalize, flipL, join2PP, normalizeL)
 
 -- | Get a PLine along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
 -- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
@@ -64,14 +64,14 @@ getOutsideArcWithErr ppoint1 pline1 ppoint2 pline2
       intersectionPoint = intersectionOf (npline1,npline1Err) (npline2,npline2Err)
       l1TowardPoint = towardIntersection (cppoint1,c1Err) (npline1,npline1Err) (intersectionPoint,mempty)
       l2TowardPoint = towardIntersection (cppoint2,c2Err) (npline2,npline2Err) (intersectionPoint,mempty)
-      (npline1, npline1Err) = normalize pline1
-      (npline2, npline2Err) = normalize pline2
+      (npline1, npline1Err) = normalizeL pline1
+      (npline2, npline2Err) = normalizeL pline2
       (cppoint1,c1Err) = canonicalize ppoint1
       (cppoint2,c2Err) = canonicalize ppoint2
 
 -- Determine if the line segment formed by the two given points starts with the first point, or the second.
 towardIntersection :: (ProjectivePoint,PPoint2Err) -> (ProjectiveLine,PLine2Err) -> (ProjectivePoint,PPoint2Err) -> Bool
-towardIntersection pp1@(rawPp1,_) pl1@(rawPl1,_) pp2@(rawPp2,_)
+towardIntersection pp1@(rawPp1,_) pl1 pp2@(rawPp2,_)
   | d <= totalErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
   | otherwise = angleFound > 0
   where
@@ -91,13 +91,13 @@ getFirstArcWithErr p1 p2 p3
   where
     -- only used for the quad case.
     -- FIXME: how do we track error from normalization?
-    (NPLine2 quadRes, _) = normalize quad
+    (NPLine2 quadRes, _) = normalizeL quad
     (quad, quadPLineErr) = eToPLine2WithErr (makeLineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3)
     -- used for all other cases.
     (insideArc, (_,_,insideArcRawErr)) = getInsideArcWithErr (PLine2 side1) (PLine2 side2)
-    (NPLine2 side1, side1NormErr) = normalize side1Raw
+    (NPLine2 side1, side1NormErr) = normalizeL side1Raw
     (side1Raw, side1RawErr) = eToPLine2WithErr (makeLineSeg p1 p2)
-    (NPLine2 side2, side2NormErr) = normalize side2Raw
+    (NPLine2 side2, side2NormErr) = normalizeL side2Raw
     (side2Raw, side2RawErr) = eToPLine2WithErr (makeLineSeg p2 p3)
     insideArcErr = side1NormErr <> side1RawErr <> side2NormErr <> side2RawErr <> insideArcRawErr
 
@@ -109,11 +109,11 @@ getInsideArcWithErr pline1 pline2
   | npline1 == npline2 = error "need to be able to return two PLines."
   | otherwise = (res, (npline1Err, npline2Err, resNormErr <> PLine2Err addErr mempty mempty mempty mempty mempty))
   where
-      (res, resNormErr) = normalize $ PLine2 rawPLine2
+      (res, resNormErr) = normalizeL $ PLine2 rawPLine2
       (rawPLine2, addErr)       = addVecPairWithErr pv1 pv2
       (NPLine2 pv1)             = flipL npline1
-      (npline1, npline1Err) = normalize pline1
-      (npline2, npline2Err) = normalize pline2
+      (npline1, npline1Err) = normalizeL pline1
+      (npline2, npline2Err) = normalizeL pline2
       pv2 = case pline2 of
               (NPLine2 a) -> a
               (PLine2 a) -> a

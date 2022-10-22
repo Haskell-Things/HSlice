@@ -50,7 +50,7 @@ module Graphics.Slicer.Math.PGA(
   intersectsWithErr,
   join2PP,
   makePPoint2,
-  normalize,
+  normalizeL,
   outputIntersectsLineSeg,
   oppositeDirection,
   pLineFuzziness,
@@ -66,7 +66,7 @@ module Graphics.Slicer.Math.PGA(
   translateRotatePPoint2WithErr
   ) where
 
-import Prelude (Bool, Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (*), (-), (&&), (<$>), (>), (>=), (<=), (+), (/), (||), (<), abs, cos, error, fst, negate, otherwise, realToFrac, signum, sin)
+import Prelude (Bool, Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (*), (-), (&&), (<$>), (>), (>=), (<=), (+), (/), (||), (<), abs, cos, error, fst, negate, otherwise, realToFrac, signum, sin, snd)
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
@@ -92,7 +92,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err(PPoint2Err), ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalize, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, forceBasisOfP, idealNormOfP, join2PP, pToEP, vecOfP), xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err(PPoint2Err), ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, forceBasisOfP, idealNormOfP, join2PP, pToEP, vecOfP), xIntercept, yIntercept)
   
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
@@ -135,8 +135,8 @@ plinesIntersectIn l1@(pl1,pl1Err) l2@(pl2,pl2Err)
     (idealNorm, idnErr) = idealNormOfP res
     (res, (_, _, resErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizeIntersectionWithErr npline1 npline2
-    npline1@(npl1, npl1Err) = normalize pl1
-    npline2@(npl2, npl2Err) = normalize pl2
+    npline1@(npl1, npl1Err) = normalizeL pl1
+    npline2@(npl2, npl2Err) = normalizeL pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 -- FIXME: error quotent handling in here is trash.
@@ -150,8 +150,8 @@ pLineIsLeft (pl1, pl1Err) (pl2,pl2Err)
   where
     (res, _) = angleCos (npl1, pl1Err <> npl2Err) (npl2, pl2Err <> npl2Err)
     ulpTotal = ulpVal $ pLineFuzziness (npl1, pl1Err <> npl1Err) <> pLineFuzziness (npl2, pl2Err <> npl2Err)
-    (npl1, npl1Err) = normalize pl1
-    (npl2, npl2Err) = normalize pl2
+    (npl1, npl1Err) = normalizeL pl1
+    (npl2, npl2Err) = normalizeL pl2
     -- | Find the cosine of the angle between the two lines. results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when "right".
     angleCos :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ℝ, PPoint2Err)
     angleCos (pline1, pline1Err) (pline2, pline2Err)
@@ -208,7 +208,7 @@ distancePPointToPLineWithErr (rawPoint,rawPointErr) (rawLine,rawLineErr)
     (perpLine, perpLineErr)   = lVec ⨅+ pVec
     lVec = vecOfL $ forceBasisOfL rawNLine
     nLineErr = rawNLineErr <> rawLineErr
-    (rawNLine, rawNLineErr) = normalize rawLine
+    (rawNLine, rawNLineErr) = normalizeL rawLine
     foundVal = getVal [GEPlus 1, GEPlus 2] pVals
     point@(CPPoint2 pVec@(GVec pVals)) = forceBasisOfP cpoint
     pointErr = cPointErr <> rawPointErr
@@ -277,7 +277,7 @@ pLineFuzziness (inPLine, inErr) = transErr
   where
     transErr = tUlp <> eValOf mempty (getVal [GEZero 1] resAddErr) <> eValOf mempty (getVal [GEZero 1] resMulErr)
     (PLine2Err _ _ _ _ tUlp (resAddErr, resMulErr)) = inErr <> nplineErr
-    (_, nplineErr) = normalize inPLine
+    (_, nplineErr) = normalizeL inPLine
 
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
 -- FIXME: accept input error amounts, take input error amounts into consideration.
@@ -289,8 +289,8 @@ distanceBetweenPLinesWithErr line1 line2 = (res, resErr)
     (like, likeErr) = p1 ⎣+ p2
     p1 = vecOfL $ forceBasisOfL npl1
     p2 = vecOfL $ forceBasisOfL npl2
-    (npl1,pv1Err) = normalize line1
-    (npl2,pv2Err) = normalize line2
+    (npl1,pv1Err) = normalizeL line1
+    (npl2,pv2Err) = normalizeL line2
 
 -- | A checker, to ensure two Projective Lines are going the same direction, and are parallel.
 -- FIXME: precision on inputs?
@@ -330,7 +330,7 @@ pPointOnPerpWithErr pline rppoint d = (res, (rlErr, perpPLineErr, ulpTotal))
     ulpTotal = gaIErr <> lErr
     pvec = vecOfP $ forceBasisOfP rppoint
     lErr = pLineErrAtPPoint nPLine rppoint
-    nPLine@((NPLine2 rlvec),rlErr) = normalize pline
+    nPLine@((NPLine2 rlvec),rlErr) = normalizeL pline
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
 translateRotatePPoint2WithErr :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> (ProjectivePoint, [ErrVal])
@@ -502,9 +502,9 @@ pLineErrAtPPoint (inPLine, inPLineErr) errPoint
                                              <> "xInterceptFuzz: " <> show xInterceptFuzz <> "\n"
                                              <> "yInterceptFuzz: " <> show yInterceptFuzz <> "\n"
   -- only the xIntercept is real. this line is parallel to the Y axis.
-  | xInterceptIsRight = resYAxis -- <> resYAxis
+  | xInterceptIsRight = resYAxis
   -- only the yIntercept is real. this line is parallel to the X axis.
-  | yInterceptIsRight = resXAxis -- <> resXAxis
+  | yInterceptIsRight = resXAxis
   | otherwise = UlpSum $ realToFrac errT
   where
     dumpInputs = "npline: " <> show npline <> "\n"
@@ -513,14 +513,14 @@ pLineErrAtPPoint (inPLine, inPLineErr) errPoint
               <> "errY: " <> show errY <> "\n"
               <> "errT: " <> show errT <> "\n"
     -- this line is parallel to the X axis.
-    resXAxis = UlpSum $ realToFrac $ errT + yInterceptFuzz
+    resXAxis = UlpSum yInterceptFuzz
     -- this line is parallel to the Y axis.
-    resYAxis = UlpSum $ realToFrac $ errT + xInterceptFuzz
+    resYAxis = UlpSum xInterceptFuzz
     -- this line is not parallel to either axis.
-    res2Axis = UlpSum $ realToFrac $ errT +
+    res2Axis = UlpSum $ realToFrac $
                case interceptDistance of
                  0 -> originFuzz
-                 _ -> xInterceptFuzz + yInterceptFuzz
+                 _ -> realToFrac $ xInterceptFuzz + yInterceptFuzz
     originFuzz = (errX + errY) * ( 1 + fst (distanceBetweenPPointsWithErr (origin, mempty) (errPoint, mempty)))
     origin = eToPPoint2 $ Point2 (0,0)
     interceptDistance = distance (Point2 (fromRight 0 $ fst $ fromJust $ xIntercept (npline,nplineErr), 0))
@@ -529,13 +529,18 @@ pLineErrAtPPoint (inPLine, inPLineErr) errPoint
     (Point2 (xPos,yPos),_) = pToEP errPoint
     xInterceptIsRight = isJust (xIntercept (npline,nplineErr)) && isRight (fst $ fromJust $ xIntercept (npline,nplineErr))
     -- NOTE: can't check the distance here, because distancePPointToPLineWithErr calls this. ;)
-    xInterceptFuzz = errX * (1 + abs xPos)
+    xInterceptFuzz = ulpVal (snd $ fromJust $ xIntercept (inPLine, inPLineErr)) * realToFrac (1 + abs xPos)
     yInterceptIsRight = isJust (yIntercept (npline,nplineErr)) && isRight (fst $ fromJust $ yIntercept (npline,nplineErr))
     -- NOTE: can't check a distance here, because distancePPointToPLineWithErr calls this. ;)
-    yInterceptFuzz = errY * (1 + abs yPos)
+    yInterceptFuzz = ulpVal (snd $ fromJust $ yIntercept (inPLine, inPLineErr)) * realToFrac (1 + abs yPos)
     (PLine2Err pLineAddErr pLineNormalizationErr pLineNormErr _ _ (pLineJoinMulErr, pLineJoinAddErr)) = nplineErr <> inPLineErr
-    (npline, nplineErr) = normalize inPLine
+    (npline, nplineErr) = normalizeL inPLine
     errX, errY, errT :: ℝ
+    errT = realToFrac $ ulpVal $ eValOf mempty (getVal [GEZero 1] pLineAddErr)
+                              <> eValOf mempty (getVal [GEZero 1] pLineNormalizationErr)
+                              <> eValOf mempty (getVal [GEZero 1] pLineJoinAddErr)
+                              <> eValOf mempty (getVal [GEZero 1] pLineJoinMulErr)
+                              <> pLineNormErr
     errX = realToFrac $ ulpVal $ eValOf mempty (getVal [GEPlus 1] pLineAddErr)
                               <> eValOf mempty (getVal [GEPlus 1] pLineNormalizationErr)
                               <> eValOf mempty (getVal [GEPlus 1] pLineJoinAddErr)
@@ -544,11 +549,6 @@ pLineErrAtPPoint (inPLine, inPLineErr) errPoint
                               <> eValOf mempty (getVal [GEPlus 2] pLineNormalizationErr)
                               <> eValOf mempty (getVal [GEPlus 2] pLineJoinAddErr)
                               <> eValOf mempty (getVal [GEPlus 2] pLineJoinMulErr)
-    errT = realToFrac $ ulpVal $ eValOf mempty (getVal [GEZero 1] pLineAddErr)
-                              <> eValOf mempty (getVal [GEZero 1] pLineNormalizationErr)
-                              <> eValOf mempty (getVal [GEZero 1] pLineJoinAddErr)
-                              <> eValOf mempty (getVal [GEZero 1] pLineJoinMulErr)
-                              <> pLineNormErr
 
 -- | Combine consecutive line segments. expects line segments with their end points connecting, EG, a contour generated by makeContours.
 combineConsecutiveLineSegs :: [LineSeg] -> [LineSeg]

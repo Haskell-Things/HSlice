@@ -49,7 +49,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
 import Graphics.Slicer.Math.PGA (distanceBetweenPPointsWithErr, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, translateRotatePPoint2WithErr)
 
-import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err, angleBetween2PL, join2PP, normalize, pToEP, translateL)
+import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err, angleBetween2PL, join2PP, normalizeL, pToEP, translateL)
 
 angleBetween :: ProjectiveLine -> ProjectiveLine -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetween2PL (nPLine1,mempty) (nPLine2,mempty)
@@ -88,7 +88,7 @@ join2PPoints pp1 pp2 = fst $ join2PP pp1 pp2
 
 -- | Normalize a ProjectiveLine.
 normalizePLine2 :: ProjectiveLine -> ProjectiveLine
-normalizePLine2 pl = fst $ normalize pl
+normalizePLine2 pl = fst $ normalizeL pl
 
 -- | Create a projective line from a pair of euclidian points.
 pLineFromEndpoints :: Point2 -> Point2 -> ProjectiveLine

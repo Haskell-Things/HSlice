@@ -116,7 +116,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), 
 
 import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoints, pPointBetweenPPoints, pToEPoint2, translateRotatePPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint(CPPoint2, PPoint2), ProjectiveLine(NPLine2, PLine2), PLine2Err, PPoint2Err, eToPLine2WithErr, eToPPoint2, hasArc, flipL, normalize, outOf, pPointOf)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(CPPoint2, PPoint2), ProjectiveLine(NPLine2, PLine2), PLine2Err, PPoint2Err, eToPLine2WithErr, eToPPoint2, hasArc, flipL, normalizeL, outOf, pPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode)
 
@@ -687,7 +687,7 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
   where
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
-    pl1 = (\(NPLine2 a) -> PLine2 a) $ fst $ normalize $ eToPLine2 $ getFirstLineSeg eNode
+    pl1 = (\(NPLine2 a) -> PLine2 a) $ fst $ normalizeL $ eToPLine2 $ getFirstLineSeg eNode
     pl2 = (\(NPLine2 a) -> PLine2 a) $ flipL $ eToPLine2 $ getLastLineSeg eNode
     intersectionPPoint = pPointOf eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
