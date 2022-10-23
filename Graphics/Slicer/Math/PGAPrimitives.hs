@@ -55,6 +55,7 @@ module Graphics.Slicer.Math.PGAPrimitives
       ),
     ProjectivePoint2(
       canonicalize,
+      distance2PP,
       forceBasisOfP,
       idealNormOfP,
       join2PP,
@@ -356,7 +357,7 @@ xIntercept (line, lineErr)
   | isNothing rawT = Just (Right 0, mempty)
   | otherwise = error "totality failure: we should never get here."
   where
-    -- negate is required, because the X value is inverted.
+    -- negate is required, because the result is inverted.
     xDivRes = negate $ valOf 0 rawT / valOf 0 rawX
     xDivErr = rawXErr <> rawTErr <> UlpSum (abs $ realToFrac $ doubleUlp xDivRes)
     rawTErr = eValOf mempty (getVal [GEZero 1] lAddErr)
@@ -386,6 +387,7 @@ yIntercept (line, lineErr)
   | isNothing rawT = Just (Right 0, mempty)
   | otherwise = error "we should never get here"
   where
+    -- negate is required, because the result is inverted.
     yDivRes = negate $ valOf 0 rawT / valOf 0 rawY
     yDivErr = rawYErr <> rawTErr <> UlpSum (abs $ realToFrac $ doubleUlp yDivRes)
     rawTErr = eValOf mempty (getVal [GEZero 1] lAddErr)
@@ -466,6 +468,7 @@ class Arcable a where
 class (Show a) => ProjectivePoint2 a where
   canonicalize :: a -> (CPPoint2, UlpSum)
   consLikeP :: a -> (GVec -> a)
+  distance2PP :: (ProjectivePoint2 b) => a -> b -> (ℝ, UlpSum)
   forceBasisOfP :: a -> a
   idealNormOfP :: a -> (ℝ, UlpSum)
   join2PP :: (ProjectivePoint2 b) => a -> b -> (PLine2, UlpSum)
@@ -476,6 +479,9 @@ class (Show a) => ProjectivePoint2 a where
 instance ProjectivePoint2 PPoint2 where
   canonicalize p = (\(a, PPoint2Err _ cp1Errs _ _ _ _ _) -> (a,sumErrVals cp1Errs)) $ canonicalizePPoint2WithErr p
   consLikeP (PPoint2 _) = PPoint2
+  distance2PP p1 p2 = crushErr $ distanceBetweenPPointsWithErr p1 p2
+    where
+      crushErr a = a
   forceBasisOfP a = forceProjectivePointBasis a
   idealNormOfP a = idealNormPPoint2WithErr a
   join2PP a b = crushErr $ join2ProjectivePointsWithErr a b
@@ -494,6 +500,9 @@ instance ProjectivePoint2 PPoint2 where
 instance ProjectivePoint2 CPPoint2 where
   canonicalize p = (p, mempty)
   consLikeP (CPPoint2 _) = CPPoint2
+  distance2PP p1 p2 = crushErr $ distanceBetweenPPointsWithErr p1 p2
+    where
+      crushErr a = a
   forceBasisOfP p = forceProjectivePointBasis p
   idealNormOfP p = idealNormPPoint2WithErr p
   join2PP a b = crushErr $ join2ProjectivePointsWithErr a b
@@ -534,6 +543,15 @@ canonicalizePPoint2WithErr point
     (GVec scaledVals, scaledErrs) = divVecScalarWithErr newVec $ valOf 1 foundVal
     (GVec rawVals) = vecOfP point
     foundVal = getVal [GEPlus 1, GEPlus 2] rawVals
+
+distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (ℝ, UlpSum)
+distanceBetweenPPointsWithErr point1 point2 = (res, ulpTotal)
+  where
+    (res, _)                = normOfL newPLine
+    (newPLine, newPLineUlp) = join2PP cpoint1 cpoint2
+    ulpTotal                = newPLineUlp -- resErr -- <> PLine2Err _ _ _ _ _ newPLineUlp
+    (cpoint1, _) = canonicalize point1
+    (cpoint2, _) = canonicalize point2
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a Projective Point.
 forceProjectivePointBasis :: (ProjectivePoint2 a) => a -> a
