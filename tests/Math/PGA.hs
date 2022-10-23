@@ -35,11 +35,11 @@ import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive))
 import Test.QuickCheck.Property (Result, label , liftBool, succeeded, Property)
 import Data.Coerce (coerce)
 
-import Data.Either (Either(Left, Right), rights)
+import Data.Either (Either(Left, Right), fromRight, isLeft, rights)
 
 import Data.List (concat, foldl', transpose)
 
-import Data.Maybe (fromMaybe, fromJust, Maybe(Just, Nothing))
+import Data.Maybe (fromMaybe, fromJust, isNothing, Maybe(Just, Nothing))
 
 import Data.Set (singleton, fromList)
 
@@ -59,7 +59,9 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersection
 import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, pLineErrAtPPoint, eToPPoint2, eToPLine2WithErr, join2PP, intersect2PL, translateL, angleBetween2PL, flipL, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, pLineErrAtPPoint, eToPPoint2, join2PP, intersect2PL, translateL, angleBetween2PL, flipL, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
+
+import Graphics.Slicer.Math.PGAPrimitives (xIntercept, yIntercept)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -1429,6 +1431,63 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
       | rawY2 == y = if y == 1 then 2 else 1
       | otherwise = rawY2
 
+prop_PLineIntersectsAtXAxis :: ℝ -> ℝ -> NonZero ℝ -> ℝ -> NonZero ℝ -> Bool
+prop_PLineIntersectsAtXAxis x y rawX2 y2 m
+  -- ignore the case where the random PLine is parallel to the X axis.
+  | isNothing axisIntersection = True
+  -- Ignore the case where the random PLine is colinear to the X axis.
+  | isLeft $ fst $ fromJust axisIntersection = True
+  | foundDistance < realToFrac errSum = True
+  | otherwise = error
+                $ "wtf\n"
+                <> show foundDistance <> "\n"
+                <> show errSum <> "\n"
+                <> show axisPLine <> "\n"
+                <> show foundDistance <> "\n"
+                <> show distanceErr <> "\n"
+                <> show intersectionErr <> "\n"
+  where
+    errSum = ulpVal $ axisIntersectionErr <> distanceErr
+    (foundDistance, (_,_,_,distanceErr)) = distanceBetweenPPointsWithErr (axisIntersectionPoint,mempty) (intersectionPPoint2, intersectionErr)
+    axisIntersectionErr = snd $ fromJust axisIntersection
+    axisIntersectionPoint = eToPPoint2 $ Point2 ((fromRight (error "not right?") $ fst $ fromJust axisIntersection), 0)
+    axisIntersection = xIntercept (randomPLine1, pline1Err)
+    (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL (randomPLine1,pline1Err) (axisPLine, axisErr)
+    (randomPLine1, pline1Err) = randomPLineWithErr x y rawX2 (coerce y2)
+    (axisPLine, axisErr) = eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (coerce m,0))
+    x2 :: ℝ
+    x2 = coerce rawX2
+
+prop_PLineIntersectsAtYAxis :: NonZero ℝ -> ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
+prop_PLineIntersectsAtYAxis x y x2 rawY2 m
+  -- ignore the case where the random PLine is parallel to the X axis.
+  | isNothing axisIntersection = True
+  -- Ignore the case where the random PLine is colinear to the X axis.
+  | isLeft $ fst $ fromJust axisIntersection = True
+  | foundDistance < realToFrac errSum = True
+  | otherwise = error
+                $ "wtf\n"
+                <> show foundDistance <> "\n"
+                <> show errSum <> "\n"
+                <> show randomPLine1 <> "\n"
+                <> show axisPLine <> "\n"
+                <> show axisIntersectionPoint <> "\n"
+                <> show intersectionPPoint2 <> "\n"
+                <> show foundDistance <> "\n"
+                <> show distanceErr <> "\n"
+                <> show intersectionErr <> "\n"
+  where
+    errSum = ulpVal $ axisIntersectionErr <> distanceErr
+    (foundDistance, (_,_,_,distanceErr)) = distanceBetweenPPointsWithErr (axisIntersectionPoint, mempty) (intersectionPPoint2, intersectionErr)
+    axisIntersectionErr = snd $ fromJust axisIntersection
+    axisIntersectionPoint = eToPPoint2 $ Point2 (0,(fromRight (error "not right?") $ fst $ fromJust axisIntersection))
+    axisIntersection = yIntercept (randomPLine1, pline1Err)
+    (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL (randomPLine1, pline1Err) (axisPLine, axisErr)
+    (randomPLine1, pline1Err) = randomPLineWithErr (coerce x) y (coerce x2) (coerce y2)
+    (axisPLine, axisErr) = eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (0,coerce m))
+    y2 :: ℝ
+    y2 = coerce rawY2
+
 facetFlakeySpec :: Spec
 facetFlakeySpec = do
   describe "Stability (Points)" $ do
@@ -1483,6 +1542,11 @@ facetSpec = do
       property prop_PLinesIntersectAtOrigin
     it "finds endpoints and startpoints in equal quantities at the origin" $
       property prop_LineSegIntersectionStableAtOrigin
+  describe "Stability (Error)" $ do
+    it "finds that the X intersection of a random PLine is within the returned UlpSum" $
+      property prop_PLineIntersectsAtXAxis
+    it "finds that the Y intersection of a random PLine is within the returned UlpSum" $
+      property prop_PLineIntersectsAtYAxis
   describe "Arcs (Skeleton/Concave)" $ do
     it "finds the inside arcs of right angles with their sides parallel to the axises (raw)" $
       property prop_AxisAlignedRightAngles
