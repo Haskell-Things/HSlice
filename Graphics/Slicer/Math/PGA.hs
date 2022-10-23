@@ -38,7 +38,7 @@ module Graphics.Slicer.Math.PGA(
   angleBetween2PL,
   canonicalize,
   combineConsecutiveLineSegs,
-  distanceBetweenPPointsWithErr,
+  distance2PP,
   distanceBetweenPLinesWithErr,
   distancePPointToPLineWithErr,
   pLineErrAtPPoint,
@@ -92,7 +92,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err(PPoint2Err), ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, forceBasisOfP, idealNormOfP, join2PP, pToEP, vecOfP), xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err(PPoint2Err), ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, join2PP, pToEP, vecOfP), pLineFuzziness, pPointFuzziness, xIntercept, yIntercept)
   
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
@@ -236,49 +236,6 @@ pPointsOnSameSideOfPLine point1 point2 line
     pv2 = vecOfP $ forceBasisOfP point2
     lv1 = vecOfL $ forceBasisOfL line
 
--- | Find the unsigned distance between two projective points.
-distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a,PPoint2Err) -> (b,PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum))
-distanceBetweenPPointsWithErr (ppoint1,p1Err) (ppoint2,p2Err)
-  -- FIXME: does not take into account error while canonicalizing.
-  | cppoint1 == cppoint2 = (0, (c1Err, c2Err, mempty, mempty))
-  | otherwise = (abs res, resErr)
-  where
-    resErr = (rawC1Err
-             ,rawC2Err
-             ,newPLineErr
-             ,ulpSum)
-    ulpSum = pPointFuzziness (cppoint1,c1Err) <> pPointFuzziness (cppoint2,c2Err) <> pLineFuzziness (newPLine,newPLineErr)
-    newPLineErr = newPLineErrRaw <> normErr
-    -- FIXME: how does the error in newPLine effect the found norm here?
-    (res, normErr) = normOfL newPLine
-    -- FIXME: how does error in canonicalization effect the PLine generated here?
-    (newPLine, (_, _, newPLineErrRaw)) = join2PP cppoint1 cppoint2
-    c1Err = rawC1Err <> p1Err
-    c2Err = rawC2Err <> p2Err
-    (cppoint1,rawC1Err) = canonicalize ppoint1
-    (cppoint2,rawC2Err) = canonicalize ppoint2
-
--- | determine the amount of error in resolving a projective point.
-pPointFuzziness :: (ProjectivePoint,PPoint2Err) -> UlpSum
-pPointFuzziness (inPPoint, inErr) = UlpSum $ sumTotal * realToFrac (1+(1000*(abs angleIn + realToFrac (ulpVal $ sumPPointErrs angleUnlikeAddErr <> sumPPointErrs angleUnlikeMulErr))))
-  where
-    sumTotal = ulpVal $ sumPPointErrs pJoinAddErr
-                     <> sumPPointErrs pJoinMulErr
-                     <> sumPPointErrs pCanonicalizeErr
-                     <> sumPPointErrs pAddErr
-                     <> sumPPointErrs pIn1MulErr
-                     <> sumPPointErrs pIn2MulErr
-    (PPoint2Err (pJoinAddErr, pJoinMulErr) pCanonicalizeErr pAddErr pIn1MulErr pIn2MulErr angleIn (angleUnlikeAddErr,angleUnlikeMulErr)) = cpErr <> inErr
-    (_, cpErr) = canonicalize inPPoint
-
--- | determine the amount of error in resolving a projective line.
-pLineFuzziness :: (ProjectiveLine2 a) => (a,PLine2Err) -> UlpSum
-pLineFuzziness (inPLine, inErr) = transErr
-  where
-    transErr = tUlp <> eValOf mempty (getVal [GEZero 1] resAddErr) <> eValOf mempty (getVal [GEZero 1] resMulErr)
-    (PLine2Err _ _ _ _ tUlp (resAddErr, resMulErr)) = inErr <> nplineErr
-    (_, nplineErr) = normalizeL inPLine
-
 -- | Find the unsigned distance between two parallel or antiparallel projective lines.
 -- FIXME: accept input error amounts, take input error amounts into consideration.
 distanceBetweenPLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
@@ -418,8 +375,8 @@ pLineIntersectsLineSeg pl1@(_, pl1Err) l1
     startErr = pLineErrAtPPoint pl2 start
     endFudgeFactor = ulpVal $ endDistanceErr <> endErr
     endErr = pLineErrAtPPoint pl2 end
-    (startDistance, (_,_,_, startDistanceErr)) = distanceBetweenPPointsWithErr (rawIntersection, rawIntersectionErr) (start,mempty)
-    (endDistance, (_,_,_, endDistanceErr)) = distanceBetweenPPointsWithErr (rawIntersection, rawIntersectionErr) (end,mempty)
+    (startDistance, (_,_,_, startDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start,mempty)
+    (endDistance, (_,_,_, endDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end,mempty)
     start = eToPPoint2 $ startPoint l1
     end = eToPPoint2 $ endPoint l1
     hasIntersection = hasRawIntersection && onSegment l1 (rawIntersection,rawIntersectionErr)
@@ -453,10 +410,10 @@ lineSegIntersectsLineSeg l1 l2
     end1FudgeFactor = ulpVal $ end1DistanceErr <> pLineErrAtPPoint (pl1,npl1Err) end1
     start2FudgeFactor = ulpVal $ start2DistanceErr <> pLineErrAtPPoint (pl2,npl2Err) start2
     end2FudgeFactor = ulpVal $ end2DistanceErr <> pLineErrAtPPoint (pl2,npl2Err) end2
-    (start1Distance, (_,_,_, start1DistanceErr)) = distanceBetweenPPointsWithErr (rawIntersection, rawIntersectionErr) (start1,mempty)
-    (start2Distance, (_,_,_, start2DistanceErr)) = distanceBetweenPPointsWithErr (rawIntersection, rawIntersectionErr) (start2,mempty)
-    (end1Distance, (_,_,_, end1DistanceErr)) = distanceBetweenPPointsWithErr (rawIntersection, rawIntersectionErr) (end1,mempty)
-    (end2Distance, (_,_,_, end2DistanceErr)) = distanceBetweenPPointsWithErr (rawIntersection, rawIntersectionErr) (end2,mempty)
+    (start1Distance, (_,_,_, start1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start1,mempty)
+    (start2Distance, (_,_,_, start2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start2,mempty)
+    (end1Distance, (_,_,_, end1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end1,mempty)
+    (end2Distance, (_,_,_, end2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end2,mempty)
     hasIntersection = hasRawIntersection && onSegment l1 (rawIntersection,rawIntersectionErr) && onSegment l2 (rawIntersection,rawIntersectionErr)
     hasRawIntersection = isJust foundVal
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
@@ -480,9 +437,9 @@ onSegment ls i =
   where
     start = eToPPoint2 $ startPoint ls
     end = eToPPoint2 $ endPoint ls
-    (startDistance, (_,_,_, startDistanceErr)) = distanceBetweenPPointsWithErr i (start, mempty)
-    (midDistance, (_,_,_, midDistanceErr)) = distanceBetweenPPointsWithErr i (mid,midErr)
-    (endDistance, (_,_,_, endDistanceErr)) = distanceBetweenPPointsWithErr i (end,mempty)
+    (startDistance, (_,_,_, startDistanceErr)) = distance2PP i (start, mempty)
+    (midDistance, (_,_,_, midDistanceErr)) = distance2PP i (mid,midErr)
+    (endDistance, (_,_,_, endDistanceErr)) = distance2PP i (end,mempty)
     (mid, (_, _, midErr)) = pPointBetweenPPointsWithErr (start,mempty) (end,mempty) 0.5 0.5
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
     startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ
@@ -521,7 +478,7 @@ pLineErrAtPPoint (inPLine, inPLineErr) errPoint
                case interceptDistance of
                  0 -> originFuzz
                  _ -> realToFrac $ xInterceptFuzz + yInterceptFuzz
-    originFuzz = (errX + errY) * ( 1 + fst (distanceBetweenPPointsWithErr (origin, mempty) (errPoint, mempty)))
+    originFuzz = (errX + errY) * ( 1 + fst (distance2PP (origin, mempty) (errPoint, mempty)))
     origin = eToPPoint2 $ Point2 (0,0)
     interceptDistance = distance (Point2 (fromRight 0 $ fst $ fromJust $ xIntercept (npline,nplineErr), 0))
                                  (Point2 (0, fromRight 0 $ fst $ fromJust $ yIntercept (npline,nplineErr)))
@@ -628,7 +585,3 @@ canonicalizeIntersectionWithErr pl1 pl2
     (pp1, (pl1ResErr, pl2ResErr, intersectionErr)) = intersect2PL pl1 pl2
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
 
-sumPPointErrs :: [ErrVal] -> UlpSum
-sumPPointErrs errs = eValOf mempty (getVal [GEZero 1, GEPlus 1] errs)
-                  <> eValOf mempty (getVal [GEZero 1, GEPlus 2] errs)
-                  <> eValOf mempty (getVal [GEPlus 1, GEPlus 2] errs)

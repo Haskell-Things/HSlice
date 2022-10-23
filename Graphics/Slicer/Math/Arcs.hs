@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
 
 import Graphics.Slicer.Math.Intersections (isCollinear, isAntiCollinear, isParallel, isAntiParallel, intersectionOf)
 
-import Graphics.Slicer.Math.PGA (distanceBetweenPPointsWithErr, eToPLine2WithErr)
+import Graphics.Slicer.Math.PGA (distance2PP, eToPLine2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetween2PL, canonicalize, flipL, join2PP, normalizeL)
 
@@ -76,7 +76,7 @@ towardIntersection pp1@(rawPp1,_) pl1 pp2@(rawPp2,_)
   | otherwise = angleFound > 0
   where
     (angleFound, _) = angleBetween2PL (newPLine,newPLineErr) pl1
-    (d, (_,_,_,dErr)) = distanceBetweenPPointsWithErr pp1 pp2
+    (d, (_,_,_,dErr)) = distance2PP pp1 pp2
     (newPLine,(_,_,newPLineErr)) = join2PP rawPp1 rawPp2
     totalErr :: ℝ
     totalErr = realToFrac $ ulpVal dErr

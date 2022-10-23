@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc,errOfOut,outOf), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectivePoint, distanceBetweenPPointsWithErr, distancePPointToPLineWithErr, distanceBetweenPLinesWithErr, pLineErrAtPPoint, pLineFuzziness, plinesIntersectIn, pPointFuzziness)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc,errOfOut,outOf), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectivePoint, distance2PP, distancePPointToPLineWithErr, distanceBetweenPLinesWithErr, pLineErrAtPPoint, pLineFuzziness, plinesIntersectIn, pPointFuzziness)
 
 -- | check if two lines cannot intersect.
 noIntersection :: (ProjectiveLine,PLine2Err) -> (ProjectiveLine,PLine2Err) -> Bool
@@ -131,7 +131,7 @@ intersectionsAtSamePoint nodeOutsAndErrs
                                          <> pPointFuzziness point2
                                          <> pLineErrAtPPoint a2 c2
                                          <> pLineErrAtPPoint b2 c2
-                (res, (_,_,_,resErr)) = distanceBetweenPPointsWithErr point1 point2
+                (res, (_,_,_,resErr)) = distance2PP point1 point2
         linesCloseEnough =
           case lineIntersections of
             [] -> True

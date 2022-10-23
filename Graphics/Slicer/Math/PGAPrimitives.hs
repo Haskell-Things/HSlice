@@ -54,12 +54,15 @@ module Graphics.Slicer.Math.PGAPrimitives
     ProjectivePoint(PPoint2, CPPoint2),
     ProjectivePoint2(
       canonicalize,
+      distance2PP,
       forceBasisOfP,
       idealNormOfP,
       join2PP,
       pToEP,
       vecOfP
       ),
+    pLineFuzziness,
+    pPointFuzziness,
     xIntercept,
     yIntercept
   ) where
@@ -84,7 +87,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2))
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), addErr, addValWithoutErr, addVecPairWithErr, divVecScalarWithErr, eValOf, getVal, scalarPart, sumErrVals, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), addErr, addValWithoutErr, addVecPairWithErr, divVecScalarWithErr, eValOf, getVal, scalarPart, sumErrVals, ulpVal, valOf)
 
 --------------------------------
 --- common support functions ---
@@ -326,6 +329,14 @@ translateProjectiveLine2WithErr line d = (PLine2 res, normErr <> PLine2Err resEr
 --- Projective Line Error Calculation ---
 -----------------------------------------
 
+-- | determine the amount of error in resolving a projective line.
+pLineFuzziness :: (ProjectiveLine2 a) => (a,PLine2Err) -> UlpSum
+pLineFuzziness (inPLine, inErr) = transErr
+  where
+    transErr = tUlp <> eValOf mempty (getVal [GEZero 1] resAddErr) <> eValOf mempty (getVal [GEZero 1] resMulErr)
+    (PLine2Err _ _ _ _ tUlp (resAddErr, resMulErr)) = inErr <> nplineErr
+    (_, nplineErr) = normalizeL inPLine
+
 -- | find the approximate point that a given line crosses the X axis.
 xIntercept :: (ProjectiveLine2 a) => (a, PLine2Err) -> Maybe (Either a ℝ, UlpSum)
 xIntercept (line, lineErr)
@@ -453,6 +464,7 @@ class Arcable a where
 class (Show a) => ProjectivePoint2 a where
   canonicalize :: a -> (ProjectivePoint, PPoint2Err)
   consLikeP :: a -> (GVec -> a)
+  distance2PP :: (ProjectivePoint2 b) => (a,PPoint2Err) -> (b,PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum)) 
   forceBasisOfP :: a -> a
   idealNormOfP :: a -> (ℝ, UlpSum)
   join2PP :: (ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
@@ -466,6 +478,7 @@ instance ProjectivePoint2 ProjectivePoint where
   canonicalize p = case p of
                      (CPPoint2 _) -> (p,mempty)
                      _ -> canonicalizePPoint2WithErr p
+  distance2PP p1 p2 = distanceBetweenPPointsWithErr p1 p2
   forceBasisOfP p = forceProjectivePointBasis p
   idealNormOfP p = idealNormPPoint2WithErr p
   join2PP p1 p2 = join2ProjectivePointsWithErr p1 p2
@@ -500,6 +513,24 @@ canonicalizePPoint2WithErr point
     (GVec scaledVals, scaledErrs) = divVecScalarWithErr newVec $ valOf 1 foundVal
     (GVec rawVals) = vecOfP point
     foundVal = getVal [GEPlus 1, GEPlus 2] rawVals
+
+-- | Find the unsigned distance between two projective points.
+distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a,PPoint2Err) -> (b,PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum))
+distanceBetweenPPointsWithErr (ppoint1, p1Err) (ppoint2, p2Err)
+  | cppoint1 == cppoint2 = (0, (cppoint1Err, cppoint2Err, mempty, mempty))
+  | otherwise = (abs res, resErr)
+  where
+    resErr = (cppoint1Err
+             ,cppoint2Err
+             ,newPLineErr
+             ,ulpSum)
+    ulpSum = pPointFuzziness (cppoint1, p1Err <> cppoint1Err) <> pPointFuzziness (cppoint2, p2Err <> cppoint2Err) <> pLineFuzziness (newPLine, newPLineErr)
+    newPLineErr = newPLineErrRaw <> normErr
+    -- FIXME: how does the error in newPLine effect the found norm here?
+    (res, normErr) = normOfL newPLine
+    (newPLine, (_, _, newPLineErrRaw)) = join2PP cppoint1 cppoint2
+    (cppoint1, cppoint1Err) = canonicalize ppoint1
+    (cppoint2, cppoint2Err) = canonicalize ppoint2
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a Projective Point.
 forceProjectivePointBasis :: (ProjectivePoint2 a) => a -> a
@@ -536,10 +567,12 @@ idealNormPPoint2WithErr ppoint
     (GVec rawVals) = vecOfP ppoint
 
 -- | a typed join function. join two points, returning a line.
+-- FIXME: accept input error bars, and use these to inform the output PLine2Err
 join2ProjectivePointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
 join2ProjectivePointsWithErr pp1 pp2 = (PLine2 res,
                                         (cp1Err, cp2Err, PLine2Err mempty mempty mempty mempty mempty resUlp))
   where
+    -- FIXME: how does error in canonicalization effect the PLine generated here?
     (res,resUlp)  = pv1 ∨+ pv2
     pv1 = vecOfP $ forceBasisOfP cp1
     pv2 = vecOfP $ forceBasisOfP cp2
@@ -557,4 +590,26 @@ projectivePointToPoint2 ppoint
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
     (GVec rawVals) = vecOfP ppoint
+
+------------------------------------------
+--- Projective Point Error Calculation ---
+------------------------------------------
+
+sumPPointErrs :: [ErrVal] -> UlpSum
+sumPPointErrs errs = eValOf mempty (getVal [GEZero 1, GEPlus 1] errs)
+                  <> eValOf mempty (getVal [GEZero 1, GEPlus 2] errs)
+                  <> eValOf mempty (getVal [GEPlus 1, GEPlus 2] errs)
+
+-- | determine the amount of error in resolving a projective point.
+pPointFuzziness :: (ProjectivePoint,PPoint2Err) -> UlpSum
+pPointFuzziness (inPPoint, inErr) = UlpSum $ sumTotal * realToFrac (1+(1000*(abs angleIn + realToFrac (ulpVal $ sumPPointErrs angleUnlikeAddErr <> sumPPointErrs angleUnlikeMulErr))))
+  where
+    sumTotal = ulpVal $ sumPPointErrs pJoinAddErr
+                     <> sumPPointErrs pJoinMulErr
+                     <> sumPPointErrs pCanonicalizeErr
+                     <> sumPPointErrs pAddErr
+                     <> sumPPointErrs pIn1MulErr
+                     <> sumPPointErrs pIn2MulErr
+    (PPoint2Err (pJoinAddErr, pJoinMulErr) pCanonicalizeErr pAddErr pIn1MulErr pIn2MulErr angleIn (angleUnlikeAddErr,angleUnlikeMulErr)) = cpErr <> inErr
+    (_, cpErr) = canonicalize inPPoint
 
