@@ -149,11 +149,11 @@ data ProjectiveLine =
   deriving (Generic, NFData, Show)
 
 class ProjectiveLine2 a where
-  angleBetween2PL :: (ProjectiveLine2 b) => (a,PLine2Err) -> (b,PLine2Err) -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
+  angleBetween2PL :: (ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
   forceBasisOfL :: a -> a
-  intersect2PL :: (ProjectiveLine2 b) => (a,PLine2Err) -> (b,PLine2Err) -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
+  intersect2PL :: (ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
   normalizeL :: a -> (ProjectiveLine, PLine2Err)
   normOfL :: a -> (ℝ, PLine2Err)
   sqNormOfL :: a -> (ℝ, UlpSum)
@@ -213,7 +213,7 @@ instance Monoid PLine2Err where
 
 -- | Return the sine of the angle between the two lines, along with the error, in +-Sin.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
-angleBetweenWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a,PLine2Err) -> (b,PLine2Err) -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
+angleBetweenWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
 angleBetweenWithErr (line1,line1Err) (line2,line2Err)
   | line1Err == mempty && line2Err == mempty = (scalarPart likeRes, resErr)
   -- FIXME: here is where we take our input error into account.
@@ -330,7 +330,7 @@ translateProjectiveLine2WithErr line d = (PLine2 res, normErr <> PLine2Err resEr
 -----------------------------------------
 
 -- | determine the amount of error in resolving a projective line.
-pLineFuzziness :: (ProjectiveLine2 a) => (a,PLine2Err) -> UlpSum
+pLineFuzziness :: (ProjectiveLine2 a) => (a, PLine2Err) -> UlpSum
 pLineFuzziness (inPLine, inErr) = transErr
   where
     transErr = tUlp <> eValOf mempty (getVal [GEZero 1] resAddErr) <> eValOf mempty (getVal [GEZero 1] resMulErr)
@@ -464,7 +464,7 @@ class Arcable a where
 class (Show a) => ProjectivePoint2 a where
   canonicalize :: a -> (ProjectivePoint, PPoint2Err)
   consLikeP :: a -> (GVec -> a)
-  distance2PP :: (ProjectivePoint2 b) => (a,PPoint2Err) -> (b,PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum)) 
+  distance2PP :: (ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum)) 
   forceBasisOfP :: a -> a
   idealNormOfP :: a -> (ℝ, UlpSum)
   join2PP :: (ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
@@ -515,7 +515,7 @@ canonicalizePPoint2WithErr point
     foundVal = getVal [GEPlus 1, GEPlus 2] rawVals
 
 -- | Find the unsigned distance between two projective points.
-distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a,PPoint2Err) -> (b,PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum))
+distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum))
 distanceBetweenPPointsWithErr (ppoint1, p1Err) (ppoint2, p2Err)
   | cppoint1 == cppoint2 = (0, (cppoint1Err, cppoint2Err, mempty, mempty))
   | otherwise = (abs res, resErr)
@@ -601,7 +601,8 @@ sumPPointErrs errs = eValOf mempty (getVal [GEZero 1, GEPlus 1] errs)
                   <> eValOf mempty (getVal [GEPlus 1, GEPlus 2] errs)
 
 -- | determine the amount of error in resolving a projective point.
-pPointFuzziness :: (ProjectivePoint,PPoint2Err) -> UlpSum
+-- FIXME: this 1000 is completely made up BS.
+pPointFuzziness :: (ProjectivePoint, PPoint2Err) -> UlpSum
 pPointFuzziness (inPPoint, inErr) = UlpSum $ sumTotal * realToFrac (1+(1000*(abs angleIn + realToFrac (ulpVal $ sumPPointErrs angleUnlikeAddErr <> sumPPointErrs angleUnlikeMulErr))))
   where
     sumTotal = ulpVal $ sumPPointErrs pJoinAddErr
