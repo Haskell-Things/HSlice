@@ -73,10 +73,10 @@ getOutsideArcWithErr ppoint1 pline1 ppoint2 pline2
 towardIntersection :: (ProjectivePoint,PPoint2Err) -> (ProjectiveLine,PLine2Err) -> (ProjectivePoint,PPoint2Err) -> Bool
 towardIntersection pp1@(rawPp1,_) pl1 pp2@(rawPp2,_)
   | d <= totalErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
-  | otherwise = angleFound > 0
+  | otherwise = angleFound > realToFrac (ulpVal angleErr)
   where
-    (angleFound, _) = angleBetween2PL (newPLine,newPLineErr) pl1
-    (d, (_,_,_,dErr)) = distance2PP pp1 pp2
+    (angleFound, (_,_,angleErr)) = angleBetween2PL (newPLine,newPLineErr) pl1
+    (d, (_,_,dErr)) = distance2PP pp1 pp2
     (newPLine,(_,_,newPLineErr)) = join2PP rawPp1 rawPp2
     totalErr :: ℝ
     totalErr = realToFrac $ ulpVal dErr

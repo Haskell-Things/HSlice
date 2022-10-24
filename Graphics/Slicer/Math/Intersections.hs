@@ -131,7 +131,7 @@ intersectionsAtSamePoint nodeOutsAndErrs
                                          <> pPointFuzziness point2
                                          <> pLineErrAtPPoint a2 c2
                                          <> pLineErrAtPPoint b2 c2
-                (res, (_,_,_,resErr)) = distance2PP point1 point2
+                (res, (_,_,resErr)) = distance2PP point1 point2
         linesCloseEnough =
           case lineIntersections of
             [] -> True

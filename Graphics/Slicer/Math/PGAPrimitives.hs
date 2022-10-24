@@ -163,7 +163,7 @@ class ProjectiveLine2 a where
 instance ProjectiveLine2 ProjectiveLine where
   angleBetween2PL l1 l2 = crushErr $ angleBetweenWithErr l1 l2
     where
-      crushErr (res, (c1,c2,_,resErr)) = (res, (c1,c2,resErr))
+      crushErr (res, (n1,n2,_,resErr)) = (res, (n1,n2,resErr))
   consLikeL l = case l of
                   (NPLine2 _) -> NPLine2
                   (PLine2 _) -> PLine2
@@ -466,7 +466,7 @@ class Arcable a where
 class (Show a) => ProjectivePoint2 a where
   canonicalize :: a -> (ProjectivePoint, PPoint2Err)
   consLikeP :: a -> (GVec -> a)
-  distance2PP :: (ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum)) 
+  distance2PP :: (ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, UlpSum)) 
   forceBasisOfP :: a -> a
   idealNormOfP :: a -> (ℝ, UlpSum)
   join2PP :: (ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
@@ -480,7 +480,9 @@ instance ProjectivePoint2 ProjectivePoint where
   canonicalize p = case p of
                      (CPPoint2 _) -> (p,mempty)
                      _ -> canonicalizePPoint2WithErr p
-  distance2PP p1 p2 = distanceBetweenPPointsWithErr p1 p2
+  distance2PP p1 p2 = crushErr $ distanceBetweenPPointsWithErr p1 p2
+    where
+      crushErr (res, (c1, c2, _, resErr)) = (res, (c1, c2, resErr))
   forceBasisOfP p = forceProjectivePointBasis p
   idealNormOfP p = idealNormPPoint2WithErr p
   join2PP p1 p2 = join2ProjectivePointsWithErr p1 p2

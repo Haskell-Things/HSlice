@@ -750,8 +750,8 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
                    <> show n2 <> "\n"
       where
         intersectionPoint = outputsIntersect n1 n2
-        (n1Distance, (_,_,_, n1Err)) = distance2PP (intersectionPoint, mempty) (pPointOf n1,mempty)
-        (n2Distance, (_,_,_, n2Err)) = distance2PP (intersectionPoint, mempty) (pPointOf n2,mempty)
+        (n1Distance, (_,_, n1Err)) = distance2PP (intersectionPoint, mempty) (pPointOf n1,mempty)
+        (n2Distance, (_,_, n2Err)) = distance2PP (intersectionPoint, mempty) (pPointOf n2,mempty)
 
     -- | get the list of sorted pairs of intersecting nodes.
     shortestNeighboringPairs :: (Arcable a, Pointable a, Show a, Eq a) => [(a,a)] -> [(a, a)]
@@ -821,5 +821,5 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
                                        && not (dist2 <= realToFrac (ulpVal dist2Err))
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, (_,_,_, dist1Err)) = distance2PP (intersectionOf (outOf node1,errOfOut node1) (outOf node2, errOfOut node2),mempty) (pPointOf node1,mempty)
-        (dist2, (_,_,_, dist2Err)) = distance2PP (intersectionOf (outOf node1,errOfOut node1) (outOf node2, errOfOut node2),mempty) (pPointOf node2,mempty)
+        (dist1, (_,_, dist1Err)) = distance2PP (intersectionOf (outOf node1,errOfOut node1) (outOf node2, errOfOut node2),mempty) (pPointOf node1,mempty)
+        (dist2, (_,_, dist2Err)) = distance2PP (intersectionOf (outOf node1,errOfOut node1) (outOf node2, errOfOut node2),mempty) (pPointOf node2,mempty)

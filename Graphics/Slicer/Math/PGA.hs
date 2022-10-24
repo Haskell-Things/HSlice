@@ -374,8 +374,8 @@ pLineIntersectsLineSeg pl1@(_, pl1Err) l1
     startErr = pLineErrAtPPoint pl2 start
     endFudgeFactor = ulpVal $ endDistanceErr <> endErr
     endErr = pLineErrAtPPoint pl2 end
-    (startDistance, (_,_,_, startDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start,mempty)
-    (endDistance, (_,_,_, endDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end,mempty)
+    (startDistance, (_,_, startDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start,mempty)
+    (endDistance, (_,_, endDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end,mempty)
     start = eToPPoint2 $ startPoint l1
     end = eToPPoint2 $ endPoint l1
     hasIntersection = hasRawIntersection && onSegment l1 (rawIntersection,rawIntersectionErr)
@@ -409,10 +409,10 @@ lineSegIntersectsLineSeg l1 l2
     end1FudgeFactor = ulpVal $ end1DistanceErr <> pLineErrAtPPoint (pl1,npl1Err) end1
     start2FudgeFactor = ulpVal $ start2DistanceErr <> pLineErrAtPPoint (pl2,npl2Err) start2
     end2FudgeFactor = ulpVal $ end2DistanceErr <> pLineErrAtPPoint (pl2,npl2Err) end2
-    (start1Distance, (_,_,_, start1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start1,mempty)
-    (start2Distance, (_,_,_, start2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start2,mempty)
-    (end1Distance, (_,_,_, end1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end1,mempty)
-    (end2Distance, (_,_,_, end2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end2,mempty)
+    (start1Distance, (_,_, start1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start1,mempty)
+    (start2Distance, (_,_, start2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start2,mempty)
+    (end1Distance, (_,_, end1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end1,mempty)
+    (end2Distance, (_,_, end2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end2,mempty)
     hasIntersection = hasRawIntersection && onSegment l1 (rawIntersection,rawIntersectionErr) && onSegment l2 (rawIntersection,rawIntersectionErr)
     hasRawIntersection = isJust foundVal
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
@@ -436,9 +436,9 @@ onSegment ls i =
   where
     start = eToPPoint2 $ startPoint ls
     end = eToPPoint2 $ endPoint ls
-    (startDistance, (_,_,_, startDistanceErr)) = distance2PP i (start, mempty)
-    (midDistance, (_,_,_, midDistanceErr)) = distance2PP i (mid,midErr)
-    (endDistance, (_,_,_, endDistanceErr)) = distance2PP i (end,mempty)
+    (startDistance, (_,_, startDistanceErr)) = distance2PP i (start, mempty)
+    (midDistance, (_,_, midDistanceErr)) = distance2PP i (mid,midErr)
+    (endDistance, (_,_, endDistanceErr)) = distance2PP i (end,mempty)
     (mid, (_, _, midErr)) = pPointBetweenPPointsWithErr (start,mempty) (end,mempty) 0.5 0.5
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
     startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ

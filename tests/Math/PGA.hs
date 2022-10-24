@@ -1387,7 +1387,7 @@ prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
                       <> show intersectionPPoint2 <> "\n"
   where
     originPPoint2 = makePPoint2 0 0
-    (foundDistance, (_,_,_,distanceErr)) = distance2PP (originPPoint2,mempty) (intersectionPPoint2, intersectionErr)
+    (foundDistance, (_,_, distanceErr)) = distance2PP (originPPoint2,mempty) (intersectionPPoint2, intersectionErr)
     (intersectionPPoint2, (_, _, intersectionErr)) = intersect2PL randomPLine1 randomPLine2
     randomPLine1 = randomPLineThroughOrigin x y
     randomPLine2 = randomPLineThroughOrigin x2 y2
@@ -1415,7 +1415,7 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
                 <> show distanceErr <> "\n"
   where
     targetPPoint2 = makePPoint2 (coerce targetX) (coerce targetY)
-    (foundDistance, (_,_,_, distanceErr)) = distance2PP (targetPPoint2,mempty) (intersectionPPoint2, intersectionErr)
+    (foundDistance, (_,_, distanceErr)) = distance2PP (targetPPoint2,mempty) (intersectionPPoint2, intersectionErr)
     (intersectionPPoint2, (_, _, intersectionErr)) = intersect2PL randomPLine1 randomPLine2
     randomPLine1@(_, pline1RawErr) = randomPLineWithErr x y targetX targetY
     randomPLine2@(_, pline2RawErr) = randomPLineWithErr x2 y2 targetX targetY
@@ -1448,7 +1448,7 @@ prop_PLineIntersectsAtXAxis x y rawX2 y2 m
                 <> show intersectionErr <> "\n"
   where
     errSum = ulpVal $ axisIntersectionErr <> distanceErr
-    (foundDistance, (_,_,_,distanceErr)) = distance2PP (axisIntersectionPoint,mempty) (intersectionPPoint2, intersectionErr)
+    (foundDistance, (_,_, distanceErr)) = distance2PP (axisIntersectionPoint,mempty) (intersectionPPoint2, intersectionErr)
     axisIntersectionErr = snd $ fromJust axisIntersection
     axisIntersectionPoint = eToPPoint2 $ Point2 ((fromRight (error "not right?") $ fst $ fromJust axisIntersection), 0)
     axisIntersection = xIntercept (randomPLine1, pline1Err)
@@ -1478,7 +1478,7 @@ prop_PLineIntersectsAtYAxis x y x2 rawY2 m
                 <> show intersectionErr <> "\n"
   where
     errSum = ulpVal $ axisIntersectionErr <> distanceErr
-    (foundDistance, (_,_,_,distanceErr)) = distance2PP (axisIntersectionPoint, mempty) (intersectionPPoint2, intersectionErr)
+    (foundDistance, (_,_, distanceErr)) = distance2PP (axisIntersectionPoint, mempty) (intersectionPPoint2, intersectionErr)
     axisIntersectionErr = snd $ fromJust axisIntersection
     axisIntersectionPoint = eToPPoint2 $ Point2 (0,(fromRight (error "not right?") $ fst $ fromJust axisIntersection))
     axisIntersection = yIntercept (randomPLine1, pline1Err)
