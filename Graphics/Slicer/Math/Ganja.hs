@@ -81,7 +81,7 @@
 -- so we can define a Num instance for Positive.
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), edgesOf, generationsOf, toGanja, dumpGanja, dumpGanjas, randomPL, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomPLineWithErr, randomLineSeg, cellFrom, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint, randomLineSegWithErr) where
+module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), edgesOf, generationsOf, toGanja, dumpGanja, dumpGanjas, randomPL, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomPLineWithErr, randomLineSeg, cellFrom, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint) where
 
 import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, Int, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
 
@@ -114,7 +114,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), 
 
 import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoint2, normalizePLine2, pPointBetweenPPoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), PLine2(PLine2), PPoint2(PPoint2), PLine2Err, eToPLine2WithErr, eToPL, eToPPoint2, flipL, translateRotatePPoint2, ulpOfLineSeg, outOf, pPointOf, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), PLine2(PLine2), PPoint2(PPoint2), PLine2Err, eToPLine2WithErr, eToPL, eToPPoint2, flipL, normalizeL, translateRotatePPoint2, outOf, pPointOf, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
 
@@ -205,7 +205,7 @@ instance GanjaAble ENode where
       (plvar, plref) = toGanja (outOf eNode) (varname <> "c")
 
 instance GanjaAble Motorcycle where
-  toGanja (Motorcycle (l1, l2) outPLine _ _) varname = (
+  toGanja (Motorcycle (l1, l2) outPLine _) varname = (
     l1var
     <> l2var
     <> plvar
@@ -259,9 +259,9 @@ instance GanjaAble INode where
     where
       (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
         where
-          res          = (\(a,b) -> toGanja a (varname <> b)) <$> zip allPLines allStrings
+          res          = (\(a,b) -> toGanja (fst a) (varname <> b)) <$> zip allPLines allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
-          allPLines    =   firstPLine:secondPLine:rawMorePLines <> maybeToList outPLine
+          allPLines    = firstPLine:secondPLine:rawMorePLines <> maybeToList outPLine
 
 instance GanjaAble StraightSkeleton where
   toGanja (StraightSkeleton (Slist [[nodetree]] _) _) = toGanja nodetree
@@ -651,19 +651,20 @@ randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
     intersectionPPoint = eToPPoint2 intersectionPoint
 
 randomINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> INode
-randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,maybeFlippedpl2] (Just bisector1)
+randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,maybeFlippedpl2] (Just $ (\(NPLine2 a,b) -> (PLine2 a,b <> outsideResErr)) bisector1)
   where
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
-    pl1 = (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ eToPLine2 $ getFirstLineSeg eNode
-    pl2 = (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ flipL $ eToPLine2 $ getLastLineSeg eNode
+    pl1 = (\(NPLine2 a,b) -> (PLine2 a,b)) $ normalizeL $ eToPLine2 $ getFirstLineSeg eNode
+    pl2 = (\(NPLine2 a,b) -> (PLine2 a,b)) $ normalizeL $ flipL $ eToPLine2 $ getLastLineSeg eNode
     intersectionPPoint = pPointOf eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
     pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
     pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
-    maybeFlippedpl1 = if flipIn1 then flipL pl1 else pl1
-    maybeFlippedpl2 = if flipIn2 then flipL pl2 else pl2
-    bisector1 = (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 $ getOutsideArc pp1 (normalizePLine2 maybeFlippedpl1) pp2 (normalizePLine2 maybeFlippedpl2)
+    maybeFlippedpl1 = (if flipIn1 then flipL (fst pl1) else (fst pl1), snd pl1)
+    maybeFlippedpl2 = (if flipIn2 then flipL (fst pl2) else (fst pl2), snd pl2)
+    bisector1 = normalizeL outsideRes
+    (outsideRes, outsideResErr) = getOutsideArc pp1 (normalizePLine2 $ fst maybeFlippedpl1) pp2 (normalizePLine2 $ fst maybeFlippedpl2)
 
 -- | A helper function. constructs a random PLine.
 randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> PLine2
@@ -679,13 +680,8 @@ randomPL x y dx dy = eToPL $ makeLineSeg (Point2 (x, y)) (Point2 (coerce dx, coe
 
 -- | A helper function. constructs a random LineSeg.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
-randomLineSeg x y rawDx rawDy = fst $ randomLineSegWithErr x y rawDx rawDy
+randomLineSeg x y dx dy = makeLineSeg (Point2 (x, y)) (Point2 (dx,dy))
 
-randomLineSegWithErr :: ℝ -> ℝ -> ℝ -> ℝ -> (LineSeg, UlpSum)
-randomLineSegWithErr x1 y1 x2 y2 = (res, ulpSum)
-  where
-    res = makeLineSeg (Point2 (x1, y1)) (Point2 (x2, y2))
-    ulpSum = ulpOfLineSeg res
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
 randomPLineThroughOrigin :: ℝ -> ℝ -> (PLine2, UlpSum)
@@ -696,42 +692,38 @@ randomPLineThroughPoint :: ℝ -> ℝ -> ℝ -> (PLine2, UlpSum)
 randomPLineThroughPoint x y d = eToPLine2WithErr $ makeLineSeg (Point2 (x,y)) (Point2 (d,d))
 
 -- | A line segment ending at the origin. additionally, guaranteed not to be on the X = Y line.
-randomLineSegFromPointNotX1Y1 :: ℝ -> ℝ -> ℝ -> (LineSeg, UlpSum)
-randomLineSegFromPointNotX1Y1 rawX rawY d = (res, ulpSum)
+randomLineSegFromPointNotX1Y1 :: ℝ -> ℝ -> ℝ -> LineSeg
+randomLineSegFromPointNotX1Y1 rawX rawY d = res
   where
     res = makeLineSeg (Point2 (d, d)) (Point2 (x, y))
     (x, y)
       | rawX == 0 && rawY == 0 = (0,0.1)
       | rawX == rawY = (rawX,0.1)
       | otherwise = (rawX, rawY)
-    ulpSum = ulpOfLineSeg res
 
 -- | A line segment ending at the origin. additionally, guaranteed not to be on the X = Y line.
-randomLineSegFromOriginNotX1Y1 :: ℝ -> ℝ -> (LineSeg, UlpSum)
-randomLineSegFromOriginNotX1Y1 rawX rawY = (res, ulpSum)
+randomLineSegFromOriginNotX1Y1 :: ℝ -> ℝ -> LineSeg
+randomLineSegFromOriginNotX1Y1 rawX rawY = res
   where
     res = makeLineSeg (Point2 (0, 0)) (Point2 (x, y))
     (x, y)
       | rawX == 0 && rawY == 0 = (0,0.1)
       | rawX == rawY = (rawX,0.1)
       | otherwise = (rawX, rawY)
-    ulpSum = ulpOfLineSeg res
 
-randomX1Y1LineSegToOrigin :: NonZero ℝ -> (LineSeg, UlpSum)
-randomX1Y1LineSegToOrigin rawD = (res, ulpSum)
+randomX1Y1LineSegToOrigin :: NonZero ℝ -> LineSeg
+randomX1Y1LineSegToOrigin rawD = res
   where
     res = makeLineSeg (Point2 (d,d)) (Point2 (0,0))
     d :: ℝ
     d = coerce rawD
-    ulpSum = ulpOfLineSeg res
 
-randomX1Y1LineSegToPoint :: NonZero ℝ -> ℝ -> (LineSeg, UlpSum)
-randomX1Y1LineSegToPoint rawD1 d2 = (res, ulpSum)
+randomX1Y1LineSegToPoint :: NonZero ℝ -> ℝ -> LineSeg
+randomX1Y1LineSegToPoint rawD1 d2 = res
   where
     res = makeLineSeg (Point2 (d1,d1)) (Point2 (d2,d2))
     d1 :: ℝ
     d1 = coerce rawD1
-    ulpSum = ulpOfLineSeg res
 
 -- | combine two lists. for feeding into randomStarPoly.
 makePairs :: [a] -> [b] -> [(a,b)]

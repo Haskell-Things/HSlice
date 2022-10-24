@@ -29,7 +29,7 @@
 
 -- | Common types and functions used in the code responsible for generating straight skeletons.
 
-module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
+module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, sortedPLinesWithErr, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
 
 import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<), (*), realToFrac)
 
@@ -51,38 +51,34 @@ import Slist as SL (last, head, init)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Implicit.Definitions (ℝ)
-
-
-import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), pLineIsLeft, distance2PP, Pointable(canPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, ulpOfOut, outUlpMag), CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, eToPLine2WithErr, eToPPoint2, pToEP, vecOfL)
-
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), addVecPair)
 
+import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), PLine2Err, pLineIsLeft, distance2PP, Pointable(canPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, eToPLine2WithErr, eToPPoint2, pToEP, vecOfL)
+
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
 -- FIXME: provide our own Eq instance, cause floats suck? :)
-data ENode = ENode { _inPoints :: !(Point2, Point2, Point2), _arcOut :: !PLine2, _arcULP :: UlpSum, _arcUlpMag :: ℝ}
+data ENode = ENode { _inPoints :: !(Point2, Point2, Point2), _arcOut :: !PLine2, _arcOutErr :: !PLine2Err}
   deriving Eq
   deriving stock Show
 
 instance Arcable ENode where
   -- an ENode always has an arc.
   hasArc _ = True
-  outOf (ENode _ outArc _ _) = outArc
-  ulpOfOut (ENode _ _ outUlp _) = outUlp
-  outUlpMag (ENode _ _ _ ulpMag) = ulpMag
+  outOf (ENode _ outArc _) = outArc
+  errOfOut (ENode _ _ outErr) = outErr
 
 instance Pointable ENode where
   -- an ENode always contains a point.
   canPoint _ = True
   pPointOf a = (\(CPPoint2 v) -> PPoint2 v) $ eToPPoint2 $ ePointOf a
-  ePointOf (ENode (_,centerPoint,_) _ _ _) = centerPoint
+  ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
 
 -- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
-data INode = INode { _firstInArc :: !PLine2, _secondInArc :: !PLine2, _moreInArcs :: !(Slist PLine2), _outArc :: !(Maybe PLine2) }
+data INode = INode { _firstInArc :: !(PLine2, PLine2Err), _secondInArc :: !(PLine2, PLine2Err), _moreInArcs :: !(Slist (PLine2, PLine2Err)), _outArc :: !(Maybe (PLine2, PLine2Err))}
   deriving Eq
   deriving stock Show
 
@@ -90,19 +86,20 @@ instance Arcable INode where
   -- an INode might just end here.
   hasArc (INode _ _ _ outArc) = isJust outArc
   outOf (INode _ _ _ outArc) = case outArc of
-                                 (Just rawOutArc) -> rawOutArc
+                                 (Just (rawOutArc,_)) -> rawOutArc
                                  Nothing -> error "tried to get an outArc that has no output arc."
-  ulpOfOut _ = error "tried to get the ULP of the out of an INode."
-  outUlpMag _ = error "tried to get the magnitude of the ULP of the out of an INode."
+  errOfOut (INode _ _ _ outArc) =  case outArc of
+                                 (Just (_,rawOutArcErr)) -> rawOutArcErr
+                                 Nothing -> error "tried to get an outArc that has no output arc."
 
 instance Pointable INode where
   -- an INode does not contain a point, we have to attempt to resolve one instead.
   canPoint iNode@(INode firstPLine secondPLine morePLines _) = len allPLines > 1 && hasIntersectingPairs allPLines
     where
       allPLines = if hasArc iNode
-                  then cons (outOf iNode) $ cons firstPLine $ cons secondPLine morePLines
+                  then cons (outOf iNode, errOfOut iNode) $ cons firstPLine $ cons secondPLine morePLines
                   else cons firstPLine $ cons secondPLine morePLines
-      hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
+      hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn (fst pl1) (fst pl2)) $ getPairs pLines
         where
           saneIntersect (IntersectsIn _ _) = True
           saneIntersect _                  = False
@@ -127,16 +124,16 @@ instance Pointable INode where
                               where
                                 (res, UlpSum err) = distance2PP (fst $ canonicalize a) (fst $ canonicalize b)
       allPLines = if hasArc iNode
-                  then slist $ nub $ outOf iNode : firstPLine : secondPLine : rawPLines
+                  then slist $ nub $ (outOf iNode, errOfOut iNode) : firstPLine : secondPLine : rawPLines
                   else slist $ nub $ firstPLine : secondPLine : rawPLines
-      intersectionsOfPairs (Slist pLines _) = catMaybes $ (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) <$> getPairs pLines
+      intersectionsOfPairs (Slist pLines _) = catMaybes $ (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn (fst pl1) (fst pl2)) <$> getPairs pLines
         where
           saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
           saneIntersect _                  = Nothing
   ePointOf a = fst $ pToEP $ pPointOf a
 
 -- Produce a list of the inputs to a given INode.
-insOf :: INode -> [PLine2]
+insOf :: INode -> [(PLine2, PLine2Err)]
 insOf (INode firstIn secondIn (Slist moreIns _) _) = firstIn:secondIn:moreIns
 
 lastINodeOf :: INodeSet -> INode
@@ -147,22 +144,21 @@ lastINodeOf (INodeSet gens) = case unsnoc (SL.last gens) of
 -- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior or the exterior of a contour.
 --   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.
 --   FIXME: Note that a new motorcycle may be created in the case of degenerate polygons... with it's inSegs being two other motorcycles.
-data Motorcycle = Motorcycle { _inCSegs :: !(LineSeg, LineSeg), _outPline :: !PLine2, outPlineULP :: UlpSum, outPlineMagnitude :: ℝ }
+data Motorcycle = Motorcycle { _inCSegs :: !(LineSeg, LineSeg), _outPline :: !PLine2, _outPlineErr :: PLine2Err}
   deriving Eq
   deriving stock Show
 
 instance Arcable Motorcycle where
   -- A Motorcycle always has an arc, which is it's path.
   hasArc _ = True
-  outOf (Motorcycle _ outArc _ _) = outArc
-  ulpOfOut (Motorcycle _ _ outUlp _) = outUlp
-  outUlpMag (Motorcycle _ _ _ outMag) = outMag
+  outOf (Motorcycle _ outArc _) = outArc
+  errOfOut (Motorcycle _ _ outErr) = outErr
 
 instance Pointable Motorcycle where
   -- A motorcycle always contains a point.
   canPoint _ = True
   pPointOf a = (\(CPPoint2 v) -> PPoint2 v) $ eToPPoint2 $ ePointOf a
-  ePointOf (Motorcycle (_, LineSeg point _) _ _ _) = point
+  ePointOf (Motorcycle (_, LineSeg point _) _ _) = point
 
 -- | The motorcycles that are involved in dividing two cells.
 data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle, moreMotorcycles :: !(Slist Motorcycle) }
@@ -243,11 +239,11 @@ isLoop inSegSets = endPoint lastSeg == startPoint firstSeg || distance (endPoint
 
 -- | get the first line segment of an ENode.
 getFirstLineSeg :: ENode -> LineSeg
-getFirstLineSeg (ENode (p1,p2,_) _ _ _) = makeLineSeg p1 p2
+getFirstLineSeg (ENode (p1,p2,_) _ _) = makeLineSeg p1 p2
 
 -- | get the second line segment of an ENode.
 getLastLineSeg :: ENode -> LineSeg
-getLastLineSeg (ENode (_,p2,p3) _ _ _) = makeLineSeg p2 p3
+getLastLineSeg (ENode (_,p2,p3) _ _) = makeLineSeg p2 p3
 
 -- | Get pairs of lines from the contour, including one pair that is the last line paired with the first.
 linePairs :: Contour -> [(LineSeg, LineSeg)]
@@ -262,7 +258,7 @@ linePairs contour = rotateRight $ mapWithNeighbors (\a b c -> (handleLineSegErro
 -}
 
 -- | A smart constructor for INodes.
-makeINode :: [PLine2] -> Maybe PLine2 -> INode
+makeINode :: [(PLine2, PLine2Err)] -> Maybe (PLine2, PLine2Err) -> INode
 makeINode pLines maybeOut = case pLines of
                               [] -> error "tried to construct a broken INode"
                               [onePLine] -> error $ "tried to construct a broken INode from one PLine2: " <> show onePLine <> "\n"
@@ -270,16 +266,16 @@ makeINode pLines maybeOut = case pLines of
                               (first:second:more) -> INode first second (slist more) maybeOut
 
 -- | Get the output of the given nodetree. fails if the nodetree has no output.
-finalPLine :: NodeTree -> PLine2
+finalPLine :: NodeTree -> (PLine2, PLine2Err)
 finalPLine (NodeTree (ENodeSet (Slist [(firstENode,moreENodes)] _)) iNodeSet)
   | hasNoINodes iNodeSet = if len moreENodes == 0
-                           then outOf firstENode
+                           then (outOf firstENode, errOfOut firstENode)
                            else error "cannot have final PLine of NodeTree with more than one ENode, and no generations!\n"
-  | hasArc (finalINodeOf iNodeSet) = outOf $ finalINodeOf iNodeSet
+  | hasArc (finalINodeOf iNodeSet) = (outOf $ finalINodeOf iNodeSet, errOfOut $ finalINodeOf iNodeSet)
   | otherwise = error "has inodes, has no out, has enodes?"
 finalPLine (NodeTree _ iNodeSet)
   | hasNoINodes iNodeSet = error "cannot have final PLine of a NodeTree that is completely empty!"
-  | hasArc (finalINodeOf iNodeSet) = outOf $ finalINodeOf iNodeSet
+  | hasArc (finalINodeOf iNodeSet) = (outOf $ finalINodeOf iNodeSet, errOfOut $ finalINodeOf iNodeSet)
   | otherwise = error "has inodes, has no out, has no enodes?"
 
 -- | get the last output PLine of a NodeTree, if there is one. otherwise, Nothing.
@@ -332,20 +328,24 @@ hasNoINodes iNodeSet = case iNodeSet of
 sortedPLines :: [PLine2] -> [PLine2]
 sortedPLines = sortBy (\n1 n2 -> if (n1 `pLineIsLeft` n2) == Just True then LT else GT)
 
+-- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
+sortedPLinesWithErr :: [(PLine2, PLine2Err)] -> [(PLine2, PLine2Err)]
+sortedPLinesWithErr = sortBy (\n1 n2 -> if (fst n1 `pLineIsLeft` fst n2) == Just True then LT else GT)
+
 -- | take a sorted list of PLines, and make sure the list starts with the pline closest to (but not left of) the given PLine.
-indexPLinesTo :: PLine2 -> [PLine2] -> [PLine2]
+indexPLinesTo :: PLine2 -> [(PLine2, PLine2Err)] -> [(PLine2, PLine2Err)]
 indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesAfterIndex firstPLine pLines
   where
-    pLinesBeforeIndex myFirstPLine = filter (\a -> myFirstPLine `pLineIsLeft` a /= Just False)
-    pLinesAfterIndex myFirstPLine = filter (\a -> myFirstPLine `pLineIsLeft` a == Just False)
+    pLinesBeforeIndex myFirstPLine = filter (\a -> myFirstPLine `pLineIsLeft` (fst a) /= Just False)
+    pLinesAfterIndex myFirstPLine = filter (\a -> myFirstPLine `pLineIsLeft` (fst a) == Just False)
 
 -- | find the last PLine of an INode.
 lastInOf :: INode -> PLine2
 lastInOf (INode _ secondPLine morePLines _)
-  | len morePLines == 0 = secondPLine
-  | otherwise           = SL.last morePLines
+  | len morePLines == 0 = fst $ secondPLine
+  | otherwise           = fst $ SL.last morePLines
 
 -- | find the first PLine of an INode.
 firstInOf :: INode -> PLine2
-firstInOf (INode a _ _ _) = a
+firstInOf (INode a _ _ _) = fst a
 

@@ -56,9 +56,11 @@ import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionOf)
 
-import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, eToCPPoint2, eToPLine2, join2PPoint2, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, eToCPPoint2, eToPLine2, pToEPoint2)
 
 import Graphics.Slicer.Math.PGA (Arcable(outOf), CPPoint2(CPPoint2), Pointable(canPoint, ePointOf, pPointOf), PIntersection(PAntiCollinear, IntersectsIn), PPoint2(PPoint2), angleBetween2PL, distance2PP, eToPL, eToPPoint2, normalizeL, plinesIntersectIn)
+
+import Graphics.Slicer.Math.PGAPrimitives (join2PPWithErr)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving (Show, Eq)
@@ -166,7 +168,7 @@ findNextCell (RemainingContour (Slist [(Slist lineSegs _, divides)] _) ) =
         cell = createCellFromStraightWalls (slist [lineSegs]) [closestDivide]
         remainder = findRemainder cell lineSegs divides
         remainingSegmentsOf (RemainingContour l) = l
-        closestDivide = if fst (fst $ head divideClosestSorted) == fst ( fst $ head divideFurthestSorted)
+        closestDivide = if fst (fst $ head divideClosestSorted) == fst (fst $ head divideFurthestSorted)
                         then snd $ head divideClosestSorted
                         else error $ "Divide collision:\n" <> show divideClosestSorted <> "\n" <> show divideFurthestSorted <> "\n"
         divideClosestSorted = slist $ sortBy (compareDivides lineSegs) $ closestSegOfDivide lineSegs <$> divides
@@ -273,7 +275,7 @@ createCellFromStraightWalls (Slist [] _) _ = error "empty slist."
 createCellFromStraightWalls (Slist (_:_:_) _) _ = error "too many segsets."
 createCellFromStraightWalls _ [] = error "no celldivide."
 createCellFromStraightWalls _ (_:_:_) = error "too many celldivides."
-createCellFromStraightWalls segSets@(Slist [segments] _) [cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _ _ _) _) _)]
+createCellFromStraightWalls segSets@(Slist [segments] _) [cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _ _) _) _)]
   | len segSets == 0 = error "recieved no line segments. unpossible."
   | isLoop segSets && len segSets == len afterRes = error "passing back full segment list, which should not be possible."
   | isLoop segSets = Cell (slist [(afterRes, Just cellDivide)])
@@ -330,7 +332,7 @@ startBeforeEnd segments cellDivide = elemIndex (fst $ startOfDivide segments cel
 
 -- Get the segment the divide intersects that is closest to the beginning of the list of a contour's line segments.
 startOfDivide :: [LineSeg] -> CellDivide -> (LineSeg, Either Point2 CPPoint2)
-startOfDivide _ (CellDivide (DividingMotorcycles (Motorcycle (inSeg,LineSeg start _) _ _ _) _) _) = (inSeg, Left start)
+startOfDivide _ (CellDivide (DividingMotorcycles (Motorcycle (inSeg,LineSeg start _) _ _) _) _) = (inSeg, Left start)
 
 -- Get the segment the divide intersects that is closest to the end of the list of a contour's line segments.
 endOfDivide :: CellDivide -> (LineSeg, Either Point2 CPPoint2)
@@ -351,7 +353,7 @@ maybeEndOfDivide (CellDivide (DividingMotorcycles m ms) lastIntersection)
   | otherwise = Nothing
   where
     startSegOfMotorcycle :: Motorcycle -> LineSeg
-    startSegOfMotorcycle (Motorcycle (startSeg, _) _ _ _) = startSeg
+    startSegOfMotorcycle (Motorcycle (startSeg, _) _ _) = startSeg
 
 -- | Add a pair of NodeTrees together along a Divide, to create a new nodeTree.
 -- The intersection point for the nodeTrees along the CellDivide is calculated, and then the out of final INode of the two sides is adjusted to pass through that point.
@@ -367,7 +369,7 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
       case nub $ insOf $ lastINodeOf iNodeGens of
         [] -> error "unpossible."
         [_] -> NodeTree eNodes $ INodeSet $ init gens
-        (_:_) -> NodeTree eNodes $ INodeSet $ init gens <> one [makeINode (nub $ insOf $ lastINodeOf iNodeGens) (Just $ join2PPoint2 (finalPointOfNodeTree nodeTree) myCrossover)]
+        (_:_) -> NodeTree eNodes $ INodeSet $ init gens <> one [makeINode (nub $ insOf $ lastINodeOf iNodeGens) (Just $ join2PPWithErr (finalPointOfNodeTree nodeTree) myCrossover)]
     -- | find the last resolvable point in a NodeTree
     finalPointOfNodeTree (NodeTree _ iNodeGens)
       | canPoint (lastINodeOf iNodeGens) = pPointOf $ lastINodeOf iNodeGens
@@ -405,7 +407,7 @@ nodeTreesDoNotOverlap nodeTree1 nodeTree2 cellDivide@(CellDivide motorcycles1 _)
     -- | Check that the outputs of the NodeTrees collide at the same point at the division between the two cells the NodeTrees correspond to.
     lastOutsIntersect :: NodeTree -> NodeTree -> CellDivide -> Bool
     lastOutsIntersect nt1 nt2 (CellDivide motorcycles _) = case motorcycles of
-                                                             (DividingMotorcycles m (Slist _ 0)) -> plinesIntersectIn (finalPLine nt1) (outOf m) == plinesIntersectIn (finalPLine nt2) (outOf m)
+                                                             (DividingMotorcycles m (Slist _ 0)) -> plinesIntersectIn (fst $ finalPLine nt1) (outOf m) == plinesIntersectIn (fst $ finalPLine nt2) (outOf m)
                                                              (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet check outpoint intersections of more than one motorcycle."
 
 -- | Given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
@@ -421,5 +423,5 @@ crossoverINodes nodeTree@(NodeTree _ (INodeSet (Slist iNodes _))) cellDivision =
       | lastSegOf cell == firstCSegOf m = startPoint $ lastSegOf cell
       | otherwise = error $ "unhandled case: " <> show cell <> "\n" <> show m <> "\n" <> show (lastSegOf cell) <> "\n" <> show (firstSegOf cell) <> "\n"
       where
-        firstCSegOf (Motorcycle (seg1,_) _ _ _) = seg1
-        lastCSegOf (Motorcycle (_, seg2) _ _ _) = seg2
+        firstCSegOf (Motorcycle (seg1,_) _ _) = seg1
+        lastCSegOf (Motorcycle (_, seg2) _ _) = seg2

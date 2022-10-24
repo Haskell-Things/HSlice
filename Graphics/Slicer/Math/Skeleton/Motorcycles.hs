@@ -26,7 +26,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles, lastCrashType, motorcyclesAreAntiCollinear, motorcyclesInDivision, motorcycleMightIntersectWith, motorcycleDivisor) where
 
-import Prelude (Bool(True, False), Either(Left,Right), Eq((==)), Show(show), Ordering (EQ, GT, LT), (&&), (<>), ($), (<$>), (<), (>), (+), compare, error, notElem, null, otherwise, realToFrac, zip)
+import Prelude (Bool(True, False), Either(Left,Right), Eq((==)), Show(show), Ordering (EQ, GT, LT), (&&), (<>), ($), (<$>), (<), (>), compare, error, mempty, notElem, null, otherwise, realToFrac, zip)
 
 import Prelude as PL (init, last)
 
@@ -44,17 +44,17 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Contour (pointsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, distance, mapWithNeighbors, startPoint, endPoint, makeLineSeg)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighbors, startPoint, endPoint, makeLineSeg)
 
 import Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, intersectionOf, isAntiCollinear, noIntersection)
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, pPointBetweenPPoints, distanceBetweenPPoints, eToCPPoint2, eToPLine2, normalizePLine2, pLineFromEndpoints, pToEPoint2, translatePLine2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PPoint2, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, flipL, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), plinesIntersectIn, angleBetween2PL, outputIntersectsLineSeg, ulpOfPLine2, ulpOfLineSeg)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, flipL, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), plinesIntersectIn, angleBetween2PL, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
-import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, UlpSum(UlpSum))
+import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, UlpSum(UlpSum))
 
 -- | The collision of two motorcycles. one lives, and one doesn't, unless it's a head on collision, in which case both die, and there is no survivor.
 data Collision = Collision { _inMotorcycles :: !(Motorcycle, Motorcycle, Slist Motorcycle), _survivor :: !(Maybe Motorcycle), collisionResult :: !CollisionType }
@@ -75,7 +75,7 @@ data CrashTree = CrashTree { _motorcycles :: !(Slist Motorcycle), _survivors :: 
 
 -- | convert a Motorcycle to an ENode
 motorcycleToENode :: Motorcycle -> ENode
-motorcycleToENode (Motorcycle (seg1,seg2) mcpath mcUlp mcMag) = ENode (startPoint seg1, startPoint seg2, endPoint seg2) mcpath mcUlp mcMag
+motorcycleToENode (Motorcycle (seg1,seg2) mcpath mcErr) = ENode (startPoint seg1, startPoint seg2, endPoint seg2) mcpath mcErr
 
 -- | Find the point where the propogation from a motorcycle equals the propogation of what it impacts, taking into account the weight of a motorcycle, and the weight of what it impacts.
 motorcycleDivisor :: Motorcycle -> MotorcycleIntersection -> PPoint2
@@ -83,7 +83,7 @@ motorcycleDivisor motorcycle target = pPointBetweenPPoints (canonicalizePPoint2 
   where
     pointOfTarget :: CPPoint2
     pointOfTarget = case target of
-                      (WithLineSeg lineSeg) -> case outputIntersectsLineSeg motorcycle (lineSeg, ulpOfLineSeg lineSeg) of
+                      (WithLineSeg lineSeg) -> case outputIntersectsLineSeg motorcycle lineSeg of
                                         (Right (IntersectsIn p _)) -> p
                                         v -> error $ "impossible!\n" <> show v <> "\n" <> show lineSeg <> "\n" <> show motorcycle <> "\n" <> show target <> "\n"
                       (WithENode eNode) -> canonicalizePPoint2 $ pPointOf eNode
@@ -94,7 +94,7 @@ motorcycleDivisor motorcycle target = pPointBetweenPPoints (canonicalizePPoint2 
                   (WithENode eNode) -> distanceBetweenPPoints (canonicalizePPoint2 $ pPointOf eNode) (justIntersectsIn $ plinesIntersectIn (translatePLine2 (eToPLine2 $ getFirstLineSeg eNode) 1) (outOf eNode))
                   (WithMotorcycle motorcycle2) -> mSpeedOf motorcycle2
     mSpeedOf :: Motorcycle -> ℝ
-    mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _ _ _) = distanceBetweenPPoints (canonicalizePPoint2 $ pPointOf myMotorcycle) (justIntersectsIn $ plinesIntersectIn (translatePLine2 (eToPLine2 seg1) 1) (outOf myMotorcycle))
+    mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _ _) = distanceBetweenPPoints (canonicalizePPoint2 $ pPointOf myMotorcycle) (justIntersectsIn $ plinesIntersectIn (translatePLine2 (eToPLine2 seg1) 1) (outOf myMotorcycle))
     justIntersectsIn :: PIntersection -> CPPoint2
     justIntersectsIn res = case res of
                              (IntersectsIn p _) -> p
@@ -140,7 +140,7 @@ crashMotorcycles contour holes
 
           -- Crash just two motorcycles. Returns Nothing when the motorcycles can't collide.
           crashOf :: Motorcycle -> Motorcycle -> Maybe Collision
-          crashOf mot1 mot2@(Motorcycle (inSeg2, _) _ _ _)
+          crashOf mot1 mot2@(Motorcycle (inSeg2, _) _ _)
             -- If we have a clear path between mot1 and the origin of mot2
             | isAntiCollinear (outOf mot1) (outOf mot2) && motorcycleIntersectsAt contour mot1 == (inSeg2, Left $ endPoint inSeg2) = Just $ Collision (mot1,mot2, slist []) Nothing HeadOn
             | noIntersection (outOf mot1) (outOf mot2) = Nothing
@@ -166,36 +166,37 @@ convexMotorcycles :: Contour -> [Motorcycle]
 convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (rotateLeft $ linePairs contour) (mapWithNeighbors convexPLines $ pointsOfContour contour)
   where
     rotateLeft a = PL.last a : PL.init a
-    onlyMotorcycles :: ((LineSeg, LineSeg), Maybe (PLine2, UlpSum, ℝ)) -> Maybe Motorcycle
+    onlyMotorcycles :: ((LineSeg, LineSeg), Maybe (PLine2, PLine2Err)) -> Maybe Motorcycle
     onlyMotorcycles ((seg1, seg2), maybePLine) = case maybePLine of
-                                                   (Just (pLine, pLineUlp, pLineMag)) -> Just $ Motorcycle (seg1, seg2) pLine pLineUlp pLineMag
+                                                   (Just (pLine, pLineErr)) -> Just $ Motorcycle (seg1, seg2) pLine pLineErr
                                                    Nothing -> Nothing
     -- | Examine two line segments that are part of a Contour, and determine if they are convex from the perspective of the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior.
     --   Note that we know that the inside is to the left of the first line given, and that the first line points toward the intersection.
-    convexPLines :: Point2 -> Point2 -> Point2 -> Maybe (PLine2, UlpSum, ℝ)
+    convexPLines :: Point2 -> Point2 -> Point2 -> Maybe (PLine2, PLine2Err)
     convexPLines p1 p2 p3
       | Just True == pLineIsLeft pl1 pl2 = Nothing
-      | otherwise                        = Just (resPLine, ulpOfPLine2 resPLine, distance p1 p2 + distance p2 p3)
+      | otherwise                        = Just resPLine
         where
           resPLine = motorcycleFromPoints p1 p2 p3
           pl1 = pLineFromEndpoints p1 p2
           pl2 = pLineFromEndpoints p2 p3
 
 -- | generate the un-normalized PLine2 of a motorcycle created by the three points given.
-motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> PLine2
+motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> (PLine2, PLine2Err)
 motorcycleFromPoints p1 p2 p3 = getOutsideArc (pLineFromEndpoints p1 p2) (pLineFromEndpoints p2 p3)
   where
     -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
     --   Note that we do not normalize our output, or require normalized inputs, but we normalize our values before adding them.
-    getOutsideArc :: PLine2 -> PLine2 -> PLine2
+    getOutsideArc :: PLine2 -> PLine2 -> (PLine2, PLine2Err)
     getOutsideArc pline1 pline2
       | noIntersection pline1 pline2 = error
                                        $ "not collinear, but not intersecting?\n"
                                        <> "PLine1: " <> show pline1 <> "\n"
                                        <> "PLine2: " <> show pline2 <> "\n"
                                        <> "result: " <> show (plinesIntersectIn pline1 pline2) <> "\n"
-      | otherwise = flipL $ PLine2 $ addVecPair flippedNPV1 npv2
+      | otherwise = (flipL $ PLine2 newPLine, PLine2Err newPLineErrVals mempty mempty mempty mempty mempty)
       where
+        (newPLine, newPLineErrVals) = addVecPairWithErr flippedNPV1 npv2
         (PLine2 flippedNPV1) = flipL $ (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 pline1
         (NPLine2 npv2) = normalizePLine2 pline2
 
@@ -309,7 +310,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
 -- | Determine if a node is on one side of a motorcycle, or the other.
 --   Assumes the starting point of the second line segment is a point on the path.
 intersectionSameSide :: (Pointable a, Show a) => PPoint2 -> a -> Motorcycle -> Maybe Bool
-intersectionSameSide pointOnSide node (Motorcycle _ path _ _)
+intersectionSameSide pointOnSide node (Motorcycle _ path _)
   | canPoint node && pPointOf node == pointOnSide = Just True
   | canPoint node = pPointsOnSameSideOfPLine (pPointOf node) pointOnSide path
   | otherwise = error $ "cannot resolve provided item to a point: " <> show node <> "\n"

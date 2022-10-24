@@ -24,7 +24,7 @@
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
 module Graphics.Slicer.Math.PGA(
-  Arcable(hasArc, outOf, ulpOfOut, outUlpMag),
+  Arcable(errOfOut, hasArc, outOf),
   CPPoint2(CPPoint2),
   Intersection(HitStartPoint, HitEndPoint, NoIntersection),
   NPLine2(NPLine2),
@@ -62,12 +62,10 @@ module Graphics.Slicer.Math.PGA(
   plinesIntersectIn,
   translateL,
   translateRotatePPoint2,
-  ulpOfLineSeg,
-  ulpOfPLine2,
   vecOfL
   ) where
 
-import Prelude (Bool, Eq((==),(/=)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (*), (-), (>=), (&&), (<$>), otherwise, signum, (>), (<=), (+), negate, (/), (||), (<), abs, error, sin, cos, realToFrac, fst, sum, (.))
+import Prelude (Bool, Eq((==),(/=)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (*), (-), (>=), (&&), (<$>), otherwise, signum, snd, (>), (<=), (+), negate, (/), (||), (<), abs, error, sin, cos, realToFrac, fst, sum, (.))
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
@@ -77,7 +75,7 @@ import Data.List (foldl')
 
 import Data.List.Ordered (foldt)
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromJust, isNothing, maybeToList)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromJust, fromMaybe, isNothing, maybeToList)
 
 import Data.Set (singleton, fromList)
 
@@ -93,7 +91,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVa
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(hasArc, outOf, outUlpMag, ulpOfOut), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalize, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, join2PP, join2PPWithErr, pToEP, vecOfP))
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalize, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, join2PP, join2PPWithErr, pToEP, vecOfP), xIntercept, yIntercept)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -126,8 +124,7 @@ plinesIntersectIn pl1 pl2
     (idealNorm, idnErr) = idealNormOfP intersectPoint
     (_, iaErr) = angleBetween2PL npl1 npl2
     -- FIXME: how much do the potential normalization errors have an effect on the resultant angle?
-    (intersectPoint, intersectUlp) = intersect2PL pl1 pl2
-    -- FIXME: remove the canonicalization from this function, moving it to the callers.
+    (intersectPoint, _) = intersect2PL pl1 pl2
     (res, resUlp) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizeIntersectionWithErr pl1 pl2
     npl1 = normalizeL pl1
@@ -303,50 +300,21 @@ intersectsWith (Left l1)   (Right pl1) =         pLineIntersectsLineSeg (pl1, ul
 intersectsWith (Right pl1) (Left l1)   =         pLineIntersectsLineSeg (pl1, ulpOfPLine2 pl1) (l1, ulpOfLineSeg l1) 0
 
 -- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
-outputIntersectsLineSeg :: (Show a, Arcable a, Pointable a) => a -> (LineSeg, UlpSum) -> Either Intersection PIntersection
-outputIntersectsLineSeg source (l1, UlpSum l1Err)
+outputIntersectsLineSeg :: (Show a, Arcable a) => a -> LineSeg -> Either Intersection PIntersection
+outputIntersectsLineSeg source l1
   -- handle the case where a segment that is an input to the node is checked against.
   | isNothing canonicalizedIntersection = Right $ plinesIntersectIn pl1 pl2
-  | intersectionDistance < foundError = pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) 1
-  | ulpScale > 100000 = error
-                        $ "wtf\n"
-                        <> "ulpScale: " <> show ulpScale <> "\n"
-                        <> "travelUlpMul: " <> show travelUlpMul <> "\n"
-                        <> "ulpMultiplier: " <> show ulpMultiplier <> "\n"
-                        <> "angle: " <> show angle <> "\n"
-                        <> "angleErr: " <> show angleErr <> "\n"
-                        <> "pl1Mag: " <> show pl1Mag <> "\n"
-                        <> "intersectionDistance: " <> show intersectionDistance <> "\n"
-                        <> show source <> "\n"
-                        <> show pl2 <> "\n"
-                        <> show l1 <> "\n"
-                        <> show foundError <> "\n"
-  | otherwise = pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
+  | otherwise = pLineIntersectsLineSeg (pl1, pl1Ulp) (l1, pl2Ulp) 1
   where
-    foundError :: ℝ
-    foundError = realToFrac $ l1Err + pl1Err + pl2Err + rawIntersectionErr + intersectionDistanceErr + canonicalizedSourceErr
-    -- | the multiplier used to expand the hitcircle of an endpoint.
-    ulpScale :: ℝ
-    ulpScale = realToFrac $ ulpMultiplier * realToFrac travelUlpMul * abs (realToFrac angle + angleErr)
-    (angle, UlpSum angleErr) = angleBetween2PL (npl1, npl2Err) (npl2, npl2Err)
-    (npl1, npl1Err) = normalizeL pl1
-    (npl2, npl2Err) = normalizeL pl2
-    (pl2, UlpSum pl2Err) = eToPLine2WithErr l1
-    -- the multiplier to account for distance between our Pointable, and where it intersects.
-    travelUlpMul
-      | canPoint source = pl1Mag / intersectionDistance
-      | otherwise = error
-                    $ "cannot resolve source to a point?\n"
-                    <> show source <> "\n"
-    (pl1, UlpSum pl1Err, pl1Mag)
-      | hasArc source = (outOf source, ulpOfOut source, outUlpMag source)
+    pl2Ulp = snd (fromMaybe (Right 0,mempty) $ xIntercept (pl2,pl2Err)) <> snd (fromMaybe (Right 0,mempty) $ yIntercept (pl2,pl2Err))
+    (pl2, pl2Err) = eToPL l1
+    pl1Ulp = snd (fromMaybe (Right 0,mempty) $ xIntercept (pl1,pl1Err)) <> snd (fromMaybe (Right 0,mempty) $ yIntercept (pl1,pl1Err))
+    (pl1, pl1Err)
+      | hasArc source = (outOf source, errOfOut source)
       | otherwise = error
                     $ "no arc from source?\n"
                     <> show source <> "\n"
-    (rawIntersection, UlpSum rawIntersectionErr) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizeIntersectionWithErr pl1 pl2
-    (canonicalizedSource, UlpSum canonicalizedSourceErr) = canonicalize $ pPointOf source
-    (intersectionDistance, UlpSum intersectionDistanceErr) = distance2PP canonicalizedSource rawIntersection
 
 -- | A type alias, for cases where either input is acceptable.
 type SegOrPLine2WithErr = Either (LineSeg, UlpSum) (PLine2,UlpSum)
@@ -441,10 +409,6 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
     (pl2, UlpSum pl2Err) = eToPLine2WithErr l2
     -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
     ulpTotal = pl1Err + pl2Err + l1Err + ulpL2 
-    ulpScale = 120 + ulpMultiplier * (realToFrac angle+angleErr) * (realToFrac angle+angleErr)
-    (angle, UlpSum angleErr) = angleBetween2PL (npl1, npl1Err) (npl2, npl2Err)
-    (npl1, npl1Err) = normalizeL pl1
-    (npl2, npl2Err) = normalizeL pl2
     dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nl1Err: " <> show l1Err <> "\nrawIntersectErr: " <> show rawIntersectErr <> "\n"
     hasIntersection = hasRawIntersection && onSegment l1 rawIntersection ulpStartSum1 ulpEndSum1 && onSegment l2 rawIntersection ulpStartSum2 ulpEndSum2
     hasRawIntersection = valOf 0 foundVal /= 0

@@ -25,10 +25,9 @@
 module Graphics.Slicer.Math.PGAPrimitives
   (
     Arcable(
+      errOfOut,
       hasArc,
-      outOf,
-      outUlpMag,
-      ulpOfOut
+      outOf
       ),
     CPPoint2(CPPoint2),
     NPLine2(NPLine2),
@@ -460,10 +459,9 @@ class Pointable a where
 
 -- | does this node have an output (resulting) pLine?
 class Arcable a where
+  errOfOut :: a -> PLine2Err
   hasArc :: a -> Bool
   outOf :: a -> PLine2
-  ulpOfOut :: a -> UlpSum
-  outUlpMag :: a -> ℝ
 
 class (Show a) => ProjectivePoint2 a where
   canonicalize :: a -> (CPPoint2, UlpSum)

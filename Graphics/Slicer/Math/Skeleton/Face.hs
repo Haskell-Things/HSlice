@@ -22,7 +22,7 @@
 -- | This file contains code for creating a series of Faces, covering a straight skeleton.
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
-import Prelude ((==), otherwise, (<$>), ($), length, error, (<>), show, Eq, Show, (<>), Bool(True), null, not, and, snd, (&&), (>), (/=))
+import Prelude ((==), fst, otherwise, (<$>), ($), length, error, (<>), show, Eq, Show, (<>), Bool(True), null, not, and, snd, (&&), (>), (/=))
 
 import Data.List (uncons)
 
@@ -42,11 +42,11 @@ import Graphics.Slicer.Math.Definitions (LineSeg, distance, fudgeFactor)
 
 import Graphics.Slicer.Math.Intersections (isCollinear)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), getFirstLineSeg, getLastLineSeg, finalINodeOf, finalOutOf, ancestorsOf, firstInOf, lastInOf, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), getFirstLineSeg, getLastLineSeg, finalINodeOf, finalOutOf, ancestorsOf, firstInOf, lastInOf, sortedPLinesWithErr)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, findENodeByOutput, findINodeByOutput, firstSegOf, lastENodeOf, firstENodeOf, pathFirst, pathLast)
 
-import Graphics.Slicer.Math.PGA (PLine2, Arcable(hasArc, outOf), ePointOf)
+import Graphics.Slicer.Math.PGA (PLine2, PLine2Err, Arcable(hasArc, outOf), ePointOf)
 
 --------------------------------------------------------------------
 -------------------------- Face Placement --------------------------
@@ -130,8 +130,8 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
         allInsAreENodes :: INode -> Bool
         allInsAreENodes myTarget = and $ isJust <$> (findENodeByOutput eNodes <$> inArcsOf myTarget)
           where
-            -- Make a list of an INode's input arcs.
-            inArcsOf (INode firstArc secondArc (Slist rawMoreArcs _) _) = firstArc : secondArc : rawMoreArcs
+            -- Make a list of the PLines of an INode's input arcs.
+            inArcsOf (INode firstArc secondArc (Slist rawMoreArcs _) _) = fst <$> firstArc : secondArc : rawMoreArcs
 
 -- | wrap getFaces so the first line segment of the input set is the first face given.
 rotateFaces :: INodeSet -> ENodeSet -> INode -> [Face]
@@ -147,25 +147,25 @@ rotateFaces iNodeSet eNodes iNode = rTail <> [rHead]
 getFaces :: INodeSet -> ENodeSet -> INode -> [Face]
 getFaces iNodeSet@(INodeSet myGenerations) eNodes iNode@(INode _ _ _ maybeOut) = findFacesRecurse iNode allPLines
   where
-    allPLines = sortedPLines $ insOf iNode <> out
+    allPLines = sortedPLinesWithErr $ insOf iNode <> out
       where
         insOf (INode pLine1 pLine2 (Slist morePLines _) _) = pLine1 : pLine2 : morePLines
         out = case maybeOut of
                 Nothing -> []
                 (Just o) -> [o]
-    firstPLine = head $ slist allPLines
+    firstPLine = fst $ head $ slist allPLines
     -- responsible for placing faces under the first pline given (if applicable), and between that pline, and the following pline. then.. recurse!
-    findFacesRecurse :: INode -> [PLine2] -> [Face]
+    findFacesRecurse :: INode -> [(PLine2, PLine2Err)] -> [Face]
     findFacesRecurse myINode pLines =
       case pLines of
         [] -> error "we should never get here."
         -- Just one PLine? assume we're the last one. do not place a face, but do place faces under the PLine.
-        [onePLine] -> placeFacesBeneath onePLine firstPLine
-                      <> placeFaceBetween onePLine firstPLine
+        [(onePLine,_)] -> placeFacesBeneath onePLine firstPLine
+                       <> placeFaceBetween onePLine firstPLine
         -- More than one PLine? place faces under onePLine, place a face between onePLine and anotherPLine, and recurse!
-        (onePLine : anotherPLine : myMorePLines) -> placeFacesBeneath onePLine anotherPLine
-                                                    <> placeFaceBetween onePLine anotherPLine
-                                                    <> findFacesRecurse myINode (anotherPLine:myMorePLines)
+        ((onePLine,_) : anotherPLine : myMorePLines) -> placeFacesBeneath onePLine (fst anotherPLine)
+                                                        <> placeFaceBetween onePLine (fst anotherPLine)
+                                                        <> findFacesRecurse myINode (anotherPLine:myMorePLines)
       where
         -- zero or one face, not a real list.
         placeFaceBetween :: PLine2 -> PLine2 -> [Face]
