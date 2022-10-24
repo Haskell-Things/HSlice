@@ -149,7 +149,7 @@ data ProjectiveLine =
   deriving (Generic, NFData, Show)
 
 class ProjectiveLine2 a where
-  angleBetween2PL :: (ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
+  angleBetween2PL :: (ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ℝ, (PLine2Err, PLine2Err, UlpSum))
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
   forceBasisOfL :: a -> a
@@ -161,7 +161,9 @@ class ProjectiveLine2 a where
   vecOfL :: a -> GVec
 
 instance ProjectiveLine2 ProjectiveLine where
-  angleBetween2PL l1 l2 = angleBetweenWithErr l1 l2
+  angleBetween2PL l1 l2 = crushErr $ angleBetweenWithErr l1 l2
+    where
+      crushErr (res, (c1,c2,_,resErr)) = (res, (c1,c2,resErr))
   consLikeL l = case l of
                   (NPLine2 _) -> NPLine2
                   (PLine2 _) -> PLine2

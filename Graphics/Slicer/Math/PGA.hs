@@ -35,7 +35,6 @@ module Graphics.Slicer.Math.PGA(
   ProjectiveLine(PLine2, NPLine2),
   ProjectivePoint(PPoint2, CPPoint2),
   ProjectivePoint2,
-  angleBetween2PL,
   canonicalize,
   combineConsecutiveLineSegs,
   distance2PP,
@@ -257,7 +256,7 @@ sameDirection a b = res >= maxAngle
     -- ceiling value. a value bigger than maxAngle is considered to be going the same direction.
     maxAngle :: ℝ
     maxAngle = 1.0 - realToFrac (ulpVal resErr)
-    (res, (_,_,_,resErr)) = angleBetween2PL a b
+    (res, (_,_,resErr)) = angleBetween2PL a b
 
 -- | A checker, to ensure two Projective Lines are going the opposite direction, and are parallel.
 -- FIXME: precision on inputs?
@@ -267,7 +266,7 @@ oppositeDirection a b = res <= minAngle
     -- floor value. a value smaller than minAngle is considered to be going the opposite direction.
     minAngle :: ℝ
     minAngle = realToFrac (realToFrac (ulpVal resErr) + (-1) :: Rounded 'TowardNegInf ℝ)
-    (res, (_,_,_,resErr)) = angleBetween2PL a b
+    (res, (_,_,resErr)) = angleBetween2PL a b
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
 pPointOnPerpWithErr :: ProjectiveLine -> ProjectivePoint -> ℝ -> (ProjectivePoint, (PLine2Err,([ErrVal],[ErrVal]), UlpSum))
