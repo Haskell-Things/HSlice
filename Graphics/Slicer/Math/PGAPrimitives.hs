@@ -162,15 +162,15 @@ class ProjectiveLine2 a where
 instance ProjectiveLine2 NPLine2 where
   angleBetween2PL l1 l2 = crushErr $ angleBetweenWithErr l1 l2
     where
-      crushErr (res, (n1,n2,_,ulpSum)) = (res, (n1,n2,ulpSum))
+      crushErr (res, (n1,n2,_,resErr)) = (res, (n1,n2,resErr))
   consLikeL _ = NPLine2
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
   intersect2PL l1 l2 = intersectionOfProjectiveLinesWithErr l1 l2
   normalizeL l = (l, mempty)
   normOfL l = normOfProjectiveLineWithErr l
-  sqNormOfL l = sqNormOfProjectiveLineWithErr l
-  translateL l d = (\(r,(PLine2Err _ _ _ _ t _)) -> (r,t)) $ translateProjectiveLine2WithErr l d
+  sqNormOfL l = squaredNormOfProjectiveLineWithErr l
+  translateL l d = (\(r,(PLine2Err _ _ _ _ t _)) -> (r,t)) $ translateProjectiveLineWithErr l d
   vecOfL (NPLine2 v) = v
 
 instance ProjectiveLine2 PLine2 where
@@ -183,8 +183,8 @@ instance ProjectiveLine2 PLine2 where
   intersect2PL l1 l2 = intersectionOfProjectiveLinesWithErr l1 l2
   normalizeL l = normalizeProjectiveLineWithErr l
   normOfL l = normOfProjectiveLineWithErr l
-  sqNormOfL l = sqNormOfProjectiveLineWithErr l
-  translateL l d = (\(r,(PLine2Err _ _ _ _ t _)) -> (r,t)) $ translateProjectiveLine2WithErr l d
+  sqNormOfL l = squaredNormOfProjectiveLineWithErr l
+  translateL l d = (\(r,(PLine2Err _ _ _ _ t _)) -> (r,t)) $ translateProjectiveLineWithErr l d
   vecOfL (PLine2 v) = v
 
 -- | the two types of error of a projective line.
@@ -309,8 +309,8 @@ normOfProjectiveLineWithErr line = (res, resErr)
     (sqNormOfPLine2, sqNormUlp) = sqNormOfL line
 
 -- | Find the squared norm of a given Projective Line.
-sqNormOfProjectiveLineWithErr :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
-sqNormOfProjectiveLineWithErr line = (res, ulpTotal)
+squaredNormOfProjectiveLineWithErr :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
+squaredNormOfProjectiveLineWithErr line = (res, ulpTotal)
   where
     res = a*a+b*b
     a = valOf 0 $ getVal [GEPlus 1] vals
@@ -323,8 +323,8 @@ sqNormOfProjectiveLineWithErr line = (res, ulpTotal)
 
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Uses the property that translation of a line is expressed on the GEZero component.
-translateProjectiveLine2WithErr :: (ProjectiveLine2 a) => a -> ℝ -> (PLine2, PLine2Err)
-translateProjectiveLine2WithErr line d = (PLine2 res, normErr <> PLine2Err resErrs mempty mempty mempty tUlp mempty)
+translateProjectiveLineWithErr :: (ProjectiveLine2 a) => a -> ℝ -> (PLine2, PLine2Err)
+translateProjectiveLineWithErr line d = (PLine2 res, normErr <> PLine2Err resErrs mempty mempty mempty tUlp mempty)
   where
     (res, resErrs) = addVecPairWithErr m $ vecOfL line
     m = GVec [GVal tAdd (singleton (GEZero 1))]
