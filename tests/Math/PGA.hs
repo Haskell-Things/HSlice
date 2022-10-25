@@ -403,18 +403,18 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
                 <> "angle2: " <> show angle2 <> "\n"
                 <> "angle2Err: " <> show angle2Err <> "\n"
   where
-    (angle2, UlpSum angle2Err) = angleBetween2PL (normedPLine3, norm3Err) (normedPLine4, norm4Err)
-    (PPoint2 rawBisectorStart, UlpSum bisectorStartErr) = pPointBetweenPPointsWithErr sourceStart sourceEnd 0.5 0.5
-    (bisectorEndRaw, UlpSum bisectorEndRawErr) = pPointOnPerpWithErr pline4 (PPoint2 rawBisectorStart) d
-    (bisectorEnd, UlpSum bisectorEndErr) = canonicalize bisectorEndRaw
-    (pline3, UlpSum pline3Err) = join2PP (CPPoint2 rawBisectorStart) bisectorEnd
+    (angle2, (_,_, angle2Err)) = angleBetween2PL (normedPLine3, norm3Err) (normedPLine4, norm4Err)
+    (PPoint2 rawBisectorStart, bisectorStartErr) = pPointBetweenPPointsWithErr sourceStart sourceEnd 0.5 0.5
+    (bisectorEndRaw, bisectorEndRawErr) = pPointOnPerpWithErr pline4 (PPoint2 rawBisectorStart) d
+    (bisectorEnd, bisectorEndErr) = canonicalize bisectorEndRaw
+    (pline3, pline3Err) = join2PP (CPPoint2 rawBisectorStart) bisectorEnd
     (normedPLine3, norm3Err) = normalizeL pline3
     sourceStart = makePPoint2 x y
     sourceEnd = makePPoint2 x2 y2
-    (pline4, UlpSum pline4Err) = join2PP sourceStart sourceEnd
+    (pline4, pline4Err) = join2PP sourceStart sourceEnd
     (normedPLine4, norm4Err) = normalizeL pline4
-    errTotal3 = angle2Err + pline3Err + pline4Err + bisectorStartErr + bisectorEndRawErr + bisectorEndErr
-    errTotal4 = angle2Err + pline3Err + pline4Err + bisectorStartErr + bisectorEndRawErr + bisectorEndErr
+    errTotal3 = ulpVal $ angle2Err <> pline3Err <> pline4Err <> bisectorStartErr <> bisectorEndRawErr <> bisectorEndErr
+    errTotal4 = ulpVal $ angle2Err <> pline3Err <> pline4Err <> bisectorStartErr <> bisectorEndRawErr <> bisectorEndErr
     x2 :: ℝ
     x2 = coerce rawX2
     d :: ℝ
@@ -709,7 +709,7 @@ prop_LineSegIntersectionStableAtX1Y1Point pointD rawD1 x1 y1 rawX2 rawY2
 -- | A checker, to ensure an angle is what is expected.
 myAngleBetween :: NPLine2 -> NPLine2 -> Bool
 myAngleBetween a b
-  | realToFrac res + resErr >= 1.0-resErr = True
+  | realToFrac res + (ulpVal resErr) >= 1.0-(ulpVal resErr) = True
   | otherwise = error
                 $ "angle wrong?\n"
                 <> show a <> "\n"
@@ -717,7 +717,7 @@ myAngleBetween a b
                 <> show res <> "\n"
                 <> show resErr <> "\n"
   where
-    (res, UlpSum resErr) = angleBetween2PL (a, mempty) (b, mempty)
+    (res, (_,_, resErr)) = angleBetween2PL (a, mempty) (b, mempty)
 
 -- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
@@ -1321,9 +1321,9 @@ prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
     bisector = flipL $ outOf eNode
 
 prop_obtuseBisectorOnBiggerSide_makeINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> Expectation
-prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound > realToFrac (1-angleErr), angleFound < realToFrac (-1 + angleErr :: Rounded 'TowardInf ℝ)) --> (True, False)
+prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound > realToFrac (1-(ulpVal angleErr)), angleFound < realToFrac (-1 + (ulpVal angleErr) :: Rounded 'TowardInf ℝ)) --> (True, False)
   where
-    (angleFound, UlpSum angleErr) = angleBetween2PL bisector1 bisector2
+    (angleFound, (_,_, angleErr)) = angleBetween2PL bisector1 bisector2
     eNode = randomENode x y d1 rawR1 d2 rawR2
     iNode = randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2
     bisector1 = normalizeL $ outOf iNode

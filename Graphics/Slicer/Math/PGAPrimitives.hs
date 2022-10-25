@@ -149,7 +149,7 @@ newtype NPLine2 = NPLine2 GVec
   deriving (Eq, Generic, NFData, Show)
 
 class ProjectiveLine2 a where
-  angleBetween2PL :: (ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ℝ, UlpSum)
+  angleBetween2PL :: (ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ℝ, (PLine2Err, PLine2Err, UlpSum))
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
   forceBasisOfL :: a -> a
@@ -164,7 +164,7 @@ class ProjectiveLine2 a where
 instance ProjectiveLine2 NPLine2 where
   angleBetween2PL l1 l2 = crushErr $ angleBetweenWithErr l1 l2
     where
-      crushErr (res, (_,_,_,ulpSum)) = (res, ulpSum)
+      crushErr (res, (n1,n2,_,ulpSum)) = (res, (n1,n2,ulpSum))
   consLikeL _ = NPLine2
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
@@ -179,7 +179,7 @@ instance ProjectiveLine2 NPLine2 where
 instance ProjectiveLine2 PLine2 where
   angleBetween2PL l1 l2 = crushErr $ angleBetweenWithErr l1 l2
     where
-      crushErr (res, (_,_,_,ulpSum)) = (res, ulpSum)
+      crushErr (res, (n1,n2,_,ulpSum)) = (res, (n1,n2,ulpSum))
   consLikeL _ = PLine2
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l

@@ -52,7 +52,7 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, distance, endPoint, startPoint, fudgeFactor, makeLineSeg)
 
-import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
+import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.Intersections (intersectionOf)
 
@@ -111,9 +111,9 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                                                                                      -- LOWHANGINGFRUIT: what about two motorcycles that are anticolinear?
                                                                                      error "don't know what to do with these motorcycles."
                                                where
-                                                 intersectionIsBehind m = angleFound < realToFrac angleErr
+                                                 intersectionIsBehind m = angleFound < realToFrac (ulpVal angleErr)
                                                    where
-                                                     (angleFound, UlpSum angleErr) = angleBetween2PL (normalizeL $ outOf m) (eToPL $ lineSegToIntersection m)
+                                                     (angleFound, (_,_, angleErr)) = angleBetween2PL (normalizeL $ outOf m) (eToPL $ lineSegToIntersection m)
                                                  lineSegToIntersection m = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
                                                  intersectionPPoint = intersectionOf (outOf firstMC) (outOf secondMC)
                                              (Slist (_:_) _) -> error "too many motorcycles."

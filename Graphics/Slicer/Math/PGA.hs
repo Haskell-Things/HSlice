@@ -122,7 +122,7 @@ plinesIntersectIn pl1 pl2
   | otherwise                          = IntersectsIn res (resUlp, mempty, mempty, mempty, iaErr, mempty)
   where
     (idealNorm, idnErr) = idealNormOfP intersectPoint
-    (_, iaErr) = angleBetween2PL npl1 npl2
+    (_, (_,_,iaErr)) = angleBetween2PL npl1 npl2
     -- FIXME: how much do the potential normalization errors have an effect on the resultant angle?
     (intersectPoint, _) = intersect2PL pl1 pl2
     (res, resUlp) = fromJust canonicalizedIntersection
@@ -228,7 +228,7 @@ sameDirection a b = res >= maxAngle
     -- ceiling value. a value bigger than maxAngle is considered to be going the same direction.
     maxAngle :: ℝ
     maxAngle = realToFrac (1 - ulpVal resErr :: Rounded 'TowardInf ℝ)
-    (res, resErr) = angleBetween2PL a b
+    (res, (_,_,resErr)) = angleBetween2PL a b
 
 -- | A checker, to ensure two Projective Lines are going the opposite direction, and are parallel.
 -- FIXME: precision on inputs?
@@ -238,7 +238,7 @@ oppositeDirection a b = res <= minAngle
     -- floor value. a value smaller than minAngle is considered to be going the opposite direction.
     minAngle :: ℝ
     minAngle = realToFrac (realToFrac (ulpVal resErr) + (-1) :: Rounded 'TowardNegInf ℝ)
-    (res, resErr) = angleBetween2PL a b
+    (res, (_,_,resErr)) = angleBetween2PL a b
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
 pPointOnPerpWithErr :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> (PPoint2, UlpSum)
@@ -323,21 +323,17 @@ type SegOrPLine2WithErr = Either (LineSeg, UlpSum) (PLine2,UlpSum)
 intersectsWithErr :: SegOrPLine2WithErr -> SegOrPLine2WithErr -> Either Intersection PIntersection
 intersectsWithErr (Left l1)       (Left l2)       =         lineSegIntersectsLineSeg l1 l2
 intersectsWithErr (Right (pl1,_)) (Right (pl2,_)) = Right $ plinesIntersectIn pl1 pl2
-intersectsWithErr (Left l1@(rawL1,_))       (Right pl1@(rawPL1,_))     =         pLineIntersectsLineSeg pl1 l1 ulpScale
+intersectsWithErr (Left l1@(rawL1,_)) (Right pl1@(rawPL1, _)) = pLineIntersectsLineSeg pl1 l1 ulpScale
   where
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
-    (angle, UlpSum angleErr) = angleBetween2PL (npl1, npl1Err) (npl2, npl2Err)
-    (npl1, npl1Err) = normalizeL rawPL1
-    (npl2, npl2Err) = normalizeL pl2
+    (angle, (_,_, UlpSum angleErr)) = angleBetween2PL (rawPL1, mempty) (pl2, mempty)
     (pl2, _) = eToPLine2WithErr rawL1
-intersectsWithErr (Right pl1@(rawPL1,_))     (Left l1@(rawL1,_))       =         pLineIntersectsLineSeg pl1 l1 ulpScale
+intersectsWithErr (Right pl1@(rawPL1, _)) (Left l1@(rawL1,_)) = pLineIntersectsLineSeg pl1 l1 ulpScale
   where
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
-    (angle, UlpSum angleErr) = angleBetween2PL (npl1, npl1Err) (npl2, npl2Err)
-    (npl1, npl1Err) = normalizeL rawPL1
-    (npl2, npl2Err) = normalizeL pl2
+    (angle, (_,_, UlpSum angleErr)) = angleBetween2PL (rawPL1, mempty) (pl2, mempty)
     (pl2, _) = eToPLine2WithErr rawL1
 
 -- | Check if/where a line segment and a PLine intersect.

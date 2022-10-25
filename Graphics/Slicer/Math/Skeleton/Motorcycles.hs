@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PLi
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
-import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, UlpSum(UlpSum))
+import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
 
 -- | The collision of two motorcycles. one lives, and one doesn't, unless it's a head on collision, in which case both die, and there is no survivor.
 data Collision = Collision { _inMotorcycles :: !(Motorcycle, Motorcycle, Slist Motorcycle), _survivor :: !(Maybe Motorcycle), collisionResult :: !CollisionType }
@@ -155,9 +155,9 @@ crashMotorcycles contour holes
                           _ -> Nothing
               where
                 intersectionPPoint = intersectionOf (outOf mot1) (outOf mot2)
-                intersectionIsBehind m = angleFound < realToFrac angleErr
+                intersectionIsBehind m = angleFound < realToFrac (ulpVal angleErr)
                   where
-                    (angleFound, UlpSum angleErr) = angleBetween2PL (normalizeL $ outOf m) (eToPL $ lineSegToIntersection m)
+                    (angleFound, (_,_, angleErr)) = angleBetween2PL (normalizeL $ outOf m) (eToPL $ lineSegToIntersection m)
                 lineSegToIntersection m = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
@@ -253,12 +253,12 @@ motorcycleMightIntersectWith lineSegs motorcycle
                                                                        then Nothing
                                                                        else Just intersection
       where
-        intersectionPointIsBehind point = angleFound < realToFrac angleErr
+        intersectionPointIsBehind point = angleFound < realToFrac (ulpVal angleErr)
           where
-            (angleFound, UlpSum angleErr) = angleBetween2PL (normalizeL $ outOf motorcycle) (eToPL $ lineSegToIntersection point)
-        intersectionCPPointIsBehind pPoint = angleFound < realToFrac angleErr
+            (angleFound, (_,_, angleErr)) = angleBetween2PL (normalizeL $ outOf motorcycle) (eToPL $ lineSegToIntersection point)
+        intersectionCPPointIsBehind pPoint = angleFound < realToFrac (ulpVal angleErr)
           where
-            (angleFound, UlpSum angleErr) = angleBetween2PL (normalizeL $ outOf motorcycle) (eToPL $ lineSegToIntersectionP pPoint)
+            (angleFound, (_,_, angleErr)) = angleBetween2PL (normalizeL $ outOf motorcycle) (eToPL $ lineSegToIntersectionP pPoint)
         lineSegToIntersection myPoint = makeLineSeg (ePointOf motorcycle) myPoint
         lineSegToIntersectionP myPPoint = makeLineSeg (ePointOf motorcycle) (pToEPoint2 myPPoint)
 
@@ -296,12 +296,12 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                                                        then Nothing
                                                                        else Just intersection
       where
-        intersectionPointIsBehind point = angleFound < realToFrac angleErr
+        intersectionPointIsBehind point = angleFound < realToFrac (ulpVal angleErr)
           where
-            (angleFound, UlpSum angleErr) = angleBetween2PL (normalizeL $ outOf motorcycle) (eToPL $ lineSegToIntersection point)
-        intersectionPPointIsBehind pPoint = angleFound < realToFrac angleErr
+            (angleFound, (_,_, angleErr)) = angleBetween2PL (normalizeL $ outOf motorcycle) (eToPL $ lineSegToIntersection point)
+        intersectionPPointIsBehind pPoint = angleFound < realToFrac (ulpVal angleErr)
           where
-            (angleFound, UlpSum angleErr) = angleBetween2PL (normalizeL $ outOf motorcycle) (eToPL $ lineSegToIntersectionP pPoint)
+            (angleFound, (_,_, angleErr)) = angleBetween2PL (normalizeL $ outOf motorcycle) (eToPL $ lineSegToIntersectionP pPoint)
         lineSegToIntersection myPoint = makeLineSeg (ePointOf motorcycle) myPoint
         lineSegToIntersectionP myPPoint = makeLineSeg (ePointOf motorcycle) (pToEPoint2 myPPoint)
     motorcyclePoint = canonicalizePPoint2 $ pPointOf motorcycle
