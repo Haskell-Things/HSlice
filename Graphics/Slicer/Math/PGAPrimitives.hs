@@ -172,10 +172,10 @@ instance ProjectiveLine2 ProjectiveLine where
   intersect2PL l1 l2 = intersectionOfProjectiveLinesWithErr l1 l2
   normalizeL l = case l of
                   n@(NPLine2 _) -> (n,mempty)
-                  p@(PLine2 _) -> normalizePLine2WithErr p
-  normOfL l = normOfPLine2WithErr l
-  sqNormOfL l = sqNormOfPLine2WithErr l
-  translateL l d = translateProjectiveLine2WithErr l d
+                  p@(PLine2 _) -> normalizeProjectiveLineWithErr p
+  normOfL l = normOfProjectiveLineWithErr l
+  sqNormOfL l = squaredNormOfProjectiveLineWithErr l
+  translateL l d = translateProjectiveLineWithErr l d
   vecOfL l = case l of
                (NPLine2 v) -> v
                (PLine2 v) -> v
@@ -281,30 +281,30 @@ meetOfProjectiveLinesWithErr line1 line2 = (PPoint2 res,
     (npl2, npl2Err) = normalizeL line2
 
 -- | Normalize a Projective Line.
-normalizePLine2WithErr :: (ProjectiveLine2 a) => a -> (ProjectiveLine, PLine2Err)
-normalizePLine2WithErr line = (res, resErr)
+normalizeProjectiveLineWithErr :: (ProjectiveLine2 a) => a -> (ProjectiveLine, PLine2Err)
+normalizeProjectiveLineWithErr line = (res, resErr)
   where
     (res, resErr) = case norm of
                       1.0 -> (NPLine2 vec      , normErr)
                       _   -> (NPLine2 scaledVec, normErr <> PLine2Err mempty scaledVecErrs mempty mempty mempty mempty)
     (scaledVec, scaledVecErrs) = divVecScalarWithErr vec norm
-    (norm, normErr) = normOfPLine2WithErr line
+    (norm, normErr) = normOfL line
     vec = vecOfL line
 
 -- | Find the norm of a given Projective Line.
-normOfPLine2WithErr :: (ProjectiveLine2 a) => a -> (ℝ, PLine2Err)
-normOfPLine2WithErr line = (res, resErr)
+normOfProjectiveLineWithErr :: (ProjectiveLine2 a) => a -> (ℝ, PLine2Err)
+normOfProjectiveLineWithErr line = (res, resErr)
   where
     (res, resErr) = case sqNormOfPLine2 of
                       1.0 -> (1.0                , PLine2Err mempty mempty mempty sqNormUlp mempty mempty)
                       _   -> (sqrt sqNormOfPLine2, PLine2Err mempty mempty rawResUlp sqNormUlp mempty mempty)
     rawRes = sqrt sqNormOfPLine2
     rawResUlp = UlpSum (abs $ realToFrac $ doubleUlp rawRes)
-    (sqNormOfPLine2, sqNormUlp) = sqNormOfPLine2WithErr line
+    (sqNormOfPLine2, sqNormUlp) = sqNormOfL line
 
 -- | find the squared norm of a given Projective Line.
-sqNormOfPLine2WithErr :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
-sqNormOfPLine2WithErr line = (res, ulpTotal)
+squaredNormOfProjectiveLineWithErr :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
+squaredNormOfProjectiveLineWithErr line = (res, ulpTotal)
   where
     res = a*a+b*b
     a = valOf 0 $ getVal [GEPlus 1] vals
@@ -317,8 +317,8 @@ sqNormOfPLine2WithErr line = (res, ulpTotal)
 
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Uses the property that translation of a line is expressed on the GEZero component.
-translateProjectiveLine2WithErr :: (ProjectiveLine2 a) => a -> ℝ -> (ProjectiveLine, PLine2Err)
-translateProjectiveLine2WithErr line d = (PLine2 res, normErr <> PLine2Err resErrs mempty mempty mempty tUlp mempty)
+translateProjectiveLineWithErr :: (ProjectiveLine2 a) => a -> ℝ -> (ProjectiveLine, PLine2Err)
+translateProjectiveLineWithErr line d = (PLine2 res, normErr <> PLine2Err resErrs mempty mempty mempty tUlp mempty)
   where
     (res, resErrs) = addVecPairWithErr m $ vecOfL line
     m = GVec [GVal tAdd (singleton (GEZero 1))]
