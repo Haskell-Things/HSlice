@@ -51,7 +51,6 @@ module Graphics.Slicer.Math.PGA(
   intersectsWithErr,
   join2PP,
   makePPoint2,
-  normalize,
   normalizeL,
   outputIntersectsLineSeg,
   pLineIsLeft,
@@ -91,7 +90,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVa
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalize, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, join2PP, join2PPWithErr, pToEP, vecOfP), xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, join2PP, join2PPWithErr, pToEP, vecOfP), xIntercept, yIntercept)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -139,8 +138,8 @@ pLineIsLeft pl1 pl2
   where
     -- FIXME: naieve implementation. use npl1Err and npl2Err to get two angle differences.
     (res, _) = angleCos npl1 npl2
-    (npl1, _) = normalize pl1
-    (npl2, _) = normalize pl2
+    (npl1, _) = normalizeL pl1
+    (npl2, _) = normalizeL pl2
     -- | Find the cosine of the angle between the two lines. results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when "right".
     angleCos :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
     angleCos l1 l2
@@ -187,7 +186,7 @@ distancePPointToPLineWithErr point line
     (linePoint, lpErr)             = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
     ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr {- <> resErr -} <> newPLineErr <>  lpErr
     foundVal                       = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP $ point
-    (NPLine2 nplvec,_)             = normalize line
+    (NPLine2 nplvec,_)             = normalizeL line
 
 
 -- | Determine if two points are on the same side of a given line.
@@ -217,8 +216,8 @@ distanceBetweenPLinesWithErr line1 line2 = (ideal, resUlpSum)
     (likeRes, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
     p1 = vecOfL $ forceBasisOfL npl1
     p2 = vecOfL $ forceBasisOfL npl2
-    (npl1, _) = normalize line1
-    (npl2, _) = normalize line2
+    (npl1, _) = normalizeL line1
+    (npl2, _) = normalizeL line2
 
 -- | A checker, to ensure two Projective Lines are going the same direction, and are parallel.
 -- FIXME: precision on inputs?
@@ -248,13 +247,13 @@ pPointOnPerpWithErr line ppoint d = (PPoint2 res,
     res = motor•pvec•reverseGVec motor
     (perpLine, (plMulErr,plAddErr))= lvec ⨅+ pvec
     lvec                           = vecOfL $ forceBasisOfL npl
-    (npl,lErr)                     = normalize line
+    (npl,_)                        = normalizeL line
     pvec                           = vecOfP $ forceBasisOfP ppoint
     motor = addVecPairWithoutErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
     gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
     gaIErr = UlpSum $ abs $ realToFrac $ doubleUlp $ d/2
-    ulpTotal = sumErrVals plMulErr <> sumErrVals plAddErr <> gaIErr <>lErr
+    ulpTotal = sumErrVals plMulErr <> sumErrVals plAddErr <> gaIErr
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
 translateRotatePPoint2 :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> PPoint2

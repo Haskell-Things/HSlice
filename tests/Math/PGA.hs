@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToCPPoint2, eToPLine2, getFirstArc, join2PPoint2, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalize, pPointBetweenPPointsWithErr, distance2PP, distancePPointToPLineWithErr, eToPLine2WithErr, eToPL, eToPPoint2, intersect2PL, translateL, translateRotatePPoint2, angleBetween2PL, flipL, join2PP, makePPoint2, normalize, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalize, pPointBetweenPPointsWithErr, distance2PP, distancePPointToPLineWithErr, eToPLine2WithErr, eToPL, eToPPoint2, intersect2PL, translateL, translateRotatePPoint2, angleBetween2PL, flipL, join2PP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
 
 
 -- The primitives of our PGA only library, and error estimation code.
@@ -507,14 +507,14 @@ prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
                 <> show eNode <> "\n"
                 <> "(" <> show x3 <> "," <> show y3 <> ")\n"
   where
-    intersect1 = intersectsWithErr (Right (PLine2 bisector1, UlpSum bisector1Err)) (Left (lineSeg1, mempty))
-    intersect2 = intersectsWithErr (Right (PLine2 bisector1, UlpSum bisector1Err)) (Left (lineSeg2, mempty))
+    intersect1 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left (lineSeg1, mempty))
+    intersect2 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left (lineSeg2, mempty))
     intersect3 = outputIntersectsLineSeg eNode lineSeg1
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
-    (bisector, UlpSum bisectorUlp) = eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
-    (NPLine2 bisector1, UlpSum bisector1Ulp) = normalize bisector
-    bisector1Err = bisectorUlp + bisector1Ulp
+    (bisector, bisectorRawErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
+    (NPLine2 bisector1, bisector1NormErr) = normalizeL bisector
+    bisector1Err = bisectorRawErr <> bisector1NormErr
     bisector2 = getFirstArc (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
@@ -557,18 +557,16 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
                 <> show bisector1 <> "\n"
                 <> show eNode <> "\n"
                 <> show (angleBetween (normalizePLine2 $ outOf eNode) (normalizePLine2 $ PLine2 bisector1)) <> "\n"
-                <> show bisector1Err <> "\n"
                 <> "(" <> show x3 <> "," <> show y3 <> ")\n"
                 <> "(" <> show x4 <> "," <> show y4 <> ")\n"
   where
-    intersect1 = intersectsWithErr (Right (PLine2 bisector1, UlpSum bisector1Err)) (Left (lineSeg1, mempty))
-    intersect2 = intersectsWithErr (Right (PLine2 bisector1, UlpSum bisector1Err)) (Left (lineSeg2, mempty))
+    intersect1 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left (lineSeg1, mempty))
+    intersect2 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left (lineSeg2, mempty))
     intersect3 = outputIntersectsLineSeg eNode lineSeg1
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
-    (NPLine2 bisector1, UlpSum bisector1Ulp) = normalize bisector
+    (NPLine2 bisector1, bisector1ErrRaw) = normalizeL bisector
     (bisector, UlpSum bisectorUlp) = eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
-    bisector1Err = bisectorUlp + bisector1Ulp
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
     x1,y1,x2,y2,times :: ℝ
@@ -1232,10 +1230,10 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
     (distance2, UlpSum distance2Err) = distancePPointToPLineWithErr pPoint2 nPLine
     pPoint1 = makePPoint2 x1 y1
     pPoint2 = makePPoint2 x2 y2
-    (nPLine, UlpSum nPLineErr) = normalize pLine
+    (nPLine, _) = normalizeL pLine
     (pLine, UlpSum ulpPLine) = eToPLine2WithErr $ makeLineSeg (Point2 (x1,y1)) (Point2 (x2,y2))
-    ulpTotal1 = ulpPLine + distance1Err + nPLineErr
-    ulpTotal2 = ulpPLine + distance2Err + nPLineErr
+    ulpTotal1 = ulpPLine + distance1Err
+    ulpTotal2 = ulpPLine + distance2Err
     -- make sure we do not try to create a 0 length line segment.
     (x2,y2)
      | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
@@ -1256,7 +1254,6 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
               <> "distance1Err: " <> show distance1Err <> "\n"
               <> "distance2Err: " <> show distance2Err <> "\n"
               <> "PLine1ULP: " <> show ulpPLine <> "\n"
-              <> "PLine1NormULP: " <> show normErr <> "\n"
               <> "PLine1: " <> show pLine1 <> "\n"
               <> "NPLine1(vec): " <> show lvec <> "\n"
               <> "PPoint1: " <> show pPoint1 <> "\n"
@@ -1267,7 +1264,7 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
     (CPPoint2 pPoint1) = makePPoint2 x1 y1
     (CPPoint2 pPoint2) = makePPoint2 x2 y2
     (pLine1, UlpSum ulpPLine) = join2PP (CPPoint2 pPoint1) (CPPoint2 pPoint2)
-    (NPLine2 lvec, UlpSum normErr) = normalize pLine1
+    (NPLine2 lvec, _) = normalizeL pLine1
     ulpTotal1 = ulpPLine + distance1Err
     ulpTotal2 = ulpPLine + distance2Err
     -- make sure we do not try to create a 0 length line segment.

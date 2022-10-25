@@ -45,7 +45,6 @@ module Graphics.Slicer.Math.PGAPrimitives
       flipL,
       forceBasisOfL,
       intersect2PL,
-      normalize,
       normalizeL,
       normOfL,
       sqNormOfL,
@@ -154,7 +153,6 @@ class ProjectiveLine2 a where
   flipL :: a -> a
   forceBasisOfL :: a -> a
   intersect2PL :: (ProjectiveLine2 b) => a -> b -> (PPoint2, (PLine2Err, PLine2Err, PPoint2Err))
-  normalize :: a -> (NPLine2, UlpSum)
   normalizeL :: a -> (NPLine2, PLine2Err)
   normOfL :: a -> (ℝ, PLine2Err)
   sqNormOfL :: a -> (ℝ, UlpSum)
@@ -169,7 +167,6 @@ instance ProjectiveLine2 NPLine2 where
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
   intersect2PL l1 l2 = intersectionOfProjectiveLinesWithErr l1 l2
-  normalize l = (l, mempty)
   normalizeL l = (l, mempty)
   normOfL l = normOfProjectiveLineWithErr l
   sqNormOfL l = sqNormOfProjectiveLineWithErr l
@@ -184,9 +181,6 @@ instance ProjectiveLine2 PLine2 where
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
   intersect2PL l1 l2 = intersectionOfProjectiveLinesWithErr l1 l2
-  normalize l = crushErr $ normalizeProjectiveLineWithErr l
-    where
-      crushErr (res, PLine2Err _ _ c d _ _) = (res, c <> d)
   normalizeL l = normalizeProjectiveLineWithErr l
   normOfL l = normOfProjectiveLineWithErr l
   sqNormOfL l = sqNormOfProjectiveLineWithErr l

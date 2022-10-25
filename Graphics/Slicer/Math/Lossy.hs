@@ -48,7 +48,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
 import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, angleBetween2PL, canonicalize, distance2PP, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, join2PP, normalize, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEP, translateL)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, angleBetween2PL, canonicalize, distance2PP, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, join2PP, normalizeL, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, pToEP, translateL)
 
 angleBetween :: NPLine2 -> NPLine2 -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetween2PL (nPLine1, mempty) (nPLine2, mempty)
@@ -73,7 +73,7 @@ eToCPPoint2 point = eToPPoint2 point
 
 -- | Create a normalized projective line from a euclidian line segment.
 eToNPLine2 :: LineSeg -> NPLine2
-eToNPLine2 l1 = fst $ normalize $ fst $ eToPLine2WithErr l1
+eToNPLine2 l1 = fst $ normalizeL $ fst $ eToPLine2WithErr l1
 
 -- | Create an un-normalized projective line from a euclidian line segment.
 eToPLine2 :: LineSeg -> PLine2
@@ -96,7 +96,7 @@ join2CPPoint2 pp1 pp2 = fst $ join2PP pp1 pp2
 
 -- | Normalize a PLine2.
 normalizePLine2 :: (ProjectiveLine2 a) => a -> NPLine2
-normalizePLine2 pl = fst $ normalize pl
+normalizePLine2 pl = fst $ normalizeL pl
 
 -- | Create a projective line from a pair of euclidian points.
 pLineFromEndpoints :: Point2 -> Point2 -> PLine2
