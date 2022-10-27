@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersection
 import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), distance2PP, distancePPointToPLineWithErr, eToPLine2WithErr, pLineErrAtPPoint, eToPPoint2, join2PP, interpolate2PP, intersect2PL, translateL, flipL, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, outputIntersectsLineSeg, pLineFuzziness, pPointFuzziness, sameDirection)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), distance2PP, distancePPointToPLineWithErr, eToPLine2WithErr, pLineErrAtPPoint, eToPPoint2, join2PP, interpolate2PP, intersect2PL, translateL, flipL, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, outputIntersectsLineSeg, pPointFuzziness, sameDirection)
 
 import Graphics.Slicer.Math.PGAPrimitives (PPoint2Err(PPoint2Err), angleBetween2PL, xIntercept, yIntercept)
 
@@ -470,7 +470,7 @@ prop_PerpTranslateID x y dx dy rawT
     (translatedPLine, origTransErr) = translateL origPLine t
     (origPLine, origPLineErr) = randomPLineWithErr x y dx dy
     resErr, t :: ℝ
-    resErr = realToFrac $ ulpVal $ pLineFuzziness (resNPLine, resTransErr <> origTransErr)
+    resErr = realToFrac $ ulpVal $ fuzzinessOfL (resNPLine, resTransErr <> origTransErr)
     t = coerce rawT
 
 pgaSpec :: Spec

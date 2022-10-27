@@ -44,6 +44,7 @@ module Graphics.Slicer.Math.PGAPrimitives
       angleBetween2PL,
       flipL,
       forceBasisOfL,
+      fuzzinessOfL,
       intersect2PL,
       normalizeL,
       normOfL,
@@ -62,7 +63,6 @@ module Graphics.Slicer.Math.PGAPrimitives
       pToEP,
       vecOfP
       ),
-    pLineFuzziness,
     pPointFuzziness,
     xIntercept,
     yIntercept
@@ -154,6 +154,7 @@ class ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
   forceBasisOfL :: a -> a
+  fuzzinessOfL :: (a, PLine2Err) -> UlpSum
   intersect2PL :: (ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
   normalizeL :: a -> (ProjectiveLine, PLine2Err)
   normOfL :: a -> (ℝ, PLine2Err)
@@ -170,6 +171,7 @@ instance ProjectiveLine2 ProjectiveLine where
                   (PLine2 _) -> PLine2
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
+  fuzzinessOfL l = fuzzinessOfProjectiveLine l
   intersect2PL l1 l2 = intersectionOfProjectiveLinesWithErr l1 l2
   normalizeL l = case l of
                   n@(NPLine2 _) -> (n,mempty)
@@ -257,6 +259,19 @@ forceProjectiveLineBasis line
               _                                 -> Nothing
     vec@(GVec vals) = vecOfL line
 
+-- | determine the amount of error when trying to resolve a projective line.
+-- NOTE: a projective line's error varies depending where on that line you are trying to resolve it.
+--       for complete results, combine this with scaling xIntercept and yIntercept.
+fuzzinessOfProjectiveLine :: (ProjectiveLine2 a) => (a, PLine2Err) -> UlpSum
+fuzzinessOfProjectiveLine (inPLine, inPLineErr) = tUlp <> joinAddTErr <> joinMulTErr <> normalizeTErr <> additionTErr
+  where
+    (PLine2Err additionErr normalizeErr _ _ tUlp (joinMulErr, joinAddErr)) = inPLineErr <> normalizeErrRaw
+    additionTErr = eValOf mempty (getVal [GEZero 1] additionErr)
+    normalizeTErr = eValOf mempty (getVal [GEZero 1] normalizeErr)
+    joinMulTErr = eValOf mempty (getVal [GEZero 1] joinMulErr)
+    joinAddTErr = eValOf mempty (getVal [GEZero 1] joinAddErr)
+    (_,normalizeErrRaw) = normalizeL inPLine
+
 -- | Find out where two lines intersect, returning a projective point, and the error quotents.
 -- Note: this should only be used when you can guarantee these are not collinear, or parallel.
 intersectionOfProjectiveLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
@@ -331,14 +346,6 @@ translateProjectiveLineWithErr line d = (PLine2 res, normErr <> PLine2Err resErr
 -----------------------------------------
 --- Projective Line Error Calculation ---
 -----------------------------------------
-
--- | determine the amount of error in resolving a projective line.
-pLineFuzziness :: (ProjectiveLine2 a) => (a, PLine2Err) -> UlpSum
-pLineFuzziness (inPLine, inErr) = transErr
-  where
-    transErr = tUlp <> eValOf mempty (getVal [GEZero 1] resAddErr) <> eValOf mempty (getVal [GEZero 1] resMulErr)
-    (PLine2Err _ _ _ _ tUlp (resAddErr, resMulErr)) = inErr <> nplineErr
-    (_, nplineErr) = normalizeL inPLine
 
 -- | find the approximate point that a given line crosses the X axis.
 xIntercept :: (ProjectiveLine2 a) => (a, PLine2Err) -> Maybe (Either a ℝ, UlpSum)
@@ -531,7 +538,8 @@ distanceBetweenPPointsWithErr (ppoint1, p1Err) (ppoint2, p2Err)
              ,cppoint2Err
              ,newPLineErr
              ,ulpSum)
-    ulpSum = pPointFuzziness (cppoint1, p1Err <> cppoint1Err) <> pPointFuzziness (cppoint2, p2Err <> cppoint2Err) <> pLineFuzziness (newPLine, newPLineErr)
+    -- note: missing the component for pLine error at point.
+    ulpSum = pPointFuzziness (cppoint1, p1Err <> cppoint1Err) <> pPointFuzziness (cppoint2, p2Err <> cppoint2Err) <> fuzzinessOfL (newPLine, newPLineErr)
     newPLineErr = newPLineErrRaw <> normErr
     -- FIXME: how does the error in newPLine effect the found norm here?
     (res, normErr) = normOfL newPLine

@@ -44,6 +44,7 @@ module Graphics.Slicer.Math.PGA(
   eToPLine2WithErr,
   eToPPoint2,
   flipL,
+  fuzzinessOfL,
   intersect2PL,
   interpolate2PP,
   intersectsWith,
@@ -53,7 +54,6 @@ module Graphics.Slicer.Math.PGA(
   normalizeL,
   outputIntersectsLineSeg,
   oppositeDirection,
-  pLineFuzziness,
   pLineIsLeft,
   pPointFuzziness,
   pPointOnPerpWithErr,
@@ -91,7 +91,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), pLineFuzziness, pPointFuzziness, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, fuzzinessOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), pPointFuzziness, xIntercept, yIntercept)
   
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
@@ -148,7 +148,7 @@ pLineIsLeft (pl1, pl1Err) (pl2,pl2Err)
   | otherwise                     = Just $ res > 0
   where
     (res, _) = angleCos (npl1, pl1Err <> npl2Err) (npl2, pl2Err <> npl2Err)
-    ulpTotal = ulpVal $ pLineFuzziness (npl1, pl1Err <> npl1Err) <> pLineFuzziness (npl2, pl2Err <> npl2Err)
+    ulpTotal = ulpVal $ fuzzinessOfL (npl1, pl1Err <> npl1Err) <> fuzzinessOfL (npl2, pl2Err <> npl2Err)
     (npl1, npl1Err) = normalizeL pl1
     (npl2, npl2Err) = normalizeL pl2
     -- | Find the cosine of the angle between the two lines. results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when "right".

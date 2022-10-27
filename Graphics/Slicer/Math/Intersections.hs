@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc,errOfOut,outOf), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectivePoint, distance2PP, distancePPointToPLineWithErr, distanceBetweenPLinesWithErr, pLineErrAtPPoint, pLineFuzziness, plinesIntersectIn, pPointFuzziness)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc,errOfOut,outOf), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectivePoint, distance2PP, distancePPointToPLineWithErr, distanceBetweenPLinesWithErr, fuzzinessOfL, pLineErrAtPPoint, plinesIntersectIn, pPointFuzziness)
 
 -- | check if two lines cannot intersect.
 noIntersection :: (ProjectiveLine,PLine2Err) -> (ProjectiveLine,PLine2Err) -> Bool
@@ -143,9 +143,9 @@ intersectionsAtSamePoint nodeOutsAndErrs
                                errSum = ulpVal $ resErr <> pPointFuzziness ppoint1
                                                         <> pLineErrAtPPoint a2 p1
                                                         <> pLineErrAtPPoint b2 p1
-                                                        <> pLineFuzziness a1
-                                                        <> pLineFuzziness b1
-                                                        <> pLineFuzziness l1
+                                                        <> fuzzinessOfL a1
+                                                        <> fuzzinessOfL b1
+                                                        <> fuzzinessOfL l1
             (_:_) -> error
                      $ "detected multiple lines?\n"
                      <> show lineIntersections <> "\n"
