@@ -57,6 +57,7 @@ module Graphics.Slicer.Math.PGAPrimitives
       distance2PP,
       forceBasisOfP,
       idealNormOfP,
+      interpolate2PP,
       join2PP,
       pToEP,
       vecOfP
@@ -87,7 +88,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2))
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), addErr, addValWithoutErr, addVecPairWithErr, divVecScalarWithErr, eValOf, getVal, scalarPart, sumErrVals, ulpVal, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), addErr, addValWithoutErr, addVecPairWithErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf)
 
 --------------------------------
 --- common support functions ---
@@ -469,6 +470,7 @@ class (Show a) => ProjectivePoint2 a where
   distance2PP :: (ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, UlpSum)) 
   forceBasisOfP :: a -> a
   idealNormOfP :: a -> (ℝ, UlpSum)
+  interpolate2PP  :: (ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, PPoint2Err))
   join2PP :: (ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
   pToEP :: a -> (Point2, PPoint2Err)
   vecOfP :: a -> GVec
@@ -485,6 +487,7 @@ instance ProjectivePoint2 ProjectivePoint where
       crushErr (res, (c1, c2, _, resErr)) = (res, (c1, c2, resErr))
   forceBasisOfP p = forceProjectivePointBasis p
   idealNormOfP p = idealNormPPoint2WithErr p
+  interpolate2PP p1 p2 = pPointBetweenPPointsWithErr p1 p2
   join2PP p1 p2 = join2ProjectivePointsWithErr p1 p2
   pToEP p = fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point") $ projectivePointToPoint2 p
   vecOfP p = case p of
@@ -594,6 +597,25 @@ projectivePointToPoint2 ppoint
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
     (GVec rawVals) = vecOfP ppoint
+
+-- | Generate a point between the two given points, where the weights given determine "how far between".
+--   If the weights are equal, the distance will be right between the two points.
+-- FIXME: automatically raise addVecRes to a CPPoint2 if it turns out to be canonical?
+pPointBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a,PPoint2Err) -> (b, PPoint2Err) -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, PPoint2Err))
+pPointBetweenPPointsWithErr (startP,startErr) (stopP,stopErr) weight1 weight2
+  | isNothing foundVal = error "tried to generate an ideal point?"
+  | otherwise = (res, resErr)
+  where
+    (res@(CPPoint2 (GVec resVals)), cResErr) = canonicalize $ PPoint2 rawRes
+    resErr = (cStartErr, cStopErr, cResErr <> startErr <> stopErr <> PPoint2Err mempty mempty pointAddErr weighedStartErr weighedStopErr mempty mempty)
+    foundVal = getVal [GEPlus 1, GEPlus 2] resVals
+    (rawRes,pointAddErr) = addVecPairWithErr weighedStart weighedStop
+    (weighedStart, weighedStartErr) = mulScalarVecWithErr weight1 rawStartPoint
+    (weighedStop, weighedStopErr) = mulScalarVecWithErr weight2 rawStopPoint
+    rawStartPoint = vecOfP startP'
+    rawStopPoint = vecOfP stopP'
+    (startP', cStartErr) = canonicalize startP
+    (stopP', cStopErr) = canonicalize stopP
 
 ------------------------------------------
 --- Projective Point Error Calculation ---

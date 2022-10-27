@@ -59,9 +59,9 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersection
 import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err(PPoint2Err), distance2PP, distancePPointToPLineWithErr, eToPLine2WithErr, pLineErrAtPPoint, eToPPoint2, join2PP, intersect2PL, translateL, flipL, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, outputIntersectsLineSeg, pLineFuzziness, pPointBetweenPPointsWithErr, pPointFuzziness, sameDirection)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), distance2PP, distancePPointToPLineWithErr, eToPLine2WithErr, pLineErrAtPPoint, eToPPoint2, join2PP, interpolate2PP, intersect2PL, translateL, flipL, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, outputIntersectsLineSeg, pLineFuzziness, pPointFuzziness, sameDirection)
 
-import Graphics.Slicer.Math.PGAPrimitives (angleBetween2PL, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives (PPoint2Err(PPoint2Err), angleBetween2PL, xIntercept, yIntercept)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -404,7 +404,7 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
                 <> "angle2Err: " <> show angle2Err <> "\n"
   where
     (angle2, angle2Err) = angleBetween2PL (normedPLine3, norm3Err) (nPLine4, pline4Err)
-    (rawBisectorStart, _) = pPointBetweenPPointsWithErr (sourceStart,mempty) (sourceEnd,mempty) 0.5 0.5
+    (rawBisectorStart, _) = interpolate2PP (sourceStart,mempty) (sourceEnd,mempty) 0.5 0.5
     (bisectorEnd, (_,_,bisectorEndRawErr)) = pPointOnPerpWithErr nPLine4 rawBisectorStart d
     (pline3, (_,_,pline3Err)) = join2PP rawBisectorStart bisectorEnd
     (normedPLine3, norm3Err) = normalizeL pline3
@@ -907,7 +907,7 @@ prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions trian
     pLine           = eToPLine2WithErr firstSeg
     firstPoints     = firstPointPairOfContour triangle
     (p1, p2)        = firstPointPairOfContour triangle
-    (myMidPoint,_)  = pPointBetweenPPointsWithErr (eToPPoint2 p1,mempty) (eToPPoint2 p2,mempty) 0.5 0.5
+    (myMidPoint,_)  = interpolate2PP (eToPPoint2 p1,mempty) (eToPPoint2 p2,mempty) 0.5 0.5
     -- we normalize this for Ganja.js.
     (NPLine2 pLineToInside) = normalizePLine2 $ join2PPoints myMidPoint innerPoint
     (NPLine2 pLineToOutside) = normalizePLine2 $ join2PPoints innerPoint $ eToPPoint2 outsidePoint

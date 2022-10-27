@@ -31,7 +31,7 @@ module Graphics.Slicer.Math.PGA(
   PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn),
   PLine2Err(PLine2Err),
   Pointable(canPoint, canEPoint, pPointOf, ePointOf, errOfPPoint, errOfEPoint),
-  PPoint2Err(PPoint2Err),
+  PPoint2Err,
   ProjectiveLine(PLine2, NPLine2),
   ProjectivePoint(PPoint2, CPPoint2),
   ProjectivePoint2,
@@ -45,6 +45,7 @@ module Graphics.Slicer.Math.PGA(
   eToPPoint2,
   flipL,
   intersect2PL,
+  interpolate2PP,
   intersectsWith,
   intersectsWithErr,
   join2PP,
@@ -54,7 +55,6 @@ module Graphics.Slicer.Math.PGA(
   oppositeDirection,
   pLineFuzziness,
   pLineIsLeft,
-  pPointBetweenPPointsWithErr,
   pPointFuzziness,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
@@ -87,11 +87,11 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, makeLineSeg, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, ulpVal, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addValWithoutErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, ulpVal, valOf)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err(PPoint2Err), ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, join2PP, pToEP, vecOfP), pLineFuzziness, pPointFuzziness, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), pLineFuzziness, pPointFuzziness, xIntercept, yIntercept)
   
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
@@ -166,25 +166,6 @@ pLineIsLeft (pl1, pl1Err) (pl2,pl2Err)
         gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
         lvec1 = vecOfL pline1
         lvec2 = vecOfL pline2
-
--- | Generate a point between the two given points, where the weights given determine "how far between".
---   If the weights are equal, the distance will be right between the two points.
--- FIXME: automatically raise addVecRes to a CPPoint2 if it turns out to be canonical?
-pPointBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a,PPoint2Err) -> (b, PPoint2Err) -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, PPoint2Err))
-pPointBetweenPPointsWithErr (startP,startErr) (stopP,stopErr) weight1 weight2
-  | isNothing foundVal = error "tried to generate an ideal point?"
-  | otherwise = (res, resErr)
-  where
-    (res@(CPPoint2 (GVec resVals)), cResErr) = canonicalize $ PPoint2 rawRes
-    resErr = (cStartErr, cStopErr, cResErr <> startErr <> stopErr <> PPoint2Err mempty mempty pointAddErr weighedStartErr weighedStopErr mempty mempty)
-    foundVal = getVal [GEPlus 1, GEPlus 2] resVals
-    (rawRes,pointAddErr) = addVecPairWithErr weighedStart weighedStop
-    (weighedStart, weighedStartErr) = mulScalarVecWithErr weight1 rawStartPoint
-    (weighedStop, weighedStopErr) = mulScalarVecWithErr weight2 rawStopPoint
-    rawStartPoint = vecOfP startP'
-    rawStopPoint = vecOfP stopP'
-    (startP', cStartErr) = canonicalize startP
-    (stopP', cStopErr) = canonicalize stopP
 
 -- | Find the distance between a projective point and a projective line.
 distancePPointToPLineWithErr :: (ProjectiveLine2 b) => (ProjectivePoint, PPoint2Err) -> (b, PLine2Err) -> (ℝ, (PPoint2Err, PLine2Err, ([ErrVal],[ErrVal]), PPoint2Err, PLine2Err, PLine2Err, PLine2Err, UlpSum))
@@ -439,7 +420,7 @@ onSegment ls i =
     (startDistance, (_,_, startDistanceErr)) = distance2PP i (start, mempty)
     (midDistance, (_,_, midDistanceErr)) = distance2PP i (mid,midErr)
     (endDistance, (_,_, endDistanceErr)) = distance2PP i (end,mempty)
-    (mid, (_, _, midErr)) = pPointBetweenPPointsWithErr (start,mempty) (end,mempty) 0.5 0.5
+    (mid, (_, _, midErr)) = interpolate2PP (start,mempty) (end,mempty) 0.5 0.5
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
     startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ
     startFudgeFactor = realToFrac $ ulpVal $ startDistanceErr <> pLineErrAtPPoint (eToPLine2WithErr ls) start
