@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToCPPoint2, eToPLine2, getFirstArc, join2PPoint2, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalize, pPointBetweenPPointsWithErr, distance2PP, distancePPointToPLineWithErr, eToPLine2WithErr, eToPL, eToPPoint2, intersect2PL, translateL, translateRotatePPoint2, angleBetween2PL, flipL, join2PP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, outputIntersectsLineSeg, pPointBetweenPPointsWithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalize, distance2PP, distancePPointToPLineWithErr, eToPLine2WithErr, eToPL, eToPPoint2, interpolate2PP, intersect2PL, translateL, translateRotatePPoint2, angleBetween2PL, flipL, join2PP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, outputIntersectsLineSeg)
 
 
 -- The primitives of our PGA only library, and error estimation code.
@@ -404,7 +404,7 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
                 <> "angle2Err: " <> show angle2Err <> "\n"
   where
     (angle2, (_,_, angle2Err)) = angleBetween2PL (normedPLine3, norm3Err) (normedPLine4, norm4Err)
-    (PPoint2 rawBisectorStart, bisectorStartErr) = pPointBetweenPPointsWithErr sourceStart sourceEnd 0.5 0.5
+    (PPoint2 rawBisectorStart, bisectorStartErr) = interpolate2PP sourceStart sourceEnd 0.5 0.5
     (bisectorEndRaw, bisectorEndRawErr) = pPointOnPerpWithErr pline4 (PPoint2 rawBisectorStart) d
     (bisectorEnd, bisectorEndErr) = canonicalize bisectorEndRaw
     (pline3, pline3Err) = join2PP (CPPoint2 rawBisectorStart) bisectorEnd
@@ -921,7 +921,7 @@ prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions trian
     pLine           = eToPLine2 firstSeg
     firstPoints     = firstPointPairOfContour triangle
     (p1, p2)        = firstPointPairOfContour triangle
-    (myMidPoint,_)  = pPointBetweenPPointsWithErr (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
+    (myMidPoint,_)  = interpolate2PP (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
     -- we normalize this for Ganja.js.
     (NPLine2 pLineToInside) = normalizePLine2 $ join2PPoint2 myMidPoint innerPoint
     (NPLine2 pLineToOutside) = normalizePLine2 $ join2PPoint2 innerPoint $ (\(CPPoint2 a) -> PPoint2 a) $ eToPPoint2 outsidePoint

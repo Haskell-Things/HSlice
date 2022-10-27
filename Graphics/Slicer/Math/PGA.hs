@@ -46,6 +46,7 @@ module Graphics.Slicer.Math.PGA(
   eToPPoint2,
   eToPL,
   flipL,
+  interpolate2PP,
   intersect2PL,
   intersectsWith,
   intersectsWithErr,
@@ -54,7 +55,6 @@ module Graphics.Slicer.Math.PGA(
   normalizeL,
   outputIntersectsLineSeg,
   pLineIsLeft,
-  pPointBetweenPPointsWithErr,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
   pToEP,
@@ -86,11 +86,11 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, getVal, mulScalarVecWithErr, sumErrVals, ulpVal, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addValWithoutErr, addVecPairWithoutErr, getVal, mulScalarVecWithErr, sumErrVals, ulpVal, valOf)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, join2PP, join2PPWithErr, pToEP, vecOfP), xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, join2PPWithErr, pToEP, vecOfP), xIntercept, yIntercept)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -155,22 +155,6 @@ pLineIsLeft pl1 pl2
         gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
         lvec1 = vecOfL l1
         lvec2 = vecOfL l2
-
--- FIXME: automatically raise addVecRes to a CPPoint2 if it turns out to be canonical?
-pPointBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (PPoint2, UlpSum)
-pPointBetweenPPointsWithErr startP stopP weight1 weight2
-  | isNothing foundVal = error "tried to generate an ideal point?"
-  | otherwise = (PPoint2 addVecRes, ulpSum)
-  where
-    ulpSum = sumErrVals addVecResErr <> sumErrVals weighedStartErr <> sumErrVals weighedStopErr
-    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) addVecRes
-    (addVecRes, addVecResErr) = addVecPairWithErr weighedStart weighedStop
-    (weighedStart, weighedStartErr) = mulScalarVecWithErr weight1 rawStartPoint
-    (weighedStop, weighedStopErr) = mulScalarVecWithErr weight2 rawStopPoint
-    rawStartPoint = vecOfP startP'
-    rawStopPoint = vecOfP stopP'
-    (startP', _) = canonicalize startP
-    (stopP', _) = canonicalize stopP
 
 -- FIXME: use the distance to increase ULP appropriately?
 distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
@@ -423,7 +407,7 @@ onSegment ls i startUlp endUlp =
     (midDistance, UlpSum midDistanceErr) = distance2PP mid i
     (endDistance, UlpSum endDistanceErr) = distance2PP end i
     start = eToPPoint2 $ startPoint ls
-    (mid, UlpSum midErr) = pPointBetweenPPointsWithErr start end 0.5 0.5
+    (mid, UlpSum midErr) = interpolate2PP start end 0.5 0.5
     end = eToPPoint2 $ endPoint ls
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
     startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ

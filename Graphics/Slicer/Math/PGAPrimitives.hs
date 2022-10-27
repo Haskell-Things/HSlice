@@ -56,6 +56,7 @@ module Graphics.Slicer.Math.PGAPrimitives
       distance2PP,
       forceBasisOfP,
       idealNormOfP,
+      interpolate2PP,
       join2PP,
       join2PPWithErr,
       pToEP,
@@ -85,7 +86,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2))
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), addErr, addValWithoutErr, addVecPairWithErr, divVecScalarWithErr, eValOf, getVal, scalarPart, sumErrVals, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), addErr, addValWithoutErr, addVecPairWithErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, valOf)
 
 --------------------------------
 --- common support functions ---
@@ -463,6 +464,7 @@ class (Show a) => ProjectivePoint2 a where
   distance2PP :: (ProjectivePoint2 b) => a -> b -> (ℝ, UlpSum)
   forceBasisOfP :: a -> a
   idealNormOfP :: a -> (ℝ, UlpSum)
+  interpolate2PP :: (ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (PPoint2, UlpSum)
   join2PP :: (ProjectivePoint2 b) => a -> b -> (PLine2, UlpSum)
   join2PPWithErr :: (ProjectivePoint2 b) => a -> b -> (PLine2, PLine2Err)
   pToEP :: a -> (Point2, UlpSum)
@@ -476,6 +478,7 @@ instance ProjectivePoint2 PPoint2 where
       crushErr a = a
   forceBasisOfP a = forceProjectivePointBasis a
   idealNormOfP a = idealNormPPoint2WithErr a
+  interpolate2PP p1 p2 = pPointBetweenPPointsWithErr p1 p2
   join2PP a b = crushErr $ join2ProjectivePointsWithErr a b
     where
       crushErr (res, (PPoint2Err _ cp1Errs _ _ _ _ _
@@ -497,6 +500,7 @@ instance ProjectivePoint2 CPPoint2 where
       crushErr a = a
   forceBasisOfP p = forceProjectivePointBasis p
   idealNormOfP p = idealNormPPoint2WithErr p
+  interpolate2PP p1 p2 = pPointBetweenPPointsWithErr p1 p2
   join2PP a b = crushErr $ join2ProjectivePointsWithErr a b
     where
       crushErr (res, (PPoint2Err _ cp1Errs _ _ _ _ _
@@ -589,6 +593,22 @@ join2ProjectivePointsWithErr pp1 pp2 = (PLine2 res,
     pv2 = vecOfP $ forceBasisOfP cp2
     (cp1, cp1Errs) = canonicalizePPoint2WithErr pp1
     (cp2, cp2Errs) = canonicalizePPoint2WithErr pp2
+
+-- FIXME: automatically raise addVecRes to a CPPoint2 if it turns out to be canonical?
+pPointBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (PPoint2, UlpSum)
+pPointBetweenPPointsWithErr startP stopP weight1 weight2
+  | isNothing foundVal = error "tried to generate an ideal point?"
+  | otherwise = (PPoint2 addVecRes, ulpSum)
+  where
+    ulpSum = sumErrVals addVecResErr <> sumErrVals weighedStartErr <> sumErrVals weighedStopErr
+    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) addVecRes
+    (addVecRes, addVecResErr) = addVecPairWithErr weighedStart weighedStop
+    (weighedStart, weighedStartErr) = mulScalarVecWithErr weight1 rawStartPoint
+    (weighedStop, weighedStopErr) = mulScalarVecWithErr weight2 rawStopPoint
+    rawStartPoint = vecOfP startP'
+    rawStopPoint = vecOfP stopP'
+    (startP', _) = canonicalize startP
+    (stopP', _) = canonicalize stopP
 
 -- | Maybe create a euclidian point from a projective point. Will fail if the projective point is ideal.
 projectivePointToPoint2 :: (ProjectivePoint2 a) => a -> Maybe (Point2, PPoint2Err)
