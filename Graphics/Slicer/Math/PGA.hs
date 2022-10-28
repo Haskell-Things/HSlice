@@ -65,11 +65,11 @@ module Graphics.Slicer.Math.PGA(
   translateRotatePPoint2WithErr
   ) where
 
-import Prelude (Bool, Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (*), (-), (&&), (<$>), (>), (>=), (<=), (+), (/), (||), (<), abs, cos, error, fst, negate, otherwise, realToFrac, signum, sin, snd)
+import Prelude (Bool, Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (-), (&&), (<$>), (>), (>=), (<=), (+), (/), (||), (<), abs, cos, error, fst, negate, otherwise, realToFrac, signum, sin)
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
-import Data.Either (Either(Left, Right), isRight, fromRight)
+import Data.Either (Either(Left, Right))
 
 import Data.List (foldl')
 
@@ -91,7 +91,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, fuzzinessOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), pPointFuzziness, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, fuzzinessOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), pLineErrAtPPoint, pPointFuzziness)
   
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
@@ -426,66 +426,6 @@ onSegment ls i =
     startFudgeFactor = realToFrac $ ulpVal $ startDistanceErr <> pLineErrAtPPoint (eToPLine2WithErr ls) start
     midFudgeFactor = realToFrac $ ulpVal $ midDistanceErr <> pLineErrAtPPoint (eToPLine2WithErr ls) mid
     endFudgeFactor = realToFrac $ ulpVal $ endDistanceErr <> pLineErrAtPPoint (eToPLine2WithErr ls) end
-
--- | when given a PLine, and two points guaranteed to be on it, return the maximum distance between a given projective point known to be on the PLine and the 'real' line.
--- FIXME: accept a error on the projectivePoint, and return an error estimate.
-pLineErrAtPPoint :: (ProjectiveLine2 a, ProjectivePoint2 b) => (a, PLine2Err) -> b -> UlpSum
-pLineErrAtPPoint (inPLine, inPLineErr) errPoint
-  -- both intercepts are real. this line is not parallel or collinear to X or Y axises.
-  | xInterceptIsRight && yInterceptIsRight && realToFrac (ulpVal res2Axis) < (0.0001 :: ℝ)  = res2Axis
-  | xInterceptIsRight && yInterceptIsRight = error $ dumpInputs
-                                             <> "res2Axis: " <> show res2Axis <> "\n"
-                                             <> "interceptDistance: " <> show interceptDistance <> "\n"
-                                             <> "xInterceptFuzz: " <> show xInterceptFuzz <> "\n"
-                                             <> "yInterceptFuzz: " <> show yInterceptFuzz <> "\n"
-  -- only the xIntercept is real. this line is parallel to the Y axis.
-  | xInterceptIsRight = resYAxis
-  -- only the yIntercept is real. this line is parallel to the X axis.
-  | yInterceptIsRight = resXAxis
-  | otherwise = UlpSum $ realToFrac errT
-  where
-    dumpInputs = "npline: " <> show npline <> "\n"
-              <> "inPLineErr: " <> show inPLineErr <> "\n"
-              <> "errX: " <> show errX <> "\n"
-              <> "errY: " <> show errY <> "\n"
-              <> "errT: " <> show errT <> "\n"
-    -- this line is parallel to the X axis.
-    resXAxis = UlpSum yInterceptFuzz
-    -- this line is parallel to the Y axis.
-    resYAxis = UlpSum xInterceptFuzz
-    -- this line is not parallel to either axis.
-    res2Axis = UlpSum $ realToFrac $
-               case interceptDistance of
-                 0 -> originFuzz
-                 _ -> realToFrac $ xInterceptFuzz + yInterceptFuzz
-    originFuzz = (errX + errY) * ( 1 + fst (distance2PP (origin, mempty) (errPoint, mempty)))
-    origin = eToPPoint2 $ Point2 (0,0)
-    interceptDistance = distance (Point2 (fromRight 0 $ fst $ fromJust $ xIntercept (npline,nplineErr), 0))
-                                 (Point2 (0, fromRight 0 $ fst $ fromJust $ yIntercept (npline,nplineErr)))
-    -- FIXME: collect this error.
-    (Point2 (xPos,yPos),_) = pToEP errPoint
-    xInterceptIsRight = isJust (xIntercept (npline,nplineErr)) && isRight (fst $ fromJust $ xIntercept (npline,nplineErr))
-    -- NOTE: can't check the distance here, because distancePPointToPLineWithErr calls this. ;)
-    xInterceptFuzz = ulpVal (snd $ fromJust $ xIntercept (inPLine, inPLineErr)) * realToFrac (1 + abs xPos)
-    yInterceptIsRight = isJust (yIntercept (npline,nplineErr)) && isRight (fst $ fromJust $ yIntercept (npline,nplineErr))
-    -- NOTE: can't check a distance here, because distancePPointToPLineWithErr calls this. ;)
-    yInterceptFuzz = ulpVal (snd $ fromJust $ yIntercept (inPLine, inPLineErr)) * realToFrac (1 + abs yPos)
-    (PLine2Err pLineAddErr pLineNormalizationErr pLineNormErr _ _ (pLineJoinMulErr, pLineJoinAddErr)) = nplineErr <> inPLineErr
-    (npline, nplineErr) = normalizeL inPLine
-    errX, errY, errT :: ℝ
-    errT = realToFrac $ ulpVal $ eValOf mempty (getVal [GEZero 1] pLineAddErr)
-                              <> eValOf mempty (getVal [GEZero 1] pLineNormalizationErr)
-                              <> eValOf mempty (getVal [GEZero 1] pLineJoinAddErr)
-                              <> eValOf mempty (getVal [GEZero 1] pLineJoinMulErr)
-                              <> pLineNormErr
-    errX = realToFrac $ ulpVal $ eValOf mempty (getVal [GEPlus 1] pLineAddErr)
-                              <> eValOf mempty (getVal [GEPlus 1] pLineNormalizationErr)
-                              <> eValOf mempty (getVal [GEPlus 1] pLineJoinAddErr)
-                              <> eValOf mempty (getVal [GEPlus 1] pLineJoinMulErr)
-    errY = realToFrac $ ulpVal $ eValOf mempty (getVal [GEPlus 2] pLineAddErr)
-                              <> eValOf mempty (getVal [GEPlus 2] pLineNormalizationErr)
-                              <> eValOf mempty (getVal [GEPlus 2] pLineJoinAddErr)
-                              <> eValOf mempty (getVal [GEPlus 2] pLineJoinMulErr)
 
 -- | Combine consecutive line segments. expects line segments with their end points connecting, EG, a contour generated by makeContours.
 combineConsecutiveLineSegs :: [LineSeg] -> [LineSeg]

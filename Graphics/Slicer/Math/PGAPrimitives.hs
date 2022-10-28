@@ -63,22 +63,23 @@ module Graphics.Slicer.Math.PGAPrimitives
       pToEP,
       vecOfP
       ),
+    pLineErrAtPPoint,
     pPointFuzziness,
     xIntercept,
     yIntercept
   ) where
 
-import Prelude(Bool, Eq((==),(/=)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), (||), (&&), ($), (+), (*), (/), (<$>), abs, error, filter, fst, negate, otherwise, realToFrac, sqrt)
+import Prelude(Bool, Eq((==),(/=)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), (||), (&&), ($), (+), (*), (/), (<$>), abs, error, filter, fst, negate, otherwise, realToFrac, snd, sqrt)
 
 import Control.DeepSeq (NFData)
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
-import Data.Either (Either(Left, Right))
+import Data.Either (Either(Left, Right), fromRight, isRight)
 
 import Data.List (foldl', sort)
 
-import Data.Maybe (Maybe(Just,Nothing), fromMaybe, isJust, isNothing)
+import Data.Maybe (Maybe(Just,Nothing), fromJust, fromMaybe, isJust, isNothing)
 
 import Data.Set (Set, elems, fromList, singleton)
 
@@ -346,6 +347,32 @@ translateProjectiveLineWithErr line d = (PLine2 res, normErr <> PLine2Err resErr
 -----------------------------------------
 --- Projective Line Error Calculation ---
 -----------------------------------------
+
+-- | when given a PLine, and two points guaranteed to be on it, return the maximum distance between a given projective point known to be on the PLine and the 'real' line.
+-- FIXME: accept a error on the projectivePoint, and return an error estimate.
+pLineErrAtPPoint :: (ProjectiveLine2 a, ProjectivePoint2 b) => (a, PLine2Err) -> b -> UlpSum
+pLineErrAtPPoint (inPLine, inPLineErr) errPoint
+  -- both intercepts are real. this line is not parallel or collinear to X or Y axises.
+  | xInterceptIsRight && yInterceptIsRight = tFuzz <> xInterceptFuzz <> yInterceptFuzz
+  -- only the xIntercept is real. this line is parallel to the Y axis.
+  | xInterceptIsRight = tFuzz <> rawXInterceptFuzz
+  -- only the yIntercept is real. this line is parallel to the X axis.
+  | yInterceptIsRight = tFuzz <> rawYInterceptFuzz
+  | otherwise = tFuzz
+  where
+    xInterceptIsRight = isJust (xIntercept (nPLine,nPLineErr)) && isRight (fst $ fromJust $ xIntercept (nPLine,nPLineErr))
+    yInterceptIsRight = isJust (yIntercept (nPLine,nPLineErr)) && isRight (fst $ fromJust $ yIntercept (nPLine,nPLineErr))
+    xInterceptFuzz = UlpSum $ ulpVal rawXInterceptFuzz * ((realToFrac xInterceptDistance + ulpVal rawXInterceptFuzz) / realToFrac yInterceptDistance) * realToFrac (abs xPos)
+    yInterceptFuzz = UlpSum $ ulpVal rawYInterceptFuzz * ((realToFrac yInterceptDistance + ulpVal rawYInterceptFuzz) / realToFrac xInterceptDistance) * realToFrac (abs yPos)
+    rawYInterceptFuzz = snd $ fromJust $ yIntercept (nPLine, nPLineErr)
+    rawXInterceptFuzz = snd $ fromJust $ xIntercept (nPLine, nPLineErr)
+    yInterceptDistance = fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
+    xInterceptDistance = fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
+    tFuzz = fuzzinessOfL (nPLine, nPLineErr)
+    -- FIXME: collect this error, and take it into account.
+    (Point2 (xPos,yPos),_) = pToEP errPoint
+    nPLineErr = nPLineErrRaw <> inPLineErr
+    (nPLine, nPLineErrRaw) = normalizeL inPLine
 
 -- | find the approximate point that a given line crosses the X axis.
 xIntercept :: (ProjectiveLine2 a) => (a, PLine2Err) -> Maybe (Either a ℝ, UlpSum)
