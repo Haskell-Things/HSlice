@@ -39,7 +39,7 @@ module Graphics.Slicer.Math.Lossy (
   translatePLine2
   ) where
 
-import Prelude (($), fst, mempty)
+import Prelude (($), fst)
 
 -- The numeric type in HSlice.
 import Graphics.Slicer.Definitions (ℝ)
@@ -50,8 +50,8 @@ import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr)
 
 import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, angleBetween2PL, canonicalize, distance2PP, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPL, eToPPoint2, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL)
 
-angleBetween :: NPLine2 -> NPLine2 -> ℝ
-angleBetween nPLine1 nPLine2 = fst $ angleBetween2PL (nPLine1, mempty) (nPLine2, mempty)
+angleBetween :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> ℝ
+angleBetween pLine1 pLine2 = fst $ angleBetween2PL pLine1 pLine2
 
 -- | canonicalize a euclidian point.
 canonicalizePPoint2 :: PPoint2 -> CPPoint2

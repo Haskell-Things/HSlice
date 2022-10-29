@@ -403,7 +403,7 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
                 <> "angle2: " <> show angle2 <> "\n"
                 <> "angle2Err: " <> show angle2Err <> "\n"
   where
-    (angle2, (_,_, angle2Err)) = angleBetween2PL (normedPLine3, norm3Err) (normedPLine4, norm4Err)
+    (angle2, (_,_, angle2Err)) = angleBetween2PL normedPLine3 normedPLine4
     (PPoint2 rawBisectorStart, bisectorStartErr) = interpolate2PP sourceStart sourceEnd 0.5 0.5
     (bisectorEndRaw, bisectorEndRawErr) = pPointOnPerpWithErr pline4 (PPoint2 rawBisectorStart) d
     (bisectorEnd, bisectorEndErr) = canonicalize bisectorEndRaw
@@ -715,7 +715,7 @@ myAngleBetween a b
                 <> show res <> "\n"
                 <> show resErr <> "\n"
   where
-    (res, (_,_, resErr)) = angleBetween2PL (a, mempty) (b, mempty)
+    (res, (_,_, resErr)) = angleBetween2PL a b
 
 -- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
 -- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
@@ -1323,8 +1323,8 @@ prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 
     (angleFound, (_,_, angleErr)) = angleBetween2PL bisector1 bisector2
     eNode = randomENode x y d1 rawR1 d2 rawR2
     iNode = randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2
-    bisector1 = normalizeL $ outOf iNode
-    bisector2 = normalizeL $ flipL $ outOf eNode
+    bisector1 = outOf iNode
+    bisector2 = flipL $ outOf eNode
 
 prop_eNodeTowardIntersection1 :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Expectation
 prop_eNodeTowardIntersection1 x y d1 rawR1 d2 rawR2 = l1TowardIntersection --> True
@@ -1366,12 +1366,12 @@ prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
                 <> show intersectionErr <> "\n"
   where
     originPPoint2 = makePPoint2 0 0
-    (foundDistance, UlpSum distanceErr) = distance2PP originPPoint2 intersectionCPPoint2
-    (intersectionCPPoint2, UlpSum canonicalizationErr) = canonicalize intersectionPPoint2
+    (foundDistance, UlpSum distanceErr) = distance2PP originPPoint2 intersectionPPoint2
     (intersectionPPoint2, intersectionErr) = intersect2PL randomPLine1 randomPLine2
     (randomPLine1, _) = randomPLineThroughOrigin x y
     (randomPLine2, _) = randomPLineThroughOrigin x2 y2
-    errSum = distanceErr + canonicalizationErr
+    (_, canonicalizationErr) = canonicalize intersectionPPoint2
+    errSum = distanceErr -- + canonicalizationErr
     x,x2,y2 :: ℝ
     x = coerce rawX
     x2
@@ -1394,12 +1394,12 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
                 <> show intersectionErr <> "\n"
   where
     (targetPPoint2) = makePPoint2 (coerce targetX) (coerce targetY)
-    (foundDistance, UlpSum distanceErr) = distance2PP targetPPoint2 intersectionCPPoint2
-    (intersectionCPPoint2, UlpSum canonicalizationErr) = canonicalize intersectionPPoint2
+    (foundDistance, UlpSum distanceErr) = distance2PP targetPPoint2 intersectionPPoint2
     (intersectionPPoint2, intersectionErr) = intersect2PL randomPLine1 randomPLine2
     (randomPLine1, _) = randomPLineWithErr x y targetX targetY
     (randomPLine2, _) = randomPLineWithErr x2 y2 targetX targetY
-    errSum = distanceErr + canonicalizationErr
+    (_, canonicalizationErr) = canonicalize intersectionPPoint2
+    errSum = distanceErr -- + canonicalizationErr
     x,x2,y2 :: ℝ
     x = coerce rawX
     x2

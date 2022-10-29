@@ -220,9 +220,9 @@ towardIntersection pp1 pl1 pp2
   | d <= realToFrac dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
   | otherwise = angleFound > realToFrac (ulpVal angleErr)
   where
-    (angleFound, (_,_, angleErr)) = angleBetween2PL newPLine (normalizeL pl1)
+    (angleFound, (_,_, angleErr)) = angleBetween2PL newPLine pl1
     (d, UlpSum dErr) = distance2PP (fst $ canonicalize pp1) pp2
-    newPLine = normalizeL $ join2CPPoint2 (fst $ canonicalize pp1) pp2
+    newPLine = join2CPPoint2 (fst $ canonicalize pp1) pp2
 
 -- | Make a first generation node.
 makeENode :: Point2 -> Point2 -> Point2 -> ENode
