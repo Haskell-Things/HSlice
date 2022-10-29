@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc,errOfOut,outOf), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectivePoint, distance2PP, distancePPointToPLineWithErr, distanceBetweenPLinesWithErr, fuzzinessOfL, pLineErrAtPPoint, plinesIntersectIn, pPointFuzziness)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc,errOfOut,outOf), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectivePoint, distance2PP, distancePPointToPLineWithErr, distanceBetweenPLinesWithErr, fuzzinessOfL, fuzzinessOfP, pLineErrAtPPoint, plinesIntersectIn)
 
 -- | check if two lines cannot intersect.
 noIntersection :: (ProjectiveLine,PLine2Err) -> (ProjectiveLine,PLine2Err) -> Bool
@@ -125,10 +125,10 @@ intersectionsAtSamePoint nodeOutsAndErrs
             -- Minor optimization: first check against resErr, then actually use the fuzziness.
             pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= realToFrac (ulpVal resErr) || res < realToFrac errSum
               where
-                errSum = ulpVal $ resErr <> pPointFuzziness point1
+                errSum = ulpVal $ resErr <> fuzzinessOfP point1
                                          <> pLineErrAtPPoint a1 c1
                                          <> pLineErrAtPPoint b1 c1
-                                         <> pPointFuzziness point2
+                                         <> fuzzinessOfP point2
                                          <> pLineErrAtPPoint a2 c2
                                          <> pLineErrAtPPoint b2 c2
                 (res, (_,_,resErr)) = distance2PP point1 point2
@@ -140,7 +140,7 @@ intersectionsAtSamePoint nodeOutsAndErrs
                            ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < realToFrac errSum
                              where
                                (foundDistance, (_, _, _, _, _, _,  _, resErr)) = distancePPointToPLineWithErr ppoint1 l1
-                               errSum = ulpVal $ resErr <> pPointFuzziness ppoint1
+                               errSum = ulpVal $ resErr <> fuzzinessOfP ppoint1
                                                         <> pLineErrAtPPoint a2 p1
                                                         <> pLineErrAtPPoint b2 p1
                                                         <> fuzzinessOfL a1

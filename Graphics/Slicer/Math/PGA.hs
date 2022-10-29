@@ -45,6 +45,7 @@ module Graphics.Slicer.Math.PGA(
   eToPPoint2,
   flipL,
   fuzzinessOfL,
+  fuzzinessOfP,
   intersect2PL,
   interpolate2PP,
   intersectsWith,
@@ -55,7 +56,6 @@ module Graphics.Slicer.Math.PGA(
   outputIntersectsLineSeg,
   oppositeDirection,
   pLineIsLeft,
-  pPointFuzziness,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
   pToEP,
@@ -91,7 +91,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, fuzzinessOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), pLineErrAtPPoint, pPointFuzziness)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, fuzzinessOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), pLineErrAtPPoint)
   
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.

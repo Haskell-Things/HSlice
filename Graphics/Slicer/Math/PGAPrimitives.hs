@@ -57,6 +57,7 @@ module Graphics.Slicer.Math.PGAPrimitives
       canonicalize,
       distance2PP,
       forceBasisOfP,
+      fuzzinessOfP,
       idealNormOfP,
       interpolate2PP,
       join2PP,
@@ -64,7 +65,6 @@ module Graphics.Slicer.Math.PGAPrimitives
       vecOfP
       ),
     pLineErrAtPPoint,
-    pPointFuzziness,
     xIntercept,
     yIntercept
   ) where
@@ -508,6 +508,7 @@ class (Show a) => ProjectivePoint2 a where
   consLikeP :: a -> (GVec -> a)
   distance2PP :: (ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, UlpSum)) 
   forceBasisOfP :: a -> a
+  fuzzinessOfP :: (a, PPoint2Err) -> UlpSum
   idealNormOfP :: a -> (ℝ, UlpSum)
   interpolate2PP  :: (ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, PPoint2Err))
   join2PP :: (ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
@@ -525,6 +526,7 @@ instance ProjectivePoint2 ProjectivePoint where
     where
       crushErr (res, (c1, c2, _, resErr)) = (res, (c1, c2, resErr))
   forceBasisOfP p = forceProjectivePointBasis p
+  fuzzinessOfP p = pPointFuzziness p
   idealNormOfP p = idealNormPPoint2WithErr p
   interpolate2PP p1 p2 = pPointBetweenPPointsWithErr p1 p2
   join2PP p1 p2 = join2ProjectivePointsWithErr p1 p2
@@ -570,8 +572,8 @@ distanceBetweenPPointsWithErr (ppoint1, p1Err) (ppoint2, p2Err)
              ,cppoint2Err
              ,newPLineErr
              ,ulpSum)
-    -- note: missing the component for pLine error at point.
-    ulpSum = pPointFuzziness (cppoint1, p1Err <> cppoint1Err) <> pPointFuzziness (cppoint2, p2Err <> cppoint2Err) <> fuzzinessOfL (newPLine, newPLineErr)
+    -- note: missing the component for normErr.
+    ulpSum = fuzzinessOfP (cppoint1, p1Err <> cppoint1Err) <> fuzzinessOfP (cppoint2, p2Err <> cppoint2Err) <> fuzzinessOfL (newPLine, newPLineErr)
     newPLineErr = newPLineErrRaw <> normErr
     -- FIXME: how does the error in newPLine effect the found norm here?
     (res, normErr) = normOfL newPLine

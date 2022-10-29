@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersection
 import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), distance2PP, distancePPointToPLineWithErr, eToPLine2WithErr, pLineErrAtPPoint, eToPPoint2, join2PP, interpolate2PP, intersect2PL, translateL, flipL, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, outputIntersectsLineSeg, pPointFuzziness, sameDirection)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), distance2PP, distancePPointToPLineWithErr, eToPLine2WithErr, pLineErrAtPPoint, eToPPoint2, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, outputIntersectsLineSeg, sameDirection)
 
 import Graphics.Slicer.Math.PGAPrimitives (PPoint2Err(PPoint2Err), angleBetween2PL, xIntercept, yIntercept)
 
@@ -930,7 +930,7 @@ prop_TriangleMotorcyclesEndAtSamePoint centerX centerY rawRadians rawDists
   where
     retVal = intersectionsAtSamePoint nodeOutsAndErrs
     intersections = rights $ fromJust <$> mapWithFollower intersectionBetween nodeOutsAndErrs
-    fuzziness = pPointFuzziness <$> intersections
+    fuzziness = fuzzinessOfP <$> intersections
     distances = mapWithFollower distance2PP intersections
     nodeOutsAndErrs = outAndErrOf <$> eNodes
       where
@@ -1449,7 +1449,7 @@ prop_PLineIntersectsAtXAxis x y rawX2 y2 m
   where
     errSum = ulpVal $ axisIntersectionErr <> distanceErr
     (foundDistance, (_,_, distanceErr)) = distance2PP (axisIntersectionPoint,mempty) (intersectionPPoint2, intersectionErr)
-    axisIntersectionErr = snd $ fromJust axisIntersection
+    axisIntersectionErr = pLineErrAtPPoint (randomPLine1, pline1Err) axisIntersectionPoint
     axisIntersectionPoint = eToPPoint2 $ Point2 ((fromRight (error "not right?") $ fst $ fromJust axisIntersection), 0)
     axisIntersection = xIntercept (randomPLine1, pline1Err)
     (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL (randomPLine1,pline1Err) (axisPLine, axisErr)
