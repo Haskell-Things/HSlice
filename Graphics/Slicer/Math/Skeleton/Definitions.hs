@@ -55,7 +55,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapW
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), addVecPair)
 
-import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), PLine2Err, pLineIsLeft, distance2PP, Pointable(canPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, eToPLine2WithErr, eToPPoint2, pToEP, vecOfL)
+import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), PLine2Err, pLineIsLeft, distance2PP, Pointable(canPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, eToPL, eToPPoint2, pToEP, vecOfL)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -311,12 +311,12 @@ ancestorsOf (INodeSet generations)
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe PLine2
 concavePLines seg1 seg2
-  | Just True == pLineIsLeft (fst $ eToPLine2WithErr seg1) (fst $ eToPLine2WithErr seg2) = Just $ PLine2 $ addVecPair pv1 pv2
+  | Just True == pLineIsLeft (fst $ eToPL seg1) (fst $ eToPL seg2) = Just $ PLine2 $ addVecPair pv1 pv2
   | otherwise                          = Nothing
   where
-    (PLine2 pv1,_) = eToPLine2WithErr seg1
+    (PLine2 pv1,_) = eToPL seg1
     pv2 = vecOfL $ flipL pl2
-    (pl2,_) = eToPLine2WithErr seg2
+    (pl2,_) = eToPL seg2
 
 -- | check if an INodeSet is empty.
 hasNoINodes :: INodeSet -> Bool

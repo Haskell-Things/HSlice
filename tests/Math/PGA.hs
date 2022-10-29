@@ -59,11 +59,11 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToCPPoint2, eToPLine2, getFirstArc, join2PPoint2, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalize, distance2PP, distancePPointToPLineWithErr, eToPLine2WithErr, eToPL, eToPPoint2, interpolate2PP, intersect2PL, translateL, translateRotatePPoint2, angleBetween2PL, flipL, join2PP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalize, distance2PP, distancePPointToPLineWithErr, eToPL, eToPPoint2, interpolate2PP, intersect2PL, translateL, translateRotatePPoint2, angleBetween2PL, flipL, join2PP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, outputIntersectsLineSeg)
 
 
 -- The primitives of our PGA only library, and error estimation code.
-import Graphics.Slicer.Math.PGAPrimitives (xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives (pLineErrAtPPoint, xIntercept, yIntercept)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -413,8 +413,8 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
     sourceEnd = makePPoint2 x2 y2
     (pline4, pline4Err) = join2PP sourceStart sourceEnd
     (normedPLine4, norm4Err) = normalizeL pline4
-    errTotal3 = ulpVal $ angle2Err <> pline3Err <> pline4Err <> bisectorStartErr <> bisectorEndRawErr <> bisectorEndErr
-    errTotal4 = ulpVal $ angle2Err <> pline3Err <> pline4Err <> bisectorStartErr <> bisectorEndRawErr <> bisectorEndErr
+    errTotal3 = ulpVal $ angle2Err -- <> pline3Err <> pline4Err -- <> bisectorStartErr <> bisectorEndRawErr <> bisectorEndErr
+    errTotal4 = ulpVal $ angle2Err -- <> pline3Err <> pline4Err -- <> bisectorStartErr <> bisectorEndRawErr <> bisectorEndErr
     x2 :: ℝ
     x2 = coerce rawX2
     d :: ℝ
@@ -467,9 +467,9 @@ prop_PerpTranslateID x y dx dy rawT
     res = distanceBetweenPLines resPLine origPLine
     (resPLine, UlpSum resPLineErr) = translateL translatedPLine (-t)
     (translatedPLine, UlpSum translatedPLineErr) = translateL origPLine t
-    (origPLine, UlpSum origPLineErr) = randomPLineWithErr x y dx dy
+    (origPLine, origPLineErr) = randomPLineWithErr x y dx dy
     resErr, t :: ℝ
-    resErr = realToFrac (resPLineErr + translatedPLineErr + origPLineErr)
+    resErr = realToFrac (resPLineErr + translatedPLineErr)
     t = coerce rawT
 
 pgaSpec :: Spec
@@ -566,7 +566,7 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
     (NPLine2 bisector1, bisector1ErrRaw) = normalizeL bisector
-    (bisector, UlpSum bisectorUlp) = eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
+    (bisector, bisectorErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
     x1,y1,x2,y2,times :: ℝ
@@ -621,13 +621,13 @@ prop_LineSegIntersectionStableAtOrigin d1 x1 y1 rawX2 rawY2
                    ) <> "\n"
                 <> "(x2,y2): " <> show (x2,y2) <> "\n"
   where
-    res1 = intersectsWithErr (Right pLineThroughOriginNotX1Y1NotOther) (Left (x1y1LineSegToOrigin,mempty))
-    res2 = intersectsWithErr (Right pLineThroughOriginNotX1Y1NotOther) (Left (lineSegFromOrigin,mempty))
+    res1 = intersectsWithErr (Right (pLineThroughOriginNotX1Y1NotOther,mempty)) (Left (x1y1LineSegToOrigin,mempty))
+    res2 = intersectsWithErr (Right (pLineThroughOriginNotX1Y1NotOther,mempty)) (Left (lineSegFromOrigin,mempty))
     distanceStart = case res2 of
                       (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP iPoint (eToCPPoint2 $ Point2 (0,0))) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP iPoint (eToCPPoint2 $ Point2 (0,0))) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       _ -> ""
-    pLineThroughOriginNotX1Y1NotOther = randomPLineThroughOrigin x2 y2
+    (pLineThroughOriginNotX1Y1NotOther,_) = randomPLineThroughOrigin x2 y2
     x1y1LineSegToOrigin = randomX1Y1LineSegToOrigin d1
     lineSegFromOrigin = randomLineSegFromOriginNotX1Y1 x1 y1
     isEndPoint (Left (HitEndPoint _)) = True
@@ -667,8 +667,8 @@ prop_LineSegIntersectionStableAtX1Y1Point pointD rawD1 x1 y1 rawX2 rawY2
                          <> distanceEnd
                    ) <> "\n"
   where
-    res1 = intersectsWithErr (Right pLineThroughPointNotX1Y1NotOther) (Left (x1y1LineSegToPoint,mempty))
-    res2 = intersectsWithErr (Right pLineThroughPointNotX1Y1NotOther) (Left (lineSegFromPointNotX1Y1,mempty))
+    res1 = intersectsWithErr (Right (pLineThroughPointNotX1Y1NotOther,mempty)) (Left (x1y1LineSegToPoint,mempty))
+    res2 = intersectsWithErr (Right (pLineThroughPointNotX1Y1NotOther,mempty)) (Left (lineSegFromPointNotX1Y1,mempty))
     distanceStart = case res2 of
                       (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP iPoint (eToCPPoint2 $ Point2 (d2,d2))) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP iPoint (eToCPPoint2 $ Point2 (d2,d2))) <> "\nUlpSum:" <> show ulpSum <> "\n"
@@ -677,7 +677,7 @@ prop_LineSegIntersectionStableAtX1Y1Point pointD rawD1 x1 y1 rawX2 rawY2
                       (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP iPoint (eToCPPoint2 $ Point2 (d2,d2))) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP iPoint (eToCPPoint2 $ Point2 (d2,d2))) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       _ -> ""
-    pLineThroughPointNotX1Y1NotOther = randomPLineThroughPoint x2 y2 d2
+    (pLineThroughPointNotX1Y1NotOther,_) = randomPLineThroughPoint x2 y2 d2
     x1y1LineSegToPoint = randomX1Y1LineSegToPoint d1 d2
     lineSegFromPointNotX1Y1 = randomLineSegFromPointNotX1Y1 x1 y1 d2
     isEndPoint (Left (HitEndPoint _)) = True
@@ -1220,8 +1220,8 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
               <> "ulpTotal2: " <> show ulpTotal2 <> "\n"
               <> "distance1Err: " <> show distance1Err <> "\n"
               <> "distance2Err: " <> show distance2Err <> "\n"
-              <> "PLine1ULP: " <> show ulpPLine <> "\n"
               <> "PLine: " <> show pLine <> "\n"
+              <> "PLine1Err: " <> show pLineErr <> "\n"
               <> "NPLine: " <> show nPLine <> "\n"
               <> "PPoint1: " <> show pPoint1 <> "\n"
               <> "PPoint2: " <> show pPoint2 <> "\n"
@@ -1231,9 +1231,9 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
     pPoint1 = makePPoint2 x1 y1
     pPoint2 = makePPoint2 x2 y2
     (nPLine, _) = normalizeL pLine
-    (pLine, UlpSum ulpPLine) = eToPLine2WithErr $ makeLineSeg (Point2 (x1,y1)) (Point2 (x2,y2))
-    ulpTotal1 = ulpPLine + distance1Err
-    ulpTotal2 = ulpPLine + distance2Err
+    (pLine, pLineErr) = eToPL $ makeLineSeg (Point2 (x1,y1)) (Point2 (x2,y2))
+    ulpTotal1 = distance1Err
+    ulpTotal2 = distance2Err
     -- make sure we do not try to create a 0 length line segment.
     (x2,y2)
      | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
@@ -1243,8 +1243,8 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
 
 prop_PLineWithinErrRange2 :: ℝ -> ℝ -> ℝ -> ℝ -> Bool
 prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
-  | distance1 > realToFrac ulpTotal1 = error $ "startPoint outside of expected range:\n" <> dumpRes
-  | distance2 > realToFrac ulpTotal2 = error $ "endPoint outside of expected range:\n" <> dumpRes
+  | distance1 > realToFrac (ulpVal ulpTotal1) = error $ "startPoint outside of expected range:\n" <> dumpRes
+  | distance2 > realToFrac (ulpVal ulpTotal2) = error $ "endPoint outside of expected range:\n" <> dumpRes
   | otherwise = True
   where
     dumpRes =    "distance1: " <> show distance1 <> "\n"
@@ -1253,20 +1253,21 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
               <> "ulpTotal2: " <> show ulpTotal2 <> "\n"
               <> "distance1Err: " <> show distance1Err <> "\n"
               <> "distance2Err: " <> show distance2Err <> "\n"
-              <> "PLine1ULP: " <> show ulpPLine <> "\n"
               <> "PLine1: " <> show pLine1 <> "\n"
-              <> "NPLine1(vec): " <> show lvec <> "\n"
+              <> "PLine1Err: " <> show pLine1Err <> "\n"
               <> "PPoint1: " <> show pPoint1 <> "\n"
               <> "PPoint2: " <> show pPoint2 <> "\n"
+              <> "xIntercept(PLine1): " <> show (xIntercept (pLine1,pLine1Err)) <> "\n"
+              <> "yIntercept(PLine1): " <> show (yIntercept (pLine1,pLine1Err)) <> "\n"
     -- distance1 and distance2 should be 0, in an ideal world.
-    (distance1, UlpSum distance1Err) = distancePPointToPLineWithErr (PPoint2 pPoint1) pLine1
-    (distance2, UlpSum distance2Err) = distancePPointToPLineWithErr (PPoint2 pPoint2) pLine1
-    (CPPoint2 pPoint1) = makePPoint2 x1 y1
-    (CPPoint2 pPoint2) = makePPoint2 x2 y2
-    (pLine1, UlpSum ulpPLine) = join2PP (CPPoint2 pPoint1) (CPPoint2 pPoint2)
-    (NPLine2 lvec, _) = normalizeL pLine1
-    ulpTotal1 = ulpPLine + distance1Err
-    ulpTotal2 = ulpPLine + distance2Err
+    (distance1, distance1Err) = distancePPointToPLineWithErr pPoint1 pLine1
+    (distance2, distance2Err) = distancePPointToPLineWithErr pPoint2 pLine1
+    pPoint1 = makePPoint2 x1 y1
+    pPoint2 = makePPoint2 x2 y2
+    (pLine1, pLine1Err) = join2PP pPoint1 pPoint2
+    ulpTotal1, ulpTotal2 :: UlpSum
+    ulpTotal1 = distance1Err <> pLineErrAtPPoint (pLine1, pLine1Err) pPoint1
+    ulpTotal2 = distance2Err <> pLineErrAtPPoint (pLine1, pLine1Err) pPoint2
     -- make sure we do not try to create a 0 length line segment.
     (x2,y2)
      | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
@@ -1285,7 +1286,6 @@ prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
               <> "distance1: " <> show res1 <> "\n"
               <> "distance2: " <> show res2 <> "\n"
               <> "PLine: " <> show pLine <> "\n"
-              <> "PLineULP: " <> show ulpPLine <> "\n"
               <> "ulpTotal1: " <> show ulpTotal1 <> "\n"
               <> "ulpTotal2: " <> show ulpTotal2 <> "\n"
     -- res should be d, in an ideal world.
@@ -1295,9 +1295,9 @@ prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
     (perp2, UlpSum ulpSumPerp2) = pPointOnPerpWithErr pLine (PPoint2 pPoint2) d
     (CPPoint2 pPoint1) = makePPoint2 x1 y1
     (CPPoint2 pPoint2) = makePPoint2 x2 y2
-    (pLine, UlpSum ulpPLine) = join2PP (CPPoint2 pPoint1) (CPPoint2 pPoint2)
-    ulpTotal1 = ulpPLine + res1Err + ulpSumPerp1
-    ulpTotal2 = ulpPLine + res2Err + ulpSumPerp2
+    (pLine, _) = join2PP (CPPoint2 pPoint1) (CPPoint2 pPoint2)
+    ulpTotal1 = res1Err + ulpSumPerp1
+    ulpTotal2 = res2Err + ulpSumPerp2
     d :: ℝ
     d = coerce rawD
     -- make sure we do not try to create a 0 length line segment.
@@ -1369,9 +1369,9 @@ prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
     (foundDistance, UlpSum distanceErr) = distance2PP originPPoint2 intersectionCPPoint2
     (intersectionCPPoint2, UlpSum canonicalizationErr) = canonicalize intersectionPPoint2
     (intersectionPPoint2, intersectionErr) = intersect2PL randomPLine1 randomPLine2
-    (randomPLine1, UlpSum pline1Err) = randomPLineThroughOrigin x y
-    (randomPLine2, UlpSum pline2Err) = randomPLineThroughOrigin x2 y2
-    errSum = pline1Err + pline2Err + distanceErr + canonicalizationErr
+    (randomPLine1, _) = randomPLineThroughOrigin x y
+    (randomPLine2, _) = randomPLineThroughOrigin x2 y2
+    errSum = distanceErr + canonicalizationErr
     x,x2,y2 :: ℝ
     x = coerce rawX
     x2
@@ -1397,9 +1397,9 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
     (foundDistance, UlpSum distanceErr) = distance2PP targetPPoint2 intersectionCPPoint2
     (intersectionCPPoint2, UlpSum canonicalizationErr) = canonicalize intersectionPPoint2
     (intersectionPPoint2, intersectionErr) = intersect2PL randomPLine1 randomPLine2
-    (randomPLine1, UlpSum pline1Err) = randomPLineWithErr x y targetX targetY
-    (randomPLine2, UlpSum pline2Err) = randomPLineWithErr x2 y2 targetX targetY
-    errSum = pline1Err + pline2Err + distanceErr + canonicalizationErr
+    (randomPLine1, _) = randomPLineWithErr x y targetX targetY
+    (randomPLine2, _) = randomPLineWithErr x2 y2 targetX targetY
+    errSum = distanceErr + canonicalizationErr
     x,x2,y2 :: ℝ
     x = coerce rawX
     x2

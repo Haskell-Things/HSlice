@@ -42,7 +42,6 @@ module Graphics.Slicer.Math.PGA(
   distance2PP,
   distanceBetweenPLinesWithErr,
   distancePPointToPLineWithErr,
-  eToPLine2WithErr,
   eToPPoint2,
   eToPL,
   flipL,
@@ -90,7 +89,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVa
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, join2PPWithErr, pToEP, vecOfP), xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), xIntercept, yIntercept)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -168,7 +167,7 @@ distancePPointToPLineWithErr point line
     lvec                           = vecOfL $ forceBasisOfL (PLine2 nplvec)
     npvec                          = vecOfP $ forceBasisOfP point
     (linePoint, lpErr)             = fromJust $ canonicalizeIntersectionWithErr (PLine2 lvec) (PLine2 perpLine)
-    ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr {- <> resErr -} <> newPLineErr <>  lpErr
+    ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr <> lpErr
     foundVal                       = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP $ point
     (NPLine2 nplvec,_)             = normalizeL line
 
@@ -246,7 +245,7 @@ translateRotatePPoint2 ppoint d rotation = PPoint2 $ translator•pvec•reverse
     pvec = vecOfP ppoint
     xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pvec
       where
-        xLineVec = vecOfL $ forceBasisOfL $ fst $ eToPLine2WithErr (LineSeg (Point2 (0,0)) (Point2 (1,0)))
+        xLineVec = vecOfL $ forceBasisOfL $ fst $ eToPL (LineSeg (Point2 (0,0)) (Point2 (1,0)))
     angledLineThroughPPoint2 = vecOfL $ forceBasisOfL $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
       where
         rotator = addVecPairWithoutErr (fst $ mulScalarVecWithErr (sin $ rotation/2) pvec) (GVec [GVal (cos $ rotation/2) (singleton G0)])
@@ -311,13 +310,13 @@ intersectsWithErr (Left l1@(rawL1,_)) (Right pl1@(rawPL1, _)) = pLineIntersectsL
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
     (angle, (_,_, UlpSum angleErr)) = angleBetween2PL (rawPL1, mempty) (pl2, mempty)
-    (pl2, _) = eToPLine2WithErr rawL1
+    (pl2, _) = eToPL rawL1
 intersectsWithErr (Right pl1@(rawPL1, _)) (Left l1@(rawL1,_)) = pLineIntersectsLineSeg pl1 l1 ulpScale
   where
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
     (angle, (_,_, UlpSum angleErr)) = angleBetween2PL (rawPL1, mempty) (pl2, mempty)
-    (pl2, _) = eToPLine2WithErr rawL1
+    (pl2, _) = eToPL rawL1
 
 -- | Check if/where a line segment and a PLine intersect.
 pLineIntersectsLineSeg :: (PLine2, UlpSum) -> (LineSeg, UlpSum) -> ℝ -> Either Intersection PIntersection
@@ -330,7 +329,7 @@ pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
   | hasIntersection && valOf 0 foundVal == 0 = error "intersection, but cannot cannonicalize."
   | hasIntersection && startDistance <= ulpStartSum = Left $ HitStartPoint l1
   | hasIntersection && endDistance <= ulpEndSum = Left $ HitEndPoint l1
-  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum $ realToFrac ulpStartSum, UlpSum $ realToFrac ulpEndSum, UlpSum pl1Err, UlpSum pl2Err, mempty, UlpSum rawIntersectionErr)
+  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum $ realToFrac ulpStartSum, UlpSum $ realToFrac ulpEndSum, UlpSum pl1Err, mempty, mempty, UlpSum rawIntersectionErr)
   | hasRawIntersection = Left $ NoIntersection rawIntersection (UlpSum $ realToFrac ulpStartSum, UlpSum $ realToFrac ulpEndSum, mempty, mempty)
   | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (mempty, mempty, mempty, mempty)
   where
@@ -343,7 +342,7 @@ pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
     ulpEndSum = realToFrac $ ulpTotal+endDistanceErr
     -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
     -- Note: we do not use rawIntersectionErr here.
-    ulpTotal = pl1Err + pl2Err + l1Err
+    ulpTotal = l1Err
     dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nl1Err: " <> show l1Err <> "\nrawIntersectErr: " <> show rawIntersectErr <> "\n"
     hasIntersection = hasRawIntersection && onSegment l1 rawIntersection ulpStartSum ulpEndSum
     hasRawIntersection = valOf 0 foundVal /= 0
@@ -351,7 +350,7 @@ pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
     (rawIntersection, UlpSum rawIntersectionErr) = canonicalize rawIntersect
     (rawIntersect, rawIntersectErr) = intersect2PL pl1 pl2
-    (pl2, UlpSum pl2Err) = eToPLine2WithErr l1
+    (pl2, pl2Err) = eToPL l1
 
 -- | Check if/where two line segments intersect.
 lineSegIntersectsLineSeg :: (LineSeg, UlpSum) -> (LineSeg, UlpSum) -> Either Intersection PIntersection
@@ -384,10 +383,10 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
     end1 = eToPPoint2 $ endPoint l1
     start2 = eToPPoint2 $ startPoint l2
     end2 = eToPPoint2 $ endPoint l2
-    (pl1, UlpSum pl1Err) = eToPLine2WithErr l1
-    (pl2, UlpSum pl2Err) = eToPLine2WithErr l2
+    (pl1, pl1Err) = eToPL l1
+    (pl2, pl2Err) = eToPL l2
     -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
-    ulpTotal = pl1Err + pl2Err + l1Err + ulpL2 
+    ulpTotal = l1Err + ulpL2
     dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nl1Err: " <> show l1Err <> "\nrawIntersectErr: " <> show rawIntersectErr <> "\n"
     hasIntersection = hasRawIntersection && onSegment l1 rawIntersection ulpStartSum1 ulpEndSum1 && onSegment l2 rawIntersection ulpStartSum2 ulpEndSum2
     hasRawIntersection = valOf 0 foundVal /= 0
@@ -441,7 +440,7 @@ combineConsecutiveLineSegs lines = case lines of
     canCombineLineSegs l1@(LineSeg p1 s1) l2@(LineSeg p2 _) = sameLineSeg && sameMiddlePoint
       where
         -- FIXME: this does not take into account the Err introduced by eToPLine2.
-        sameLineSeg = plinesIntersectIn (fst $ eToPLine2WithErr l1) (fst $ eToPLine2WithErr l2) == PCollinear
+        sameLineSeg = plinesIntersectIn (fst $ eToPL l1) (fst $ eToPL l2) == PCollinear
         sameMiddlePoint = p2 == addPoints p1 s1
 
 ------------------------------------------------
@@ -473,15 +472,10 @@ reverseGVec (GVec vals) = GVec $ foldl' addValWithoutErr []
                   , GVal (negate $ valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 1, GEPlus 2])
                   ]
 
-eToPLine2WithErr :: LineSeg -> (PLine2, UlpSum)
-eToPLine2WithErr l1 = (res, resErr)
-  where
-    (res, resErr) = join2PP (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
-
 eToPL :: LineSeg -> (PLine2, PLine2Err)
 eToPL l1 = (res, resErr)
   where
-    (res, resErr) = join2PPWithErr (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
+    (res, resErr) = join2PP (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
 
 -- | Get the sum of the error involved in storing the values in a given PLine2.
 ulpOfPLine2 :: (ProjectiveLine2 a) => a -> UlpSum

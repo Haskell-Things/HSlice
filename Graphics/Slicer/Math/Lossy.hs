@@ -48,7 +48,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
 import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, angleBetween2PL, canonicalize, distance2PP, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, eToPPoint2, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, angleBetween2PL, canonicalize, distance2PP, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPL, eToPPoint2, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL)
 
 angleBetween :: NPLine2 -> NPLine2 -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetween2PL (nPLine1, mempty) (nPLine2, mempty)
@@ -73,11 +73,11 @@ eToCPPoint2 point = eToPPoint2 point
 
 -- | Create a normalized projective line from a euclidian line segment.
 eToNPLine2 :: LineSeg -> NPLine2
-eToNPLine2 l1 = fst $ normalizeL $ fst $ eToPLine2WithErr l1
+eToNPLine2 l1 = fst $ normalizeL $ fst $ eToPL l1
 
 -- | Create an un-normalized projective line from a euclidian line segment.
 eToPLine2 :: LineSeg -> PLine2
-eToPLine2 l1 = fst $ eToPLine2WithErr l1
+eToPLine2 l1 = fst $ eToPL l1
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
 getFirstArc :: Point2 -> Point2 -> Point2 -> PLine2
@@ -100,7 +100,7 @@ normalizePLine2 pl = fst $ normalizeL pl
 
 -- | Create a projective line from a pair of euclidian points.
 pLineFromEndpoints :: Point2 -> Point2 -> PLine2
-pLineFromEndpoints point1 point2 = fst $ eToPLine2WithErr $ makeLineSeg point1 point2
+pLineFromEndpoints point1 point2 = fst $ eToPL $ makeLineSeg point1 point2
 
 pToEPoint2 :: (ProjectivePoint2 a) => a -> Point2
 pToEPoint2 pp = fst $ pToEP pp

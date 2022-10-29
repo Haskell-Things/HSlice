@@ -52,7 +52,7 @@ import Graphics.Slicer.Math.Intersections (contourIntersectionCount, noIntersect
 
 import Graphics.Slicer.Math.Lossy (join2PPoint2, pPointBetweenPPoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (PPoint2, eToPPoint2, eToPLine2WithErr, pLineIsLeft, pPointOnPerpWithErr)
+import Graphics.Slicer.Math.PGA (PPoint2, eToPPoint2, eToPL, pLineIsLeft, pPointOnPerpWithErr)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -232,7 +232,7 @@ insideIsLeft contour
     myMidPoint    = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
     pLineToInside = join2PPoint2 myMidPoint innerPoint
     innerPoint    = fromJust $ innerContourPoint contour
-    (pline1,_)    = eToPLine2WithErr $ makeLineSeg p1 p2
+    (pline1,_)    = eToPL $ makeLineSeg p1 p2
 
 -- | Find a point on the interior of a given contour, on the perpendicular bisector of the first line segment, a given distance away from the line segment.
 innerContourPoint :: Contour -> Maybe PPoint2

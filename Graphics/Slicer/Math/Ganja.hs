@@ -110,11 +110,11 @@ import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, pointsO
 
 import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPoint, mapWithFollower, startPoint, makeLineSeg)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf, UlpSum)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf)
 
 import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoint2, normalizePLine2, pPointBetweenPPoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), PLine2(PLine2), PPoint2(PPoint2), PLine2Err, eToPLine2WithErr, eToPL, eToPPoint2, flipL, normalizeL, translateRotatePPoint2, outOf, pPointOf, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), PLine2(PLine2), PPoint2(PPoint2), PLine2Err, eToPL, eToPPoint2, flipL, normalizeL, translateRotatePPoint2, outOf, pPointOf, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
 
@@ -671,8 +671,8 @@ randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> PLine2
 randomPLine x y dx dy = fst $ randomPLineWithErr x y dx dy
 
 -- | A helper function. constructs a random PLine.
-randomPLineWithErr :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (PLine2, UlpSum)
-randomPLineWithErr x y dx dy = eToPLine2WithErr $ makeLineSeg (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
+randomPLineWithErr :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (PLine2, PLine2Err)
+randomPLineWithErr x y dx dy = eToPL $ makeLineSeg (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
 
 -- | A helper function. constructs a random PLine.
 randomPL :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (PLine2, PLine2Err)
@@ -684,12 +684,12 @@ randomLineSeg x y dx dy = makeLineSeg (Point2 (x, y)) (Point2 (dx,dy))
 
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
-randomPLineThroughOrigin :: ℝ -> ℝ -> (PLine2, UlpSum)
-randomPLineThroughOrigin x y = eToPLine2WithErr $ makeLineSeg (Point2 (x,y)) (Point2 (0,0))
+randomPLineThroughOrigin :: ℝ -> ℝ -> (PLine2, PLine2Err)
+randomPLineThroughOrigin x y = eToPL $ makeLineSeg (Point2 (x,y)) (Point2 (0,0))
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
-randomPLineThroughPoint :: ℝ -> ℝ -> ℝ -> (PLine2, UlpSum)
-randomPLineThroughPoint x y d = eToPLine2WithErr $ makeLineSeg (Point2 (x,y)) (Point2 (d,d))
+randomPLineThroughPoint :: ℝ -> ℝ -> ℝ -> (PLine2, PLine2Err)
+randomPLineThroughPoint x y d = eToPL $ makeLineSeg (Point2 (x,y)) (Point2 (d,d))
 
 -- | A line segment ending at the origin. additionally, guaranteed not to be on the X = Y line.
 randomLineSegFromPointNotX1Y1 :: ℝ -> ℝ -> ℝ -> LineSeg

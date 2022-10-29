@@ -60,7 +60,7 @@ import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, 
 
 import Graphics.Slicer.Math.PGA (Arcable(outOf), CPPoint2(CPPoint2), Pointable(canPoint, ePointOf, pPointOf), PIntersection(PAntiCollinear, IntersectsIn), PPoint2(PPoint2), angleBetween2PL, distance2PP, eToPL, eToPPoint2, normalizeL, plinesIntersectIn)
 
-import Graphics.Slicer.Math.PGAPrimitives (join2PPWithErr)
+import Graphics.Slicer.Math.PGAPrimitives (join2PP)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving (Show, Eq)
@@ -369,7 +369,7 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
       case nub $ insOf $ lastINodeOf iNodeGens of
         [] -> error "unpossible."
         [_] -> NodeTree eNodes $ INodeSet $ init gens
-        (_:_) -> NodeTree eNodes $ INodeSet $ init gens <> one [makeINode (nub $ insOf $ lastINodeOf iNodeGens) (Just $ join2PPWithErr (finalPointOfNodeTree nodeTree) myCrossover)]
+        (_:_) -> NodeTree eNodes $ INodeSet $ init gens <> one [makeINode (nub $ insOf $ lastINodeOf iNodeGens) (Just $ join2PP (finalPointOfNodeTree nodeTree) myCrossover)]
     -- | find the last resolvable point in a NodeTree
     finalPointOfNodeTree (NodeTree _ iNodeGens)
       | canPoint (lastINodeOf iNodeGens) = pPointOf $ lastINodeOf iNodeGens
