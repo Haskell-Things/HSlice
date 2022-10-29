@@ -358,10 +358,15 @@ pLineErrAtPPoint (inPLine, inPLineErr) errPoint
   | xInterceptIsRight = tFuzz <> rawXInterceptFuzz
   -- only the yIntercept is real. this line is parallel to the X axis.
   | yInterceptIsRight = tFuzz <> rawYInterceptFuzz
+  -- this line intersects the origin.
   | otherwise = tFuzz
   where
-    xInterceptIsRight = isJust (xIntercept (nPLine,nPLineErr)) && isRight (fst $ fromJust $ xIntercept (nPLine,nPLineErr))
-    yInterceptIsRight = isJust (yIntercept (nPLine,nPLineErr)) && isRight (fst $ fromJust $ yIntercept (nPLine,nPLineErr))
+    xInterceptIsRight = isJust (xIntercept (nPLine,nPLineErr))
+                        && isRight (fst $ fromJust $ xIntercept (nPLine,nPLineErr))
+                        && fromRight 0 (fst $ fromJust $ xIntercept (nPLine,nPLineErr)) /= 0
+    yInterceptIsRight = isJust (yIntercept (nPLine,nPLineErr))
+                        && isRight (fst $ fromJust $ yIntercept (nPLine,nPLineErr))
+                        && fromRight 0 (fst $ fromJust $ yIntercept (nPLine,nPLineErr)) /= 0
     xInterceptFuzz = UlpSum $ ulpVal rawXInterceptFuzz * ((realToFrac xInterceptDistance + ulpVal rawXInterceptFuzz) / realToFrac yInterceptDistance) * realToFrac (abs xPos)
     yInterceptFuzz = UlpSum $ ulpVal rawYInterceptFuzz * ((realToFrac yInterceptDistance + ulpVal rawYInterceptFuzz) / realToFrac xInterceptDistance) * realToFrac (abs yPos)
     rawYInterceptFuzz = snd $ fromJust $ yIntercept (nPLine, nPLineErr)
