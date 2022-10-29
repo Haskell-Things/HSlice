@@ -44,6 +44,7 @@ module Graphics.Slicer.Math.PGAPrimitives
       angleBetween2PL,
       flipL,
       forceBasisOfL,
+      fuzzinessOfL,
       intersect2PL,
       normalizeL,
       normOfL,
