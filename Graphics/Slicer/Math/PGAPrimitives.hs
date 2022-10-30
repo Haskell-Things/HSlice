@@ -20,7 +20,7 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
 -- | The purpose of this file is to hold primitive projective geometric algebraic arithmatic.
--- Primitives here are defined as functions that work on types which have an implementation of the ProjectivePoint2 or ProjectiveLine2 typeclasses.
+-- Primitives here are defined as functions that work on types which have an implementation of the ProjectivePoint2 or ProjectiveLine2 typeclasses. Think "pure 2D PGA functions only".
 
 module Graphics.Slicer.Math.PGAPrimitives
   (
@@ -43,6 +43,7 @@ module Graphics.Slicer.Math.PGAPrimitives
     ProjectiveLine2(
       angleBetween2PL,
       angleCosBetween2PL,
+      canonicalizedIntersectionOf2PL,
       flipL,
       forceBasisOfL,
       fuzzinessOfL,
@@ -64,7 +65,6 @@ module Graphics.Slicer.Math.PGAPrimitives
       pToEP,
       vecOfP
       ),
-    canonicalizedIntersectionOf2PL,
     pLineErrAtPPoint,
     xIntercept,
     yIntercept
@@ -155,6 +155,7 @@ newtype NPLine2 = NPLine2 GVec
 class ProjectiveLine2 a where
   angleBetween2PL :: (ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, UlpSum))
   angleCosBetween2PL :: (ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, UlpSum))
+  canonicalizedIntersectionOf2PL :: (ProjectiveLine2 b) => a -> b -> Maybe (CPPoint2, (PLine2Err, PLine2Err, PPoint2Err))
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
   forceBasisOfL :: a -> a
@@ -171,6 +172,7 @@ instance ProjectiveLine2 NPLine2 where
     where
       crushErr (res, (n1,n2,_,resErr)) = (res, (n1,n2,resErr))
   angleCosBetween2PL l1 l2 = angleCosBetweenProjectiveLines l1 l2
+  canonicalizedIntersectionOf2PL l1 l2 = canonicalizedIntersectionOfProjectiveLines l1 l2
   consLikeL _ = NPLine2
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
@@ -187,6 +189,7 @@ instance ProjectiveLine2 PLine2 where
     where
       crushErr (res, (n1,n2,_,ulpSum)) = (res, (n1,n2,ulpSum))
   angleCosBetween2PL l1 l2 = angleCosBetweenProjectiveLines l1 l2
+  canonicalizedIntersectionOf2PL l1 l2 = canonicalizedIntersectionOfProjectiveLines l1 l2
   consLikeL _ = PLine2
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
@@ -267,7 +270,7 @@ forceProjectiveLineBasis line
               _                                 -> Nothing
     vec@(GVec vals) = vecOfL line
 
--- | determine the amount of error when trying to resolve a projective line.
+-- | determine the amount of translation error when trying to resolve a projective line.
 -- NOTE: a projective line's error varies depending where on that line you are trying to resolve it.
 --       for complete results, combine this with scaling xIntercept and yIntercept.
 fuzzinessOfProjectiveLine :: (ProjectiveLine2 a) => (a, PLine2Err) -> UlpSum
@@ -477,8 +480,8 @@ angleCosBetweenProjectiveLines line1 line2
 
 -- | get the Canonicalized intersection of two lines.
 -- NOTE: Returns Nothing when the PLines are (anti)parallel.
-canonicalizedIntersectionOf2PL :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe (CPPoint2, (PLine2Err, PLine2Err, PPoint2Err))
-canonicalizedIntersectionOf2PL l1 l2
+canonicalizedIntersectionOfProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe (CPPoint2, (PLine2Err, PLine2Err, PPoint2Err))
+canonicalizedIntersectionOfProjectiveLines l1 l2
   | isNothing foundVal = Nothing
   | otherwise = Just (cpp1, (l1Err, l2Err, pp1Err <> cpp1Err))
   where

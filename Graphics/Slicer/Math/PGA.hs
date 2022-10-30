@@ -85,7 +85,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addValWithoutErr, addVecPairWithoutErr, getVal, mulScalarVecWithErr, sumErrVals, ulpVal, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, getVal, mulScalarVecWithErr, sumErrVals, ulpVal, valOf)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
