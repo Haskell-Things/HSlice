@@ -168,7 +168,7 @@ class ProjectiveLine2 a where
   vecOfL :: a -> GVec
 
 instance ProjectiveLine2 ProjectiveLine where
-  angleBetween2PL l1 l2 = crushErr $ angleBetweenWithErr l1 l2
+  angleBetween2PL l1 l2 = crushErr $ angleBetween l1 l2
     where
       crushErr (res, (n1,n2,_,resErr)) = (res, (n1,n2,resErr))
   angleCosBetween2PL l1 l2 = angleCosBetweenProjectiveLines l1 l2
@@ -179,13 +179,13 @@ instance ProjectiveLine2 ProjectiveLine where
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
   fuzzinessOfL l = fuzzinessOfProjectiveLine l
-  intersect2PL l1 l2 = intersectionOfProjectiveLinesWithErr l1 l2
+  intersect2PL l1 l2 = intersectionOfProjectiveLines l1 l2
   normalizeL l = case l of
                   n@(NPLine2 _) -> (n,mempty)
-                  p@(PLine2 _) -> normalizeProjectiveLineWithErr p
-  normOfL l = normOfProjectiveLineWithErr l
-  sqNormOfL l = squaredNormOfProjectiveLineWithErr l
-  translateL l d = translateProjectiveLineWithErr l d
+                  p@(PLine2 _) -> normalizeProjectiveLine p
+  normOfL l = normOfProjectiveLine l
+  sqNormOfL l = squaredNormOfProjectiveLine l
+  translateL l d = translateProjectiveLine l d
   vecOfL l = case l of
                (NPLine2 v) -> v
                (PLine2 v) -> v
@@ -223,11 +223,11 @@ instance Semigroup PLine2Err where
 instance Monoid PLine2Err where
   mempty = PLine2Err mempty mempty mempty mempty mempty mempty
 
--- | Return the sine of the angle between the two lines, along with the error, in +-Sin.
+-- | Return the sine of the angle between the two lines, along with the error.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
 -- FIXME: get input error, and take our input error into account.
-angleBetweenWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
-angleBetweenWithErr line1 line2 = (scalarPart likeRes, resErr)
+angleBetween :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
+angleBetween line1 line2 = (scalarPart likeRes, resErr)
   where
     resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
     -- FIXME: this returned ULPsum is wrong. actually try to interpret it.
@@ -280,16 +280,17 @@ fuzzinessOfProjectiveLine (inPLine, inPLineErr) = tUlp <> joinAddTErr <> joinMul
 -- | Find out where two lines intersect, returning a projective point, and the error quotents.
 -- Note: this should only be used when you can guarantee these are not collinear, or parallel.
 -- FIXME: determine how to accept input error, and take it into account.
-intersectionOfProjectiveLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
-intersectionOfProjectiveLinesWithErr line1 line2 = (res, (line1Err, line2Err, resErr))
+intersectionOfProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
+intersectionOfProjectiveLines line1 line2 = (res, (line1Err, line2Err, resErr))
   where
-    (res, (line1Err,line2Err,resUnlikeErr)) = meetOfProjectiveLinesWithErr line1 line2
+    (res, (line1Err,line2Err,resUnlikeErr)) = meetOfProjectiveLines line1 line2
     resErr = PPoint2Err resUnlikeErr mempty mempty mempty mempty iAngleErr iAngleUnlikeErr
-    (iAngleErr,(_,_,iAngleUnlikeErr,_)) = angleBetweenWithErr line1 line2
+    -- Since the angle of intersection has an effect on how well this point was resolved, save it with the point.
+    (iAngleErr,(_,_,iAngleUnlikeErr,_)) = angleBetween line1 line2
 
 -- | A typed meet function. the meeting of two lines is a point.
-meetOfProjectiveLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, ([ErrVal],[ErrVal])))
-meetOfProjectiveLinesWithErr line1 line2 = (PPoint2 res,
+meetOfProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, ([ErrVal],[ErrVal])))
+meetOfProjectiveLines line1 line2 = (PPoint2 res,
                                             (npl1Err,
                                              npl2Err,
                                              resUnlikeErr))
@@ -301,8 +302,8 @@ meetOfProjectiveLinesWithErr line1 line2 = (PPoint2 res,
     (npl2, npl2Err) = normalizeL line2
 
 -- | Normalize a Projective Line.
-normalizeProjectiveLineWithErr :: (ProjectiveLine2 a) => a -> (ProjectiveLine, PLine2Err)
-normalizeProjectiveLineWithErr line = (res, resErr)
+normalizeProjectiveLine :: (ProjectiveLine2 a) => a -> (ProjectiveLine, PLine2Err)
+normalizeProjectiveLine line = (res, resErr)
   where
     (res, resErr) = case norm of
                       1.0 -> (NPLine2 vec      , normErr)
@@ -312,8 +313,8 @@ normalizeProjectiveLineWithErr line = (res, resErr)
     vec = vecOfL line
 
 -- | Find the norm of a given Projective Line.
-normOfProjectiveLineWithErr :: (ProjectiveLine2 a) => a -> (ℝ, PLine2Err)
-normOfProjectiveLineWithErr line = (res, resErr)
+normOfProjectiveLine :: (ProjectiveLine2 a) => a -> (ℝ, PLine2Err)
+normOfProjectiveLine line = (res, resErr)
   where
     (res, resErr) = case sqNormOfPLine2 of
                       1.0 -> (1.0                , PLine2Err mempty mempty mempty sqNormUlp mempty mempty)
@@ -323,8 +324,8 @@ normOfProjectiveLineWithErr line = (res, resErr)
     (sqNormOfPLine2, sqNormUlp) = sqNormOfL line
 
 -- | find the squared norm of a given Projective Line.
-squaredNormOfProjectiveLineWithErr :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
-squaredNormOfProjectiveLineWithErr line = (res, ulpTotal)
+squaredNormOfProjectiveLine :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
+squaredNormOfProjectiveLine line = (res, ulpTotal)
   where
     res = a*a+b*b
     a = valOf 0 $ getVal [GEPlus 1] vals
@@ -337,8 +338,8 @@ squaredNormOfProjectiveLineWithErr line = (res, ulpTotal)
 
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Uses the property that translation of a line is expressed on the GEZero component.
-translateProjectiveLineWithErr :: (ProjectiveLine2 a) => a -> ℝ -> (ProjectiveLine, PLine2Err)
-translateProjectiveLineWithErr line d = (PLine2 res, normErr <> PLine2Err resErrs mempty mempty mempty tUlp mempty)
+translateProjectiveLine :: (ProjectiveLine2 a) => a -> ℝ -> (ProjectiveLine, PLine2Err)
+translateProjectiveLine line d = (PLine2 res, normErr <> PLine2Err resErrs mempty mempty mempty tUlp mempty)
   where
     (res, resErrs) = addVecPairWithErr m $ vecOfL line
     m = GVec [GVal tAdd (singleton (GEZero 1))]
@@ -355,21 +356,21 @@ translateProjectiveLineWithErr line d = (PLine2 res, normErr <> PLine2Err resErr
 -- FIXME: accept a error on the projectivePoint, and return an error estimate.
 pLineErrAtPPoint :: (ProjectiveLine2 a, ProjectivePoint2 b) => (a, PLine2Err) -> b -> UlpSum
 pLineErrAtPPoint (inPLine, inPLineErr) errPoint
-  -- both intercepts are real. this line is not parallel or collinear to X or Y axises.
+  -- Both intercepts are real. This line is not parallel or collinear to X or Y axises, and does not pass through the origin.
   | xInterceptIsRight && yInterceptIsRight = tFuzz <> xInterceptFuzz <> yInterceptFuzz
-  -- only the xIntercept is real. this line is parallel to the Y axis.
+  -- Only the xIntercept is real. This line is parallel to the Y axis.
   | xInterceptIsRight = tFuzz <> rawXInterceptFuzz
-  -- only the yIntercept is real. this line is parallel to the X axis.
+  -- Only the yIntercept is real. This line is parallel to the X axis.
   | yInterceptIsRight = tFuzz <> rawYInterceptFuzz
-  -- this line intersects the origin.
+  -- This line intersects the origin (0,0).
   | otherwise = tFuzz
   where
-    xInterceptIsRight = isJust (xIntercept (nPLine,nPLineErr))
-                        && isRight (fst $ fromJust $ xIntercept (nPLine,nPLineErr))
-                        && fromRight 0 (fst $ fromJust $ xIntercept (nPLine,nPLineErr)) /= 0
-    yInterceptIsRight = isJust (yIntercept (nPLine,nPLineErr))
-                        && isRight (fst $ fromJust $ yIntercept (nPLine,nPLineErr))
-                        && fromRight 0 (fst $ fromJust $ yIntercept (nPLine,nPLineErr)) /= 0
+    xInterceptIsRight = isJust (xIntercept (nPLine, nPLineErr))
+                        && isRight (fst $ fromJust $ xIntercept (nPLine, nPLineErr))
+                        && fromRight 0 (fst $ fromJust $ xIntercept (nPLine, nPLineErr)) /= 0
+    yInterceptIsRight = isJust (yIntercept (nPLine, nPLineErr))
+                        && isRight (fst $ fromJust $ yIntercept (nPLine, nPLineErr))
+                        && fromRight 0 (fst $ fromJust $ yIntercept (nPLine, nPLineErr)) /= 0
     xInterceptFuzz = UlpSum $ ulpVal rawXInterceptFuzz * ((realToFrac xInterceptDistance + ulpVal rawXInterceptFuzz) / realToFrac yInterceptDistance) * realToFrac (abs xPos)
     yInterceptFuzz = UlpSum $ ulpVal rawYInterceptFuzz * ((realToFrac yInterceptDistance + ulpVal rawYInterceptFuzz) / realToFrac xInterceptDistance) * realToFrac (abs yPos)
     rawYInterceptFuzz = snd $ fromJust $ yIntercept (nPLine, nPLineErr)
@@ -560,15 +561,15 @@ instance ProjectivePoint2 ProjectivePoint where
                   (PPoint2 _) -> PPoint2
   canonicalize p = case p of
                      (CPPoint2 _) -> (p,mempty)
-                     _ -> canonicalizePPoint2WithErr p
-  distance2PP p1 p2 = crushErr $ distanceBetweenPPointsWithErr p1 p2
+                     _ -> canonicalizePPoint2 p
+  distance2PP p1 p2 = crushErr $ distanceBetweenPPoints p1 p2
     where
       crushErr (res, (c1, c2, _, resErr)) = (res, (c1, c2, resErr))
   forceBasisOfP p = forceProjectivePointBasis p
   fuzzinessOfP p = pPointFuzziness p
-  idealNormOfP p = idealNormPPoint2WithErr p
-  interpolate2PP p1 p2 = pPointBetweenPPointsWithErr p1 p2
-  join2PP p1 p2 = join2ProjectivePointsWithErr p1 p2
+  idealNormOfP p = idealNormPPoint2 p
+  interpolate2PP p1 p2 = pPointBetweenPPoints p1 p2
+  join2PP p1 p2 = join2ProjectivePoints p1 p2
   pToEP p = fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point") $ projectivePointToPoint2 p
   vecOfP p = case p of
                (CPPoint2 v) -> v
@@ -578,8 +579,8 @@ instance ProjectivePoint2 ProjectivePoint where
 -- Note: Normalization of euclidian points in PGA is really just canonicalization.
 -- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
 -- FIXME: return the error of divVecScalarWithErr
-canonicalizePPoint2WithErr :: (ProjectivePoint2 a) => a -> (ProjectivePoint, PPoint2Err)
-canonicalizePPoint2WithErr point
+canonicalizePPoint2 :: (ProjectivePoint2 a) => a -> (ProjectivePoint, PPoint2Err)
+canonicalizePPoint2 point
   | isNothing foundVal = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
   -- Handle the ID case.
   | valOf 1 foundVal == 1 = (CPPoint2 $ GVec rawVals, mempty)
@@ -602,8 +603,8 @@ canonicalizePPoint2WithErr point
     foundVal = getVal [GEPlus 1, GEPlus 2] rawVals
 
 -- | Find the unsigned distance between two projective points.
-distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum))
-distanceBetweenPPointsWithErr (ppoint1, p1Err) (ppoint2, p2Err)
+distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum))
+distanceBetweenPPoints (ppoint1, p1Err) (ppoint2, p2Err)
   | cppoint1 == cppoint2 = (0, (cppoint1Err, cppoint2Err, mempty, mempty))
   | otherwise = (abs res, resErr)
   where
@@ -635,8 +636,8 @@ forceProjectivePointBasis point
     vec@(GVec vals) = vecOfP point
 
 -- | find the idealized norm of a projective point (ideal or not).
-idealNormPPoint2WithErr :: (ProjectivePoint2 a) => a -> (ℝ, UlpSum)
-idealNormPPoint2WithErr ppoint
+idealNormPPoint2 :: (ProjectivePoint2 a) => a -> (ℝ, UlpSum)
+idealNormPPoint2 ppoint
   | preRes == 0 = (0, mempty)
   | otherwise   = (res, ulpTotal)
   where
@@ -656,8 +657,8 @@ idealNormPPoint2WithErr ppoint
 
 -- | a typed join function. join two points, returning a line.
 -- FIXME: accept input error bars, and use these to inform the output PLine2Err
-join2ProjectivePointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
-join2ProjectivePointsWithErr pp1 pp2 = (PLine2 res,
+join2ProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
+join2ProjectivePoints pp1 pp2 = (PLine2 res,
                                         (cp1Err, cp2Err, PLine2Err mempty mempty mempty mempty mempty resUlp))
   where
     -- FIXME: how does error in canonicalization effect the PLine generated here?
@@ -682,8 +683,8 @@ projectivePointToPoint2 ppoint
 -- | Generate a point between the two given points, where the weights given determine "how far between".
 --   If the weights are equal, the distance will be right between the two points.
 -- FIXME: automatically raise addVecRes to a CPPoint2 if it turns out to be canonical?
-pPointBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a,PPoint2Err) -> (b, PPoint2Err) -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, PPoint2Err))
-pPointBetweenPPointsWithErr (startP,startErr) (stopP,stopErr) weight1 weight2
+pPointBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a,PPoint2Err) -> (b, PPoint2Err) -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, PPoint2Err))
+pPointBetweenPPoints (startP,startErr) (stopP,stopErr) weight1 weight2
   | isNothing foundVal = error "tried to generate an ideal point?"
   | otherwise = (res, resErr)
   where
