@@ -151,12 +151,12 @@ data ProjectiveLine =
   deriving (Generic, NFData, Show)
 
 class ProjectiveLine2 a where
-  angleBetween2PL :: (ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ℝ, (PLine2Err, PLine2Err, UlpSum))
+  angleBetween2PL :: (ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, UlpSum))
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
   forceBasisOfL :: a -> a
   fuzzinessOfL :: (a, PLine2Err) -> UlpSum
-  intersect2PL :: (ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
+  intersect2PL :: (ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
   normalizeL :: a -> (ProjectiveLine, PLine2Err)
   normOfL :: a -> (ℝ, PLine2Err)
   sqNormOfL :: a -> (ℝ, UlpSum)
@@ -219,11 +219,9 @@ instance Monoid PLine2Err where
 
 -- | Return the sine of the angle between the two lines, along with the error, in +-Sin.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
-angleBetweenWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
-angleBetweenWithErr (line1,line1Err) (line2,line2Err)
-  | line1Err == mempty && line2Err == mempty = (scalarPart likeRes, resErr)
-  -- FIXME: here is where we take our input error into account.
-  | otherwise = (scalarPart likeRes, resErr)
+-- FIXME: get input error, and take our input error into account.
+angleBetweenWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
+angleBetweenWithErr line1 line2 = (scalarPart likeRes, resErr)
   where
     resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
     -- FIXME: this returned ULPsum is wrong. actually try to interpret it.
@@ -275,14 +273,13 @@ fuzzinessOfProjectiveLine (inPLine, inPLineErr) = tUlp <> joinAddTErr <> joinMul
 
 -- | Find out where two lines intersect, returning a projective point, and the error quotents.
 -- Note: this should only be used when you can guarantee these are not collinear, or parallel.
-intersectionOfProjectiveLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
-intersectionOfProjectiveLinesWithErr (line1,line1Err) (line2,line2Err) = (res, (line1Err <> npl1Err, line2Err <> npl2Err, resErr))
+-- FIXME: determine how to accept input error, and take it into account.
+intersectionOfProjectiveLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
+intersectionOfProjectiveLinesWithErr line1 line2 = (res, (line1Err, line2Err, resErr))
   where
-    (res, (_,_,resUnlikeErr)) = meetOfProjectiveLinesWithErr npl1 npl2
+    (res, (line1Err,line2Err,resUnlikeErr)) = meetOfProjectiveLinesWithErr line1 line2
     resErr = PPoint2Err resUnlikeErr mempty mempty mempty mempty iAngleErr iAngleUnlikeErr
-    (iAngleErr,(_,_,iAngleUnlikeErr,_)) = angleBetweenWithErr (npl1, npl1Err <> line1Err) (npl2, npl2Err <> line2Err)
-    (npl1, npl1Err) = normalizeL line1
-    (npl2, npl2Err) = normalizeL line2
+    (iAngleErr,(_,_,iAngleUnlikeErr,_)) = angleBetweenWithErr line1 line2
 
 -- | A typed meet function. the meeting of two lines is a point.
 meetOfProjectiveLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, ([ErrVal],[ErrVal])))

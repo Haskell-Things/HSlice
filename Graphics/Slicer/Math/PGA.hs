@@ -111,20 +111,20 @@ data PIntersection =
 
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
 plinesIntersectIn :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a,PLine2Err) -> (b,PLine2Err) -> PIntersection
-plinesIntersectIn l1@(pl1,pl1Err) l2@(pl2,pl2Err)
+plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
   | isNothing canonicalizedIntersection
   || (idealNorm <= realToFrac (ulpVal idnErr)
-     && (sameDirection l1 l2 ||
-         oppositeDirection l1 l2)) = if sameDirection l1 l2
-                                     then PCollinear
-                                     else PAntiCollinear
-  | sameDirection l1 l2            = if d < parallelFuzziness
-                                     then PCollinear
-                                     else PParallel
-  | oppositeDirection l1 l2        = if d < parallelFuzziness
-                                     then PAntiCollinear
-                                     else PAntiParallel
-  | otherwise                      = IntersectsIn res (pl1Err <> npl1Err, pl2Err <> npl2Err, idnErr, resErr)
+     && (sameDirection pl1 pl2 ||
+         oppositeDirection pl1 pl2)) = if sameDirection pl1 pl2
+                                       then PCollinear
+                                       else PAntiCollinear
+  | sameDirection pl1 pl2            = if d < parallelFuzziness
+                                       then PCollinear
+                                       else PParallel
+  | oppositeDirection pl1 pl2        = if d < parallelFuzziness
+                                       then PAntiCollinear
+                                       else PAntiParallel
+  | otherwise                        = IntersectsIn res (pl1Err <> npl1Err, pl2Err <> npl2Err, idnErr, resErr)
   where
     -- distance within which we  consider parallel lines as the same line.
     parallelFuzziness :: ℝ
@@ -133,7 +133,7 @@ plinesIntersectIn l1@(pl1,pl1Err) l2@(pl2,pl2Err)
     (d, (_, _, _, dErr)) = distanceBetweenPLinesWithErr npl1 npl2
     (idealNorm, idnErr) = idealNormOfP res
     (res, (_, _, resErr)) = fromJust canonicalizedIntersection
-    canonicalizedIntersection = canonicalizeIntersectionWithErr npline1 npline2
+    canonicalizedIntersection = canonicalizeIntersectionWithErr npl1 npl2
     npline1@(npl1, npl1Err) = normalizeL pl1
     npline2@(npl2, npl2Err) = normalizeL pl2
 
@@ -153,7 +153,7 @@ pLineIsLeft (pl1, pl1Err) (pl2,pl2Err)
     (npl2, npl2Err) = normalizeL pl2
     -- | Find the cosine of the angle between the two lines. results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when "right".
     angleCos :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ℝ, PPoint2Err)
-    angleCos (pline1, pline1Err) (pline2, pline2Err)
+    angleCos (pline1, _) (pline2, _)
       | isNothing canonicalizedIntersection = (0, mempty)
       | otherwise = (angle, iPointErr)
       where
@@ -161,7 +161,7 @@ pLineIsLeft (pl1, pl1Err) (pl2,pl2Err)
         (CPPoint2 iPointVec,(_,_,iPointErr)) = fromJust canonicalizedIntersection
         motor                     = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
         antiMotor                 = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
-        canonicalizedIntersection = canonicalizeIntersectionWithErr (pline1, pline1Err) (pline2, pline2Err)
+        canonicalizedIntersection = canonicalizeIntersectionWithErr pline1 pline2
         -- I, the infinite point.
         gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
         lvec1 = vecOfL pline1
@@ -184,7 +184,7 @@ distancePPointToPLineWithErr (rawPoint,rawPointErr) (rawLine,rawLineErr)
     -- FIXME: how does the error in linePoint and point effect this result?
     (newPLine, newPLineErr)   = join2PP point linePoint
     -- FIXME: how does perpLineErr effect the result of canonicalizeIntersectionWithErr?
-    (linePoint, lastPointErr) = fromJust $ canonicalizeIntersectionWithErr (rawNLine, nLineErr) (PLine2 perpLine, mempty)
+    (linePoint, lastPointErr) = fromJust $ canonicalizeIntersectionWithErr rawNLine (PLine2 perpLine)
     (perpLine, perpLineErr)   = lVec ⨅+ pVec
     lVec = vecOfL $ forceBasisOfL rawNLine
     nLineErr = rawNLineErr <> rawLineErr
@@ -231,7 +231,7 @@ distanceBetweenPLinesWithErr line1 line2 = (res, resErr)
 
 -- | A checker, to ensure two Projective Lines are going the same direction, and are parallel.
 -- FIXME: precision on inputs?
-sameDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
+sameDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
 sameDirection a b = res >= maxAngle
   where
     -- ceiling value. a value bigger than maxAngle is considered to be going the same direction.
@@ -241,7 +241,7 @@ sameDirection a b = res >= maxAngle
 
 -- | A checker, to ensure two Projective Lines are going the opposite direction, and are parallel.
 -- FIXME: precision on inputs?
-oppositeDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
+oppositeDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
 oppositeDirection a b = res <= minAngle
   where
     -- floor value. a value smaller than minAngle is considered to be going the opposite direction.
@@ -323,7 +323,7 @@ outputIntersectsLineSeg source l1
       | otherwise = error
                     $ "no arc from source?\n"
                     <> show source <> "\n"
-    canonicalizedIntersection = canonicalizeIntersectionWithErr (pl1,pl1Err) (pl2,pl2Err)
+    canonicalizedIntersection = canonicalizeIntersectionWithErr pl1 pl2
 
 -- | A type alias, for cases where either input is acceptable.
 type SegOrPLine2WithErr = Either LineSeg (ProjectiveLine, PLine2Err)
@@ -337,7 +337,7 @@ intersectsWithErr (Right pl1) (Left l1)   =         pLineIntersectsLineSeg pl1 l
 
 -- | Check if/where a line segment and a PLine intersect.
 pLineIntersectsLineSeg :: (ProjectiveLine2 a) => (a, PLine2Err) -> LineSeg -> Either Intersection PIntersection
-pLineIntersectsLineSeg pl1@(_, pl1Err) l1
+pLineIntersectsLineSeg pline1@(pl1, pl1Err) l1
   | res == PParallel = Right PParallel
   | res == PAntiParallel = Right PAntiParallel
   | res == PCollinear = Right PCollinear
@@ -350,11 +350,11 @@ pLineIntersectsLineSeg pl1@(_, pl1Err) l1
   | hasRawIntersection = Left $ NoIntersection rawIntersection (pl1Err, pl2Err, rawIntersectionErr, mempty)
   | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (pl1Err, pl2Err, mempty, mempty)
   where
-    res = plinesIntersectIn pl1 pl2
+    res = plinesIntersectIn pline1 pline2
     startFudgeFactor = ulpVal $ startDistanceErr <> startErr
-    startErr = pLineErrAtPPoint pl2 start
+    startErr = pLineErrAtPPoint pline2 start
     endFudgeFactor = ulpVal $ endDistanceErr <> endErr
-    endErr = pLineErrAtPPoint pl2 end
+    endErr = pLineErrAtPPoint pline2 end
     (startDistance, (_,_, startDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start,mempty)
     (endDistance, (_,_, endDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end,mempty)
     start = eToPPoint2 $ startPoint l1
@@ -365,7 +365,7 @@ pLineIntersectsLineSeg pl1@(_, pl1Err) l1
     (rawIntersection, (_, _, rawIntersectionErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizeIntersectionWithErr pl1 pl2
     (rawIntersect, _) = intersect2PL pl1 pl2
-    pl2@(_, pl2Err) = eToPLine2WithErr l1
+    pline2@(pl2, pl2Err) = eToPLine2WithErr l1
 
 -- | Check if/where two line segments intersect.
 lineSegIntersectsLineSeg :: LineSeg -> LineSeg -> Either Intersection PIntersection
@@ -398,14 +398,14 @@ lineSegIntersectsLineSeg l1 l2
     hasRawIntersection = isJust foundVal
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
     (rawIntersection, (_, _, rawIntersectionErr)) = fromJust canonicalizedIntersection
-    canonicalizedIntersection = canonicalizeIntersectionWithErr (pl1,pl1Err) (pl2,pl2Err)
-    (rawIntersect, (npl1Err, npl2Err, rawIntersectErr)) = intersect2PL (pl1,pl1Err) (pl2,pl2Err)
+    canonicalizedIntersection = canonicalizeIntersectionWithErr pl1 pl2
+    (rawIntersect, (npl1Err, npl2Err, rawIntersectErr)) = intersect2PL pl1 pl2
     start1 = eToPPoint2 $ startPoint l1
     end1 = eToPPoint2 $ endPoint l1
     start2 = eToPPoint2 $ startPoint l2
     end2 = eToPPoint2 $ endPoint l2
-    (pl1, pl1Err) = eToPLine2WithErr l1
-    (pl2, pl2Err) = eToPLine2WithErr l2
+    (pl1, _) = eToPLine2WithErr l1
+    (pl2, _) = eToPLine2WithErr l2
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 -- FIXME: check start and end distances in order of: closest to the origin.
@@ -496,7 +496,7 @@ eToPLine2WithErr l1 = (res, resErr)
 
 -- | Canonicalize the intersection resulting from two PLines.
 -- NOTE: Returns nothing when the PLines are (anti)parallel.
-canonicalizeIntersectionWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a,PLine2Err) -> (b,PLine2Err) -> Maybe (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
+canonicalizeIntersectionWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
 canonicalizeIntersectionWithErr pl1 pl2
   | isNothing foundVal = Nothing
   | otherwise = Just (cpp1, (pl1ResErr, pl2ResErr, intersectionErr <> canonicalizationErr))

@@ -113,7 +113,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                                                where
                                                  intersectionIsBehind m = angleFound < 0
                                                    where
-                                                     (angleFound, _) = angleBetween2PL (outOf m,errOfOut m) (eToPLine2WithErr $ lineSegToIntersection m)
+                                                     (angleFound, _) = angleBetween2PL (outOf m) (eToPLine2 $ lineSegToIntersection m)
                                                  lineSegToIntersection m = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
                                                  intersectionPPoint = outputsIntersect firstMC secondMC
                                              (Slist (_:_) _) -> error "too many motorcycles."
