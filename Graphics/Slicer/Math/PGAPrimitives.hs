@@ -20,7 +20,7 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
 -- | The purpose of this file is to hold primitive projective geometric algebraic arithmatic.
--- Primitives here are defined as functions that work on types which have an implementation of the ProjectivePoint2 or ProjectiveLine2 typeclasses. Think "pure 2D PGA functions only".
+-- Primitives here are defined as functions that work on types which have an implementation of the ProjectivePoint2 or ProjectiveLine2 typeclasses. Think "Pure 2D PGA functions only".
 
 module Graphics.Slicer.Math.PGAPrimitives
   (
@@ -467,16 +467,14 @@ angleCosBetweenProjectiveLines line1 line2
   | otherwise = (angle, (npl1Err, npl2Err, sumPPointErrs iPointErr))
   where
     angle = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
-    (CPPoint2 iPointVec, (_,_,PPoint2Err _ iPointErr _ _ _ _ _)) = fromJust canonicalizedIntersection
+    (CPPoint2 iPointVec, (npl1Err, npl2Err, PPoint2Err _ iPointErr _ _ _ _ _)) = fromJust canonicalizedIntersection
     motor                     = addVecPairWithoutErr (lvec1 • gaI) (GVec [GVal 1 (singleton G0)])
     antiMotor                 = addVecPairWithoutErr (lvec1 • gaI) (GVec [GVal (-1) (singleton G0)])
-    canonicalizedIntersection = canonicalizedIntersectionOf2PL (NPLine2 lvec1) (NPLine2 lvec2)
+    canonicalizedIntersection = canonicalizedIntersectionOf2PL line1 line2
     -- I, the infinite point.
     gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
-    lvec1 = vecOfL $ forceBasisOfL npl1
-    lvec2 = vecOfL $ forceBasisOfL npl2
-    (npl1, npl1Err) = normalizeProjectiveLineWithErr line1
-    (npl2, npl2Err) = normalizeProjectiveLineWithErr line2
+    lvec1 = vecOfL $ forceBasisOfL line1
+    lvec2 = vecOfL $ forceBasisOfL line2
 
 -- | get the Canonicalized intersection of two lines.
 -- NOTE: Returns Nothing when the PLines are (anti)parallel.
