@@ -63,7 +63,7 @@ import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(P
 
 
 -- The primitives of our PGA only library, and error estimation code.
-import Graphics.Slicer.Math.PGAPrimitives (pLineErrAtPPoint, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives (fuzzinessOfL, pLineErrAtPPoint, xIntercept, yIntercept)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -465,11 +465,11 @@ prop_PerpTranslateID x y dx dy rawT
                 <> "resErr: " <> show resErr <> "\n"
   where
     res = distanceBetweenPLines resPLine origPLine
-    (resPLine, UlpSum resPLineErr) = translateL translatedPLine (-t)
-    (translatedPLine, UlpSum translatedPLineErr) = translateL origPLine t
+    (resPLine, resPLineErr) = translateL translatedPLine (-t)
+    (translatedPLine, translatedPLineErr) = translateL origPLine t
     (origPLine, origPLineErr) = randomPLineWithErr x y dx dy
     resErr, t :: ℝ
-    resErr = realToFrac (resPLineErr + translatedPLineErr)
+    resErr = realToFrac $ ulpVal $ fuzzinessOfL (resPLine, resPLineErr) <> fuzzinessOfL (translatedPLine, translatedPLineErr)
     t = coerce rawT
 
 pgaSpec :: Spec

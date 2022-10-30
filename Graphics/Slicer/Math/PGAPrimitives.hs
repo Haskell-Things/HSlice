@@ -164,7 +164,7 @@ class ProjectiveLine2 a where
   normalizeL :: a -> (NPLine2, PLine2Err)
   normOfL :: a -> (ℝ, PLine2Err)
   sqNormOfL :: a -> (ℝ, UlpSum)
-  translateL :: a -> ℝ -> (PLine2, UlpSum)
+  translateL :: a -> ℝ -> (PLine2, PLine2Err)
   vecOfL :: a -> GVec
 
 instance ProjectiveLine2 NPLine2 where
@@ -181,7 +181,7 @@ instance ProjectiveLine2 NPLine2 where
   normalizeL l = (l, mempty)
   normOfL l = normOfProjectiveLineWithErr l
   sqNormOfL l = squaredNormOfProjectiveLineWithErr l
-  translateL l d = (\(r,(PLine2Err _ _ _ _ t _)) -> (r,t)) $ translateProjectiveLineWithErr l d
+  translateL l d = translateProjectiveLineWithErr l d
   vecOfL (NPLine2 v) = v
 
 instance ProjectiveLine2 PLine2 where
@@ -198,7 +198,7 @@ instance ProjectiveLine2 PLine2 where
   normalizeL l = normalizeProjectiveLineWithErr l
   normOfL l = normOfProjectiveLineWithErr l
   sqNormOfL l = squaredNormOfProjectiveLineWithErr l
-  translateL l d = (\(r,(PLine2Err _ _ _ _ t _)) -> (r,t)) $ translateProjectiveLineWithErr l d
+  translateL l d = translateProjectiveLineWithErr l d
   vecOfL (PLine2 v) = v
 
 -- | the two types of error of a projective line.
