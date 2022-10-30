@@ -87,11 +87,11 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, makeLineSeg, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (∧), (•), addValWithoutErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, ulpVal, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, ulpVal, valOf)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, flipL, forceBasisOfL, fuzzinessOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), pLineErrAtPPoint)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, flipL, forceBasisOfL, fuzzinessOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), pLineErrAtPPoint)
   
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
@@ -133,7 +133,7 @@ plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
     (d, (_, _, _, dErr)) = distanceBetweenPLinesWithErr npl1 npl2
     (idealNorm, idnErr) = idealNormOfP res
     (res, (_, _, resErr)) = fromJust canonicalizedIntersection
-    canonicalizedIntersection = canonicalizeIntersectionWithErr npl1 npl2
+    canonicalizedIntersection = canonicalizedIntersectionOf2PL npl1 npl2
     npline1@(npl1, npl1Err) = normalizeL pl1
     npline2@(npl2, npl2Err) = normalizeL pl2
 
@@ -147,25 +147,10 @@ pLineIsLeft (pl1, pl1Err) (pl2,pl2Err)
   | abs res < realToFrac ulpTotal = Nothing
   | otherwise                     = Just $ res > 0
   where
-    (res, _) = angleCos (npl1, pl1Err <> npl2Err) (npl2, pl2Err <> npl2Err)
+    (res, _) = angleCosBetween2PL npl1 npl2
     ulpTotal = ulpVal $ fuzzinessOfL (npl1, pl1Err <> npl1Err) <> fuzzinessOfL (npl2, pl2Err <> npl2Err)
     (npl1, npl1Err) = normalizeL pl1
     (npl2, npl2Err) = normalizeL pl2
-    -- | Find the cosine of the angle between the two lines. results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when "right".
-    angleCos :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ℝ, PPoint2Err)
-    angleCos (pline1, _) (pline2, _)
-      | isNothing canonicalizedIntersection = (0, mempty)
-      | otherwise = (angle, iPointErr)
-      where
-        angle = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
-        (CPPoint2 iPointVec,(_,_,iPointErr)) = fromJust canonicalizedIntersection
-        motor                     = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
-        antiMotor                 = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
-        canonicalizedIntersection = canonicalizeIntersectionWithErr pline1 pline2
-        -- I, the infinite point.
-        gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
-        lvec1 = vecOfL pline1
-        lvec2 = vecOfL pline2
 
 -- | Find the distance between a projective point and a projective line.
 distancePPointToPLineWithErr :: (ProjectiveLine2 b) => (ProjectivePoint, PPoint2Err) -> (b, PLine2Err) -> (ℝ, (PPoint2Err, PLine2Err, ([ErrVal],[ErrVal]), PPoint2Err, PLine2Err, PLine2Err, PLine2Err, UlpSum))
@@ -183,8 +168,8 @@ distancePPointToPLineWithErr (rawPoint,rawPointErr) (rawLine,rawLineErr)
     (res, normErr)            = normOfL newPLine
     -- FIXME: how does the error in linePoint and point effect this result?
     (newPLine, newPLineErr)   = join2PP point linePoint
-    -- FIXME: how does perpLineErr effect the result of canonicalizeIntersectionWithErr?
-    (linePoint, lastPointErr) = fromJust $ canonicalizeIntersectionWithErr rawNLine (PLine2 perpLine)
+    -- FIXME: how does perpLineErr effect the result of canonicalizedIntersectionOf2PL?
+    (linePoint, lastPointErr) = fromJust $ canonicalizedIntersectionOf2PL rawNLine (PLine2 perpLine)
     (perpLine, perpLineErr)   = lVec ⨅+ pVec
     lVec = vecOfL $ forceBasisOfL rawNLine
     nLineErr = rawNLineErr <> rawLineErr
@@ -323,7 +308,7 @@ outputIntersectsLineSeg source l1
       | otherwise = error
                     $ "no arc from source?\n"
                     <> show source <> "\n"
-    canonicalizedIntersection = canonicalizeIntersectionWithErr pl1 pl2
+    canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
 -- | A type alias, for cases where either input is acceptable.
 type SegOrPLine2WithErr = Either LineSeg (ProjectiveLine, PLine2Err)
@@ -363,7 +348,7 @@ pLineIntersectsLineSeg pline1@(pl1, pl1Err) l1
     hasRawIntersection = isJust foundVal
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
     (rawIntersection, (_, _, rawIntersectionErr)) = fromJust canonicalizedIntersection
-    canonicalizedIntersection = canonicalizeIntersectionWithErr pl1 pl2
+    canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
     (rawIntersect, _) = intersect2PL pl1 pl2
     pline2@(pl2, pl2Err) = eToPLine2WithErr l1
 
@@ -398,7 +383,7 @@ lineSegIntersectsLineSeg l1 l2
     hasRawIntersection = isJust foundVal
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
     (rawIntersection, (_, _, rawIntersectionErr)) = fromJust canonicalizedIntersection
-    canonicalizedIntersection = canonicalizeIntersectionWithErr pl1 pl2
+    canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
     (rawIntersect, (npl1Err, npl2Err, rawIntersectErr)) = intersect2PL pl1 pl2
     start1 = eToPPoint2 $ startPoint l1
     end1 = eToPPoint2 $ endPoint l1
@@ -489,19 +474,4 @@ eToPLine2WithErr :: LineSeg -> (ProjectiveLine, PLine2Err)
 eToPLine2WithErr l1 = (res, resErr)
   where
     (res, (_, _, resErr)) = join2PP (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
-
----------------------------------------------------------------------
----- Utillity functions that use sqrt(), or divVecScalarWithErr. ----
----------------------------------------------------------------------
-
--- | Canonicalize the intersection resulting from two PLines.
--- NOTE: Returns nothing when the PLines are (anti)parallel.
-canonicalizeIntersectionWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
-canonicalizeIntersectionWithErr pl1 pl2
-  | isNothing foundVal = Nothing
-  | otherwise = Just (cpp1, (pl1ResErr, pl2ResErr, intersectionErr <> canonicalizationErr))
-  where
-    (cpp1, canonicalizationErr) = canonicalize pp1
-    (pp1, (pl1ResErr, pl2ResErr, intersectionErr)) = intersect2PL pl1 pl2
-    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
 
