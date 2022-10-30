@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (outputIntersectsPLine, outputsInterse
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (eToPPoint2, eToPLine2WithErr)
+import Graphics.Slicer.Math.PGA (eToPPoint2)
 
 import Graphics.Slicer.Math.PGAPrimitives (Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), ProjectivePoint, angleBetween2PL, join2PP)
 

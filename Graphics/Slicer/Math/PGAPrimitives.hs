@@ -20,7 +20,7 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
 -- | The purpose of this file is to hold primitive projective geometric algebraic arithmatic.
--- Primitives here are defined as functions that work on types which have an implementation of the ProjectivePoint2 or ProjectiveLine2 typeclasses.
+-- Primitives here are defined as functions that work on types which have an implementation of the ProjectivePoint2 or ProjectiveLine2 typeclasses. Think "Pure 2D PGA functions only".
 
 module Graphics.Slicer.Math.PGAPrimitives
   (
@@ -91,7 +91,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2))
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (•), (∧), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf)
 
 --------------------------------
 --- common support functions ---
@@ -154,7 +154,7 @@ data ProjectiveLine =
 
 class ProjectiveLine2 a where
   angleBetween2PL :: (ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, UlpSum))
-  angleCosBetween2PL :: (ProjectiveLine2 b) => a -> b -> (ℝ, PPoint2Err)
+  angleCosBetween2PL :: (ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, UlpSum))
   canonicalizedIntersectionOf2PL :: (ProjectiveLine2 b) => a -> b -> Maybe (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
   consLikeL :: a -> (GVec -> a)
   flipL :: a -> a
@@ -447,25 +447,26 @@ yIntercept (line, lineErr)
 ---------------------------------------
 {- functions that are part of the projective line API, but use parts of the Projective Point API. -}
 
--- | Find the cosine of the angle between the two lines. results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when "right".
+-- | Find the cosine of the angle between the two lines.
+-- Results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when pointing "right".
 -- FIXME: iPointErr is not +/- radians.
 -- FIXME: lots of places for precision related error here, that are not recorded or reported.
 -- FIXME: does not accept input imprecision.
-angleCosBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, PPoint2Err)
-angleCosBetweenProjectiveLines pline1 pline2
+angleCosBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, UlpSum))
+angleCosBetweenProjectiveLines line1 line2
   | isNothing canonicalizedIntersection = (0, mempty)
-  | otherwise = (angle, iPointErr)
+  | otherwise = (angle, (npl1Err, npl2Err, sumPPointErrs iPointErrVals))
   where
     angle = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
-    (CPPoint2 iPointVec,(_,_,iPointErr)) = fromJust canonicalizedIntersection
-    motor                     = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal 1 (singleton G0)])
-    antiMotor                 = addVecPairWithoutErr (lvec1•gaI) (GVec [GVal (-1) (singleton G0)])
-    canonicalizedIntersection = canonicalizedIntersectionOf2PL pline1 pline2
+    (CPPoint2 iPointVec, (npl1Err, npl2Err, PPoint2Err _ iPointErrVals _ _ _ _ _)) = fromJust canonicalizedIntersection
+    motor                     = addVecPairWithoutErr (lvec1 • gaI) (GVec [GVal 1 (singleton G0)])
+    antiMotor                 = addVecPairWithoutErr (lvec1 • gaI) (GVec [GVal (-1) (singleton G0)])
+    canonicalizedIntersection = canonicalizedIntersectionOf2PL line1 line2
     -- I, the infinite point.
     gaI = GVec [GVal 1 (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
-    lvec1 = vecOfL pline1
-    lvec2 = vecOfL pline2
-
+    lvec1 = vecOfL $ forceBasisOfL line1
+    lvec2 = vecOfL $ forceBasisOfL line2
+    
 -- | Canonicalize the intersection resulting from two PLines.
 -- NOTE: Returns nothing when the PLines are (anti)parallel.
 canonicalizedIntersectionOfProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
@@ -475,7 +476,7 @@ canonicalizedIntersectionOfProjectiveLines pl1 pl2
   where
     (cpp1, canonicalizationErr) = canonicalize pp1
     (pp1, (pl1ResErr, pl2ResErr, intersectionErr)) = intersect2PL pl1 pl2
-    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) pp1
+    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP pp1
 
 --------------------------------
 --- Projective Point Support ---
