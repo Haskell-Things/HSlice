@@ -552,7 +552,7 @@ class (Show a) => ProjectivePoint2 a where
   forceBasisOfP :: a -> a
   fuzzinessOfP :: (a, PPoint2Err) -> UlpSum
   idealNormOfP :: a -> (ℝ, UlpSum)
-  interpolate2PP :: (ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (PPoint2, UlpSum)
+  interpolate2PP :: (ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (PPoint2, (PPoint2Err, PPoint2Err, PPoint2Err))
   join2PP :: (ProjectivePoint2 b) => a -> b -> (PLine2, PLine2Err)
   pToEP :: a -> (Point2, UlpSum)
   vecOfP :: a -> GVec
@@ -674,20 +674,21 @@ joinOfProjectivePoints pp1 pp2 = (PLine2 res,
     (cp2, cp2Errs) = canonicalize pp2
 
 -- FIXME: automatically raise addVecRes to a CPPoint2 if it turns out to be canonical?
-projectivePointBetweenProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (PPoint2, UlpSum)
-projectivePointBetweenProjectivePoints startP stopP weight1 weight2
+projectivePointBetweenProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (PPoint2, (PPoint2Err, PPoint2Err, PPoint2Err))
+projectivePointBetweenProjectivePoints startPoint stopPoint weight1 weight2
   | isNothing foundVal = error "tried to generate an ideal point?"
-  | otherwise = (PPoint2 addVecRes, ulpSum)
+  | otherwise = (res, resErr)
   where
-    ulpSum = sumErrVals addVecResErr <> sumErrVals weighedStartErr <> sumErrVals weighedStopErr
-    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) addVecRes
-    (addVecRes, addVecResErr) = addVecPairWithErr weighedStart weighedStop
+    res = PPoint2 rawRes
+    resErr = (startPointErr, stopPointErr, PPoint2Err mempty mempty rawResErr weighedStartErr weighedStopErr mempty mempty)
+    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) rawRes
+    (rawRes, rawResErr) = addVecPairWithErr weighedStart weighedStop
     (weighedStart, weighedStartErr) = mulScalarVecWithErr weight1 rawStartPoint
     (weighedStop, weighedStopErr) = mulScalarVecWithErr weight2 rawStopPoint
-    rawStartPoint = vecOfP startP'
-    rawStopPoint = vecOfP stopP'
-    (startP', _) = canonicalize startP
-    (stopP', _) = canonicalize stopP
+    rawStartPoint = vecOfP cStartPoint
+    rawStopPoint = vecOfP cStopPoint
+    (cStartPoint, startPointErr) = canonicalize startPoint
+    (cStopPoint, stopPointErr) = canonicalize stopPoint
 
 -- | Maybe create a euclidian point from a projective point. Will fail if the projective point is ideal.
 projectivePointToEuclidianPoint :: (ProjectivePoint2 a) => a -> Maybe (Point2, PPoint2Err)
@@ -707,8 +708,8 @@ projectivePointToEuclidianPoint ppoint
 
 sumPPointErrs :: [ErrVal] -> UlpSum
 sumPPointErrs errs = eValOf mempty (getVal [GEZero 1, GEPlus 1] errs)
-                     <> eValOf mempty (getVal [GEZero 1, GEPlus 2] errs)
-                     <> eValOf mempty (getVal [GEPlus 1, GEPlus 2] errs)
+                  <> eValOf mempty (getVal [GEZero 1, GEPlus 2] errs)
+                  <> eValOf mempty (getVal [GEPlus 1, GEPlus 2] errs)
 
 -- | determine the amount of error in resolving a projective point.
 -- FIXME: this 1000 is completely made up BS.
