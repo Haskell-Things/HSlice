@@ -283,13 +283,13 @@ fuzzinessOfProjectiveLine (line, lineErr) = tUlp <> joinAddTErr <> joinMulTErr <
 intersectionOfProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
 intersectionOfProjectiveLines line1 line2 = (res, (line1Err, line2Err, resErr))
   where
-    (res, (line1Err,line2Err,resUnlikeErr)) = meetOfProjectiveLines line1 line2
-    resErr = PPoint2Err resUnlikeErr mempty mempty mempty mempty iAngleErr iAngleUnlikeErr
+    (res, (line1Err, line2Err, resUnlikeErrs)) = meetOfProjectiveLines line1 line2
+    resErr = PPoint2Err resUnlikeErrs mempty mempty mempty mempty iAngleErr iAngleUnlikeErr
     -- Since the angle of intersection has an effect on how well this point was resolved, save it with the point.
     (iAngleErr,(_,_,iAngleUnlikeErr,_)) = angleBetweenProjectiveLines line1 line2
 
 -- | A typed meet function. the meeting of two lines is a point.
--- Kept separate from intersectionofProjectiveLines for verification reasons.
+-- Kept separate from intersectionOfProjectiveLines for verification reasons.
 meetOfProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, ([ErrVal],[ErrVal])))
 meetOfProjectiveLines line1 line2 = (PPoint2 res,
                                             (npl1Err,
@@ -540,8 +540,8 @@ class Pointable a where
 
 -- | does this node have an output (resulting) pLine?
 class Arcable a where
-  hasArc :: a -> Bool
   errOfOut :: a -> PLine2Err
+  hasArc :: a -> Bool
   outOf :: a -> ProjectiveLine
 
 class (Show a) => ProjectivePoint2 a where
