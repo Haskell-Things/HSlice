@@ -551,7 +551,7 @@ class (Show a) => ProjectivePoint2 a where
   forceBasisOfP :: a -> a
   fuzzinessOfP :: (a, PPoint2Err) -> UlpSum
   idealNormOfP :: a -> (ℝ, UlpSum)
-  interpolate2PP  :: (ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, PPoint2Err))
+  interpolate2PP  :: (ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, PPoint2Err))
   join2PP :: (ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
   pToEP :: a -> (Point2, PPoint2Err)
   vecOfP :: a -> GVec
@@ -669,6 +669,26 @@ joinOfProjectivePoints point1 point2 = (PLine2 res,
     (cPoint1, cPoint1Err) = canonicalize point1
     (cPoint2, cPoint2Err) = canonicalize point2
 
+-- | Generate a point between the two given points, where the weights given determine "how far between".
+--   If the weights are equal, the distance will be right between the two points.
+-- FIXME: automatically raise addVecRes to a CPPoint2 if it turns out to be canonical?
+-- FIXME: how do we take error of the input points into account? maybe use pPointFuzziness?
+projectivePointBetweenProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, PPoint2Err))
+projectivePointBetweenProjectivePoints startPoint stopPoint weight1 weight2
+  | isNothing foundVal = error "tried to generate an ideal point?"
+  | otherwise = (res, resErr)
+  where
+    res = PPoint2 rawRes
+    resErr = (cStartPointErr, cStopPointErr, PPoint2Err mempty mempty rawResErr weighedStartErr weighedStopErr mempty mempty)
+    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) rawRes
+    (rawRes, rawResErr) = addVecPairWithErr weighedStart weighedStop
+    (weighedStart, weighedStartErr) = mulScalarVecWithErr weight1 rawStartPoint
+    (weighedStop, weighedStopErr) = mulScalarVecWithErr weight2 rawStopPoint
+    rawStartPoint = vecOfP cStartPoint
+    rawStopPoint = vecOfP cStopPoint
+    (cStartPoint, cStartPointErr) = canonicalize startPoint
+    (cStopPoint, cStopPointErr) = canonicalize stopPoint
+
 -- | Maybe create a euclidian point from a projective point. Will fail if the projective point is ideal.
 projectivePointToEuclidianPoint :: (ProjectivePoint2 a) => a -> Maybe (Point2, PPoint2Err)
 projectivePointToEuclidianPoint point
@@ -680,25 +700,6 @@ projectivePointToEuclidianPoint point
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
     (GVec rawVals) = vecOfP point
-
--- | Generate a point between the two given points, where the weights given determine "how far between".
---   If the weights are equal, the distance will be right between the two points.
--- FIXME: automatically raise addVecRes to a CPPoint2 if it turns out to be canonical?
-projectivePointBetweenProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a,PPoint2Err) -> (b, PPoint2Err) -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, PPoint2Err))
-projectivePointBetweenProjectivePoints (startP,startErr) (stopP,stopErr) weight1 weight2
-  | isNothing foundVal = error "tried to generate an ideal point?"
-  | otherwise = (res, resErr)
-  where
-    (res@(CPPoint2 (GVec resVals)), cResErr) = canonicalize $ PPoint2 rawRes
-    resErr = (cStartErr, cStopErr, cResErr <> startErr <> stopErr <> PPoint2Err mempty mempty pointAddErr weighedStartErr weighedStopErr mempty mempty)
-    foundVal = getVal [GEPlus 1, GEPlus 2] resVals
-    (rawRes,pointAddErr) = addVecPairWithErr weighedStart weighedStop
-    (weighedStart, weighedStartErr) = mulScalarVecWithErr weight1 rawStartPoint
-    (weighedStop, weighedStopErr) = mulScalarVecWithErr weight2 rawStopPoint
-    rawStartPoint = vecOfP startP'
-    rawStopPoint = vecOfP stopP'
-    (startP', cStartErr) = canonicalize startP
-    (stopP', cStopErr) = canonicalize stopP
 
 ------------------------------------------
 --- Projective Point Error Calculation ---

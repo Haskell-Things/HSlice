@@ -97,7 +97,7 @@ pLineFromEndpoints point1 point2 = eToPLine2 $ makeLineSeg point1 point2
 -- | Find a point somewhere along the line between the two points given.
 --  requires two weights. the ratio of these weights determines the position of the found points, E.G: (2/3,1/3) is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint. weights can sum to anything.
 pPointBetweenPPoints :: ProjectivePoint -> ProjectivePoint -> ℝ -> ℝ -> ProjectivePoint
-pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ interpolate2PP (startOfSeg,mempty) (stopOfSeg,mempty) weight1 weight2
+pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ interpolate2PP startOfSeg stopOfSeg weight1 weight2
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
 pPointOnPerp :: ProjectiveLine -> ProjectivePoint -> ℝ -> ProjectivePoint

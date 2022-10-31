@@ -404,7 +404,7 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
                 <> "angle2Err: " <> show angle2Err <> "\n"
   where
     (angle2, angle2Err) = angleBetween2PL normedPLine3 nPLine4
-    (rawBisectorStart, _) = interpolate2PP (sourceStart,mempty) (sourceEnd,mempty) 0.5 0.5
+    (rawBisectorStart, _) = interpolate2PP sourceStart sourceEnd 0.5 0.5
     (bisectorEnd, (_,_,bisectorEndRawErr)) = pPointOnPerpWithErr nPLine4 rawBisectorStart d
     (pline3, (_,_,pline3Err)) = join2PP rawBisectorStart bisectorEnd
     (normedPLine3, norm3Err) = normalizeL pline3
@@ -907,7 +907,7 @@ prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions trian
     pLine           = eToPLine2WithErr firstSeg
     firstPoints     = firstPointPairOfContour triangle
     (p1, p2)        = firstPointPairOfContour triangle
-    (myMidPoint,_)  = interpolate2PP (eToPPoint2 p1,mempty) (eToPPoint2 p2,mempty) 0.5 0.5
+    (myMidPoint,_)  = interpolate2PP (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
     -- we normalize this for Ganja.js.
     (NPLine2 pLineToInside) = normalizePLine2 $ join2PPoints myMidPoint innerPoint
     (NPLine2 pLineToOutside) = normalizePLine2 $ join2PPoints innerPoint $ eToPPoint2 outsidePoint

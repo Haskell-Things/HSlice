@@ -405,7 +405,7 @@ onSegment ls i =
     (startDistance, (_,_, startDistanceErr)) = distance2PP i (start, mempty)
     (midDistance, (_,_, midDistanceErr)) = distance2PP i (mid,midErr)
     (endDistance, (_,_, endDistanceErr)) = distance2PP i (end,mempty)
-    (mid, (_, _, midErr)) = interpolate2PP (start,mempty) (end,mempty) 0.5 0.5
+    (mid, (_, _, midErr)) = interpolate2PP start end 0.5 0.5
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
     startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ
     startFudgeFactor = realToFrac $ ulpVal $ startDistanceErr <> pLineErrAtPPoint (eToPLine2WithErr ls) start
