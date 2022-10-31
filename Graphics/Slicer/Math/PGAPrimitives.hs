@@ -680,15 +680,15 @@ projectivePointBetweenProjectivePoints startPoint stopPoint weight1 weight2
   | otherwise = (res, resErr)
   where
     res = PPoint2 rawRes
-    resErr = (startPointErr, stopPointErr, PPoint2Err mempty mempty rawResErr weighedStartErr weighedStopErr mempty mempty)
+    resErr = (cStartPointErr, cStopPointErr, PPoint2Err mempty mempty rawResErr weighedStartErr weighedStopErr mempty mempty)
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) rawRes
     (rawRes, rawResErr) = addVecPairWithErr weighedStart weighedStop
     (weighedStart, weighedStartErr) = mulScalarVecWithErr weight1 rawStartPoint
     (weighedStop, weighedStopErr) = mulScalarVecWithErr weight2 rawStopPoint
     rawStartPoint = vecOfP cStartPoint
     rawStopPoint = vecOfP cStopPoint
-    (cStartPoint, startPointErr) = canonicalize startPoint
-    (cStopPoint, stopPointErr) = canonicalize stopPoint
+    (cStartPoint, cStartPointErr) = canonicalize startPoint
+    (cStopPoint, cStopPointErr) = canonicalize stopPoint
 
 -- | Maybe create a euclidian point from a projective point. Will fail if the projective point is ideal.
 projectivePointToEuclidianPoint :: (ProjectivePoint2 a) => a -> Maybe (Point2, PPoint2Err)
