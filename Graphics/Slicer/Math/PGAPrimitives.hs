@@ -620,7 +620,7 @@ distanceBetweenProjectivePoints (point1, point1Err) (point2, point2Err)
     (cPoint1, cPoint1Err) = canonicalize point1
     (cPoint2, cPoint2Err) = canonicalize point2
 
--- | runtime basis coersion. ensure all of the '0' components exist on a Projective Point.
+-- | Ensure all of the '0' components exist on a Projective Point. This is to ensure like, unlike, and reductive work properly.
 forceProjectivePointBasis :: (ProjectivePoint2 a) => a -> a
 forceProjectivePointBasis point
   | gnums == Just [fromList [GEZero 1, GEPlus 1],
@@ -711,7 +711,7 @@ sumPPointErrs errs = eValOf mempty (getVal [GEZero 1, GEPlus 1] errs)
 
 -- | determine the amount of error in resolving a projective point.
 -- FIXME: this 1000 is completely made up BS.
-pPointFuzziness :: (ProjectivePoint, PPoint2Err) -> UlpSum
+pPointFuzziness :: (ProjectivePoint2 a) => (a, PPoint2Err) -> UlpSum
 pPointFuzziness (point, pointErr) = UlpSum $ sumTotal * realToFrac (1+(1000*(abs angleIn + realToFrac (ulpVal $ sumPPointErrs angleUnlikeAddErr <> sumPPointErrs angleUnlikeMulErr))))
   where
     sumTotal = ulpVal $ sumPPointErrs pJoinAddErr
