@@ -179,8 +179,8 @@ averageNodes n1 n2
   | n2Distance < getRounded n2Err = error $ "intersection is AT the point of n2!\n" <> dumpInput
   | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (normalizePLine2 $ outOf n1) (pPointOf n2) (normalizePLine2 $ outOf n2)
   where
-    (n1Distance, UlpSum n1Err) = distance2PP (intersectionOf (outOf n1) (outOf n2), mempty) (canonicalize $ pPointOf n1)
-    (n2Distance, UlpSum n2Err) = distance2PP (intersectionOf (outOf n1) (outOf n2), mempty) (canonicalize $ pPointOf n2)
+    (n1Distance, (_,_,UlpSum n1Err)) = distance2PP (intersectionOf (outOf n1) (outOf n2), mempty) (canonicalize $ pPointOf n1)
+    (n2Distance, (_,_,UlpSum n2Err)) = distance2PP (intersectionOf (outOf n1) (outOf n2), mempty) (canonicalize $ pPointOf n2)
     dumpInput =    "Node1: " <> show n1
                 <> "\nNode2: " <> show n2
                 <> "\nNode1Out: " <> show (outOf n1)
@@ -221,7 +221,7 @@ towardIntersection pp1 pl1 pp2
   | otherwise = angleFound > realToFrac (ulpVal angleErr)
   where
     (angleFound, (_,_, angleErr)) = angleBetween2PL newPLine pl1
-    (d, UlpSum dErr) = distance2PP (canonicalize pp1) (pp2, mempty)
+    (d, (_,_,UlpSum dErr)) = distance2PP (canonicalize pp1) (pp2, mempty)
     newPLine = join2CPPoint2 (fst $ canonicalize pp1) pp2
 
 -- | Make a first generation node.
@@ -667,7 +667,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
           where
             pairCloseEnough a b = res < realToFrac errRes
               where
-                (res, UlpSum errRes) = distance2PP a b
+                (res, (_,_,UlpSum errRes)) = distance2PP a b
         linesCloseEnough =
           case lineIntersections of
             [] -> []
@@ -868,5 +868,5 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                                        && (dist2 >= realToFrac dist2Err)
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, UlpSum dist1Err) = distance2PP (canonicalize $ intersectionOf (outOf node1) (outOf node2)) (canonicalize $ pPointOf node1)
-        (dist2, UlpSum dist2Err) = distance2PP (canonicalize $ intersectionOf (outOf node1) (outOf node2)) (canonicalize $ pPointOf node2)
+        (dist1, (_,_,UlpSum dist1Err)) = distance2PP (canonicalize $ intersectionOf (outOf node1) (outOf node2)) (canonicalize $ pPointOf node1)
+        (dist2, (_,_,UlpSum dist2Err)) = distance2PP (canonicalize $ intersectionOf (outOf node1) (outOf node2)) (canonicalize $ pPointOf node2)

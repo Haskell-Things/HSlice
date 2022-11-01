@@ -315,8 +315,8 @@ pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
   | hasRawIntersection = Left $ NoIntersection rawIntersection (UlpSum $ realToFrac ulpStartSum, UlpSum $ realToFrac ulpEndSum, mempty, mempty)
   | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (mempty, mempty, mempty, mempty)
   where
-    (startDistance, UlpSum startDistanceErr) = distance2PP (rawIntersection, rawIntersectionErr) (start,mempty)
-    (endDistance, UlpSum endDistanceErr) = distance2PP (rawIntersection, rawIntersectionErr) (end,mempty)
+    (startDistance, (_,_,UlpSum startDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start,mempty)
+    (endDistance, (_,_,UlpSum endDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end,mempty)
     start = eToPPoint2 $ startPoint l1
     end = eToPPoint2 $ endPoint l1
     ulpStartSum, ulpEndSum :: ℝ
@@ -357,10 +357,10 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
     ulpStartSum2 = realToFrac $ ulpTotal+start2DistanceErr
     ulpEndSum1 = realToFrac $ ulpTotal
     ulpEndSum2 = realToFrac $ ulpTotal
-    (start1Distance, UlpSum start1DistanceErr) = distance2PP (rawIntersection, rawIntersectionErr) (start1, mempty)
-    (start2Distance, UlpSum start2DistanceErr) = distance2PP (rawIntersection, rawIntersectionErr) (start2, mempty)
-    (end1Distance, UlpSum end1DistanceErr) = distance2PP (rawIntersection, rawIntersectionErr) (end1, mempty)
-    (end2Distance, UlpSum end2DistanceErr) = distance2PP (rawIntersection, rawIntersectionErr) (end2, mempty)
+    (start1Distance, (_,_,UlpSum start1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start1, mempty)
+    (start2Distance, (_,_,UlpSum start2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start2, mempty)
+    (end1Distance, (_,_,UlpSum end1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end1, mempty)
+    (end2Distance, (_,_,UlpSum end2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end2, mempty)
     start1 = eToPPoint2 $ startPoint l1
     end1 = eToPPoint2 $ endPoint l1
     start2 = eToPPoint2 $ startPoint l2
@@ -385,9 +385,9 @@ onSegment ls (i, iErr) startUlp endUlp =
   || (midDistance <= (lengthOfSegment/2) + midFudgeFactor)
   || (endDistance <= endFudgeFactor)
   where
-    (startDistance, UlpSum startDistanceErr) = distance2PP (start, mempty) (i,iErr)
-    (midDistance, UlpSum midDistanceErr) = distance2PP (mid,midErr) (i,iErr)
-    (endDistance, UlpSum endDistanceErr) = distance2PP (end, mempty) (i,iErr)
+    (startDistance, (_,_,UlpSum startDistanceErr)) = distance2PP (start, mempty) (i, iErr)
+    (midDistance, (_,_,UlpSum midDistanceErr)) = distance2PP (mid, midErr) (i, iErr)
+    (endDistance, (_,_,UlpSum endDistanceErr)) = distance2PP (end, mempty) (i, iErr)
     start = eToPPoint2 $ startPoint ls
     (mid, (_, _, midErr)) = interpolate2PP start end 0.5 0.5
     end = eToPPoint2 $ endPoint ls

@@ -122,7 +122,7 @@ instance Pointable INode where
                           where
                             distanceWithinErr a b = res < realToFrac err
                               where
-                                (res, UlpSum err) = distance2PP (canonicalize a) (canonicalize b)
+                                (res, (_,_,UlpSum err)) = distance2PP (canonicalize a) (canonicalize b)
       allPLines = if hasArc iNode
                   then slist $ nub $ (outOf iNode, errOfOut iNode) : firstPLine : secondPLine : rawPLines
                   else slist $ nub $ firstPLine : secondPLine : rawPLines

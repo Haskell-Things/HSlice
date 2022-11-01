@@ -549,7 +549,7 @@ class Arcable a where
 class (Show a) => ProjectivePoint2 a where
   canonicalize :: a -> (CPPoint2, PPoint2Err)
   consLikeP :: a -> (GVec -> a)
-  distance2PP :: (ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, UlpSum)
+  distance2PP :: (ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, UlpSum))
   forceBasisOfP :: a -> a
   fuzzinessOfP :: (a, PPoint2Err) -> UlpSum
   idealNormOfP :: a -> (ℝ, UlpSum)
@@ -563,7 +563,7 @@ instance ProjectivePoint2 PPoint2 where
   consLikeP (PPoint2 _) = PPoint2
   distance2PP p1 p2 = crushErr $ distanceBetweenProjectivePoints p1 p2
     where
-      crushErr (a,(_,_,_,b)) = (a,b)
+      crushErr (res,(c1, c2, _, resErr)) = (res, (c1, c2, resErr))
   forceBasisOfP a = forceProjectivePointBasis a
   fuzzinessOfP a = pPointFuzziness a
   idealNormOfP a = idealNormOfProjectivePoint a
@@ -577,7 +577,7 @@ instance ProjectivePoint2 CPPoint2 where
   consLikeP (CPPoint2 _) = CPPoint2
   distance2PP p1 p2 = crushErr $ distanceBetweenProjectivePoints p1 p2
     where
-      crushErr (a,(_,_,_,b)) = (a,b)
+      crushErr (res, (c1, c2, _, resErr)) = (res, (c1, c2, resErr))
   forceBasisOfP p = forceProjectivePointBasis p
   fuzzinessOfP a = pPointFuzziness a
   idealNormOfP p = idealNormOfProjectivePoint p
