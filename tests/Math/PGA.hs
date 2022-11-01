@@ -1264,7 +1264,7 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
     (distance2, distance2Err) = distancePPointToPLineWithErr pPoint2 pLine1
     pPoint1 = makePPoint2 x1 y1
     pPoint2 = makePPoint2 x2 y2
-    (pLine1, pLine1Err) = join2PP pPoint1 pPoint2
+    (pLine1, (_,_,pLine1Err)) = join2PP pPoint1 pPoint2
     ulpTotal1, ulpTotal2 :: UlpSum
     ulpTotal1 = distance1Err <> pLineErrAtPPoint (pLine1, pLine1Err) pPoint1
     ulpTotal2 = distance2Err <> pLineErrAtPPoint (pLine1, pLine1Err) pPoint2

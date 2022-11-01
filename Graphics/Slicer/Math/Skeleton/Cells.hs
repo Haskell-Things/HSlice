@@ -369,7 +369,7 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
       case nub $ insOf $ lastINodeOf iNodeGens of
         [] -> error "unpossible."
         [_] -> NodeTree eNodes $ INodeSet $ init gens
-        (_:_) -> NodeTree eNodes $ INodeSet $ init gens <> one [makeINode (nub $ insOf $ lastINodeOf iNodeGens) (Just $ join2PP (finalPointOfNodeTree nodeTree) myCrossover)]
+        (_:_) -> NodeTree eNodes $ INodeSet $ init gens <> one [makeINode (nub $ insOf $ lastINodeOf iNodeGens) (Just $ (\(res, (_,_,resErr)) -> (res, resErr)) $ join2PP (finalPointOfNodeTree nodeTree) myCrossover)]
     -- | find the last resolvable point in a NodeTree
     finalPointOfNodeTree (NodeTree _ iNodeGens)
       | canPoint (lastINodeOf iNodeGens) = pPointOf $ lastINodeOf iNodeGens

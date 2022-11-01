@@ -554,7 +554,7 @@ class (Show a) => ProjectivePoint2 a where
   fuzzinessOfP :: (a, PPoint2Err) -> UlpSum
   idealNormOfP :: a -> (ℝ, UlpSum)
   interpolate2PP :: (ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (PPoint2, (PPoint2Err, PPoint2Err, PPoint2Err))
-  join2PP :: (ProjectivePoint2 b) => a -> b -> (PLine2, PLine2Err)
+  join2PP :: (ProjectivePoint2 b) => a -> b -> (PLine2, (PPoint2Err, PPoint2Err, PLine2Err))
   pToEP :: a -> (Point2, UlpSum)
   vecOfP :: a -> GVec
 
@@ -568,9 +568,7 @@ instance ProjectivePoint2 PPoint2 where
   fuzzinessOfP a = pPointFuzziness a
   idealNormOfP a = idealNormOfProjectivePoint a
   interpolate2PP p1 p2 = projectivePointBetweenProjectivePoints p1 p2
-  join2PP a b = crushErr $ joinOfProjectivePoints a b
-    where
-      crushErr (res, (_,_,resErr)) = (res, resErr)
+  join2PP a b = joinOfProjectivePoints a b
   pToEP p = crushErr $ fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToEuclidianPoint p
     where
       crushErr (res, PPoint2Err _ cp1Errs _ _ _ _ _) = (res, sumErrVals cp1Errs)
@@ -586,9 +584,7 @@ instance ProjectivePoint2 CPPoint2 where
   fuzzinessOfP a = pPointFuzziness a
   idealNormOfP p = idealNormOfProjectivePoint p
   interpolate2PP p1 p2 = projectivePointBetweenProjectivePoints p1 p2
-  join2PP a b = crushErr $ joinOfProjectivePoints a b
-    where
-      crushErr (res, (_,_,resErr)) = (res, resErr)
+  join2PP a b = joinOfProjectivePoints a b
   pToEP p = crushErr $ fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToEuclidianPoint p
     where
       crushErr (res, PPoint2Err _ cp1Errs _ _ _ _ _) = (res, sumErrVals cp1Errs)
@@ -633,7 +629,7 @@ distanceBetweenProjectivePoints (point1, point1Err) (point2, point2Err)
     newPLineErr = newPLineErrRaw <> normErr
     -- FIXME: how does the error in newPLine effect the found norm here?
     (res, normErr) = normOfL newPLine
-    (newPLine, newPLineErrRaw) = join2PP cPoint1 cPoint2
+    (newPLine, (_,_,newPLineErrRaw)) = join2PP point1 point2
     (cPoint1, cPoint1Err) = canonicalize point1
     (cPoint2, cPoint2Err) = canonicalize point2
 

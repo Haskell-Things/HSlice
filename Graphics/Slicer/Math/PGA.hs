@@ -458,7 +458,7 @@ reverseGVec (GVec vals) = GVec $ foldl' addValWithoutErr []
 eToPL :: LineSeg -> (PLine2, PLine2Err)
 eToPL l1 = (res, resErr)
   where
-    (res, resErr) = join2PP (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
+    (res, (_,_,resErr)) = join2PP (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
 
 -- | Get the sum of the error involved in storing the values in a given PLine2.
 ulpOfPLine2 :: (ProjectiveLine2 a) => a -> UlpSum
