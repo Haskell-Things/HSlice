@@ -603,24 +603,22 @@ canonicalizeProjectivePoint point
     (GVec rawVals) = vecOfP point
     foundVal = getVal [GEPlus 1, GEPlus 2] rawVals
 
--- | Find the unsigned distance between two projective points.
+-- | Find the distance between two projective points, and the error component of the result.
 distanceBetweenProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum))
 distanceBetweenProjectivePoints (point1, point1Err) (point2, point2Err)
-  | cpoint1 == cpoint2 = (0, (cpoint1Err, cpoint2Err, mempty, mempty))
-  | otherwise = (abs res, resErr)
+  | cPoint1 == cPoint2 = (0, (cPoint1Err, cPoint2Err, mempty, mempty))
+  | otherwise = (res, resErr)
   where
-    resErr = (cpoint1Err
-             ,cpoint2Err
-             ,newPLineErr
-             ,ulpSum)
-    -- note: missing the component for normErr.
-    ulpSum = fuzzinessOfP (cpoint1, point1Err <> cpoint1Err) <> fuzzinessOfP (cpoint2, point2Err <> cpoint2Err) <> fuzzinessOfL (newPLine, newPLineErr)
+    resErr = (cPoint1Err, cPoint2Err, newPLineErr, ulpSum)
+    -- FIXME: missing the component for normErr?
+    ulpSum = fuzzinessOfP (cPoint1, point1Err <> cPoint1Err) <> fuzzinessOfP (cPoint2, point2Err <> cPoint2Err) <> fuzzinessOfL (newPLine, newPLineErr)
+    -- FIXME: should it be fuzzinessOfL's job to determine how error in normErr effects ... line resolution?
     newPLineErr = newPLineErrRaw <> normErr
     -- FIXME: how does the error in newPLine effect the found norm here?
     (res, normErr) = normOfL newPLine
-    (newPLine, (_, _, newPLineErrRaw)) = join2PP cpoint1 cpoint2
-    (cpoint1, cpoint1Err) = canonicalize point1
-    (cpoint2, cpoint2Err) = canonicalize point2
+    (newPLine, (_, _, newPLineErrRaw)) = join2PP cPoint1 cPoint2
+    (cPoint1, cPoint1Err) = canonicalize point1
+    (cPoint2, cPoint2Err) = canonicalize point2
 
 -- | runtime basis coersion. ensure all of the '0' components exist on a Projective Point.
 forceProjectivePointBasis :: (ProjectivePoint2 a) => a -> a
@@ -660,10 +658,10 @@ idealNormOfProjectivePoint point
 -- FIXME: accept input error bars, and use these to inform the output PLine2Err
 joinOfProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
 joinOfProjectivePoints point1 point2 = (PLine2 res,
-                                       (cPoint1Err, cPoint2Err, PLine2Err mempty mempty mempty mempty mempty resUlp))
+                                        (cPoint1Err, cPoint2Err, PLine2Err mempty mempty mempty mempty mempty resUlp))
   where
     -- FIXME: how does error in canonicalization effect the PLine generated here?
-    (res,resUlp)  = pv1 ∨+ pv2
+    (res, resUlp) = pv1 ∨+ pv2
     pv1 = vecOfP $ forceBasisOfP cPoint1
     pv2 = vecOfP $ forceBasisOfP cPoint2
     (cPoint1, cPoint1Err) = canonicalize point1
@@ -693,11 +691,12 @@ projectivePointBetweenProjectivePoints startPoint stopPoint weight1 weight2
 projectivePointToEuclidianPoint :: (ProjectivePoint2 a) => a -> Maybe (Point2, PPoint2Err)
 projectivePointToEuclidianPoint point
  | e12Val == 0 = Nothing
- | otherwise = Just (Point2 (xVal, yVal), cPointErrs)
+ | otherwise = Just (res, resErr)
   where
-    (CPPoint2 (GVec vals), cPointErrs) = canonicalize point
+    res = Point2 (xVal, yVal)
     xVal = negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
+    (CPPoint2 (GVec vals), resErr) = canonicalize point
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
     (GVec rawVals) = vecOfP point
 
@@ -723,4 +722,3 @@ pPointFuzziness (point, pointErr) = UlpSum $ sumTotal * realToFrac (1+(1000*(abs
                      <> sumPPointErrs pIn2MulErr
     (PPoint2Err (pJoinAddErr, pJoinMulErr) pCanonicalizeErr pAddErr pIn1MulErr pIn2MulErr angleIn (angleUnlikeAddErr,angleUnlikeMulErr)) = cPointErr <> pointErr
     (_, cPointErr) = canonicalize point
-
