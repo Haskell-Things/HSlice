@@ -36,7 +36,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
-import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, distanceBetweenPLinesWithErr, outputIntersectsLineSeg, plinesIntersectIn, pToEP)
+import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, PPoint2Err, intersectsWith, distanceBetweenPLinesWithErr, outputIntersectsLineSeg, plinesIntersectIn, pToEP)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -181,7 +181,7 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
     saneIntersection (IntersectsIn p _) = p
 
 -- | Get the intersection point of two lines.
-intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 CPPoint2)
+intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 (CPPoint2, PPoint2Err))
 intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
   where
     (foundDistance, UlpSum foundErr) = distanceBetweenPLinesWithErr pl1 pl2
@@ -193,7 +193,7 @@ intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
     saneIntersection PAntiParallel      = if foundDistance < realToFrac foundErr
                                           then Just $ Left pl1
                                           else Nothing
-    saneIntersection (IntersectsIn p _) = Just $ Right p
+    saneIntersection (IntersectsIn p (_,_,_,pErr)) = Just $ Right (p,pErr)
 
 -- | check if two lines cannot intersect.
 noIntersection :: PLine2 -> PLine2 -> Bool

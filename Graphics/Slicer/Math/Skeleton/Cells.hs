@@ -26,7 +26,7 @@
 --    a contour into cells.
 module Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason(INodeCrossesDivide), findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell, nodeTreesDoNotOverlap, addNodeTreesAlongDivide, nodeTreesFromDivision, startOfDivide, endOfDivide, findRemainder, createCellFromStraightWalls, gatherLineSegsPreceedingDivide, startBeforeEnd) where
 
-import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, elem, filter, null, otherwise, ($), (<$>), (==), error, (<>), show, (&&), compare, concat, (/=), (||), (<), (<=), fst, snd, (*), realToFrac)
+import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, elem, filter, null, otherwise, ($), (<$>), (==), error, (<>), show, (&&), compare, concat, (/=), (||), (<), (<=), fst, snd, (*), mempty, realToFrac)
 
 import Data.Either(Either(Left, Right))
 
@@ -192,7 +192,7 @@ findNextCell (RemainingContour (Slist [(Slist lineSegs _, divides)] _) ) =
       case elemIndex (fst $ fst div1) contourSegs `compare` elemIndex (fst $ fst div2) contourSegs of
         LT -> LT
         GT -> GT
-        EQ -> fst (distance2PP (startPPoint $ fst $ fst div1) (toPPoint2 $ snd $ fst div1)) `compare` fst (distance2PP (startPPoint $ fst $ fst div2) (toPPoint2 $ snd $ fst div2))
+        EQ -> fst (distance2PP (startPPoint $ fst $ fst div1, mempty) (toPPoint2 $ snd $ fst div1, mempty)) `compare` fst (distance2PP (startPPoint $ fst $ fst div2, mempty) (toPPoint2 $ snd $ fst div2, mempty))
       where
         toPPoint2 :: Either Point2 CPPoint2 -> CPPoint2
         toPPoint2 (Left point2) = eToCPPoint2 point2

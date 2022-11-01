@@ -28,7 +28,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, getOutsideArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, towardIntersection) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=), (-), realToFrac)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=), (-), mempty, realToFrac)
 
 import Prelude as PL (head, last, tail, init)
 
@@ -179,8 +179,8 @@ averageNodes n1 n2
   | n2Distance < getRounded n2Err = error $ "intersection is AT the point of n2!\n" <> dumpInput
   | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (normalizePLine2 $ outOf n1) (pPointOf n2) (normalizePLine2 $ outOf n2)
   where
-    (n1Distance, UlpSum n1Err) = distance2PP (intersectionOf (outOf n1) (outOf n2)) (canonicalizePPoint2 $ pPointOf n1)
-    (n2Distance, UlpSum n2Err) = distance2PP (intersectionOf (outOf n1) (outOf n2)) (canonicalizePPoint2 $ pPointOf n2)
+    (n1Distance, UlpSum n1Err) = distance2PP (intersectionOf (outOf n1) (outOf n2), mempty) (canonicalize $ pPointOf n1)
+    (n2Distance, UlpSum n2Err) = distance2PP (intersectionOf (outOf n1) (outOf n2), mempty) (canonicalize $ pPointOf n2)
     dumpInput =    "Node1: " <> show n1
                 <> "\nNode2: " <> show n2
                 <> "\nNode1Out: " <> show (outOf n1)
@@ -212,8 +212,8 @@ getOutsideArc ppoint1 npline1 ppoint2 npline2
       l1TowardPoint = towardIntersection ppoint1 pline1 intersectionPoint
       l2TowardPoint = towardIntersection ppoint2 pline2 intersectionPoint
 
--- Determine if the line segment formed by the two given points starts with the first point, or the second.
--- Note that due to numeric uncertainty, we cannot rely on Eq here, and must check the sign of the angle.
+-- | Determine if the line segment formed by the two given points starts with the first point, or the second.
+-- Note: Due to numeric uncertainty, we cannot rely on Eq here, and must check the sign of the angle.
 -- FIXME: shouldn't we be given an error component in our inputs?
 towardIntersection :: (ProjectivePoint2 a) => a -> PLine2 -> CPPoint2 -> Bool
 towardIntersection pp1 pl1 pp2
@@ -221,7 +221,7 @@ towardIntersection pp1 pl1 pp2
   | otherwise = angleFound > realToFrac (ulpVal angleErr)
   where
     (angleFound, (_,_, angleErr)) = angleBetween2PL newPLine pl1
-    (d, UlpSum dErr) = distance2PP (fst $ canonicalize pp1) pp2
+    (d, UlpSum dErr) = distance2PP (canonicalize pp1) (pp2, mempty)
     newPLine = join2CPPoint2 (fst $ canonicalize pp1) pp2
 
 -- | Make a first generation node.
@@ -675,7 +675,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                      [] -> error "one line, no points.. makes no sense."
                      (x:_) -> [and pointsCloseEnough && foundDistance < realToFrac foundErr]
                        where
-                         (foundDistance, UlpSum foundErr) = distancePPointToPLineWithErr ((\(CPPoint2 v) -> PPoint2 v) x) a
+                         (foundDistance, UlpSum foundErr) = distancePPointToPLineWithErr ((\(CPPoint2 v,_) -> PPoint2 v) x) a
             (_:_) -> error
                      $ "detected multiple lines?\n"
                      <> show lineIntersections <> "\n"
@@ -868,5 +868,5 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                                        && (dist2 >= realToFrac dist2Err)
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, UlpSum dist1Err) = distance2PP (intersectionOf (outOf node1) (outOf node2)) (canonicalizePPoint2 $ pPointOf node1)
-        (dist2, UlpSum dist2Err) = distance2PP (intersectionOf (outOf node1) (outOf node2)) (canonicalizePPoint2 $ pPointOf node2)
+        (dist1, UlpSum dist1Err) = distance2PP (canonicalize $ intersectionOf (outOf node1) (outOf node2)) (canonicalize $ pPointOf node1)
+        (dist2, UlpSum dist2Err) = distance2PP (canonicalize $ intersectionOf (outOf node1) (outOf node2)) (canonicalize $ pPointOf node2)

@@ -39,7 +39,7 @@ module Graphics.Slicer.Math.Lossy (
   translatePLine2
   ) where
 
-import Prelude (($), fst)
+import Prelude (($), fst, mempty)
 
 -- The numeric type in HSlice.
 import Graphics.Slicer.Definitions (ℝ)
@@ -58,7 +58,7 @@ canonicalizePPoint2 :: PPoint2 -> CPPoint2
 canonicalizePPoint2 point = fst $ canonicalize point
 
 distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
-distanceBetweenPPoints point1 point2 = fst $ distance2PP point1 point2
+distanceBetweenPPoints point1 point2 = fst $ distance2PP (point1, mempty) (point2, mempty)
 
 distanceBetweenPLines :: (ProjectiveLine2 a) => a -> a -> ℝ
 distanceBetweenPLines nPLine1 nPLine2 = fst $ distanceBetweenPLinesWithErr nPLine1 nPLine2

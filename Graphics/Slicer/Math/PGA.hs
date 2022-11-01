@@ -103,7 +103,7 @@ data PIntersection =
   | PAntiCollinear
   | PParallel
   | PAntiParallel
-  | IntersectsIn !CPPoint2 !(UlpSum, UlpSum, UlpSum, UlpSum, UlpSum, UlpSum)
+  | IntersectsIn !CPPoint2 !(PLine2Err, PLine2Err, UlpSum, PPoint2Err)
   deriving (Show, Eq)
 
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
@@ -117,13 +117,12 @@ plinesIntersectIn pl1 pl2
                                        else PAntiCollinear
   | sameDirection pl1 pl2            = PParallel
   | oppositeDirection pl1 pl2        = PAntiParallel
-  | otherwise                        = IntersectsIn res (mempty, mempty, mempty, mempty, iaErr, mempty)
+  | otherwise                        = IntersectsIn res (npl1Err, npl2Err, idnErr, resErr)
   where
     (idealNorm, idnErr) = idealNormOfP intersectPoint
-    (_, (_,_,iaErr)) = angleBetween2PL pl1 pl2
     -- FIXME: how much do the potential normalization errors have an effect on the resultant angle?
     (intersectPoint, _) = intersect2PL pl1 pl2
-    (res, _) = fromJust canonicalizedIntersection
+    (res, (npl1Err, npl2Err, resErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
@@ -312,12 +311,12 @@ pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
   | hasIntersection && valOf 0 foundVal == 0 = error "intersection, but cannot cannonicalize."
   | hasIntersection && startDistance <= ulpStartSum = Left $ HitStartPoint l1
   | hasIntersection && endDistance <= ulpEndSum = Left $ HitEndPoint l1
-  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum $ realToFrac ulpStartSum, UlpSum $ realToFrac ulpEndSum, UlpSum pl1Err, mempty, mempty, mempty)
+  | hasIntersection = Right $ IntersectsIn rawIntersection (mempty, mempty, mempty, mempty)
   | hasRawIntersection = Left $ NoIntersection rawIntersection (UlpSum $ realToFrac ulpStartSum, UlpSum $ realToFrac ulpEndSum, mempty, mempty)
   | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (mempty, mempty, mempty, mempty)
   where
-    (startDistance, UlpSum startDistanceErr) = distance2PP rawIntersection start
-    (endDistance, UlpSum endDistanceErr) = distance2PP rawIntersection end
+    (startDistance, UlpSum startDistanceErr) = distance2PP (rawIntersection, rawIntersectionErr) (start,mempty)
+    (endDistance, UlpSum endDistanceErr) = distance2PP (rawIntersection, rawIntersectionErr) (end,mempty)
     start = eToPPoint2 $ startPoint l1
     end = eToPPoint2 $ endPoint l1
     ulpStartSum, ulpEndSum :: ℝ
@@ -327,12 +326,12 @@ pLineIntersectsLineSeg (pl1, UlpSum pl1Err) (l1, UlpSum l1Err) ulpScale
     -- Note: we do not use rawIntersectionErr here.
     ulpTotal = l1Err
     dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nl1Err: " <> show l1Err <> "\nrawIntersectErr: " <> show rawIntersectErr <> "\n"
-    hasIntersection = hasRawIntersection && onSegment l1 rawIntersection ulpStartSum ulpEndSum
+    hasIntersection = hasRawIntersection && onSegment l1 (rawIntersection, rawIntersectionErr) ulpStartSum ulpEndSum
     hasRawIntersection = valOf 0 foundVal /= 0
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
-    -- FIXME: shouldn't we be doing something with this error?
-    (rawIntersection, _) = canonicalize rawIntersect
-    (rawIntersect, rawIntersectErr) = intersect2PL pl1 pl2
+    rawIntersectionErr = rawIntersectErr <> cRawIntersectErr
+    (rawIntersection, cRawIntersectErr) = canonicalize rawIntersect
+    (rawIntersect, (_,_,rawIntersectErr)) = intersect2PL pl1 pl2
     (pl2, pl2Err) = eToPL l1
 
 -- | Check if/where two line segments intersect.
@@ -349,7 +348,7 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
   | hasIntersection && end1Distance <= ulpEndSum1 = Left $ HitEndPoint l1
   | hasIntersection && start2Distance <= ulpStartSum2 = Left $ HitStartPoint l2
   | hasIntersection && end2Distance <= ulpEndSum2 = Left $ HitEndPoint l2
-  | hasIntersection = Right $ IntersectsIn rawIntersection (UlpSum $ realToFrac ulpStartSum1, UlpSum $ realToFrac ulpEndSum1, UlpSum $ realToFrac ulpStartSum2, UlpSum $ realToFrac ulpEndSum2, UlpSum ulpTotal, mempty)
+  | hasIntersection = Right $ IntersectsIn rawIntersection (mempty, mempty, mempty, mempty)
   | hasRawIntersection = Left $ NoIntersection rawIntersection (UlpSum $ realToFrac ulpStartSum1, UlpSum $ realToFrac ulpEndSum1, UlpSum $ realToFrac ulpStartSum2, UlpSum $ realToFrac ulpEndSum2)
   | otherwise = Left $ NoIntersection ((\(PPoint2 p) -> CPPoint2 p) rawIntersect) (mempty, mempty, mempty, mempty)
   where
@@ -358,10 +357,10 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
     ulpStartSum2 = realToFrac $ ulpTotal+start2DistanceErr
     ulpEndSum1 = realToFrac $ ulpTotal
     ulpEndSum2 = realToFrac $ ulpTotal
-    (start1Distance, UlpSum start1DistanceErr) = distance2PP rawIntersection start1
-    (start2Distance, UlpSum start2DistanceErr) = distance2PP rawIntersection start2
-    (end1Distance, UlpSum end1DistanceErr) = distance2PP rawIntersection end1
-    (end2Distance, UlpSum end2DistanceErr) = distance2PP rawIntersection end2
+    (start1Distance, UlpSum start1DistanceErr) = distance2PP (rawIntersection, rawIntersectionErr) (start1, mempty)
+    (start2Distance, UlpSum start2DistanceErr) = distance2PP (rawIntersection, rawIntersectionErr) (start2, mempty)
+    (end1Distance, UlpSum end1DistanceErr) = distance2PP (rawIntersection, rawIntersectionErr) (end1, mempty)
+    (end2Distance, UlpSum end2DistanceErr) = distance2PP (rawIntersection, rawIntersectionErr) (end2, mempty)
     start1 = eToPPoint2 $ startPoint l1
     end1 = eToPPoint2 $ endPoint l1
     start2 = eToPPoint2 $ startPoint l2
@@ -370,26 +369,27 @@ lineSegIntersectsLineSeg (l1, UlpSum l1Err) (l2, UlpSum ulpL2)
     (pl2, pl2Err) = eToPL l2
     -- | the sum of all ULPs. used to expand the hitcircle of an endpoint.
     ulpTotal = l1Err + ulpL2
-    dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nl1Err: " <> show l1Err <> "\nrawIntersectErr: " <> show rawIntersectErr <> "\n"
-    hasIntersection = hasRawIntersection && onSegment l1 rawIntersection ulpStartSum1 ulpEndSum1 && onSegment l2 rawIntersection ulpStartSum2 ulpEndSum2
+    dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nl1Err: " <> show l1Err <> "\nrawIntersectionErr: " <> show rawIntersectionErr <> "\n"
+    hasIntersection = hasRawIntersection && onSegment l1 (rawIntersection,rawIntersectionErr) ulpStartSum1 ulpEndSum1 && onSegment l2 (rawIntersection,rawIntersectionErr) ulpStartSum2 ulpEndSum2
     hasRawIntersection = valOf 0 foundVal /= 0
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
-    (rawIntersection, _) = canonicalize rawIntersect
-    (rawIntersect, rawIntersectErr) = intersect2PL pl1 pl2
+    rawIntersectionErr = rawIntersectErrRaw <> cRawIntersectErr
+    (rawIntersection, cRawIntersectErr) = canonicalize rawIntersect
+    (rawIntersect, (_,_,rawIntersectErrRaw)) = intersect2PL pl1 pl2
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
-onSegment :: LineSeg -> CPPoint2 -> ℝ -> ℝ -> Bool
-onSegment ls i startUlp endUlp =
+onSegment :: LineSeg -> (CPPoint2, PPoint2Err) -> ℝ -> ℝ -> Bool
+onSegment ls (i, iErr) startUlp endUlp =
      (startDistance <= startFudgeFactor)
   || (midDistance <= (lengthOfSegment/2) + midFudgeFactor)
   || (endDistance <= endFudgeFactor)
   where
-    (startDistance, UlpSum startDistanceErr) = distance2PP start i
-    (midDistance, UlpSum midDistanceErr) = distance2PP mid i
-    (endDistance, UlpSum endDistanceErr) = distance2PP end i
+    (startDistance, UlpSum startDistanceErr) = distance2PP (start, mempty) (i,iErr)
+    (midDistance, UlpSum midDistanceErr) = distance2PP (mid,midErr) (i,iErr)
+    (endDistance, UlpSum endDistanceErr) = distance2PP (end, mempty) (i,iErr)
     start = eToPPoint2 $ startPoint ls
-    (mid, _) = interpolate2PP start end 0.5 0.5
+    (mid, (_, _, midErr)) = interpolate2PP start end 0.5 0.5
     end = eToPPoint2 $ endPoint ls
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
     startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ
