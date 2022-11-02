@@ -98,8 +98,9 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, G
 --- common support functions ---
 --------------------------------
 
--- | The join operator in 2D PGA, which is implemented as the meet operator operating in the dual space. Implemented here, because this operator is based on the dimensionality of the space we are working in.
--- `A v+ B` returns the join of A and B
+-- | The join operator in 2D PGA, which is implemented as the meet operator operating in the dual space.
+-- Implemented in this file, because this operator's implementation differs based on the dimensionality of the space we are working in.
+-- `A v+ B` returns the join of A and B (and the error quotents).
 (∨+) :: GVec -> GVec -> (GVec, ([ErrVal], [ErrVal]))
 (∨+) a b = (dual2DGVec res
            ,(dual2DErrs unlikeMulErr, dual2DErrs unlikeAddErr))
