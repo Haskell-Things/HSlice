@@ -44,6 +44,7 @@ module Graphics.Slicer.Math.PGAPrimitives
       angleBetween2PL,
       angleCosBetween2PL,
       canonicalizedIntersectionOf2PL,
+      distance2PL,
       flipL,
       forceBasisOfL,
       fuzzinessOfL,
@@ -164,6 +165,7 @@ class ProjectiveLine2 a where
   angleCosBetween2PL :: (ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, UlpSum))
   canonicalizedIntersectionOf2PL :: (ProjectiveLine2 b) => a -> b -> Maybe (CPPoint2, (PLine2Err, PLine2Err, PPoint2Err))
   consLikeL :: a -> (GVec -> a)
+  distance2PL :: (ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, UlpSum))
   flipL :: a -> a
   forceBasisOfL :: a -> a
   fuzzinessOfL :: (a, PLine2Err) -> UlpSum
@@ -181,6 +183,9 @@ instance ProjectiveLine2 NPLine2 where
   angleCosBetween2PL l1 l2 = angleCosBetweenProjectiveLines l1 l2
   canonicalizedIntersectionOf2PL l1 l2 = canonicalizedIntersectionOfProjectiveLines l1 l2
   consLikeL _ = NPLine2
+  distance2PL l1 l2 = crushErr $ distanceBetweenProjectiveLines l1 l2
+    where
+      crushErr (res, (n1,n2,_,resErr)) = (res, (n1,n2,resErr))
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
   fuzzinessOfL l = fuzzinessOfProjectiveLine l
@@ -198,6 +203,9 @@ instance ProjectiveLine2 PLine2 where
   angleCosBetween2PL l1 l2 = angleCosBetweenProjectiveLines l1 l2
   canonicalizedIntersectionOf2PL l1 l2 = canonicalizedIntersectionOfProjectiveLines l1 l2
   consLikeL _ = PLine2
+  distance2PL l1 l2 = crushErr $ distanceBetweenProjectiveLines l1 l2
+    where
+      crushErr (res, (n1,n2,_,resErr)) = (res, (n1,n2,resErr))
   flipL l = flipProjectiveLine l
   forceBasisOfL l = forceProjectiveLineBasis l
   fuzzinessOfL l = fuzzinessOfProjectiveLine l
@@ -249,6 +257,18 @@ angleBetweenProjectiveLines line1 line2 = (scalarPart likeRes, resErr)
     l2 = vecOfL $ forceBasisOfL npl2
     (npl1, npl1Err) = normalizeL line1
     (npl2, npl2Err) = normalizeL line2
+
+--- | Find the distance between two parallel or antiparallel projective lines.
+distanceBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
+distanceBetweenProjectiveLines line1 line2 = (res, resErr)
+  where
+    (res, idealErr) = idealNormOfP $ PPoint2 like
+    resErr = (pv1Err, pv2Err, likeErr, idealErr)
+    (like, likeErr) = p1 ⎣+ p2
+    p1 = vecOfL $ forceBasisOfL npl1
+    p2 = vecOfL $ forceBasisOfL npl2
+    (npl1, pv1Err) = normalizeL line1
+    (npl2, pv2Err) = normalizeL line2
 
 -- | Reverse a line. same line, but pointed in the other direction.
 flipProjectiveLine :: (ProjectiveLine2 a) => a -> a

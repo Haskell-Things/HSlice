@@ -39,8 +39,8 @@ module Graphics.Slicer.Math.PGA(
   angleBetween2PL,
   canonicalize,
   combineConsecutiveLineSegs,
+  distance2PL,
   distance2PP,
-  distanceBetweenPLinesWithErr,
   distancePPointToPLineWithErr,
   eToPPoint2,
   eToPL,
@@ -85,11 +85,11 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, getVal, mulScalarVecWithErr, sumErrVals, ulpVal, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎤+), (⨅), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, getVal, mulScalarVecWithErr, sumErrVals, ulpVal, valOf)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, xIntercept, yIntercept)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -171,18 +171,6 @@ pPointsOnSameSideOfPLine point1 point2 line
     pv1 = vecOfP $ forceBasisOfP point1
     pv2 = vecOfP $ forceBasisOfP point2
     lv1 = vecOfL $ forceBasisOfL line
-
--- | Find the unsigned distance between two parallel or antiparallel projective lines.
-distanceBetweenPLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
-distanceBetweenPLinesWithErr line1 line2 = (ideal, resUlpSum)
-  where
-    (ideal, idealUlpSum) = idealNormOfP $ PPoint2 likeRes
-    resUlpSum = idealUlpSum <> sumErrVals likeMulErr <> sumErrVals likeAddErr
-    (likeRes, (likeMulErr, likeAddErr)) = p1 ⎣+ p2
-    p1 = vecOfL $ forceBasisOfL npl1
-    p2 = vecOfL $ forceBasisOfL npl2
-    (npl1, _) = normalizeL line1
-    (npl2, _) = normalizeL line2
 
 -- | A checker, to ensure two Projective Lines are going the same direction, and are parallel.
 -- FIXME: precision on inputs?

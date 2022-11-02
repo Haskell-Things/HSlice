@@ -36,7 +36,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
-import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, PPoint2Err, intersectsWith, distanceBetweenPLinesWithErr, outputIntersectsLineSeg, plinesIntersectIn, pToEP)
+import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, PPoint2Err, intersectsWith, distance2PL, outputIntersectsLineSeg, plinesIntersectIn, pToEP)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -184,7 +184,7 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
 intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 (CPPoint2, PPoint2Err))
 intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
   where
-    (foundDistance, UlpSum foundErr) = distanceBetweenPLinesWithErr pl1 pl2
+    (foundDistance, (_,_,UlpSum foundErr)) = distance2PL pl1 pl2
     saneIntersection PAntiCollinear     = Just $ Left pl1
     saneIntersection PCollinear         = Just $ Left pl1
     saneIntersection PParallel          = if foundDistance < realToFrac foundErr
