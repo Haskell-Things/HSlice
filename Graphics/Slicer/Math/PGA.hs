@@ -24,42 +24,45 @@
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
 module Graphics.Slicer.Math.PGA(
-  Arcable(hasArc, outOf, errOfOut),
+  Arcable(errOfOut, hasArc, outOf),
   Intersection(HitStartPoint, HitEndPoint, NoIntersection),
   PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn),
   PLine2Err(PLine2Err),
-  Pointable(canPoint, canEPoint, pPointOf, ePointOf, errOfPPoint, errOfEPoint),
+  Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf),
   PPoint2Err,
   ProjectiveLine(PLine2, NPLine2),
+  ProjectiveLine2(
+      distance2PL,
+      flipL,
+      fuzzinessOfL,
+      intersect2PL,
+      normalizeL,
+      translateL
+      ),
   ProjectivePoint(PPoint2, CPPoint2),
-  ProjectivePoint2,
-  canonicalize,
+  ProjectivePoint2(
+      canonicalize,
+      distance2PP,
+      fuzzinessOfP,
+      interpolate2PP,
+      join2PP,
+      pToEP
+      ),
   combineConsecutiveLineSegs,
-  distance2PP,
-  distanceBetweenPLinesWithErr,
   distancePPointToPLineWithErr,
   pLineErrAtPPoint,
   eToPLine2WithErr,
   eToPPoint2,
-  flipL,
-  fuzzinessOfL,
-  fuzzinessOfP,
-  intersect2PL,
-  interpolate2PP,
   intersectsWith,
   intersectsWithErr,
-  join2PP,
   makePPoint2,
-  normalizeL,
   outputIntersectsLineSeg,
   oppositeDirection,
   pLineIsLeft,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
-  pToEP,
   plinesIntersectIn,
   sameDirection,
-  translateL,
   translateRotatePPoint2WithErr
   ) where
 
@@ -85,11 +88,11 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, makeLineSeg, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (⨅), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, ulpVal, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎤+), (⨅), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, ulpVal, valOf)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, flipL, forceBasisOfL, fuzzinessOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), pLineErrAtPPoint)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, distance2PL, flipL, forceBasisOfL, fuzzinessOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), pLineErrAtPPoint)
   
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
@@ -122,18 +125,18 @@ plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
   | oppositeDirection pl1 pl2        = if d < parallelFuzziness
                                        then PAntiCollinear
                                        else PAntiParallel
-  | otherwise                        = IntersectsIn res (pl1Err <> npl1Err, pl2Err <> npl2Err, idnErr, resErr)
+  | otherwise                        = IntersectsIn res (npl1Err, npl2Err, idnErr, resErr)
   where
     -- distance within which we  consider parallel lines as the same line.
     parallelFuzziness :: ℝ
-    parallelFuzziness = realToFrac $ ulpVal (dErr <> pLineErrAtPPoint npline1 res <> pLineErrAtPPoint npline2 res)
+    parallelFuzziness = realToFrac $ ulpVal $ dErr <> pLineErrAtPPoint (npl1, npl1Err <> pl1Err) res <> pLineErrAtPPoint (npl2, npl2Err <> pl2Err) res
     -- when we're close to parallel or antiparallel, use the distance between the lines to promote to colinear/anticolinear
-    (d, (_, _, _, dErr)) = distanceBetweenPLinesWithErr npl1 npl2
+    (d, (_, _, dErr)) = distance2PL npl1 npl2
     (idealNorm, idnErr) = idealNormOfP res
     (res, (_, _, resErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizedIntersectionOf2PL npl1 npl2
-    npline1@(npl1, npl1Err) = normalizeL pl1
-    npline2@(npl2, npl2Err) = normalizeL pl2
+    (npl1, npl1Err) = normalizeL pl1
+    (npl2, npl2Err) = normalizeL pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 -- FIXME: error quotent handling in here is trash.
@@ -198,19 +201,6 @@ pPointsOnSameSideOfPLine point1 point2 line
     pv1 = vecOfP $ forceBasisOfP point1
     pv2 = vecOfP $ forceBasisOfP point2
     lv1 = vecOfL $ forceBasisOfL line
-
--- | Find the unsigned distance between two parallel or antiparallel projective lines.
--- FIXME: accept input error amounts, take input error amounts into consideration.
-distanceBetweenPLinesWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
-distanceBetweenPLinesWithErr line1 line2 = (res, resErr)
-  where
-    (res, idealErr) = idealNormOfP $ PPoint2 like
-    resErr = (pv1Err, pv2Err, likeErr, idealErr)
-    (like, likeErr) = p1 ⎣+ p2
-    p1 = vecOfL $ forceBasisOfL npl1
-    p2 = vecOfL $ forceBasisOfL npl2
-    (npl1,pv1Err) = normalizeL line1
-    (npl2,pv2Err) = normalizeL line2
 
 -- | A checker, to ensure two Projective Lines are going the same direction, and are parallel.
 -- FIXME: precision on inputs?

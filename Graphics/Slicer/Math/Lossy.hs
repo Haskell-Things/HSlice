@@ -47,7 +47,7 @@ import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr, getOu
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
-import Graphics.Slicer.Math.PGA (distance2PP, distanceBetweenPLinesWithErr, distancePPointToPLineWithErr, eToPLine2WithErr, pPointOnPerpWithErr, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint2(distance2PP), ProjectiveLine2(distance2PL), distancePPointToPLineWithErr, eToPLine2WithErr, pPointOnPerpWithErr, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err, angleBetween2PL, interpolate2PP, join2PP, normalizeL, pToEP, translateL)
 
@@ -58,7 +58,7 @@ distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> 
 distanceBetweenPPoints point1 point2 = fst $ distance2PP (point1,mempty) (point2,mempty)
 
 distanceBetweenPLines :: ProjectiveLine -> ProjectiveLine -> ℝ
-distanceBetweenPLines pLine1 pLine2 = fst $ distanceBetweenPLinesWithErr pLine1 pLine2
+distanceBetweenPLines pLine1 pLine2 = fst $ distance2PL pLine1 pLine2
 
 -- | Find the unsigned distance between a point and a line.
 distancePPointToPLine :: (ProjectivePoint,PPoint2Err) -> (ProjectiveLine,PLine2Err) -> ℝ

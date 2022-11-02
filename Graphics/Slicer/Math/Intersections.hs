@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc,errOfOut,outOf), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectivePoint, distance2PP, distancePPointToPLineWithErr, distanceBetweenPLinesWithErr, fuzzinessOfL, fuzzinessOfP, pLineErrAtPPoint, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc,errOfOut,outOf), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectiveLine2(distance2PL), ProjectivePoint, distance2PP, distancePPointToPLineWithErr, fuzzinessOfL, fuzzinessOfP, pLineErrAtPPoint, plinesIntersectIn)
 
 -- | check if two lines cannot intersect.
 noIntersection :: (ProjectiveLine,PLine2Err) -> (ProjectiveLine,PLine2Err) -> Bool
@@ -69,7 +69,7 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
 intersectionBetween :: (ProjectiveLine,PLine2Err) -> (ProjectiveLine,PLine2Err) -> Maybe (Either (ProjectiveLine,PLine2Err) (ProjectivePoint, PPoint2Err))
 intersectionBetween pl1@(rawPl1,_) pl2@(rawPl2,_) = saneIntersection $ plinesIntersectIn pl1 pl2
   where
-    (foundDistance, (_,_,_,foundErr))   = distanceBetweenPLinesWithErr rawPl1 rawPl2
+    (foundDistance, (_,_,foundErr)) = distance2PL rawPl1 rawPl2
     saneIntersection PCollinear         = Just $ Left pl1
     saneIntersection PAntiCollinear     = Just $ Left pl1
     saneIntersection PParallel          = if foundDistance < realToFrac (ulpVal foundErr)
