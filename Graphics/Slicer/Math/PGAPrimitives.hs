@@ -144,6 +144,10 @@ forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
     forceVal :: [GVal] -> Set GNum -> GVal
     forceVal has needs = GVal (valOf 0 $ getVal (elems needs) has) needs
 
+-- | Determine if a point is an ideal point.
+projectivePointIsIdeal :: (ProjectivePoint2 a) => a -> Bool
+projectivePointIsIdeal point = isNothing $ getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP point
+
 -------------------------------
 --- Projective Line Support ---
 -------------------------------
@@ -474,11 +478,11 @@ angleCosBetweenProjectiveLines line1 line2
 -- NOTE: Returns Nothing when the lines are (anti)parallel.
 canonicalizedIntersectionOfProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
 canonicalizedIntersectionOfProjectiveLines line1 line2
-  | isNothing foundVal = Nothing
+  -- | Check whether the result of our intersection returns an ideal point. if it does, it means the two lines are (anti)parallel, and we should fail.
+  | projectivePointIsIdeal pp1 = Nothing
   | otherwise = Just (cpp1, (l1Err, l2Err, pp1Err <> cpp1Err))
   where
     (cpp1, cpp1Err) = canonicalize pp1
-    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP pp1
     (pp1, (l1Err, l2Err, pp1Err)) = intersect2PL line1 line2
 
 --------------------------------
@@ -589,8 +593,8 @@ instance ProjectivePoint2 ProjectivePoint where
 -- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
 canonicalizeProjectivePoint :: (ProjectivePoint2 a) => a -> (ProjectivePoint, PPoint2Err)
 canonicalizeProjectivePoint point
-  | isNothing foundVal = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
-  -- Handle the ID case.
+  | projectivePointIsIdeal point = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
+  -- | Handle the ID case. The passed in point is canonicalized already.
   | valOf 1 foundVal == 1 = (CPPoint2 $ GVec rawVals, mempty)
   | otherwise = (res, PPoint2Err mempty scaledErrs mempty mempty mempty mempty mempty)
   where
@@ -604,11 +608,11 @@ canonicalizeProjectivePoint point
                else [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] scaledVals) (fromList [GEZero 1, GEPlus 2])]
              )
           <> [GVal 1 (fromList [GEPlus 1, GEPlus 2])]
+    (GVec scaledVals, scaledErrs) = divVecScalarWithErr newVec $ valOf 1 foundVal
     newVec = GVec [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1])
                   ,GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2])]
-    (GVec scaledVals, scaledErrs) = divVecScalarWithErr newVec $ valOf 1 foundVal
-    (GVec rawVals) = vecOfP point
     foundVal = getVal [GEPlus 1, GEPlus 2] rawVals
+    (GVec rawVals) = vecOfP point
 
 -- | Find the distance between two projective points, and the error component of the result.
 distanceBetweenProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum))
@@ -678,12 +682,11 @@ joinOfProjectivePoints point1 point2 = (PLine2 res,
 -- If the weights are equal, the distance will be right between the two points.
 projectivePointBetweenProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, PPoint2Err))
 projectivePointBetweenProjectivePoints startPoint stopPoint weight1 weight2
-  | isNothing foundVal = error "tried to generate an ideal point?"
+  | projectivePointIsIdeal res = error "tried to generate an ideal point?"
   | otherwise = (res, resErr)
   where
     res = PPoint2 rawRes
     resErr = (cStartPointErr, cStopPointErr, PPoint2Err mempty mempty rawResErr weighedStartErr weighedStopErr mempty mempty)
-    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) rawRes
     (rawRes, rawResErr) = addVecPairWithErr weighedStart weighedStop
     (weighedStart, weighedStartErr) = mulScalarVecWithErr weight1 rawStartPoint
     (weighedStop, weighedStopErr) = mulScalarVecWithErr weight2 rawStopPoint
