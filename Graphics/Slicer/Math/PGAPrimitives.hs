@@ -319,7 +319,7 @@ normalizeProjectiveLine line = (res, resErr)
     vec = vecOfL line
 
 -- | Find the norm of a given Projective Line.
--- FIXME: shold we be placing this error in the PLine2Err? it doesn't effect resolving the line...
+-- FIXME: should we be placing this error in the PLine2Err? it doesn't effect resolving the line...
 normOfProjectiveLine :: (ProjectiveLine2 a) => a -> (ℝ, PLine2Err)
 normOfProjectiveLine line = (res, resErr)
   where
@@ -359,7 +359,7 @@ translateProjectiveLine line d = (PLine2 res, normErr <> PLine2Err resErrs mempt
 --- Projective Line Error Calculation ---
 -----------------------------------------
 
--- | When given a PLine, and two points guaranteed to be on it, return the maximum distance between a given projective point known to be on the PLine and the 'real' line.
+-- | When given a projective line, return the maximum distance between a projective point known to be on the line and the equivalent point on the 'real' line, which is to say, the projective line without floating point error.
 -- FIXME: accept a error on the projectivePoint, and return an error estimate.
 pLineErrAtPPoint :: (ProjectiveLine2 a, ProjectivePoint2 b) => (a, PLine2Err) -> b -> UlpSum
 pLineErrAtPPoint (line, lineErr) errPoint
@@ -459,7 +459,6 @@ yIntercept (line, lineErr)
 -- Results in a value that is ~+1 when the first line points to the "left" of the second given line, and ~-1 when pointing "right".
 -- FIXME: the sum of iPointErrVals is not +/- radians.
 -- FIXME: lots of places for precision related error here, that are not recorded or reported.
--- FIXME: does not accept input imprecision.
 angleCosBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, UlpSum))
 angleCosBetweenProjectiveLines line1 line2
   | isNothing canonicalizedIntersection = (0, mempty)
@@ -475,8 +474,8 @@ angleCosBetweenProjectiveLines line1 line2
     lvec1 = vecOfL $ forceBasisOfL line1
     lvec2 = vecOfL $ forceBasisOfL line2
 
--- | Get the Canonicalized intersection of two lines.
--- NOTE: Returns Nothing when the PLines are (anti)parallel.
+-- | Get the canonicalized intersection of two lines.
+-- NOTE: Returns Nothing when the lines are (anti)parallel.
 canonicalizedIntersectionOfProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe (CPPoint2, (PLine2Err, PLine2Err, PPoint2Err))
 canonicalizedIntersectionOfProjectiveLines line1 line2
   | isNothing foundVal = Nothing
@@ -498,7 +497,7 @@ newtype PPoint2 = PPoint2 GVec
 newtype CPPoint2 = CPPoint2 GVec
   deriving (Eq, Generic, NFData, Show)
 
--- | the error accumulated when calculating a projective point.
+-- | The error accumulated when calculating a projective point.
 data PPoint2Err =
   PPoint2Err
     -- MeetErr. max error amounts while meeting two PLines to find this point. divided into add err, and multiply err.
@@ -531,19 +530,22 @@ instance Semigroup PPoint2Err where
 instance Monoid PPoint2Err where
   mempty = PPoint2Err mempty mempty mempty mempty mempty mempty mempty
 
--- | typeclass for points and projective points.
+-- | Typeclass for nodes that may be able to be resolved into a point.
 class Pointable a where
   -- | Can this node be resolved into a point in 2d space?
   canPoint :: a -> Bool
-  -- | get a euclidian representation of this point.
+  -- | Get a euclidian representation of this point.
   ePointOf :: a -> Point2
-  -- | get a projective representation of this point.
+  -- | Get a projective representation of this point.
   pPointOf :: a -> PPoint2
 
 -- | does this node have an output (resulting) pLine?
 class Arcable a where
+  -- | Return the error quotent of the output arc, if the output arc exists.
   errOfOut :: a -> PLine2Err
+  -- | Is there an output arc from this node?
   hasArc :: a -> Bool
+  -- | If there is an output arc, return it.
   outOf :: a -> PLine2
 
 class (Show a) => ProjectivePoint2 a where
