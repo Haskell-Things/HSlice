@@ -21,8 +21,6 @@
 
 {-# LANGUAGE DataKinds #-}
 
-{-# Language TypeSynonymInstances #-}
-
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
 module Graphics.Slicer.Math.PGA(
