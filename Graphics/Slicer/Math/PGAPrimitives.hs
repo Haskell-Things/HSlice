@@ -22,6 +22,7 @@
 -- | The purpose of this file is to hold primitive projective geometric algebraic arithmatic.
 -- Primitives here are defined as functions that work on types which have an implementation of the ProjectivePoint2 or ProjectiveLine2 typeclasses. Think "Pure 2D PGA functions only".
 
+-- | What we export. Almost everything is part of a typeclass.
 module Graphics.Slicer.Math.PGAPrimitives
   (
     Arcable(
@@ -97,7 +98,8 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, G
 --- common support functions ---
 --------------------------------
 
--- | The join operator in 2D PGA, which is implemented as the meet operator operating in the dual space.
+-- | The join operator in 2D PGA, which is implemented as the meet operator operating in the dual space. Implemented here, because this operator is based on the dimensionality of the space we are working in.
+-- `A v+ B` returns the join of A and B
 (∨+) :: GVec -> GVec -> (GVec, ([ErrVal], [ErrVal]))
 (∨+) a b = (dual2DGVec res
            ,(dual2DErrs unlikeMulErr, dual2DErrs unlikeAddErr))
@@ -135,6 +137,7 @@ dual2DErrs vals = filter (\(ErrVal a _) -> a /= mempty)
 
 -- | Perform basis coersion.
 -- Ensure that all of the required '0' components exist. Required before using basis sensitive raw operators directly.
+-- TL;DR: before you can use like, unlike, or reductive operators, you have to guarantee all of the basis vectors for your appropriate type are present, even if they are set to 0.
 forceBasis :: [Set GNum] -> GVec -> GVec
 forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
   where
@@ -225,7 +228,6 @@ instance Monoid PLine2Err where
 
 -- | Return the sine of the angle between the two lines, along with the error.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
--- FIXME: accept input error, and do something with it.
 angleBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
 angleBetweenProjectiveLines line1 line2 = (scalarPart likeRes, resErr)
   where
