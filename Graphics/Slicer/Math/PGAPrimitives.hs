@@ -97,6 +97,8 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, G
 --------------------------------
 
 -- | The join operator in 2D PGA, which is implemented as the meet operator operating in the dual space.
+-- Implemented in this file, because this operator's implementation differs based on the dimensionality of the space we are working in.
+-- `A v+ B` returns the join of A and B (and the error quotents).
 (∨+) :: GVec -> GVec -> (GVec, ([ErrVal], [ErrVal]))
 (∨+) a b = (dual2DGVec res
            ,(dual2DErrs unlikeMulErr, dual2DErrs unlikeAddErr))
@@ -134,11 +136,16 @@ dual2DErrs vals = filter (\(ErrVal a _) -> a /= mempty)
 
 -- | Perform basis coersion.
 -- Ensure that all of the required '0' components exist. Required before using basis sensitive raw operators directly.
+-- TL;DR: before you can use like, unlike, or reductive operators, you have to guarantee all of the basis vectors for your appropriate type are present, even if they are set to 0.
 forceBasis :: [Set GNum] -> GVec -> GVec
 forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
   where
     forceVal :: [GVal] -> Set GNum -> GVal
     forceVal has needs = GVal (valOf 0 $ getVal (elems needs) has) needs
+
+-- | Determine if a point is an ideal point.
+projectivePointIsIdeal :: (ProjectivePoint2 a) => a -> Bool
+projectivePointIsIdeal point = isNothing $ getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP point
 
 -------------------------------
 --- Projective Line Support ---
@@ -231,7 +238,6 @@ instance Monoid PLine2Err where
 
 -- | Return the sine of the angle between the two lines, along with the error.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
--- FIXME: accept input error, and do something with it.
 angleBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
 angleBetweenProjectiveLines line1 line2 = (scalarPart likeRes, resErr)
   where
@@ -478,11 +484,11 @@ angleCosBetweenProjectiveLines line1 line2
 -- NOTE: Returns Nothing when the lines are (anti)parallel.
 canonicalizedIntersectionOfProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe (CPPoint2, (PLine2Err, PLine2Err, PPoint2Err))
 canonicalizedIntersectionOfProjectiveLines line1 line2
-  | isNothing foundVal = Nothing
+  -- | Check whether the result of our intersection returns an ideal point. if it does, it means the two lines are (anti)parallel, and we should fail.
+  | projectivePointIsIdeal pp1 = Nothing
   | otherwise = Just (cpp1, (l1Err, l2Err, pp1Err <> cpp1Err))
   where
     (cpp1, cpp1Err) = canonicalize pp1
-    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP pp1
     (pp1, (l1Err, l2Err, pp1Err)) = intersect2PL line1 line2
 
 --------------------------------
@@ -593,8 +599,8 @@ instance ProjectivePoint2 CPPoint2 where
 -- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
 canonicalizeProjectivePoint :: (ProjectivePoint2 a) => a -> (CPPoint2, PPoint2Err)
 canonicalizeProjectivePoint point
-  | isNothing foundVal = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
-  -- Handle the ID case.
+  | projectivePointIsIdeal point = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
+  -- | Handle the ID case. The passed in point is canonicalized already.
   | valOf 1 foundVal == 1 = (CPPoint2 $ GVec rawVals, mempty)
   | otherwise = (res, PPoint2Err mempty scaledErrs mempty mempty mempty mempty mempty)
   where
@@ -608,11 +614,11 @@ canonicalizeProjectivePoint point
                else [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] scaledVals) (fromList [GEZero 1, GEPlus 2])]
              )
           <> [GVal 1 (fromList [GEPlus 1, GEPlus 2])]
+    (GVec scaledVals, scaledErrs) = divVecScalarWithErr newVec $ valOf 1 foundVal
     newVec = GVec [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1])
                   ,GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2])]
-    (GVec scaledVals, scaledErrs) = divVecScalarWithErr newVec $ valOf 1 foundVal
-    (GVec rawVals) = vecOfP point
     foundVal = getVal [GEPlus 1, GEPlus 2] rawVals
+    (GVec rawVals) = vecOfP point
 
 -- | Find the distance between two projective points, and the error component of the result.
 distanceBetweenProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum))
@@ -682,12 +688,11 @@ joinOfProjectivePoints point1 point2 = (PLine2 res,
 -- If the weights are equal, the distance will be right between the two points.
 projectivePointBetweenProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (PPoint2, (PPoint2Err, PPoint2Err, PPoint2Err))
 projectivePointBetweenProjectivePoints startPoint stopPoint weight1 weight2
-  | isNothing foundVal = error "tried to generate an ideal point?"
+  | projectivePointIsIdeal res = error "tried to generate an ideal point?"
   | otherwise = (res, resErr)
   where
     res = PPoint2 rawRes
     resErr = (cStartPointErr, cStopPointErr, PPoint2Err mempty mempty rawResErr weighedStartErr weighedStopErr mempty mempty)
-    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) rawRes
     (rawRes, rawResErr) = addVecPairWithErr weighedStart weighedStop
     (weighedStart, weighedStartErr) = mulScalarVecWithErr weight1 rawStartPoint
     (weighedStop, weighedStopErr) = mulScalarVecWithErr weight2 rawStopPoint
