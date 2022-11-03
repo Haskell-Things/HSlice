@@ -24,7 +24,7 @@
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
 module Graphics.Slicer.Math.PGA(
-  Arcable(errOfOut, hasArc, outOf),
+  Arcable(errOfOut, hasArc, outAndErrOf, outOf),
   CPPoint2(CPPoint2),
   Intersection(HitStartPoint, HitEndPoint, NoIntersection),
   NPLine2(NPLine2),
@@ -91,7 +91,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVa
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, xIntercept, yIntercept)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 

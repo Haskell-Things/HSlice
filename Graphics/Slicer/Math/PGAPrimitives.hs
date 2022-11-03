@@ -27,6 +27,7 @@ module Graphics.Slicer.Math.PGAPrimitives
     Arcable(
       errOfOut,
       hasArc,
+      outAndErrOf,
       outOf
       ),
     CPPoint2(CPPoint2),
@@ -571,6 +572,8 @@ class Arcable a where
   errOfOut :: a -> PLine2Err
   -- | Is there an output arc from this node?
   hasArc :: a -> Bool
+  -- | If there is an output arc, return it, along with the error quotent.
+  outAndErrOf :: a -> (PLine2, PLine2Err)
   -- | If there is an output arc, return it.
   outOf :: a -> PLine2
 

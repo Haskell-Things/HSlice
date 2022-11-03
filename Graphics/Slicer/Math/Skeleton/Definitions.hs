@@ -55,7 +55,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapW
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), addVecPair)
 
-import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), PLine2Err, pLineIsLeft, distance2PP, Pointable(canPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, eToPL, eToPPoint2, pToEP, vecOfL)
+import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), PLine2Err, pLineIsLeft, distance2PP, Pointable(canPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, eToPL, eToPPoint2, pToEP, vecOfL)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -67,6 +67,7 @@ data ENode = ENode { _inPoints :: !(Point2, Point2, Point2), _arcOut :: !PLine2,
 instance Arcable ENode where
   -- an ENode always has an arc.
   hasArc _ = True
+  outAndErrOf (ENode _ outArc outErr) = (outArc, outErr)
   outOf (ENode _ outArc _) = outArc
   errOfOut (ENode _ _ outErr) = outErr
 
@@ -85,6 +86,9 @@ data INode = INode { _firstInArc :: !(PLine2, PLine2Err), _secondInArc :: !(PLin
 instance Arcable INode where
   -- an INode might just end here.
   hasArc (INode _ _ _ outArc) = isJust outArc
+  outAndErrOf (INode _ _ _ outArc) = case outArc of
+                                       (Just (rawOutArc,rawOutErr)) -> (rawOutArc, rawOutErr)
+                                       Nothing -> error "tried to get an outArc that has no output arc."
   outOf (INode _ _ _ outArc) = case outArc of
                                  (Just (rawOutArc,_)) -> rawOutArc
                                  Nothing -> error "tried to get an outArc that has no output arc."
@@ -97,7 +101,7 @@ instance Pointable INode where
   canPoint iNode@(INode firstPLine secondPLine morePLines _) = len allPLines > 1 && hasIntersectingPairs allPLines
     where
       allPLines = if hasArc iNode
-                  then cons (outOf iNode, errOfOut iNode) $ cons firstPLine $ cons secondPLine morePLines
+                  then cons (outAndErrOf iNode) $ cons firstPLine $ cons secondPLine morePLines
                   else cons firstPLine $ cons secondPLine morePLines
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
         where
@@ -124,7 +128,7 @@ instance Pointable INode where
                               where
                                 (res, (_,_,UlpSum err)) = distance2PP (canonicalize a) (canonicalize b)
       allPLines = if hasArc iNode
-                  then slist $ nub $ (outOf iNode, errOfOut iNode) : firstPLine : secondPLine : rawPLines
+                  then slist $ nub $ (outAndErrOf iNode) : firstPLine : secondPLine : rawPLines
                   else slist $ nub $ firstPLine : secondPLine : rawPLines
       intersectionsOfPairs (Slist pLines _) = catMaybes $ (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) <$> getPairs pLines
         where
@@ -151,6 +155,7 @@ data Motorcycle = Motorcycle { _inCSegs :: !(LineSeg, LineSeg), _outPline :: !PL
 instance Arcable Motorcycle where
   -- A Motorcycle always has an arc, which is it's path.
   hasArc _ = True
+  outAndErrOf (Motorcycle _ outArc outErr) = (outArc, outErr)
   outOf (Motorcycle _ outArc _) = outArc
   errOfOut (Motorcycle _ _ outErr) = outErr
 
@@ -269,13 +274,13 @@ makeINode pLines maybeOut = case pLines of
 finalPLine :: NodeTree -> (PLine2, PLine2Err)
 finalPLine (NodeTree (ENodeSet (Slist [(firstENode,moreENodes)] _)) iNodeSet)
   | hasNoINodes iNodeSet = if len moreENodes == 0
-                           then (outOf firstENode, errOfOut firstENode)
+                           then outAndErrOf firstENode
                            else error "cannot have final PLine of NodeTree with more than one ENode, and no generations!\n"
-  | hasArc (finalINodeOf iNodeSet) = (outOf $ finalINodeOf iNodeSet, errOfOut $ finalINodeOf iNodeSet)
+  | hasArc (finalINodeOf iNodeSet) = outAndErrOf $ finalINodeOf iNodeSet
   | otherwise = error "has inodes, has no out, has enodes?"
 finalPLine (NodeTree _ iNodeSet)
   | hasNoINodes iNodeSet = error "cannot have final PLine of a NodeTree that is completely empty!"
-  | hasArc (finalINodeOf iNodeSet) = (outOf $ finalINodeOf iNodeSet, errOfOut $ finalINodeOf iNodeSet)
+  | hasArc (finalINodeOf iNodeSet) = outAndErrOf $ finalINodeOf iNodeSet
   | otherwise = error "has inodes, has no out, has no enodes?"
 
 -- | get the last output PLine of a NodeTree, if there is one. otherwise, Nothing.

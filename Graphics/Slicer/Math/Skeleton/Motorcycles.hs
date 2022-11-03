@@ -50,7 +50,7 @@ import Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, get
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, pPointBetweenPPoints, distanceBetweenPPoints, eToCPPoint2, eToPLine2, normalizePLine2, pLineFromEndpoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2, Arcable(errOfOut, outOf), Pointable(canPoint, ePointOf, pPointOf), ProjectiveLine2(flipL, translateL), eToPL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), plinesIntersectIn, angleBetween2PL, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2, Arcable(outAndErrOf, outOf), Pointable(canPoint, ePointOf, pPointOf), ProjectiveLine2(flipL, translateL), eToPL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), plinesIntersectIn, angleBetween2PL, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -90,11 +90,11 @@ motorcycleDivisor motorcycle target = pPointBetweenPPoints (canonicalizePPoint2 
                       (WithMotorcycle motorcycle2) -> canonicalizePPoint2 $ pPointOf motorcycle2
     tSpeedOf :: MotorcycleIntersection -> ℝ
     tSpeedOf myTarget = case myTarget of
-                  (WithLineSeg lineSeg) -> distanceBetweenPPoints (justIntersectsIn $ plinesIntersectIn (translateL (eToPLine2 lineSeg) 1) (outOf motorcycle, errOfOut motorcycle)) (justIntersectsIn $ plinesIntersectIn (eToPL lineSeg) (outOf motorcycle, errOfOut motorcycle))
-                  (WithENode eNode) -> distanceBetweenPPoints (canonicalizePPoint2 $ pPointOf eNode) (justIntersectsIn $ plinesIntersectIn (translateL (eToPLine2 $ getFirstLineSeg eNode) 1) (outOf eNode, errOfOut eNode))
+                  (WithLineSeg lineSeg) -> distanceBetweenPPoints (justIntersectsIn $ plinesIntersectIn (translateL (eToPLine2 lineSeg) 1) (outAndErrOf motorcycle)) (justIntersectsIn $ plinesIntersectIn (eToPL lineSeg) (outAndErrOf motorcycle))
+                  (WithENode eNode) -> distanceBetweenPPoints (canonicalizePPoint2 $ pPointOf eNode) (justIntersectsIn $ plinesIntersectIn (translateL (eToPLine2 $ getFirstLineSeg eNode) 1) (outAndErrOf eNode))
                   (WithMotorcycle motorcycle2) -> mSpeedOf motorcycle2
     mSpeedOf :: Motorcycle -> ℝ
-    mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _ _) = distanceBetweenPPoints (canonicalizePPoint2 $ pPointOf myMotorcycle) (justIntersectsIn $ plinesIntersectIn (translateL (eToPLine2 seg1) 1) (outOf myMotorcycle, errOfOut myMotorcycle))
+    mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _ _) = distanceBetweenPPoints (canonicalizePPoint2 $ pPointOf myMotorcycle) (justIntersectsIn $ plinesIntersectIn (translateL (eToPLine2 seg1) 1) (outAndErrOf myMotorcycle))
     justIntersectsIn :: PIntersection -> CPPoint2
     justIntersectsIn res = case res of
                              (IntersectsIn p _) -> p
@@ -317,7 +317,7 @@ intersectionSameSide pointOnSide node (Motorcycle _ path _)
 
 -- | Check if the output of two motorcycles are anti-collinear with each other.
 motorcyclesAreAntiCollinear :: Motorcycle -> Motorcycle -> Bool
-motorcyclesAreAntiCollinear motorcycle1 motorcycle2 = plinesIntersectIn (outOf motorcycle1, errOfOut motorcycle1) (outOf motorcycle2, errOfOut motorcycle2) == PAntiCollinear
+motorcyclesAreAntiCollinear motorcycle1 motorcycle2 = plinesIntersectIn (outAndErrOf motorcycle1) (outAndErrOf motorcycle2) == PAntiCollinear
 
 -- | Return the total set of motorcycles in the given CellDivide
 motorcyclesInDivision :: CellDivide -> [Motorcycle]

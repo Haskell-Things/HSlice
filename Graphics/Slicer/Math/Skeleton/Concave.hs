@@ -62,7 +62,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, 
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, distancePPointToPLine, eToPLine2, join2CPPoint2, normalizePLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), PLine2Err, ProjectivePoint2, CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, distance2PP, flipL, pLineIsLeft, angleBetween2PL, distancePPointToPLineWithErr, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outAndErrOf, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), PLine2Err, ProjectivePoint2, CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, distance2PP, flipL, pLineIsLeft, angleBetween2PL, distancePPointToPLineWithErr, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLinesWithErr, isLoop)
 
@@ -190,7 +190,7 @@ averageNodes n1 n2
 
 -- | Take a pair of arcables, and return their outOfs, in a sorted order.
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [(PLine2, PLine2Err)]
-sortedPair n1 n2 = sortedPLinesWithErr [(outOf n1,errOfOut n1), (outOf n2,errOfOut n2)]
+sortedPair n1 n2 = sortedPLinesWithErr [outAndErrOf n1, outAndErrOf n2]
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
 -- Note: we normalize our output lines.
@@ -281,7 +281,7 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodes
           where
             maybePLineOut :: INode -> [(PLine2,PLine2Err)]
             maybePLineOut myINode = if hasArc myINode
-                                    then [(outOf myINode, errOfOut myINode)]
+                                    then [outAndErrOf myINode]
                                     else []
             -- for a generation with only one inode, retrieve that inode.
             onlyINodeIn :: [INode] -> INode
@@ -599,7 +599,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                    else
                      -- Construct an INode with two identical inputs, and return it.
                      -- FIXME: shouldn't we be able to return an empty set, instead?
-                     Right $ INodeSet $ one [INode (outOf eNode, errOfOut eNode) (outOf eNode, errOfOut eNode) (slist []) Nothing]
+                     Right $ INodeSet $ one [INode (outAndErrOf eNode) (outAndErrOf eNode) (slist []) Nothing]
                  [iNode] -> handleTwoNodes eNode iNode
                  (_:_) -> handleThreeOrMoreNodes
     [eNode1,eNode2] -> case iNodes of
@@ -622,7 +622,6 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
       | otherwise = errorLen2
       where
         errorLen2 = Left $ PartialNodes (INodeSet $ one iNodes) $ "NOMATCH - length 2?\n" <> show node1 <> "\n" <> show node2 <> "\n" <> show contourLooped <> "\n" <> show eNodes <> "\n" <> show iNodes <> "\n"
-        outAndErrOf a = (outOf a, errOfOut a)
 
     --   Handle the the case of 3 or more nodes.
     handleThreeOrMoreNodes
@@ -633,7 +632,6 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
       | otherwise = errorLen3
       where
         inodesOf (INodeSet set) = set
-        outAndErrOf a = (outOf a, errOfOut a)
     errorLen3 = error
                 $ "shortestPairDistance: " <> show shortestPairDistance <> "\n"
                 <> "ePairDistance: " <> show shortestEPairDistance <> "\n"

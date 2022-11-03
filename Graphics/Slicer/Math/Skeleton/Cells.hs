@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf)
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, eToCPPoint2, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf, errOfOut), CPPoint2(CPPoint2), Pointable(canPoint, ePointOf, pPointOf), PIntersection(PAntiCollinear, IntersectsIn), PPoint2(PPoint2), angleBetween2PL, distance2PP, eToPL, eToPPoint2, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (Arcable(outAndErrOf, outOf), CPPoint2(CPPoint2), Pointable(canPoint, ePointOf, pPointOf), PIntersection(PAntiCollinear, IntersectsIn), PPoint2(PPoint2), angleBetween2PL, distance2PP, eToPL, eToPPoint2, plinesIntersectIn)
 
 import Graphics.Slicer.Math.PGAPrimitives (join2PP)
 
@@ -130,7 +130,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
             cMotorcyclePoint = canonicalizePPoint2 $ pPointOf myMotorcycle
             cNodePoint = canonicalizePPoint2 $ pPointOf oneNode
             motorcycleENodeDistance = distanceBetweenPPoints cMotorcyclePoint cNodePoint
-            motorcycleLineSegDistance = distanceBetweenPPoints cMotorcyclePoint $ justIntersectsIn $ plinesIntersectIn (outOf myMotorcycle, errOfOut myMotorcycle) (eToPL $ fst $ motorcycleIntersectsAt myContour myMotorcycle)
+            motorcycleLineSegDistance = distanceBetweenPPoints cMotorcyclePoint $ justIntersectsIn $ plinesIntersectIn (outAndErrOf myMotorcycle) (eToPL $ fst $ motorcycleIntersectsAt myContour myMotorcycle)
         (_:_) -> error "more than one opposing exterior node. cannot yet handle this situation."
       where
         justIntersectsIn :: PIntersection -> CPPoint2
@@ -140,7 +140,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
         eNodesInPath = opposingNodes myContour myMotorcycle
           where
             opposingNodes :: Contour -> Motorcycle -> [ENode]
-            opposingNodes c m = filter (\eNode -> plinesIntersectIn (outOf eNode, errOfOut eNode) (outOf m, errOfOut m) == PAntiCollinear) $ eNodesOfOutsideContour c
+            opposingNodes c m = filter (\eNode -> plinesIntersectIn (outAndErrOf eNode) (outAndErrOf m) == PAntiCollinear) $ eNodesOfOutsideContour c
 
 -- | Find a single Cell of the given contour. always finds the cell on the 'open end' of the contour.
 findFirstCellOfContour :: Contour -> [CellDivide] -> Maybe (Cell, Maybe [RemainingContour])
@@ -407,7 +407,7 @@ nodeTreesDoNotOverlap nodeTree1 nodeTree2 cellDivide@(CellDivide motorcycles1 _)
     -- | Check that the outputs of the NodeTrees collide at the same point at the division between the two cells the NodeTrees correspond to.
     lastOutsIntersect :: NodeTree -> NodeTree -> CellDivide -> Bool
     lastOutsIntersect nt1 nt2 (CellDivide motorcycles _) = case motorcycles of
-                                                             (DividingMotorcycles m (Slist _ 0)) -> plinesIntersectIn (finalPLine nt1) (outOf m, errOfOut m) == plinesIntersectIn (finalPLine nt2) (outOf m, errOfOut m)
+                                                             (DividingMotorcycles m (Slist _ 0)) -> plinesIntersectIn (finalPLine nt1) (outAndErrOf m) == plinesIntersectIn (finalPLine nt2) (outAndErrOf m)
                                                              (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet check outpoint intersections of more than one motorcycle."
 
 -- | Given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
