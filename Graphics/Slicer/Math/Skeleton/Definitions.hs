@@ -55,7 +55,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint)
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (eToPPoint2, PLine2Err, pToEP, plinesIntersectIn, PIntersection(IntersectsIn), flipL, ProjectiveLine(PLine2), pLineIsLeft, Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, pPointOf, ePointOf), Arcable(hasArc, outOf, errOfOut), ProjectivePoint(CPPoint2,PPoint2))
+import Graphics.Slicer.Math.PGA (eToPPoint2, PLine2Err, pToEP, plinesIntersectIn, PIntersection(IntersectsIn), flipL, ProjectiveLine(PLine2), pLineIsLeft, Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outAndErrOf, outOf), ProjectivePoint(CPPoint2,PPoint2))
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
@@ -75,10 +75,11 @@ data ENode = ENode
   deriving stock Show
 
 instance Arcable ENode where
-  -- an ENode always has an arc.
-  hasArc _ = True
-  outOf (ENode _ outArc _) = outArc
   errOfOut (ENode _ _ outErr) = outErr
+  -- | an ENode always has an arc.
+  hasArc _ = True
+  outAndErrOf (ENode _ outArc outErr) = (outArc, outErr)
+  outOf (ENode _ outArc _) = outArc
 
 instance Pointable ENode where
   -- an ENode always contains a point.
@@ -105,12 +106,15 @@ data INode = INode
 
 instance Arcable INode where
   -- an INode might just end here.
-  hasArc (INode _ _ _ outArc) = isJust outArc
-  outOf (INode _ _ _ outArc) = case outArc of
-                                 (Just rawOutArc) -> fst rawOutArc
-                                 Nothing -> error "tried to get an outArc that has no output arc."
   errOfOut (INode _ _ _ outArc) = case outArc of
-                                 (Just rawOutArc) -> snd rawOutArc
+                                 (Just (_,rawOutErr)) -> rawOutErr
+                                 Nothing -> error "tried to get an outArc that has no output arc."
+  hasArc (INode _ _ _ outArc) = isJust outArc
+  outAndErrOf (INode _ _ _ outArc) = case outArc of
+                                       (Just rawOutArcAndErr) -> rawOutArcAndErr
+                                       Nothing -> error "tried to get an outArc that has no output arc."
+  outOf (INode _ _ _ outArc) = case outArc of
+                                 (Just (rawOutArc,_)) -> rawOutArc
                                  Nothing -> error "tried to get an outArc that has no output arc."
 
 instance Pointable INode where
@@ -119,7 +123,7 @@ instance Pointable INode where
     where
       allPLines :: Slist (ProjectiveLine, PLine2Err)
       allPLines = if hasArc iNode
-                  then cons (outOf iNode, errOfOut iNode) remainder
+                  then cons (outAndErrOf iNode) remainder
                   else remainder
         where
           remainder :: Slist (ProjectiveLine, PLine2Err)
@@ -143,7 +147,7 @@ instance Pointable INode where
       results = intersectionsOfPairs allPLines
       allPointsSame = intersectionsAtSamePoint ((\(Slist l _) -> l) allPLines) 
       allPLines = if hasArc iNode
-                  then slist $ nub $ (outOf iNode, errOfOut iNode) : remainder
+                  then slist $ nub $ (outAndErrOf iNode) : remainder
                   else slist $ nub remainder
         where
           remainder :: [(ProjectiveLine, PLine2Err)]
@@ -172,10 +176,11 @@ data Motorcycle = Motorcycle { _inCSegs :: !(LineSeg, LineSeg), _outPline :: !Pr
   deriving stock Show
 
 instance Arcable Motorcycle where
+  errOfOut (Motorcycle _ _ outErr) = outErr
   -- A Motorcycle always has an arc, which is it's path.
   hasArc _ = True
+  outAndErrOf (Motorcycle _ outArc outErr) = (outArc, outErr)
   outOf (Motorcycle _ outArc _) = outArc
-  errOfOut (Motorcycle _ _ outUlp) = outUlp
 
 instance Pointable Motorcycle where
   -- A motorcycle always contains a point.

@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersectio
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2, pLineFromEndpoints)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), eToPLine2WithErr, eToPPoint2, flipL, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outAndErrOf, outOf), Pointable(canPoint, ePointOf, pPointOf), eToPLine2WithErr, eToPPoint2, flipL, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -146,8 +146,8 @@ crashMotorcycles contour holes
           crashOf :: Motorcycle -> Motorcycle -> Maybe Collision
           crashOf mot1 mot2@(Motorcycle (inSeg2, _) _ _)
             -- If we have a clear path between mot1 and the origin of mot2
-            | isAntiCollinear (outOf mot1,errOfOut mot1) (outOf mot2,errOfOut mot2) && motorcycleIntersectsAt contour mot1 == (inSeg2, Left $ endPoint inSeg2) = Just $ Collision (mot1,mot2, slist []) Nothing HeadOn
-            | noIntersection (outOf mot1,errOfOut mot1) (outOf mot2,errOfOut mot2) = Nothing
+            | isAntiCollinear (outAndErrOf mot1) (outAndErrOf mot2) && motorcycleIntersectsAt contour mot1 == (inSeg2, Left $ endPoint inSeg2) = Just $ Collision (mot1,mot2, slist []) Nothing HeadOn
+            | noIntersection (outAndErrOf mot1) (outAndErrOf mot2) = Nothing
             | intersectionIsBehind mot1 = Nothing
             | intersectionIsBehind mot2 = Nothing
             -- FIXME: this should be providing a distance to intersectionPPoint along the motorcycle to check.
@@ -279,7 +279,7 @@ intersectionSameSide pointOnSide node (Motorcycle _ path _)
 
 -- | Check if the output of two motorcycles are anti-collinear with each other.
 motorcyclesAreAntiCollinear :: Motorcycle -> Motorcycle -> Bool
-motorcyclesAreAntiCollinear motorcycle1 motorcycle2 = isAntiCollinear (outOf motorcycle1,errOfOut motorcycle1) (outOf motorcycle2,errOfOut motorcycle2)
+motorcyclesAreAntiCollinear motorcycle1 motorcycle2 = isAntiCollinear (outAndErrOf motorcycle1) (outAndErrOf motorcycle2)
 
 -- | Return the total set of motorcycles in the given CellDivide
 motorcyclesInDivision :: CellDivide -> [Motorcycle]

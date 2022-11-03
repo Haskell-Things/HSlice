@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc,errOfOut,outOf), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectiveLine2(distance2PL), ProjectivePoint, distance2PP, distancePPointToPLineWithErr, fuzzinessOfL, fuzzinessOfP, pLineErrAtPPoint, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc, outAndErrOf), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectiveLine2(distance2PL), ProjectivePoint, distance2PP, distancePPointToPLineWithErr, fuzzinessOfL, fuzzinessOfP, pLineErrAtPPoint, plinesIntersectIn)
 
 -- | check if two lines cannot intersect.
 noIntersection :: (ProjectiveLine,PLine2Err) -> (ProjectiveLine,PLine2Err) -> Bool
@@ -88,7 +88,7 @@ outputIntersectsPLine n pline2WithErr
                  v -> error $ "intersection failure." <> show v <> "\n"
   | otherwise = error $ "Tried to check if the output of node intersects PLine on a node with no output:\n" <> show n <> "\n" <> show pline2WithErr <> "\n"
   where
-    res = plinesIntersectIn (outOf n, errOfOut n) pline2WithErr
+    res = plinesIntersectIn (outAndErrOf n) pline2WithErr
 
 -- | find out where the output of an Arcable intersects a given PLine2. errors if no intersection.
 outputsIntersect :: (Arcable a, Arcable b, Show a, Show b) => a -> b -> ProjectivePoint
@@ -98,7 +98,7 @@ outputsIntersect node1 node2
                                      v -> error $ "intersection failure." <> show v <> "\n"
   | otherwise = error $ "Tried to check if the outputs of two nodes intersect, but a node with no output:\n" <> show node1 <> "\n" <> show node2 <> "\n"
   where
-    res = plinesIntersectIn (outOf node1, errOfOut node1) (outOf node2, errOfOut node2)
+    res = plinesIntersectIn (outAndErrOf node1) (outAndErrOf node2)
 
 -- | find out if all of the possible intersections between all of the given nodes are close enough to be considered intersecting at the same point.
 intersectionsAtSamePoint :: [(ProjectiveLine,PLine2Err)] -> Bool

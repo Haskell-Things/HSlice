@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (noIntersection, intersectionsAtSamePo
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToPLine2, getInsideArc)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf, errOfOut), Pointable(canPoint, pPointOf), ProjectiveLine, PLine2Err, flipL, distance2PP, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outAndErrOf, outOf), Pointable(canPoint, pPointOf), ProjectiveLine, PLine2Err, flipL, distance2PP, pLineIsLeft)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
@@ -214,7 +214,7 @@ convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWith
 nodesAreAntiCollinear :: (Arcable a, Arcable b) => a -> b -> Bool
 nodesAreAntiCollinear node1 node2
   | not (hasArc node1) || not (hasArc node2) = False
-  | isAntiCollinear (outOf node1, errOfOut node1) (outOf node2, errOfOut node2) = True
+  | isAntiCollinear (outAndErrOf node1) (outAndErrOf node2) = True
   | otherwise = False
 
 -- | Walk the result tree, and find our enodes. Used to test the property that a walk of our result tree should result in the input ENodes in order.
@@ -566,7 +566,7 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
     handleTwoNodes node1 node2
       | not (hasArc node1) = error "ran across a node without an output?"
       | not (hasArc node2) = error "ran across a node without an output?"
-      | isCollinear (outOf node1, errOfOut node1) (outOf node2, errOfOut node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
+      | isCollinear (outAndErrOf node1) (outAndErrOf node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
       | nodesAreAntiCollinear node1 node2 && contourLooped = Right $ INodeSet $ one [makeLastPair node1 node2]
       | contourLooped =
       -- this is a complete loop, so this last INode will be re-written in sortINodesByENodes anyways.
@@ -609,8 +609,6 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
                           <> firstofAntiCollinearOutErrPairs (antiCollinearOutErrPairsOf allOuts)
           where
             allOuts = (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)
-             where
-               outAndErrOf a = (outOf a, errOfOut a)
         -- since anti-collinear nodes end at the same point, only count one of them.
         firstofAntiCollinearOutErrPairs nodePairs = fst <$> nodePairs
         -- filter out collinear pairs. eliminates both ends.
@@ -738,9 +736,9 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
     safeAverageNodes n1 n2
       | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n" <> errorLen3
       | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\n" <> errorLen3
-      | isParallel (outOf n1, errOfOut n1) (outOf n2, errOfOut n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> errorLen3
-      | isAntiParallel (outOf n1, errOfOut n1) (outOf n2, errOfOut n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> errorLen3
-      | isCollinear (outOf n1, errOfOut n1) (outOf n2, errOfOut n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> errorLen3
+      | isParallel (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> errorLen3
+      | isAntiParallel (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> errorLen3
+      | isCollinear (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> errorLen3
       | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> errorLen3
       | n1Distance <= realToFrac (ulpVal n1Err) = error $ "intersection is AT the point of n1!\n" <> show n1Distance <> "\n" <> show n2Distance <> "\n" <> show intersectionPoint <> "\n" <> show n1 <> "\n" <> show n2 <> "\n" <> errorLen3
       | n2Distance <= realToFrac (ulpVal n2Err) = error $ "intersection is AT the point of n2!\n" <> show n1Distance <> "\n" <> show n2Distance <> "\n" <> show intersectionPoint <> "\n" <> show n1 <> "\n" <> show n2 <> "\n" <> errorLen3
@@ -809,17 +807,17 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
         && hasArc node1
         && hasArc node2
         && intersectsInPoint node1 node2 =
-        Just $ distanceBetweenPPoints (pPointOf node1) (intersectionOf (outOf node1,errOfOut node1) (outOf node2,errOfOut node2))
+        Just $ distanceBetweenPPoints (pPointOf node1) (intersectionOf (outAndErrOf node1) (outAndErrOf node2))
                `max`
-               distanceBetweenPPoints (pPointOf node2) (intersectionOf (outOf node1,errOfOut node1) (outOf node2,errOfOut node2))
+               distanceBetweenPPoints (pPointOf node2) (intersectionOf (outAndErrOf node1) (outAndErrOf node2))
       | otherwise = Nothing
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Bool
     intersectsInPoint node1 node2
-      | hasArc node1 && hasArc node2 = not (noIntersection (outOf node1, errOfOut node1) (outOf node2,errOfOut node2))
+      | hasArc node1 && hasArc node2 = not (noIntersection (outAndErrOf node1) (outAndErrOf node2))
                                        && not (dist1 <= realToFrac (ulpVal dist1Err))
                                        && not (dist2 <= realToFrac (ulpVal dist2Err))
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, (_,_, dist1Err)) = distance2PP (intersectionOf (outOf node1,errOfOut node1) (outOf node2, errOfOut node2),mempty) (pPointOf node1,mempty)
-        (dist2, (_,_, dist2Err)) = distance2PP (intersectionOf (outOf node1,errOfOut node1) (outOf node2, errOfOut node2),mempty) (pPointOf node2,mempty)
+        (dist1, (_,_, dist1Err)) = distance2PP (intersectionOf (outAndErrOf node1) (outAndErrOf node2),mempty) (pPointOf node1,mempty)
+        (dist2, (_,_, dist2Err)) = distance2PP (intersectionOf (outAndErrOf node1) (outAndErrOf node2),mempty) (pPointOf node2,mempty)

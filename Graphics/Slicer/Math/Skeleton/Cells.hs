@@ -60,7 +60,7 @@ import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToPLine2, pToEPoint2
 
 import Graphics.Slicer.Math.PGA (eToPPoint2)
 
-import Graphics.Slicer.Math.PGAPrimitives (Arcable(outOf,errOfOut), Pointable(canPoint, ePointOf, pPointOf), ProjectivePoint, angleBetween2PL, join2PP)
+import Graphics.Slicer.Math.PGAPrimitives (Arcable(outAndErrOf, outOf), Pointable(canPoint, ePointOf, pPointOf), ProjectivePoint, angleBetween2PL, join2PP)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving (Show, Eq)
@@ -136,7 +136,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
         eNodesInPath = opposingNodes myContour myMotorcycle
           where
             opposingNodes :: Contour -> Motorcycle -> [ENode]
-            opposingNodes c m = filter (\eNode -> isAntiCollinear (outOf eNode,errOfOut eNode) (outOf m,errOfOut m) ) $ eNodesOfOutsideContour c
+            opposingNodes c m = filter (\eNode -> isAntiCollinear (outAndErrOf eNode) (outAndErrOf m) ) $ eNodesOfOutsideContour c
 
 -- | Find a single Cell of the given contour. always finds the cell on the 'open end' of the contour.
 findFirstCellOfContour :: Contour -> [CellDivide] -> Maybe (Cell, Maybe [RemainingContour])

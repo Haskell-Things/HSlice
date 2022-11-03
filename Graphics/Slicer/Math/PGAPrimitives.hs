@@ -28,6 +28,7 @@ module Graphics.Slicer.Math.PGAPrimitives
     Arcable(
       errOfOut,
       hasArc,
+      outAndErrOf,
       outOf
       ),
     PLine2Err(PLine2Err),
@@ -161,6 +162,7 @@ data ProjectiveLine =
   | NPLine2 GVec
   deriving (Generic, NFData, Show)
 
+-- | The typeclass of operations that can be performed on a ProjectiveLine.
 class ProjectiveLine2 a where
   angleBetween2PL :: (ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, UlpSum))
   angleCosBetween2PL :: (ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, UlpSum))
@@ -177,6 +179,8 @@ class ProjectiveLine2 a where
   translateL :: a -> ℝ -> (ProjectiveLine, PLine2Err)
   vecOfL :: a -> GVec
 
+-- | The mapping of the typeclass operations to the functions below.
+-- Some functions expose internal error for testing purposes. This internal error is filtered out.
 instance ProjectiveLine2 ProjectiveLine where
   angleBetween2PL l1 l2 = crushErr $ angleBetweenProjectiveLines l1 l2
     where
@@ -235,6 +239,17 @@ instance Semigroup PLine2Err where
 
 instance Monoid PLine2Err where
   mempty = PLine2Err mempty mempty mempty mempty mempty mempty
+
+-- | does a node have an output (resulting) projective line?
+class Arcable a where
+  -- | Return the error quotent of the output arc, if the output arc exists.
+  errOfOut :: a -> PLine2Err
+  -- | Is there an output arc from this node?
+  hasArc :: a -> Bool
+  -- | If there is an output arc, return it, and its error quotent.
+  outAndErrOf :: a -> (ProjectiveLine, PLine2Err)
+  -- | If there is an output arc, return it.
+  outOf :: a -> ProjectiveLine
 
 -- | Return the sine of the angle between the two lines, along with the error.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
@@ -564,15 +579,6 @@ class Pointable a where
   errOfPPoint :: a -> PPoint2Err
   -- | Get a projective representation of this point.
   pPointOf :: a -> ProjectivePoint
-
--- | does this node have an output (resulting) pLine?
-class Arcable a where
-  -- | Return the error quotent of the output arc, if the output arc exists.
-  errOfOut :: a -> PLine2Err
-  -- | Is there an output arc from this node?
-  hasArc :: a -> Bool
-  -- | If there is an output arc, return it.
-  outOf :: a -> ProjectiveLine
 
 class (Show a) => ProjectivePoint2 a where
   canonicalize :: a -> (ProjectivePoint, PPoint2Err)
