@@ -99,7 +99,7 @@ instance Pointable INode where
       allPLines = if hasArc iNode
                   then cons (outOf iNode, errOfOut iNode) $ cons firstPLine $ cons secondPLine morePLines
                   else cons firstPLine $ cons secondPLine morePLines
-      hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn (fst pl1) (fst pl2)) $ getPairs pLines
+      hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
         where
           saneIntersect (IntersectsIn _ _) = True
           saneIntersect _                  = False
@@ -126,7 +126,7 @@ instance Pointable INode where
       allPLines = if hasArc iNode
                   then slist $ nub $ (outOf iNode, errOfOut iNode) : firstPLine : secondPLine : rawPLines
                   else slist $ nub $ firstPLine : secondPLine : rawPLines
-      intersectionsOfPairs (Slist pLines _) = catMaybes $ (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn (fst pl1) (fst pl2)) <$> getPairs pLines
+      intersectionsOfPairs (Slist pLines _) = catMaybes $ (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) <$> getPairs pLines
         where
           saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
           saneIntersect _                  = Nothing

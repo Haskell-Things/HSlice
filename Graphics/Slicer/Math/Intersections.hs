@@ -20,7 +20,7 @@
 
 module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getPLine2Intersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
 
-import Prelude (Bool, Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, Int, (<), (*), (||), (==), fst, length, odd, realToFrac)
+import Prelude (Bool, Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, Int, (<), (*), (||), (==), fst, length, mempty, odd, realToFrac)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
@@ -172,7 +172,7 @@ filterIntersections l1 l2 l3 = error
 
 -- | Get the intersection point of two lines we know have an intersection point.
 intersectionOf :: PLine2 -> PLine2 -> CPPoint2
-intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
+intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn (pl1,mempty) (pl2,mempty)
   where
     saneIntersection PAntiCollinear     = error $ "cannot get the intersection of anti-collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
     saneIntersection PCollinear         = error $ "cannot get the intersection of collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
@@ -182,7 +182,7 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
 
 -- | Get the intersection point of two lines.
 intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 (CPPoint2, PPoint2Err))
-intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
+intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn (pl1,mempty) (pl2,mempty)
   where
     (foundDistance, (_,_,UlpSum foundErr)) = distance2PL pl1 pl2
     saneIntersection PAntiCollinear     = Just $ Left pl1
@@ -201,16 +201,16 @@ noIntersection pline1 pline2 = isCollinear pline1 pline2 || isParallel pline1 pl
 
 -- | check if two lines are really the same line.
 isCollinear :: PLine2 -> PLine2 -> Bool
-isCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PCollinear
+isCollinear pline1 pline2 = plinesIntersectIn (pline1,mempty) (pline2,mempty) == PCollinear
 
 -- | check if two lines are really the same line.
 isAntiCollinear :: PLine2 -> PLine2 -> Bool
-isAntiCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiCollinear
+isAntiCollinear pline1 pline2 = plinesIntersectIn (pline1,mempty) (pline2,mempty) == PAntiCollinear
 
 -- | check if two lines are parallel.
 isParallel :: PLine2 -> PLine2 -> Bool
-isParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PParallel
+isParallel pline1 pline2 = plinesIntersectIn (pline1,mempty) (pline2,mempty) == PParallel
 
 -- | check if two lines are anti-parallel.
 isAntiParallel :: PLine2 -> PLine2 -> Bool
-isAntiParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiParallel
+isAntiParallel pline1 pline2 = plinesIntersectIn (pline1,mempty) (pline2,mempty) == PAntiParallel
