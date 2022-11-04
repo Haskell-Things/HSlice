@@ -85,15 +85,15 @@ data INode = INode { _firstInArc :: !(PLine2, PLine2Err), _secondInArc :: !(PLin
 
 instance Arcable INode where
   -- an INode might just end here.
+  errOfOut (INode _ _ _ outArc) =  case outArc of
+                                 (Just (_,rawOutArcErr)) -> rawOutArcErr
+                                 Nothing -> error "tried to get an outArc that has no output arc."
   hasArc (INode _ _ _ outArc) = isJust outArc
   outAndErrOf (INode _ _ _ outArc) = case outArc of
-                                       (Just (rawOutArc,rawOutErr)) -> (rawOutArc, rawOutErr)
+                                       (Just (rawOutArc, rawOutErr)) -> (rawOutArc, rawOutErr)
                                        Nothing -> error "tried to get an outArc that has no output arc."
   outOf (INode _ _ _ outArc) = case outArc of
                                  (Just (rawOutArc,_)) -> rawOutArc
-                                 Nothing -> error "tried to get an outArc that has no output arc."
-  errOfOut (INode _ _ _ outArc) =  case outArc of
-                                 (Just (_,rawOutArcErr)) -> rawOutArcErr
                                  Nothing -> error "tried to get an outArc that has no output arc."
 
 instance Pointable INode where

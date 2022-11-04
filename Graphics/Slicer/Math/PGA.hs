@@ -91,7 +91,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVa
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, pLineErrAtPPoint, xIntercept, yIntercept)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -117,15 +117,24 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
          oppositeDirection pl1 pl2)) = if sameDirection pl1 pl2
                                        then PCollinear
                                        else PAntiCollinear
-  | sameDirection pl1 pl2            = PParallel
-  | oppositeDirection pl1 pl2        = PAntiParallel
-  | otherwise                        = IntersectsIn res (npl1Err, npl2Err, idnErr, resErr)
+  | sameDirection pl1 pl2            = if d < parallelFuzziness
+                                       then PCollinear
+                                       else PParallel
+  | oppositeDirection pl1 pl2        = if d < parallelFuzziness
+                                       then PAntiCollinear
+                                       else PAntiParallel
+  | otherwise                        = IntersectsIn res (pl1Err <> npl1Err, pl2Err <> npl2Err, idnErr, resErr)
   where
-    (idealNorm, idnErr) = idealNormOfP intersectPoint
-    -- FIXME: how much do the potential normalization errors have an effect on the resultant angle?
-    (intersectPoint, _) = intersect2PL pl1 pl2
-    (res, (npl1Err, npl2Err, resErr)) = fromJust canonicalizedIntersection
-    canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
+    -- | The distance within which we consider (anti)parallel lines to be (anti)colinear.
+    parallelFuzziness :: ℝ
+    parallelFuzziness = realToFrac $ ulpVal $ dErr <> pLineErrAtPPoint (npl1, npl1Err <> pl1Err) res <> pLineErrAtPPoint (npl2, npl2Err <> pl2Err) res
+    -- | When two lines are really close to parallel or antiparallel, we use the distance between the lines to decide whether to promote them to being (anti)colinear.
+    (d, (_, _, dErr)) = distance2PL npl1 npl2
+    (idealNorm, idnErr) = idealNormOfP res
+    (res, (_, _, resErr)) = fromJust canonicalizedIntersection
+    canonicalizedIntersection = canonicalizedIntersectionOf2PL npl1 npl2
+    (npl1, npl1Err) = normalizeL pl1
+    (npl2, npl2Err) = normalizeL pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe Bool
