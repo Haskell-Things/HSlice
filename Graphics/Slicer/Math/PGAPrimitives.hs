@@ -240,13 +240,13 @@ instance Semigroup PLine2Err where
 instance Monoid PLine2Err where
   mempty = PLine2Err mempty mempty mempty mempty mempty mempty
 
--- | does a node have an output (resulting) projective line?
+-- | Does this node have an output (resulting) line?
 class Arcable a where
   -- | Return the error quotent of the output arc, if the output arc exists.
   errOfOut :: a -> PLine2Err
   -- | Is there an output arc from this node?
   hasArc :: a -> Bool
-  -- | If there is an output arc, return it, along with its error quotent.
+  -- | If there is an output arc, return it, along with it's error quotent.
   outAndErrOf :: a -> (ProjectiveLine, PLine2Err)
   -- | If there is an output arc, return it.
   outOf :: a -> ProjectiveLine
@@ -259,9 +259,9 @@ angleBetweenProjectiveLines line1 line2 = (scalarPart likeRes, resErr)
     resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
     -- FIXME: this returned ULPsum is wrong. actually try to interpret it.
     ulpSum = sumErrVals likeMulErr <> sumErrVals likeAddErr
-    (likeRes, (likeMulErr, likeAddErr)) = l1 ⎣+ l2
-    l1 = vecOfL $ forceBasisOfL npl1
-    l2 = vecOfL $ forceBasisOfL npl2
+    (likeRes, (likeMulErr, likeAddErr)) = lv1 ⎣+ lv2
+    lv1 = vecOfL $ forceBasisOfL npl1
+    lv2 = vecOfL $ forceBasisOfL npl2
     (npl1, npl1Err) = normalizeL line1
     (npl2, npl2Err) = normalizeL line2
 
@@ -270,12 +270,12 @@ distanceBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a ->
 distanceBetweenProjectiveLines line1 line2 = (res, resErr)
   where
     (res, idealErr) = idealNormOfP $ PPoint2 like
-    resErr = (pv1Err, pv2Err, likeErr, idealErr)
-    (like, likeErr) = p1 ⎣+ p2
-    p1 = vecOfL $ forceBasisOfL npl1
-    p2 = vecOfL $ forceBasisOfL npl2
-    (npl1, pv1Err) = normalizeL line1
-    (npl2, pv2Err) = normalizeL line2
+    resErr = (npl1Err, npl2Err, likeErr, idealErr)
+    (like, likeErr) = lv1 ⎣+ lv2
+    lv1 = vecOfL $ forceBasisOfL npl1
+    lv2 = vecOfL $ forceBasisOfL npl2
+    (npl1, npl1Err) = normalizeL line1
+    (npl2, npl2Err) = normalizeL line2
 
 -- | Reverse a line. same line, but pointed in the other direction.
 flipProjectiveLine :: (ProjectiveLine2 a) => a -> a
@@ -334,9 +334,9 @@ meetOfProjectiveLines line1 line2 = (PPoint2 res,
                                              npl2Err,
                                              resUnlikeErr))
   where
-    (res, resUnlikeErr) = pv1 ⎤+ pv2
-    pv1 = vecOfL $ forceBasisOfL npl1
-    pv2 = vecOfL $ forceBasisOfL npl2
+    (res, resUnlikeErr) = lv1 ⎤+ lv2
+    lv1 = vecOfL $ forceBasisOfL npl1
+    lv2 = vecOfL $ forceBasisOfL npl2
     (npl1, npl1Err) = normalizeL line1
     (npl2, npl2Err) = normalizeL line2
 

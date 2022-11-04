@@ -49,7 +49,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
 import Graphics.Slicer.Math.PGA (ProjectivePoint2(distance2PP), ProjectiveLine2(distance2PL), distancePPointToPLineWithErr, eToPLine2WithErr, pPointOnPerpWithErr, translateRotatePPoint2WithErr)
 
-import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err, angleBetween2PL, interpolate2PP, join2PP, normalizeL, pToEP, translateL)
+import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectiveLine2(angleBetween2PL, normalizeL, translateL), ProjectivePoint, ProjectivePoint2(interpolate2PP, join2PP, pToEP), PPoint2Err, PLine2Err)
 
 angleBetween :: ProjectiveLine -> ProjectiveLine -> ℝ
 angleBetween nPLine1 nPLine2 = fst $ angleBetween2PL nPLine1 nPLine2
