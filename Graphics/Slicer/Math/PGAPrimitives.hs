@@ -245,7 +245,7 @@ instance Semigroup PLine2Err where
 instance Monoid PLine2Err where
   mempty = PLine2Err mempty mempty mempty mempty mempty mempty
 
--- | Does this node have an output (resulting) pLine?
+-- | Does this node have an output (resulting) line?
 class Arcable a where
   -- | Return the error quotent of the output arc, if the output arc exists.
   errOfOut :: a -> PLine2Err
@@ -264,9 +264,9 @@ angleBetweenProjectiveLines line1 line2 = (scalarPart likeRes, resErr)
     resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
     -- FIXME: this returned ULPsum is wrong. actually try to interpret it.
     ulpSum = sumErrVals likeMulErr <> sumErrVals likeAddErr
-    (likeRes, (likeMulErr, likeAddErr)) = l1 ⎣+ l2
-    l1 = vecOfL $ forceBasisOfL npl1
-    l2 = vecOfL $ forceBasisOfL npl2
+    (likeRes, (likeMulErr, likeAddErr)) = lv1 ⎣+ lv2
+    lv1 = vecOfL $ forceBasisOfL npl1
+    lv2 = vecOfL $ forceBasisOfL npl2
     (npl1, npl1Err) = normalizeL line1
     (npl2, npl2Err) = normalizeL line2
 
@@ -276,9 +276,9 @@ distanceBetweenProjectiveLines line1 line2 = (res, resErr)
   where
     (res, idealErr) = idealNormOfP $ PPoint2 like
     resErr = (npl1Err, npl2Err, likeErr, idealErr)
-    (like, likeErr) = l1 ⎣+ l2
-    l1 = vecOfL $ forceBasisOfL npl1
-    l2 = vecOfL $ forceBasisOfL npl2
+    (like, likeErr) = lv1 ⎣+ lv2
+    lv1 = vecOfL $ forceBasisOfL npl1
+    lv2 = vecOfL $ forceBasisOfL npl2
     (npl1, npl1Err) = normalizeL line1
     (npl2, npl2Err) = normalizeL line2
 
