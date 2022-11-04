@@ -112,7 +112,7 @@ data PIntersection =
 
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
 plinesIntersectIn :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a,PLine2Err) -> (b,PLine2Err) -> PIntersection
-plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
+plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
   | isNothing canonicalizedIntersection
   || (idealNorm <= realToFrac (ulpVal idnErr)
      && (sameDirection pl1 pl2 ||
@@ -125,12 +125,12 @@ plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
   | oppositeDirection pl1 pl2        = if d < parallelFuzziness
                                        then PAntiCollinear
                                        else PAntiParallel
-  | otherwise                        = IntersectsIn res (npl1Err, npl2Err, idnErr, resErr)
+  | otherwise                        = IntersectsIn res (pl1Err <> npl1Err, pl2Err <> npl2Err, idnErr, resErr)
   where
-    -- distance within which we  consider parallel lines as the same line.
+    -- | The distance within which we consider (anti)parallel lines to be (anti)colinear.
     parallelFuzziness :: ℝ
     parallelFuzziness = realToFrac $ ulpVal $ dErr <> pLineErrAtPPoint (npl1, npl1Err <> pl1Err) res <> pLineErrAtPPoint (npl2, npl2Err <> pl2Err) res
-    -- when we're close to parallel or antiparallel, use the distance between the lines to promote to colinear/anticolinear
+    -- | When two lines are really close to parallel or antiparallel, we use the distance between the lines to decide whether to promote them to being (anti)colinear.
     (d, (_, _, dErr)) = distance2PL npl1 npl2
     (idealNorm, idnErr) = idealNormOfP res
     (res, (_, _, resErr)) = fromJust canonicalizedIntersection

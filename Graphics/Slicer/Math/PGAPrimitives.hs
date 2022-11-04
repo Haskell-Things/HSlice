@@ -246,7 +246,7 @@ class Arcable a where
   errOfOut :: a -> PLine2Err
   -- | Is there an output arc from this node?
   hasArc :: a -> Bool
-  -- | If there is an output arc, return it, and its error quotent.
+  -- | If there is an output arc, return it, along with its error quotent.
   outAndErrOf :: a -> (ProjectiveLine, PLine2Err)
   -- | If there is an output arc, return it.
   outOf :: a -> ProjectiveLine
