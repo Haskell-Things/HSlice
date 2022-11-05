@@ -63,6 +63,7 @@ module Graphics.Slicer.Math.PGAPrimitives
       fuzzinessOfP,
       idealNormOfP,
       interpolate2PP,
+      isIdealP,
       join2PP,
       pToEP,
       vecOfP
@@ -72,7 +73,7 @@ module Graphics.Slicer.Math.PGAPrimitives
     yIntercept
   ) where
 
-import Prelude(Bool, Eq((==),(/=)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), ($), (+), (*), (/), (<$>), (&&), abs, error, filter, fst, negate, otherwise, realToFrac, snd, sqrt)
+import Prelude(Bool(False), Eq((==),(/=)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), ($), (+), (*), (/), (<$>), (&&), abs, error, filter, fst, negate, otherwise, realToFrac, snd, sqrt)
 
 import Control.DeepSeq (NFData)
 
@@ -144,10 +145,6 @@ forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
   where
     forceVal :: [GVal] -> Set GNum -> GVal
     forceVal has needs = GVal (valOf 0 $ getVal (elems needs) has) needs
-
--- | Determine if a point is an ideal point.
-projectivePointIsIdeal :: (ProjectivePoint2 a) => a -> Bool
-projectivePointIsIdeal point = isNothing $ getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP point
 
 -------------------------------
 --- Projective Line Support ---
@@ -517,7 +514,7 @@ angleCosBetweenProjectiveLines line1 line2
 canonicalizedIntersectionOfProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe (CPPoint2, (PLine2Err, PLine2Err, PPoint2Err))
 canonicalizedIntersectionOfProjectiveLines line1 line2
   -- | Check whether the result of our intersection returns an ideal point. if it does, it means the two lines are (anti)parallel, and we should fail.
-  | projectivePointIsIdeal pp1 = Nothing
+  | isIdealP pp1 = Nothing
   | otherwise = Just (cpp1, (l1Err, l2Err, pp1Err <> cpp1Err))
   where
     (cpp1, cpp1Err) = canonicalize pp1
@@ -585,6 +582,7 @@ class (Show a) => ProjectivePoint2 a where
   fuzzinessOfP :: (a, PPoint2Err) -> UlpSum
   idealNormOfP :: a -> (ℝ, UlpSum)
   interpolate2PP :: (ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (PPoint2, (PPoint2Err, PPoint2Err, PPoint2Err))
+  isIdealP :: a -> Bool
   join2PP :: (ProjectivePoint2 b) => a -> b -> (PLine2, (PPoint2Err, PPoint2Err, PLine2Err))
   pToEP :: a -> (Point2, PPoint2Err)
   vecOfP :: a -> GVec
@@ -599,6 +597,7 @@ instance ProjectivePoint2 PPoint2 where
   fuzzinessOfP p = pPointFuzziness p
   idealNormOfP p = idealNormOfProjectivePoint p
   interpolate2PP p1 p2 = projectivePointBetweenProjectivePoints p1 p2
+  isIdealP p = projectivePointIsIdeal p
   join2PP p1 p2 = joinOfProjectivePoints p1 p2
   pToEP p = fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToEuclidianPoint p
   vecOfP (PPoint2 a) = a
@@ -613,6 +612,7 @@ instance ProjectivePoint2 CPPoint2 where
   fuzzinessOfP p = pPointFuzziness p
   idealNormOfP p = idealNormOfProjectivePoint p
   interpolate2PP p1 p2 = projectivePointBetweenProjectivePoints p1 p2
+  isIdealP _ = False
   join2PP p1 p2 = joinOfProjectivePoints p1 p2
   pToEP p = fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToEuclidianPoint p
   vecOfP (CPPoint2 v) = v
@@ -622,7 +622,7 @@ instance ProjectivePoint2 CPPoint2 where
 -- Note: For precision, we go through some work to not bother dividing the GP1,GP2 component with itsself, and just substitute in the answer, as exactly 1.
 canonicalizeProjectivePoint :: (ProjectivePoint2 a) => a -> (CPPoint2, PPoint2Err)
 canonicalizeProjectivePoint point
-  | projectivePointIsIdeal point = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
+  | isIdealP point = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
   -- | Handle the ID case. The passed in point is canonicalized already.
   | valOf 1 foundVal == 1 = (CPPoint2 $ GVec rawVals, mempty)
   | otherwise = (res, PPoint2Err mempty scaledErrs mempty mempty mempty mempty mempty)
@@ -711,7 +711,7 @@ joinOfProjectivePoints point1 point2 = (PLine2 res,
 -- If the weights are equal, the distance will be right between the two points.
 projectivePointBetweenProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (PPoint2, (PPoint2Err, PPoint2Err, PPoint2Err))
 projectivePointBetweenProjectivePoints startPoint stopPoint weight1 weight2
-  | projectivePointIsIdeal res = error "tried to generate an ideal point?"
+  | isIdealP res = error "tried to generate an ideal point?"
   | otherwise = (res, resErr)
   where
     res = PPoint2 rawRes
@@ -723,6 +723,10 @@ projectivePointBetweenProjectivePoints startPoint stopPoint weight1 weight2
     rawStopPoint = vecOfP cStopPoint
     (cStartPoint, cStartPointErr) = canonicalize startPoint
     (cStopPoint, cStopPointErr) = canonicalize stopPoint
+
+-- | Determine if a point is an ideal point.
+projectivePointIsIdeal :: (ProjectivePoint2 a) => a -> Bool
+projectivePointIsIdeal point = isNothing $ getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP point
 
 -- | Maybe create a euclidian point from a projective point. Will fail if the projective point is ideal.
 projectivePointToEuclidianPoint :: (ProjectivePoint2 a) => a -> Maybe (Point2, PPoint2Err)

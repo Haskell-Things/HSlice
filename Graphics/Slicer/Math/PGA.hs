@@ -91,7 +91,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVa
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, pLineErrAtPPoint, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, pLineErrAtPPoint, xIntercept, yIntercept)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -139,7 +139,7 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe Bool
 pLineIsLeft (pl1, _) (pl2, _)
--- FIXME: Is there a way we can use Eq on a and b if they are the same type, rather than normalizing them first?
+  -- | FIXME: Is there a way we can use Eq on a and b if they are the same type, rather than normalizing them first?
   | npl1 == npl2         = Nothing
   | abs res <= angleFuzz = Nothing
   | otherwise            = Just $ res > 0
@@ -150,11 +150,13 @@ pLineIsLeft (pl1, _) (pl2, _)
     (npl1, _) = normalizeL pl1
     (npl2, _) = normalizeL pl2
 
+-- | Find the distance between a projective point and a projective line.
+-- Note: fails in the case of ideal points.
 -- FIXME: use the distance to increase ULP appropriately?
 -- FIXME: we lose a lot of error in this function.
 distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
 distancePPointToPLineWithErr point line
-  | valOf 0 foundVal == 0 = error "attempted to get the distance of an ideal point."
+  | isIdealP point = error "attempted to get the distance of an ideal point."
   | otherwise = (res, ulpTotal)
   where
     (res, _)                       = normOfL newPLine
@@ -164,7 +166,6 @@ distancePPointToPLineWithErr point line
     npvec                          = vecOfP $ forceBasisOfP point
     (linePoint, _)                 = fromJust $ canonicalizedIntersectionOf2PL (PLine2 lvec) (PLine2 perpLine)
     ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr
-    foundVal                       = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP $ point
     (NPLine2 nplvec,_)             = normalizeL line
 
 -- | Determine if two points are on the same side of a given line.
