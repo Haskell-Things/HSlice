@@ -138,13 +138,15 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe Bool
-pLineIsLeft (pl1, pl1Err) (pl2, pl2Err)
-  | npl1 == npl2       = Nothing
-  | abs res <= 0       = Nothing
-  | otherwise          = Just $ res > 0
+pLineIsLeft (pl1, _) (pl2, _)
+-- FIXME: Is there a way we can use Eq on a and b if they are the same type, rather than normalizing them first?
+  | npl1 == npl2         = Nothing
+  | abs res <= angleFuzz = Nothing
+  | otherwise            = Just $ res > 0
   where
-    -- FIXME: naieve implementation. use npl1Err and npl2Err to get two angle differences.
-    (res, _) = angleCosBetween2PL npl1 npl2
+    angleFuzz :: ℝ
+    angleFuzz = realToFrac $ ulpVal angleFuzzRaw
+    (res, (_,_, angleFuzzRaw)) = angleCosBetween2PL pl1 pl2
     (npl1, _) = normalizeL pl1
     (npl2, _) = normalizeL pl2
 
