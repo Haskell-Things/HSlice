@@ -92,7 +92,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, distance2PL, flipL, forceBasisOfL, fuzzinessOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, join2PP, pToEP, vecOfP), pLineErrAtPPoint)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, distance2PL, flipL, forceBasisOfL, fuzzinessOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), pLineErrAtPPoint)
   
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
@@ -140,22 +140,22 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe Bool
-pLineIsLeft (pl1, pl1Err) (pl2, pl2Err)
--- FIXME: Is there a way we can use Eq on a and b if they are the same type, rather than normalizing them first?
+pLineIsLeft (pl1, _) (pl2, _)
+  -- | FIXME: Is there a way we can use Eq on a and b if they are the same type, rather than normalizing them first?
   | npl1 == npl2         = Nothing
   | abs res <= angleFuzz = Nothing
-  | otherwise            = Just $ res > angleFuzz
+  | otherwise            = Just $ res > 0
   where
     angleFuzz :: ℝ
     angleFuzz = realToFrac $ ulpVal angleFuzzRaw
-    (res, (_,_, angleFuzzRaw)) = angleCosBetween2PL npl1 npl2
-    (npl1, npl1Err) = normalizeL pl1
-    (npl2, npl2Err) = normalizeL pl2
+    (res, (_,_, angleFuzzRaw)) = angleCosBetween2PL pl1 pl2
+    (npl1, _) = normalizeL pl1
+    (npl2, _) = normalizeL pl2
 
 -- | Find the distance between a projective point and a projective line.
 distancePPointToPLineWithErr :: (ProjectiveLine2 b) => (ProjectivePoint, PPoint2Err) -> (b, PLine2Err) -> (ℝ, (PPoint2Err, PLine2Err, ([ErrVal],[ErrVal]), PPoint2Err, PLine2Err, PLine2Err, PLine2Err, UlpSum))
 distancePPointToPLineWithErr (rawPoint,rawPointErr) (rawLine,rawLineErr)
-  | isNothing foundVal = error "attempted to get the distance of an ideal point."
+  | isIdealP rawPoint = error "attempted to get the distance of an ideal point."
   | otherwise = (res, resErr)
   where
     resErr = (pointErr, nLineErr, perpLineErr, lpErr <> lpcErr, lvErr, plErr, nplErr <> normErr, ulpSum)
@@ -174,8 +174,7 @@ distancePPointToPLineWithErr (rawPoint,rawPointErr) (rawLine,rawLineErr)
     lVec = vecOfL $ forceBasisOfL rawNLine
     nLineErr = rawNLineErr <> rawLineErr
     (rawNLine, rawNLineErr) = normalizeL rawLine
-    foundVal = getVal [GEPlus 1, GEPlus 2] pVals
-    point@(CPPoint2 pVec@(GVec pVals)) = forceBasisOfP cpoint
+    point@(CPPoint2 pVec) = forceBasisOfP cpoint
     pointErr = cPointErr <> rawPointErr
     (cpoint, cPointErr) = canonicalize rawPoint
 
