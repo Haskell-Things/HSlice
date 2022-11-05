@@ -1243,8 +1243,8 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
               <> "PPoint1: " <> show pPoint1 <> "\n"
               <> "PPoint2: " <> show pPoint2 <> "\n"
     -- distance1 and distance2 should be 0, in an ideal world.
-    (distance1, (_, _, _, _, _, _, _, distance1Err)) = distancePPointToPLineWithErr pPoint1 nPLine
-    (distance2, (_, _, _, _, _, _, _, distance2Err)) = distancePPointToPLineWithErr pPoint2 nPLine
+    (distance1, (_, _, _, _, _, distance1Err)) = distancePPointToPLineWithErr pPoint1 nPLine
+    (distance2, (_, _, _, _, _, distance2Err)) = distancePPointToPLineWithErr pPoint2 nPLine
     pPoint1, pPoint2 :: (ProjectivePoint, PPoint2Err)
     pPoint1@(rawPPoint1,_) = (makePPoint2 x1 y1, mempty)
     pPoint2@(rawPPoint2,_) = (makePPoint2 x2 y2, mempty)
@@ -1277,8 +1277,8 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
               <> "PPoint1: " <> show pPoint1 <> "\n"
               <> "PPoint2: " <> show pPoint2 <> "\n"
     -- distance1 and distance2 should be 0, in an ideal world.
-    (distance1, (_,_,_,_,_,_,_, distance1Err)) = distancePPointToPLineWithErr (pPoint1,mempty) (pLine1,mempty)
-    (distance2, (_,_,_,_,_,_,_, distance2Err)) = distancePPointToPLineWithErr (pPoint2,mempty) (pLine1,mempty)
+    (distance1, (_,_,_,_,_, distance1Err)) = distancePPointToPLineWithErr (pPoint1,mempty) (pLine1,mempty)
+    (distance2, (_,_,_,_,_, distance2Err)) = distancePPointToPLineWithErr (pPoint2,mempty) (pLine1,mempty)
     pPoint1 = makePPoint2 x1 y1
     pPoint2 = makePPoint2 x2 y2
     pLineErrAtPPoint1 = pLineErrAtPPoint (pLine1, pline1Err) pPoint1

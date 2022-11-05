@@ -77,7 +77,7 @@ towardIntersection pp1@(rawPp1,_) (pl1,_) pp2@(rawPp2,_)
   where
     (angleFound, (_,_,angleErr)) = angleBetween2PL newPLine pl1
     (d, (_,_,dErr)) = distance2PP pp1 pp2
-    (newPLine,(_,_,newPLineErr)) = join2PP rawPp1 rawPp2
+    (newPLine,_) = join2PP rawPp1 rawPp2
     totalErr :: ℝ
     totalErr = realToFrac $ ulpVal dErr
 

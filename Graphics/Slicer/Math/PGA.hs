@@ -92,7 +92,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, distance2PL, flipL, forceBasisOfL, fuzzinessOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), pLineErrAtPPoint)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, ePointOf, pPointOf), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, distance2PL, flipL, forceBasisOfL, fuzzinessOfL, intersect2PL, normalizeL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), pLineErrAtPPoint)
   
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
@@ -153,30 +153,24 @@ pLineIsLeft (pl1, _) (pl2, _)
     (npl2, _) = normalizeL pl2
 
 -- | Find the distance between a projective point and a projective line.
-distancePPointToPLineWithErr :: (ProjectiveLine2 b) => (ProjectivePoint, PPoint2Err) -> (b, PLine2Err) -> (ℝ, (PPoint2Err, PLine2Err, ([ErrVal],[ErrVal]), PPoint2Err, PLine2Err, PLine2Err, PLine2Err, UlpSum))
-distancePPointToPLineWithErr (rawPoint,rawPointErr) (rawLine,rawLineErr)
-  | isIdealP rawPoint = error "attempted to get the distance of an ideal point."
+distancePPointToPLineWithErr :: (ProjectiveLine2 b) => (ProjectivePoint, PPoint2Err) -> (b, PLine2Err) -> (ℝ, (PPoint2Err, PLine2Err, ([ErrVal],[ErrVal]), PLine2Err, PPoint2Err, UlpSum))
+distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, _)
+  | isIdealP inPoint = error "attempted to get the distance of an ideal point."
   | otherwise = (res, resErr)
   where
-    resErr = (pointErr, nLineErr, perpLineErr, lpErr <> lpcErr, lvErr, plErr, nplErr <> normErr, ulpSum)
-      where
-        (lvErr, plErr, lpErr) = lastPointErr
-        (_, lpcErr, nplErr)   = newPLineErr
-        -- FIXME: this is incomplete (see the bellow FIXMEs).
-        ulpSum = (\(PLine2Err _ _ normUlp _ _ _) -> normUlp) normErr
-    -- FIXME: how does the error in newPLine effect the found norm here?
-    (res, normErr)            = normOfL newPLine
-    -- FIXME: how does the error in linePoint and point effect this result?
-    (newPLine, newPLineErr)   = join2PP point linePoint
+    resErr = (cPointErr, nLineErr, perpLineErrs, perpLineNormErr, crossPointErr <> crossPointCanonicalizeErr, distanceErr)
+    -- | use distance2PP to find the distance between this crossover point, and the given point.
+    (res, (crossPointCanonicalizeErr, _, distanceErr)) = distance2PP (crossPoint, crossPointErr) (point, inPointErr <> cPointErr)
+    -- | Get the point where the perpendicular line and the input line meet.
     -- FIXME: how does perpLineErr effect the result of canonicalizedIntersectionOf2PL?
-    (linePoint, lastPointErr) = fromJust $ canonicalizedIntersectionOf2PL rawNLine (PLine2 perpLine)
-    (perpLine, perpLineErr)   = lVec ⨅+ pVec
-    lVec = vecOfL $ forceBasisOfL rawNLine
-    nLineErr = rawNLineErr <> rawLineErr
-    (rawNLine, rawNLineErr) = normalizeL rawLine
+    (crossPoint, (_, perpLineNormErr, crossPointErr)) = fromJust $ canonicalizedIntersectionOf2PL nLine (PLine2 perpLine)
+    -- | Get a perpendicular line, crossing the input line closest to the given point.
+    -- FIXME: where should we put this in PLine2Err?
+    (perpLine, perpLineErrs) = lVec ⨅+ pVec
+    lVec = vecOfL $ forceBasisOfL nLine
+    (nLine, nLineErr) = normalizeL inLine
     point@(CPPoint2 pVec) = forceBasisOfP cpoint
-    pointErr = cPointErr <> rawPointErr
-    (cpoint, cPointErr) = canonicalize rawPoint
+    (cpoint, cPointErr) = canonicalize inPoint
 
 -- | Determine if two points are on the same side of a given line.
 -- Returns nothing if one of the points is on the line.
