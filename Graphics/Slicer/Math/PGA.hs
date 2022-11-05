@@ -111,7 +111,7 @@ data PIntersection =
   deriving (Show, Eq)
 
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
-plinesIntersectIn :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a,PLine2Err) -> (b,PLine2Err) -> PIntersection
+plinesIntersectIn :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> PIntersection
 plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
   | isNothing canonicalizedIntersection
   || (idealNorm <= realToFrac (ulpVal idnErr)
@@ -139,17 +139,16 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
     (npl2, npl2Err) = normalizeL pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
--- FIXME: error quotent handling in here is trash.
 pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe Bool
-pLineIsLeft (pl1, pl1Err) (pl2,pl2Err)
--- FIXME: is there a way we can use Eq on a and b?
---  | pl1 == pl2                    = Nothing
-  | npl1 == npl2                  = Nothing
-  | abs res < realToFrac ulpTotal = Nothing
-  | otherwise                     = Just $ res > 0
+pLineIsLeft (pl1, pl1Err) (pl2, pl2Err)
+-- FIXME: Is there a way we can use Eq on a and b if they are the same type, rather than normalizing them first?
+  | npl1 == npl2         = Nothing
+  | abs res <= angleFuzz = Nothing
+  | otherwise            = Just $ res > angleFuzz
   where
-    (res, _) = angleCosBetween2PL npl1 npl2
-    ulpTotal = ulpVal $ fuzzinessOfL (npl1, pl1Err <> npl1Err) <> fuzzinessOfL (npl2, pl2Err <> npl2Err)
+    angleFuzz :: ℝ
+    angleFuzz = realToFrac $ ulpVal angleFuzzRaw
+    (res, (_,_, angleFuzzRaw)) = angleCosBetween2PL npl1 npl2
     (npl1, npl1Err) = normalizeL pl1
     (npl2, npl2Err) = normalizeL pl2
 
