@@ -31,7 +31,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, sortedPLinesWithErr, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<), (*), realToFrac)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<), (*), mempty, realToFrac)
 
 import Prelude as PL (head, last)
 
@@ -316,7 +316,7 @@ ancestorsOf (INodeSet generations)
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe PLine2
 concavePLines seg1 seg2
-  | Just True == pLineIsLeft (fst $ eToPL seg1) (fst $ eToPL seg2) = Just $ PLine2 $ addVecPair pv1 pv2
+  | Just True == pLineIsLeft (eToPL seg1) (eToPL seg2) = Just $ PLine2 $ addVecPair pv1 pv2
   | otherwise                          = Nothing
   where
     (PLine2 pv1,_) = eToPL seg1
@@ -331,18 +331,18 @@ hasNoINodes iNodeSet = case iNodeSet of
 
 -- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
 sortedPLines :: [PLine2] -> [PLine2]
-sortedPLines = sortBy (\n1 n2 -> if (n1 `pLineIsLeft` n2) == Just True then LT else GT)
+sortedPLines = sortBy (\n1 n2 -> if ((n1, mempty) `pLineIsLeft` (n2, mempty)) == Just True then LT else GT)
 
 -- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
 sortedPLinesWithErr :: [(PLine2, PLine2Err)] -> [(PLine2, PLine2Err)]
-sortedPLinesWithErr = sortBy (\n1 n2 -> if (fst n1 `pLineIsLeft` fst n2) == Just True then LT else GT)
+sortedPLinesWithErr = sortBy (\n1 n2 -> if (n1 `pLineIsLeft` n2) == Just True then LT else GT)
 
 -- | take a sorted list of PLines, and make sure the list starts with the pline closest to (but not left of) the given PLine.
 indexPLinesTo :: PLine2 -> [(PLine2, PLine2Err)] -> [(PLine2, PLine2Err)]
 indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesAfterIndex firstPLine pLines
   where
-    pLinesBeforeIndex myFirstPLine = filter (\a -> myFirstPLine `pLineIsLeft` (fst a) /= Just False)
-    pLinesAfterIndex myFirstPLine = filter (\a -> myFirstPLine `pLineIsLeft` (fst a) == Just False)
+    pLinesBeforeIndex myFirstPLine = filter (\a -> (myFirstPLine, mempty) `pLineIsLeft` a /= Just False)
+    pLinesAfterIndex myFirstPLine = filter (\a -> (myFirstPLine, mempty) `pLineIsLeft` a == Just False)
 
 -- | find the last PLine of an INode.
 lastInOf :: INode -> PLine2

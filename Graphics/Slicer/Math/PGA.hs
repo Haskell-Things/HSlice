@@ -109,7 +109,7 @@ data PIntersection =
   deriving (Show, Eq)
 
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
-plinesIntersectIn :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a,PLine2Err) -> (b,PLine2Err) -> PIntersection
+plinesIntersectIn :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> PIntersection
 plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
   | isNothing canonicalizedIntersection
   || (idealNorm <= realToFrac (ulpVal idnErr)
@@ -137,8 +137,8 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
     (npl2, npl2Err) = normalizeL pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
-pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe Bool
-pLineIsLeft pl1 pl2
+pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe Bool
+pLineIsLeft (pl1, pl1Err) (pl2, pl2Err)
   | npl1 == npl2       = Nothing
   | abs res <= 0       = Nothing
   | otherwise          = Just $ res > 0

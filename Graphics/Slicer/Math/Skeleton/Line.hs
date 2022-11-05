@@ -22,7 +22,7 @@
 -- | Functions for for applying inset line segments to a series of faces, and for adding infill to a face.
 module Graphics.Slicer.Math.Skeleton.Line (addInset, addInfill) where
 
-import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (<>), (>), min, Bool(True, False), fst, maybe, snd)
+import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (<>), (>), min, Bool(True, False), fst, maybe, mempty, snd)
 
 import Data.List (sortOn, dropWhile, takeWhile, transpose)
 
@@ -44,7 +44,7 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face))
 
 import Graphics.Slicer.Math.Lossy (eToNPLine2, eToPLine2, distancePPointToPLine, translatePLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (PLine2, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (PLine2, eToPL, pLineIsLeft)
 
 import Graphics.Slicer.Machine.Infill (makeInfill, InfillType)
 
@@ -68,7 +68,7 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     -----------------------------------------------------------------------------------------
 
     -- | The direction we need to translate our edge in order for it to be going inward.
-    translateDir v         = case pLineIsLeft (eToPLine2 edge) firstArc of
+    translateDir v         = case pLineIsLeft (eToPL edge) (firstArc, mempty) of
                                (Just True) -> (-v)
                                (Just False) -> v
                                Nothing -> error "cannot happen: edge and firstArc are the same line?"

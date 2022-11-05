@@ -26,7 +26,7 @@ module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourT
 
 import Prelude ((==), (&&), (*), (<), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, (-), not, realToFrac)
 
-import Data.List(partition, reverse, sortBy)
+import Data.List (partition, reverse, sortBy)
 
 import Data.List as DL (uncons)
 
@@ -52,7 +52,7 @@ import Graphics.Slicer.Math.Intersections (contourIntersectionCount, noIntersect
 
 import Graphics.Slicer.Math.Lossy (join2PPoint2, pPointBetweenPPoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (PPoint2, eToPPoint2, eToPL, pLineIsLeft, pPointOnPerpWithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint2(join2PP), PPoint2, eToPPoint2, eToPL, pLineIsLeft, pPointOnPerpWithErr)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -225,14 +225,14 @@ followingLineSeg x = followingLineSegLooped x x
 -- | Check if the left hand side of the first line segment of a contour is toward the inside of the contour.
 insideIsLeft :: Contour -> Maybe Bool
 insideIsLeft contour
-  | isJust (innerContourPoint contour) = Just $ pLineIsLeft pline1 pLineToInside == Just True
+  | isJust (innerContourPoint contour) = Just $ pLineIsLeft (pl1, pl1Err) (pl2,pl2Err) == Just True
   | otherwise = Nothing
   where
     (p1, p2)      = firstPointPairOfContour contour
     myMidPoint    = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
-    pLineToInside = join2PPoint2 myMidPoint innerPoint
+    (pl2,(_,_, pl2Err)) = join2PP myMidPoint innerPoint
     innerPoint    = fromJust $ innerContourPoint contour
-    (pline1,_)    = eToPL $ makeLineSeg p1 p2
+    (pl1, pl1Err) = eToPL $ makeLineSeg p1 p2
 
 -- | Find a point on the interior of a given contour, on the perpendicular bisector of the first line segment, a given distance away from the line segment.
 innerContourPoint :: Contour -> Maybe PPoint2

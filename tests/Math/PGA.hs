@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToCPPoint2, eToPLine2, getFirstArc, join2PPoint2, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalize, distance2PP, distancePPointToPLineWithErr, eToPL, eToPPoint2, interpolate2PP, intersect2PL, translateL, translateRotatePPoint2, angleBetween2PL, flipL, join2PP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalize, distance2PP, distancePPointToPLineWithErr, eToPL, eToPPoint2, interpolate2PP, intersect2PL, translateL, translateRotatePPoint2, angleBetween2PL, flipL, join2PP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, errOfOut, pPointOnPerpWithErr, outOf, pPointOf, outputIntersectsLineSeg)
 
 
 -- The primitives of our PGA only library, and error estimation code.
@@ -914,11 +914,11 @@ prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions trian
                 <> show firstSeg <> "\n"
                 <> show firstPoints <> "\n"
                 <> show (insideIsLeft triangle) <> "\n"
-                <> show (pLineIsLeft pLine (PLine2 pLineToInside)) <> "\n"
+                <> show (pLineIsLeft pLine (PLine2 pLineToInside, mempty)) <> "\n"
     maybeInnerPoint = innerContourPoint triangle
     triangle        = randomTriangle centerX centerY rawRadians rawDists
     firstSeg        = firstLineSegOfContour triangle
-    pLine           = eToPLine2 firstSeg
+    pLine           = eToPL firstSeg
     firstPoints     = firstPointPairOfContour triangle
     (p1, p2)        = firstPointPairOfContour triangle
     (myMidPoint,_)  = interpolate2PP (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
@@ -1310,12 +1310,12 @@ prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
 prop_obtuseBisectorOnBiggerSide_makeENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Expectation
 prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
   | testFirstLine = pLineIsLeft bisector pl1 --> Just True
-  | otherwise     = pLineIsLeft pl2 bisector --> Just True
+  | otherwise     = pLineIsLeft (pl2, mempty) bisector --> Just True
   where
-    pl1 = eToPLine2 $ getFirstLineSeg eNode
+    pl1 = eToPL $ getFirstLineSeg eNode
     pl2 = flipL $ eToPLine2 $ getLastLineSeg eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
-    bisector = flipL $ outOf eNode
+    bisector = (flipL $ outOf eNode, errOfOut eNode)
 
 prop_obtuseBisectorOnBiggerSide_makeINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> Expectation
 prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound > realToFrac (1-(ulpVal angleErr)), angleFound < realToFrac (-1 + (ulpVal angleErr) :: Rounded 'TowardInf ℝ)) --> (True, False)
