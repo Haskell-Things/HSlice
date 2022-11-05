@@ -154,11 +154,13 @@ pLineIsLeft (pl1, _) (pl2, _)
 
 -- | Find the distance between a projective point and a projective line.
 distancePPointToPLineWithErr :: (ProjectiveLine2 b) => (ProjectivePoint, PPoint2Err) -> (b, PLine2Err) -> (ℝ, (PPoint2Err, PLine2Err, ([ErrVal],[ErrVal]), PLine2Err, PPoint2Err, UlpSum))
-distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, _)
+distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, inLineErr)
   | isIdealP inPoint = error "attempted to get the distance of an ideal point."
   | otherwise = (res, resErr)
   where
-    resErr = (cPointErr, nLineErr, perpLineErrs, perpLineNormErr, crossPointErr <> crossPointCanonicalizeErr, distanceErr)
+    resErr = (cPointErr, nLineErr, perpLineErrs, perpLineNormErr, crossPointErr <> crossPointCanonicalizeErr, errSum)
+      where
+        errSum = distanceErr <> fuzzinessOfP (inPoint, inPointErr) <> pLineErrAtPPoint (inLine, inLineErr) crossPoint <> pLineErrAtPPoint (PLine2 perpLine, perpLineNormErr) crossPoint
     -- | use distance2PP to find the distance between this crossover point, and the given point.
     (res, (crossPointCanonicalizeErr, _, distanceErr)) = distance2PP (crossPoint, crossPointErr) (point, inPointErr <> cPointErr)
     -- | Get the point where the perpendicular line and the input line meet.
