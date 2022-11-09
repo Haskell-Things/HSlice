@@ -152,27 +152,30 @@ pLineIsLeft (pl1, _) (pl2, _)
     (npl1, _) = normalizeL pl1
     (npl2, _) = normalizeL pl2
 
--- | Find the distance between a projective point and a projective line.
-distancePPointToPLineWithErr :: (ProjectiveLine2 b) => (ProjectivePoint, PPoint2Err) -> (b, PLine2Err) -> (ℝ, (PPoint2Err, PLine2Err, ([ErrVal],[ErrVal]), PLine2Err, PPoint2Err, UlpSum))
+-- | Find the distance between a projective point and a projective line, along with the difference's error quotent.
+-- Note: Fails in the case of ideal points.
+distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> (ℝ, (PPoint2Err, PLine2Err, ([ErrVal],[ErrVal]), PLine2Err, PPoint2Err, UlpSum))
 distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, inLineErr)
   | isIdealP inPoint = error "attempted to get the distance of an ideal point."
   | otherwise = (res, resErr)
   where
-    resErr = (cPointErr, nLineErr, perpLineErrs, perpLineNormErr, crossPointErr <> crossPointCanonicalizeErr, errSum)
+    resErr = (cPointErr, nLineErr, (plMulErr, plAddErr), perpLineNormErr, crossPointErr, errSum)
       where
         errSum = distanceErr <> fuzzinessOfP (inPoint, inPointErr) <> pLineErrAtPPoint (inLine, inLineErr) crossPoint <> pLineErrAtPPoint (PLine2 perpLine, perpLineNormErr) crossPoint
     -- | use distance2PP to find the distance between this crossover point, and the given point.
-    (res, (crossPointCanonicalizeErr, _, distanceErr)) = distance2PP (crossPoint, crossPointErr) (point, inPointErr <> cPointErr)
+    (res, (_, _, distanceErr)) = distance2PP (point, pointErr) (crossPoint, crossPointErr)
     -- | Get the point where the perpendicular line and the input line meet.
     -- FIXME: how does perpLineErr effect the result of canonicalizedIntersectionOf2PL?
     (crossPoint, (_, perpLineNormErr, crossPointErr)) = fromJust $ canonicalizedIntersectionOf2PL nLine (PLine2 perpLine)
     -- | Get a perpendicular line, crossing the input line closest to the given point.
     -- FIXME: where should we put this in PLine2Err?
-    (perpLine, perpLineErrs) = lVec ⨅+ pVec
+    (perpLine, (plMulErr, plAddErr)) = lVec ⨅+ pVec
     lVec = vecOfL $ forceBasisOfL nLine
     (nLine, nLineErr) = normalizeL inLine
-    point@(CPPoint2 pVec) = forceBasisOfP cpoint
-    (cpoint, cPointErr) = canonicalize inPoint
+    pointErr = inPointErr <> cPointErr
+    pVec = vecOfP point
+    point = forceBasisOfP cPoint
+    (cPoint, cPointErr) = canonicalize inPoint
 
 -- | Determine if two points are on the same side of a given line.
 -- Returns nothing if one of the points is on the line.
