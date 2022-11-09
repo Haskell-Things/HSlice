@@ -91,7 +91,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, pLineErrAtPPoint, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, pLineErrAtPPoint, xIntercept, yIntercept)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -150,24 +150,28 @@ pLineIsLeft (pl1, _) (pl2, _)
     (npl1, _) = normalizeL pl1
     (npl2, _) = normalizeL pl2
 
--- | Find the distance between a projective point and a projective line.
+-- | Find the distance between a projective point and a projective line, along with the difference's error quotent.
 -- Note: fails in the case of ideal points.
--- FIXME: use the distance to increase ULP appropriately?
--- FIXME: we lose a lot of error in this function.
 distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> (ℝ, (PPoint2Err, PLine2Err, ([ErrVal],[ErrVal]), PLine2Err, PPoint2Err, UlpSum))
 distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, inLineErr)
   | isIdealP inPoint = error "attempted to get the distance of an ideal point."
   | otherwise = (res, resErr)
   where
-    (res, (_, _, resErrRaw)) = distance2PP (point, pointErr) (linePoint, linePointErr)
-    resErr = (pointErr, lineErr, (plMulErr, plAddErr), perpLineErr, linePointErr, resErrRaw)
-    (linePoint, (_, perpLineErr, linePointErr)) = fromJust $ canonicalizedIntersectionOf2PL (PLine2 lVec) (PLine2 perpLine)
+    resErr = (cPointErr, nLineErr, (plMulErr, plAddErr), perpLineNormErr, crossPointErr, errSum)
+      where
+        errSum = distanceErr <> fuzzinessOfP (inPoint, inPointErr) <> pLineErrAtPPoint (inLine, inLineErr) crossPoint <> pLineErrAtPPoint (PLine2 perpLine, perpLineNormErr) crossPoint
+    -- | use distance2PP to find the distance between this crossover point, and the given point.
+    (res, (_, _, distanceErr)) = distance2PP (point, pointErr) (crossPoint, crossPointErr)
+    -- | Get the point where the perpendicular line and the input line meet.
+    -- FIXME: how does perpLineErr effect the result of canonicalizedIntersectionOf2PL?
+    (crossPoint, (_, perpLineNormErr, crossPointErr)) = fromJust $ canonicalizedIntersectionOf2PL nLine (PLine2 perpLine)
+    -- | Get a perpendicular line, crossing the input line closest to the given point.
+    -- FIXME: where should we put this in PLine2Err?
     (perpLine, (plMulErr, plAddErr)) = lVec ⨅+ pVec
     lVec = vecOfL $ forceBasisOfL nLine
-    lineErr = inLineErr <> nLineErr
     (nLine, nLineErr) = normalizeL inLine
-    pVec = vecOfP point
     pointErr = inPointErr <> cPointErr
+    pVec = vecOfP point
     point = forceBasisOfP cPoint
     (cPoint, cPointErr) = canonicalize inPoint
 
