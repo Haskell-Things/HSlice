@@ -156,7 +156,7 @@ pLineIsLeft (pl1, _) (pl2, _)
 -- FIXME: we lose a lot of error in this function.
 distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> (ℝ, (PPoint2Err, PLine2Err, ([ErrVal],[ErrVal]), PLine2Err, PPoint2Err, UlpSum))
 distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, inLineErr)
-  | isIdealP point = error "attempted to get the distance of an ideal point."
+  | isIdealP inPoint = error "attempted to get the distance of an ideal point."
   | otherwise = (res, resErr)
   where
     (res, (_, _, resErrRaw)) = distance2PP (point, pointErr) (linePoint, linePointErr)
