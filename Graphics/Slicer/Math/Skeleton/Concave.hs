@@ -673,7 +673,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                      [] -> error "one line, no points.. makes no sense."
                      (x:_) -> [and pointsCloseEnough && foundDistance < realToFrac foundErr]
                        where
-                         (foundDistance, UlpSum foundErr) = distancePPointToPLineWithErr ((\(CPPoint2 v,_) -> PPoint2 v) x) a
+                         (foundDistance, (_,_,_,_,_,UlpSum foundErr)) = distancePPointToPLineWithErr ((\(CPPoint2 v,_) -> PPoint2 v) x, mempty) (a, mempty)
             (_:_) -> error
                      $ "detected multiple lines?\n"
                      <> show lineIntersections <> "\n"

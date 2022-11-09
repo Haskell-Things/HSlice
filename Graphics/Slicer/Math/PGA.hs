@@ -87,11 +87,11 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎤+), (⨅), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, getVal, mulScalarVecWithErr, sumErrVals, ulpVal, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎤+), (⨅), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, getVal, mulScalarVecWithErr, sumErrVals, ulpVal, valOf)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, normOfL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, pLineErrAtPPoint, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, pLineErrAtPPoint, xIntercept, yIntercept)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -154,19 +154,22 @@ pLineIsLeft (pl1, _) (pl2, _)
 -- Note: fails in the case of ideal points.
 -- FIXME: use the distance to increase ULP appropriately?
 -- FIXME: we lose a lot of error in this function.
-distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> (ℝ, UlpSum)
-distancePPointToPLineWithErr point line
+distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> (ℝ, (PPoint2Err, PLine2Err, ([ErrVal],[ErrVal]), PLine2Err, PPoint2Err, UlpSum))
+distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, inLineErr)
   | isIdealP point = error "attempted to get the distance of an ideal point."
-  | otherwise = (res, ulpTotal)
+  | otherwise = (res, resErr)
   where
-    (res, _)                       = normOfL newPLine
-    (newPLine, _)                  = join2PP point linePoint
-    (perpLine, (plMulErr,plAddErr))= lvec ⨅+ npvec
-    lvec                           = vecOfL $ forceBasisOfL (PLine2 nplvec)
-    npvec                          = vecOfP $ forceBasisOfP point
-    (linePoint, _)                 = fromJust $ canonicalizedIntersectionOf2PL (PLine2 lvec) (PLine2 perpLine)
-    ulpTotal                       = sumErrVals plMulErr <> sumErrVals plAddErr
-    (NPLine2 nplvec,_)             = normalizeL line
+    (res, (_, _, resErrRaw)) = distance2PP (point, pointErr) (linePoint, linePointErr)
+    resErr = (pointErr, lineErr, (plMulErr, plAddErr), perpLineErr, linePointErr, resErrRaw)
+    (linePoint, (_, perpLineErr, linePointErr)) = fromJust $ canonicalizedIntersectionOf2PL (PLine2 lVec) (PLine2 perpLine)
+    (perpLine, (plMulErr, plAddErr)) = lVec ⨅+ pVec
+    lVec = vecOfL $ forceBasisOfL nLine
+    lineErr = inLineErr <> nLineErr
+    (nLine, nLineErr) = normalizeL inLine
+    pVec = vecOfP point
+    pointErr = inPointErr <> cPointErr
+    point = forceBasisOfP cPoint
+    (cPoint, cPointErr) = canonicalize inPoint
 
 -- | Determine if two points are on the same side of a given line.
 pPointsOnSameSideOfPLine :: (ProjectivePoint2 a, ProjectivePoint2 b, ProjectiveLine2 c) => a -> b -> c -> Maybe Bool

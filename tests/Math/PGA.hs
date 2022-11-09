@@ -1226,11 +1226,11 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
               <> "PPoint1: " <> show pPoint1 <> "\n"
               <> "PPoint2: " <> show pPoint2 <> "\n"
     -- distance1 and distance2 should be 0, in an ideal world.
-    (distance1, UlpSum distance1Err) = distancePPointToPLineWithErr pPoint1 nPLine
-    (distance2, UlpSum distance2Err) = distancePPointToPLineWithErr pPoint2 nPLine
+    (distance1, (_,_,_,_,_,UlpSum distance1Err)) = distancePPointToPLineWithErr (pPoint1, mempty) (nPLine, nPLineErr)
+    (distance2, (_,_,_,_,_,UlpSum distance2Err)) = distancePPointToPLineWithErr (pPoint2, mempty) (nPLine, nPLineErr)
     pPoint1 = makePPoint2 x1 y1
     pPoint2 = makePPoint2 x2 y2
-    (nPLine, _) = normalizeL pLine
+    (nPLine, nPLineErr) = normalizeL pLine
     (pLine, pLineErr) = eToPL $ makeLineSeg (Point2 (x1,y1)) (Point2 (x2,y2))
     ulpTotal1 = distance1Err
     ulpTotal2 = distance2Err
@@ -1260,8 +1260,8 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
               <> "xIntercept(PLine1): " <> show (xIntercept (pLine1,pLine1Err)) <> "\n"
               <> "yIntercept(PLine1): " <> show (yIntercept (pLine1,pLine1Err)) <> "\n"
     -- distance1 and distance2 should be 0, in an ideal world.
-    (distance1, distance1Err) = distancePPointToPLineWithErr pPoint1 pLine1
-    (distance2, distance2Err) = distancePPointToPLineWithErr pPoint2 pLine1
+    (distance1, (_,_,_,_,_,distance1Err)) = distancePPointToPLineWithErr (pPoint1, mempty) (pLine1, pLine1Err)
+    (distance2, (_,_,_,_,_,distance2Err)) = distancePPointToPLineWithErr (pPoint2, mempty) (pLine1, pLine1Err)
     pPoint1 = makePPoint2 x1 y1
     pPoint2 = makePPoint2 x2 y2
     (pLine1, (_,_,pLine1Err)) = join2PP pPoint1 pPoint2
@@ -1289,8 +1289,8 @@ prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
               <> "ulpTotal1: " <> show ulpTotal1 <> "\n"
               <> "ulpTotal2: " <> show ulpTotal2 <> "\n"
     -- res should be d, in an ideal world.
-    (res1,UlpSum res1Err) = distancePPointToPLineWithErr perp1 pLine
-    (res2,UlpSum res2Err) = distancePPointToPLineWithErr perp2 pLine
+    (res1,(_,_,_,_,_,UlpSum res1Err)) = distancePPointToPLineWithErr (perp1, mempty) (pLine, mempty)
+    (res2,(_,_,_,_,_,UlpSum res2Err)) = distancePPointToPLineWithErr (perp2, mempty) (pLine, mempty)
     (perp1, UlpSum ulpSumPerp1) = pPointOnPerpWithErr pLine (PPoint2 pPoint1) d
     (perp2, UlpSum ulpSumPerp2) = pPointOnPerpWithErr pLine (PPoint2 pPoint2) d
     (CPPoint2 pPoint1) = makePPoint2 x1 y1

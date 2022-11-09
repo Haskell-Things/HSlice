@@ -65,7 +65,7 @@ distanceBetweenPLines nPLine1 nPLine2 = fst $ distance2PL nPLine1 nPLine2
 
 -- | Find the unsigned distance between a point and a line.
 distancePPointToPLine :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> ℝ
-distancePPointToPLine point line = fst $ distancePPointToPLineWithErr point line
+distancePPointToPLine point line = fst $ distancePPointToPLineWithErr (point, mempty) (line, mempty)
 
 -- | Create a projective point from a euclidian point.
 eToCPPoint2 :: Point2 -> CPPoint2
