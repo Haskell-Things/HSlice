@@ -161,18 +161,15 @@ distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, inLineErr)
       where
         errSum = distanceErr <> fuzzinessOfP (inPoint, inPointErr) <> pLineErrAtPPoint (inLine, inLineErr) crossPoint <> pLineErrAtPPoint (PLine2 perpLine, perpLineNormErr) crossPoint
     -- | use distance2PP to find the distance between this crossover point, and the given point.
-    (res, (_, _, distanceErr)) = distance2PP (point, pointErr) (crossPoint, crossPointErr)
+    (res, (_, _, distanceErr)) = distance2PP (cPoint, pointErr) (crossPoint, crossPointErr)
     -- | Get the point where the perpendicular line and the input line meet.
     -- FIXME: how does perpLineErr effect the result of canonicalizedIntersectionOf2PL?
     (crossPoint, (_, perpLineNormErr, crossPointErr)) = fromJust $ canonicalizedIntersectionOf2PL nLine (PLine2 perpLine)
-    -- | Get a perpendicular line, crossing the input line closest to the given point.
+    -- | Get a perpendicular line, crossing the input line at the given point.
     -- FIXME: where should we put this in PLine2Err?
-    (perpLine, (plMulErr, plAddErr)) = lVec ⨅+ pVec
-    lVec = vecOfL $ forceBasisOfL nLine
-    (nLine, nLineErr) = normalizeL inLine
+    (PLine2 perpLine, (_, _, (plMulErr, plAddErr))) = perpLineAt nLine cPoint
     pointErr = inPointErr <> cPointErr
-    pVec = vecOfP point
-    point = forceBasisOfP cPoint
+    (nLine, nLineErr) = normalizeL inLine
     (cPoint, cPointErr) = canonicalize inPoint
 
 -- | Determine if two points are on the same side of a given line.
@@ -222,14 +219,24 @@ pPointOnPerpWithErr :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ 
 pPointOnPerpWithErr line point d = (res, resErr)
   where
     -- translate the input point along the perpendicular bisector.
-    res = PPoint2 $ motor•pvec•reverseGVec motor
+    res = PPoint2 $ motor•pVec•reverseGVec motor
     resErr = (nLineErr, cPointErr, perpLineErrs, gaIErr)
     motor = addVecPairWithoutErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
       where
         -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
         gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
-    gaIErr = UlpSum $ abs $ realToFrac $ doubleUlp $ d/2
-    (perpLine, perpLineErrs) = lvec ⨅+ pvec
+    gaIErr = UlpSum $ realToFrac $ doubleUlp $ realToFrac (realToFrac (abs d) / 2 :: Rounded 'TowardInf ℝ)
+    -- | Get a perpendicular line, crossing the input line at the given point.
+    -- FIXME: where should we put the error component of this in PLine2Err?
+    (PLine2 perpLine, (nLineErr, _, perpLineErrs)) = perpLineAt line cPoint
+    pVec = vecOfP $ forceBasisOfP cPoint
+    (cPoint, cPointErr) = canonicalize point
+
+perpLineAt :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> (PLine2, (PLine2Err, PPoint2Err, ([ErrVal],[ErrVal])))
+perpLineAt line point = (PLine2 res, resErr)
+  where
+    (res, perpLineErrs) = lvec ⨅+ pvec
+    resErr = (nLineErr, cPointErr, perpLineErrs)
     lvec = vecOfL $ forceBasisOfL nLine
     (nLine, nLineErr) = normalizeL line
     pvec = vecOfP $ forceBasisOfP cPoint
