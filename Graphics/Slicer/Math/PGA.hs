@@ -203,7 +203,6 @@ sameDirection a b = res >= maxAngle
     (res, (_,_,resErr)) = angleBetween2PL a b
 
 -- | A checker, to ensure two Projective Lines are going the opposite direction, and are parallel.
--- FIXME: precision on inputs?
 oppositeDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
 oppositeDirection a b = res <= minAngle
   where
@@ -216,22 +215,22 @@ oppositeDirection a b = res <= minAngle
 -- FIXME: many operators here have error preserving forms, use those!
 -- FIXME: we were skipping canonicalization, are canonicalization and normalization necessary?
 pPointOnPerpWithErr :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> (PPoint2, (PLine2Err, PPoint2Err, ([ErrVal],[ErrVal]), UlpSum))
-pPointOnPerpWithErr line point d = (res, resErr)
+pPointOnPerpWithErr line point d = (PPoint2 res, resErr)
   where
     -- translate the input point along the perpendicular bisector.
-    res = PPoint2 $ motor•pVec•reverseGVec motor
-    resErr = (nLineErr, cPointErr, perpLineErrs, gaIErr)
+    res = motor•pVec•reverseGVec motor
+    resErr = (nLineErr, cPointErr, perpLineErrs, gaIScaledErr)
     motor = addVecPairWithoutErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
-      where
-        -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
-        gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
-    gaIErr = UlpSum $ realToFrac $ doubleUlp $ realToFrac (realToFrac (abs d) / 2 :: Rounded 'TowardInf ℝ)
+    -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
+    gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
+    gaIScaledErr = UlpSum $ realToFrac $ doubleUlp $ realToFrac (realToFrac (abs d) / 2 :: Rounded 'TowardInf ℝ)
     -- | Get a perpendicular line, crossing the input line at the given point.
     -- FIXME: where should we put the error component of this in PLine2Err?
     (PLine2 perpLine, (nLineErr, _, perpLineErrs)) = perpLineAt line cPoint
     pVec = vecOfP $ forceBasisOfP cPoint
     (cPoint, cPointErr) = canonicalize point
 
+-- Find a projective line crossing the given projective line at the given projective point at a 90 degree angle.
 perpLineAt :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> (PLine2, (PLine2Err, PPoint2Err, ([ErrVal],[ErrVal])))
 perpLineAt line point = (PLine2 res, resErr)
   where
