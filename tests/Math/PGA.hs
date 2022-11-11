@@ -1289,13 +1289,13 @@ prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
               <> "ulpTotal1: " <> show ulpTotal1 <> "\n"
               <> "ulpTotal2: " <> show ulpTotal2 <> "\n"
     -- res should be d, in an ideal world.
-    (res1,(_,_,_,_,_,UlpSum res1Err)) = distancePPointToPLineWithErr (perp1, mempty) (pLine, mempty)
-    (res2,(_,_,_,_,_,UlpSum res2Err)) = distancePPointToPLineWithErr (perp2, mempty) (pLine, mempty)
-    (perp1, UlpSum ulpSumPerp1) = pPointOnPerpWithErr pLine (PPoint2 pPoint1) d
-    (perp2, UlpSum ulpSumPerp2) = pPointOnPerpWithErr pLine (PPoint2 pPoint2) d
-    (CPPoint2 pPoint1) = makePPoint2 x1 y1
-    (CPPoint2 pPoint2) = makePPoint2 x2 y2
-    (pLine, _) = join2PP (CPPoint2 pPoint1) (CPPoint2 pPoint2)
+    (res1,(_,_,_,_,_, UlpSum res1Err)) = distancePPointToPLineWithErr (perp1, mempty) (pLine, mempty)
+    (res2,(_,_,_,_,_, UlpSum res2Err)) = distancePPointToPLineWithErr (perp2, mempty) (pLine, mempty)
+    (perp1, (_,_,_, UlpSum ulpSumPerp1)) = pPointOnPerpWithErr pLine pPoint1 d
+    (perp2, (_,_,_, UlpSum ulpSumPerp2)) = pPointOnPerpWithErr pLine pPoint2 d
+    pPoint1 = makePPoint2 x1 y1
+    pPoint2 = makePPoint2 x2 y2
+    (pLine, _) = join2PP pPoint1 pPoint2
     ulpTotal1 = res1Err + ulpSumPerp1
     ulpTotal2 = res2Err + ulpSumPerp2
     d :: ℝ
