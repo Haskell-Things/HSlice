@@ -163,7 +163,7 @@ distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, inLineErr)
       where
         errSum = distanceErr <> fuzzinessOfP (inPoint, inPointErr) <> pLineErrAtPPoint (inLine, inLineErr) crossPoint <> pLineErrAtPPoint (PLine2 perpLine, perpLineNormErr) crossPoint
     -- | use distance2PP to find the distance between this crossover point, and the given point.
-    (res, (_, _, distanceErr)) = distance2PP (point, pointErr) (crossPoint, crossPointErr)
+    (res, (_, _, distanceErr)) = distance2PP (cPoint, pointErr) (crossPoint, crossPointErr)
     -- | Get the point where the perpendicular line and the input line meet.
     -- FIXME: how does perpLineErr effect the result of canonicalizedIntersectionOf2PL?
     (crossPoint, (_, perpLineNormErr, crossPointErr)) = fromJust $ canonicalizedIntersectionOf2PL nLine (PLine2 perpLine)
@@ -178,9 +178,8 @@ distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, inLineErr)
     (cPoint, cPointErr) = canonicalize inPoint
 
 -- | Determine if two points are on the same side of a given line.
--- Returns nothing if one of the points is on the line.
--- FIXME: accept input error amounts, take input error amounts into consideration.
-pPointsOnSameSideOfPLine :: (ProjectivePoint2 a, ProjectiveLine2 c) => a -> a -> c -> Maybe Bool
+-- Returns Nothing if one of the points is on the line.
+pPointsOnSameSideOfPLine :: (ProjectivePoint2 a, ProjectivePoint2 b, ProjectiveLine2 c) => a -> b -> c -> Maybe Bool
 pPointsOnSameSideOfPLine point1 point2 line
   |  abs foundP1 < foundErr1 ||
      abs foundP2 < foundErr2    = Nothing
@@ -200,17 +199,15 @@ pPointsOnSameSideOfPLine point1 point2 line
     lv1 = vecOfL $ forceBasisOfL line
 
 -- | A checker, to ensure two Projective Lines are going the same direction, and are parallel.
--- FIXME: precision on inputs?
 sameDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
 sameDirection a b = res >= maxAngle
   where
     -- ceiling value. a value bigger than maxAngle is considered to be going the same direction.
     maxAngle :: ℝ
-    maxAngle = 1.0 - realToFrac (ulpVal resErr)
+    maxAngle = realToFrac (1 - ulpVal resErr :: Rounded 'TowardInf ℝ)
     (res, (_,_,resErr)) = angleBetween2PL a b
 
 -- | A checker, to ensure two Projective Lines are going the opposite direction, and are parallel.
--- FIXME: precision on inputs?
 oppositeDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
 oppositeDirection a b = res <= minAngle
   where
@@ -220,24 +217,26 @@ oppositeDirection a b = res <= minAngle
     (res, (_,_,resErr)) = angleBetween2PL a b
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
-pPointOnPerpWithErr :: ProjectiveLine -> ProjectivePoint -> ℝ -> (ProjectivePoint, (PLine2Err,([ErrVal],[ErrVal]), UlpSum))
-pPointOnPerpWithErr pline rppoint d = (res, (rlErr, perpPLineErr, ulpTotal))
+-- FIXME: many operators here have error preserving forms, use those!
+-- FIXME: we were skipping canonicalization, are canonicalization and normalization necessary?
+pPointOnPerpWithErr :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> (ProjectivePoint, (PLine2Err, PPoint2Err, ([ErrVal],[ErrVal]), UlpSum))
+pPointOnPerpWithErr line point d = (res, resErr)
   where
-    res = case valOf 0 ( getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) resRaw) of
-            1 -> CPPoint2 resRaw
-            _ -> PPoint2 resRaw
-    resRaw = motor•pvec•reverseGVec motor
-    (perpLine,perpPLineErr) = lvec ⨅+ pvec
-    lvec = vecOfL $ forceBasisOfL $ PLine2 rlvec
+    -- translate the input point along the perpendicular bisector.
+    res = PPoint2 $ motor•pvec•reverseGVec motor
+    resErr = (nLineErr, cPointErr, perpLineErrs, gaIErr)
     motor = addVecPairWithoutErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
-    -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
       where
+        -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
         gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
-    gaIErr = UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac (realToFrac d / 2 :: Rounded 'TowardInf ℝ)
-    ulpTotal = gaIErr <> lErr
-    pvec = vecOfP $ forceBasisOfP rppoint
-    lErr = pLineErrAtPPoint nPLine rppoint
-    nPLine@((NPLine2 rlvec),rlErr) = normalizeL pline
+    gaIErr = UlpSum $ realToFrac $ doubleUlp $ realToFrac (realToFrac (abs d) / 2 :: Rounded 'TowardInf ℝ)
+    -- | Get a perpendicular line, crossing the input line at the given point.
+    -- FIXME: where should we put this in PLine2Err?
+    (perpLine, perpLineErrs) = lvec ⨅+ pvec
+    lvec = vecOfL $ forceBasisOfL nLine
+    (nLine, nLineErr) = normalizeL line
+    pvec = vecOfP $ forceBasisOfP cPoint
+    (cPoint, cPointErr) = canonicalize point
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
 translateRotatePPoint2WithErr :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> (ProjectivePoint, [ErrVal])

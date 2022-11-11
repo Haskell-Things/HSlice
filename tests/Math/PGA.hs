@@ -405,7 +405,7 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
   where
     (angle2, angle2Err) = angleBetween2PL normedPLine3 nPLine4
     (rawBisectorStart, _) = interpolate2PP sourceStart sourceEnd 0.5 0.5
-    (bisectorEnd, (_,_,bisectorEndRawErr)) = pPointOnPerpWithErr nPLine4 rawBisectorStart d
+    (bisectorEnd, (_,_,_, bisectorEndRawErr)) = pPointOnPerpWithErr nPLine4 rawBisectorStart d
     (pline3, (_,_,pline3Err)) = join2PP rawBisectorStart bisectorEnd
     (normedPLine3, norm3Err) = normalizeL pline3
     sourceStart = makePPoint2 x y

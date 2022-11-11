@@ -248,8 +248,8 @@ innerContourPoint contour
     (p1, p2)       = firstPointPairOfContour contour
     source         = pLineFromEndpoints p1 p2
     myMidPoint     = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
-    (perpPoint, (_, _, perpErr)) = pPointOnPerpWithErr source myMidPoint minDistanceFromSeg
-    (otherPoint, (_, _, otherErr)) = pPointOnPerpWithErr source myMidPoint (-minDistanceFromSeg)
+    (perpPoint, (_,_,_, perpErr)) = pPointOnPerpWithErr source myMidPoint minDistanceFromSeg
+    (otherPoint, (_,_,_, otherErr)) = pPointOnPerpWithErr source myMidPoint (-minDistanceFromSeg)
     numIntersections   = contourIntersectionCount contour (pToEPoint2 perpPoint, outsidePoint)
     otherIntersections = contourIntersectionCount contour (pToEPoint2 otherPoint, outsidePoint)
     outsidePoint       = pointFarOutsideContour contour
