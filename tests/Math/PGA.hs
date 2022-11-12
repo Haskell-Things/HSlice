@@ -1345,7 +1345,7 @@ prop_eNodeAwayFromIntersection2 x y d1 rawR1 d2 rawR2 = l2TowardIntersection -->
     eNode = randomENode x y d1 rawR1 d2 rawR2
 
 prop_translateRotateMoves :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Expectation
-prop_translateRotateMoves x y rawD rawR = distanceBetweenPPoints (canonicalizePPoint2 $ translateRotatePPoint2WithErr pPoint d r) cPPoint /= 0 --> True
+prop_translateRotateMoves x y rawD rawR = distanceBetweenPPoints (fst $ translateRotatePPoint2WithErr pPoint d r) cPPoint /= 0 --> True
   where
     pPoint = eToPPoint2 $ Point2 (x,y)
     cPPoint = makePPoint2 x y

@@ -62,7 +62,7 @@ module Graphics.Slicer.Math.PGA(
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
   plinesIntersectIn,
-  translateRotatePPoint2WithErr,
+  translateRotatePPoint2WithErr
   ) where
 
 import Prelude (Bool, Eq((==),(/=)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (*), (-), (>=), (&&), (<$>), otherwise, signum, snd, (>), (<=), (+), negate, (/), (||), (<), abs, error, sin, cos, realToFrac, fst, sum, (.))
@@ -89,7 +89,7 @@ import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPo
 
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎤+), (⨅), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, ulpVal, valOf)
 
-import Graphics.Slicer.Math.Line (combineLineSegs)
+import Graphics.Slicer.Math.Line (combineLineSegs, makeLineSeg)
 
 import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, pLineErrAtPPoint, xIntercept, yIntercept)
 
@@ -242,16 +242,17 @@ perpLineAt line point = (PLine2 res, resErr)
     (cPoint, cPointErr) = canonicalize point
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
-translateRotatePPoint2WithErr :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> PPoint2
-translateRotatePPoint2WithErr point d rotation = PPoint2 res
+translateRotatePPoint2WithErr :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> (PPoint2, [ErrVal])
+translateRotatePPoint2WithErr point d rotation = (PPoint2 res, scaledPVecErr)
   where
     res = translator•pVec•reverseGVec translator
-    xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pVec
+    xLineThroughPPoint2 = (pVec ⨅ xLineVec) • pVec
       where
         xLineVec = vecOfL $ forceBasisOfL $ fst $ eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (1,0))
     angledLineThroughPPoint2 = vecOfL $ forceBasisOfL $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
       where
-        rotator = addVecPairWithoutErr (fst $ mulScalarVecWithErr (sin $ rotation/2) pvec) (GVec [GVal (cos $ rotation/2) (singleton G0)])
+        rotator = addVecPairWithoutErr scaledPVec (GVec [GVal (cos $ rotation/2) (singleton G0)])
+    (scaledPVec, scaledPVecErr) = mulScalarVecWithErr (sin $ rotation/2) pVec
     translator = addVecPairWithoutErr (angledLineThroughPPoint2 • gaIScaled) (GVec [GVal 1 (singleton G0)])
       where
         -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
