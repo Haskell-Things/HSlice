@@ -62,7 +62,7 @@ module Graphics.Slicer.Math.PGA(
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
   plinesIntersectIn,
-  translateRotatePPoint2,
+  translateRotatePPoint2WithErr,
   ) where
 
 import Prelude (Bool, Eq((==),(/=)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (*), (-), (>=), (&&), (<$>), otherwise, signum, snd, (>), (<=), (+), negate, (/), (||), (<), abs, error, sin, cos, realToFrac, fst, sum, (.))
@@ -225,7 +225,7 @@ pPointOnPerpWithErr line point d = (PPoint2 res, resErr)
     gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
     gaIScaledErr = UlpSum $ realToFrac $ doubleUlp $ realToFrac (realToFrac (abs d) / 2 :: Rounded 'TowardInf ℝ)
     -- | Get a perpendicular line, crossing the input line at the given point.
-    -- FIXME: where should we put the error component of this in PLine2Err?
+    -- FIXME: where should we put this in the error quotent of PLine2Err?
     (PLine2 perpLine, (nLineErr, _, perpLineErrs)) = perpLineAt line cPoint
     pVec = vecOfP $ forceBasisOfP cPoint
     (cPoint, cPointErr) = canonicalize point
@@ -242,9 +242,10 @@ perpLineAt line point = (PLine2 res, resErr)
     (cPoint, cPointErr) = canonicalize point
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
-translateRotatePPoint2 :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> PPoint2
-translateRotatePPoint2 ppoint d rotation = PPoint2 $ translator•pvec•reverseGVec translator
+translateRotatePPoint2WithErr :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> PPoint2
+translateRotatePPoint2WithErr ppoint d rotation = PPoint2 res
   where
+    res = translator•pvec•reverseGVec translator
     pvec = vecOfP ppoint
     xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pvec
       where
@@ -254,7 +255,7 @@ translateRotatePPoint2 ppoint d rotation = PPoint2 $ translator•pvec•reverse
         rotator = addVecPairWithoutErr (fst $ mulScalarVecWithErr (sin $ rotation/2) pvec) (GVec [GVal (cos $ rotation/2) (singleton G0)])
     translator = addVecPairWithoutErr (angledLineThroughPPoint2 • gaIScaled) (GVec [GVal 1 (singleton G0)])
       where
-        -- I, in this geometric algebra system. we multiply it times d/2, to shorten the number of multiples we have to do when creating the motor.
+        -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
         gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
 
 ----------------------------------------------------------
