@@ -37,7 +37,7 @@ import Graphics.Slicer.Math.Line (combineLineSegs)
 
 import Graphics.Slicer.Math.Lossy (pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, eToPLine2WithErr, translateL)
+import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, eToPL, translateL)
 
 import Graphics.Slicer.Definitions(ℝ)
 
@@ -101,7 +101,7 @@ modifyContour pathWidth contour direction
                                        (Just (middleSegs,lastSeg)) -> middleSegs <> if noIntersection (inwardAdjustWithErr lastSeg) (inwardAdjustWithErr oneSeg)
                                                                                     then maybeToList (combineLineSegs lastSeg oneSeg)
                                                                                     else [lastSeg,oneSeg]
-        inwardAdjustWithErr l1 = translateL (fst $ eToPLine2WithErr l1) (if direction == Inward then pathWidth else (-pathWidth))
+        inwardAdjustWithErr l1 = translateL (fst $ eToPL l1) (if direction == Inward then pathWidth else (-pathWidth))
         findLineSeg :: LineSeg -> LineSeg -> LineSeg -> Maybe LineSeg
         findLineSeg previousln ln nextln
           -- The ideal case.
@@ -109,4 +109,4 @@ modifyContour pathWidth contour direction
             isIntersection ln nextln        = Just $ makeLineSeg (pToEPoint2 $ intersectionOf (inwardAdjustWithErr previousln) (inwardAdjustWithErr ln)) (pToEPoint2 $ intersectionOf (inwardAdjustWithErr ln) (inwardAdjustWithErr nextln))
           | otherwise = error $ "no intersection?\n" <> show (isIntersection previousln ln) <> "\n" <> show (isIntersection ln nextln) <> "\n" <> show previousln <> "\n" <> show ln <> "\n" <> show nextln <> "\n"
           where
-            isIntersection l1 l2 = not $ noIntersection (eToPLine2WithErr l1) (eToPLine2WithErr l2)
+            isIntersection l1 l2 = not $ noIntersection (eToPL l1) (eToPL l2)

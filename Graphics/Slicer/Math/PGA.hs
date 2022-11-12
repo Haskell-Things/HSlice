@@ -51,7 +51,7 @@ module Graphics.Slicer.Math.PGA(
   combineConsecutiveLineSegs,
   distancePPointToPLineWithErr,
   pLineErrAtPPoint,
-  eToPLine2WithErr,
+  eToPL,
   eToPPoint2,
   intersectsWith,
   intersectsWithErr,
@@ -167,14 +167,11 @@ distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, inLineErr)
     -- | Get the point where the perpendicular line and the input line meet.
     -- FIXME: how does perpLineErr effect the result of canonicalizedIntersectionOf2PL?
     (crossPoint, (_, perpLineNormErr, crossPointErr)) = fromJust $ canonicalizedIntersectionOf2PL nLine (PLine2 perpLine)
-    -- | Get a perpendicular line, crossing the input line closest to the given point.
+    -- | Get a perpendicular line, crossing the input line at the given point.
     -- FIXME: where should we put this in PLine2Err?
-    (perpLine, (plMulErr, plAddErr)) = lVec ⨅+ pVec
-    lVec = vecOfL $ forceBasisOfL nLine
-    (nLine, nLineErr) = normalizeL inLine
+    (PLine2 perpLine, (_, _, (plMulErr, plAddErr))) = perpLineAt nLine cPoint
     pointErr = inPointErr <> cPointErr
-    pVec = vecOfP point
-    point = forceBasisOfP cPoint
+    (nLine, nLineErr) = normalizeL inLine
     (cPoint, cPointErr) = canonicalize inPoint
 
 -- | Determine if two points are on the same side of a given line.
@@ -220,19 +217,27 @@ oppositeDirection a b = res <= minAngle
 -- FIXME: many operators here have error preserving forms, use those!
 -- FIXME: we were skipping canonicalization, are canonicalization and normalization necessary?
 pPointOnPerpWithErr :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> (ProjectivePoint, (PLine2Err, PPoint2Err, ([ErrVal],[ErrVal]), UlpSum))
-pPointOnPerpWithErr line point d = (res, resErr)
+pPointOnPerpWithErr line point d = (PPoint2 res, resErr)
   where
     -- translate the input point along the perpendicular bisector.
-    res = PPoint2 $ motor•pvec•reverseGVec motor
-    resErr = (nLineErr, cPointErr, perpLineErrs, gaIErr)
+    res = motor•pVec•reverseGVec motor
+    resErr = (nLineErr, cPointErr, perpLineErrs, gaIScaledErr)
     motor = addVecPairWithoutErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
-      where
-        -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
-        gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
-    gaIErr = UlpSum $ realToFrac $ doubleUlp $ realToFrac (realToFrac (abs d) / 2 :: Rounded 'TowardInf ℝ)
+    -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
+    gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
+    gaIScaledErr = UlpSum $ realToFrac $ doubleUlp $ realToFrac (realToFrac (abs d) / 2 :: Rounded 'TowardInf ℝ)
     -- | Get a perpendicular line, crossing the input line at the given point.
-    -- FIXME: where should we put this in PLine2Err?
-    (perpLine, perpLineErrs) = lvec ⨅+ pvec
+    -- FIXME: where should we put this in the error quotent of PLine2Err?
+    (PLine2 perpLine, (nLineErr, _, perpLineErrs)) = perpLineAt line cPoint
+    pVec = vecOfP $ forceBasisOfP cPoint
+    (cPoint, cPointErr) = canonicalize point
+
+-- Find a projective line crossing the given projective line at the given projective point at a 90 degree angle.
+perpLineAt :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PLine2Err, PPoint2Err, ([ErrVal],[ErrVal])))
+perpLineAt line point = (PLine2 res, resErr)
+  where
+    (res, perpLineErrs) = lvec ⨅+ pvec
+    resErr = (nLineErr, cPointErr, perpLineErrs)
     lvec = vecOfL $ forceBasisOfL nLine
     (nLine, nLineErr) = normalizeL line
     pvec = vecOfP $ forceBasisOfP cPoint
@@ -240,21 +245,21 @@ pPointOnPerpWithErr line point d = (res, resErr)
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
 translateRotatePPoint2WithErr :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> (ProjectivePoint, [ErrVal])
-translateRotatePPoint2WithErr ppoint d rotation = (PPoint2 res, scaledPVecErr)
+translateRotatePPoint2WithErr point d rotation = (PPoint2 res, scaledPVecErr)
   where
-    res = translator•pvec•reverseGVec translator
-    xLineThroughPPoint2 = (pvec ⨅ xLineVec) • pvec
+    res = translator•pVec•reverseGVec translator
+    xLineThroughPPoint2 = (pVec ⨅ xLineVec) • pVec
       where
-        xLineVec = vecOfL $ forceBasisOfL $ fst $ eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (1,0))
+        xLineVec = vecOfL $ forceBasisOfL $ fst $ eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (1,0))
     angledLineThroughPPoint2 = vecOfL $ forceBasisOfL $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
       where
         rotator = addVecPairWithoutErr scaledPVec (GVec [GVal (cos $ rotation/2) (singleton G0)])
-    (scaledPVec, scaledPVecErr) = mulScalarVecWithErr (sin $ rotation/2) pvec
+    (scaledPVec, scaledPVecErr) = mulScalarVecWithErr (sin $ rotation/2) pVec
     translator = addVecPairWithoutErr (angledLineThroughPPoint2 • gaIScaled) (GVec [GVal 1 (singleton G0)])
       where
         -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
         gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
-    pvec = vecOfP ppoint
+    pVec = vecOfP point
 
 ----------------------------------------------------------
 -------------- Euclidian Mixed Interface -----------------
@@ -285,7 +290,7 @@ outputIntersectsLineSeg source l1
   | isNothing canonicalizedIntersection = Right $ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
   | otherwise = pLineIntersectsLineSeg (pl1, pl1Err) l1
   where
-    (pl2, pl2Err) = eToPLine2WithErr l1
+    (pl2, pl2Err) = eToPL l1
     -- the multiplier to account for distance between our Pointable, and where it intersects.
     (pl1, pl1Err)
       | hasArc source = outAndErrOf source
@@ -334,7 +339,7 @@ pLineIntersectsLineSeg pline1@(pl1, pl1Err) l1
     (rawIntersection, (_, _, rawIntersectionErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
     (rawIntersect, _) = intersect2PL pl1 pl2
-    pline2@(pl2, pl2Err) = eToPLine2WithErr l1
+    pline2@(pl2, pl2Err) = eToPL l1
 
 -- | Check if/where two line segments intersect.
 lineSegIntersectsLineSeg :: LineSeg -> LineSeg -> Either Intersection PIntersection
@@ -373,8 +378,8 @@ lineSegIntersectsLineSeg l1 l2
     end1 = eToPPoint2 $ endPoint l1
     start2 = eToPPoint2 $ startPoint l2
     end2 = eToPPoint2 $ endPoint l2
-    (pl1, _) = eToPLine2WithErr l1
-    (pl2, _) = eToPLine2WithErr l2
+    (pl1, _) = eToPL l1
+    (pl2, _) = eToPL l2
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 -- FIXME: check start and end distances in order of: closest to the origin.
@@ -392,9 +397,9 @@ onSegment ls i =
     (mid, (_, _, midErr)) = interpolate2PP start end 0.5 0.5
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
     startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ
-    startFudgeFactor = realToFrac $ ulpVal $ startDistanceErr <> pLineErrAtPPoint (eToPLine2WithErr ls) start
-    midFudgeFactor = realToFrac $ ulpVal $ midDistanceErr <> pLineErrAtPPoint (eToPLine2WithErr ls) mid
-    endFudgeFactor = realToFrac $ ulpVal $ endDistanceErr <> pLineErrAtPPoint (eToPLine2WithErr ls) end
+    startFudgeFactor = realToFrac $ ulpVal $ startDistanceErr <> pLineErrAtPPoint (eToPL ls) start
+    midFudgeFactor = realToFrac $ ulpVal $ midDistanceErr <> pLineErrAtPPoint (eToPL ls) mid
+    endFudgeFactor = realToFrac $ ulpVal $ endDistanceErr <> pLineErrAtPPoint (eToPL ls) end
 
 -- | Combine consecutive line segments. expects line segments with their end points connecting, EG, a contour generated by makeContours.
 combineConsecutiveLineSegs :: [LineSeg] -> [LineSeg]
@@ -422,7 +427,7 @@ combineConsecutiveLineSegs lines = case lines of
     canCombineLineSegs l1@(LineSeg p1 s1) l2@(LineSeg p2 _) = sameLineSeg && sameMiddlePoint
       where
         -- FIXME: this does not take into account the Err introduced by eToPLine2.
-        sameLineSeg = plinesIntersectIn (eToPLine2WithErr l1) (eToPLine2WithErr l2) == PCollinear
+        sameLineSeg = plinesIntersectIn (eToPL l1) (eToPL l2) == PCollinear
         sameMiddlePoint = p2 == addPoints p1 s1
 
 ------------------------------------------------
@@ -454,8 +459,9 @@ reverseGVec (GVec vals) = GVec $ foldl' addValWithoutErr []
                   , GVal (negate $ valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 1, GEPlus 2])
                   ]
 
-eToPLine2WithErr :: LineSeg -> (ProjectiveLine, PLine2Err)
-eToPLine2WithErr l1 = (res, resErr)
+euclidianToProjectiveLine,eToPL :: LineSeg -> (ProjectiveLine, PLine2Err)
+euclidianToProjectiveLine l1 = (res, resErr)
   where
     (res, (_, _, resErr)) = join2PP (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
+eToPL = euclidianToProjectiveLine
 

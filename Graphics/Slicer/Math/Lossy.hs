@@ -47,7 +47,7 @@ import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr, getOu
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint2(distance2PP), ProjectiveLine2(distance2PL), distancePPointToPLineWithErr, eToPLine2WithErr, pPointOnPerpWithErr, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint2(distance2PP), ProjectiveLine2(distance2PL), distancePPointToPLineWithErr, eToPL, pPointOnPerpWithErr, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectiveLine2(angleBetween2PL, normalizeL, translateL), ProjectivePoint, ProjectivePoint2(interpolate2PP, join2PP, pToEP), PPoint2Err, PLine2Err)
 
@@ -66,11 +66,11 @@ distancePPointToPLine point line = fst $ distancePPointToPLineWithErr point line
 
 -- | Create a normalized projective line from a euclidian line segment.
 eToNPLine2 :: LineSeg -> ProjectiveLine
-eToNPLine2 l1 = normalizePLine2 $ fst $ eToPLine2WithErr l1
+eToNPLine2 l1 = normalizePLine2 $ fst $ eToPL l1
 
 -- | Create an un-normalized projective line from a euclidian line segment.
 eToPLine2 :: LineSeg -> ProjectiveLine
-eToPLine2 l1 = fst $ eToPLine2WithErr l1
+eToPLine2 l1 = fst $ eToPL l1
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
 getFirstArc :: Point2 -> Point2 -> Point2 -> ProjectiveLine

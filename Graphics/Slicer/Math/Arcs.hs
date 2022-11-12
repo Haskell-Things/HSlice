@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
 
 import Graphics.Slicer.Math.Intersections (isCollinear, isAntiCollinear, isParallel, isAntiParallel, intersectionOf)
 
-import Graphics.Slicer.Math.PGA (distance2PP, eToPLine2WithErr)
+import Graphics.Slicer.Math.PGA (distance2PP, eToPL)
 
 import Graphics.Slicer.Math.PGAPrimitives (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetween2PL, canonicalize, flipL, join2PP, normalizeL)
 
@@ -92,13 +92,13 @@ getFirstArcWithErr p1 p2 p3
     -- only used for the quad case.
     -- FIXME: how do we track error from normalization?
     (NPLine2 quadRes, _) = normalizeL quad
-    (quad, quadPLineErr) = eToPLine2WithErr (makeLineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3)
+    (quad, quadPLineErr) = eToPL (makeLineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3)
     -- used for all other cases.
     (insideArc, (_,_,insideArcRawErr)) = getInsideArcWithErr (PLine2 side1) (PLine2 side2)
     (NPLine2 side1, side1NormErr) = normalizeL side1Raw
-    (side1Raw, side1RawErr) = eToPLine2WithErr (makeLineSeg p1 p2)
+    (side1Raw, side1RawErr) = eToPL (makeLineSeg p1 p2)
     (NPLine2 side2, side2NormErr) = normalizeL side2Raw
-    (side2Raw, side2RawErr) = eToPLine2WithErr (makeLineSeg p2 p3)
+    (side2Raw, side2RawErr) = eToPL (makeLineSeg p2 p3)
     insideArcErr = side1NormErr <> side1RawErr <> side2NormErr <> side2RawErr <> insideArcRawErr
 
 -- | Get a Projective Line along the angle bisector of the intersection of the two given lines, pointing in the 'acute' direction.

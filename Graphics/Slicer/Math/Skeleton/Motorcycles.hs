@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersectio
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2, pLineFromEndpoints)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outAndErrOf, outOf), Pointable(canPoint, ePointOf, pPointOf), eToPLine2WithErr, eToPPoint2, flipL, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outAndErrOf, outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, eToPPoint2, flipL, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -179,8 +179,8 @@ convexMotorcycles contour = mapMaybe onlyMotorcycles $ zip (rotateLeft $ linePai
       | otherwise                        = Just (fst resPLine, snd resPLine, distance p1 p2 + distance p2 p3)
         where
           resPLine = motorcycleFromPoints p1 p2 p3
-          pl1 = eToPLine2WithErr $ makeLineSeg p1 p2
-          pl2 = eToPLine2WithErr $ makeLineSeg p2 p3
+          pl1 = eToPL $ makeLineSeg p1 p2
+          pl2 = eToPL $ makeLineSeg p2 p3
 
 -- | generate the PLine2 of a motorcycle created by the three points given.
 motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, PLine2Err)

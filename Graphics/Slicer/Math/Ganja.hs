@@ -116,7 +116,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), 
 
 import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoints, pPointBetweenPPoints, pToEPoint2, translateRotatePPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint(CPPoint2, PPoint2), ProjectiveLine(NPLine2, PLine2), PLine2Err, PPoint2Err, eToPLine2WithErr, eToPPoint2, hasArc, flipL, normalizeL, outOf, pPointOf)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(CPPoint2, PPoint2), ProjectiveLine(NPLine2, PLine2), PLine2Err, PPoint2Err, eToPL, eToPPoint2, hasArc, flipL, normalizeL, outOf, pPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode)
 
@@ -703,7 +703,7 @@ randomPLine x y dx dy = fst $ randomPLineWithErr x y dx dy
 
 -- | A helper function. constructs a random PLine.
 randomPLineWithErr :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (ProjectiveLine, PLine2Err)
-randomPLineWithErr x y dx dy = eToPLine2WithErr $ makeLineSeg (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
+randomPLineWithErr x y dx dy = eToPL $ makeLineSeg (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
 
 -- | A helper function. constructs a random LineSeg.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
@@ -711,11 +711,11 @@ randomLineSeg x y rawDx rawDy = makeLineSeg (Point2 (x,y)) (Point2 (rawDx, rawDy
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
 randomPLineThroughOrigin :: ℝ -> ℝ -> (ProjectiveLine, PLine2Err)
-randomPLineThroughOrigin x y = eToPLine2WithErr $ makeLineSeg (Point2 (x,y)) (Point2 (0,0))
+randomPLineThroughOrigin x y = eToPL $ makeLineSeg (Point2 (x,y)) (Point2 (0,0))
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
 randomPLineThroughPoint :: ℝ -> ℝ -> ℝ -> (ProjectiveLine, PLine2Err)
-randomPLineThroughPoint x y d = eToPLine2WithErr $ makeLineSeg (Point2 (x,y)) (Point2 (d,d))
+randomPLineThroughPoint x y d = eToPL $ makeLineSeg (Point2 (x,y)) (Point2 (d,d))
 
 -- | A line segment ending at the origin. additionally, guaranteed not to be on the X = Y line.
 randomLineSegFromPointNotX1Y1 :: ℝ -> ℝ -> ℝ -> LineSeg

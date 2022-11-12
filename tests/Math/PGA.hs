@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersection
 import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), distance2PP, distancePPointToPLineWithErr, eToPLine2WithErr, pLineErrAtPPoint, eToPPoint2, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, outputIntersectsLineSeg, sameDirection)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), distance2PP, distancePPointToPLineWithErr, eToPL, pLineErrAtPPoint, eToPPoint2, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, outputIntersectsLineSeg, sameDirection)
 
 import Graphics.Slicer.Math.PGAPrimitives (PPoint2Err(PPoint2Err), angleBetween2PL, xIntercept, yIntercept)
 
@@ -421,8 +421,8 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
 -- | A property test making sure the distance between a point an an axis is equal to the corresponding euclidian component of the point.
 prop_DistanceToAxis :: NonZero ℝ -> NonZero ℝ -> Bool -> Expectation
 prop_DistanceToAxis v v2 xAxis
-  | xAxis = distancePPointToPLine (eToPPoint2 $ Point2 (coerce v2,coerce v), mempty) (eToPLine2WithErr $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> abs (coerce v)
-  | otherwise = distancePPointToPLine (eToPPoint2 $ Point2 (coerce v,coerce v2), mempty) (eToPLine2WithErr $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> abs (coerce v)
+  | xAxis = distancePPointToPLine (eToPPoint2 $ Point2 (coerce v2,coerce v), mempty) (eToPL $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> abs (coerce v)
+  | otherwise = distancePPointToPLine (eToPPoint2 $ Point2 (coerce v,coerce v2), mempty) (eToPL $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> abs (coerce v)
 
 -- | A property test making sure two points on the same side of an axis show as being on the same side of the axis.
 prop_SameSideOfAxis :: NonZero ℝ -> NonZero ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool -> Bool -> Expectation
@@ -513,7 +513,7 @@ prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
     (NPLine2 bisector1, bisector1Err) = normalizeL bisector
-    (bisector, bisectorRawErr) = eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
+    (bisector, bisectorRawErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
     bisector2 = getFirstArc (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
@@ -566,7 +566,7 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
     (NPLine2 bisector1, bisector1Err) = normalizeL bisector
-    (bisector, bisectorErr) = eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
+    (bisector, bisectorErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
     x1,y1,x2,y2,times :: ℝ
@@ -904,7 +904,7 @@ prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions trian
     maybeInnerPoint = innerContourPoint triangle
     triangle        = randomTriangle centerX centerY rawRadians rawDists
     firstSeg        = firstLineSegOfContour triangle
-    pLine           = eToPLine2WithErr firstSeg
+    pLine           = eToPL firstSeg
     firstPoints     = firstPointPairOfContour triangle
     (p1, p2)        = firstPointPairOfContour triangle
     (myMidPoint,_)  = interpolate2PP (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
@@ -1249,7 +1249,7 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
     pPoint1@(rawPPoint1,_) = (makePPoint2 x1 y1, mempty)
     pPoint2@(rawPPoint2,_) = (makePPoint2 x2 y2, mempty)
     nPLine@(_,PLine2Err _ _ nPLineErr _ _ _) = normalizeL pLine
-    (pLine, pLineErr) = eToPLine2WithErr $ makeLineSeg (Point2 (x1,y1)) (Point2 (x2,y2))
+    (pLine, pLineErr) = eToPL $ makeLineSeg (Point2 (x1,y1)) (Point2 (x2,y2))
     ulpTotal1 = pLineErrAtPPoint nPLine rawPPoint1 <> nPLineErr
     ulpTotal2 = pLineErrAtPPoint nPLine rawPPoint2 <> nPLineErr
     -- make sure we do not try to create a 0 length line segment.
@@ -1330,9 +1330,9 @@ prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
   | testFirstLine = pLineIsLeft (bisector, mempty) pl1 --> Just True
   | otherwise     = pLineIsLeft (pl2, pl2Err) (bisector, mempty) --> Just True
   where
-    pl1 = eToPLine2WithErr $ getFirstLineSeg eNode
+    pl1 = eToPL $ getFirstLineSeg eNode
     pl2 = flipL pl2Raw
-    (pl2Raw, pl2Err) =  eToPLine2WithErr $ getLastLineSeg eNode
+    (pl2Raw, pl2Err) =  eToPL $ getLastLineSeg eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
     bisector = flipL $ outOf eNode
 
@@ -1351,7 +1351,7 @@ prop_eNodeTowardIntersection1 x y d1 rawR1 d2 rawR2 = l1TowardIntersection --> T
     l1TowardIntersection = towardIntersection (eToPPoint2 $ startPoint l1, mempty) pl1 eNodePoint
     eNodePoint = (pPointOf eNode, errOfPPoint eNode)
     l1 = getFirstLineSeg eNode
-    pl1 = eToPLine2WithErr l1
+    pl1 = eToPL l1
     eNode = randomENode x y d1 rawR1 d2 rawR2
 
 prop_eNodeAwayFromIntersection2 :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Expectation
@@ -1360,7 +1360,7 @@ prop_eNodeAwayFromIntersection2 x y d1 rawR1 d2 rawR2 = l2TowardIntersection -->
     l2TowardIntersection = towardIntersection (eToPPoint2 $ endPoint l2, mempty) pl2 eNodePoint
     eNodePoint = (pPointOf eNode, errOfPPoint eNode)
     l2 = getLastLineSeg eNode
-    pl2 = eToPLine2WithErr l2
+    pl2 = eToPL l2
     eNode = randomENode x y d1 rawR1 d2 rawR2
 
 prop_translateRotateMoves :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Expectation
@@ -1454,7 +1454,7 @@ prop_PLineIntersectsAtXAxis x y rawX2 y2 m
     axisIntersection = xIntercept (randomPLine1, pline1Err)
     (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL randomPLine1 axisPLine
     (randomPLine1, pline1Err) = randomPLineWithErr x y rawX2 (coerce y2)
-    (axisPLine, axisErr) = eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (coerce m,0))
+    (axisPLine, axisErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (coerce m,0))
     x2 :: ℝ
     x2 = coerce rawX2
 
@@ -1484,7 +1484,7 @@ prop_PLineIntersectsAtYAxis x y x2 rawY2 m
     axisIntersection = yIntercept (randomPLine1, pline1Err)
     (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL randomPLine1 axisPLine
     (randomPLine1, pline1Err) = randomPLineWithErr (coerce x) y (coerce x2) (coerce y2)
-    (axisPLine, axisErr) = eToPLine2WithErr $ makeLineSeg (Point2 (0,0)) (Point2 (0,coerce m))
+    (axisPLine, axisErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (0,coerce m))
     y2 :: ℝ
     y2 = coerce rawY2
 

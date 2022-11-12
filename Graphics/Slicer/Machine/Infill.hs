@@ -39,7 +39,7 @@ import Graphics.Slicer.Math.ContourIntersections (getPLine2Intersections)
 
 import Graphics.Slicer.Math.Line (makeLineSegs)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, eToPLine2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, eToPL)
 
 -- | what direction to put down infill lines.
 data InfillType = Diag1 | Diag2 | Vert | Horiz
@@ -72,7 +72,7 @@ infillLineSegInside contour childContours line
 
 -- Generate lines covering the entire contour, where each one is aligned with a +1 slope, which is to say, lines parallel to a line where x = y.
 coveringPLinesPositive :: Contour -> ℝ -> [(ProjectiveLine, PLine2Err)]
-coveringPLinesPositive contour ls = eToPLine2WithErr . makeSeg <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
+coveringPLinesPositive contour ls = eToPL . makeSeg <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
     where
       makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
@@ -92,7 +92,7 @@ coveringPLinesPositive contour ls = eToPLine2WithErr . makeSeg <$> [0,lss..(xMax
 
 -- Generate lines covering the entire contour, where each one is aligned with a -1 slope, which is to say, lines parallel to a line where x = -y.
 coveringPLinesNegative :: Contour -> ℝ -> [(ProjectiveLine, PLine2Err)]
-coveringPLinesNegative contour ls = eToPLine2WithErr . makeSeg <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
+coveringPLinesNegative contour ls = eToPL . makeSeg <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
     where
       makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
@@ -112,7 +112,7 @@ coveringPLinesNegative contour ls = eToPLine2WithErr . makeSeg <$> [0,lss..(xMax
 
 -- Generate lines covering the entire contour, where each line is aligned with the Y axis, which is to say, parallel to the Y basis vector.
 coveringPLinesVertical :: Contour -> ℝ -> [(ProjectiveLine, PLine2Err)]
-coveringPLinesVertical contour ls = eToPLine2WithErr . makeSeg <$> [xMin,xMin+ls..xMax]
+coveringPLinesVertical contour ls = eToPL . makeSeg <$> [xMin,xMin+ls..xMax]
     where
       makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
@@ -127,7 +127,7 @@ coveringPLinesVertical contour ls = eToPLine2WithErr . makeSeg <$> [xMin,xMin+ls
 
 -- Generate lines covering the entire contour, where each line is aligned with the X axis, which is to say, parallel to the X basis vector.
 coveringPLinesHorizontal :: Contour -> ℝ -> [(ProjectiveLine, PLine2Err)]
-coveringPLinesHorizontal contour ls = eToPLine2WithErr . makeSeg <$> [yMin,yMin+ls..yMax]
+coveringPLinesHorizontal contour ls = eToPL . makeSeg <$> [yMin,yMin+ls..yMax]
     where
       makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
