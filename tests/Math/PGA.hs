@@ -25,7 +25,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, facetStatSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), error, (/=), (<=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, snd, length, mempty, realToFrac, sqrt, (<), (>), (-), (/), (*), (.))
+import Prelude (($), Bool(True, False), (<$>), (==), error, (/=), (<=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, snd, length, mempty, pi, realToFrac, sqrt, (<), (>), (-), (/), (*), (.))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersection
 import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), distance2PP, distancePPointToPLineWithErr, eToPL, pLineErrAtPPoint, eToPPoint2, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, outputIntersectsLineSeg, sameDirection)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), distance2PP, distancePPointToPLineWithErr, eToPL, pLineErrAtPPoint, eToPPoint2, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, outputIntersectsLineSeg, sameDirection, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (PPoint2Err(PPoint2Err), angleBetween2PL, xIntercept, yIntercept)
 
@@ -1366,13 +1366,41 @@ prop_eNodeAwayFromIntersection2 x y d1 rawR1 d2 rawR2 = l2TowardIntersection -->
 prop_translateRotateMoves :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Expectation
 prop_translateRotateMoves x y rawD rawR = distanceBetweenPPoints (translateRotatePPoint2 pPoint d r) cPPoint /= 0 --> True
   where
-    pPoint = eToPPoint2 $ Point2 (x,y)
+    pPoint = makePPoint2 x y
     cPPoint = makePPoint2 x y
     r,d::ℝ
     r = coerce rawR
     d = coerce rawD
 
--- |ensure that a random PLine, when normed, is approximately equal to what went in.
+-- | translate a point along the X axis.
+prop_translateRotateMovesX :: ℝ -> ℝ -> Positive ℝ -> Bool
+prop_translateRotateMovesX x y rawD
+  | distance <= realToFrac (ulpVal distanceErr) = distance <= realToFrac (ulpVal distanceErr)
+  | otherwise = error $ "wtf\n" <> show distance <> "\n" <> show distanceErr <> "\n" <> show translateErr <> "\n"
+  where
+    (distance, (_,_, distanceErr)) = distance2PP (translatedPoint, mempty) (dstPoint, mempty)
+    (translatedPoint, translateErr) = translateRotatePPoint2WithErr srcPoint d 0
+    srcPoint = makePPoint2 x y
+    dstPoint = makePPoint2 (x+d) y
+    d::ℝ
+    d = coerce rawD
+
+-- | translate a point along the Y axis. really, translate, and rotate -90 degrees.
+prop_translateRotateMovesY :: ℝ -> ℝ -> Positive ℝ -> Bool
+prop_translateRotateMovesY x y rawD
+  | distance <= realToFrac distanceErr = distance <= realToFrac distanceErr
+  | otherwise = error $ "wtf\n" <> show distance <> "\n" <> show distanceErr <> "\n" <> show translateErr <> "\n" <> show srcPoint <> "\n" <> show dstPoint <> "\n" <> show translatedPoint <> "\n"
+  where
+    -- times ten, because.. uh.. epic fail to precision when rotating.
+    distanceErr = 10 * ulpVal distanceErrRaw
+    (distance, (_,_, distanceErrRaw)) = distance2PP (translatedPoint, mempty) (dstPoint, mempty)
+    (translatedPoint, translateErr) = translateRotatePPoint2WithErr srcPoint d (-pi/2)
+    srcPoint = makePPoint2 x y
+    dstPoint = makePPoint2 x (y+d)
+    d::ℝ
+    d = coerce rawD
+
+-- | ensure that a random PLine, when normed, is approximately equal to what went in.
 prop_NormPLineIsPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
 prop_NormPLineIsPLine x y dx dy = fst (normalizeL $ randomPLine x y dx dy)
                                   `sameDirection`
@@ -1495,6 +1523,10 @@ facetFlakeySpec = do
 --      property prop_PLineWithinErrRange1
     it "a line constructed with the midpoint of a segment and a point on the perpendicular bisector is at 90 degrees to the initial segment" $
       property prop_perpAt90Degrees
+    it "successfully translates PPoint2s along X" $
+      property prop_translateRotateMovesX
+    it "successfully translates PPoint2s along Y" $
+      property prop_translateRotateMovesY
   describe "Stability (Intersections)" $ do
     it "finds that the intersection of two PLines at an arbitrary point are within the returned UlpSum" $
       property prop_PLinesIntersectAtPoint
