@@ -246,23 +246,23 @@ perpLineAt line point = (PLine2 res, resErr)
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
 -- FIXME: throw this error into PPoint2Err.
 translateRotatePPoint2WithErr :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> (ProjectivePoint, (UlpSum, UlpSum, [ErrVal], PLine2Err, PLine2Err, PPoint2Err, ([ErrVal],[ErrVal])))
-translateRotatePPoint2WithErr point d rotation = (PPoint2 res, resErr)
+translateRotatePPoint2WithErr point d rotation = (res, resErr)
   where
-    res = translator•pVec•reverseGVec translator
+    res = PPoint2 $ translator•pVec•reverseGVec translator
     resErr = (gaIScaledErr, rotationErr, scaledPVecErr, yLineErr, nYLineErr, cPointErr, xLineErr)
-    -- Our translation motor, which translates the appropriate distance along the angled line.
-    translator = addVecPairWithoutErr (angledLineThroughPPoint2 • gaIScaled) (GVec [GVal 1 (singleton G0)])
-    -- A line crossing the provided point, at the appropriate angle.
-    angledLineThroughPPoint2 = vecOfL $ PLine2 $ rotator•(vecOfL xLineThroughPPoint2)•reverseGVec rotator
+    -- Our translation motor, which translates the provided distance along the angled line.
+    translator = addVecPairWithoutErr (gaIScaled • angledLineThroughPPoint2) (GVec [GVal 1 (singleton G0)])
+    -- A line crossing the provided point, at the provided angle.
+    angledLineThroughPPoint2 = rotator•(vecOfL xLineThroughPPoint2)•reverseGVec rotator
     -- A line along the X axis, crossing the provided point.
     (xLineThroughPPoint2, (nYLineErr, cPointErr, xLineErr)) = perpLineAt yLine point
     -- A line along the Y axis, crossing the origin.
     (yLine, yLineErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (0,1))
-    -- Our rotation motor, which rotates around the provided point.
+    -- Our rotation motor, which rotates the provided angle around the provided point, in the clockwise direction.
     rotator = addVecPairWithoutErr scaledPVec (GVec [GVal (cos $ rotation/2) (singleton G0)])
     (scaledPVec, scaledPVecErr) = mulScalarVecWithErr (sin $ rotation/2) pVec
     rotationErr = UlpSum $ realToFrac $ doubleUlp $ realToFrac (realToFrac rotation / 2 :: Rounded 'TowardInf ℝ)
-     -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
+    -- I, in this geometric algebra system. We multiply it times -d/2, to reduce the number of multiples we have to do when creating the motor.
     gaIScaled = GVec [GVal (-d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
     gaIScaledErr = UlpSum $ realToFrac $ doubleUlp $ realToFrac (realToFrac (abs d) / 2 :: Rounded 'TowardInf ℝ)
     pVec = vecOfP point
