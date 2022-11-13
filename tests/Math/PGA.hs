@@ -507,8 +507,8 @@ prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
                 <> show eNode <> "\n"
                 <> "(" <> show x3 <> "," <> show y3 <> ")\n"
   where
-    intersect1 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left (lineSeg1, mempty))
-    intersect2 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left (lineSeg2, mempty))
+    intersect1 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left lineSeg1)
+    intersect2 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left lineSeg2)
     intersect3 = outputIntersectsLineSeg eNode lineSeg1
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
@@ -560,8 +560,8 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
                 <> "(" <> show x3 <> "," <> show y3 <> ")\n"
                 <> "(" <> show x4 <> "," <> show y4 <> ")\n"
   where
-    intersect1 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left (lineSeg1, mempty))
-    intersect2 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left (lineSeg2, mempty))
+    intersect1 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left lineSeg1)
+    intersect2 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left lineSeg2)
     intersect3 = outputIntersectsLineSeg eNode lineSeg1
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
@@ -621,8 +621,8 @@ prop_LineSegIntersectionStableAtOrigin d1 x1 y1 rawX2 rawY2
                    ) <> "\n"
                 <> "(x2,y2): " <> show (x2,y2) <> "\n"
   where
-    res1 = intersectsWithErr (Right (pLineThroughOriginNotX1Y1NotOther,mempty)) (Left (x1y1LineSegToOrigin,mempty))
-    res2 = intersectsWithErr (Right (pLineThroughOriginNotX1Y1NotOther,mempty)) (Left (lineSegFromOrigin,mempty))
+    res1 = intersectsWithErr (Right (pLineThroughOriginNotX1Y1NotOther,mempty)) (Left x1y1LineSegToOrigin)
+    res2 = intersectsWithErr (Right (pLineThroughOriginNotX1Y1NotOther,mempty)) (Left lineSegFromOrigin)
     distanceStart = case res2 of
                       (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP (iPoint,mempty) (makePPoint2 0 0, mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP (iPoint,mempty) (makePPoint2 0 0, mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
@@ -667,8 +667,8 @@ prop_LineSegIntersectionStableAtX1Y1Point pointD rawD1 x1 y1 rawX2 rawY2
                          <> distanceEnd
                    ) <> "\n"
   where
-    res1 = intersectsWithErr (Right (pLineThroughPointNotX1Y1NotOther,mempty)) (Left (x1y1LineSegToPoint,mempty))
-    res2 = intersectsWithErr (Right (pLineThroughPointNotX1Y1NotOther,mempty)) (Left (lineSegFromPointNotX1Y1,mempty))
+    res1 = intersectsWithErr (Right (pLineThroughPointNotX1Y1NotOther,mempty)) (Left x1y1LineSegToPoint)
+    res2 = intersectsWithErr (Right (pLineThroughPointNotX1Y1NotOther,mempty)) (Left lineSegFromPointNotX1Y1)
     distanceStart = case res2 of
                       (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP (iPoint, mempty) (makePPoint2 d2 d2, mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP (iPoint, mempty) (makePPoint2 d2 d2, mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
