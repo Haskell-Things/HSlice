@@ -65,7 +65,7 @@ module Graphics.Slicer.Math.PGA(
   translateRotatePPoint2WithErr
   ) where
 
-import Prelude (Bool, Eq((==),(/=)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (*), (-), (>=), (&&), (<$>), otherwise, signum, snd, (>), (<=), (+), negate, (/), (||), (<), abs, error, sin, cos, realToFrac, fst, sum, (.))
+import Prelude (Bool, Eq((==),(/=)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (*), (-), (>=), (&&), (<$>), otherwise, signum, snd, (>), (<=), (+), negate, (/), (||), (<), abs, error, sin, cos, realToFrac, sum, (.))
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
@@ -87,7 +87,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎤+), (⨅), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, ulpVal, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎤+), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, ulpVal, valOf)
 
 import Graphics.Slicer.Math.Line (combineLineSegs, makeLineSeg)
 
@@ -242,21 +242,26 @@ perpLineAt line point = (PLine2 res, resErr)
     (cPoint, cPointErr) = canonicalize point
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
-translateRotatePPoint2WithErr :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> (PPoint2, [ErrVal])
-translateRotatePPoint2WithErr point d rotation = (PPoint2 res, scaledPVecErr)
+translateRotatePPoint2WithErr :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> (PPoint2, (UlpSum, UlpSum, [ErrVal], PLine2Err, PLine2Err, PPoint2Err, ([ErrVal],[ErrVal])))
+translateRotatePPoint2WithErr point d rotation = (res, resErr)
   where
-    res = translator•pVec•reverseGVec translator
-    xLineThroughPPoint2 = (pVec ⨅ xLineVec) • pVec
-      where
-        xLineVec = vecOfL $ forceBasisOfL $ fst $ eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (1,0))
-    angledLineThroughPPoint2 = vecOfL $ forceBasisOfL $ PLine2 $ rotator•xLineThroughPPoint2•reverseGVec rotator
-      where
-        rotator = addVecPairWithoutErr scaledPVec (GVec [GVal (cos $ rotation/2) (singleton G0)])
+    res = PPoint2 $ translator•pVec•reverseGVec translator
+    resErr = (gaIScaledErr, rotationErr, scaledPVecErr, yLineErr, nYLineErr, cPointErr, xLineErr)
+    -- Our translation motor, which translates the provided distance along the angled line.
+    translator = addVecPairWithoutErr (gaIScaled • angledLineThroughPPoint2) (GVec [GVal 1 (singleton G0)])
+    -- A line crossing the provided point, at the provided angle.
+    angledLineThroughPPoint2 = rotator•(vecOfL xLineThroughPPoint2)•reverseGVec rotator
+    -- A line along the X axis, crossing the provided point.
+    (xLineThroughPPoint2, (nYLineErr, cPointErr, xLineErr)) = perpLineAt yLine point
+    -- A line along the Y axis, crossing the origin.
+    (yLine, yLineErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (0,1))
+    -- Our rotation motor, which rotates the provided angle around the provided point, in the clockwise direction.
+    rotator = addVecPairWithoutErr scaledPVec (GVec [GVal (cos $ rotation/2) (singleton G0)])
     (scaledPVec, scaledPVecErr) = mulScalarVecWithErr (sin $ rotation/2) pVec
-    translator = addVecPairWithoutErr (angledLineThroughPPoint2 • gaIScaled) (GVec [GVal 1 (singleton G0)])
-      where
-        -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
-        gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
+    rotationErr = UlpSum $ realToFrac $ doubleUlp $ realToFrac (realToFrac rotation / 2 :: Rounded 'TowardInf ℝ)
+    -- I, in this geometric algebra system. We multiply it times -d/2, to reduce the number of multiples we have to do when creating the motor.
+    gaIScaled = GVec [GVal (-d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
+    gaIScaledErr = UlpSum $ realToFrac $ doubleUlp $ realToFrac (realToFrac (abs d) / 2 :: Rounded 'TowardInf ℝ)
     pVec = vecOfP point
 
 ----------------------------------------------------------
