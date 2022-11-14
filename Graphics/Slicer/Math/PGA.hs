@@ -64,7 +64,7 @@ module Graphics.Slicer.Math.PGA(
   translateRotatePPoint2WithErr
   ) where
 
-import Prelude (Bool, Eq((==),(/=)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (*), (-), (>=), (&&), (<$>), otherwise, signum, snd, (>), (<=), (+), negate, (/), (||), (<), abs, error, sin, cos, realToFrac)
+import Prelude (Bool, Eq((==),(/=)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (*), (-), (>=), (&&), (<$>), otherwise, signum, (>), (<=), (+), negate, (/), (||), (<), abs, error, sin, cos, realToFrac)
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
@@ -74,7 +74,7 @@ import Data.List (foldl')
 
 import Data.List.Ordered (foldt)
 
-import Data.Maybe (Maybe(Just, Nothing), fromJust, fromMaybe, isNothing, maybeToList)
+import Data.Maybe (Maybe(Just, Nothing), fromJust, isNothing, maybeToList)
 
 import Data.Set (singleton, fromList)
 
@@ -90,7 +90,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs, makeLineSeg)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, pLineErrAtPPoint, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, pLineErrAtPPoint)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -283,10 +283,9 @@ outputIntersectsLineSeg :: (Show a, Arcable a) => a -> LineSeg -> Either Interse
 outputIntersectsLineSeg source l1
   -- handle the case where a segment that is an input to the node is checked against.
   | isNothing canonicalizedIntersection = Right $ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
-  | otherwise = pLineIntersectsLineSeg (pl1, pl1Ulp) l1 1
+  | otherwise = pLineIntersectsLineSeg (pl1, pl1Err) l1 1
   where
     (pl2, pl2Err) = eToPL l1
-    pl1Ulp = snd (fromMaybe (Right 0,mempty) $ xIntercept (pl1,pl1Err)) <> snd (fromMaybe (Right 0,mempty) $ yIntercept (pl1,pl1Err))
     (pl1, pl1Err)
       | hasArc source = (outOf source, errOfOut source)
       | otherwise = error
@@ -295,7 +294,7 @@ outputIntersectsLineSeg source l1
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
 -- | A type alias, for cases where either input is acceptable.
-type SegOrPLine2WithErr = Either LineSeg (PLine2, UlpSum)
+type SegOrPLine2WithErr = Either LineSeg (PLine2, PLine2Err)
 
 -- entry point usable for all intersection needs, complete with passed in error values.
 intersectsWithErr :: SegOrPLine2WithErr -> SegOrPLine2WithErr -> Either Intersection PIntersection
@@ -315,8 +314,8 @@ intersectsWithErr (Right pl1@(rawPL1, _)) (Left l1@(rawL1)) = pLineIntersectsLin
     (pl2, _) = eToPL rawL1
 
 -- | Check if/where a line segment and a PLine intersect.
-pLineIntersectsLineSeg :: (PLine2, UlpSum) -> LineSeg -> ℝ -> Either Intersection PIntersection
-pLineIntersectsLineSeg (pl1, UlpSum pl1Err) l1 ulpScale
+pLineIntersectsLineSeg :: (PLine2, PLine2Err) -> LineSeg -> ℝ -> Either Intersection PIntersection
+pLineIntersectsLineSeg (pl1, pl1Err) l1 ulpScale
   | plinesIntersectIn (pl1,mempty) (pl2,pl2Err) == PParallel = Right PParallel
   | plinesIntersectIn (pl1,mempty) (pl2,pl2Err) == PAntiParallel = Right PAntiParallel
   | plinesIntersectIn (pl1,mempty) (pl2,pl2Err) == PCollinear = Right PCollinear
