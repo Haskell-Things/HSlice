@@ -25,21 +25,7 @@
 -- | What we export. Almost everything is part of a typeclass.
 module Graphics.Slicer.Math.PGAPrimitives
   (
-    Arcable(
-      errOfOut,
-      hasArc,
-      outAndErrOf,
-      outOf
-      ),
     PLine2Err(PLine2Err),
-    Pointable(
-      canEPoint,
-      canPoint,
-      errOfPPoint,
-      errOfEPoint,
-      ePointOf,
-      pPointOf
-      ),
     PPoint2Err(PPoint2Err),
     ProjectiveLine(PLine2, NPLine2),
     ProjectiveLine2(
@@ -236,17 +222,6 @@ instance Semigroup PLine2Err where
 
 instance Monoid PLine2Err where
   mempty = PLine2Err mempty mempty mempty mempty mempty mempty
-
--- | Does this node have an output (resulting) line?
-class Arcable a where
-  -- | Return the error quotent of the output arc, if the output arc exists.
-  errOfOut :: a -> PLine2Err
-  -- | Is there an output arc from this node?
-  hasArc :: a -> Bool
-  -- | If there is an output arc, return it, along with it's error quotent.
-  outAndErrOf :: a -> (ProjectiveLine, PLine2Err)
-  -- | If there is an output arc, return it.
-  outOf :: a -> ProjectiveLine
 
 -- | Return the sine of the angle between the two lines, along with the error.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
@@ -562,21 +537,6 @@ instance Semigroup PPoint2Err where
 
 instance Monoid PPoint2Err where
   mempty = PPoint2Err mempty mempty mempty mempty mempty mempty mempty
-
--- | Typeclass for nodes that may be able to be resolved into a point.
-class Pointable a where
-  -- | Can this node be resolved into a point in 2d space?
-  canPoint :: a -> Bool
-  -- | Does this point originate from our input set of euclidian points?
-  canEPoint :: a -> Bool
-  -- | Get a euclidian representation of this point.
-  ePointOf :: a -> Point2
-  -- | If the point is not a native euclidian point, the error generated while converting from a projective form. otherwise mempty.
-  errOfEPoint :: a -> PPoint2Err
-  -- | The accumulated error of the projective point this resolves to.
-  errOfPPoint :: a -> PPoint2Err
-  -- | Get a projective representation of this point.
-  pPointOf :: a -> ProjectivePoint
 
 class (Show a) => ProjectivePoint2 a where
   canonicalize :: a -> (ProjectivePoint, PPoint2Err)
