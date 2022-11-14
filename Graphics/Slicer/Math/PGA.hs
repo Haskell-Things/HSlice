@@ -53,7 +53,6 @@ module Graphics.Slicer.Math.PGA(
   pLineErrAtPPoint,
   eToPL,
   eToPPoint2,
-  intersectsWith,
   intersectsWithErr,
   makePPoint2,
   outputIntersectsLineSeg,
@@ -278,17 +277,6 @@ data Intersection =
   | HitEndPoint !LineSeg
   deriving Show
 
--- | A type alias, for cases where either input is acceptable.
-type SegOrProjectiveLine = Either LineSeg (ProjectiveLine, PLine2Err)
-
--- | Check if/where lines/line segments intersect.
--- entry point usable for all intersection needs.
-intersectsWith :: SegOrProjectiveLine -> SegOrProjectiveLine -> Either Intersection PIntersection
-intersectsWith (Left l1)   (Left l2)   =         lineSegIntersectsLineSeg l1 l2
-intersectsWith (Right pl1) (Right pl2) = Right $ plinesIntersectIn   pl1 pl2
-intersectsWith (Left l1)   (Right pl1) =         pLineIntersectsLineSeg pl1 l1
-intersectsWith (Right pl1) (Left l1)   =         pLineIntersectsLineSeg pl1 l1
-
 -- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
 outputIntersectsLineSeg :: (Show a, Arcable a) => a -> LineSeg -> Either Intersection PIntersection
 outputIntersectsLineSeg source l1
@@ -305,11 +293,8 @@ outputIntersectsLineSeg source l1
                     <> show source <> "\n"
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
--- | A type alias, for cases where either input is acceptable.
-type SegOrPLine2WithErr = Either LineSeg (ProjectiveLine, PLine2Err)
-
--- entry point usable for all intersection needs, complete with passed in error values.
-intersectsWithErr :: SegOrPLine2WithErr -> SegOrPLine2WithErr -> Either Intersection PIntersection
+-- | Entry point usable for all intersection needs, complete with passed in error values.
+intersectsWithErr :: Either LineSeg (ProjectiveLine, PLine2Err) -> Either LineSeg (ProjectiveLine, PLine2Err) -> Either Intersection PIntersection
 intersectsWithErr (Left l1)    (Left l2)  =         lineSegIntersectsLineSeg l1 l2
 intersectsWithErr (Right pl1) (Right pl2) = Right $ plinesIntersectIn pl1 pl2
 intersectsWithErr (Left l1)   (Right pl1) =         pLineIntersectsLineSeg pl1 l1

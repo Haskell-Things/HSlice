@@ -36,7 +36,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.Lossy (pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), ProjectivePoint, Intersection(HitEndPoint, HitStartPoint, NoIntersection), ProjectiveLine, PLine2Err, intersectsWith, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), ProjectivePoint, Intersection(HitEndPoint, HitStartPoint, NoIntersection), ProjectiveLine, PLine2Err, intersectsWithErr, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -83,7 +83,7 @@ contourIntersectionCount :: Contour -> (Point2, Point2) -> Int
 contourIntersectionCount contour (start, end) = len $ getIntersections contour (start, end)
   where
     getIntersections :: Contour -> (Point2, Point2) -> Slist (LineSeg, Either Point2 ProjectivePoint)
-    getIntersections c (pt1, pt2) = slist $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour contour) $ intersectsWith (Left $ makeLineSeg pt1 pt2) . Left <$> lineSegsOfContour c
+    getIntersections c (pt1, pt2) = slist $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour contour) $ intersectsWithErr (Left $ makeLineSeg pt1 pt2) . Left <$> lineSegsOfContour c
       where
         openCircuit v = Just <$> v
 
@@ -93,7 +93,7 @@ getPLine2Intersections pLine c
   | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show pLine <> "\n" <> show res <> "\n"
   | otherwise = res
   where
-    res = getPoints $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour c) $ intersectsWith (Right pLine) . Left <$> lineSegsOfContour c
+    res = getPoints $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour c) $ intersectsWithErr (Right pLine) . Left <$> lineSegsOfContour c
     openCircuit v = Just <$> v
     getPoints :: [(LineSeg, Either Point2 ProjectivePoint)] -> [Point2]
     getPoints vs = getPoint <$> vs
