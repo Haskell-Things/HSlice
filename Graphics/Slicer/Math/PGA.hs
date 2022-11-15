@@ -24,14 +24,23 @@
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
 
 module Graphics.Slicer.Math.PGA(
-  Arcable(errOfOut, hasArc, outAndErrOf, outOf),
+  Arcable(
+      errOfOut,
+      hasArc,
+      outAndErrOf,
+      outOf
+      ),
   CPPoint2(CPPoint2),
   Intersection(HitStartPoint, HitEndPoint, NoIntersection),
   NPLine2(NPLine2),
   PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn),
   PLine2(PLine2),
   PLine2Err(PLine2Err),
-  Pointable(canPoint, pPointOf, ePointOf),
+  Pointable(
+      canPoint,
+      ePointOf,
+      pPointOf
+      ),
   PPoint2(PPoint2),
   PPoint2Err,
   ProjectiveLine2(
@@ -90,7 +99,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs, makeLineSeg)
 
-import Graphics.Slicer.Math.PGAPrimitives(Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), Pointable(canPoint, ePointOf, pPointOf), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, pLineErrAtPPoint)
+import Graphics.Slicer.Math.PGAPrimitives(CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, pLineErrAtPPoint)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -264,19 +273,28 @@ translateRotatePPoint2WithErr point d rotation = (res, resErr)
     pVec = vecOfP point
 
 ----------------------------------------------------------
--------------- Euclidian Mixed Interface -----------------
+-------------------- Node Interface ----------------------
 ----------------------------------------------------------
 
--- | Intersection events that can only happen with line segments.
-data Intersection =
-    NoIntersection !CPPoint2 !(UlpSum, UlpSum, UlpSum, UlpSum)
-  | HitStartPoint !LineSeg
-  | HitEndPoint !LineSeg
-  deriving Show
+-- | Does this node have an output (resulting) line?
+class Arcable a where
+  -- | Return the error quotent of the output arc, if the output arc exists.
+  errOfOut :: a -> PLine2Err
+  -- | Is there an output arc from this node?
+  hasArc :: a -> Bool
+  -- | If there is an output arc, return it, along with it's error quotent.
+  outAndErrOf :: a -> (PLine2, PLine2Err)
+  -- | If there is an output arc, return it.
+  outOf :: a -> PLine2
 
--- FIXME: as long as this is required, we're not accounting for ULP correctly everywhere.
-ulpMultiplier :: Rounded 'TowardInf ℝ
-ulpMultiplier = 570
+-- | Typeclass for nodes that may be able to be resolved into a point.
+class Pointable a where
+  -- | Can this node be resolved into a point in 2d space?
+  canPoint :: a -> Bool
+  -- | Get a euclidian representation of this point.
+  ePointOf :: a -> Point2
+  -- | Get a projective representation of this point.
+  pPointOf :: a -> PPoint2
 
 -- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
 outputIntersectsLineSeg :: (Show a, Arcable a) => a -> LineSeg -> Either Intersection PIntersection
@@ -292,6 +310,21 @@ outputIntersectsLineSeg source l1
                     $ "no arc from source?\n"
                     <> show source <> "\n"
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
+
+----------------------------------------------------------
+-------------- Euclidian Mixed Interface -----------------
+----------------------------------------------------------
+
+-- | Intersection events that can only happen with line segments.
+data Intersection =
+    NoIntersection !CPPoint2 !(UlpSum, UlpSum, UlpSum, UlpSum)
+  | HitStartPoint !LineSeg
+  | HitEndPoint !LineSeg
+  deriving Show
+
+-- FIXME: as long as this is required, we're not accounting for ULP correctly everywhere.
+ulpMultiplier :: Rounded 'TowardInf ℝ
+ulpMultiplier = 570
 
 -- entry point usable for all intersection needs, complete with passed in error values.
 intersectsWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => Either LineSeg (a, PLine2Err) -> Either LineSeg (b, PLine2Err) -> Either Intersection PIntersection
