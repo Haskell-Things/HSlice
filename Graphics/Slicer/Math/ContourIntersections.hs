@@ -20,7 +20,7 @@
 
 module Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getPLine2Intersections) where
 
-import Prelude (Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, Int, (<), (*), length, odd)
+import Prelude (Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), zip, Int, (<), (*), length, odd)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
@@ -83,8 +83,12 @@ contourIntersectionCount :: Contour -> (Point2, Point2) -> Int
 contourIntersectionCount contour (start, end) = len $ getIntersections contour (start, end)
   where
     getIntersections :: Contour -> (Point2, Point2) -> Slist (LineSeg, Either Point2 ProjectivePoint)
-    getIntersections c (pt1, pt2) = slist $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour contour) $ intersectsWithErr (Left $ makeLineSeg pt1 pt2) . Left <$> lineSegsOfContour c
+    getIntersections c (pt1, pt2) = slist $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour contour) $ intersectsWithErr targetSeg <$> segs
       where
+        segs :: [Either LineSeg (ProjectiveLine, PLine2Err)]
+        segs =  Left <$> lineSegsOfContour c
+        targetSeg :: Either LineSeg (ProjectiveLine, PLine2Err)
+        targetSeg = Left $ makeLineSeg pt1 pt2
         openCircuit v = Just <$> v
 
 -- | Get the intersections between a PLine2 and a contour as a series of points. always returns an even number of intersections.
@@ -93,8 +97,12 @@ getPLine2Intersections pLine c
   | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show pLine <> "\n" <> show res <> "\n"
   | otherwise = res
   where
-    res = getPoints $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour c) $ intersectsWithErr (Right pLine) . Left <$> lineSegsOfContour c
+    res = getPoints $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour c) $ intersectsWithErr targetLine <$> segs
     openCircuit v = Just <$> v
+    segs :: [Either LineSeg (ProjectiveLine, PLine2Err)]
+    segs =  Left <$> lineSegsOfContour c
+    targetLine :: Either LineSeg (ProjectiveLine, PLine2Err)
+    targetLine = Right pLine
     getPoints :: [(LineSeg, Either Point2 ProjectivePoint)] -> [Point2]
     getPoints vs = getPoint <$> vs
       where

@@ -336,7 +336,7 @@ data Intersection =
   deriving Show
 
 -- | Entry point usable for all intersection needs, complete with passed in error values.
-intersectsWithErr :: Either LineSeg (ProjectiveLine, PLine2Err) -> Either LineSeg (ProjectiveLine, PLine2Err) -> Either Intersection PIntersection
+intersectsWithErr :: (ProjectiveLine2 a) => Either LineSeg (a, PLine2Err) -> Either LineSeg (a, PLine2Err) -> Either Intersection PIntersection
 intersectsWithErr (Left l1)    (Left l2)  =         lineSegIntersectsLineSeg l1 l2
 intersectsWithErr (Right pl1) (Right pl2) = Right $ plinesIntersectIn pl1 pl2
 intersectsWithErr (Left l1)   (Right pl1) =         pLineIntersectsLineSeg pl1 l1
