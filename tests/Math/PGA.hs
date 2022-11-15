@@ -507,13 +507,13 @@ prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
                 <> show eNode <> "\n"
                 <> "(" <> show x3 <> "," <> show y3 <> ")\n"
   where
-    intersect1 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left lineSeg1)
-    intersect2 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left lineSeg2)
+    intersect1 = intersectsWithErr (Right (bisector1, mempty)) (Left lineSeg1 :: Either LineSeg (PLine2, PLine2Err))
+    intersect2 = intersectsWithErr (Right (bisector1, mempty)) (Left lineSeg2 :: Either LineSeg (PLine2, PLine2Err))
     intersect3 = outputIntersectsLineSeg eNode lineSeg1
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
     (bisector, bisectorRawErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
-    (NPLine2 bisector1, bisector1NormErr) = normalizeL bisector
+    (bisector1, bisector1NormErr) = normalizeL bisector
     bisector1Err = bisectorRawErr <> bisector1NormErr
     bisector2 = getFirstArc (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
@@ -556,16 +556,16 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
                 <> show lineSeg2 <> "\n"
                 <> show bisector1 <> "\n"
                 <> show eNode <> "\n"
-                <> show (angleBetween (normalizePLine2 $ outOf eNode) (normalizePLine2 $ PLine2 bisector1)) <> "\n"
+                <> show (angleBetween (normalizePLine2 $ outOf eNode) bisector1) <> "\n"
                 <> "(" <> show x3 <> "," <> show y3 <> ")\n"
                 <> "(" <> show x4 <> "," <> show y4 <> ")\n"
   where
-    intersect1 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left lineSeg1)
-    intersect2 = intersectsWithErr (Right (PLine2 bisector1, mempty)) (Left lineSeg2)
+    intersect1 = intersectsWithErr (Right (bisector1, mempty)) (Left lineSeg1 :: Either LineSeg (PLine2, PLine2Err))
+    intersect2 = intersectsWithErr (Right (bisector1, mempty)) (Left lineSeg2 :: Either LineSeg (PLine2, PLine2Err))
     intersect3 = outputIntersectsLineSeg eNode lineSeg1
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
-    (NPLine2 bisector1, bisector1ErrRaw) = normalizeL bisector
+    (bisector1, bisector1ErrRaw) = normalizeL bisector
     (bisector, bisectorErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
@@ -621,8 +621,8 @@ prop_LineSegIntersectionStableAtOrigin d1 x1 y1 rawX2 rawY2
                    ) <> "\n"
                 <> "(x2,y2): " <> show (x2,y2) <> "\n"
   where
-    res1 = intersectsWithErr (Right (pLineThroughOriginNotX1Y1NotOther,mempty)) (Left x1y1LineSegToOrigin)
-    res2 = intersectsWithErr (Right (pLineThroughOriginNotX1Y1NotOther,mempty)) (Left lineSegFromOrigin)
+    res1 = intersectsWithErr (Right (pLineThroughOriginNotX1Y1NotOther,mempty)) (Left x1y1LineSegToOrigin :: Either LineSeg (PLine2, PLine2Err))
+    res2 = intersectsWithErr (Right (pLineThroughOriginNotX1Y1NotOther,mempty)) (Left lineSegFromOrigin :: Either LineSeg (PLine2, PLine2Err))
     distanceStart = case res2 of
                       (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP (iPoint,mempty) (makePPoint2 0 0, mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP (iPoint,mempty) (makePPoint2 0 0, mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
@@ -667,8 +667,8 @@ prop_LineSegIntersectionStableAtX1Y1Point pointD rawD1 x1 y1 rawX2 rawY2
                          <> distanceEnd
                    ) <> "\n"
   where
-    res1 = intersectsWithErr (Right (pLineThroughPointNotX1Y1NotOther,mempty)) (Left x1y1LineSegToPoint)
-    res2 = intersectsWithErr (Right (pLineThroughPointNotX1Y1NotOther,mempty)) (Left lineSegFromPointNotX1Y1)
+    res1 = intersectsWithErr (Right (pLineThroughPointNotX1Y1NotOther,mempty)) (Left x1y1LineSegToPoint :: Either LineSeg (PLine2, PLine2Err))
+    res2 = intersectsWithErr (Right (pLineThroughPointNotX1Y1NotOther,mempty)) (Left lineSegFromPointNotX1Y1 :: Either LineSeg (PLine2, PLine2Err))
     distanceStart = case res2 of
                       (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP (iPoint, mempty) (makePPoint2 d2 d2, mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP (iPoint, mempty) (makePPoint2 d2 d2, mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"

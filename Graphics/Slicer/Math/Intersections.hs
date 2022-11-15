@@ -20,7 +20,7 @@
 
 module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getPLine2Intersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
 
-import Prelude (Bool, Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, Int, (<), (*), (||), (==), fst, length, mempty, odd, realToFrac)
+import Prelude (Bool, Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), zip, Int, (<), (*), (||), (==), fst, length, mempty, odd, realToFrac)
 
 import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
@@ -36,7 +36,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
-import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, PPoint2Err, distance2PL, intersectsWithErr, outputIntersectsLineSeg, plinesIntersectIn, pToEP)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, PLine2Err, PPoint2Err, distance2PL, intersectsWithErr, outputIntersectsLineSeg, plinesIntersectIn, pToEP)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -85,8 +85,12 @@ contourIntersectionCount :: Contour -> (Point2, Point2) -> Int
 contourIntersectionCount contour (start, end) = len $ getIntersections contour (start, end)
   where
     getIntersections :: Contour -> (Point2, Point2) -> Slist (LineSeg, Either Point2 CPPoint2)
-    getIntersections c (pt1, pt2) = slist $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour contour) $ intersectsWithErr (Left $ makeLineSeg pt1 pt2) . Left <$> lineSegsOfContour c
+    getIntersections c (pt1, pt2) = slist $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour contour) $ intersectsWithErr targetSeg <$> segs
       where
+        segs :: [Either LineSeg (NPLine2, PLine2Err)]
+        segs =  Left <$> lineSegsOfContour c
+        targetSeg :: Either LineSeg (NPLine2, PLine2Err)
+        targetSeg = Left $ makeLineSeg pt1 pt2
         openCircuit v = Just <$> v
 
 -- | Get the intersections between a PLine2 and a contour as a series of points. always returns an even number of intersections.
@@ -96,7 +100,12 @@ getPLine2Intersections pLine c
   | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show pLine <> "\n" <> show res <> "\n"
   | otherwise = res
   where
-    res = getPoints $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour c) $ intersectsWithErr (Right (pLine, mempty)) . Left <$> lineSegsOfContour c
+    res = getPoints $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour c) $ intersectsWithErr targetLine <$> segs
+      where
+        segs :: [Either LineSeg (NPLine2, PLine2Err)]
+        segs =  Left <$> lineSegsOfContour c
+        targetLine :: Either LineSeg (PLine2, PLine2Err)
+        targetLine = Right (pLine, mempty)
     openCircuit v = Just <$> v
     getPoints :: [(LineSeg, Either Point2 CPPoint2)] -> [Point2]
     getPoints vs = getPoint <$> vs

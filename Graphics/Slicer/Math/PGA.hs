@@ -293,13 +293,10 @@ outputIntersectsLineSeg source l1
                     <> show source <> "\n"
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
--- | A type alias, for cases where either input is acceptable.
-type SegOrPLine2WithErr = Either LineSeg (PLine2, PLine2Err)
-
 -- entry point usable for all intersection needs, complete with passed in error values.
-intersectsWithErr :: SegOrPLine2WithErr -> SegOrPLine2WithErr -> Either Intersection PIntersection
+intersectsWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => Either LineSeg (a, PLine2Err) -> Either LineSeg (b, PLine2Err) -> Either Intersection PIntersection
 intersectsWithErr (Left l1)       (Left l2)       =         lineSegIntersectsLineSeg l1 l2
-intersectsWithErr (Right (pl1,_)) (Right (pl2,_)) = Right $ plinesIntersectIn (pl1,mempty) (pl2,mempty)
+intersectsWithErr (Right (pl1,pl1Err)) (Right (pl2,pl2Err)) = Right $ plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
 intersectsWithErr (Left l1@(rawL1)) (Right pl1@(rawPL1, _)) = pLineIntersectsLineSeg pl1 l1 ulpScale
   where
     ulpScale :: ℝ
@@ -314,7 +311,7 @@ intersectsWithErr (Right pl1@(rawPL1, _)) (Left l1@(rawL1)) = pLineIntersectsLin
     (pl2, _) = eToPL rawL1
 
 -- | Check if/where a line segment and a PLine intersect.
-pLineIntersectsLineSeg :: (PLine2, PLine2Err) -> LineSeg -> ℝ -> Either Intersection PIntersection
+pLineIntersectsLineSeg :: (ProjectiveLine2 a) => (a, PLine2Err) -> LineSeg -> ℝ -> Either Intersection PIntersection
 pLineIntersectsLineSeg (pl1, pl1Err) l1 ulpScale
   | plinesIntersectIn (pl1,mempty) (pl2,pl2Err) == PParallel = Right PParallel
   | plinesIntersectIn (pl1,mempty) (pl2,pl2Err) == PAntiParallel = Right PAntiParallel
