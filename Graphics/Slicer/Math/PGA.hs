@@ -44,36 +44,37 @@ module Graphics.Slicer.Math.PGA(
   PPoint2Err,
   ProjectiveLine(PLine2, NPLine2),
   ProjectiveLine2(
-      distance2PL,
-      flipL,
-      fuzzinessOfL,
-      intersect2PL,
-      normalizeL,
-      translateL
+      normalizeL
       ),
   ProjectivePoint(PPoint2, CPPoint2),
   ProjectivePoint2(
-      canonicalize,
-      distance2PP,
-      fuzzinessOfP,
-      interpolate2PP,
-      join2PP,
-      pToEP
+      canonicalizeP
       ),
+  angleBetween2PL,
   combineConsecutiveLineSegs,
   distancePPointToPLineWithErr,
+  distance2PL,
+  distance2PP,
+  flipL,
   pLineErrAtPPoint,
   eToPL,
   eToPPoint2,
+  fuzzinessOfL,
+  fuzzinessOfP,
+  interpolate2PP,
   intersectsWithErr,
+  intersect2PL,
+  join2PP,
   makePPoint2,
   outputIntersectsLineSeg,
   oppositeDirection,
   pLineIsLeft,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
+  pToEP,
   plinesIntersectIn,
   sameDirection,
+  translateL,
   translateRotatePPoint2WithErr
   ) where
 
@@ -103,8 +104,8 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs, makeLineSeg)
 
-import Graphics.Slicer.Math.PGAPrimitives(ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, distance2PL, flipL, forceBasisOfL, fuzzinessOfL, intersect2PL, normalizeL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), pLineErrAtPPoint)
-  
+import Graphics.Slicer.Math.PGAPrimitives(ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine2(normalizeL, vecOfL), ProjectivePoint2(canonicalizeP, isIdealP, vecOfP), angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, flipL, forceBasisOfL, forceBasisOfP, fuzzinessOfL, fuzzinessOfP, idealNormOfP, interpolate2PP, intersect2PL, join2PP, pLineErrAtPPoint, pToEP, translateL)
+
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -183,7 +184,7 @@ distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, inLineErr)
     (PLine2 perpLine, (_, _, (plMulErr, plAddErr))) = perpLineAt nLine cPoint
     pointErr = inPointErr <> cPointErr
     (nLine, nLineErr) = normalizeL inLine
-    (cPoint, cPointErr) = canonicalize inPoint
+    (cPoint, cPointErr) = canonicalizeP inPoint
 
 -- | Determine if two points are on the same side of a given line.
 -- Returns Nothing if one of the points is on the line.
@@ -241,7 +242,7 @@ pPointOnPerpWithErr line point d = (PPoint2 res, resErr)
     -- FIXME: where should we put this in the error quotent of PLine2Err?
     (PLine2 perpLine, (nLineErr, _, perpLineErrs)) = perpLineAt line cPoint
     pVec = vecOfP $ forceBasisOfP cPoint
-    (cPoint, cPointErr) = canonicalize point
+    (cPoint, cPointErr) = canonicalizeP point
 
 -- Find a projective line crossing the given projective line at the given projective point at a 90 degree angle.
 perpLineAt :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PLine2Err, PPoint2Err, ([ErrVal],[ErrVal])))
@@ -252,7 +253,7 @@ perpLineAt line point = (PLine2 res, resErr)
     lvec = vecOfL $ forceBasisOfL nLine
     (nLine, nLineErr) = normalizeL line
     pvec = vecOfP $ forceBasisOfP cPoint
-    (cPoint, cPointErr) = canonicalize point
+    (cPoint, cPointErr) = canonicalizeP point
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
 -- FIXME: throw this error into PPoint2Err.
