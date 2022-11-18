@@ -69,7 +69,7 @@ import Data.Either (Either(Left, Right), fromRight, isRight)
 
 import Data.List (foldl', sort)
 
-import Data.Maybe (Maybe(Just,Nothing), fromJust, fromMaybe, isJust, isNothing)
+import Data.Maybe (Maybe(Just,Nothing), fromJust, isJust, isNothing)
 
 import Data.Set (Set, elems, fromList, singleton)
 
@@ -143,14 +143,13 @@ data ProjectiveLine =
   | NPLine2 GVec
   deriving (Generic, NFData, Show)
 
--- | The typeclass of operations that can be performed on a ProjectiveLine.
+-- | The typeclass definition. functions that must be implemented for any projective line type.
 class ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   normalizeL :: a -> (ProjectiveLine, PLine2Err)
   vecOfL :: a -> GVec
 
--- | The mapping of the typeclass operations to the functions below.
--- Some functions expose internal error for testing purposes. This internal error is filtered out.
+-- | The implementation of typeclass operations.
 instance ProjectiveLine2 ProjectiveLine where
   consLikeL l = case l of
                   (NPLine2 _) -> NPLine2
@@ -162,6 +161,7 @@ instance ProjectiveLine2 ProjectiveLine where
                (NPLine2 v) -> v
                (PLine2 v) -> v
 
+-- | An equality instance for ProjectiveLine. allows us to skip some normalization.
 instance Eq ProjectiveLine where
   (==) (NPLine2 gvec1) (NPLine2 gvec2) = gvec1 == gvec2
   (==) pl1@(PLine2 gvec1) pl2@(PLine2 gvec2) = gvec1 == gvec2 || normalizeL pl1 == normalizeL pl2
@@ -235,7 +235,7 @@ distance2PL l1 l2 = crushErr $ distanceBetweenProjectiveLines l1 l2
 
 -- | Reverse a line. same line, but pointed in the other direction.
 flipProjectiveLine, flipL :: (ProjectiveLine2 a) => a -> a
--- | Actual implementation
+-- | Actual implementation.
 flipProjectiveLine line = (consLikeL line) rawRes
   where
     rawRes = GVec $ foldl' addValWithoutErr []
@@ -248,10 +248,9 @@ flipProjectiveLine line = (consLikeL line) rawRes
 -- | Wrapper.
 flipL l = flipProjectiveLine l
 
-
 -- | Ensure all of the '0' components exist on a Projective Line.
 forceProjectiveLineBasis, forceBasisOfL :: (ProjectiveLine2 a) => a -> a
--- | Actual Implementation
+-- | Actual implementation.
 forceProjectiveLineBasis line
   | gnums == Just [singleton (GEZero 1),
                    singleton (GEPlus 1),
@@ -270,7 +269,7 @@ forceBasisOfL l = forceProjectiveLineBasis l
 -- NOTE: A projective line's error varies depending where on that line you are trying to resolve it.
 --       For complete results, combine this with scaling xIntercept and yIntercept.
 fuzzinessOfProjectiveLine, fuzzinessOfL :: (ProjectiveLine2 a) => (a, PLine2Err) -> UlpSum
--- | Actual Implementation.
+-- | Actual implementation.
 fuzzinessOfProjectiveLine (line, lineErr) = tUlp <> joinAddTErr <> joinMulTErr <> normalizeTErr <> additionTErr
   where
     (PLine2Err additionErr normalizeErr _ _ tUlp (joinMulErr, joinAddErr)) = lineErr <> normalizeErrRaw
@@ -323,7 +322,7 @@ normalizeProjectiveLine line = (res, resErr)
 -- | Find the norm of a given Projective Line.
 -- FIXME: should we be placing this error in the PLine2Err? it doesn't effect resolving the line...
 normOfProjectiveLine, normOfL :: (ProjectiveLine2 a) => a -> (ℝ, PLine2Err)
--- | Actual Implementation
+-- | Actual implementation.
 normOfProjectiveLine line = (res, resErr)
   where
     (res, resErr) = case sqNormOfPLine2 of
@@ -334,7 +333,6 @@ normOfProjectiveLine line = (res, resErr)
     (sqNormOfPLine2, sqNormUlp) = sqNormOfL line
 -- | Wrapper.
 normOfL l = normOfProjectiveLine l
-
 
 -- | Find the squared norm of a given Projective Line.
 squaredNormOfProjectiveLine, sqNormOfL :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
@@ -351,7 +349,6 @@ squaredNormOfProjectiveLine line = (res, ulpTotal)
     (GVec vals) = vecOfL line
 -- | Wrapper.
 sqNormOfL l = squaredNormOfProjectiveLine l
-
 
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Uses the property that translation of a line is expressed on the GEZero component.
@@ -489,12 +486,12 @@ angleCosBetweenProjectiveLines line1 line2
     lvec1 = vecOfL $ forceBasisOfL line1
     lvec2 = vecOfL $ forceBasisOfL line2
 -- | Wrapper.
-angleCosBetween2PL = angleCosBetweenProjectiveLines
+angleCosBetween2PL l1 l2 = angleCosBetweenProjectiveLines l1 l2
 
 -- | Get the canonicalized intersection of two lines.
 -- NOTE: Returns Nothing when the lines are (anti)parallel.
 canonicalizedIntersectionOfProjectiveLines, canonicalizedIntersectionOf2PL :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
--- | Actual implementation
+-- | Actual implementation.
 canonicalizedIntersectionOfProjectiveLines line1 line2
   -- | Check whether the result of our intersection returns an ideal point. if it does, it means the two lines are (anti)parallel, and we should fail.
   | isIdealP pp1 = Nothing
@@ -502,8 +499,8 @@ canonicalizedIntersectionOfProjectiveLines line1 line2
   where
     (cpp1, cpp1Err) = canonicalizeP pp1
     (pp1, (l1Err, l2Err, pp1Err)) = intersect2PL line1 line2
--- | Wrapper
-canonicalizedIntersectionOf2PL = canonicalizedIntersectionOfProjectiveLines
+-- | Wrapper.
+canonicalizedIntersectionOf2PL l1 l2 = canonicalizedIntersectionOfProjectiveLines l1 l2
 
 --------------------------------
 --- Projective Point Support ---
@@ -623,7 +620,7 @@ distance2PP p1 p2 = crushErr $ distanceBetweenProjectivePoints p1 p2
 
 -- | Ensure all of the '0' components exist on a Projective Point. This is to ensure like, unlike, and reductive work properly.
 forceProjectivePointBasis, forceBasisOfP :: (ProjectivePoint2 a) => a -> a
--- The actual implementation.
+-- | Actual implementation.
 forceProjectivePointBasis point
   | gnums == Just [fromList [GEZero 1, GEPlus 1],
                    fromList [GEZero 1, GEPlus 2],
@@ -640,7 +637,7 @@ forceBasisOfP p = forceProjectivePointBasis p
 
 -- | Find the idealized norm of a projective point (ideal or not).
 idealNormOfProjectivePoint, idealNormOfP :: (ProjectivePoint2 a) => a -> (ℝ, UlpSum)
--- | The actual implementation.
+-- | Actual implementation.
 idealNormOfProjectivePoint point
   | preRes == 0 = (0, mempty)
   | otherwise   = (res, ulpTotal)
@@ -663,7 +660,7 @@ idealNormOfP p = idealNormOfProjectivePoint p
 
 -- | Join two points, returning the line that connects them.
 joinOfProjectivePoints, join2PP :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
--- | The actual implementation
+-- | Actual implementation.
 joinOfProjectivePoints point1 point2 = (PLine2 res,
                                         (cPoint1Err, cPoint2Err, PLine2Err mempty mempty mempty mempty mempty resUlp))
   where
@@ -680,7 +677,7 @@ join2PP p1 p2 = joinOfProjectivePoints p1 p2
 -- The position of the found point is determined by the ratio betwenn the two weights supplied.
 -- If the weights are equal, the distance will be right between the two points.
 projectivePointBetweenProjectivePoints, interpolate2PP :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, PPoint2Err))
--- The actual implementation.
+-- | Actual implementation.
 projectivePointBetweenProjectivePoints startPoint stopPoint weight1 weight2
   | isIdealP res = error "tried to generate an ideal point?"
   | otherwise = (res, resErr)
@@ -702,21 +699,18 @@ projectivePointIsIdeal :: (ProjectivePoint2 a) => a -> Bool
 projectivePointIsIdeal point = isNothing $ getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP point
 
 -- | Maybe create a euclidian point from a projective point. Will fail if the projective point is ideal.
-projectivePointToEuclidianPoint :: (ProjectivePoint2 a) => a -> Maybe (Point2, PPoint2Err)
+projectivePointToEuclidianPoint, pToEP :: (ProjectivePoint2 a) => a -> (Point2, PPoint2Err)
+-- | Actual implementation.
 projectivePointToEuclidianPoint point
- | e12Val == 0 = Nothing
- | otherwise = Just (res, resErr)
+ | projectivePointIsIdeal point = error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point."
+ | otherwise = (res, resErr)
   where
     res = Point2 (xVal, yVal)
     xVal = negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
     (CPPoint2 (GVec vals), resErr) = canonicalizeP point
-    e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
-    (GVec rawVals) = vecOfP point
-
--- A wrapper to the above function, failing if the function returns a Maybe.
-pToEP :: (ProjectivePoint2 a) => a -> (Point2, PPoint2Err)
-pToEP p = fromMaybe (error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point.") $ projectivePointToEuclidianPoint p
+-- | Wrapper.
+pToEP p = projectivePointToEuclidianPoint p
 
 ------------------------------------------
 --- Projective Point Error Calculation ---
@@ -730,7 +724,7 @@ sumPPointErrs errs = eValOf mempty (getVal [GEZero 1, GEPlus 1] errs)
 -- | Determine the amount of error in resolving a projective point. Returns the radius of a circle aroind the given point within which the 'correct' answer should be.
 -- FIXME: This 1000 here is completely made up BS.
 fuzzinessOfProjectivePoint, fuzzinessOfP :: (ProjectivePoint2 a) => (a, PPoint2Err) -> UlpSum
--- | The actual implementation.
+-- | Actual implementation.
 fuzzinessOfProjectivePoint (point, pointErr) = UlpSum $ sumTotal * realToFrac (1+(1000*(abs angleIn + realToFrac (ulpVal $ sumPPointErrs angleUnlikeAddErr <> sumPPointErrs angleUnlikeMulErr))))
   where
     sumTotal = ulpVal $ sumPPointErrs pJoinAddErr
