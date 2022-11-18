@@ -48,14 +48,14 @@ import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
 import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, angleBetween2PL, canonicalize, distance2PP, distance2PL, distancePPointToPLineWithErr, eToPL, eToPPoint2, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, angleBetween2PL, canonicalizeP, distance2PP, distance2PL, distancePPointToPLineWithErr, eToPL, eToPPoint2, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL)
 
 angleBetween :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> ℝ
 angleBetween pLine1 pLine2 = fst $ angleBetween2PL pLine1 pLine2
 
 -- | canonicalize a euclidian point.
 canonicalizePPoint2 :: PPoint2 -> CPPoint2
-canonicalizePPoint2 point = fst $ canonicalize point
+canonicalizePPoint2 point = fst $ canonicalizeP point
 
 distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
 distanceBetweenPPoints point1 point2 = fst $ distance2PP (point1, mempty) (point2, mempty)

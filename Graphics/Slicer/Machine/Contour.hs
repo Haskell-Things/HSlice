@@ -37,7 +37,7 @@ import Graphics.Slicer.Math.Line (combineLineSegs)
 
 import Graphics.Slicer.Math.Lossy (eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn), ProjectiveLine2(translateL), plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, PIntersection(IntersectsIn), plinesIntersectIn, translateL)
 
 import Graphics.Slicer.Definitions(ℝ)
 

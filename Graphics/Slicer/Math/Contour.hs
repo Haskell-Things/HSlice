@@ -52,7 +52,7 @@ import Graphics.Slicer.Math.Intersections (contourIntersectionCount, noIntersect
 
 import Graphics.Slicer.Math.Lossy (join2PPoint2, pPointBetweenPPoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint2(join2PP), PPoint2, eToPPoint2, eToPL, pLineIsLeft, pPointOnPerpWithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint2, PPoint2, eToPPoint2, eToPL, join2PP, pLineIsLeft, pPointOnPerpWithErr)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.

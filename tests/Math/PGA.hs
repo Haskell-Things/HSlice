@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToCPPoint2, eToPLine2, getFirstArc, join2PPoint2, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalize, distance2PP, distancePPointToPLineWithErr, eToPL, eToPPoint2, interpolate2PP, intersect2PL, translateL, translateRotatePPoint2WithErr, angleBetween2PL, flipL, join2PP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, errOfOut, pPointOnPerpWithErr, outOf, pPointOf, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalizeP, distance2PP, distancePPointToPLineWithErr, eToPL, eToPPoint2, interpolate2PP, intersect2PL, translateL, translateRotatePPoint2WithErr, angleBetween2PL, flipL, join2PP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, errOfOut, pPointOnPerpWithErr, outOf, pPointOf, outputIntersectsLineSeg)
 
 
 -- The primitives of our PGA only library, and error estimation code.
@@ -406,7 +406,7 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
     (angle2, (_,_, angle2Err)) = angleBetween2PL normedPLine3 normedPLine4
     (PPoint2 rawBisectorStart, bisectorStartErr) = interpolate2PP sourceStart sourceEnd 0.5 0.5
     (bisectorEndRaw, bisectorEndRawErr) = pPointOnPerpWithErr pline4 (PPoint2 rawBisectorStart) d
-    (bisectorEnd, bisectorEndErr) = canonicalize bisectorEndRaw
+    (bisectorEnd, bisectorEndErr) = canonicalizeP bisectorEndRaw
     (pline3, pline3Err) = join2PP (CPPoint2 rawBisectorStart) bisectorEnd
     (normedPLine3, norm3Err) = normalizeL pline3
     sourceStart = makePPoint2 x y
@@ -1330,7 +1330,7 @@ prop_eNodeTowardIntersection1 :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Pos
 prop_eNodeTowardIntersection1 x y d1 rawR1 d2 rawR2 = l1TowardIntersection --> True
   where
     l1TowardIntersection = towardIntersection ((\(CPPoint2 v)-> PPoint2 v) $ eToPPoint2 $ startPoint l1) pl1 eNodePoint
-    (eNodePoint, _) = canonicalize $ pPointOf eNode
+    (eNodePoint, _) = canonicalizeP $ pPointOf eNode
     l1 = getFirstLineSeg eNode
     pl1 = eToPLine2 l1
     eNode = randomENode x y d1 rawR1 d2 rawR2
@@ -1339,7 +1339,7 @@ prop_eNodeAwayFromIntersection2 :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> P
 prop_eNodeAwayFromIntersection2 x y d1 rawR1 d2 rawR2 = l2TowardIntersection --> False
   where
     l2TowardIntersection = towardIntersection ((\(CPPoint2 v)-> PPoint2 v) $ eToPPoint2 $ endPoint l2) pl2 eNodePoint
-    (eNodePoint, _) = canonicalize $ pPointOf eNode
+    (eNodePoint, _) = canonicalizeP $ pPointOf eNode
     l2 = getLastLineSeg eNode
     pl2 = eToPLine2 l2
     eNode = randomENode x y d1 rawR1 d2 rawR2
@@ -1370,7 +1370,7 @@ prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
     (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL randomPLine1 randomPLine2
     (randomPLine1, _) = randomPLineThroughOrigin x y
     (randomPLine2, _) = randomPLineThroughOrigin x2 y2
-    (_, canonicalizationErr) = canonicalize intersectionPPoint2
+    (_, canonicalizationErr) = canonicalizeP intersectionPPoint2
     errSum = distanceErr -- + canonicalizationErr
     x,x2,y2 :: ℝ
     x = coerce rawX
@@ -1398,7 +1398,7 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
     (intersectionPPoint2, (_,_, intersectionErr)) = intersect2PL randomPLine1 randomPLine2
     (randomPLine1, _) = randomPLineWithErr x y targetX targetY
     (randomPLine2, _) = randomPLineWithErr x2 y2 targetX targetY
-    (_, canonicalizationErr) = canonicalize intersectionPPoint2
+    (_, canonicalizationErr) = canonicalizeP intersectionPPoint2
     errSum = distanceErr -- + canonicalizationErr
     x,x2,y2 :: ℝ
     x = coerce rawX

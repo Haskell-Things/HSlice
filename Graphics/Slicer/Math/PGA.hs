@@ -44,32 +44,32 @@ module Graphics.Slicer.Math.PGA(
   PPoint2(PPoint2),
   PPoint2Err,
   ProjectiveLine2(
-      angleBetween2PL,
-      distance2PL,
-      flipL,
-      intersect2PL,
       normalizeL,
-      translateL,
       vecOfL
       ),
   ProjectivePoint2(
-      canonicalize,
-      distance2PP,
-      interpolate2PP,
-      join2PP,
-      pToEP
+      canonicalizeP
       ),
+  angleBetween2PL,
   combineConsecutiveLineSegs,
   distancePPointToPLineWithErr,
+  distance2PP,
+  distance2PL,
   eToPL,
   eToPPoint2,
+  flipL,
+  interpolate2PP,
   intersectsWithErr,
+  intersect2PL,
+  join2PP,
   makePPoint2,
   outputIntersectsLineSeg,
   pLineIsLeft,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
+  pToEP,
   plinesIntersectIn,
+  translateL,
   translateRotatePPoint2WithErr
   ) where
 
@@ -99,7 +99,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs, makeLineSeg)
 
-import Graphics.Slicer.Math.PGAPrimitives(CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(angleBetween2PL, angleCosBetween2PL, distance2PL, flipL, forceBasisOfL, intersect2PL, normalizeL, translateL, vecOfL), ProjectivePoint2(canonicalize, distance2PP, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, isIdealP, join2PP, pToEP, vecOfP), canonicalizedIntersectionOf2PL, pLineErrAtPPoint)
+import Graphics.Slicer.Math.PGAPrimitives(CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(normalizeL, vecOfL), ProjectivePoint2(canonicalizeP, isIdealP, vecOfP), angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, flipL, forceBasisOfL, forceBasisOfP, fuzzinessOfP, idealNormOfP, interpolate2PP, intersect2PL, join2PP, pLineErrAtPPoint, pToEP, translateL)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -178,7 +178,7 @@ distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, inLineErr)
     (PLine2 perpLine, (_, _, (plMulErr, plAddErr))) = perpLineAt nLine cPoint
     pointErr = inPointErr <> cPointErr
     (nLine, nLineErr) = normalizeL inLine
-    (cPoint, cPointErr) = canonicalize inPoint
+    (cPoint, cPointErr) = canonicalizeP inPoint
 
 -- | Determine if two points are on the same side of a given line.
 -- Returns Nothing if one of the points is on the line.
@@ -236,7 +236,7 @@ pPointOnPerpWithErr line point d = (PPoint2 res, resErr)
     -- FIXME: where should we put this in the error quotent of PLine2Err?
     (PLine2 perpLine, (nLineErr, _, perpLineErrs)) = perpLineAt line cPoint
     pVec = vecOfP $ forceBasisOfP cPoint
-    (cPoint, cPointErr) = canonicalize point
+    (cPoint, cPointErr) = canonicalizeP point
 
 -- Find a projective line crossing the given projective line at the given projective point at a 90 degree angle.
 perpLineAt :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> (PLine2, (PLine2Err, PPoint2Err, ([ErrVal],[ErrVal])))
@@ -247,7 +247,7 @@ perpLineAt line point = (PLine2 res, resErr)
     lvec = vecOfL $ forceBasisOfL nLine
     (nLine, nLineErr) = normalizeL line
     pvec = vecOfP $ forceBasisOfP cPoint
-    (cPoint, cPointErr) = canonicalize point
+    (cPoint, cPointErr) = canonicalizeP point
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
 translateRotatePPoint2WithErr :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> (PPoint2, (UlpSum, UlpSum, [ErrVal], PLine2Err, PLine2Err, PPoint2Err, ([ErrVal],[ErrVal])))
@@ -370,7 +370,7 @@ pLineIntersectsLineSeg (pl1, pl1Err) l1 ulpScale
     hasRawIntersection = valOf 0 foundVal /= 0
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
     rawIntersectionErr = rawIntersectErr <> cRawIntersectErr
-    (rawIntersection, cRawIntersectErr) = canonicalize rawIntersect
+    (rawIntersection, cRawIntersectErr) = canonicalizeP rawIntersect
     (rawIntersect, (_,_,rawIntersectErr)) = intersect2PL pl1 pl2
     (pl2, pl2Err) = eToPL l1
 
@@ -413,7 +413,7 @@ lineSegIntersectsLineSeg l1 l2
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
     -- FIXME: remove the canonicalization from this function, moving it to the callers.
     rawIntersectionErr = rawIntersectErrRaw <> cRawIntersectErr
-    (rawIntersection, cRawIntersectErr) = canonicalize rawIntersect
+    (rawIntersection, cRawIntersectErr) = canonicalizeP rawIntersect
     (rawIntersect, (_,_,rawIntersectErrRaw)) = intersect2PL pl1 pl2
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.

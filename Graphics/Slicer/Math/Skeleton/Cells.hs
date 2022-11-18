@@ -115,7 +115,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                                                    where
                                                      (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf m) (eToPLine2 $ lineSegToIntersection m)
                                                  lineSegToIntersection m = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
-                                                 intersectionPPoint = intersectionOf (outOf firstMC) (outOf secondMC)
+                                                 intersectionPPoint = fst $ intersectionOf (outOf firstMC) (outOf secondMC)
                                              (Slist (_:_) _) -> error "too many motorcycles."
     motorcyclesIn (CrashTree motorcycles _ _) = motorcycles
     -- | find where the last motorcycle of a divide lands

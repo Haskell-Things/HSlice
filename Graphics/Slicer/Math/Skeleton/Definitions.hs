@@ -55,7 +55,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapW
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), addVecPair)
 
-import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), PLine2Err, pLineIsLeft, distance2PP, Pointable(canPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), PPoint2(PPoint2), canonicalize, eToPL, eToPPoint2, pToEP, vecOfL)
+import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), PLine2Err, pLineIsLeft, distance2PP, Pointable(canPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), PPoint2(PPoint2), eToPL, eToPPoint2, pToEP, vecOfL)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -126,7 +126,7 @@ instance Pointable INode where
                           where
                             distanceWithinErr a b = res < realToFrac err
                               where
-                                (res, (_,_,UlpSum err)) = distance2PP (canonicalize a) (canonicalize b)
+                                (res, (_,_,UlpSum err)) = distance2PP (a,mempty) (b,mempty)
       allPLines = if hasArc iNode
                   then slist $ nub $ (outAndErrOf iNode) : firstPLine : secondPLine : rawPLines
                   else slist $ nub $ firstPLine : secondPLine : rawPLines
