@@ -47,7 +47,8 @@ module Graphics.Slicer.Math.PGA(
       ),
   ProjectivePoint(PPoint2, CPPoint2),
   ProjectivePoint2(
-      canonicalizeP
+      canonicalizeP,
+      vecOfP
       ),
   angleBetween2PL,
   combineConsecutiveLineSegs,
@@ -289,7 +290,7 @@ class (Show a) => Arcable a where
   errOfOut :: a -> PLine2Err
   -- | Is there an output arc from this node?
   hasArc :: a -> Bool
-   -- | If there is an output arc, return it.
+  -- | If there is an output arc, return it.
   outOf :: a -> ProjectiveLine
 
 -- | If there is an output arc, return it, along with it's error quotent.
@@ -321,7 +322,6 @@ outputIntersectsLineSeg source l1
   | otherwise = pLineIntersectsLineSeg (pl1, pl1Err) l1
   where
     (pl2, pl2Err) = eToPL l1
-    -- the multiplier to account for distance between our Pointable, and where it intersects.
     (pl1, pl1Err) = outAndErrOf source
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
@@ -424,11 +424,11 @@ onSegment ls i =
   || (endDistance <= endFudgeFactor)
   where
     start = eToPPoint2 $ startPoint ls
+    (mid, (_, _, midErr)) = interpolate2PP start end 0.5 0.5
     end = eToPPoint2 $ endPoint ls
     (startDistance, (_,_, startDistanceErr)) = distance2PP i (start, mempty)
     (midDistance, (_,_, midDistanceErr)) = distance2PP i (mid,midErr)
     (endDistance, (_,_, endDistanceErr)) = distance2PP i (end,mempty)
-    (mid, (_, _, midErr)) = interpolate2PP start end 0.5 0.5
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
     startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ
     startFudgeFactor = realToFrac $ ulpVal $ startDistanceErr <> pLineErrAtPPoint (eToPL ls) start
@@ -469,15 +469,15 @@ combineConsecutiveLineSegs lines = case lines of
 ------------------------------------------------
 
 eToPPoint2 :: Point2 -> ProjectivePoint
-eToPPoint2 (Point2 (x,y)) = PPoint2 res
+eToPPoint2 (Point2 (x,y)) = res
   where
-    CPPoint2 res = makePPoint2 x y
+    res = makePPoint2 x y
 
 -- | Create a canonical euclidian projective point from the given coordinates.
 makePPoint2 :: ℝ -> ℝ -> ProjectivePoint
 makePPoint2 x y = pPoint
   where
-    pPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1]) ]
+    pPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1])]
 
 -- | Reverse a vector. Really, take every value in it, and recompute it in the reverse order of the vectors (so instead of e0∧e1, e1∧e0). which has the effect of negating bi and tri-vectors.
 reverseGVec :: GVec -> GVec
@@ -493,9 +493,8 @@ reverseGVec (GVec vals) = GVec $ foldl' addValWithoutErr []
                   , GVal (negate $ valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 1, GEPlus 2])
                   ]
 
-euclidianToProjectiveLine,eToPL :: LineSeg -> (ProjectiveLine, PLine2Err)
-euclidianToProjectiveLine l1 = (res, resErr)
+euclidianToProjectiveLine, eToPL :: LineSeg -> (ProjectiveLine, PLine2Err)
+euclidianToProjectiveLine l = (res, resErr)
   where
-    (res, (_, _, resErr)) = join2PP (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
-eToPL = euclidianToProjectiveLine
-
+    (res, (_, _, resErr)) = join2PP (eToPPoint2 $ startPoint l) (eToPPoint2 $ endPoint l)
+eToPL l = euclidianToProjectiveLine l
