@@ -346,7 +346,7 @@ intersectsWithErr (Right pl1) (Left l1)   =         pLineIntersectsLineSeg pl1 l
 
 -- | Check if/where a line segment and a PLine intersect.
 pLineIntersectsLineSeg :: (ProjectiveLine2 a) => (a, PLine2Err) -> LineSeg -> Either Intersection PIntersection
-pLineIntersectsLineSeg pline1@(pl1, pl1Err) l1
+pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
   | res == PParallel = Right PParallel
   | res == PAntiParallel = Right PAntiParallel
   | res == PCollinear = Right PCollinear
@@ -359,23 +359,24 @@ pLineIntersectsLineSeg pline1@(pl1, pl1Err) l1
   | hasRawIntersection = Left $ NoIntersection rawIntersection (pl1Err, pl2Err, mempty, rawIntersectionErr)
   | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (pl1Err, pl2Err, mempty, rawIntersectErr)
   where
-    res = plinesIntersectIn pline1 pline2
+    res = plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
     startFudgeFactor = ulpVal $ startDistanceErr <> startErr
-    startErr = pLineErrAtPPoint pline2 start
+    startErr = pLineErrAtPPoint (pl2, pl2Err) start
     endFudgeFactor = ulpVal $ endDistanceErr <> endErr
-    endErr = pLineErrAtPPoint pline2 end
+    endErr = pLineErrAtPPoint (pl2, pl2Err) end
     (startDistance, (_,_, startDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start,mempty)
     (endDistance, (_,_, endDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end,mempty)
     hasIntersection = hasRawIntersection && onSegment l1 (rawIntersection,rawIntersectionErr)
     hasRawIntersection = isJust foundVal
     (rawIntersection, (_, _, rawIntersectionErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
+    pl1Err = pl1ErrOrigin <> npl1Err
     pl2Err = pl2ErrOrigin <> npl2Err
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP rawIntersect
-    (rawIntersect, (_, npl2Err, rawIntersectErr)) = intersect2PL pl1 pl2
+    (rawIntersect, (npl1Err, npl2Err, rawIntersectErr)) = intersect2PL pl1 pl2
     start = eToPPoint2 $ startPoint l1
     end = eToPPoint2 $ endPoint l1
-    pline2@(pl2, pl2ErrOrigin) = eToPL l1
+    (pl2, pl2ErrOrigin) = eToPL l1
 
 -- | Check if/where two line segments intersect.
 lineSegIntersectsLineSeg :: LineSeg -> LineSeg -> Either Intersection PIntersection
@@ -393,9 +394,9 @@ lineSegIntersectsLineSeg l1 l2
   | hasIntersection && end2Distance <= realToFrac end2FudgeFactor = Left $ HitEndPoint l2
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, mempty, rawIntersectionErr)
   | hasRawIntersection = Left $ NoIntersection rawIntersection (pl1Err, pl2Err, mempty, rawIntersectionErr)
-  | otherwise = Left $ NoIntersection ((\(PPoint2 p) -> CPPoint2 p) rawIntersect) (pl1Err, pl2Err, mempty, rawIntersectErr)
+  | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (pl1Err, pl2Err, mempty, rawIntersectErr)
   where
-    res = plinesIntersectIn pline1 pline2
+    res = plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
     start1FudgeFactor = ulpVal $ start1DistanceErr <> pLineErrAtPPoint (pl1,pl1Err) start1
     end1FudgeFactor = ulpVal $ end1DistanceErr <> pLineErrAtPPoint (pl1,pl1Err) end1
     start2FudgeFactor = ulpVal $ start2DistanceErr <> pLineErrAtPPoint (pl2,pl2Err) start2
@@ -410,14 +411,14 @@ lineSegIntersectsLineSeg l1 l2
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
     pl1Err = pl1ErrOrigin <> npl1Err
     pl2Err = pl2ErrOrigin <> npl2Err
-    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
+    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP rawIntersect
     (rawIntersect, (npl1Err, npl2Err, rawIntersectErr)) = intersect2PL pl1 pl2
     start1 = eToPPoint2 $ startPoint l1
     end1 = eToPPoint2 $ endPoint l1
     start2 = eToPPoint2 $ startPoint l2
     end2 = eToPPoint2 $ endPoint l2
-    pline1@(pl1, pl1ErrOrigin) = eToPL l1
-    pline2@(pl2, pl2ErrOrigin) = eToPL l2
+    (pl1, pl1ErrOrigin) = eToPL l1
+    (pl2, pl2ErrOrigin) = eToPL l2
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 -- FIXME: check start and end distances in order of: closest to the origin.
