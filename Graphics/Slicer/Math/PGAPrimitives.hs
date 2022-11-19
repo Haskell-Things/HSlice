@@ -579,15 +579,7 @@ canonicalizeProjectivePoint point
   | valOf 1 foundVal == 1 = (CPPoint2 $ GVec rawVals, mempty)
   | otherwise = (res, PPoint2Err mempty scaledErrs mempty mempty mempty mempty mempty)
   where
-    res = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])]
-          $  ( if isNothing (getVal [GEZero 1, GEPlus 1] scaledVals)
-               then []
-               else [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 1] scaledVals) (fromList [GEZero 1, GEPlus 1])]
-             )
-          <> ( if isNothing (getVal [GEZero 1, GEPlus 2] scaledVals)
-               then []
-               else [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] scaledVals) (fromList [GEZero 1, GEPlus 2])]
-             )
+    res = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] scaledVals
     (GVec scaledVals, scaledErrs) = divVecScalarWithErr newVec $ valOf 1 foundVal
     newVec = GVec [GVal (valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals) (fromList [GEZero 1, GEPlus 1])
                   ,GVal (valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals) (fromList [GEZero 1, GEPlus 2])]
