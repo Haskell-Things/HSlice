@@ -507,8 +507,8 @@ prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
                 <> show eNode <> "\n"
                 <> "(" <> show x3 <> "," <> show y3 <> ")\n"
   where
-    intersect1 = intersectsWithErr (Right (PLine2 bisector1, bisector1Err)) (Left lineSeg1)
-    intersect2 = intersectsWithErr (Right (PLine2 bisector1, bisector1Err)) (Left lineSeg2)
+    intersect1 = intersectsWithErr (Right (PLine2 bisector1, bisector1Err)) (Left lineSeg1 :: Either LineSeg (ProjectiveLine, PLine2Err))
+    intersect2 = intersectsWithErr (Right (PLine2 bisector1, bisector1Err)) (Left lineSeg2 :: Either LineSeg (ProjectiveLine, PLine2Err))
     intersect3 = outputIntersectsLineSeg eNode lineSeg1
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
@@ -560,8 +560,8 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
                 <> "(" <> show x3 <> "," <> show y3 <> ")\n"
                 <> "(" <> show x4 <> "," <> show y4 <> ")\n"
   where
-    intersect1 = intersectsWithErr (Right (PLine2 bisector1, bisector1Err)) (Left lineSeg1)
-    intersect2 = intersectsWithErr (Right (PLine2 bisector1, bisector1Err)) (Left lineSeg2)
+    intersect1 = intersectsWithErr (Right (PLine2 bisector1, bisector1Err)) (Left lineSeg1 :: Either LineSeg (ProjectiveLine, PLine2Err))
+    intersect2 = intersectsWithErr (Right (PLine2 bisector1, bisector1Err)) (Left lineSeg2 :: Either LineSeg (ProjectiveLine, PLine2Err))
     intersect3 = outputIntersectsLineSeg eNode lineSeg1
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
@@ -621,8 +621,8 @@ prop_LineSegIntersectionStableAtOrigin d1 x1 y1 rawX2 rawY2
                    ) <> "\n"
                 <> "(x2,y2): " <> show (x2,y2) <> "\n"
   where
-    res1 = intersectsWithErr (Right pLineThroughOriginNotX1Y1NotOther) (Left x1y1LineSegToOrigin)
-    res2 = intersectsWithErr (Right pLineThroughOriginNotX1Y1NotOther) (Left lineSegFromOrigin)
+    res1 = intersectsWithErr (Right pLineThroughOriginNotX1Y1NotOther) (Left x1y1LineSegToOrigin :: Either LineSeg (ProjectiveLine, PLine2Err))
+    res2 = intersectsWithErr (Right pLineThroughOriginNotX1Y1NotOther) (Left lineSegFromOrigin :: Either LineSeg (ProjectiveLine, PLine2Err))
     distanceStart = case res2 of
                       (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP (iPoint,mempty) (eToPPoint2 $ Point2 (0,0), mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP (iPoint,mempty) (eToPPoint2 $ Point2 (0,0), mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
@@ -667,8 +667,8 @@ prop_LineSegIntersectionStableAtX1Y1Point pointD rawD1 x1 y1 rawX2 rawY2
                          <> distanceEnd
                    ) <> "\n"
   where
-    res1 = intersectsWithErr (Right pLineThroughPointNotX1Y1NotOther) (Left x1y1LineSegToPoint)
-    res2 = intersectsWithErr (Right pLineThroughPointNotX1Y1NotOther) (Left lineSegFromPointNotX1Y1)
+    res1 = intersectsWithErr (Right pLineThroughPointNotX1Y1NotOther) (Left x1y1LineSegToPoint :: Either LineSeg (ProjectiveLine, PLine2Err))
+    res2 = intersectsWithErr (Right pLineThroughPointNotX1Y1NotOther) (Left lineSegFromPointNotX1Y1 :: Either LineSeg (ProjectiveLine, PLine2Err))
     distanceStart = case res2 of
                       (Left (NoIntersection iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP (iPoint,mempty) (eToPPoint2 $ Point2 (d2,d2),mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
                       (Right (IntersectsIn iPoint ulpSum)) -> show iPoint <> "\nDistance: " <> show (distance2PP (iPoint,mempty) (eToPPoint2 $ Point2 (d2,d2),mempty)) <> "\nUlpSum:" <> show ulpSum <> "\n"
