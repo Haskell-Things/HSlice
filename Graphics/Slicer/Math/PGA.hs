@@ -284,7 +284,7 @@ translateRotatePPoint2WithErr point d rotation = (res, resErr)
 ----------------------------------------------------------
 
 -- | Does this node have an output (resulting) line?
-class Arcable a where
+class (Show a) => Arcable a where
   -- | Return the error quotent of the output arc, if the output arc exists.
   errOfOut :: a -> PLine2Err
   -- | Is there an output arc from this node?
@@ -294,7 +294,9 @@ class Arcable a where
 
 -- | If there is an output arc, return it, along with it's error quotent.
 outAndErrOf :: (Arcable a) => a -> (ProjectiveLine, PLine2Err)
-outAndErrOf a = (outOf a, errOfOut a)
+outAndErrOf a
+  | hasArc a = (outOf a, errOfOut a)
+  | otherwise = error $ "Asked for out and err of Arcable with no out!\n" <> show a <> "\n"
 
 -- | Typeclass for nodes that may be able to be resolved into a point.
 class Pointable a where
@@ -312,7 +314,7 @@ class Pointable a where
   pPointOf :: a -> ProjectivePoint
 
 -- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
-outputIntersectsLineSeg :: (Show a, Arcable a) => a -> LineSeg -> Either Intersection PIntersection
+outputIntersectsLineSeg :: (Arcable a) => a -> LineSeg -> Either Intersection PIntersection
 outputIntersectsLineSeg source l1
   -- handle the case where a segment that is an input to the node is checked against.
   | isNothing canonicalizedIntersection = Right $ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
@@ -320,11 +322,7 @@ outputIntersectsLineSeg source l1
   where
     (pl2, pl2Err) = eToPL l1
     -- the multiplier to account for distance between our Pointable, and where it intersects.
-    (pl1, pl1Err)
-      | hasArc source = outAndErrOf source
-      | otherwise = error
-                    $ "no arc from source?\n"
-                    <> show source <> "\n"
+    (pl1, pl1Err) = outAndErrOf source
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
 ----------------------------------------------------------

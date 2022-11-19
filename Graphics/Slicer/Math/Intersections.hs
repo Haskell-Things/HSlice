@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Math.Intersections (noIntersection, intersectionOf, intersectionBetween, intersectionsAtSamePoint, isCollinear, isAntiCollinear, isParallel, isAntiParallel, outputIntersectsPLine, outputsIntersect) where
 
-import Prelude (Bool(True), Show, ($), (<), (<=), (<>), (==), (||), (&&), (<$>), Maybe(Just, Nothing), Either(Right, Left), and, error, otherwise, realToFrac, show)
+import Prelude (Bool(True), ($), (<), (<=), (<>), (==), (||), (&&), (<$>), Maybe(Just, Nothing), Either(Right, Left), and, error, otherwise, realToFrac, show)
 
 import Data.Either (rights, lefts)
 
@@ -81,7 +81,7 @@ intersectionBetween pl1@(rawPl1,_) pl2@(rawPl2,_) = saneIntersection $ plinesInt
     saneIntersection (IntersectsIn p (_,_,_,pErr)) = Just $ Right (p, pErr)
 
 -- | find out where the output of an Arcable intersects a given PLine2. errors if no intersection.
-outputIntersectsPLine :: (Arcable a, Show a) => a -> (ProjectiveLine,PLine2Err) -> ProjectivePoint
+outputIntersectsPLine :: (Arcable a) => a -> (ProjectiveLine,PLine2Err) -> ProjectivePoint
 outputIntersectsPLine n pline2WithErr
   | hasArc n = case res of
                  (IntersectsIn p _) -> p
@@ -91,7 +91,7 @@ outputIntersectsPLine n pline2WithErr
     res = plinesIntersectIn (outAndErrOf n) pline2WithErr
 
 -- | find out where the output of an Arcable intersects a given PLine2. errors if no intersection.
-outputsIntersect :: (Arcable a, Arcable b, Show a, Show b) => a -> b -> ProjectivePoint
+outputsIntersect :: (Arcable a, Arcable b) => a -> b -> ProjectivePoint
 outputsIntersect node1 node2
   | hasArc node1 && hasArc node2 = case res of
                                      (IntersectsIn p _) -> p
