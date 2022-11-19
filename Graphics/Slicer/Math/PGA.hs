@@ -43,7 +43,8 @@ module Graphics.Slicer.Math.PGA(
   PPoint2Err,
   ProjectiveLine(PLine2, NPLine2),
   ProjectiveLine2(
-      normalizeL
+      normalizeL,
+      vecOfL
       ),
   ProjectivePoint(PPoint2, CPPoint2),
   ProjectivePoint2(
@@ -369,7 +370,7 @@ pLineIntersectsLineSeg pline1@(pl1, pl1Err) l1
     end = eToPPoint2 $ endPoint l1
     hasIntersection = hasRawIntersection && onSegment l1 (rawIntersection,rawIntersectionErr)
     hasRawIntersection = isJust foundVal
-    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
+    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP rawIntersect
     (rawIntersection, (_, _, rawIntersectionErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
     (rawIntersect, _) = intersect2PL pl1 pl2

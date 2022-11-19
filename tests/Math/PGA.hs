@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersection
 import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), distance2PP, distancePPointToPLineWithErr, eToPL, pLineErrAtPPoint, eToPPoint2, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, outputIntersectsLineSeg, sameDirection, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2,PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), distance2PP, distancePPointToPLineWithErr, eToPL, pLineErrAtPPoint, eToPPoint2, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, outputIntersectsLineSeg, sameDirection, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (PPoint2Err(PPoint2Err), angleBetween2PL, xIntercept, yIntercept)
 
@@ -336,17 +336,17 @@ prop_ScalarDotScalar v1 v2 v3 v4 = scalarPart (rawPPoint2 (v1,v2) ⋅ rawPPoint2
 
 -- | A property test making sure that the wedge product of two PLines along two different axises is always in e1e2.
 prop_TwoAxisAlignedLines :: NonZero ℝ -> NonZero ℝ -> NonZero ℝ -> NonZero ℝ -> Expectation
-prop_TwoAxisAlignedLines d1 d2 r1 r2 = (\(GVec gVals) -> bases gVals) ((\(PLine2 a) -> a) (eToPLine2 (makeLineSeg (Point2 (coerce d1,0)) (Point2 (coerce r1 - coerce d1,0)))) ∧ (\(PLine2 a) -> a) (eToPLine2 (makeLineSeg (Point2 (0,coerce d2)) (Point2 (0,coerce d2 - coerce r2))))) --> [fromList [GEPlus 1, GEPlus 2]]
+prop_TwoAxisAlignedLines d1 d2 r1 r2 = (\(GVec gVals) -> bases gVals) (vecOfL (eToPLine2 (makeLineSeg (Point2 (coerce d1,0)) (Point2 (coerce r1 - coerce d1,0)))) ∧ vecOfL (eToPLine2 (makeLineSeg (Point2 (0,coerce d2)) (Point2 (0,coerce d2 - coerce r2))))) --> [fromList [GEPlus 1, GEPlus 2]]
   where
     bases gvals = (\(GVal _ base) -> base) <$> gvals
 
 -- | A property test making sure that the scalar part of the big-dot product of two identical PLines is not zero.
 prop_TwoOverlappingLinesScalar :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
-prop_TwoOverlappingLinesScalar x y dx dy = scalarPart ((\(PLine2 a) -> a) (randomPLine x y dx dy) • (\(PLine2 a) -> a) (randomPLine x y dx dy)) /= 0
+prop_TwoOverlappingLinesScalar x y dx dy = scalarPart (vecOfL (randomPLine x y dx dy) • vecOfL (randomPLine x y dx dy)) /= 0
 
 -- | A property test for making sure that there is never a vector result of the big-dot product of two identical PLines.
 prop_TwoOverlappingLinesVector :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Expectation
-prop_TwoOverlappingLinesVector x y dx dy = vectorPart ((\(PLine2 a) -> a) (randomPLine x y dx dy) • (\(PLine2 a) -> a) (randomPLine x y dx dy)) --> GVec []
+prop_TwoOverlappingLinesVector x y dx dy = vectorPart (vecOfL (randomPLine x y dx dy) • vecOfL (randomPLine x y dx dy)) --> GVec []
 
 proj2DGeomAlgSpec :: Spec
 proj2DGeomAlgSpec = do
@@ -357,12 +357,12 @@ proj2DGeomAlgSpec = do
   describe "Lines (Math/PGA)" $ do
     -- (-2e2)*2e1 = 4e12
     it "the intersection of a line along the X axis and a line along the Y axis is the origin point" $
-      (\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (-1,0)) (Point2 (1,0)))) ∧ (\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (0,-1)) (Point2 (0,1)))) --> GVec [GVal 4 (fromList [GEPlus 1, GEPlus 2])]
+      vecOfL (eToPLine2 (LineSeg (Point2 (-1,0)) (Point2 (1,0)))) ∧ vecOfL (eToPLine2 (LineSeg (Point2 (0,-1)) (Point2 (0,1)))) --> GVec [GVal 4 (fromList [GEPlus 1, GEPlus 2])]
     it "the intersection of two axis aligned lines is a multiple of e1e2" $
       property prop_TwoAxisAlignedLines
     -- (-2e0+1e1)^(2e0-1e2) = -1e01+2e02-e12
     it "the intersection of a line two points above the X axis, and a line two points to the right of the Y axis is at (2,2) in the upper right quadrant" $
-      vectorPart ((\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (2,0)) (Point2 (2,1)))) ∧ (\(PLine2 a) -> a) (eToPLine2 (LineSeg (Point2 (0,2)) (Point2 (1,2))))) -->
+      vectorPart (vecOfL (eToPLine2 (LineSeg (Point2 (2,0)) (Point2 (2,1)))) ∧ vecOfL (eToPLine2 (LineSeg (Point2 (0,2)) (Point2 (1,2))))) -->
       GVec [GVal (-2) (fromList [GEZero 1, GEPlus 1]), GVal 2 (fromList [GEZero 1, GEPlus 2]), GVal (-1) (fromList [GEPlus 1, GEPlus 2])]
     it "the geometric product of any two overlapping lines is only a Scalar" $
       property prop_TwoOverlappingLinesScalar
