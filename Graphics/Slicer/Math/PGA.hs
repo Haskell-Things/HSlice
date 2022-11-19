@@ -346,18 +346,19 @@ intersectsWithErr (Right pl1@(rawPL1, _)) (Left l1) = pLineIntersectsLineSeg pl1
 -- | Check if/where a line segment and a PLine intersect.
 pLineIntersectsLineSeg :: (ProjectiveLine2 a) => (a, PLine2Err) -> LineSeg -> ℝ -> Either Intersection PIntersection
 pLineIntersectsLineSeg (pl1, pl1Err) l1 ulpScale
-  | plinesIntersectIn (pl1,mempty) (pl2,pl2Err) == PParallel = Right PParallel
-  | plinesIntersectIn (pl1,mempty) (pl2,pl2Err) == PAntiParallel = Right PAntiParallel
-  | plinesIntersectIn (pl1,mempty) (pl2,pl2Err) == PCollinear = Right PCollinear
-  | plinesIntersectIn (pl1,mempty) (pl2,pl2Err) == PAntiCollinear = Right PAntiCollinear
+  | res == PParallel = Right PParallel
+  | res == PAntiParallel = Right PAntiParallel
+  | res == PCollinear = Right PCollinear
+  | res == PAntiCollinear = Right PAntiCollinear
   | hasRawIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (startDistanceErr+endDistanceErr) = error $ "cannot resolve endpoints of segment: " <> show l1 <> "\nulpScale: " <> show ulpScale <> "\nrawIntersect" <> show rawIntersect <> dumpULPs
   | hasIntersection && valOf 0 foundVal == 0 = error "intersection, but cannot cannonicalize."
   | hasIntersection && startDistance <= ulpStartSum = Left $ HitStartPoint l1
   | hasIntersection && endDistance <= ulpEndSum = Left $ HitEndPoint l1
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, mempty, rawIntersectionErr)
   | hasRawIntersection = Left $ NoIntersection rawIntersection (pl1Err, pl2Err, mempty, rawIntersectionErr)
-  | otherwise = Left $ NoIntersection ((\(PPoint2 p) -> CPPoint2 p) rawIntersect) (pl1Err, pl2Err, mempty, rawIntersectErr)
+  | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (pl1Err, pl2Err, mempty, rawIntersectErr)
   where
+    res = plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
     (startDistance, (_,_,UlpSum startDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start,mempty)
     (endDistance, (_,_,UlpSum endDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end,mempty)
     ulpStartSum, ulpEndSum :: ℝ
@@ -378,12 +379,12 @@ pLineIntersectsLineSeg (pl1, pl1Err) l1 ulpScale
 -- | Check if/where two line segments intersect.
 lineSegIntersectsLineSeg :: LineSeg -> LineSeg -> Either Intersection PIntersection
 lineSegIntersectsLineSeg l1 l2
-  | plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err) == PParallel = Right PParallel
-  | plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err) == PAntiParallel = Right PAntiParallel
+  | res == PParallel = Right PParallel
+  | res == PAntiParallel = Right PAntiParallel
   | hasRawIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (start1DistanceErr+end1DistanceErr) = error $ "cannot resolve endpoints of segment: " <> show l1 <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
   | hasRawIntersection && distance (startPoint l2) (endPoint l2) < realToFrac (start2DistanceErr+end2DistanceErr) = error $ "cannot resolve endpoints of segment: " <> show l1 <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
-  | hasIntersection && plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err) == PCollinear = Right PCollinear
-  | hasIntersection && plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err) == PAntiCollinear = Right PAntiCollinear
+  | hasIntersection && res == PCollinear = Right PCollinear
+  | hasIntersection && res == PAntiCollinear = Right PAntiCollinear
   -- FIXME: why do we return a start/endpoint here?
   | hasIntersection && start1Distance <= ulpStartSum1 = Left $ HitStartPoint l1
   | hasIntersection && end1Distance <= ulpEndSum1 = Left $ HitEndPoint l1
@@ -391,8 +392,9 @@ lineSegIntersectsLineSeg l1 l2
   | hasIntersection && end2Distance <= ulpEndSum2 = Left $ HitEndPoint l2
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, mempty, rawIntersectionErr)
   | hasRawIntersection = Left $ NoIntersection rawIntersection (pl1Err, pl2Err, mempty, rawIntersectionErr)
-  | otherwise = Left $ NoIntersection ((\(PPoint2 p) -> CPPoint2 p) rawIntersect) (pl1Err, pl2Err, mempty, rawIntersectErr)
+  | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (pl1Err, pl2Err, mempty, rawIntersectErr)
   where
+    res = plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
     ulpStartSum1, ulpEndSum1, ulpStartSum2, ulpEndSum2 :: ℝ
     ulpStartSum1 = realToFrac $ start1DistanceErr
     ulpStartSum2 = realToFrac $ start2DistanceErr
@@ -409,7 +411,7 @@ lineSegIntersectsLineSeg l1 l2
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
     pl1Err = pl1ErrOrigin <> npl1Err
     pl2Err = pl2ErrOrigin <> npl2Err
-    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(PPoint2 (GVec vals)) -> vals) rawIntersect
+    foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP rawIntersect
     (rawIntersect, (npl1Err, npl2Err, rawIntersectErr)) = intersect2PL pl1 pl2
     start1 = eToPPoint2 $ startPoint l1
     end1 = eToPPoint2 $ endPoint l1
