@@ -62,7 +62,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, 
 
 import Graphics.Slicer.Math.Lossy (distancePPointToPLine, eToPLine2, normalizePLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outAndErrOf, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), PLine2Err, ProjectivePoint2, CPPoint2(CPPoint2), PPoint2(PPoint2), distance2PP, flipL, pLineIsLeft, angleBetween2PL, distancePPointToPLineWithErr, join2PP, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), PLine2Err, ProjectivePoint2, CPPoint2(CPPoint2), PPoint2(PPoint2), distance2PP, flipL, outAndErrOf, pLineIsLeft, angleBetween2PL, distancePPointToPLineWithErr, join2PP, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLinesWithErr, isLoop)
 
@@ -168,7 +168,7 @@ errorIfLeft (Right val)    = val
 -- | For a given par of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
 --  Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
 --  Note: assumes outOf the two input nodes is already normalized.
-averageNodes :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> INode
+averageNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> INode
 averageNodes n1 n2
   | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n" <> dumpInput
   | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\n" <> dumpInput
@@ -612,7 +612,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     eNodes = makeInitialGeneration connectedLoop inSegSets
     errorLen1 = Left $ PartialNodes (INodeSet $ one iNodes) ("NOMATCH - length 1?\n" <> show eNodes <> "\n" <> show iNodes <> "\n" <> show inSegSets <> "\n")
     --   Handle the the case of two nodes.
-    handleTwoNodes :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Either PartialNodes INodeSet
+    handleTwoNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Either PartialNodes INodeSet
     handleTwoNodes node1 node2
       | isCollinear (outOf node1) (outOf node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
       | nodesAreAntiCollinear node1 node2 && contourLooped = Right $ INodeSet $ one [makeLastPair node1 node2]
@@ -781,14 +781,14 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                                   (firstPair:_) -> justToSomething $ uncurry distanceToIntersection firstPair
 
     -- | get the list of sorted pairs of intersecting nodes.
-    shortestPairs :: (Arcable a, Pointable a, Show a, Eq a) => [a] -> [(a, a)]
+    shortestPairs :: (Arcable a, Pointable a, Eq a) => [a] -> [(a, a)]
     shortestPairs myNodes = case nodePairsSortedByDistance myNodes of
                               [] -> []
                               [onePair] -> [onePair]
                               (pair:morePairs) -> filterCommonIns $ pair : takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection pair) morePairs
       where
         -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
-        nodePairsSortedByDistance :: (Arcable a, Pointable a, Show a) => [a] -> [(a, a)]
+        nodePairsSortedByDistance :: (Arcable a, Pointable a) => [a] -> [(a, a)]
         nodePairsSortedByDistance myNodes' = sortBy (\(p1n1, p1n2) (p2n1, p2n2) -> distanceToIntersection p1n1 p1n2 `compare` distanceToIntersection p2n1 p2n2) $ intersectingNodePairsOf myNodes'
         filterCommonIns :: Eq a => [(a, a)] -> [(a, a)]
         filterCommonIns pairs = case pairs of
@@ -797,14 +797,14 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                                   (x@(node1, node2) :xs) -> x : filterCommonIns (filter (\(myNode1, myNode2) -> node1 /= myNode1 && node2 /= myNode1 && node1 /= myNode2 && node2 /= myNode2) xs)
 
     -- | get the list of sorted pairs of intersecting nodes.
-    shortestNeighboringPairs :: (Arcable a, Pointable a, Show a, Eq a) => [(a,a)] -> [(a, a)]
+    shortestNeighboringPairs :: (Arcable a, Pointable a, Eq a) => [(a,a)] -> [(a, a)]
     shortestNeighboringPairs myNodePairs = case nodePairsSortedByDistance myNodePairs of
                                          [] -> []
                                          [onePair] -> [onePair]
                                          (pair:morePairs) -> filterCommonIns $ pair : takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection pair) morePairs
       where
         -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
-        nodePairsSortedByDistance :: (Arcable a, Pointable a, Show a) => [(a,a)] -> [(a, a)]
+        nodePairsSortedByDistance :: (Arcable a, Pointable a) => [(a,a)] -> [(a, a)]
         nodePairsSortedByDistance myNodesPairs' = sortBy (\(p1n1, p1n2) (p2n1, p2n2) -> distanceToIntersection p1n1 p1n2 `compare` distanceToIntersection p2n1 p2n2) $ intersectingNeighboringNodePairsOf myNodesPairs'
         filterCommonIns :: Eq a => [(a, a)] -> [(a, a)]
         filterCommonIns pairs = case pairs of
@@ -836,12 +836,12 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
         getMixedPairs set1 set2 = concat $ (\a -> (a,) <$> set2) <$> set1
 
     -- | find nodes of the same type that can intersect.
-    intersectingNodePairsOf :: (Arcable a, Pointable a, Show a) => [a] -> [(a, a)]
+    intersectingNodePairsOf :: (Arcable a, Pointable a) => [a] -> [(a, a)]
     intersectingNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
 
     -- | find nodes of the same type that can intersect.
     -- NOTE: accepts node pairs, so that we can ensure we check just following ENodes.
-    intersectingNeighboringNodePairsOf :: (Arcable a, Pointable a, Show a) => [(a,a)] -> [(a, a)]
+    intersectingNeighboringNodePairsOf :: (Arcable a, Pointable a) => [(a,a)] -> [(a, a)]
     intersectingNeighboringNodePairsOf inNodePairs = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> inNodePairs
 
     -- | find nodes that have output segments that are antiCollinear with one another.
@@ -849,7 +849,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     antiCollinearNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if nodesAreAntiCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
 
     -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
-    distanceToIntersection :: (Pointable a, Arcable a, Show a, Pointable b, Arcable b, Show b) => a -> b -> Maybe ℝ
+    distanceToIntersection :: (Pointable a, Arcable a, Pointable b, Arcable b) => a -> b -> Maybe ℝ
     distanceToIntersection node1 node2
       | canPoint node1
         && canPoint node2
@@ -859,7 +859,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                fst (distance2PP (pPointOf node2, mempty) (intersectionOf (outOf node1) (outOf node2)))
       | otherwise = Nothing
     -- | Check if the intersection of two nodes results in a point or not.
-    intersectsInPoint :: (Arcable a, Pointable a, Show a, Arcable b, Pointable b, Show b) => a -> b -> Bool
+    intersectsInPoint :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Bool
     intersectsInPoint node1 node2
       | hasArc node1 && hasArc node2 = not (noIntersection (outOf node1) (outOf node2))
                                        && (dist1 >= realToFrac dist1Err)

@@ -27,7 +27,6 @@ module Graphics.Slicer.Math.PGA(
   Arcable(
       errOfOut,
       hasArc,
-      outAndErrOf,
       outOf
       ),
   CPPoint2(CPPoint2),
@@ -63,6 +62,7 @@ module Graphics.Slicer.Math.PGA(
   intersect2PL,
   join2PP,
   makePPoint2,
+  outAndErrOf,
   outputIntersectsLineSeg,
   pLineIsLeft,
   pPointOnPerpWithErr,
@@ -277,15 +277,19 @@ translateRotatePPoint2WithErr point d rotation = (res, resErr)
 ----------------------------------------------------------
 
 -- | Does this node have an output (resulting) line?
-class Arcable a where
+class (Show a) => Arcable a where
   -- | Return the error quotent of the output arc, if the output arc exists.
   errOfOut :: a -> PLine2Err
   -- | Is there an output arc from this node?
   hasArc :: a -> Bool
-  -- | If there is an output arc, return it, along with it's error quotent.
-  outAndErrOf :: a -> (PLine2, PLine2Err)
   -- | If there is an output arc, return it.
   outOf :: a -> PLine2
+
+-- | If there is an output arc, return it, along with it's error quotent.
+outAndErrOf :: (Arcable a) => a -> (PLine2, PLine2Err)
+outAndErrOf a
+  | hasArc a = (outOf a, errOfOut a)
+  | otherwise = error $ "Asked for out and err of Arcable with no out!\n" <> show a <> "\n"
 
 -- | Typeclass for nodes that may be able to be resolved into a point.
 class Pointable a where
@@ -297,7 +301,7 @@ class Pointable a where
   pPointOf :: a -> PPoint2
 
 -- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
-outputIntersectsLineSeg :: (Show a, Arcable a) => a -> LineSeg -> Either Intersection PIntersection
+outputIntersectsLineSeg :: (Arcable a) => a -> LineSeg -> Either Intersection PIntersection
 outputIntersectsLineSeg source l1
   -- handle the case where a segment that is an input to the node is checked against.
   | isNothing canonicalizedIntersection = Right $ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)

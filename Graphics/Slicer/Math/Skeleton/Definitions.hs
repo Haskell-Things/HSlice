@@ -55,7 +55,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapW
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), addVecPair)
 
-import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), PLine2Err, pLineIsLeft, distance2PP, Pointable(canPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outAndErrOf, outOf), CPPoint2(CPPoint2), PPoint2(PPoint2), eToPL, eToPPoint2, pToEP, vecOfL)
+import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), PLine2Err, pLineIsLeft, distance2PP, Pointable(canPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), PPoint2(PPoint2), eToPL, eToPPoint2, outAndErrOf, pToEP, vecOfL)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -67,7 +67,6 @@ data ENode = ENode { _inPoints :: !(Point2, Point2, Point2), _arcOut :: !PLine2,
 instance Arcable ENode where
   -- an ENode always has an arc.
   hasArc _ = True
-  outAndErrOf (ENode _ outArc outErr) = (outArc, outErr)
   outOf (ENode _ outArc _) = outArc
   errOfOut (ENode _ _ outErr) = outErr
 
@@ -89,9 +88,6 @@ instance Arcable INode where
                                  (Just (_,rawOutArcErr)) -> rawOutArcErr
                                  Nothing -> error "tried to get an outArc that has no output arc."
   hasArc (INode _ _ _ outArc) = isJust outArc
-  outAndErrOf (INode _ _ _ outArc) = case outArc of
-                                       (Just (rawOutArc, rawOutErr)) -> (rawOutArc, rawOutErr)
-                                       Nothing -> error "tried to get an outArc that has no output arc."
   outOf (INode _ _ _ outArc) = case outArc of
                                  (Just (rawOutArc,_)) -> rawOutArc
                                  Nothing -> error "tried to get an outArc that has no output arc."
@@ -155,7 +151,6 @@ data Motorcycle = Motorcycle { _inCSegs :: !(LineSeg, LineSeg), _outPline :: !PL
 instance Arcable Motorcycle where
   -- A Motorcycle always has an arc, which is it's path.
   hasArc _ = True
-  outAndErrOf (Motorcycle _ outArc outErr) = (outArc, outErr)
   outOf (Motorcycle _ outArc _) = outArc
   errOfOut (Motorcycle _ _ outErr) = outErr
 
