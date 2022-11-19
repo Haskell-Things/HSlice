@@ -308,11 +308,7 @@ outputIntersectsLineSeg source l1
   | otherwise = pLineIntersectsLineSeg (pl1, pl1Err) l1 1
   where
     (pl2, pl2Err) = eToPL l1
-    (pl1, pl1Err)
-      | hasArc source = (outOf source, errOfOut source)
-      | otherwise = error
-                    $ "no arc from source?\n"
-                    <> show source <> "\n"
+    (pl1, pl1Err) = outAndErrOf source
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
 ----------------------------------------------------------
@@ -332,20 +328,20 @@ ulpMultiplier = 570
 
 -- entry point usable for all intersection needs, complete with passed in error values.
 intersectsWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => Either LineSeg (a, PLine2Err) -> Either LineSeg (b, PLine2Err) -> Either Intersection PIntersection
-intersectsWithErr (Left l1)       (Left l2)       =         lineSegIntersectsLineSeg l1 l2
-intersectsWithErr (Right (pl1,pl1Err)) (Right (pl2,pl2Err)) = Right $ plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err)
-intersectsWithErr (Left l1@(rawL1)) (Right pl1@(rawPL1, _)) = pLineIntersectsLineSeg pl1 l1 ulpScale
+intersectsWithErr (Left l1)   (Left l2)               =         lineSegIntersectsLineSeg l1 l2
+intersectsWithErr (Right pl1) (Right pl2)             = Right $ plinesIntersectIn pl1 pl2
+intersectsWithErr (Left l1)   (Right pl1@(rawPL1, _)) =         pLineIntersectsLineSeg pl1 l1 ulpScale
   where
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
     (angle, (_,_, UlpSum angleErr)) = angleBetween2PL rawPL1 pl2
-    (pl2, _) = eToPL rawL1
-intersectsWithErr (Right pl1@(rawPL1, _)) (Left l1@(rawL1)) = pLineIntersectsLineSeg pl1 l1 ulpScale
+    (pl2, _) = eToPL l1
+intersectsWithErr (Right pl1@(rawPL1, _)) (Left l1) = pLineIntersectsLineSeg pl1 l1 ulpScale
   where
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
     (angle, (_,_, UlpSum angleErr)) = angleBetween2PL rawPL1 pl2
-    (pl2, _) = eToPL rawL1
+    (pl2, _) = eToPL l1
 
 -- | Check if/where a line segment and a PLine intersect.
 pLineIntersectsLineSeg :: (ProjectiveLine2 a) => (a, PLine2Err) -> LineSeg -> ℝ -> Either Intersection PIntersection
@@ -378,7 +374,7 @@ pLineIntersectsLineSeg (pl1, pl1Err) l1 ulpScale
     (rawIntersect, (_,_,rawIntersectErr)) = intersect2PL pl1 pl2
     (pl2, pl2Err) = eToPL l1
 
--- | Check if/where two l]ine segments intersect.
+-- | Check if/where two line segments intersect.
 lineSegIntersectsLineSeg :: LineSeg -> LineSeg -> Either Intersection PIntersection
 lineSegIntersectsLineSeg l1 l2
   | plinesIntersectIn (pl1,pl1Err) (pl2,pl2Err) == PParallel = Right PParallel
@@ -427,12 +423,12 @@ onSegment ls (i, iErr) startUlp endUlp =
   || (midDistance <= (lengthOfSegment/2) + midFudgeFactor)
   || (endDistance <= endFudgeFactor)
   where
-    (startDistance, (_,_,UlpSum startDistanceErr)) = distance2PP (start, mempty) (i, iErr)
-    (midDistance, (_,_,UlpSum midDistanceErr)) = distance2PP (mid, midErr) (i, iErr)
-    (endDistance, (_,_,UlpSum endDistanceErr)) = distance2PP (end, mempty) (i, iErr)
     start = eToPPoint2 $ startPoint ls
     (mid, (_, _, midErr)) = interpolate2PP start end 0.5 0.5
     end = eToPPoint2 $ endPoint ls
+    (startDistance, (_,_,UlpSum startDistanceErr)) = distance2PP (start, mempty) (i, iErr)
+    (midDistance, (_,_,UlpSum midDistanceErr)) = distance2PP (mid, midErr) (i, iErr)
+    (endDistance, (_,_,UlpSum endDistanceErr)) = distance2PP (end, mempty) (i, iErr)
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
     startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ
     startFudgeFactor = realToFrac $ realToFrac startUlp + startDistanceErr
@@ -497,8 +493,8 @@ reverseGVec (GVec vals) = GVec $ foldl' addValWithoutErr []
                   , GVal (negate $ valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] vals) (fromList [GEZero 1, GEPlus 1, GEPlus 2])
                   ]
 
-eToPL :: LineSeg -> (PLine2, PLine2Err)
-eToPL l1 = (res, resErr)
+euclidianToProjectiveLine, eToPL :: LineSeg -> (PLine2, PLine2Err)
+euclidianToProjectiveLine l = (res, resErr)
   where
-    (res, (_,_,resErr)) = join2PP (eToPPoint2 $ startPoint l1) (eToPPoint2 $ endPoint l1)
-
+    (res, (_, _, resErr)) = join2PP (eToPPoint2 $ startPoint l) (eToPPoint2 $ endPoint l)
+eToPL l = euclidianToProjectiveLine l
