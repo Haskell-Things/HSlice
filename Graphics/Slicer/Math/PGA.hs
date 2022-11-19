@@ -27,7 +27,6 @@ module Graphics.Slicer.Math.PGA(
   Arcable(
       errOfOut,
       hasArc,
-      outAndErrOf,
       outOf
       ),
   Intersection(HitStartPoint, HitEndPoint, NoIntersection),
@@ -67,6 +66,7 @@ module Graphics.Slicer.Math.PGA(
   join2PP,
   makePPoint2,
   outputIntersectsLineSeg,
+  outAndErrOf,
   oppositeDirection,
   pLineIsLeft,
   pPointOnPerpWithErr,
@@ -289,10 +289,12 @@ class Arcable a where
   errOfOut :: a -> PLine2Err
   -- | Is there an output arc from this node?
   hasArc :: a -> Bool
-  -- | If there is an output arc, return it, along with it's error quotent.
-  outAndErrOf :: a -> (ProjectiveLine, PLine2Err)
-  -- | If there is an output arc, return it.
+   -- | If there is an output arc, return it.
   outOf :: a -> ProjectiveLine
+
+-- | If there is an output arc, return it, along with it's error quotent.
+outAndErrOf :: (Arcable a) => a -> (ProjectiveLine, PLine2Err)
+outAndErrOf a = (outOf a, errOfOut a)
 
 -- | Typeclass for nodes that may be able to be resolved into a point.
 class Pointable a where

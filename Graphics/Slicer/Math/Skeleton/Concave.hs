@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (noIntersection, intersectionsAtSamePo
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToPLine2, getInsideArc)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outAndErrOf, outOf), Pointable(canPoint, pPointOf), ProjectiveLine, PLine2Err, flipL, distance2PP, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), ProjectiveLine, PLine2Err, flipL, distance2PP, outAndErrOf, pLineIsLeft)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 

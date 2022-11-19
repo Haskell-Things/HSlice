@@ -55,7 +55,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint)
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (eToPPoint2, PLine2Err, pToEP, plinesIntersectIn, PIntersection(IntersectsIn), flipL, ProjectiveLine(PLine2), pLineIsLeft, Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outAndErrOf, outOf), ProjectivePoint(CPPoint2,PPoint2))
+import Graphics.Slicer.Math.PGA (eToPPoint2, PLine2Err, outAndErrOf, pToEP, plinesIntersectIn, PIntersection(IntersectsIn), flipL, ProjectiveLine(PLine2), pLineIsLeft, Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2))
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
@@ -78,7 +78,6 @@ instance Arcable ENode where
   errOfOut (ENode _ _ outErr) = outErr
   -- | an ENode always has an arc.
   hasArc _ = True
-  outAndErrOf (ENode _ outArc outErr) = (outArc, outErr)
   outOf (ENode _ outArc _) = outArc
 
 instance Pointable ENode where
@@ -110,9 +109,6 @@ instance Arcable INode where
                                  (Just (_,rawOutErr)) -> rawOutErr
                                  Nothing -> error "tried to get an outArc that has no output arc."
   hasArc (INode _ _ _ outArc) = isJust outArc
-  outAndErrOf (INode _ _ _ outArc) = case outArc of
-                                       (Just rawOutArcAndErr) -> rawOutArcAndErr
-                                       Nothing -> error "tried to get an outArc that has no output arc."
   outOf (INode _ _ _ outArc) = case outArc of
                                  (Just (rawOutArc,_)) -> rawOutArc
                                  Nothing -> error "tried to get an outArc that has no output arc."
@@ -179,7 +175,6 @@ instance Arcable Motorcycle where
   errOfOut (Motorcycle _ _ outErr) = outErr
   -- A Motorcycle always has an arc, which is it's path.
   hasArc _ = True
-  outAndErrOf (Motorcycle _ outArc outErr) = (outArc, outErr)
   outOf (Motorcycle _ outArc _) = outArc
 
 instance Pointable Motorcycle where

@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersectio
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2, pLineFromEndpoints)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outAndErrOf, outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, eToPPoint2, flipL, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, eToPPoint2, flipL, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outAndErrOf, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
