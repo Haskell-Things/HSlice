@@ -305,7 +305,7 @@ outputIntersectsLineSeg :: (Arcable a) => a -> LineSeg -> Either Intersection PI
 outputIntersectsLineSeg source l1
   -- handle the case where a segment that is an input to the node is checked against.
   | isNothing canonicalizedIntersection = Right $ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
-  | otherwise = pLineIntersectsLineSeg (pl1, pl1Err) l1 1
+  | otherwise = pLineIntersectsLineSeg (pl1, pl1Err) l1
   where
     (pl2, pl2Err) = eToPL l1
     (pl1, pl1Err) = outAndErrOf source
@@ -328,24 +328,14 @@ ulpMultiplier = 570
 
 -- entry point usable for all intersection needs, complete with passed in error values.
 intersectsWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => Either LineSeg (a, PLine2Err) -> Either LineSeg (b, PLine2Err) -> Either Intersection PIntersection
-intersectsWithErr (Left l1)   (Left l2)               =         lineSegIntersectsLineSeg l1 l2
-intersectsWithErr (Right pl1) (Right pl2)             = Right $ plinesIntersectIn pl1 pl2
-intersectsWithErr (Left l1)   (Right pl1@(rawPL1, _)) =         pLineIntersectsLineSeg pl1 l1 ulpScale
-  where
-    ulpScale :: ℝ
-    ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
-    (angle, (_,_, UlpSum angleErr)) = angleBetween2PL rawPL1 pl2
-    (pl2, _) = eToPL l1
-intersectsWithErr (Right pl1@(rawPL1, _)) (Left l1) = pLineIntersectsLineSeg pl1 l1 ulpScale
-  where
-    ulpScale :: ℝ
-    ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
-    (angle, (_,_, UlpSum angleErr)) = angleBetween2PL rawPL1 pl2
-    (pl2, _) = eToPL l1
+intersectsWithErr (Left l1)   (Left l2)   =         lineSegIntersectsLineSeg l1 l2
+intersectsWithErr (Right pl1) (Right pl2) = Right $ plinesIntersectIn pl1 pl2
+intersectsWithErr (Left l1)   (Right pl1) =         pLineIntersectsLineSeg pl1 l1
+intersectsWithErr (Right pl1) (Left l1)   =         pLineIntersectsLineSeg pl1 l1
 
 -- | Check if/where a line segment and a PLine intersect.
-pLineIntersectsLineSeg :: (ProjectiveLine2 a) => (a, PLine2Err) -> LineSeg -> ℝ -> Either Intersection PIntersection
-pLineIntersectsLineSeg (pl1, pl1Err) l1 ulpScale
+pLineIntersectsLineSeg :: (ProjectiveLine2 a) => (a, PLine2Err) -> LineSeg -> Either Intersection PIntersection
+pLineIntersectsLineSeg (pl1, pl1Err) l1
   | res == PParallel = Right PParallel
   | res == PAntiParallel = Right PAntiParallel
   | res == PCollinear = Right PCollinear
@@ -369,6 +359,9 @@ pLineIntersectsLineSeg (pl1, pl1Err) l1 ulpScale
     hasRawIntersection = isJust foundVal
     rawIntersectionErr = rawIntersectErr <> cRawIntersectErr
     (rawIntersection, cRawIntersectErr) = canonicalizeP rawIntersect
+    ulpScale :: ℝ
+    ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
+    (angle, (_,_, UlpSum angleErr)) = angleBetween2PL pl1 pl2
     pl2Err = pl2ErrOrigin <> npl2Err
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP rawIntersect
     (rawIntersect, (_,npl2Err,rawIntersectErr)) = intersect2PL pl1 pl2
