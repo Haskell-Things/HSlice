@@ -370,17 +370,17 @@ translateL l d = translateProjectiveLine l d
 -----------------------------------------
 
 -- | When given a projective line, return the maximum distance between a projective point known to be on the line and the equivalent point on the 'real' line, which is to say, the projective line without floating point error.
--- FIXME: accept a error on the projectivePoint, and return an error estimate.
+-- Note: we do not add fuzzinessOfL (nPLine, nPLineErr) here, so you have to add it to this result to get a full value.
 pLineErrAtPPoint :: (ProjectiveLine2 a, ProjectivePoint2 b) => (a, PLine2Err) -> b -> UlpSum
 pLineErrAtPPoint (line, lineErr) errPoint
   -- Both intercepts are real. This line is not parallel or collinear to X or Y axises, and does not pass through the origin.
-  | xInterceptIsRight && yInterceptIsRight = tFuzz <> xInterceptFuzz <> yInterceptFuzz
+  | xInterceptIsRight && yInterceptIsRight = xInterceptFuzz <> yInterceptFuzz
   -- Only the xIntercept is real. This line is parallel to the Y axis.
-  | xInterceptIsRight = tFuzz <> rawXInterceptFuzz
+  | xInterceptIsRight = rawXInterceptFuzz
   -- Only the yIntercept is real. This line is parallel to the X axis.
-  | yInterceptIsRight = tFuzz <> rawYInterceptFuzz
+  | yInterceptIsRight = rawYInterceptFuzz
   -- This line passes through the origin (0,0).
-  | otherwise = tFuzz
+  | otherwise = mempty
   where
     xInterceptIsRight = isJust (xIntercept (nPLine, nPLineErr))
                         && isRight (fst $ fromJust $ xIntercept (nPLine, nPLineErr))
@@ -388,13 +388,17 @@ pLineErrAtPPoint (line, lineErr) errPoint
     yInterceptIsRight = isJust (yIntercept (nPLine, nPLineErr))
                         && isRight (fst $ fromJust $ yIntercept (nPLine, nPLineErr))
                         && fromRight 0 (fst $ fromJust $ yIntercept (nPLine, nPLineErr)) /= 0
-    xInterceptFuzz = UlpSum $ ulpVal rawXInterceptFuzz * ((realToFrac xInterceptDistance + ulpVal rawXInterceptFuzz) / realToFrac yInterceptDistance) * realToFrac (abs xPos)
-    yInterceptFuzz = UlpSum $ ulpVal rawYInterceptFuzz * ((realToFrac yInterceptDistance + ulpVal rawYInterceptFuzz) / realToFrac xInterceptDistance) * realToFrac (abs yPos)
+    xInterceptFuzz = UlpSum $ ulpVal rawXInterceptFuzz * ( realToFrac $ xMax / (sqrt (xMin*xMin*yMax*yMax))) * realToFrac (abs xPos)
+    yInterceptFuzz = UlpSum $ ulpVal rawYInterceptFuzz * ( realToFrac $ yMax / (sqrt (xMax*xMax*yMin*yMin))) * realToFrac (abs yPos)
+    xMin, xMax, yMin, yMax :: ℝ
+    xMax = xInterceptDistance + realToFrac (ulpVal rawXInterceptFuzz)
+    yMax = yInterceptDistance + realToFrac (ulpVal rawYInterceptFuzz)
+    xMin = xInterceptDistance
+    yMin = yInterceptDistance
     rawYInterceptFuzz = snd $ fromJust $ yIntercept (nPLine, nPLineErr)
     rawXInterceptFuzz = snd $ fromJust $ xIntercept (nPLine, nPLineErr)
-    yInterceptDistance = fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
-    xInterceptDistance = fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
-    tFuzz = fuzzinessOfL (nPLine, nPLineErr)
+    yInterceptDistance = abs $ fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
+    xInterceptDistance = abs $ fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
     -- FIXME: collect this error, and take it into account.
     (Point2 (xPos,yPos),_) = pToEP errPoint
     nPLineErr = nPLineErrRaw <> lineErr

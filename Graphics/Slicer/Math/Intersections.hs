@@ -78,7 +78,7 @@ intersectionBetween pl1@(rawPl1,_) pl2@(rawPl2,_) = saneIntersection $ plinesInt
     saneIntersection PAntiParallel      = if foundDistance < realToFrac (ulpVal foundErr)
                                           then Just $ Left pl1
                                           else Nothing
-    saneIntersection (IntersectsIn p (_,_,_,pErr)) = Just $ Right (p, pErr)
+    saneIntersection (IntersectsIn p (_,_,pErr)) = Just $ Right (p, pErr)
 
 -- | find out where the output of an Arcable intersects a given PLine2. errors if no intersection.
 outputIntersectsPLine :: (Arcable a) => a -> (ProjectiveLine,PLine2Err) -> ProjectivePoint
