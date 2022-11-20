@@ -352,7 +352,6 @@ pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
   | res == PCollinear = Right PCollinear
   | res == PAntiCollinear = Right PAntiCollinear
   | hasRawIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (startFudgeFactor + endFudgeFactor) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nstartFudgeFactor: " <> show startFudgeFactor <> "\nendFudgeFactor: " <> show endFudgeFactor <> "\n" <> "startDistanceErr: " <> show startDistanceErr <> "\nendDistanceErr: " <> show endDistanceErr <> "\n" <> "startErr:" <> show startErr <> "\n" <> "endErr: " <> show endErr <> "\n" <> "pl2: " <> show pl2 <> "\n"
-  | hasIntersection && isNothing foundVal = error "intersection, but cannot canonicalize."
   | hasIntersection && startDistance <= realToFrac startFudgeFactor = Left $ HitStartPoint l1
   | hasIntersection && endDistance <= realToFrac endFudgeFactor = Left $ HitEndPoint l1
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, mempty, rawIntersectionErr)
@@ -401,11 +400,11 @@ lineSegIntersectsLineSeg l1 l2
     end1FudgeFactor = ulpVal $ end1DistanceErr <> pLineErrAtPPoint (pl1,pl1Err) end1
     start2FudgeFactor = ulpVal $ start2DistanceErr <> pLineErrAtPPoint (pl2,pl2Err) start2
     end2FudgeFactor = ulpVal $ end2DistanceErr <> pLineErrAtPPoint (pl2,pl2Err) end2
-    (start1Distance, (_,_, start1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start1,mempty)
-    (start2Distance, (_,_, start2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start2,mempty)
-    (end1Distance, (_,_, end1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end1,mempty)
-    (end2Distance, (_,_, end2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end2,mempty)
-    hasIntersection = hasRawIntersection && onSegment l1 (rawIntersection,rawIntersectionErr) && onSegment l2 (rawIntersection,rawIntersectionErr)
+    (start1Distance, (_,_, start1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start1, mempty)
+    (start2Distance, (_,_, start2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start2, mempty)
+    (end1Distance, (_,_, end1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end1, mempty)
+    (end2Distance, (_,_, end2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end2, mempty)
+    hasIntersection = hasRawIntersection && onSegment l1 (rawIntersection, rawIntersectionErr) && onSegment l2 (rawIntersection, rawIntersectionErr)
     hasRawIntersection = isJust foundVal
     (rawIntersection, (_, _, rawIntersectionErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
