@@ -335,13 +335,12 @@ intersectsWithErr (Right pl1) (Left l1)   =         pLineIntersectsLineSeg pl1 l
 
 -- | Check if/where a line segment and a PLine intersect.
 pLineIntersectsLineSeg :: (ProjectiveLine2 a) => (a, PLine2Err) -> LineSeg -> Either Intersection PIntersection
-pLineIntersectsLineSeg (pl1, pl1Err) l1
+pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
   | res == PParallel = Right PParallel
   | res == PAntiParallel = Right PAntiParallel
   | res == PCollinear = Right PCollinear
   | res == PAntiCollinear = Right PAntiCollinear
   | hasRawIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (ulpVal $ startDistanceErr <> endDistanceErr) = error $ "cannot resolve endpoints of segment: " <> show l1 <> "\nulpScale: " <> show ulpScale <> "\nrawIntersect" <> show rawIntersect <> dumpULPs
-  | hasIntersection && valOf 0 foundVal == 0 = error "intersection, but cannot cannonicalize."
   | hasIntersection && startDistance <= ulpStartSum = Left $ HitStartPoint l1
   | hasIntersection && endDistance <= ulpEndSum = Left $ HitEndPoint l1
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, mempty, rawIntersectionErr)
@@ -362,9 +361,10 @@ pLineIntersectsLineSeg (pl1, pl1Err) l1
     ulpScale :: ℝ
     ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
     (angle, (_,_, UlpSum angleErr)) = angleBetween2PL pl1 pl2
+    pl1Err = pl1ErrOrigin <> npl1Err
     pl2Err = pl2ErrOrigin <> npl2Err
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP rawIntersect
-    (rawIntersect, (_,npl2Err,rawIntersectErr)) = intersect2PL pl1 pl2
+    (rawIntersect, (npl1Err, npl2Err, rawIntersectErr)) = intersect2PL pl1 pl2
     start = eToPPoint2 $ startPoint l1
     end = eToPPoint2 $ endPoint l1
     (pl2, pl2ErrOrigin) = eToPL l1
