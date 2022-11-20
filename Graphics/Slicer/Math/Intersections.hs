@@ -188,7 +188,7 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn (pl1,mempty) (pl2,
     saneIntersection PCollinear         = error $ "cannot get the intersection of collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
     saneIntersection PParallel          = error $ "cannot get the intersection of parallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
     saneIntersection PAntiParallel      = error $ "cannot get the intersection of antiparallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection (IntersectsIn p (_,_,_,pErr)) = (p,pErr)
+    saneIntersection (IntersectsIn p (_,_, pErr)) = (p,pErr)
 
 -- | Get the intersection point of two lines.
 intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 (CPPoint2, PPoint2Err))
@@ -203,7 +203,7 @@ intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn (pl1,mempty) 
     saneIntersection PAntiParallel      = if foundDistance < realToFrac foundErr
                                           then Just $ Left pl1
                                           else Nothing
-    saneIntersection (IntersectsIn p (_,_,_,pErr)) = Just $ Right (p,pErr)
+    saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p,pErr)
 
 -- | check if two lines cannot intersect.
 noIntersection :: PLine2 -> PLine2 -> Bool
