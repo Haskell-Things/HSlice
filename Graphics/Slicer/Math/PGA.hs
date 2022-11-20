@@ -73,7 +73,7 @@ module Graphics.Slicer.Math.PGA(
   translateRotatePPoint2WithErr
   ) where
 
-import Prelude (Bool, Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (*), (-), (>=), (&&), (<$>), otherwise, signum, (>), (<=), (+), negate, (/), (||), (<), abs, error, sin, cos, realToFrac)
+import Prelude (Bool, Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (-), (>=), (&&), (<$>), otherwise, signum, (>), (<=), (+), negate, (/), (||), (<), abs, error, sin, cos, realToFrac)
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
@@ -99,7 +99,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs, makeLineSeg)
 
-import Graphics.Slicer.Math.PGAPrimitives(CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(normalizeL, vecOfL), ProjectivePoint2(canonicalizeP, isIdealP, vecOfP), angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, flipL, forceBasisOfL, forceBasisOfP, fuzzinessOfL, fuzzinessOfP, idealNormOfP, interpolate2PP, intersect2PL, join2PP, pLineErrAtPPoint, pToEP, translateL)
+import Graphics.Slicer.Math.PGAPrimitives(CPPoint2(CPPoint2), NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2(PPoint2), PPoint2Err, ProjectiveLine2(normalizeL, vecOfL), ProjectivePoint2(canonicalizeP, isIdealP, vecOfP), angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, flipL, forceBasisOfL, forceBasisOfP, fuzzinessOfL, fuzzinessOfP, idealNormOfP, interpolate2PP, intersect2PL, join2PP, pLineErrAtPPoint, pToEP, translateL, xIntercept, yIntercept)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -322,10 +322,6 @@ data Intersection =
   | HitEndPoint !LineSeg
   deriving Show
 
--- FIXME: as long as this is required, we're not accounting for ULP correctly everywhere.
-ulpMultiplier :: Rounded 'TowardInf ℝ
-ulpMultiplier = 570
-
 -- | Entry point usable for common intersection needs, complete with passed in error values.
 intersectsWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => Either LineSeg (a, PLine2Err) -> Either LineSeg (b, PLine2Err) -> Either Intersection PIntersection
 intersectsWithErr (Left l1)   (Left l2)   =         lineSegIntersectsLineSeg l1 l2
@@ -340,7 +336,7 @@ pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
   | res == PAntiParallel = Right PAntiParallel
   | res == PCollinear = Right PCollinear
   | res == PAntiCollinear = Right PAntiCollinear
-  | hasRawIntersection && hitSegment && distance (startPoint l1) (endPoint l1) < realToFrac (ulpVal $ startDistanceErr <> endDistanceErr <> tFuzz) = error $ "cannot resolve endpoints of segment: " <> show l1 <> "\nulpScale: " <> show ulpScale <> "\nrawIntersect" <> show rawIntersect <> dumpULPs
+  | hasRawIntersection && hitSegment && distance (startPoint l1) (endPoint l1) < realToFrac (ulpVal $ startDistanceErr <> endDistanceErr <> tFuzz) = error $ "cannot resolve endpoints of segment: " <> show l1 <> "\n." <> dumpMiss
   | hasIntersection && startDistance <= ulpStartSum = Left $ HitStartPoint l1
   | hasIntersection && endDistance <= ulpEndSum = Left $ HitEndPoint l1
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
@@ -353,15 +349,16 @@ pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
     ulpEndSum = realToFrac $ ulpVal endDistanceErr
     (startDistance, (_,_, startDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start, mempty)
     (endDistance, (_,_, endDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end, mempty)
+    startFudgeFactor = startDistanceErr <> startErr
+    endFudgeFactor = endDistanceErr <> endErr
+    startErr = pLineErrAtPPoint (pl2, pl2Err) start
+    endErr = pLineErrAtPPoint (pl2, pl2Err) end
     tFuzz = fuzzinessOfL (pl2, pl2Err)
     hasIntersection = hasRawIntersection && hitSegment
     hitSegment = onSegment l1 (rawIntersection, rawIntersectionErr) startDistanceErr endDistanceErr
     hasRawIntersection = isJust foundVal
     rawIntersectionErr = rawIntersectErr <> cRawIntersectErr
     (rawIntersection, cRawIntersectErr) = canonicalizeP rawIntersect
-    ulpScale :: ℝ
-    ulpScale = realToFrac $ ulpMultiplier * (abs (realToFrac angle) + angleErr)
-    (angle, (_,_, UlpSum angleErr)) = angleBetween2PL pl1 pl2
     pl1Err = pl1ErrOrigin <> npl1Err
     pl2Err = pl2ErrOrigin <> npl2Err
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP rawIntersect
@@ -369,31 +366,53 @@ pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
     start = eToPPoint2 $ startPoint l1
     end = eToPPoint2 $ endPoint l1
     (pl2, pl2ErrOrigin) = eToPL l1
-    dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nrawIntersectErr: " <> show rawIntersectErr <> "\n"
+    dumpMiss = "startFudgeFactor: " <> show startFudgeFactor <> "\n"
+               <> "endFudgeFactor: " <> show endFudgeFactor <> "\n"
+               <> "startDistanceErr: " <> show startDistanceErr <> "\n"
+               <> "endDistanceErr: " <> show endDistanceErr <> "\n"
+               <> "startErr: " <> show startErr <> "\n"
+               <> "endErr: " <> show endErr <> "\n"
+               <> "pl2: " <> show pl2 <> "\n"
+               <> "pl2Err: " <> show pl2Err <> "\n"
+               <> "xIntercept: " <> show (xIntercept (pl2,pl2Err)) <> "\n"
+               <> "yIntercept: " <> show (yIntercept (pl2,pl2Err)) <> "\n"
+               <> "tfuzz: " <> show tFuzz <> "\n"
 
 -- | Check if/where two line segments intersect.
 lineSegIntersectsLineSeg :: LineSeg -> LineSeg -> Either Intersection PIntersection
 lineSegIntersectsLineSeg l1 l2
   | res == PParallel = Right PParallel
   | res == PAntiParallel = Right PAntiParallel
-  | hasRawIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (ulpVal $ start1DistanceErr <> end1DistanceErr) = error $ "cannot resolve endpoints of segment: " <> show l1 <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
-  | hasRawIntersection && distance (startPoint l2) (endPoint l2) < realToFrac (ulpVal $ start2DistanceErr <> end2DistanceErr) = error $ "cannot resolve endpoints of segment: " <> show l1 <> "\nrawIntersection" <> show rawIntersection <> dumpULPs
+  | hasRawIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (ulpVal $ start1FudgeFactor <> end1FudgeFactor <> tFuzz1) = error $ "cannot resolve endpoints of segment: " <> show l1 <> "\n." <> dumpMiss
+  | hasRawIntersection && distance (startPoint l2) (endPoint l2) < realToFrac (ulpVal $ start2FudgeFactor <> end2FudgeFactor <> tFuzz2) = error $ "cannot resolve endpoints of segment: " <> show l2 <> "\n." <> dumpMiss
   | hasIntersection && res == PCollinear = Right PCollinear
   | hasIntersection && res == PAntiCollinear = Right PAntiCollinear
-  -- FIXME: why do we return a start/endpoint here?
-  | hasIntersection && start1Distance <= realToFrac (ulpVal start1DistanceErr) = Left $ HitStartPoint l1
-  | hasIntersection && end1Distance <= realToFrac (ulpVal end1DistanceErr) = Left $ HitEndPoint l1
-  | hasIntersection && start2Distance <= realToFrac (ulpVal start2DistanceErr) = Left $ HitStartPoint l2
-  | hasIntersection && end2Distance <= realToFrac (ulpVal end2DistanceErr) = Left $ HitEndPoint l2
+  -- FIXME: why do we return a start/endpoi nt here?
+  | hasIntersection && start1Distance <= ulpStart1Sum = Left $ HitStartPoint l1
+  | hasIntersection && end1Distance <= ulpEnd1Sum = Left $ HitEndPoint l1
+  | hasIntersection && start2Distance <= ulpStart2Sum = Left $ HitStartPoint l2
+  | hasIntersection && end2Distance <= ulpEnd2Sum = Left $ HitEndPoint l2
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
   | hasRawIntersection = Left $ NoIntersection rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
   | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (pl1Err, pl2Err, rawIntersectErr)
   where
     res = plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
+    start1FudgeFactor = start1DistanceErr <> pLineErrAtPPoint (pl1,pl1Err) start1
+    end1FudgeFactor = end1DistanceErr <> pLineErrAtPPoint (pl1,pl1Err) end1
+    start2FudgeFactor = start2DistanceErr <> pLineErrAtPPoint (pl2,pl2Err) start2
+    end2FudgeFactor = end2DistanceErr <> pLineErrAtPPoint (pl2,pl2Err) end2
+    ulpStart1Sum, ulpEnd1Sum :: ℝ
+    ulpStart1Sum = realToFrac $ ulpVal start1DistanceErr
+    ulpEnd1Sum = realToFrac $ ulpVal end1DistanceErr
+    ulpStart2Sum, ulpEnd2Sum :: ℝ
+    ulpStart2Sum = realToFrac $ ulpVal start2DistanceErr
+    ulpEnd2Sum = realToFrac $ ulpVal end2DistanceErr
     (start1Distance, (_,_, start1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start1, mempty)
     (start2Distance, (_,_, start2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start2, mempty)
     (end1Distance, (_,_, end1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end1, mempty)
     (end2Distance, (_,_, end2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end2, mempty)
+    tFuzz1 = fuzzinessOfL (pl1, pl1Err)
+    tFuzz2 = fuzzinessOfL (pl2, pl2Err)
     hasIntersection = hasRawIntersection && hitSegment
     hitSegment = onSegment l1 (rawIntersection,rawIntersectionErr) start1DistanceErr end1DistanceErr && onSegment l2 (rawIntersection,rawIntersectionErr) start2DistanceErr end1DistanceErr
     hasRawIntersection = isJust foundVal
@@ -409,7 +428,15 @@ lineSegIntersectsLineSeg l1 l2
     end2 = eToPPoint2 $ endPoint l2
     (pl1, pl1ErrOrigin) = eToPL l1
     (pl2, pl2ErrOrigin) = eToPL l2
-    dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nrawIntersectionErr: " <> show rawIntersectionErr <> "\n"
+    dumpMiss = "start2FudgeFactor: " <> show start2FudgeFactor <> "\n"
+               <> "end2FudgeFactor: " <> show end2FudgeFactor <> "\n"
+               <> "start2DistanceErr: " <> show start2DistanceErr <> "\n"
+               <> "end2DistanceErr: " <> show end2DistanceErr <> "\n"
+               <> "pl2: " <> show pl2 <> "\n"
+               <> "pl2Err: " <> show pl2Err <> "\n"
+               <> "xIntercept2: " <> show (xIntercept (pl2,pl2Err)) <> "\n"
+               <> "yIntercept2: " <> show (yIntercept (pl2,pl2Err)) <> "\n"
+               <> "tfuzz2: " <> show tFuzz2 <> "\n"
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 onSegment :: LineSeg -> (CPPoint2, PPoint2Err) -> UlpSum -> UlpSum -> Bool
