@@ -73,7 +73,7 @@ module Graphics.Slicer.Math.PGA(
   translateRotatePPoint2WithErr
   ) where
 
-import Prelude (Bool, Eq((==),(/=)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (*), (-), (>=), (&&), (<$>), otherwise, signum, (>), (<=), (+), negate, (/), (||), (<), abs, error, sin, cos, realToFrac)
+import Prelude (Bool, Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (*), (-), (>=), (&&), (<$>), otherwise, signum, (>), (<=), (+), negate, (/), (||), (<), abs, error, sin, cos, realToFrac)
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
@@ -83,7 +83,7 @@ import Data.List (foldl')
 
 import Data.List.Ordered (foldt)
 
-import Data.Maybe (Maybe(Just, Nothing), fromJust, isNothing, maybeToList)
+import Data.Maybe (Maybe(Just, Nothing), fromJust, isJust, isNothing, maybeToList)
 
 import Data.Set (singleton, fromList)
 
@@ -366,7 +366,7 @@ pLineIntersectsLineSeg (pl1, pl1Err) l1 ulpScale
     ulpEndSum = realToFrac $ ulpVal endDistanceErr
     dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nrawIntersectErr: " <> show rawIntersectErr <> "\n"
     hasIntersection = hasRawIntersection && onSegment l1 (rawIntersection, rawIntersectionErr) startDistanceErr endDistanceErr
-    hasRawIntersection = valOf 0 foundVal /= 0
+    hasRawIntersection = isJust foundVal
     rawIntersectionErr = rawIntersectErr <> cRawIntersectErr
     (rawIntersection, cRawIntersectErr) = canonicalizeP rawIntersect
     pl2Err = pl2ErrOrigin <> npl2Err
@@ -401,7 +401,7 @@ lineSegIntersectsLineSeg l1 l2
     (end2Distance, (_,_, end2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end2, mempty)
     dumpULPs = "pl1Err: " <> show pl1Err <> "\npl2Err: " <> show pl2Err <> "\nrawIntersectionErr: " <> show rawIntersectionErr <> "\n"
     hasIntersection = hasRawIntersection && onSegment l1 (rawIntersection,rawIntersectionErr) start1DistanceErr end1DistanceErr && onSegment l2 (rawIntersection,rawIntersectionErr) start2DistanceErr end1DistanceErr
-    hasRawIntersection = valOf 0 foundVal /= 0
+    hasRawIntersection = isJust foundVal
     (rawIntersection, (_, _, rawIntersectionErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
     pl1Err = pl1ErrOrigin <> npl1Err
