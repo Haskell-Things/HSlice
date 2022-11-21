@@ -336,7 +336,7 @@ pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
   | res == PAntiParallel = Right PAntiParallel
   | res == PCollinear = Right PCollinear
   | res == PAntiCollinear = Right PAntiCollinear
-  | hasRawIntersection && hitSegment && distance (startPoint l1) (endPoint l1) < realToFrac (ulpVal $ startDistanceErr <> endDistanceErr <> tFuzz) = error $ "cannot resolve endpoints of segment: " <> show l1 <> "\n." <> dumpMiss
+  | hasIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (ulpVal $ startFudgeFactor <> endFudgeFactor <> tFuzz) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\n" <> dumpMiss
   | hasIntersection && startDistance <= ulpStartSum = Left $ HitStartPoint l1
   | hasIntersection && endDistance <= ulpEndSum = Left $ HitEndPoint l1
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
@@ -357,8 +357,8 @@ pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
     hasIntersection = hasRawIntersection && hitSegment
     hitSegment = onSegment l1 (rawIntersection, rawIntersectionErr) startDistanceErr endDistanceErr
     hasRawIntersection = isJust foundVal
-    rawIntersectionErr = rawIntersectErr <> cRawIntersectErr
-    (rawIntersection, cRawIntersectErr) = canonicalizeP rawIntersect
+    (rawIntersection, (_, _, rawIntersectionErr)) = fromJust canonicalizedIntersection
+    canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
     pl1Err = pl1ErrOrigin <> npl1Err
     pl2Err = pl2ErrOrigin <> npl2Err
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP rawIntersect
@@ -383,13 +383,12 @@ lineSegIntersectsLineSeg :: LineSeg -> LineSeg -> Either Intersection PIntersect
 lineSegIntersectsLineSeg l1 l2
   | res == PParallel = Right PParallel
   | res == PAntiParallel = Right PAntiParallel
-  | hasRawIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (ulpVal $ start1FudgeFactor <> end1FudgeFactor <> tFuzz1) = error $ "cannot resolve endpoints of segment: " <> show l1 <> "\n." <> dumpMiss
-  | hasRawIntersection && distance (startPoint l2) (endPoint l2) < realToFrac (ulpVal $ start2FudgeFactor <> end2FudgeFactor <> tFuzz2) = error $ "cannot resolve endpoints of segment: " <> show l2 <> "\n." <> dumpMiss
   | hasIntersection && res == PCollinear = Right PCollinear
   | hasIntersection && res == PAntiCollinear = Right PAntiCollinear
-  -- FIXME: why do we return a start/endpoi nt here?
+  | hasIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (ulpVal $ start1FudgeFactor <> end1FudgeFactor <> tFuzz1) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\n" <> dumpMiss
   | hasIntersection && start1Distance <= ulpStart1Sum = Left $ HitStartPoint l1
   | hasIntersection && end1Distance <= ulpEnd1Sum = Left $ HitEndPoint l1
+  | hasIntersection && distance (startPoint l2) (endPoint l2) < realToFrac (ulpVal $ start2FudgeFactor <> end2FudgeFactor <> tFuzz2) = error $ "cannot resolve endpoints of segment: " <> show l2 <> ".\n" <> dumpMiss
   | hasIntersection && start2Distance <= ulpStart2Sum = Left $ HitStartPoint l2
   | hasIntersection && end2Distance <= ulpEnd2Sum = Left $ HitEndPoint l2
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
