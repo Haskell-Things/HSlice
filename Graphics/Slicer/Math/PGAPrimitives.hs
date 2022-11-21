@@ -370,7 +370,7 @@ translateL l d = translateProjectiveLine l d
 -----------------------------------------
 
 -- | When given a projective line, return the maximum distance between a projective point known to be on the line and the equivalent point on the 'real' line, which is to say, the projective line without floating point error.
--- Note: we do not add fuzzinessOfL (nPLine, nPLineErr) here, so you have to add it to this result to get a full value.
+-- Note: We do not add fuzzinessOfL (nPLine, nPLineErr) here, so you have to add it to this result to get a full value.
 pLineErrAtPPoint :: (ProjectiveLine2 a, ProjectivePoint2 b) => (a, PLine2Err) -> b -> UlpSum
 pLineErrAtPPoint (line, lineErr) errPoint
   -- Both intercepts are real. This line is not parallel or collinear to X or Y axises, and does not pass through the origin.

@@ -362,8 +362,8 @@ pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
     ulpStartSum, ulpEndSum :: ℝ
     ulpStartSum = realToFrac $ ulpVal startDistanceErr
     ulpEndSum = realToFrac $ ulpVal endDistanceErr
-    (startDistance, (_,_, startDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start,mempty)
-    (endDistance, (_,_, endDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end,mempty)
+    (startDistance, (_,_, startDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start, mempty)
+    (endDistance, (_,_, endDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end, mempty)
     startFudgeFactor = startDistanceErr <> startErr
     endFudgeFactor = endDistanceErr <> endErr
     startErr = pLineErrAtPPoint (pl2, pl2Err) start
@@ -400,10 +400,10 @@ lineSegIntersectsLineSeg l1 l2
   | res == PAntiParallel = Right PAntiParallel
   | hasIntersection && res == PCollinear = Right PCollinear
   | hasIntersection && res == PAntiCollinear = Right PAntiCollinear
-  | hasRawIntersection && hitSegment && distance (startPoint l1) (endPoint l1) < realToFrac (ulpVal $ start1FudgeFactor <> end1FudgeFactor) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nstart1FudgeFactor: " <> show start1FudgeFactor <> "\nrawIntersection" <> show rawIntersection
+  | hasIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (ulpVal $ start1FudgeFactor <> end1FudgeFactor <> tFuzz1) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\n" <> dumpMiss
   | hasIntersection && start1Distance <= ulpStart1Sum = Left $ HitStartPoint l1
   | hasIntersection && end1Distance <= ulpEnd1Sum = Left $ HitEndPoint l1
-  | hasRawIntersection && hitSegment && distance (startPoint l2) (endPoint l2) < realToFrac (ulpVal $ start2FudgeFactor <> end2FudgeFactor) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\nstart2FudgeFactor: " <> show start2FudgeFactor <> "\nrawIntersection" <> show rawIntersection
+  | hasIntersection && distance (startPoint l2) (endPoint l2) < realToFrac (ulpVal $ start2FudgeFactor <> end2FudgeFactor <> tFuzz2) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\n" <> dumpMiss
   | hasIntersection && start2Distance <= ulpStart2Sum = Left $ HitStartPoint l2
   | hasIntersection && end2Distance <= ulpEnd2Sum = Left $ HitEndPoint l2
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
@@ -425,6 +425,8 @@ lineSegIntersectsLineSeg l1 l2
     (start2Distance, (_,_, start2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start2, mempty)
     (end1Distance, (_,_, end1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end1, mempty)
     (end2Distance, (_,_, end2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end2, mempty)
+    tFuzz1 = fuzzinessOfL (pl1, pl1Err)
+    tFuzz2 = fuzzinessOfL (pl2, pl2Err)
     hasIntersection = hasRawIntersection && hitSegment
     hitSegment = onSegment l1 (rawIntersection, rawIntersectionErr) && onSegment l2 (rawIntersection, rawIntersectionErr)
     hasRawIntersection = isJust foundVal
@@ -440,6 +442,15 @@ lineSegIntersectsLineSeg l1 l2
     end2 = eToPPoint2 $ endPoint l2
     (pl1, pl1ErrOrigin) = eToPL l1
     (pl2, pl2ErrOrigin) = eToPL l2
+    dumpMiss = "start2FudgeFactor: " <> show start2FudgeFactor <> "\n"
+               <> "end2FudgeFactor: " <> show end2FudgeFactor <> "\n"
+               <> "start2DistanceErr: " <> show start2DistanceErr <> "\n"
+               <> "end2DistanceErr: " <> show end2DistanceErr <> "\n"
+               <> "pl2: " <> show pl2 <> "\n"
+               <> "pl2Err: " <> show pl2Err <> "\n"
+               <> "xIntercept2: " <> show (xIntercept (pl2,pl2Err)) <> "\n"
+               <> "yIntercept2: " <> show (yIntercept (pl2,pl2Err)) <> "\n"
+               <> "tfuzz2: " <> show tFuzz2 <> "\n"
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 -- FIXME: check start and end distances in order of: closest to the origin.
