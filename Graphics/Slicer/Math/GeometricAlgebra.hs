@@ -16,16 +16,58 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
--- for adding Generic and NFData to our types.
-{-# LANGUAGE DeriveGeneric, DeriveAnyClass, FlexibleInstances #-}
+-- For adding Generic and NFData to our types.
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
+-- For TowardInf.
 {-# LANGUAGE DataKinds #-}
 
 -- So we can map applying (,mempty) to a list.
 {-# LANGUAGE TupleSections #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•+), (•), (⋅+), (⋅), (∧+), (∧), addErr, addValPairWithErr, addValWithErr, addValWithoutErr, addVecPair, addVecPairWithErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, subVal, subValPairWithErr, subVecPair, sumErrVals, valOf, divVecScalarWithErr, scalarPart, ulpVal, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
+module Graphics.Slicer.Math.GeometricAlgebra(
+  ErrVal(ErrVal),
+  GNum(G0, GEMinus, GEPlus, GEZero),
+  GVal(GVal),
+  GVec(GVec),
+  UlpSum(UlpSum),
+  (⎣+),
+  (⎣),
+  (⎤+),
+  (⎤),
+  (⨅+),
+  (⨅),
+  (•+),
+  (•),
+  (⋅+),
+  (⋅),
+  (∧+),
+  (∧),
+  addErr,
+  addValPairWithErr,
+  addValWithErr,
+  addValWithoutErr,
+  addVecPair,
+  addVecPairWithErr,
+  addVecPairWithoutErr,
+  divVecScalarWithErr,
+  eValOf,
+  getVal,
+  hpDivVecScalar,
+  mulScalarVecWithErr,
+  reduceVecPair,
+  subVal,
+  subValPairWithErr,
+  subVecPair,
+  sumErrVals,
+  valOf,
+  scalarPart,
+  ulpVal,
+  unlikeVecPair,
+  vectorPart
+  ) where
 
 import Prelude (Eq, Monoid(mempty), Ord(compare), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), not, null, realToFrac, abs, (.), realToFrac)
 
