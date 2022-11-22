@@ -55,6 +55,7 @@ module Graphics.Slicer.Math.PGA(
   distance2PP,
   distance2PL,
   eToPL,
+  eToPP,
   eToPPoint2,
   flipL,
   interpolate2PP,
@@ -363,8 +364,8 @@ pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
     pl2Err = pl2ErrOrigin <> npl2Err
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP rawIntersect
     (rawIntersect, (npl1Err, npl2Err, rawIntersectErr)) = intersect2PL pl1 pl2
-    start = eToPPoint2 $ startPoint l1
-    end = eToPPoint2 $ endPoint l1
+    start = eToPP $ startPoint l1
+    end = eToPP $ endPoint l1
     (pl2, pl2ErrOrigin) = eToPL l1
     dumpMiss = "startFudgeFactor: " <> show startFudgeFactor <> "\n"
                <> "endFudgeFactor: " <> show endFudgeFactor <> "\n"
@@ -421,10 +422,10 @@ lineSegIntersectsLineSeg l1 l2
     pl2Err = pl2ErrOrigin <> npl2Err
     foundVal = getVal [GEPlus 1, GEPlus 2] $ (\(GVec vals) -> vals) $ vecOfP rawIntersect
     (rawIntersect, (npl1Err, npl2Err, rawIntersectErr)) = intersect2PL pl1 pl2
-    start1 = eToPPoint2 $ startPoint l1
-    end1 = eToPPoint2 $ endPoint l1
-    start2 = eToPPoint2 $ startPoint l2
-    end2 = eToPPoint2 $ endPoint l2
+    start1 = eToPP $ startPoint l1
+    end1 = eToPP $ endPoint l1
+    start2 = eToPP $ startPoint l2
+    end2 = eToPP $ endPoint l2
     (pl1, pl1ErrOrigin) = eToPL l1
     (pl2, pl2ErrOrigin) = eToPL l2
     dumpMiss = "start2FudgeFactor: " <> show start2FudgeFactor <> "\n"
@@ -444,9 +445,9 @@ onSegment ls i =
   || (midDistance <= (lengthOfSegment/2) + midFudgeFactor)
   || (endDistance <= endFudgeFactor)
   where
-    start = eToPPoint2 $ startPoint ls
+    start = eToPP $ startPoint ls
     (mid, (_, _, midErr)) = interpolate2PP start end 0.5 0.5
-    end = eToPPoint2 $ endPoint ls
+    end = eToPP $ endPoint ls
     (startDistance, (_,_, startDistanceErr)) = distance2PP i (start, mempty)
     (midDistance, (_,_, midDistanceErr)) = distance2PP i (mid, midErr)
     (endDistance, (_,_, endDistanceErr)) = distance2PP i (end, mempty)
@@ -490,10 +491,12 @@ combineConsecutiveLineSegs lines = case lines of
 ----- And now draw the rest of the algebra -----
 ------------------------------------------------
 
-eToPPoint2 :: Point2 -> CPPoint2
+-- | Create a canonical projective point from the given euclidian point.
+eToPPoint2, eToPP :: Point2 -> CPPoint2
 eToPPoint2 (Point2 (x,y)) = res
   where
     res = makePPoint2 x y
+eToPP = eToPPoint2
 
 -- | Create a canonical euclidian projective point from the given coordinates.
 makePPoint2 :: ℝ -> ℝ -> CPPoint2
@@ -518,5 +521,5 @@ reverseGVec (GVec vals) = GVec $ foldl' addValWithoutErr []
 euclidianToProjectiveLine, eToPL :: LineSeg -> (PLine2, PLine2Err)
 euclidianToProjectiveLine l = (res, resErr)
   where
-    (res, (_, _, resErr)) = join2PP (eToPPoint2 $ startPoint l) (eToPPoint2 $ endPoint l)
+    (res, (_, _, resErr)) = join2PP (eToPP $ startPoint l) (eToPP $ endPoint l)
 eToPL l = euclidianToProjectiveLine l

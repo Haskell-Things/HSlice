@@ -173,14 +173,14 @@ averageNodes n1 n2
   | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n" <> dumpInput
   | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\n" <> dumpInput
   | isParallel (outOf n1) (outOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
-  | isCollinear (outOf n1) (outOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
+  | isCollinear (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
   | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
   | n1Distance < getRounded n1Err = error $ "intersection is AT the point of n1!\n" <> dumpInput
   | n2Distance < getRounded n2Err = error $ "intersection is AT the point of n2!\n" <> dumpInput
   | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (normalizePLine2 $ outOf n1) (pPointOf n2) (normalizePLine2 $ outOf n2)
   where
-    (n1Distance, (_,_,UlpSum n1Err)) = distance2PP (intersectionOf (outOf n1) (outOf n2)) (pPointOf n1, mempty)
-    (n2Distance, (_,_,UlpSum n2Err)) = distance2PP (intersectionOf (outOf n1) (outOf n2)) (pPointOf n2, mempty)
+    (n1Distance, (_,_, UlpSum n1Err)) = distance2PP (intersectionOf (outOf n1) (outOf n2)) (pPointOf n1, mempty)
+    (n2Distance, (_,_, UlpSum n2Err)) = distance2PP (intersectionOf (outOf n1) (outOf n2)) (pPointOf n2, mempty)
     dumpInput =    "Node1: " <> show n1
                 <> "\nNode2: " <> show n2
                 <> "\nNode1Out: " <> show (outOf n1)
@@ -198,7 +198,7 @@ sortedPair n1 n2 = sortedPLinesWithErr [outAndErrOf n1, outAndErrOf n2]
 getOutsideArc :: (ProjectivePoint2 a) => a -> NPLine2 -> a -> NPLine2 -> (PLine2, PLine2Err)
 getOutsideArc ppoint1 npline1 ppoint2 npline2
   | npline1 == npline2 = error "need to be able to return two PLines."
-  | noIntersection pline1 pline2 = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
+  | noIntersection (pline1, mempty) (pline2, mempty) = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
   | l1TowardPoint && l2TowardPoint = (flipL resFlipped, resFlippedErr)
   | l1TowardPoint                  = (flipL resNormal, resNormalErr)
   | l2TowardPoint                  = (resNormal, resNormalErr)
@@ -614,7 +614,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     --   Handle the the case of two nodes.
     handleTwoNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Either PartialNodes INodeSet
     handleTwoNodes node1 node2
-      | isCollinear (outOf node1) (outOf node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
+      | isCollinear (outAndErrOf node1) (outAndErrOf node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
       | nodesAreAntiCollinear node1 node2 && contourLooped = Right $ INodeSet $ one [makeLastPair node1 node2]
       | contourLooped = -- this is a complete loop, so this last INode will be re-written in sortINodesByENodes anyways.
         Right $ INodeSet $ one [makeINode (sortedPLinesWithErr [outAndErrOf node1,outAndErrOf node2]) Nothing]
@@ -861,7 +861,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Bool
     intersectsInPoint node1 node2
-      | hasArc node1 && hasArc node2 = not (noIntersection (outOf node1) (outOf node2))
+      | hasArc node1 && hasArc node2 = not (noIntersection (outAndErrOf node1) (outAndErrOf node2))
                                        && (dist1 >= realToFrac dist1Err)
                                        && (dist2 >= realToFrac dist2Err)
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"

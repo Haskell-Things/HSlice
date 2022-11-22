@@ -22,7 +22,7 @@
 -- | This file contains code for creating a series of Faces, covering a straight skeleton.
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
-import Prelude ((==), fst, otherwise, (<$>), ($), length, error, (<>), show, Eq, Show, (<>), Bool(True), null, not, and, snd, (&&), (>), (/=))
+import Prelude ((==), fst, otherwise, (<$>), ($), length, error, (<>), show, Eq, Show, (<>), Bool(True), null, not, and, snd, (&&), (>), (/=), mempty)
 
 import Data.List (uncons)
 
@@ -214,7 +214,7 @@ intraNodeFace nodeTree1 nodeTree2
   where
     errNodesNotNeighbors = error $ "cannot make a face from nodes that are not neighbors: \n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
     follows :: NodeTree -> NodeTree -> Bool
-    follows nt1 nt2 = isCollinear (last $ firstPLinesOf nt1) (last $ lastPLinesOf nt2)
+    follows nt1 nt2 = isCollinear (last $ firstPLinesOf nt1, mempty) (last $ lastPLinesOf nt2, mempty)
     isLeftOf :: NodeTree -> NodeTree -> Bool
     isLeftOf nt1 nt2 = firstSegOf nt1 == lastSegOf nt2
     isRightOf :: NodeTree -> NodeTree -> Bool

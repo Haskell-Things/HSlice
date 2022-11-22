@@ -48,9 +48,9 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, intersectionOf, isAntiCollinear, noIntersection)
 
-import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, pPointBetweenPPoints, distanceBetweenPPoints, eToCPPoint2, eToPLine2, normalizePLine2, pLineFromEndpoints, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, pPointBetweenPPoints, distanceBetweenPPoints, eToCPPoint2, eToPLine2, normalizePLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), angleBetween2PL, distance2PP, outAndErrOf, outputIntersectsLineSeg, plinesIntersectIn, translateL) 
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), angleBetween2PL, distance2PP, eToPP, join2PP, outAndErrOf, outputIntersectsLineSeg, plinesIntersectIn, translateL) 
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -143,7 +143,7 @@ crashMotorcycles contour holes
           crashOf mot1 mot2@(Motorcycle (inSeg2, _) _ _)
             -- If we have a clear path between mot1 and the origin of mot2
             | isAntiCollinear (outOf mot1) (outOf mot2) && motorcycleIntersectsAt contour mot1 == (inSeg2, Left $ endPoint inSeg2) = Just $ Collision (mot1,mot2, slist []) Nothing HeadOn
-            | noIntersection (outOf mot1) (outOf mot2) = Nothing
+            | noIntersection (outAndErrOf mot1) (outAndErrOf mot2) = Nothing
             | intersectionIsBehind mot1 = Nothing
             | intersectionIsBehind mot2 = Nothing
             -- FIXME: this should be providing a distance to intersectionPPoint along the motorcycle to check.
@@ -183,22 +183,24 @@ convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (rotateLeft $ li
 
 -- | generate the un-normalized PLine2 of a motorcycle created by the three points given.
 motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> (PLine2, PLine2Err)
-motorcycleFromPoints p1 p2 p3 = getOutsideArc (pLineFromEndpoints p1 p2) (pLineFromEndpoints p2 p3)
+motorcycleFromPoints p1 p2 p3 = getOutsideArc (firstArc, firstArcErr) (secondArc, secondArcErr)
   where
+    (firstArc, (_,_, firstArcErr)) = join2PP (eToPP p1) (eToPP p2)
+    (secondArc, (_,_, secondArcErr)) = join2PP (eToPP p2) (eToPP p3)
     -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
     --   Note that we do not normalize our output, or require normalized inputs, but we normalize our values before adding them.
-    getOutsideArc :: PLine2 -> PLine2 -> (PLine2, PLine2Err)
-    getOutsideArc pline1 pline2
+    getOutsideArc :: (PLine2, PLine2Err) -> (PLine2, PLine2Err) -> (PLine2, PLine2Err)
+    getOutsideArc pline1@(pl1, _) pline2@(pl2, _)
       | noIntersection pline1 pline2 = error
                                        $ "not collinear, but not intersecting?\n"
                                        <> "PLine1: " <> show pline1 <> "\n"
                                        <> "PLine2: " <> show pline2 <> "\n"
-                                       <> "result: " <> show (plinesIntersectIn (pline1,mempty) (pline2,mempty)) <> "\n"
+                                       <> "result: " <> show (plinesIntersectIn pline1 pline2) <> "\n"
       | otherwise = (flipL $ PLine2 newPLine, PLine2Err newPLineErrVals mempty mempty mempty mempty mempty)
       where
         (newPLine, newPLineErrVals) = addVecPairWithErr flippedNPV1 npv2
-        (PLine2 flippedNPV1) = flipL $ (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 pline1
-        (NPLine2 npv2) = normalizePLine2 pline2
+        (PLine2 flippedNPV1) = flipL $ (\(NPLine2 a) -> PLine2 a) $ normalizePLine2 pl1
+        (NPLine2 npv2) = normalizePLine2 pl2
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them.
 --   A reflex virtex is any point where the line in and the line out are convex, when looked at from inside of the contour.

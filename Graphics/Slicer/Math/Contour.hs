@@ -260,17 +260,17 @@ innerContourPoint contour
 -- | Find a point that is guaranteed to be outside of the given contour, and is not on the same line as the first line segment of the contour.
 pointFarOutsideContour :: Contour -> Point2
 pointFarOutsideContour contour
-  | not (noIntersection pline1 firstPLine) = outsidePoint1
-  | not (noIntersection pline2 firstPLine) = outsidePoint2
-  | not (noIntersection pline3 firstPLine) = outsidePoint3
+  | not (noIntersection (pLine1, pLine1Err) (firstPLine, firstPLineErr)) = outsidePoint1
+  | not (noIntersection (pLine2, pLine2Err) (firstPLine, firstPLineErr)) = outsidePoint2
+  | not (noIntersection (pLine3, pLine3Err) (firstPLine, firstPLineErr)) = outsidePoint3
   | otherwise = error "cannot get here."
   where
     minPoint      = fst (minMaxPoints contour)
     (p1, p2)      = firstPointPairOfContour contour
-    firstPLine    = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 p2)
-    pline1        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint1)
-    pline2        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint2)
-    pline3        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint3)
+    (firstPLine, (_,_,firstPLineErr)) = join2PP (eToPPoint2 p1) (eToPPoint2 p2)
+    (pLine1, (_,_, pLine1Err)) = join2PP (eToPPoint2 p1) (eToPPoint2 outsidePoint1)
+    (pLine2, (_,_, pLine2Err)) = join2PP (eToPPoint2 p1) (eToPPoint2 outsidePoint2)
+    (pLine3, (_,_, pLine3Err)) = join2PP (eToPPoint2 p1) (eToPPoint2 outsidePoint3)
     outsidePoint1 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.1)
     outsidePoint2 = Point2 (xOf minPoint - 0.2 , yOf minPoint - 0.1)
     outsidePoint3 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.2)
@@ -278,9 +278,9 @@ pointFarOutsideContour contour
 -- | Find a point that is guaranteed to be outside of the given contour, and is not on the same line as the first line segment of the contour.
 pointFarOutsideContours :: Contour -> Contour -> Point2
 pointFarOutsideContours contour1 contour2
-  | not (noIntersection pline1 firstPLine) && not (noIntersection pline1 secondPLine) = outsidePoint1
-  | not (noIntersection pline2 firstPLine) && not (noIntersection pline2 secondPLine) = outsidePoint2
-  | not (noIntersection pline3 firstPLine) && not (noIntersection pline3 secondPLine) = outsidePoint3
+  | not (noIntersection (pLine1, pLine1Err) (firstPLine, firstPLineErr)) && not (noIntersection (pLine1, pLine1Err) (secondPLine, secondPLineErr)) = outsidePoint1
+  | not (noIntersection (pLine2, pLine2Err) (firstPLine, firstPLineErr)) && not (noIntersection (pLine2, pLine2Err) (secondPLine, secondPLineErr)) = outsidePoint2
+  | not (noIntersection (pLine3, pLine3Err) (firstPLine, firstPLineErr)) && not (noIntersection (pLine3, pLine3Err) (secondPLine, secondPLineErr)) = outsidePoint3
   | otherwise = error "cannot get here...?"
   where
     minPoint1     = fst $ minMaxPoints contour1
@@ -288,11 +288,11 @@ pointFarOutsideContours contour1 contour2
     minPoint      = Point2 (min (xOf minPoint1) (xOf minPoint2),min (yOf minPoint1) (yOf minPoint2))
     (p1, p2)      = firstPointPairOfContour contour1
     (p3, p4)      = firstPointPairOfContour contour2
-    firstPLine    = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 p2)
-    secondPLine   = join2PPoint2 (eToPPoint2 p3) (eToPPoint2 p4)
-    pline1        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint1)
-    pline2        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint2)
-    pline3        = join2PPoint2 (eToPPoint2 p1) (eToPPoint2 outsidePoint3)
+    (firstPLine, (_,_,firstPLineErr)) = join2PP (eToPPoint2 p1) (eToPPoint2 p2)
+    (secondPLine, (_,_,secondPLineErr)) = join2PP (eToPPoint2 p3) (eToPPoint2 p4)
+    (pLine1, (_,_, pLine1Err)) = join2PP (eToPPoint2 p1) (eToPPoint2 outsidePoint1)
+    (pLine2, (_,_, pLine2Err)) = join2PP (eToPPoint2 p1) (eToPPoint2 outsidePoint2)
+    (pLine3, (_,_, pLine3Err)) = join2PP (eToPPoint2 p1) (eToPPoint2 outsidePoint3)
     outsidePoint1 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.1)
     outsidePoint2 = Point2 (xOf minPoint - 0.2 , yOf minPoint - 0.1)
     outsidePoint3 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.2)

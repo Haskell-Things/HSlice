@@ -19,7 +19,7 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude (($), fst, otherwise, Eq, (<>), show, error, (==), (&&), Bool(True, False), Show)
+import Prelude (($), otherwise, Eq, (<>), show, error, (==), (&&), Bool(True, False), Show)
 
 import Data.List (null, foldl')
 
@@ -92,13 +92,13 @@ modifyContour pathWidth contour direction
                                             [l1,l2] -> [l1,l2]
                                             (firstSeg:moreSegs) -> case unsnoc moreSegs of
                                                                      Nothing -> error "impossible."
-                                                                     (Just (middleSegs,lastSeg)) -> if noIntersection (fst $ inwardAdjust lastSeg) (fst $ inwardAdjust firstSeg)
+                                                                     (Just (middleSegs,lastSeg)) -> if noIntersection (inwardAdjust lastSeg) (inwardAdjust firstSeg)
                                                                                                     then middleSegs <> maybeToList (combineLineSegs lastSeg firstSeg)
                                                                                                     else inSegs
             concatDegenerates :: [LineSeg] -> LineSeg -> [LineSeg]
             concatDegenerates inSegs oneSeg = case unsnoc inSegs of
                                        Nothing -> [oneSeg]
-                                       (Just (middleSegs,lastSeg)) -> middleSegs <> if noIntersection (fst $ inwardAdjust lastSeg) (fst $ inwardAdjust oneSeg)
+                                       (Just (middleSegs,lastSeg)) -> middleSegs <> if noIntersection (inwardAdjust lastSeg) (inwardAdjust oneSeg)
                                                                                     then maybeToList (combineLineSegs lastSeg oneSeg)
                                                                                     else [lastSeg,oneSeg]
         inwardAdjust l1 = translateL (eToPLine2 l1) (if direction == Inward then pathWidth else (-pathWidth))
