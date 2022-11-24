@@ -23,7 +23,9 @@
 
 module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringPLinesVertical) where
 
-import Prelude ((+), (<$>), ($), (.), (*), sqrt, (-), Ordering(EQ, GT, LT), otherwise, (==), length, concat, not, null, (!!), fromIntegral, ceiling, (/), floor, Integer, compare)
+import Prelude ((+), (<$>), ($), (.), (*), sqrt, (-), Ordering(EQ, GT, LT), otherwise, (==), length, not, null, (!!), fromIntegral, ceiling, (/), floor, Integer, compare)
+
+import Data.List (concatMap)
 
 import Data.List.Ordered (sort)
 
@@ -64,7 +66,7 @@ infillLineSegInside contour childContours line
       allLines :: [LineSeg]
       allLines = makeLineSegs allPoints
         where
-          allPoints = filterTooShort . sort . concat $ getPLine2Intersections line <$> contour:childContours
+          allPoints = (filterTooShort . sort) $ concatMap (getPLine2Intersections line) (contour:childContours)
           filterTooShort :: [Point2] -> [Point2]
           filterTooShort [] = []
           filterTooShort [a] = [a]
