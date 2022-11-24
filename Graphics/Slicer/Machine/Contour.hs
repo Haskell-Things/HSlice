@@ -19,7 +19,7 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude (($), fst, otherwise, Eq, (<>), show, error, (==), (&&), Show, not)
+import Prelude (($), Eq((==)), (<>), (&&), Show(show), error, not, otherwise)
 
 import Data.List (null, foldl')
 
@@ -35,7 +35,7 @@ import Graphics.Slicer.Math.Intersections (noIntersection, intersectionOf)
 
 import Graphics.Slicer.Math.Line (combineLineSegs)
 
-import Graphics.Slicer.Math.Lossy (pToEPoint2)
+import Graphics.Slicer.Math.Lossy (eToPLine2, pToEPoint2)
 
 import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, eToPL, translateL)
 
@@ -92,21 +92,21 @@ modifyContour pathWidth contour direction
                                             [l1,l2] -> [l1,l2]
                                             (firstSeg:moreSegs) -> case unsnoc moreSegs of
                                                                      Nothing -> error "impossible."
-                                                                     (Just (middleSegs,lastSeg)) -> if noIntersection (inwardAdjustWithErr lastSeg) (inwardAdjustWithErr firstSeg)
+                                                                     (Just (middleSegs,lastSeg)) -> if noIntersection (inwardAdjust lastSeg) (inwardAdjust firstSeg)
                                                                                                     then middleSegs <> maybeToList (combineLineSegs lastSeg firstSeg)
                                                                                                     else inSegs
             concatDegenerates :: [LineSeg] -> LineSeg -> [LineSeg]
             concatDegenerates inSegs oneSeg = case unsnoc inSegs of
                                        Nothing -> [oneSeg]
-                                       (Just (middleSegs,lastSeg)) -> middleSegs <> if noIntersection (inwardAdjustWithErr lastSeg) (inwardAdjustWithErr oneSeg)
+                                       (Just (middleSegs,lastSeg)) -> middleSegs <> if noIntersection (inwardAdjust lastSeg) (inwardAdjust oneSeg)
                                                                                     then maybeToList (combineLineSegs lastSeg oneSeg)
                                                                                     else [lastSeg,oneSeg]
-        inwardAdjustWithErr l1 = translateL (fst $ eToPL l1) (if direction == Inward then pathWidth else (-pathWidth))
+        inwardAdjust l1 = translateL (eToPLine2 l1) (if direction == Inward then pathWidth else (-pathWidth))
         findLineSeg :: LineSeg -> LineSeg -> LineSeg -> Maybe LineSeg
         findLineSeg previousln ln nextln
           -- The ideal case.
           | isIntersection previousln ln &&
-            isIntersection ln nextln        = Just $ makeLineSeg (pToEPoint2 $ intersectionOf (inwardAdjustWithErr previousln) (inwardAdjustWithErr ln)) (pToEPoint2 $ intersectionOf (inwardAdjustWithErr ln) (inwardAdjustWithErr nextln))
+            isIntersection ln nextln        = Just $ makeLineSeg (pToEPoint2 $ intersectionOf (inwardAdjust previousln) (inwardAdjust ln)) (pToEPoint2 $ intersectionOf (inwardAdjust ln) (inwardAdjust nextln))
           | otherwise = error $ "no intersection?\n" <> show (isIntersection previousln ln) <> "\n" <> show (isIntersection ln nextln) <> "\n" <> show previousln <> "\n" <> show ln <> "\n" <> show nextln <> "\n"
           where
             isIntersection l1 l2 = not $ noIntersection (eToPL l1) (eToPL l2)
