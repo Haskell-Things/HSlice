@@ -154,7 +154,7 @@ crashMotorcycles contour holes
                                  EQ -> Just $ Collision (mot1, mot2, slist []) (Just mot1) SideSwipe
                           _ -> Nothing
               where
-                intersectionPPoint = intersectionOf (outOf mot1) (outOf mot2)
+                intersectionPPoint = intersectionOf (outAndErrOf mot1) (outAndErrOf mot2)
                 intersectionIsBehind m = angleFound < realToFrac (ulpVal angleErr)
                   where
                     (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf m) (eToPLine2 $ lineSegToIntersection m)

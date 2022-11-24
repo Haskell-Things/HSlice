@@ -146,7 +146,7 @@ newtype NPLine2 = NPLine2 GVec
   deriving (Eq, Generic, NFData, Show)
 
 -- | The typeclass definition. functions that must be implemented for any projective line type.
-class ProjectiveLine2 a where
+class (Show a) => ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   normalizeL :: a -> (NPLine2, PLine2Err)
   vecOfL :: a -> GVec

@@ -179,8 +179,8 @@ averageNodes n1 n2
   | n2Distance < getRounded n2Err = error $ "intersection is AT the point of n2!\n" <> dumpInput
   | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (normalizePLine2 $ outOf n1) (pPointOf n2) (normalizePLine2 $ outOf n2)
   where
-    (n1Distance, (_,_, UlpSum n1Err)) = distance2PP (intersectionOf (outOf n1) (outOf n2)) (pPointOf n1, mempty)
-    (n2Distance, (_,_, UlpSum n2Err)) = distance2PP (intersectionOf (outOf n1) (outOf n2)) (pPointOf n2, mempty)
+    (n1Distance, (_,_, UlpSum n1Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointOf n1, mempty)
+    (n2Distance, (_,_, UlpSum n2Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointOf n2, mempty)
     dumpInput =    "Node1: " <> show n1
                 <> "\nNode2: " <> show n2
                 <> "\nNode1Out: " <> show (outOf n1)
@@ -208,7 +208,7 @@ getOutsideArc ppoint1 npline1 ppoint2 npline2
       (resFlipped, resFlippedErr) = getInsideArcWithErr pline1 (flipL pline2)
       pline1 = (\(NPLine2 v) -> PLine2 v) npline1
       pline2 = (\(NPLine2 v) -> PLine2 v) npline2
-      intersectionPoint = fst $ intersectionOf pline1 pline2
+      intersectionPoint = fst $ intersectionOf (pline1, mempty) (pline2, mempty)
       l1TowardPoint = towardIntersection ppoint1 pline1 intersectionPoint
       l2TowardPoint = towardIntersection ppoint2 pline2 intersectionPoint
 
@@ -854,9 +854,9 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
       | canPoint node1
         && canPoint node2
         && intersectsInPoint node1 node2 =
-        Just $ fst (distance2PP (pPointOf node1, mempty) (intersectionOf (outOf node1) (outOf node2)))
+        Just $ fst (distance2PP (pPointOf node1, mempty) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)))
                `max`
-               fst (distance2PP (pPointOf node2, mempty) (intersectionOf (outOf node1) (outOf node2)))
+               fst (distance2PP (pPointOf node2, mempty) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)))
       | otherwise = Nothing
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Bool
@@ -866,5 +866,5 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                                        && (dist2 >= realToFrac dist2Err)
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, (_,_,UlpSum dist1Err)) = distance2PP (intersectionOf (outOf node1) (outOf node2)) (pPointOf node1, mempty)
-        (dist2, (_,_,UlpSum dist2Err)) = distance2PP (intersectionOf (outOf node1) (outOf node2)) (pPointOf node2, mempty)
+        (dist1, (_,_,UlpSum dist1Err)) = distance2PP (pPointOf node1, mempty) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) 
+        (dist2, (_,_,UlpSum dist2Err)) = distance2PP (pPointOf node2, mempty) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) 
