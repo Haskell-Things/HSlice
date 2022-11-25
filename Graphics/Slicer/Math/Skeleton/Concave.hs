@@ -56,7 +56,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.Intersections (noIntersection, intersectionsAtSamePoint, intersectionOf, isCollinear, isParallel, isAntiCollinear, isAntiParallel, outputsIntersect)
 
-import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToPLine2, getInsideArc)
+import Graphics.Slicer.Math.Lossy (eToPLine2, getInsideArc)
 
 import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), ProjectiveLine, PLine2Err, flipL, distance2PP, outAndErrOf, pLineIsLeft)
 
@@ -806,9 +806,9 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
         && hasArc node1
         && hasArc node2
         && intersectsInPoint node1 node2 =
-        Just $ distanceBetweenPPoints (pPointOf node1) (intersectionOf (outAndErrOf node1) (outAndErrOf node2))
+        Just $ fst (distance2PP (pPointOf node1, mempty) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)))
                `max`
-               distanceBetweenPPoints (pPointOf node2) (intersectionOf (outAndErrOf node1) (outAndErrOf node2))
+               fst (distance2PP (pPointOf node2, mempty) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)))
       | otherwise = Nothing
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Bool
@@ -818,5 +818,5 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
                                        && not (dist2 <= realToFrac (ulpVal dist2Err))
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, (_,_, dist1Err)) = distance2PP (intersectionOf (outAndErrOf node1) (outAndErrOf node2),mempty) (pPointOf node1,mempty)
-        (dist2, (_,_, dist2Err)) = distance2PP (intersectionOf (outAndErrOf node1) (outAndErrOf node2),mempty) (pPointOf node2,mempty)
+        (dist1, (_,_, dist1Err)) = distance2PP (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) (pPointOf node1, mempty)
+        (dist2, (_,_, dist2Err)) = distance2PP (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) (pPointOf node2, mempty)

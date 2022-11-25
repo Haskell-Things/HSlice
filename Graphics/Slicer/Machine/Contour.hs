@@ -19,7 +19,7 @@
 
 module Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour) where
 
-import Prelude (($), Eq((==)), (<>), (&&), Show(show), error, not, otherwise)
+import Prelude (($), Eq((==)), (<>), (&&), Show(show), error, fst, not, otherwise)
 
 import Data.List (null, foldl')
 
@@ -106,7 +106,7 @@ modifyContour pathWidth contour direction
         findLineSeg previousln ln nextln
           -- The ideal case.
           | isIntersection previousln ln &&
-            isIntersection ln nextln        = Just $ makeLineSeg (pToEPoint2 $ intersectionOf (inwardAdjust previousln) (inwardAdjust ln)) (pToEPoint2 $ intersectionOf (inwardAdjust ln) (inwardAdjust nextln))
+            isIntersection ln nextln        = Just $ makeLineSeg (pToEPoint2 $ fst $ intersectionOf (inwardAdjust previousln) (inwardAdjust ln)) (pToEPoint2 $ fst $ intersectionOf (inwardAdjust ln) (inwardAdjust nextln))
           | otherwise = error $ "no intersection?\n" <> show (isIntersection previousln ln) <> "\n" <> show (isIntersection ln nextln) <> "\n" <> show previousln <> "\n" <> show ln <> "\n" <> show nextln <> "\n"
           where
             isIntersection l1 l2 = not $ noIntersection (eToPL l1) (eToPL l2)

@@ -77,12 +77,12 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     linesToRender          = maybe linesUntilEnd (min linesUntilEnd) insets
 
     -- | The line segments we are placing.
-    foundLineSegs          = [ makeLineSeg (pToEPoint2 $ intersectionOf newSide (firstArc,mempty)) (pToEPoint2 $ intersectionOf newSide (lastArc,mempty)) | newSide <- newSides ]
+    foundLineSegs          = [ makeLineSeg (pToEPoint2 $ fst $ intersectionOf newSide (firstArc,mempty)) (pToEPoint2 $ fst $ intersectionOf newSide (lastArc,mempty)) | newSide <- newSides ]
       where
         newSides = [ translateL (eToPLine2 edge) $ translateDir (-(distance+(distance * fromIntegral segmentNum))) | segmentNum <- [0..linesToRender-1] ]
 
     -- | The line where we are no longer able to fill this face. from the firstArc to the lastArc, along the point that the lines we place stop.
-    finalSide              = makeLineSeg (pToEPoint2 $ intersectionOf (finalLine,mempty) (firstArc,mempty)) (pToEPoint2 $ intersectionOf (finalLine,mempty) (lastArc,mempty))
+    finalSide              = makeLineSeg (pToEPoint2 $ fst $ intersectionOf (finalLine,mempty) (firstArc,mempty)) (pToEPoint2 $ fst $ intersectionOf (finalLine,mempty) (lastArc,mempty))
       where
         finalLine = translatePLine2 (eToPLine2 edge) $ translateDir (distance * fromIntegral linesToRender)
 
@@ -92,10 +92,10 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
 
     -- | what is the distance from the edge to the place we can no longer place lines.
     distanceUntilEnd = case midArcs of
-                         (Slist [] 0) -> distancePPointToPLine (intersectionOf (firstArc,mempty) (lastArc,mempty),mempty) (eToPL edge)
+                         (Slist [] 0) -> distancePPointToPLine (intersectionOf (firstArc,mempty) (lastArc,mempty)) (eToPL edge)
                          (Slist [oneArc] 1) -> if firstArcLonger
-                                               then distancePPointToPLine (intersectionOf (firstArc,mempty) (oneArc,mempty) ,mempty) (eToPL edge)
-                                               else distancePPointToPLine (intersectionOf (oneArc,mempty) (lastArc,mempty) ,mempty) (eToPL edge)
+                                               then distancePPointToPLine (intersectionOf (firstArc,mempty) (oneArc,mempty)) (eToPL edge)
+                                               else distancePPointToPLine (intersectionOf (oneArc,mempty) (lastArc,mempty)) (eToPL edge)
                          (Slist _ _) -> closestArcDistance
 
     -----------------------------------------------------------
@@ -106,7 +106,7 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
                        [] -> error "no remains for an nSideRemainder?"
 
     -- | Find the closest point where two of our arcs intersect, relative to our side.
-    arcIntersections = initSafe $ mapWithFollower (\a b -> (distancePPointToPLine (safeIntersectionOf (a,mempty) (b,mempty) ,mempty) (eToPL edge), (a, b))) $ [firstArc] <> rawMidArcs <> [lastArc]
+    arcIntersections = initSafe $ mapWithFollower (\a b -> (distancePPointToPLine (safeIntersectionOf (a,mempty) (b,mempty)) (eToPL edge), (a, b))) $ [firstArc] <> rawMidArcs <> [lastArc]
     safeIntersectionOf a b
       | isCollinear a b = error $ "given a colinear pair when trying to find arcIntersectioins:\n"
                                 <> show a <> "\n"
@@ -161,13 +161,13 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     midArc = case midArcs of
                (Slist [oneArc] 1) -> oneArc
                (Slist _ _) -> error $ "evaluated midArc with the wrong insets of items\nd: " <> show distance <> "\nn: " <> show insets <> "\nFace: " <> show face <> "\n"
-    threeSideRemainder     = if distancePPointToPLine (intersectionOf (firstArc,mempty) (midArc,mempty),mempty) (eToPL edge) /= distancePPointToPLine (intersectionOf (midArc,mempty) (lastArc,mempty),mempty) (eToPL edge)
+    threeSideRemainder     = if distancePPointToPLine (intersectionOf (firstArc,mempty) (midArc,mempty)) (eToPL edge) /= distancePPointToPLine (intersectionOf (midArc,mempty) (lastArc,mempty)) (eToPL edge)
                              then subRemains
                              else Nothing
     (subSides, subRemains) = if firstArcLonger
                              then addLineSegsToFace distance insets (Face finalSide firstArc (slist []) midArc)
                              else addLineSegsToFace distance insets (Face finalSide midArc   (slist []) lastArc)
-    firstArcLonger         = distancePPointToPLine (intersectionOf (firstArc,mempty) (midArc,mempty) ,mempty) (eToPL edge) > distancePPointToPLine (intersectionOf (midArc,mempty) (lastArc,mempty),mempty) (eToPL edge)
+    firstArcLonger         = distancePPointToPLine (intersectionOf (firstArc,mempty) (midArc,mempty)) (eToPL edge) > distancePPointToPLine (intersectionOf (midArc,mempty) (lastArc,mempty)) (eToPL edge)
     ----------------------------------------------
     -- functions only used by a three-sided n-gon.
     ----------------------------------------------

@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getOutsideArcWithErr, towardIntersection, getInsideArcWithErr) where
 
-import Prelude (Bool, ($), (>), (<=), (<>), (==), (&&), (||), error, mempty, otherwise, realToFrac, show)
+import Prelude (Bool, ($), (>), (<=), (<>), (==), (&&), (||), error, fst, mempty, otherwise, realToFrac, show)
 
 import Graphics.Slicer.Definitions (ℝ)
 
@@ -47,11 +47,12 @@ getOutsideArcWithErr ppoint1 pline1 ppoint2 pline2
   | isParallel  (npline1,npline1Err) (npline2,npline2Err) ||
     isAntiParallel (npline1,npline1Err) (npline2,npline2Err) = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
   | cppoint1 == cppoint2 = error $ "cannot have two identical input points:\n" <> show ppoint1 <> "\n" <> show ppoint2 <> "\n"
-  | intersectionPoint == cppoint1 = error $ "intersection of plines is at first ppoint:\n"
+  -- FIXME: do not use == for points, use distance!
+  | fst intersectionPoint == cppoint1 = error $ "intersection of plines is at first ppoint:\n"
                                           <> show ppoint1 <> "\n"
                                           <> show pline1 <> "\n"
                                           <> show pline2 <> "\n"
-  | intersectionPoint == cppoint2 = error $ "intersection of plines is at second ppoint:\n"
+  | fst intersectionPoint == cppoint2 = error $ "intersection of plines is at second ppoint:\n"
                                           <> show ppoint2 <> "\n"
                                           <> show pline1 <> "\n"
                                           <> show pline2 <> "\n"
@@ -62,8 +63,8 @@ getOutsideArcWithErr ppoint1 pline1 ppoint2 pline2
     where
       flipFst (a,b) = (flipL a,b)
       intersectionPoint = intersectionOf (npline1,npline1Err) (npline2,npline2Err)
-      l1TowardPoint = towardIntersection (cppoint1,c1Err) (npline1,npline1Err) (intersectionPoint,mempty)
-      l2TowardPoint = towardIntersection (cppoint2,c2Err) (npline2,npline2Err) (intersectionPoint,mempty)
+      l1TowardPoint = towardIntersection (cppoint1,c1Err) (npline1,npline1Err) intersectionPoint
+      l2TowardPoint = towardIntersection (cppoint2,c2Err) (npline2,npline2Err) intersectionPoint
       (npline1, npline1Err) = normalizeL pline1
       (npline2, npline2Err) = normalizeL pline2
       (cppoint1,c1Err) = canonicalizeP ppoint1

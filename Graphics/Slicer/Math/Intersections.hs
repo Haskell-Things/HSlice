@@ -55,14 +55,14 @@ isAntiParallel :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> 
 isAntiParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiParallel
 
 -- | Get the intersection point of two lines we know have an intersection point.
-intersectionOf :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> ProjectivePoint
+intersectionOf :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectivePoint, PPoint2Err)
 intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
   where
     saneIntersection PAntiCollinear     = error $ "cannot get the intersection of anti-collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
     saneIntersection PCollinear         = error $ "cannot get the intersection of collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
     saneIntersection PParallel          = error $ "cannot get the intersection of parallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
     saneIntersection PAntiParallel      = error $ "cannot get the intersection of antiparallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection (IntersectsIn p _) = p
+    saneIntersection (IntersectsIn p (_,_,pErr)) = (p, pErr)
 
 -- | Get the intersection point of two lines. if they are collinear, returns a line, and if they are parallel, returns Nothing.
 -- FIXME: adding two different types of error.
