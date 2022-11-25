@@ -43,7 +43,7 @@ import Data.List.NonEmpty (NonEmpty)
 
 import Data.List.Unique (count_)
 
-import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust)
+import Data.Maybe (Maybe(Just,Nothing), isJust, mapMaybe)
 
 import Slist (len, cons, slist, isEmpty, safeLast)
 
@@ -126,7 +126,7 @@ instance Pointable INode where
       allPLines = if hasArc iNode
                   then slist $ nub $ (outAndErrOf iNode) : firstPLine : secondPLine : rawPLines
                   else slist $ nub $ firstPLine : secondPLine : rawPLines
-      intersectionsOfPairs (Slist pLines _) = catMaybes $ (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) <$> getPairs pLines
+      intersectionsOfPairs (Slist pLines _) = mapMaybe (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
         where
           saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
           saneIntersect _                  = Nothing

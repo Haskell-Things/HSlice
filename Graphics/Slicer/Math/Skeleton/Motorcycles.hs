@@ -26,11 +26,11 @@
 
 module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles, lastCrashType, motorcyclesAreAntiCollinear, motorcyclesInDivision, motorcycleMightIntersectWith, motorcycleDivisor) where
 
-import Prelude (Bool(True, False), Either(Left,Right), Eq((==)), Show(show), Ordering (EQ, GT, LT), (&&), (<>), ($), (<$>), (<), (>), compare, error, fst, mempty, notElem, null, otherwise, realToFrac, zip)
+import Prelude (Bool(True, False), Either(Left,Right), Eq((==)), Show(show), Ordering (EQ, GT, LT), (&&), (<>), ($), (<), (>), compare, error, fst, mempty, notElem, null, otherwise, realToFrac, zip)
 
 import Prelude as PL (init, last)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromMaybe)
+import Data.Maybe( Maybe(Just,Nothing), fromMaybe, mapMaybe)
 
 import Data.List (sortBy)
 
@@ -163,7 +163,7 @@ crashMotorcycles contour holes
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
 --   This function is meant to be used on the exterior contour.
 convexMotorcycles :: Contour -> [Motorcycle]
-convexMotorcycles contour = catMaybes $ onlyMotorcycles <$> zip (rotateLeft $ linePairs contour) (mapWithNeighbors convexPLines $ pointsOfContour contour)
+convexMotorcycles contour = mapMaybe onlyMotorcycles $ zip (rotateLeft $ linePairs contour) (mapWithNeighbors convexPLines $ pointsOfContour contour)
   where
     rotateLeft a = PL.last a : PL.init a
     onlyMotorcycles :: ((LineSeg, LineSeg), Maybe (PLine2, PLine2Err)) -> Maybe Motorcycle
@@ -229,7 +229,7 @@ motorcycleMightIntersectWith lineSegs motorcycle
   where
     intersections = getMotorcycleSegSetIntersections motorcycle lineSegs
     results :: Slist (LineSeg, Either Point2 CPPoint2)
-    results = slist $ sortByDistance $ catMaybes $ filterIntersection <$> intersections
+    results = slist $ sortByDistance $ mapMaybe filterIntersection intersections
     sortByDistance :: [(LineSeg, Either Point2 CPPoint2)] -> [(LineSeg, Either Point2 CPPoint2)]
     sortByDistance = sortBy compareDistances
     motorcyclePoint = canonicalizePPoint2 $ pPointOf motorcycle
@@ -273,7 +273,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                                                ) $ filterIntersection a
                                               manyIntersections@(_:_) -> if len res > 0 then head res else error $ "no options: " <> show (len res) <> "\n" <> show res <> "\n"
                                                 where
-                                                  res = slist $ sortBy compareDistances $ catMaybes $ filterIntersection <$> manyIntersections
+                                                  res = slist $ sortBy compareDistances $ mapMaybe filterIntersection manyIntersections
                                                   compareDistances :: (LineSeg, Either Point2 CPPoint2) -> (LineSeg, Either Point2 CPPoint2) -> Ordering
                                                   compareDistances i1 i2 = case i1 of
                                                                              (_, Right intersectionPPoint1) ->

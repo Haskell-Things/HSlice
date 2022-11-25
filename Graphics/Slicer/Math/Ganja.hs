@@ -91,7 +91,7 @@ import Data.List (sort)
 
 import Data.List.Unique (allUnique)
 
-import Data.Maybe (Maybe(Nothing, Just), maybeToList, catMaybes, fromMaybe)
+import Data.Maybe (Maybe(Nothing, Just), catMaybes, fromMaybe, maybeToList)
 
 import Math.Tau (tau)
 

@@ -34,7 +34,7 @@ import Prelude as PL (head, last, tail, init)
 
 import Data.Either (lefts,rights)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, isNothing, fromMaybe)
+import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromMaybe, isJust, isNothing, mapMaybe)
 
 import Data.List (takeWhile, dropWhile, sortBy, nub)
 
@@ -241,7 +241,7 @@ makeENodes segs = case segs of
 -- | Find the non-reflex virtexes of a contour, and create ENodes from them.
 --   This function is meant to be used on an exterior contour.
 eNodesOfOutsideContour :: Contour -> [ENode]
-eNodesOfOutsideContour contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWithFollower concavePLines $ lineSegsOfContour contour)
+eNodesOfOutsideContour contour = mapMaybe onlyNodes $ zip (linePairs contour) (mapWithFollower concavePLines $ lineSegsOfContour contour)
   where
     onlyNodes :: ((LineSeg, LineSeg), Maybe PLine2) -> Maybe ENode
     onlyNodes ((seg1, seg2), Just _) = Just $ makeENode (startPoint seg1) (startPoint seg2) (endPoint seg2)
@@ -715,7 +715,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                               (Slist [] _) -> [lineSegs]
                               (Slist (oneENode:moreENodes) _) -> concat $ removeENodeFromSegList oneENode <$> removeENodesFromSegList (slist moreENodes) lineSegs
           where
-            filterTooShorts sets = catMaybes $ isTooShort <$> sets
+            filterTooShorts sets = mapMaybe isTooShort sets
             isTooShort set = case set of
                                [] -> Nothing
                                [val] -> Just [val]
@@ -830,23 +830,23 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
 
     -- | find nodes of two different types that can intersect.
     intersectingMixedNodePairs :: [(ENode, INode)]
-    intersectingMixedNodePairs = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getMixedPairs eNodes iNodes
+    intersectingMixedNodePairs = mapMaybe (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) $ getMixedPairs eNodes iNodes
       where
         getMixedPairs ::  [a] -> [b] -> [(a, b)]
         getMixedPairs set1 set2 = concat $ (\a -> (a,) <$> set2) <$> set1
 
     -- | find nodes of the same type that can intersect.
     intersectingNodePairsOf :: (Arcable a, Pointable a) => [a] -> [(a, a)]
-    intersectingNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
+    intersectingNodePairsOf inNodes = mapMaybe (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) $ getPairs inNodes
 
     -- | find nodes of the same type that can intersect.
     -- NOTE: accepts node pairs, so that we can ensure we check just following ENodes.
     intersectingNeighboringNodePairsOf :: (Arcable a, Pointable a) => [(a,a)] -> [(a, a)]
-    intersectingNeighboringNodePairsOf inNodePairs = catMaybes $ (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) <$> inNodePairs
+    intersectingNeighboringNodePairsOf inNodePairs = mapMaybe (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) $ inNodePairs
 
     -- | find nodes that have output segments that are antiCollinear with one another.
     antiCollinearNodePairsOf :: (Pointable a, Arcable a) => [a] -> [(a, a)]
-    antiCollinearNodePairsOf inNodes = catMaybes $ (\(node1, node2) -> if nodesAreAntiCollinear node1 node2 then Just (node1, node2) else Nothing) <$> getPairs inNodes
+    antiCollinearNodePairsOf inNodes = mapMaybe (\(node1, node2) -> if nodesAreAntiCollinear node1 node2 then Just (node1, node2) else Nothing) $ getPairs inNodes
 
     -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
     distanceToIntersection :: (Pointable a, Arcable a, Pointable b, Arcable b) => a -> b -> Maybe ℝ

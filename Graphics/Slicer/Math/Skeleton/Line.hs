@@ -26,7 +26,7 @@ import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<
 
 import Data.List (sortOn, dropWhile, takeWhile, transpose)
 
-import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromMaybe)
+import Data.Maybe (Maybe(Just,Nothing), fromMaybe, mapMaybe)
 
 import Safe (lastMay, initSafe)
 
@@ -175,7 +175,7 @@ addInset insets distance faceSet
       | otherwise = error $ "out of order lineSegs generated from faces: " <> show faceSet <> "\n" <> show lineSegSets <> "\n"
     averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
     lineSegSets = fst <$> res
-    remainingFaces = concat $ catMaybes $ snd <$> res
+    remainingFaces = concat $ mapMaybe snd res
     res = addLineSegsToFace distance (Just 1) <$> (\(Slist a _) -> a) faceSet
 
 -- | Add infill to the area of a set of faces that was not covered in lines.
