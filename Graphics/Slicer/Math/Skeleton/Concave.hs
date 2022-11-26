@@ -46,7 +46,7 @@ import Slist as SL (head, last, tail)
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getOutsideArcWithErr)
+import Graphics.Slicer.Math.Arcs (getFirstArc, getOutsideArc)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
@@ -165,7 +165,7 @@ errorIfLeft (Right val)    = val
 --  Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
 --  Note: assumes outOf the two input nodes is already normalized.
 averageNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> INode
-averageNodes n1 n2 = makeINode (sortedPair n1 n2) $ Just $ (\(a, (_, _, b)) -> (a,b)) $ getOutsideArcWithErr (pPointOf n1) (outOf n1) (pPointOf n2) (outOf n2)
+averageNodes n1 n2 = makeINode (sortedPair n1 n2) $ Just $ (\(a, (_, _, b)) -> (a,b)) $ getOutsideArc (pPointOf n1) (outOf n1) (pPointOf n2) (outOf n2)
 
 -- | Take a pair of arcables, and return their outOfs, in a sorted order.
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [ProjectiveLine]
@@ -177,7 +177,7 @@ sortedPair n1 n2
 makeENode :: Point2 -> Point2 -> Point2 -> ENode
 makeENode p1 p2 p3 = ENode (p1,p2,p3) arc arcErr
   where
-    (arc, arcErr) = getFirstArcWithErr p1 p2 p3
+    (arc, arcErr) = getFirstArc p1 p2 p3
 
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
 makeENodes :: [LineSeg] -> [ENode]

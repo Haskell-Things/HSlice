@@ -43,7 +43,7 @@ import Prelude (($), fst, mempty)
 -- The numeric type in HSlice.
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr, getOutsideArcWithErr)
+import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getInsideArc, getOutsideArc) 
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
@@ -74,13 +74,13 @@ eToPLine2 l1 = fst $ eToPL l1
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
 getFirstArc :: Point2 -> Point2 -> Point2 -> ProjectiveLine
-getFirstArc p1 p2 p3 = fst $ getFirstArcWithErr p1 p2 p3
+getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 
 getInsideArc :: ProjectiveLine -> ProjectiveLine -> ProjectiveLine
-getInsideArc pl1 pl2 = fst $ getInsideArcWithErr pl1 pl2
+getInsideArc pl1 pl2 = fst $ Arcs.getInsideArc pl1 pl2
 
 getOutsideArc :: ProjectivePoint -> ProjectiveLine -> ProjectivePoint -> ProjectiveLine -> ProjectiveLine
-getOutsideArc a b c d = fst $ getOutsideArcWithErr a b c d
+getOutsideArc a b c d = fst $ Arcs.getOutsideArc a b c d
 
 -- | a typed join function. join two points, returning a line.
 join2PPoints :: ProjectivePoint -> ProjectivePoint -> ProjectiveLine
