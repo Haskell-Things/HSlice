@@ -20,15 +20,50 @@
    This file contains code for calculating the inside and outside bisectors of two lines.
 -}
 
-module Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr) where
+module Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr, getOutsideArc, towardIntersection) where
 
-import Prelude (($), (<>), (==), mempty, otherwise)
+import Prelude (Bool, ($), (<>), (==), (>), (<=), (&&), error, fst, mempty, otherwise, realToFrac, show)
 
 import Graphics.Slicer.Math.Definitions (Point2, addPoints, distance, makeLineSeg, scalePoint)
 
-import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr)
+import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), addVecPairWithErr, ulpVal)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine2, PLine2(PLine2), PLine2Err(PLine2Err), eToPL, flipL, normalizeL, vecOfL)
+import Graphics.Slicer.Math.Intersections (intersectionOf, noIntersection)
+
+import Graphics.Slicer.Math.PGA (CPPoint2, ProjectiveLine2, ProjectivePoint2, PLine2(PLine2), PLine2Err(PLine2Err), angleBetween2PL, distance2PP, eToPL, flipL, join2PP, normalizeL, vecOfL)
+
+-- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
+-- Note: we normalize our output lines.
+-- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
+getOutsideArc :: (ProjectivePoint2 a, ProjectiveLine2 b, ProjectivePoint2 c, ProjectiveLine2 d) => a -> b -> c -> d -> (PLine2, PLine2Err)
+getOutsideArc ppoint1 pline1 ppoint2 pline2
+  | npline1 == npline2 = error "need to be able to return two PLines."
+  | noIntersection (pline1, mempty) (pline2, mempty) = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
+  | l1TowardPoint && l2TowardPoint = (flipL resFlipped, resFlippedErr)
+  | l1TowardPoint                  = (flipL resNormal, resNormalErr)
+  | l2TowardPoint                  = (resNormal, resNormalErr)
+  | otherwise                      = (resFlipped, resFlippedErr)
+    where
+      (resNormal, resNormalErr) = getInsideArcWithErr pline1 pline2
+      (resFlipped, resFlippedErr) = getInsideArcWithErr pline1 (flipL pline2)
+      npline1 = normalizeL pline1
+      npline2 = normalizeL pline2
+      intersectionPoint = fst $ intersectionOf (pline1, mempty) (pline2, mempty)
+      l1TowardPoint = towardIntersection ppoint1 pline1 intersectionPoint
+      l2TowardPoint = towardIntersection ppoint2 pline2 intersectionPoint
+
+-- | Determine if the line segment formed by the two given points starts with the first point, or the second.
+-- Note: Due to numeric uncertainty, we cannot rely on Eq here, and must check the sign of the angle.
+-- FIXME: shouldn't we be given an error component in our inputs?
+towardIntersection :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> CPPoint2 -> Bool
+towardIntersection pp1 pl1 pp2
+  | d <= realToFrac dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
+  | otherwise = angleFound > realToFrac (ulpVal angleErr)
+  where
+    (angleFound, (_,_, angleErr)) = angleBetween2PL newPLine pl1
+    (d, (_,_,UlpSum dErr)) = distance2PP (pp1, mempty) (pp2, mempty)
+    newPLine = fst $ join2PP pp1 pp2
+
 
 -- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
 --   Note that we normalize our output, but return it as a PLine2. this is safe, because double normalization (if it happens) only raises the ULP.

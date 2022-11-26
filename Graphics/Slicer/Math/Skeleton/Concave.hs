@@ -26,9 +26,9 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, getOutsideArc, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour, towardIntersection) where
+module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (<=), (-), mempty, realToFrac)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), mempty, realToFrac)
 
 import Prelude as PL (head, last, tail, init)
 
@@ -50,19 +50,19 @@ import Slist as SL (head, last, tail)
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr)
+import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr, getOutsideArc)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, mapWithFollower, fudgeFactor, startPoint)
 
-import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), ulpVal)
+import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, isCollinear, isParallel, isAntiCollinear, noIntersection)
 
 import Graphics.Slicer.Math.Lossy (distancePPointToPLine, eToPLine2, normalizePLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2(PLine2), PLine2Err, ProjectivePoint2, CPPoint2(CPPoint2), PPoint2(PPoint2), distance2PP, flipL, outAndErrOf, pLineIsLeft, angleBetween2PL, distancePPointToPLineWithErr, join2PP, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2, PLine2Err, CPPoint2(CPPoint2), PPoint2(PPoint2), distance2PP, flipL, outAndErrOf, pLineIsLeft, distancePPointToPLineWithErr)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLinesWithErr, isLoop)
 
@@ -191,38 +191,6 @@ averageNodes n1 n2
 -- | Take a pair of arcables, and return their outOfs, in a sorted order.
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [(PLine2, PLine2Err)]
 sortedPair n1 n2 = sortedPLinesWithErr [outAndErrOf n1, outAndErrOf n2]
-
--- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
--- Note: we normalize our output lines.
--- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
-getOutsideArc :: (ProjectivePoint2 a) => a -> NPLine2 -> a -> NPLine2 -> (PLine2, PLine2Err)
-getOutsideArc ppoint1 npline1 ppoint2 npline2
-  | npline1 == npline2 = error "need to be able to return two PLines."
-  | noIntersection (pline1, mempty) (pline2, mempty) = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
-  | l1TowardPoint && l2TowardPoint = (flipL resFlipped, resFlippedErr)
-  | l1TowardPoint                  = (flipL resNormal, resNormalErr)
-  | l2TowardPoint                  = (resNormal, resNormalErr)
-  | otherwise                      = (resFlipped, resFlippedErr)
-    where
-      (resNormal, resNormalErr) = getInsideArcWithErr pline1 pline2
-      (resFlipped, resFlippedErr) = getInsideArcWithErr pline1 (flipL pline2)
-      pline1 = (\(NPLine2 v) -> PLine2 v) npline1
-      pline2 = (\(NPLine2 v) -> PLine2 v) npline2
-      intersectionPoint = fst $ intersectionOf (pline1, mempty) (pline2, mempty)
-      l1TowardPoint = towardIntersection ppoint1 pline1 intersectionPoint
-      l2TowardPoint = towardIntersection ppoint2 pline2 intersectionPoint
-
--- | Determine if the line segment formed by the two given points starts with the first point, or the second.
--- Note: Due to numeric uncertainty, we cannot rely on Eq here, and must check the sign of the angle.
--- FIXME: shouldn't we be given an error component in our inputs?
-towardIntersection :: (ProjectivePoint2 a) => a -> PLine2 -> CPPoint2 -> Bool
-towardIntersection pp1 pl1 pp2
-  | d <= realToFrac dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
-  | otherwise = angleFound > realToFrac (ulpVal angleErr)
-  where
-    (angleFound, (_,_, angleErr)) = angleBetween2PL newPLine pl1
-    (d, (_,_,UlpSum dErr)) = distance2PP (pp1, mempty) (pp2, mempty)
-    newPLine = fst $ join2PP pp1 pp2
 
 -- | Make a first generation node.
 makeENode :: Point2 -> Point2 -> Point2 -> ENode

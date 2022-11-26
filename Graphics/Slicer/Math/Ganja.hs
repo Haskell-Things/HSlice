@@ -106,6 +106,8 @@ import Test.QuickCheck (Arbitrary, Positive(Positive), NonZero(NonZero), arbitra
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
+import Graphics.Slicer.Math.Arcs (getOutsideArc)
+
 import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, pointsOfContour, firstPointPairOfContour, pointFarOutsideContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPoint, mapWithFollower, startPoint, makeLineSeg)
@@ -116,7 +118,7 @@ import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoint2, normalizePLine2, pPo
 
 import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), PLine2(PLine2), PPoint2(PPoint2), PLine2Err, eToPL, eToPPoint2, flipL, normalizeL, translateRotatePPoint2WithErr, outOf, pPointOf, NPLine2(NPLine2))
 
-import Graphics.Slicer.Math.Skeleton.Concave (makeENode, getOutsideArc)
+import Graphics.Slicer.Math.Skeleton.Concave (makeENode)
 
 import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg, makeINode)
 
