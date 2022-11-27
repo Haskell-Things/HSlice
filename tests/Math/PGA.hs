@@ -1841,17 +1841,17 @@ facetSpec = do
                            (LineSeg (Point2 (1.5669872981077808,0.2500000000000001)) (Point2 (1.0,1.2320508075688771)))
                            (slist [LineSeg (Point2 (1.0,1.2320508075688771)) (Point2 (0.4330127018922193,0.25))])]
           ,[Face (LineSeg (Point2 (2.433012701892219,-0.25)) (Point2 (-0.43301270189221924,-0.25)))
-                 (PLine2 (GVec [GVal (-1.0000000000000002) (singleton (GEZero 1)), GVal 0.5000000000000001 (singleton (GEPlus 1)), GVal 0.8660254037844387 (singleton (GEPlus 2))]))
+                 (PLine2 (GVec [GVal (-1.7320508075688774) (singleton (GEZero 1)), GVal 0.8660254037844387 (singleton (GEPlus 1)), GVal 1.5 (singleton (GEPlus 2))]))
                  (slist [])
-                 (PLine2 (GVec [GVal 0.5000000000000001 (singleton (GEPlus 1)),GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
+                 (PLine2 (GVec [GVal 0.8660254037844387 (singleton (GEPlus 1)),GVal (-1.5) (singleton (GEPlus 2))]))
            ,Face (LineSeg (Point2 (1.0,2.232050807568877)) (Point2 (2.4330127018922192,-0.25)))
-                 (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
+                 (PLine2 (GVec [GVal 1.7320508075688772 (singleton (GEZero 1)), GVal (-1.7320508075688772) (singleton (GEPlus 1))]))
                  (slist [])
-                 (PLine2 (GVec [GVal (-1.0000000000000002) (singleton (GEZero 1)), GVal 0.5000000000000001 (singleton (GEPlus 1)), GVal 0.8660254037844387 (singleton (GEPlus 2))]))
+                 (PLine2 (GVec [GVal (-1.7320508075688774) (singleton (GEZero 1)), GVal 0.8660254037844387 (singleton (GEPlus 1)), GVal 1.5 (singleton (GEPlus 2))]))
            ,Face (LineSeg (Point2 (-0.43301270189221935,-0.25000000000000006)) (Point2 (1.0,2.232050807568877)))
-                 (PLine2 (GVec [GVal 0.5000000000000001 (singleton (GEPlus 1)), GVal (-0.8660254037844387) (singleton (GEPlus 2))]))
+                 (PLine2 (GVec [GVal 0.8660254037844387 (singleton (GEPlus 1)), GVal (-1.5) (singleton (GEPlus 2))]))
                  (slist [])
-                 (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
+                 (PLine2 (GVec [GVal 1.7320508075688772 (singleton (GEZero 1)), GVal (-1.7320508075688772) (singleton (GEPlus 1))]))
            ])
     where
       -- c0 - c4 are the contours of a square around the origin with a 90 degree chunk missing, rotated 0, 90, 180, 270 and 360 degrees:
