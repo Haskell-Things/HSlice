@@ -7,7 +7,7 @@ Algebra(2,0,1,()=>{
   var abb = point(2.0,0.0);
   var aca = point(2.0,0.0);
   var acb = point(1.0,1.7320508075688772);
-  var ada = -1.0e1+0.0e2+1.0e0;
+  var ada = -1.7320508075688772e1+0.0e2+1.7320508075688772e0;
   var adb = 0.8660254037844387e1-1.5e2+0.0e0;
   var adc = 0.8660254037844387e1+1.5e2-1.7320508075688774e0;
   document.body.appendChild(this.graph([

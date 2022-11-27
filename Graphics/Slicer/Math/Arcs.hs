@@ -41,12 +41,10 @@ import Graphics.Slicer.Math.PGAPrimitives (PLine2Err(PLine2Err), PPoint2Err, Pro
 getFirstArc :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, PLine2Err)
 getFirstArc p1 p2 p3
   -- since we hawe two equal sides, we can draw a point ot the other side of the quad, and use it for constructing.
-  | distance p2 p1 == distance p2 p3 = (PLine2 quadRes, quadPLineErr)
+  | distance p2 p1 == distance p2 p3 = (quad, quadPLineErr)
   | otherwise = (insideArc, insideArcErr)
   where
     -- only used for the quad case.
-    -- FIXME: how do we track error from normalization?
-    (NPLine2 quadRes, _) = normalizeL quad
     (quad, quadPLineErr) = eToPL (makeLineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3)
     -- used for all other cases.
     (insideArc, (_,_,insideArcRawErr)) = getInsideArc (PLine2 side1) (PLine2 side2)
