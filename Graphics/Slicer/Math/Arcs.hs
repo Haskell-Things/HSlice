@@ -72,9 +72,11 @@ getInsideArc line1 line2
   where
     errTotal = normErr <>  PLine2Err addVecErrs mempty mempty mempty mempty mempty
     (normRes, normErr) = normalizeL $ PLine2 $ addVecRes
-    (addVecRes, addVecErrs) = addVecPairWithErr flippedPV1 pv2
-    flippedPV1 = vecOfL $ flipL line1
-    pv2 = vecOfL line2
+    (addVecRes, addVecErrs) = addVecPairWithErr lv1 lv2
+    lv1 = vecOfL $ flipL npline1
+    lv2 = vecOfL npline2
+    (npline1, npline1Err) = normalizeL line1
+    (npline2, npline2Err) = normalizeL line2
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
 -- Note: we normalize our output lines.
