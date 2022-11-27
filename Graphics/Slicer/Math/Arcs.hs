@@ -62,9 +62,8 @@ getInsideArc :: ProjectiveLine -> ProjectiveLine -> (ProjectiveLine, (PLine2Err,
 getInsideArc line1 line2
    -- FIXME: remove this Eq usage!
   | npline1 == npline2 = error "need to be able to return two PLines."
-  | otherwise = (res, (npline1Err, npline2Err, resNormErr <> PLine2Err addErr mempty mempty mempty mempty mempty))
+  | otherwise = (PLine2 rawPLine2, (npline1Err, npline2Err, PLine2Err addErr mempty mempty mempty mempty mempty))
   where
-    (res, resNormErr) = normalizeL $ PLine2 rawPLine2
     (rawPLine2, addErr) = addVecPairWithErr pv1 pv2
     pv1 = vecOfL $ flipL npline1
     pv2 = vecOfL npline2
