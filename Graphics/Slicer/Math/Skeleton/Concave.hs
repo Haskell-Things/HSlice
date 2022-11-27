@@ -50,7 +50,7 @@ import Slist as SL (head, last, tail)
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Arcs (getFirstArcWithErr, getInsideArcWithErr, getOutsideArc)
+import Graphics.Slicer.Math.Arcs (getFirstArc, getInsideArc, getOutsideArc)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
@@ -109,11 +109,11 @@ findINodes inSegSets
   | len inSegSets == 2 =
     -- Two walls, no closed ends. solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
     case initialENodes of
-      [] -> INodeSet $ slist [[makeINode [getInsideArcWithErr (flipL $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArcWithErr (eToPLine2 firstSeg) (flipL $ eToPLine2 lastSeg)] Nothing]]
+      [] -> INodeSet $ slist [[makeINode [getInsideArc (flipL $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArc (eToPLine2 firstSeg) (flipL $ eToPLine2 lastSeg)] Nothing]]
         where
           firstSeg = SL.head $ slist $ SL.head inSegSets
           lastSeg = SL.head $ slist $ SL.last inSegSets
-      [a] -> INodeSet $ slist [[makeINode [getInsideArcWithErr (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArcWithErr (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just (flipL $ outOf a, errOfOut a))]]
+      [a] -> INodeSet $ slist [[makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just (flipL $ outOf a, errOfOut a))]]
         where
           firstSeg = fromMaybe (error "no first segment?") $ safeHead $ slist longSide
           lastSeg = SL.last $ slist longSide
@@ -196,7 +196,7 @@ sortedPair n1 n2 = sortedPLinesWithErr [outAndErrOf n1, outAndErrOf n2]
 makeENode :: Point2 -> Point2 -> Point2 -> ENode
 makeENode p1 p2 p3 = ENode (p1,p2,p3) arc arcErr
   where
-    (arc, arcErr) = getFirstArcWithErr p1 p2 p3
+    (arc, arcErr) = getFirstArc p1 p2 p3
 
 -- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
 makeENodes :: [LineSeg] -> [ENode]
