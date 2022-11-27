@@ -37,7 +37,7 @@ import Graphics.Slicer.Math.PGA (CPPoint2, ProjectiveLine2, ProjectivePoint2, PL
 getFirstArc :: Point2 -> Point2 -> Point2 -> (PLine2, PLine2Err)
 getFirstArc p1 p2 p3
   -- since we hawe two equal sides, we can draw a point ot the other side of the quad, and use it for constructing.
-  | distance p2 p1 == distance p2 p3 = (PLine2 $ vecOfL quadRes, quadErr <> quadResErr)
+  | distance p2 p1 == distance p2 p3 = (quad, quadErr)
   {-
   | distance p2 p1 > distance p2 p3 = scaleSide p1 p3 True (distance p2 p1 / distance p2 p3)
   | otherwise = scaleSide p3 p1 True (distance p2 p3 / distance p2 p1)
@@ -50,7 +50,6 @@ getFirstArc p1 p2 p3
     (side1Raw, _) = eToPL (makeLineSeg p1 p2)
     (side2, _) = normalizeL side2Raw
     (side2Raw, _) = eToPL (makeLineSeg p2 p3)
-    (quadRes, quadResErr) = normalizeL quad
     (quad, quadErr) = eToPL $ makeLineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3
     {-
     scaleSide ps1 ps2 t v
@@ -63,7 +62,6 @@ getFirstArc p1 p2 p3
     -}
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'acute' direction.
---   Note that we normalize our output, but don't bother normalizing our input lines, as the ones we output and the ones getFirstArc outputs are normalized.
 --   Note that we know that the inside is to the right of the first line given, and that the first line points toward the intersection.
 getInsideArc :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PLine2, PLine2Err)
 getInsideArc line1 line2
