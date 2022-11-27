@@ -68,10 +68,9 @@ getFirstArc p1 p2 p3
 getInsideArc :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PLine2, PLine2Err)
 getInsideArc line1 line2
 --  | pline1 == pline2 = error "need to be able to return two PLines."
-  | otherwise = (PLine2 $ vecOfL normRes, errTotal)
+  | otherwise = (PLine2 addVecRes, errTotal)
   where
-    errTotal = normErr <>  PLine2Err addVecErrs mempty mempty mempty mempty mempty
-    (normRes, normErr) = normalizeL $ PLine2 $ addVecRes
+    errTotal = PLine2Err addVecErrs mempty mempty mempty mempty mempty
     (addVecRes, addVecErrs) = addVecPairWithErr lv1 lv2
     lv1 = vecOfL $ flipL npline1
     lv2 = vecOfL npline2
