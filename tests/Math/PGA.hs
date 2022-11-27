@@ -1695,31 +1695,31 @@ facetSpec = do
     it "successfully translates and rotates PPoint2s" $
       property prop_translateRotateMoves
     it "finds the arc resulting from a node at the intersection of the outArc of two nodes (corner3 and corner4 of c2)" $
-      averageNodes c2c3E1 c2c4E1 --> INode (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                           (NPLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 0.3826834323650897 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
+      averageNodes c2c3E1 c2c4E1 --> INode (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
+                                           (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal 0.7071067811865476 (singleton (GEPlus 1)), GVal 1.7071067811865475 (singleton (GEPlus 2))]))
                                            (slist [])
-                                           (Just (NPLine2 (GVec [GVal 0.48706362218573185 (singleton (GEZero 1)), GVal 0.9807852804032305 (singleton (GEPlus 1)), GVal 0.19509032201612822 (singleton (GEPlus 2))]),
-                                                  PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1)), ErrVal (UlpSum 2.7755575615628911e-17) (singleton (GEPlus 2))] [ErrVal (UlpSum 5.551115123125783e-17) (singleton (GEZero 1)), ErrVal (UlpSum 1.1102230246251565e-16) (singleton (GEPlus 1)), ErrVal (UlpSum 2.7755575615628911e-17) (singleton (GEPlus 2))] (UlpSum 2.220446049250313e-16) (UlpSum 4.510281037539698e-16) mempty mempty))
+                                           (Just (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 1.0897902135516373 (singleton (GEPlus 1)), GVal 0.21677275132473928 (singleton (GEPlus 2))]),
+                                                  PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1)), ErrVal (UlpSum 2.7755575615628911e-17) (singleton (GEPlus 2))] [] mempty mempty mempty mempty))
     it "finds the outside arc of two PLines intersecting at 90 degrees (c2)" $
-      averageNodes c2c2E1 c2c3E1 --> INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                           (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+      averageNodes c2c2E1 c2c3E1 --> INode (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
+                                           (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
                                            (slist [])
-                                           (Just (NPLine2 (GVec [GVal (-1.0) (singleton (GEPlus 2))]),
-                                                  PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] (UlpSum 2.220446049250313e-16) (UlpSum 8.881784197001254e-16)  mempty mempty))
+                                           (Just (PLine2 (GVec [GVal (-1.414213562373095) (singleton (GEPlus 2))]),
+                                                  PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [] mempty mempty mempty mempty))
     it "finds the outside arc of two PLines intersecting at 90 degrees (c2)" $
-      averageNodes c2c3E1 c2c2E1 --> INode (PLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
-                                           (PLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+      averageNodes c2c3E1 c2c2E1 --> INode (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
+                                           (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
                                            (slist [])
-                                           (Just (NPLine2 (GVec [GVal (-1.0) (singleton (GEPlus 2))]),
-                                                  PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] (UlpSum 2.220446049250313e-16) (UlpSum 8.881784197001254e-16) mempty mempty))
+                                           (Just (PLine2 (GVec [GVal (-1.414213562373095) (singleton (GEPlus 2))]),
+                                                  PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [] mempty mempty mempty mempty))
     it "finds the outside arc of two PLines intersecting at 90 degrees (c7)" $
-      averageNodes c7c1E1 c7c2E1 --> INode (NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
-                                           (NPLine2 (GVec [GVal 1.0606601717798212 (singleton (GEZero 1)), GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
+      averageNodes c7c1E1 c7c2E1 --> INode (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 1)), GVal 1.0 (singleton (GEPlus 2))]))
+                                           (PLine2 (GVec [GVal 1.5 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
                                            (slist [])
-                                           (Just (NPLine2 (GVec [GVal 0.75 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]),PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] [ErrVal (UlpSum 1.1102230246251565e-16) (singleton (GEZero 1)),ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] (UlpSum 2.220446049250313e-16) (UlpSum 4.440892098500627e-16) mempty mempty))
+                                           (Just (PLine2 (GVec [GVal 1.0606601717798212 (singleton (GEZero 1)), GVal (-1.414213562373095) (singleton (GEPlus 1))]),PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] [] mempty mempty mempty mempty))
   describe "Motorcycles (Skeleton/Motorcycles)" $ do
     it "finds the motorcycle in our second simple shape" $
-      convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,0.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (NPLine2 (GVec [GVal 1.0 (singleton (GEPlus 1))])) (PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] (UlpSum 2.220446049250313e-16) (UlpSum 4.440892098500627e-16) mempty mempty)]
+      convexMotorcycles c1 --> [Motorcycle (LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,0.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (PLine2 (GVec [GVal 1.414213562373095 (singleton (GEPlus 1))])) (PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] [] mempty mempty mempty mempty)]
   describe "Cells (Skeleton/Cells)" $ do
     it "finds the remains from the first cell of our first simple shape." $
       remainderFrom (findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []) -->

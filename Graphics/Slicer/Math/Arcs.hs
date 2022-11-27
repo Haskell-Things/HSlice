@@ -32,9 +32,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
 
 import Graphics.Slicer.Math.Intersections (isCollinear, isAntiCollinear, isParallel, isAntiParallel, intersectionOf)
 
-import Graphics.Slicer.Math.PGA (canonicalizeP, distance2PP, eToPL, vecOfL)
-
-import Graphics.Slicer.Math.PGAPrimitives (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectivePoint, angleBetween2PL, flipL, join2PP, normalizeL)
+import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectiveLine2, ProjectivePoint, angleBetween2PL, canonicalizeP, distance2PP, eToPL, flipL, join2PP, normalizeL, vecOfL)
 
 -- | Get a PLine in the direction of the inside of the contour, given three points on the edge of the contour.
 -- FIXME: outputs that are normalized should be using the right constructor.
@@ -56,7 +54,7 @@ getFirstArc p1 p2 p3
 
 -- | Get a Projective Line along the angle bisector of the intersection of the two given lines, pointing in the 'acute' direction.
 --   Note that we know that the inside is to the right of the first line given, and that the first line points toward the intersection.
-getInsideArc :: ProjectiveLine -> ProjectiveLine -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
+getInsideArc :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
 getInsideArc line1 line2
    -- FIXME: remove this Eq usage!
   | npline1 == npline2 = error "need to be able to return two PLines."
