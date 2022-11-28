@@ -60,7 +60,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, isCollinear, isParallel, isAntiCollinear, noIntersection)
 
-import Graphics.Slicer.Math.Lossy (distancePPointToPLine, eToPLine2, normalizePLine2)
+import Graphics.Slicer.Math.Lossy as Lossy (distancePPointToPLine, eToPLine2, normalizePLine2)
 
 import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2, PLine2Err, CPPoint2(CPPoint2), PPoint2(PPoint2), distance2PP, flipL, outAndErrOf, pLineIsLeft, distancePPointToPLineWithErr)
 

@@ -32,24 +32,30 @@ import Graphics.Slicer.Math.Intersections (intersectionOf, noIntersection)
 
 import Graphics.Slicer.Math.PGA (CPPoint2, ProjectiveLine2, ProjectivePoint2, PLine2(PLine2), PLine2Err(PLine2Err), angleBetween2PL, distance2PP, eToPL, flipL, join2PP, normalizeL, vecOfL)
 
--- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
---   Note that we normalize our output, but return it as a PLine2. this is safe, because double normalization (if it happens) only raises the ULP.
+-- | Get a Projective Line in the direction of the inside of a contour. Generates a line bisecting the angle of the intersection between a line constructed from the first two points, and another line constrected from the last two points.
 getFirstArc :: Point2 -> Point2 -> Point2 -> (PLine2, PLine2Err)
-getFirstArc p1 p2 p3
+getFirstArc a b c = (res, resErr)
+  where
+    (res, (_,_, resErr)) = getAcuteArcBetweenPoints a b c
+
+
+-- | Get a Projective Line in the direction of the inside of a contour. Generates a line bisecting the angle of the intersection between a line constructed from the first two points, and another line constrected from the last two points.
+getAcuteArcBetweenPoints :: Point2 -> Point2 -> Point2 -> (PLine2, (PLine2Err, PLine2Err, PLine2Err))
+getAcuteArcBetweenPoints p1 p2 p3
   -- since we hawe two equal sides, we can draw a point ot the other side of the quad, and use it for constructing.
-  | distance p2 p1 == distance p2 p3 = (quad, quadErr)
+  | distance p2 p1 == distance p2 p3 = (quad, (side1ConsErr <> side1NormErr, side2ConsErr <> side2NormErr, quadErr))
   {-
   | distance p2 p1 > distance p2 p3 = scaleSide p1 p3 True (distance p2 p1 / distance p2 p3)
   | otherwise = scaleSide p3 p1 True (distance p2 p3 / distance p2 p1)
   -}
   | otherwise = (insideArc, insideArcErr)
   where
-    (insideArc, insideArcErr) = getInsideArc side1 side2
+    (insideArc, insideArcErr) = getAcuteAngleBisector side1 side2
     -- FIXME: how do these errors effect the result?
-    (side1, _) = normalizeL side1Raw
-    (side1Raw, _) = eToPL (makeLineSeg p1 p2)
-    (side2, _) = normalizeL side2Raw
-    (side2Raw, _) = eToPL (makeLineSeg p2 p3)
+    (side1, side1NormErr) = normalizeL side1Raw
+    (side1Raw, side1ConsErr) = eToPL (makeLineSeg p1 p2)
+    (side2, side2NormErr) = normalizeL side2Raw
+    (side2Raw, side2ConsErr) = eToPL (makeLineSeg p2 p3)
     (quad, quadErr) = eToPL $ makeLineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3
     {-
     scaleSide ps1 ps2 t v
@@ -61,14 +67,21 @@ getFirstArc p1 p2 p3
         (scaled, UlpSum scaledUlp) = pLineFromEndpointsWithErr p2 $ scalePoint 0.5 $ addPoints ps1 $ addPoints p2 $ scalePoint v $ addPoints ps2 $ negatePoint p2
     -}
 
+-- | Get a Projective Line along the angle bisector of the intersection of the two given lines, pointing in the 'acute' direction.
+--   Wrapper, stripping the normalization error quotents of inputs from its output
+getInsideArc :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PLine2, PLine2Err)
+getInsideArc line1 line2 = (res, resErr)
+  where
+    (res, (_, _, resErr)) = getAcuteAngleBisector line1 line2
+
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'acute' direction.
 --   Note that we know that the inside is to the right of the first line given, and that the first line points toward the intersection.
-getInsideArc :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PLine2, PLine2Err)
-getInsideArc line1 line2
---  | pline1 == pline2 = error "need to be able to return two PLines."
-  | otherwise = (PLine2 addVecRes, errTotal)
+getAcuteAngleBisector :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PLine2, (PLine2Err, PLine2Err, PLine2Err))
+getAcuteAngleBisector line1 line2
+  | npline1 == npline2 = error "Given two identical lines."
+  | npline1 == flipL npline2 = error "Need to be able to return two PLines."
+  | otherwise = (PLine2 addVecRes, (npline1Err, npline2Err, PLine2Err addVecErrs mempty mempty mempty mempty mempty))
   where
-    errTotal = PLine2Err addVecErrs mempty mempty mempty mempty mempty
     (addVecRes, addVecErrs) = addVecPairWithErr lv1 lv2
     lv1 = vecOfL $ flipL npline1
     lv2 = vecOfL npline2
@@ -76,10 +89,15 @@ getInsideArc line1 line2
     (npline2, npline2Err) = normalizeL line2
 
 -- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
--- Note: we normalize our output lines.
--- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
 getOutsideArc :: (ProjectivePoint2 a, ProjectiveLine2 b, ProjectivePoint2 c, ProjectiveLine2 d) => a -> b -> c -> d -> (PLine2, PLine2Err)
-getOutsideArc ppoint1 pline1 ppoint2 pline2
+getOutsideArc a b c d = (res, resErr)
+  where
+    (res, (_,_, resErr)) = getObtuseAngleBisector a b c d
+
+-- | Get a PLine along the angle bisector of the intersection of the two given line segments, pointing in the 'obtuse' direction.
+-- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
+getObtuseAngleBisector :: (ProjectivePoint2 a, ProjectiveLine2 b, ProjectivePoint2 c, ProjectiveLine2 d) => a -> b -> c -> d -> (PLine2, (PLine2Err, PLine2Err, PLine2Err))
+getObtuseAngleBisector ppoint1 pline1 ppoint2 pline2
   | npline1 == npline2 = error "need to be able to return two PLines."
   | noIntersection (pline1, mempty) (pline2, mempty) = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
   | l1TowardPoint && l2TowardPoint = (flipL resFlipped, resFlippedErr)
@@ -87,8 +105,8 @@ getOutsideArc ppoint1 pline1 ppoint2 pline2
   | l2TowardPoint                  = (resNormal, resNormalErr)
   | otherwise                      = (resFlipped, resFlippedErr)
     where
-      (resNormal, resNormalErr) = getInsideArc pline1 pline2
-      (resFlipped, resFlippedErr) = getInsideArc pline1 (flipL pline2)
+      (resNormal, resNormalErr) = getAcuteAngleBisector pline1 pline2
+      (resFlipped, resFlippedErr) = getAcuteAngleBisector pline1 (flipL pline2)
       npline1 = normalizeL pline1
       npline2 = normalizeL pline2
       intersectionPoint = fst $ intersectionOf (pline1, mempty) (pline2, mempty)
