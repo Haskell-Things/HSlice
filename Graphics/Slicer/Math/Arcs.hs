@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
 
 import Graphics.Slicer.Math.Intersections (isCollinear, isAntiCollinear, isParallel, isAntiParallel, intersectionOf)
 
-import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectiveLine2, ProjectivePoint, angleBetween2PL, canonicalizeP, distance2PP, eToPL, flipL, join2PP, normalizeL, vecOfL)
+import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(PLine2), ProjectiveLine2, ProjectivePoint, angleBetween2PL, canonicalizeP, distance2PP, eToPL, flipL, join2PP, normalizeL, vecOfL)
 
 -- | Get a Projective Line in the direction of the inside of a contour. Generates a line bisecting the angle of the intersection between a line constructed from the first two points, and another line constrected from the last two points.
 getFirstArc :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, PLine2Err)
@@ -42,6 +42,7 @@ getFirstArc a b c = (res, resErr)
 
 -- | Get a Projective Line in the direction of the inside of a contour.
 --   Generates a line bisecting the angle of the intersection between a line constructed from the first two points, and another line constrected from the last two points.
+--   Note: we return normalization error, because we construct projective lines here.
 getAcuteArcFromPoints :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
 getAcuteArcFromPoints p1 p2 p3
   | p1 == p2 || p2 == p3 = error "given two input points that are identical!"
@@ -49,10 +50,10 @@ getAcuteArcFromPoints p1 p2 p3
   | distance p2 p1 == distance p2 p3 = (quad, (mempty, mempty, quadPLineErr))
   | otherwise = (insideArc, (side1ConsErr <> side1NormErr, side2ConsErr <> side2NormErr, insideArcErr))
   where
-    (insideArc, (_,_,insideArcErr)) = getInsideArc (PLine2 side1) (PLine2 side2)
-    (NPLine2 side1, side1NormErr) = normalizeL side1Raw
+    (insideArc, (_,_,insideArcErr)) = getInsideArc side1 side2
+    (side1, side1NormErr) = normalizeL side1Raw
     (side1Raw, side1ConsErr) = eToPL (makeLineSeg p1 p2)
-    (NPLine2 side2, side2NormErr) = normalizeL side2Raw
+    (side2, side2NormErr) = normalizeL side2Raw
     (side2Raw, side2ConsErr) = eToPL (makeLineSeg p2 p3)
     -- only used for the quad case.
     (quad, quadPLineErr) = eToPL (makeLineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3)

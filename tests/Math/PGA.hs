@@ -1696,9 +1696,9 @@ facetSpec = do
       property prop_translateRotateMoves
     it "finds the arc resulting from a node at the intersection of the outArc of two nodes (corner3 and corner4 of c2)" $
       averageNodes c2c3E1 c2c4E1 --> INode (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
-                                           (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal 0.7071067811865476 (singleton (GEPlus 1)), GVal 1.7071067811865475 (singleton (GEPlus 2))]))
+                                           (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 1.7071067811865475 (singleton (GEPlus 2))]))
                                            (slist [])
-                                           (Just (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 1.0897902135516373 (singleton (GEPlus 1)), GVal 0.21677275132473928 (singleton (GEPlus 2))]),
+                                           (Just (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 1.089790213551637 (singleton (GEPlus 1)), GVal 0.21677275132473928 (singleton (GEPlus 2))]),
                                                   PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1)), ErrVal (UlpSum 2.7755575615628911e-17) (singleton (GEPlus 2))] [] mempty mempty mempty mempty))
     it "finds the outside arc of two PLines intersecting at 90 degrees (c2)" $
       averageNodes c2c2E1 c2c3E1 --> INode (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
