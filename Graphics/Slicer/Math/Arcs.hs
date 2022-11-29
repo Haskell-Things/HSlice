@@ -36,12 +36,12 @@ import Graphics.Slicer.Math.PGA (CPPoint2, ProjectiveLine2, ProjectivePoint2, PL
 getFirstArc :: Point2 -> Point2 -> Point2 -> (PLine2, PLine2Err)
 getFirstArc a b c = (res, resErr)
   where
-    (res, (_,_, resErr)) = getAcuteArcBetweenPoints a b c
+    (res, (_,_, resErr)) = getAcuteArcFromPoints a b c
 
 
 -- | Get a Projective Line in the direction of the inside of a contour. Generates a line bisecting the angle of the intersection between a line constructed from the first two points, and another line constrected from the last two points.
-getAcuteArcBetweenPoints :: Point2 -> Point2 -> Point2 -> (PLine2, (PLine2Err, PLine2Err, PLine2Err))
-getAcuteArcBetweenPoints p1 p2 p3
+getAcuteArcFromPoints :: Point2 -> Point2 -> Point2 -> (PLine2, (PLine2Err, PLine2Err, PLine2Err))
+getAcuteArcFromPoints p1 p2 p3
   -- since we hawe two equal sides, we can draw a point ot the other side of the quad, and use it for constructing.
   | distance p2 p1 == distance p2 p3 = (quad, (side1ConsErr <> side1NormErr, side2ConsErr <> side2NormErr, quadErr))
   {-
@@ -124,5 +124,3 @@ towardIntersection pp1 pl1 pp2
     (angleFound, (_,_, angleErr)) = angleBetween2PL newPLine pl1
     (d, (_,_,UlpSum dErr)) = distance2PP (pp1, mempty) (pp2, mempty)
     newPLine = fst $ join2PP pp1 pp2
-
-
