@@ -34,23 +34,28 @@ import Graphics.Slicer.Math.Intersections (isCollinear, isAntiCollinear, isParal
 
 import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(NPLine2, PLine2), ProjectiveLine2, ProjectivePoint, angleBetween2PL, canonicalizeP, distance2PP, eToPL, flipL, join2PP, normalizeL, vecOfL)
 
--- | Get a PLine in the direction of the inside of the contour, given three points on the edge of the contour.
--- FIXME: outputs that are normalized should be using the right constructor.
+-- | Get a Projective Line in the direction of the inside of a contour. Generates a line bisecting the angle of the intersection between a line constructed from the first two points, and another line constrected from the last two points.
 getFirstArc :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, PLine2Err)
-getFirstArc p1 p2 p3
-  -- since we hawe two equal sides, we can draw a point ot the other side of the quad, and use it for constructing.
-  | distance p2 p1 == distance p2 p3 = (quad, quadPLineErr)
-  | otherwise = (insideArc, insideArcErr)
+getFirstArc a b c = (res, resErr)
   where
+    (res, (_,_, resErr)) = getAcuteArcFromPoints a b c
+
+-- | Get a Projective Line in the direction of the inside of a contour.
+--   Generates a line bisecting the angle of the intersection between a line constructed from the first two points, and another line constrected from the last two points.
+getAcuteArcFromPoints :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
+getAcuteArcFromPoints p1 p2 p3
+  | p1 == p2 || p2 == p3 = error "given two input points that are identical!"
+  -- since we hawe two equal sides, we can draw a point on the other side of the quad, and use it for constructing our result.
+  | distance p2 p1 == distance p2 p3 = (quad, (mempty, mempty, quadPLineErr))
+  | otherwise = (insideArc, (side1ConsErr <> side1NormErr, side2ConsErr <> side2NormErr, insideArcErr))
+  where
+    (insideArc, (_,_,insideArcErr)) = getInsideArc (PLine2 side1) (PLine2 side2)
+    (NPLine2 side1, side1NormErr) = normalizeL side1Raw
+    (side1Raw, side1ConsErr) = eToPL (makeLineSeg p1 p2)
+    (NPLine2 side2, side2NormErr) = normalizeL side2Raw
+    (side2Raw, side2ConsErr) = eToPL (makeLineSeg p2 p3)
     -- only used for the quad case.
     (quad, quadPLineErr) = eToPL (makeLineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3)
-    -- used for all other cases.
-    (insideArc, (_,_,insideArcRawErr)) = getInsideArc (PLine2 side1) (PLine2 side2)
-    (NPLine2 side1, side1NormErr) = normalizeL side1Raw
-    (side1Raw, side1RawErr) = eToPL (makeLineSeg p1 p2)
-    (NPLine2 side2, side2NormErr) = normalizeL side2Raw
-    (side2Raw, side2RawErr) = eToPL (makeLineSeg p2 p3)
-    insideArcErr = side1NormErr <> side1RawErr <> side2NormErr <> side2RawErr <> insideArcRawErr
 
 -- | Get a Projective Line along the angle bisector of the intersection of the two given lines, pointing in the 'acute' direction.
 --   Note that we know that the inside is to the right of the first line given, and that the first line points toward the intersection.
@@ -58,11 +63,11 @@ getInsideArc :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectiveL
 getInsideArc line1 line2
    -- FIXME: remove this Eq usage!
   | npline1 == npline2 = error "need to be able to return two PLines."
-  | otherwise = (PLine2 rawPLine2, (npline1Err, npline2Err, PLine2Err addErr mempty mempty mempty mempty mempty))
+  | otherwise = (PLine2 addVecRes, (npline1Err, npline2Err, PLine2Err addVecErrs mempty mempty mempty mempty mempty))
   where
-    (rawPLine2, addErr) = addVecPairWithErr pv1 pv2
-    pv1 = vecOfL $ flipL npline1
-    pv2 = vecOfL npline2
+    (addVecRes, addVecErrs) = addVecPairWithErr lv1 lv2
+    lv1 = vecOfL $ flipL npline1
+    lv2 = vecOfL npline2
     (npline1, npline1Err) = normalizeL line1
     (npline2, npline2Err) = normalizeL line2
 
