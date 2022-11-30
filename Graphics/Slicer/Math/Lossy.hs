@@ -77,7 +77,7 @@ getFirstArc :: Point2 -> Point2 -> Point2 -> ProjectiveLine
 getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 
 getInsideArc :: ProjectiveLine -> ProjectiveLine -> ProjectiveLine
-getInsideArc pl1 pl2 = fst $ Arcs.getInsideArc pl1 pl2
+getInsideArc pl1 pl2 = fst $ Arcs.getInsideArc (pl1, mempty) (pl2, mempty)
 
 getOutsideArc :: ProjectivePoint -> ProjectiveLine -> ProjectivePoint -> ProjectiveLine -> ProjectiveLine
 getOutsideArc a b c d = fst $ Arcs.getOutsideArc a b c d

@@ -32,26 +32,26 @@ import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectivePoint, distance2PL, distance2PP, distancePPointToPLineWithErr, fuzzinessOfL, fuzzinessOfP, outAndErrOf, pLineErrAtPPoint, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectiveLine2, ProjectivePoint, distance2PL, distance2PP, distancePPointToPLineWithErr, fuzzinessOfL, fuzzinessOfP, outAndErrOf, pLineErrAtPPoint, plinesIntersectIn)
 
 -- | Check if two lines cannot intersect.
 noIntersection :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Bool
 noIntersection pline1 pline2 = isCollinear pline1 pline2 || isParallel pline1 pline2 || isAntiCollinear pline1 pline2 || isAntiParallel pline1 pline2
 
 -- | Check if two lines are really the same line.
-isCollinear :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Bool
+isCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PCollinear
 
 -- | Check if two lines are really the same line.
-isAntiCollinear :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Bool
+isAntiCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isAntiCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiCollinear
 
 -- | Check if two lines are parallel.
-isParallel :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Bool
+isParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PParallel
 
 -- | Check if two lines are anti-parallel.
-isAntiParallel :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Bool
+isAntiParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isAntiParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiParallel
 
 -- | Get the intersection point of two lines we know have an intersection point.

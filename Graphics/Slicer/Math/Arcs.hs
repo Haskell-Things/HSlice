@@ -46,11 +46,11 @@ getFirstArc a b c = (res, resErr)
 getAcuteArcFromPoints :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
 getAcuteArcFromPoints p1 p2 p3
   | p1 == p2 || p2 == p3 = error "given two input points that are identical!"
-  -- since we hawe two equal sides, we can draw a point on the other side of the quad, and use it for constructing our result.
+  -- Since we hawe two equal sides, we can draw a point on the other side of the quad, and use it for constructing our result.
   | distance p2 p1 == distance p2 p3 = (quad, (mempty, mempty, quadErr))
   | otherwise = (insideArc, (side1ConsErr <> side1NormErr, side2ConsErr <> side2NormErr, insideArcErr))
   where
-    (insideArc, insideArcErr) = getInsideArc side1 side2
+    (insideArc, (_,_, insideArcErr)) = getAcuteAngleBisectorFromLines (side1, side1NormErr) (side2, side2NormErr)
     -- FIXME: how do these error quotents effect the resulting line?
     (side1, side1NormErr) = normalizeL side1Raw
     (side1Raw, side1ConsErr) = eToPL (makeLineSeg p1 p2)
@@ -60,36 +60,40 @@ getAcuteArcFromPoints p1 p2 p3
     (quad, quadErr) = eToPL $ makeLineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3
 
 -- | Get a Projective Line along the angle bisector of the intersection of the two given lines, pointing in the 'acute' direction.
---   A wrapper of getAcuteAngleBisector, dropping the returning of normalization error of the inputs.
-getInsideArc :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectiveLine, PLine2Err)
+--   A wrapper of getAcuteAngleBisectorFromLines, dropping the returning of normalization error of the inputs.
+getInsideArc :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectiveLine, PLine2Err)
 getInsideArc line1 line2 = (res, resErr)
   where
-    (res, (_,_, resErr)) = getAcuteAngleBisector line1 line2
+    (res, (_,_, resErr)) = getAcuteAngleBisectorFromLines line1 line2
 
 -- | Get a Projective Line along the angle bisector of the intersection of the two given lines, pointing in the 'acute' direction.
 --   Note that we assume that the first line points toward the intersection.
-getAcuteAngleBisector :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
-getAcuteAngleBisector line1 line2
-   -- FIXME: remove this Eq usage!
-  | npline1 == npline2 = error "need to be able to return two PLines."
+getAcuteAngleBisectorFromLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
+getAcuteAngleBisectorFromLines line1@(rawLine1, _) line2@(rawLine2, _)
+  | isCollinear line1 line2 = error "given two input lines that are colinear!"
+  | isAntiCollinear line1 line2 = error "given two opposing lines, need to return two opposing lines from point of intersection!"
+  | isParallel line1 line2 ||
+    isAntiParallel line1 line2 = error $ "no intersection between line " <> show line1 <> " and " <> show line2 <> ".\n"
   | otherwise = (PLine2 addVecRes, (npline1Err, npline2Err, PLine2Err addVecErrs mempty mempty mempty mempty mempty))
   where
     (addVecRes, addVecErrs) = addVecPairWithErr lv1 lv2
     lv1 = vecOfL $ flipL npline1
     lv2 = vecOfL npline2
-    (npline1, npline1Err) = normalizeL line1
-    (npline2, npline2Err) = normalizeL line2
+    (npline1, npline1Err) = normalizeL rawLine1
+    (npline2, npline2Err) = normalizeL rawLine2
 
 -- | Get a PLine along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
--- FIXME: the outer PLine returned by two PLines in the same direction should be two PLines, whch are the same line in both directions.
--- FIXME: shouldn't we be given an error component in our inputs?
 getOutsideArc :: ProjectivePoint -> ProjectiveLine -> ProjectivePoint -> ProjectiveLine -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
-getOutsideArc ppoint1 pline1 ppoint2 pline2
-  | npline1 == npline2 = error $ "cannot have two identical input lines:\n" <> show pline1 <> "\n" <> show pline2 <> "\n"
-  | isCollinear (npline1,npline1Err) (npline2,npline2Err) ||
-    isAntiCollinear (npline1,npline1Err) (npline2,npline2Err) = error "need to be able to return two Plines."
-  | isParallel  (npline1,npline1Err) (npline2,npline2Err) ||
+getOutsideArc ppoint1 pline1 ppoint2 pline2 = getObtuseAngleBisectorFromPointedLines ppoint1 pline1 ppoint2 pline2
+
+-- | Get a PLine along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
+getObtuseAngleBisectorFromPointedLines :: ProjectivePoint -> ProjectiveLine -> ProjectivePoint -> ProjectiveLine -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
+getObtuseAngleBisectorFromPointedLines ppoint1 pline1 ppoint2 pline2
+  | isCollinear (npline1,npline1Err) (npline2,npline2Err) = error "given two input lines that are colinear!"
+  | isAntiCollinear (npline1,npline1Err) (npline2,npline2Err) = error "need to be able to return two Plines."
+  | isParallel (npline1,npline1Err) (npline2,npline2Err) ||
     isAntiParallel (npline1,npline1Err) (npline2,npline2Err) = error $ "no intersection between pline " <> show pline1 <> " and " <> show pline2 <> ".\n"
+   -- FIXME: remove this Eq usage!
   | cppoint1 == cppoint2 = error $ "cannot have two identical input points:\n" <> show ppoint1 <> "\n" <> show ppoint2 <> "\n"
   -- FIXME: do not use == for points, use distance!
   | fst intersectionPoint == cppoint1 = error $ "intersection of plines is at first ppoint:\n"
@@ -100,10 +104,10 @@ getOutsideArc ppoint1 pline1 ppoint2 pline2
                                           <> show ppoint2 <> "\n"
                                           <> show pline1 <> "\n"
                                           <> show pline2 <> "\n"
-  | l1TowardPoint && l2TowardPoint = flipFst $ getAcuteAngleBisector npline1 (flipL npline2)
-  | l1TowardPoint                  = flipFst $ getAcuteAngleBisector npline1 npline2
-  | l2TowardPoint                  = getAcuteAngleBisector npline1 npline2
-  | otherwise                      = getAcuteAngleBisector npline1 (flipL npline2)
+  | l1TowardPoint && l2TowardPoint = flipFst $ getAcuteAngleBisectorFromLines (npline1, npline1Err) (flipL npline2, npline2Err)
+  | l1TowardPoint                  = flipFst $ getAcuteAngleBisectorFromLines (npline1, npline1Err) (npline2, npline2Err)
+  | l2TowardPoint                  = getAcuteAngleBisectorFromLines (npline1, npline1Err) (npline2, npline2Err)
+  | otherwise                      = getAcuteAngleBisectorFromLines (npline1, npline1Err) (flipL npline2, npline2Err)
     where
       flipFst (a,b) = (flipL a,b)
       intersectionPoint = intersectionOf (npline1,npline1Err) (npline2,npline2Err)

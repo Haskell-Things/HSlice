@@ -144,7 +144,7 @@ data ProjectiveLine =
   deriving (Generic, NFData, Show)
 
 -- | The typeclass definition. functions that must be implemented for any projective line type.
-class ProjectiveLine2 a where
+class (Show a) => ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   normalizeL :: a -> (ProjectiveLine, PLine2Err)
   vecOfL :: a -> GVec
