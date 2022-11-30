@@ -206,16 +206,16 @@ intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn (pl1,mempty) 
     saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p,pErr)
 
 -- | check if two lines cannot intersect.
-noIntersection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a,PLine2Err) -> (b,PLine2Err) -> Bool
-noIntersection pline1@(pl1,_) pline2@(pl2,_) = isCollinear pline1 pline2 || isParallel pl1 pl2 || isAntiCollinear pl1 pl2 || isAntiParallel pl1 pl2
+noIntersection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
+noIntersection pline1@(pl1,_) pline2@(pl2,_) = isCollinear pline1 pline2 || isParallel pl1 pl2 || isAntiCollinear pline1 pline2 || isAntiParallel pl1 pl2
 
 -- | check if two lines are really the same line.
-isCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b,PLine2Err) -> Bool
+isCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PCollinear
 
 -- | check if two lines are really the same line.
-isAntiCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
-isAntiCollinear pline1 pline2 = plinesIntersectIn (pline1, mempty) (pline2, mempty) == PAntiCollinear
+isAntiCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
+isAntiCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiCollinear
 
 -- | check if two lines are parallel.
 isParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool

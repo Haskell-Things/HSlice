@@ -251,6 +251,7 @@ perpLineAt line point = (PLine2 res, resErr)
     (cPoint, cPointErr) = canonicalizeP point
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
+--   FIXME: make a single error quotent?
 translateRotatePPoint2WithErr :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> (PPoint2, (UlpSum, UlpSum, [ErrVal], PLine2Err, PLine2Err, PPoint2Err, ([ErrVal],[ErrVal])))
 translateRotatePPoint2WithErr point d rotation = (res, resErr)
   where
@@ -300,6 +301,11 @@ class Pointable a where
   ePointOf :: a -> Point2
   -- | Get a projective representation of this point.
   pPointOf :: a -> PPoint2
+
+{-
+pPointAndErrOf :: (Pointable a) => a -> (PPoint2, PPoint2Err)
+  | canPoint a = (
+-}
 
 -- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
 outputIntersectsLineSeg :: (Arcable a) => a -> LineSeg -> Either Intersection PIntersection

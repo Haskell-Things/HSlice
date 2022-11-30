@@ -142,7 +142,7 @@ crashMotorcycles contour holes
           crashOf :: Motorcycle -> Motorcycle -> Maybe Collision
           crashOf mot1 mot2@(Motorcycle (inSeg2, _) _ _)
             -- If we have a clear path between mot1 and the origin of mot2
-            | isAntiCollinear (outOf mot1) (outOf mot2) && motorcycleIntersectsAt contour mot1 == (inSeg2, Left $ endPoint inSeg2) = Just $ Collision (mot1,mot2, slist []) Nothing HeadOn
+            | isAntiCollinear (outAndErrOf mot1) (outAndErrOf mot2) && motorcycleIntersectsAt contour mot1 == (inSeg2, Left $ endPoint inSeg2) = Just $ Collision (mot1,mot2, slist []) Nothing HeadOn
             | noIntersection (outAndErrOf mot1) (outAndErrOf mot2) = Nothing
             | intersectionIsBehind mot1 = Nothing
             | intersectionIsBehind mot2 = Nothing

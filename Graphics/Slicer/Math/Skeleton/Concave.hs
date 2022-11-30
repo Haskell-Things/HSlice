@@ -180,7 +180,7 @@ averageNodes n1 n2
   | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
   | n1Distance < getRounded n1Err = error $ "intersection is AT the point of n1!\n" <> dumpInput
   | n2Distance < getRounded n2Err = error $ "intersection is AT the point of n2!\n" <> dumpInput
-  | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (outAndErrOf n1) (pPointOf n2) (outAndErrOf n2)
+  | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1, mempty) (outAndErrOf n1) (pPointOf n2, mempty) (outAndErrOf n2)
   where
     (n1Distance, (_,_, UlpSum n1Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointOf n1, mempty)
     (n2Distance, (_,_, UlpSum n2Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointOf n2, mempty)
@@ -235,7 +235,7 @@ convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWith
 -- FIXME: shouldn't this be pulled into PGA.hs, as part of an outsIntersectIn?
 nodesAreAntiCollinear :: (Pointable a, Arcable a, Pointable b, Arcable b) => a -> b -> Bool
 nodesAreAntiCollinear node1 node2
-  | hasArc node1 && hasArc node2 && isAntiCollinear (outOf node1) (outOf node2) = True
+  | hasArc node1 && hasArc node2 && isAntiCollinear (outAndErrOf node1) (outAndErrOf node2) = True
   | canPoint node1 && canPoint node2 && hasArc node1 && hasArc node2 = (distancePPointToPLine (pPointOf node1) (outOf node2) < fudgeFactor*50) && (distancePPointToPLine (pPointOf node2) (outOf node1) < fudgeFactor*50)
   | otherwise = False
 

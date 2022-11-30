@@ -83,7 +83,7 @@
 
 module Graphics.Slicer.Math.Ganja (GanjaAble, ListThree, Radian(Radian), edgesOf, generationsOf, toGanja, dumpGanja, dumpGanjas, randomPL, randomTriangle, randomSquare, randomRectangle, randomConvexDualRightQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomPLine, randomPLineWithErr, randomLineSeg, cellFrom, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToOrigin, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint) where
 
-import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, Int, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
+import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, String, Int, (<>), (<>), (<$>), ($), (>=), (==), abs, concat, error, fromInteger, fromRational, fst, mempty, mod, otherwise, replicate, show, signum, snd, zip, (.), (+), (-), (*), (<), (/), (>), (<=), (&&), (/=))
 
 import Data.Coerce (coerce)
 
@@ -666,7 +666,7 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
     maybeFlippedpl1 = (if flipIn1 then flipL (fst pl1) else (fst pl1), snd pl1)
     maybeFlippedpl2 = (if flipIn2 then flipL (fst pl2) else (fst pl2), snd pl2)
     bisector1 = normalizeL outsideRes
-    (outsideRes, outsideResErr) = getOutsideArc pp1 (normalizeL $ fst maybeFlippedpl1) pp2 (normalizeL $ fst maybeFlippedpl2)
+    (outsideRes, outsideResErr) = getOutsideArc (pp1, mempty) (normalizeL $ fst maybeFlippedpl1) (pp2, mempty) (normalizeL $ fst maybeFlippedpl2)
 
 -- | A helper function. constructs a random PLine.
 randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> PLine2
