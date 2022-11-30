@@ -24,8 +24,6 @@ module Graphics.Slicer.Math.Arcs (getFirstArc, getInsideArc, getOutsideArc, towa
 
 import Prelude (Bool, ($), (>), (<=), (<>), (==), (&&), (||), error, fst, mempty, otherwise, realToFrac, show)
 
-import Graphics.Slicer.Definitions (ℝ)
-
 import Graphics.Slicer.Math.Definitions (Point2, addPoints, distance, makeLineSeg, scalePoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
@@ -50,11 +48,11 @@ getAcuteArcFromPoints p1 p2 p3
   | distance p2 p1 == distance p2 p3 = (quad, (mempty, mempty, quadErr))
   | otherwise = (insideArc, (side1ConsErr <> side1NormErr, side2ConsErr <> side2NormErr, insideArcErr))
   where
-    (insideArc, (_,_, insideArcErr)) = getAcuteAngleBisectorFromLines (side1, side1NormErr) (side2, side2NormErr)
+    (insideArc, (_,_, insideArcErr)) = getAcuteAngleBisectorFromLines line1 line2
     -- FIXME: how do these error quotents effect the resulting line?
-    (side1, side1NormErr) = normalizeL side1Raw
+    line1@(_, side1NormErr) = normalizeL side1Raw
     (side1Raw, side1ConsErr) = eToPL (makeLineSeg p1 p2)
-    (side2, side2NormErr) = normalizeL side2Raw
+    line2@(_, side2NormErr) = normalizeL side2Raw
     (side2Raw, side2ConsErr) = eToPL (makeLineSeg p2 p3)
     -- Only used for the quad case.
     (quad, quadErr) = eToPL $ makeLineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3
@@ -120,12 +118,10 @@ getObtuseAngleBisectorFromPointedLines ppoint1 pline1 ppoint2 pline2
 
 -- Determine if the line segment formed by the two given points starts with the first point, or the second.
 towardIntersection :: (ProjectivePoint,PPoint2Err) -> (ProjectiveLine,PLine2Err) -> (ProjectivePoint,PPoint2Err) -> Bool
-towardIntersection pp1@(rawPp1,_) (pl1,_) pp2@(rawPp2,_)
-  | d <= totalErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
+towardIntersection point1@(pp1,_) (pl1,_) point2@(pp2,_)
+  | d <= realToFrac (ulpVal dErr) = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
   | otherwise = angleFound > realToFrac (ulpVal angleErr)
   where
-    (angleFound, (_,_,angleErr)) = angleBetween2PL newPLine pl1
-    (d, (_,_,dErr)) = distance2PP pp1 pp2
-    (newPLine,_) = join2PP rawPp1 rawPp2
-    totalErr :: ℝ
-    totalErr = realToFrac $ ulpVal dErr
+    (angleFound, (_,_, angleErr)) = angleBetween2PL newPLine pl1
+    (d, (_,_, dErr)) = distance2PP point1 point2
+    (newPLine, _) = join2PP pp1 pp2
