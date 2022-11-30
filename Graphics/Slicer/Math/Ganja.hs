@@ -114,7 +114,7 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPo
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf)
 
-import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoint2, normalizePLine2, pPointBetweenPPoints, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoint2, pPointBetweenPPoints, pToEPoint2)
 
 import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), PLine2(PLine2), PPoint2(PPoint2), PLine2Err, eToPL, eToPPoint2, flipL, normalizeL, translateRotatePPoint2WithErr, outOf, pPointOf, NPLine2(NPLine2))
 
@@ -666,7 +666,7 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
     maybeFlippedpl1 = (if flipIn1 then flipL (fst pl1) else (fst pl1), snd pl1)
     maybeFlippedpl2 = (if flipIn2 then flipL (fst pl2) else (fst pl2), snd pl2)
     bisector1 = normalizeL outsideRes
-    (outsideRes, outsideResErr) = getOutsideArc pp1 (normalizePLine2 $ fst maybeFlippedpl1) pp2 (normalizePLine2 $ fst maybeFlippedpl2)
+    (outsideRes, outsideResErr) = getOutsideArc pp1 (normalizeL $ fst maybeFlippedpl1) pp2 (normalizeL $ fst maybeFlippedpl2)
 
 -- | A helper function. constructs a random PLine.
 randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> PLine2

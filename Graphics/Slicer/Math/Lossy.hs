@@ -84,7 +84,7 @@ getFirstArc :: Point2 -> Point2 -> Point2 -> PLine2
 getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 
 getInsideArc :: PLine2 -> PLine2 -> PLine2
-getInsideArc pl1 pl2 = fst $ Arcs.getInsideArc pl1 pl2
+getInsideArc pl1 pl2 = fst $ Arcs.getInsideArc (pl1, mempty) (pl2, mempty)
 
 -- | a typed join function. join two points, returning a line.
 join2PPoint2 :: (ProjectivePoint2 a) => a -> a -> PLine2

@@ -60,9 +60,9 @@ import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, isCollinear, isParallel, isAntiCollinear, noIntersection)
 
-import Graphics.Slicer.Math.Lossy as Lossy (distancePPointToPLine, eToPLine2, normalizePLine2)
+import Graphics.Slicer.Math.Lossy as Lossy (distancePPointToPLine)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2, PLine2Err, CPPoint2(CPPoint2), PPoint2(PPoint2), distance2PP, flipL, outAndErrOf, pLineIsLeft, distancePPointToPLineWithErr)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2, PLine2Err, CPPoint2(CPPoint2), PPoint2(PPoint2), distance2PP, eToPL, flipL, outAndErrOf, pLineIsLeft, distancePPointToPLineWithErr)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLinesWithErr, isLoop)
 
@@ -109,11 +109,14 @@ findINodes inSegSets
   | len inSegSets == 2 =
     -- Two walls, no closed ends. solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
     case initialENodes of
-      [] -> INodeSet $ slist [[makeINode [getInsideArc (flipL $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArc (eToPLine2 firstSeg) (flipL $ eToPLine2 lastSeg)] Nothing]]
+      [] -> INodeSet $ slist [[makeINode [getInsideArc (eToFlippedPL firstSeg) (eToPL lastSeg), getInsideArc (eToPL firstSeg) (eToFlippedPL lastSeg)] Nothing]]
         where
           firstSeg = SL.head $ slist $ SL.head inSegSets
           lastSeg = SL.head $ slist $ SL.last inSegSets
-      [a] -> INodeSet $ slist [[makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just (flipL $ outOf a, errOfOut a))]]
+          eToFlippedPL lineSeg = (flipL res, resErr)
+            where
+              (res, resErr) = eToPL lineSeg
+      [a] -> INodeSet $ slist [[makeINode [getInsideArc (eToPL lastSeg) (eToPL shortSide), getInsideArc (eToPL firstSeg) (eToPL shortSide)] (Just (flipL $ outOf a, errOfOut a))]]
         where
           firstSeg = fromMaybe (error "no first segment?") $ safeHead $ slist longSide
           lastSeg = SL.last $ slist longSide
@@ -177,7 +180,7 @@ averageNodes n1 n2
   | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
   | n1Distance < getRounded n1Err = error $ "intersection is AT the point of n1!\n" <> dumpInput
   | n2Distance < getRounded n2Err = error $ "intersection is AT the point of n2!\n" <> dumpInput
-  | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (normalizePLine2 $ outOf n1) (pPointOf n2) (normalizePLine2 $ outOf n2)
+  | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1) (outAndErrOf n1) (pPointOf n2) (outAndErrOf n2)
   where
     (n1Distance, (_,_, UlpSum n1Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointOf n1, mempty)
     (n2Distance, (_,_, UlpSum n2Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointOf n2, mempty)
