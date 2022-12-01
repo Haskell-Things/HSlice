@@ -68,10 +68,10 @@ getInsideArc line1 line2 = (res, resErr)
 -- | Get a Projective Line along the angle bisector of the intersection of the two given lines, pointing in the 'acute' direction.
 --   Note that we assume that the first line points toward the intersection.
 getAcuteAngleBisectorFromLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (PLine2, (PLine2Err, PLine2Err, PLine2Err))
-getAcuteAngleBisectorFromLines line1@(pl1,_) line2@(pl2,_)
-  | isCollinear line1 line2 = error "Given two colinear lines."
-  | isAntiCollinear line1 line2 = error "Need to be able to return two PLines."
-  | noIntersection line1 line2 = error $ "no intersection between pline " <> show line1 <> " and " <> show line2 <> ".\n"
+getAcuteAngleBisectorFromLines line1@(pl1, _) line2@(pl2, _)
+  | isCollinear line1 line2 = error "Asked to find the acute bisector of two colinear lines!"
+  | isAntiCollinear line1 line2 = error "Asked to find the acute bisector of two anti-colinear lines!"
+  | noIntersection line1 line2 = error $ "No intersection between line " <> show line1 <> " and line " <> show line2 <> ".\n"
   | otherwise = (PLine2 addVecRes, (npline1Err, npline2Err, PLine2Err addVecErrs mempty mempty mempty mempty mempty))
   where
     (addVecRes, addVecErrs) = addVecPairWithErr lv1 lv2
@@ -84,22 +84,33 @@ getAcuteAngleBisectorFromLines line1@(pl1,_) line2@(pl2,_)
 getOutsideArc :: (ProjectivePoint2 a, ProjectiveLine2 b, ProjectivePoint2 c, ProjectiveLine2 d) => (a, PPoint2Err) -> (b, PLine2Err) -> (c, PPoint2Err) -> (d, PLine2Err) -> (PLine2, PLine2Err)
 getOutsideArc a b c d = (res, resErr)
   where
-    (res, (_,_, resErr)) = getObtuseAngleBisector a b c d
+    (res, (_,_, resErr)) = getObtuseAngleBisectorFromPointedLines a b c d
 
 -- | Get a PLine along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
 -- FIXME: the outer line returned by two lines in the same direction should be two lines at a 90 degree angle to the input lines.
-getObtuseAngleBisector :: (ProjectivePoint2 a, ProjectiveLine2 b, ProjectivePoint2 c, ProjectiveLine2 d) => (a, PPoint2Err) -> (b, PLine2Err) -> (c, PPoint2Err) -> (d, PLine2Err) -> (PLine2, (PLine2Err, PLine2Err, PLine2Err))
-getObtuseAngleBisector ppoint1 line1 ppoint2 line2@(pl2, pl2Err)
-  | isCollinear line1 line2 = error "Given two colinear lines."
-  | isAntiCollinear line1 line2 = error "Need to be able to return two PLines."
-  | noIntersection line1 line2 = error $ "no intersection between pline " <> show line1 <> " and " <> show line2 <> ".\n"
-  | l1TowardPoint && l2TowardPoint = (flipL resFlipped, resFlippedErr)
-  | l1TowardPoint                  = (flipL resNormal, resNormalErr)
-  | l2TowardPoint                  = (resNormal, resNormalErr)
-  | otherwise                      = (resFlipped, resFlippedErr)
+getObtuseAngleBisectorFromPointedLines :: (ProjectivePoint2 a, ProjectiveLine2 b, ProjectivePoint2 c, ProjectiveLine2 d) => (a, PPoint2Err) -> (b, PLine2Err) -> (c, PPoint2Err) -> (d, PLine2Err) -> (PLine2, (PLine2Err, PLine2Err, PLine2Err))
+getObtuseAngleBisectorFromPointedLines ppoint1 line1 ppoint2 line2
+  | isCollinear line1 line2 = error "Asked to find the obtuse bisector of two colinear lines!"
+  | isAntiCollinear line1 line2 = error "Asked to find the obtuse bisector of two anti-colinear lines!"
+  | noIntersection line1 line2 = error $ "No intersection between line " <> show line1 <> " and line " <> show line2 <> ".\n"
+  | pointDistance <= realToFrac (ulpVal pointDistanceErr) = error $ "cannot have two identical input points:\n" <> show ppoint1 <> "\n" <> show ppoint2 <> "\n"
+  | point1IntersectDistance <= realToFrac (ulpVal point1IntersectDistanceErr) = error $ "intersection of plines is at first ppoint:\n"
+                                                                                <> show ppoint1 <> "\n"
+                                                                                <> show line1 <> "\n"
+                                                                                <> show line2 <> "\n"
+  | point2IntersectDistance <= realToFrac (ulpVal point2IntersectDistanceErr) = error $ "intersection of plines is at second ppoint:\n"
+                                                                                <> show ppoint2 <> "\n"
+                                                                                <> show line1 <> "\n"
+                                                                                <> show line2 <> "\n"
+  | l1TowardPoint && l2TowardPoint = flipFst $ getAcuteAngleBisectorFromLines line1 $ flipFst line2
+  | l1TowardPoint                  = flipFst $ getAcuteAngleBisectorFromLines line1 line2
+  | l2TowardPoint                  = getAcuteAngleBisectorFromLines line1 line2
+  | otherwise                      = getAcuteAngleBisectorFromLines line1 $ flipFst line2
     where
-      (resNormal, resNormalErr) = getAcuteAngleBisectorFromLines line1 line2
-      (resFlipped, resFlippedErr) = getAcuteAngleBisectorFromLines line1 (flipL pl2, pl2Err)
+      (pointDistance, (_,_,pointDistanceErr)) = distance2PP ppoint1 ppoint2
+      (point1IntersectDistance, (_,_, point1IntersectDistanceErr)) = distance2PP ppoint1 intersectionPoint
+      (point2IntersectDistance, (_,_, point2IntersectDistanceErr)) = distance2PP ppoint2 intersectionPoint
+      flipFst (a,b) = (flipL a,b)
       intersectionPoint = intersectionOf line1 line2
       l1TowardPoint = towardIntersection ppoint1 line1 intersectionPoint
       l2TowardPoint = towardIntersection ppoint2 line2 intersectionPoint
@@ -112,5 +123,5 @@ towardIntersection point1@(pp1, _) (pl1, _) point2@(pp2, _)
   | otherwise = angleFound > realToFrac (ulpVal angleErr)
   where
     (angleFound, (_,_, angleErr)) = angleBetween2PL newPLine pl1
-    (d, (_,_,dErr)) = distance2PP point1 point2
+    (d, (_,_, dErr)) = distance2PP point1 point2
     (newPLine, _) = join2PP pp1 pp2
