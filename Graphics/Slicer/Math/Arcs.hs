@@ -69,9 +69,9 @@ getInsideArc line1 line2 = (res, resErr)
 --   Note that we assume that the first line points toward the intersection.
 getAcuteAngleBisectorFromLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
 getAcuteAngleBisectorFromLines line1@(pl1, _) line2@(pl2, _)
-  | isCollinear line1 line2 = error "given two input lines that are colinear!"
-  | isAntiCollinear line1 line2 = error "given two opposing lines, need to return two opposing lines from point of intersection!"
-  | noIntersection line1 line2 = error $ "no intersection between line " <> show line1 <> " and " <> show line2 <> ".\n"
+  | isCollinear line1 line2 = error "Asked to find the acute bisector of two colinear lines!"
+  | isAntiCollinear line1 line2 = error "Asked to find the acute bisector of two anti-colinear lines!"
+  | noIntersection line1 line2 = error $ "no intersection between line " <> show line1 <> " and line " <> show line2 <> ".\n"
   | otherwise = (PLine2 addVecRes, (npline1Err, npline2Err, PLine2Err addVecErrs mempty mempty mempty mempty mempty))
   where
     (addVecRes, addVecErrs) = addVecPairWithErr lv1 lv2
@@ -91,7 +91,7 @@ getObtuseAngleBisectorFromPointedLines :: (ProjectivePoint2 a, ProjectiveLine2 b
 getObtuseAngleBisectorFromPointedLines ppoint1 line1 ppoint2 line2
   | isCollinear line1 line2 = error "Asked to find the obtuse bisector of two colinear lines!"
   | isAntiCollinear line1 line2 = error "Asked to find the obtuse bisector of two anti-colinear lines!"
-  | noIntersection line1 line2 = error $ "no intersection between line " <> show line1 <> " and " <> show line2 <> ".\n"
+  | noIntersection line1 line2 = error $ "No intersection between line " <> show line1 <> " and line " <> show line2 <> ".\n"
   | pointDistance <= realToFrac (ulpVal pointDistanceErr) = error $ "cannot have two identical input points:\n" <> show ppoint1 <> "\n" <> show ppoint2 <> "\n"
   | point1IntersectDistance <= realToFrac (ulpVal point1IntersectDistanceErr) = error $ "intersection of plines is at first ppoint:\n"
                                                                                 <> show ppoint1 <> "\n"
