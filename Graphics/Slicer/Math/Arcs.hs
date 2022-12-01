@@ -93,23 +93,22 @@ getObtuseAngleBisectorFromPointedLines ppoint1 line1 ppoint2 line2
   | isAntiCollinear line1 line2 = error "Asked to find the obtuse bisector of two anti-colinear lines!"
   | noIntersection line1 line2 = error $ "no intersection between line " <> show line1 <> " and " <> show line2 <> ".\n"
   | pointDistance <= realToFrac (ulpVal pointDistanceErr) = error $ "cannot have two identical input points:\n" <> show ppoint1 <> "\n" <> show ppoint2 <> "\n"
-  -- FIXME: do not use == for points, use distance!
-{-
-  | fst intersectionPoint == ppoint1 = error $ "intersection of plines is at first ppoint:\n"
-                                       <> show ppoint1 <> "\n"
-                                       <> show line1 <> "\n"
-                                       <> show line2 <> "\n"
-  | fst intersectionPoint == ppoint2 = error $ "intersection of plines is at second ppoint:\n"
-                                       <> show ppoint2 <> "\n"
-                                       <> show line1 <> "\n"
-                                       <> show line2 <> "\n"
--}
+  | point1IntersectDistance <= realToFrac (ulpVal point1IntersectDistanceErr) = error $ "intersection of plines is at first ppoint:\n"
+                                                                                <> show ppoint1 <> "\n"
+                                                                                <> show line1 <> "\n"
+                                                                                <> show line2 <> "\n"
+  | point2IntersectDistance <= realToFrac (ulpVal point2IntersectDistanceErr) = error $ "intersection of plines is at second ppoint:\n"
+                                                                                <> show ppoint2 <> "\n"
+                                                                                <> show line1 <> "\n"
+                                                                                <> show line2 <> "\n"
   | l1TowardPoint && l2TowardPoint = flipFst $ getAcuteAngleBisectorFromLines line1 $ flipFst line2
   | l1TowardPoint                  = flipFst $ getAcuteAngleBisectorFromLines line1 line2
   | l2TowardPoint                  = getAcuteAngleBisectorFromLines line1 line2
   | otherwise                      = getAcuteAngleBisectorFromLines line1 $ flipFst line2
     where
       (pointDistance, (_,_,pointDistanceErr)) = distance2PP ppoint1 ppoint2
+      (point1IntersectDistance, (_,_, point1IntersectDistanceErr)) = distance2PP ppoint1 intersectionPoint
+      (point2IntersectDistance, (_,_, point2IntersectDistanceErr)) = distance2PP ppoint2 intersectionPoint
       flipFst (a,b) = (flipL a,b)
       intersectionPoint = intersectionOf line1 line2
       l1TowardPoint = towardIntersection ppoint1 line1 intersectionPoint
