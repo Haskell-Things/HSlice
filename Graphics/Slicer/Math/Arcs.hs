@@ -89,11 +89,10 @@ getOutsideArc a b c d = (res, resErr)
 -- | Get a PLine along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
 getObtuseAngleBisectorFromPointedLines :: (ProjectivePoint2 a, ProjectiveLine2 b, ProjectivePoint2 c, ProjectiveLine2 d) => (a, PPoint2Err) -> (b, PLine2Err) -> (c, PPoint2Err) -> (d, PLine2Err) -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
 getObtuseAngleBisectorFromPointedLines ppoint1 line1 ppoint2 line2
-  | isCollinear line1 line2 = error "given two input lines that are colinear!"
-  | isAntiCollinear line1 line2 = error "need to be able to return two Plines."
-  | noIntersection line1 line2 = error $ "no intersection between pline " <> show line1 <> " and " <> show line2 <> ".\n"
-   -- FIXME: remove this Eq usage!
---   | ppoint1 == ppoint2 = error $ "cannot have two identical input points:\n" <> show ppoint1 <> "\n" <> show ppoint2 <> "\n"
+  | isCollinear line1 line2 = error "Asked to find the obtuse bisector of two colinear lines!"
+  | isAntiCollinear line1 line2 = error "Asked to find the obtuse bisector of two anti-colinear lines!"
+  | noIntersection line1 line2 = error $ "no intersection between line " <> show line1 <> " and " <> show line2 <> ".\n"
+  | pointDistance <= realToFrac (ulpVal pointDistanceErr) = error $ "cannot have two identical input points:\n" <> show ppoint1 <> "\n" <> show ppoint2 <> "\n"
   -- FIXME: do not use == for points, use distance!
 {-
   | fst intersectionPoint == ppoint1 = error $ "intersection of plines is at first ppoint:\n"
@@ -110,6 +109,7 @@ getObtuseAngleBisectorFromPointedLines ppoint1 line1 ppoint2 line2
   | l2TowardPoint                  = getAcuteAngleBisectorFromLines line1 line2
   | otherwise                      = getAcuteAngleBisectorFromLines line1 $ flipFst line2
     where
+      (pointDistance, (_,_,pointDistanceErr)) = distance2PP ppoint1 ppoint2
       flipFst (a,b) = (flipL a,b)
       intersectionPoint = intersectionOf line1 line2
       l1TowardPoint = towardIntersection ppoint1 line1 intersectionPoint
