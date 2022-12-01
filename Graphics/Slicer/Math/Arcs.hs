@@ -58,14 +58,14 @@ getAcuteArcFromPoints p1 p2 p3
     -- Only used for the quad case.
     (quad, quadErr) = eToPL $ makeLineSeg p2 $ scalePoint 0.5 $ addPoints p1 p3
 
--- | Get a Projective Line along the angle bisector of the intersection of the two given lines, pointing in the 'acute' direction.
+-- | Get a projective line along the angle bisector of the intersection of the two given lines, pointing in the 'acute' direction.
 --   A wrapper of getAcuteAngleBisectorFromLines, dropping the returning of normalization error of the inputs.
 getInsideArc :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (PLine2, PLine2Err)
 getInsideArc line1 line2 = (res, resErr)
   where
     (res, (_,_, resErr)) = getAcuteAngleBisectorFromLines line1 line2
 
--- | Get a Projective Line along the angle bisector of the intersection of the two given lines, pointing in the 'acute' direction.
+-- | Get a projective line along the angle bisector of the intersection of the two given lines, pointing in the 'acute' direction.
 --   Note that we assume that the first line points toward the intersection.
 getAcuteAngleBisectorFromLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (PLine2, (PLine2Err, PLine2Err, PLine2Err))
 getAcuteAngleBisectorFromLines line1@(pl1, _) line2@(pl2, _)
@@ -80,14 +80,13 @@ getAcuteAngleBisectorFromLines line1@(pl1, _) line2@(pl2, _)
     (npline1, npline1Err) = normalizeL pl1
     (npline2, npline2Err) = normalizeL pl2
 
--- | Get a Projective Line along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
+-- | Get a projective line along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
 getOutsideArc :: (ProjectivePoint2 a, ProjectiveLine2 b, ProjectivePoint2 c, ProjectiveLine2 d) => (a, PPoint2Err) -> (b, PLine2Err) -> (c, PPoint2Err) -> (d, PLine2Err) -> (PLine2, PLine2Err)
 getOutsideArc a b c d = (res, resErr)
   where
     (res, (_,_, resErr)) = getObtuseAngleBisectorFromPointedLines a b c d
 
--- | Get a PLine along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
--- FIXME: the outer line returned by two lines in the same direction should be two lines at a 90 degree angle to the input lines.
+-- | Get a projective line along the angle bisector of the intersection of the two given lines, pointing in the 'obtuse' direction.
 getObtuseAngleBisectorFromPointedLines :: (ProjectivePoint2 a, ProjectiveLine2 b, ProjectivePoint2 c, ProjectiveLine2 d) => (a, PPoint2Err) -> (b, PLine2Err) -> (c, PPoint2Err) -> (d, PLine2Err) -> (PLine2, (PLine2Err, PLine2Err, PLine2Err))
 getObtuseAngleBisectorFromPointedLines ppoint1 line1 ppoint2 line2
   | isCollinear line1 line2 = error "Asked to find the obtuse bisector of two colinear lines!"
