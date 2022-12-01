@@ -35,7 +35,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 import Graphics.Slicer.Math.PGA (Arcable(hasArc), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectiveLine2, ProjectivePoint, distance2PL, distance2PP, distancePPointToPLineWithErr, fuzzinessOfL, fuzzinessOfP, outAndErrOf, pLineErrAtPPoint, plinesIntersectIn)
 
 -- | Check if two lines cannot intersect.
-noIntersection :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Bool
+noIntersection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 noIntersection pline1 pline2 = isCollinear pline1 pline2 || isParallel pline1 pline2 || isAntiCollinear pline1 pline2 || isAntiParallel pline1 pline2
 
 -- | Check if two lines are really the same line.
@@ -55,7 +55,7 @@ isAntiParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b
 isAntiParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiParallel
 
 -- | Get the intersection point of two lines we know have an intersection point.
-intersectionOf :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectivePoint, PPoint2Err)
+intersectionOf :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectivePoint, PPoint2Err)
 intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
   where
     saneIntersection PAntiCollinear     = error $ "cannot get the intersection of anti-collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"

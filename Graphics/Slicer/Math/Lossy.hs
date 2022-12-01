@@ -80,7 +80,7 @@ getInsideArc :: ProjectiveLine -> ProjectiveLine -> ProjectiveLine
 getInsideArc pl1 pl2 = fst $ Arcs.getInsideArc (pl1, mempty) (pl2, mempty)
 
 getOutsideArc :: ProjectivePoint -> ProjectiveLine -> ProjectivePoint -> ProjectiveLine -> ProjectiveLine
-getOutsideArc a b c d = fst $ Arcs.getOutsideArc a b c d
+getOutsideArc a b c d = fst $ Arcs.getOutsideArc (a, mempty) (b, mempty) (c, mempty) (d, mempty)
 
 -- | a typed join function. join two points, returning a line.
 join2PPoints :: ProjectivePoint -> ProjectivePoint -> ProjectiveLine

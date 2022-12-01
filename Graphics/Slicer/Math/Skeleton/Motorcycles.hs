@@ -186,7 +186,7 @@ convexMotorcycles contour = mapMaybe onlyMotorcycles $ zip (rotateLeft $ linePai
 motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, PLine2Err)
 motorcycleFromPoints p1 p2 p3 = (res, resErr)
   where
-    (res,(_,_,resErr)) = getOutsideArc (eToPPoint2 p1) (pLineFromEndpoints p1 p2) (eToPPoint2 p3) (flipL $ pLineFromEndpoints p2 p3)
+    (res, resErr) = getOutsideArc (eToPPoint2 p1, mempty) (pLineFromEndpoints p1 p2, mempty) (eToPPoint2 p3, mempty) (flipL $ pLineFromEndpoints p2 p3, mempty)
 
 -- | Find where a motorcycle intersects a set of line segments, if it does.
 motorcycleMightIntersectWith :: [LineSeg] -> Motorcycle -> Maybe (LineSeg, Either Point2 ProjectivePoint)
