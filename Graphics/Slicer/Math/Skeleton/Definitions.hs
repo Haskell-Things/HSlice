@@ -55,7 +55,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapW
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), addVecPair)
 
-import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), PLine2Err, pLineIsLeft, distance2PP, Pointable(canPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), PPoint2(PPoint2), eToPL, eToPPoint2, outAndErrOf, pToEP, vecOfL)
+import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), PLine2Err, pLineIsLeft, distance2PP, Pointable(canPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), PPoint2(PPoint2), eToPL, eToPP, outAndErrOf, pToEP, vecOfL)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -73,7 +73,7 @@ instance Arcable ENode where
 instance Pointable ENode where
   -- an ENode always contains a point.
   canPoint _ = True
-  pPointOf a = (\(CPPoint2 v) -> PPoint2 v) $ eToPPoint2 $ ePointOf a
+  pPointOf a = (\(CPPoint2 v) -> PPoint2 v) $ eToPP $ ePointOf a
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
 
 -- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
@@ -157,7 +157,7 @@ instance Arcable Motorcycle where
 instance Pointable Motorcycle where
   -- A motorcycle always contains a point.
   canPoint _ = True
-  pPointOf a = (\(CPPoint2 v) -> PPoint2 v) $ eToPPoint2 $ ePointOf a
+  pPointOf a = (\(CPPoint2 v) -> PPoint2 v) $ eToPP $ ePointOf a
   ePointOf (Motorcycle (_, LineSeg point _) _ _) = point
 
 -- | The motorcycles that are involved in dividing two cells.

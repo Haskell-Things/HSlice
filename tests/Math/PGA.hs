@@ -59,7 +59,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 import Graphics.Slicer.Math.Lossy (angleBetween, canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToCPPoint2, eToPLine2, getFirstArc, join2PPoint2, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalizeP, distance2PP, distancePPointToPLineWithErr, eToPL, eToPP, eToPPoint2, interpolate2PP, intersect2PL, translateL, translateRotatePPoint2WithErr, angleBetween2PL, flipL, join2PP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, errOfOut, pPointOnPerpWithErr, outOf, pPointOf, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalizeP, distance2PP, distancePPointToPLineWithErr, eToPL, eToPP, eToPP, interpolate2PP, intersect2PL, translateL, translateRotatePPoint2WithErr, angleBetween2PL, flipL, join2PP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, errOfOut, pPointOnPerpWithErr, outOf, pPointOf, outputIntersectsLineSeg)
 
 
 -- The primitives of our PGA only library, and error estimation code.
@@ -333,7 +333,7 @@ geomAlgSpec = do
 prop_ScalarDotScalar :: ℝ -> ℝ -> ℝ -> ℝ -> Bool
 prop_ScalarDotScalar v1 v2 v3 v4 = scalarPart (rawPPoint2 (v1,v2) ⋅ rawPPoint2 (v3,v4)) == (-1)
   where
-    rawPPoint2 (x,y) = (\(CPPoint2 v) -> v) $ eToPPoint2 (Point2 (x,y))
+    rawPPoint2 (x,y) = (\(CPPoint2 v) -> v) $ eToPP (Point2 (x,y))
 
 -- | A property test making sure that the wedge product of two PLines along two different axises is always in e1e2.
 prop_TwoAxisAlignedLines :: NonZero ℝ -> NonZero ℝ -> NonZero ℝ -> NonZero ℝ -> Expectation
@@ -372,7 +372,7 @@ proj2DGeomAlgSpec = do
     it "A line constructed from a line segment is correct" $
       eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,1))) --> pl1
     it "A line constructed from by joining two points is correct" $
-      join2PPoint2 (eToPPoint2 (Point2 (0,0))) (eToPPoint2 (Point2 (1,1))) --> pl1
+      join2PPoint2 (eToPP (Point2 (0,0))) (eToPP (Point2 (1,1))) --> pl1
   where
     pl1 = PLine2 $ GVec [GVal 1 (singleton (GEPlus 1)), GVal (-1) (singleton (GEPlus 2))]
 
@@ -424,18 +424,18 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
 -- | A property test making sure the distance between a point an an axis is equal to the corresponding euclidian component of the point.
 prop_DistanceToAxis :: NonZero ℝ -> NonZero ℝ -> Bool -> Expectation
 prop_DistanceToAxis v v2 xAxis
-  | xAxis = distancePPointToPLine (eToPPoint2 $ Point2 (coerce v2,coerce v)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> abs (coerce v)
-  | otherwise = distancePPointToPLine (eToPPoint2 $ Point2 (coerce v,coerce v2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> abs (coerce v)
+  | xAxis = distancePPointToPLine (eToPP $ Point2 (coerce v2,coerce v)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> abs (coerce v)
+  | otherwise = distancePPointToPLine (eToPP $ Point2 (coerce v,coerce v2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> abs (coerce v)
 
 -- | A property test making sure two points on the same side of an axis show as being on the same side of the axis.
 prop_SameSideOfAxis :: NonZero ℝ -> NonZero ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool -> Bool -> Expectation
 prop_SameSideOfAxis rawV1 rawV2 rawP1 rawP2 rawMagnitude xAxis positiveSide
   | xAxis = if positiveSide
-            then pPointsOnSameSideOfPLine (eToPPoint2 $ Point2 (v1,p1)) (eToPPoint2 $ Point2 (v2,p2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (mag,0))) --> Just True
-            else pPointsOnSameSideOfPLine (eToPPoint2 $ Point2 (v1,-p1)) (eToPPoint2 $ Point2 (v2,-p2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (mag,0))) --> Just True
+            then pPointsOnSameSideOfPLine (eToPP $ Point2 (v1,p1)) (eToPP $ Point2 (v2,p2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (mag,0))) --> Just True
+            else pPointsOnSameSideOfPLine (eToPP $ Point2 (v1,-p1)) (eToPP $ Point2 (v2,-p2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (mag,0))) --> Just True
   | otherwise = if positiveSide
-                then pPointsOnSameSideOfPLine (eToPPoint2 $ Point2 (p1,v1)) (eToPPoint2 $ Point2 (p2,v2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> Just True
-                else pPointsOnSameSideOfPLine (eToPPoint2 $ Point2 (-p1,v1)) (eToPPoint2 $ Point2 (-p1,v2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> Just True
+                then pPointsOnSameSideOfPLine (eToPP $ Point2 (p1,v1)) (eToPP $ Point2 (p2,v2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> Just True
+                else pPointsOnSameSideOfPLine (eToPP $ Point2 (-p1,v1)) (eToPP $ Point2 (-p1,v2)) (eToPLine2 $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> Just True
   where
     p1 = coerce rawP1
     p2 = coerce rawP2
@@ -448,11 +448,11 @@ prop_SameSideOfAxis rawV1 rawV2 rawP1 rawP2 rawMagnitude xAxis positiveSide
 prop_OtherSideOfAxis :: NonZero ℝ -> NonZero ℝ -> Positive ℝ -> Positive ℝ -> Bool -> Bool -> Expectation
 prop_OtherSideOfAxis v1 v2 p1 p2 xAxis positive
   | xAxis = if positive
-            then pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (coerce v1,coerce p1))) (eToPPoint2 (Point2 (coerce v2,-(coerce p2)))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,0)))) --> Just False
-            else pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (coerce v1,-(coerce p1)))) (eToPPoint2 (Point2 (coerce v2,coerce p2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,0)))) --> Just False
+            then pPointsOnSameSideOfPLine (eToPP (Point2 (coerce v1,coerce p1))) (eToPP (Point2 (coerce v2,-(coerce p2)))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,0)))) --> Just False
+            else pPointsOnSameSideOfPLine (eToPP (Point2 (coerce v1,-(coerce p1)))) (eToPP (Point2 (coerce v2,coerce p2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,0)))) --> Just False
   | otherwise = if positive
-                then pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (coerce p1,coerce v1))) (eToPPoint2 (Point2 (-(coerce p2),coerce v2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (0,1)))) --> Just False
-                else pPointsOnSameSideOfPLine (eToPPoint2 (Point2 (-(coerce p1),coerce v1))) (eToPPoint2 (Point2 (coerce p1,coerce v2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (0,1)))) --> Just False
+                then pPointsOnSameSideOfPLine (eToPP (Point2 (coerce p1,coerce v1))) (eToPP (Point2 (-(coerce p2),coerce v2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (0,1)))) --> Just False
+                else pPointsOnSameSideOfPLine (eToPP (Point2 (-(coerce p1),coerce v1))) (eToPP (Point2 (coerce p1,coerce v2))) (eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (0,1)))) --> Just False
 
 -- | Ensure that a PLine translated, then translated back is approximately the same PLine.
 prop_PerpTranslateID :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
@@ -922,10 +922,10 @@ prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions trian
     pLine           = eToPL firstSeg
     firstPoints     = firstPointPairOfContour triangle
     (p1, p2)        = firstPointPairOfContour triangle
-    (myMidPoint,_)  = interpolate2PP (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
+    (myMidPoint,_)  = interpolate2PP (eToPP p1) (eToPP p2) 0.5 0.5
     -- we normalize this for Ganja.js.
     (NPLine2 pLineToInside) = normalizePLine2 $ join2PPoint2 myMidPoint innerPoint
-    (NPLine2 pLineToOutside) = normalizePLine2 $ join2PPoint2 innerPoint $ (\(CPPoint2 a) -> PPoint2 a) $ eToPPoint2 outsidePoint
+    (NPLine2 pLineToOutside) = normalizePLine2 $ join2PPoint2 innerPoint $ (\(CPPoint2 a) -> PPoint2 a) $ eToPP outsidePoint
     innerPoint      = fromMaybe (dumpError2) maybeInnerPoint
     minPoint        = fst $ minMaxPoints triangle
     outsidePoint    = Point2 (xOf minPoint - 0.00000001 , yOf minPoint - 0.00000001)
@@ -1348,7 +1348,7 @@ prop_eNodeAwayFromIntersection2 x y d1 rawR1 d2 rawR2 = l2TowardIntersection -->
 prop_translateRotateMoves :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Expectation
 prop_translateRotateMoves x y rawD rawR = distanceBetweenPPoints (fst $ translateRotatePPoint2WithErr pPoint d r) cPPoint /= 0 --> True
   where
-    pPoint = eToPPoint2 $ Point2 (x,y)
+    pPoint = eToPP $ Point2 (x,y)
     cPPoint = makePPoint2 x y
     r,d::ℝ
     r = coerce rawR
@@ -1429,7 +1429,7 @@ prop_PLineIntersectsAtXAxis x y rawX2 y2 m
     errSum = ulpVal $ axisIntersectionErr <> distanceErr
     (foundDistance, (_,_,distanceErr)) = distance2PP (axisIntersectionPoint, mempty) (intersectionPPoint2, intersectionErr)
     axisIntersectionErr = snd $ fromJust axisIntersection
-    axisIntersectionPoint = eToPPoint2 $ Point2 ((fromRight (error "not right?") $ fst $ fromJust axisIntersection), 0)
+    axisIntersectionPoint = eToPP $ Point2 ((fromRight (error "not right?") $ fst $ fromJust axisIntersection), 0)
     axisIntersection = xIntercept (randomPLine1, pline1Err)
     (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL randomPLine1 axisPLine
     (randomPLine1, pline1Err) = randomPL x y rawX2 (coerce y2)
@@ -1458,7 +1458,7 @@ prop_PLineIntersectsAtYAxis x y x2 rawY2 m
     errSum = ulpVal $ axisIntersectionErr <> distanceErr
     (foundDistance, (_,_,distanceErr)) = distance2PP (axisIntersectionPoint,mempty) (intersectionPPoint2, intersectionErr)
     axisIntersectionErr = snd $ fromJust axisIntersection
-    axisIntersectionPoint = eToPPoint2 $ Point2 (0,(fromRight (error "not right?") $ fst $ fromJust axisIntersection))
+    axisIntersectionPoint = eToPP $ Point2 (0,(fromRight (error "not right?") $ fst $ fromJust axisIntersection))
     axisIntersection = yIntercept (randomPLine1, pline1Err)
     (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL randomPLine1 axisPLine
     (randomPLine1, pline1Err) = randomPL (coerce x) y (coerce x2) (coerce y2)

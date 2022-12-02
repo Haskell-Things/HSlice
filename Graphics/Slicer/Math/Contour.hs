@@ -52,7 +52,7 @@ import Graphics.Slicer.Math.Intersections (contourIntersectionCount, noIntersect
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (PPoint2, eToPPoint2, eToPL, join2EP, join2PP, pLineIsLeft, pPointOnPerpWithErr)
+import Graphics.Slicer.Math.PGA (PPoint2, eToPP, eToPL, join2EP, join2PP, pLineIsLeft, pPointOnPerpWithErr)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -225,11 +225,11 @@ followingLineSeg x = followingLineSegLooped x x
 -- | Check if the left hand side of the first line segment of a contour is toward the inside of the contour.
 insideIsLeft :: Contour -> Maybe Bool
 insideIsLeft contour
-  | isJust (innerContourPoint contour) = Just $ pLineIsLeft line1 (pl2, pl2Err) == Just True
+  | isJust (innerContourPoint contour) = Just $ pLineIsLeft line1 (lineToInside, lineToInsideErr) == Just True
   | otherwise = Nothing
   where
-    (pl2,(_,_, pl2Err)) = join2PP myMidPoint innerPoint
-    myMidPoint          = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
+    (lineToInside, (_,_, lineToInsideErr)) = join2PP myMidPoint innerPoint
+    myMidPoint          = pPointBetweenPPoints (eToPP p1) (eToPP p2) 0.5 0.5
     line1               = eToPL $ makeLineSeg p1 p2
     innerPoint          = fromJust $ innerContourPoint contour
     (p1, p2)            = firstPointPairOfContour contour
@@ -243,9 +243,9 @@ innerContourPoint contour
   | odd otherIntersections = error "cannot ensure other point is on the right side of the contour."
   | otherwise = Nothing
   where
-    (p1, p2)       = firstPointPairOfContour contour
-    (source, _)    = join2EP p1 p2
-    myMidPoint     = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
+    (p1, p2)    = firstPointPairOfContour contour
+    source      = fst $ join2EP p1 p2
+    myMidPoint  = pPointBetweenPPoints (eToPP p1) (eToPP p2) 0.5 0.5
     (perpPoint, (_,_,_, UlpSum perpErr)) = pPointOnPerpWithErr source myMidPoint minDistanceFromSeg
     (otherPoint,(_,_,_, UlpSum otherErr)) = pPointOnPerpWithErr source myMidPoint (-minDistanceFromSeg)
     numIntersections   = contourIntersectionCount contour (pToEPoint2 perpPoint, outsidePoint)
@@ -265,7 +265,7 @@ pointFarOutsideContour contour
   | not (noIntersection line3 firstLine) = outsidePoint3
   | otherwise = error "cannot get here."
   where
-    minPoint      = fst (minMaxPoints contour)
+    minPoint      = fst $ minMaxPoints contour
     (p1, p2)      = firstPointPairOfContour contour
     firstLine     = join2EP p1 p2
     line1         = join2EP p1 outsidePoint1
@@ -278,9 +278,9 @@ pointFarOutsideContour contour
 -- | Find a point that is guaranteed to be outside of the given contour, and is not on the same line as the first line segment of the contour.
 pointFarOutsideContours :: Contour -> Contour -> Point2
 pointFarOutsideContours contour1 contour2
-  | not (noIntersection line1 firstPLine) && not (noIntersection line1 secondPLine) = outsidePoint1
-  | not (noIntersection line2 firstPLine) && not (noIntersection line2 secondPLine) = outsidePoint2
-  | not (noIntersection line3 firstPLine) && not (noIntersection line3 secondPLine) = outsidePoint3
+  | not (noIntersection line1 firstLine) && not (noIntersection line1 secondLine) = outsidePoint1
+  | not (noIntersection line2 firstLine) && not (noIntersection line2 secondLine) = outsidePoint2
+  | not (noIntersection line3 firstLine) && not (noIntersection line3 secondLine) = outsidePoint3
   | otherwise = error "cannot get here...?"
   where
     minPoint1     = fst $ minMaxPoints contour1
@@ -288,8 +288,8 @@ pointFarOutsideContours contour1 contour2
     minPoint      = Point2 (min (xOf minPoint1) (xOf minPoint2),min (yOf minPoint1) (yOf minPoint2))
     (p1, p2)      = firstPointPairOfContour contour1
     (p3, p4)      = firstPointPairOfContour contour2
-    firstPLine    = join2EP p1 p2
-    secondPLine   = join2EP p3 p4
+    firstLine     = join2EP p1 p2
+    secondLine    = join2EP p3 p4
     line1         = join2EP p1 outsidePoint1
     line2         = join2EP p1 outsidePoint2
     line3         = join2EP p1 outsidePoint3

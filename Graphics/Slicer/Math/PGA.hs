@@ -56,7 +56,6 @@ module Graphics.Slicer.Math.PGA(
   distance2PL,
   eToPL,
   eToPP,
-  eToPPoint2,
   flipL,
   interpolate2PP,
   intersectsWithErr,
@@ -499,11 +498,11 @@ combineConsecutiveLineSegs lines = case lines of
 ------------------------------------------------
 
 -- | Create a canonical projective point from the given euclidian point.
-eToPPoint2, eToPP :: Point2 -> CPPoint2
-eToPPoint2 (Point2 (x,y)) = res
+euclidianToProjectivePoint2, eToPP :: Point2 -> CPPoint2
+euclidianToProjectivePoint2 (Point2 (x,y)) = res
   where
     res = makePPoint2 x y
-eToPP = eToPPoint2
+eToPP = euclidianToProjectivePoint2
 
 -- | Create a canonical euclidian projective point from the given coordinates.
 makePPoint2 :: ℝ -> ℝ -> CPPoint2
