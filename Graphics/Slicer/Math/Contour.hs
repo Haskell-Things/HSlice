@@ -46,13 +46,13 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, lineSegsOfContour, minMaxPoints, xOf, yOf, startPoint, endPoint, fudgeFactor, makeLineSeg)
 
-import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
+import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.Intersections (contourIntersectionCount, noIntersection)
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (PPoint2, eToPP, eToPL, join2EP, join2PP, pLineIsLeft, pPointOnPerpWithErr)
+import Graphics.Slicer.Math.PGA (PPoint2, eToPP, join2EP, join2PP, pLineIsLeft, pPointOnPerpWithErr)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -228,29 +228,29 @@ insideIsLeft contour
   | isJust (innerContourPoint contour) = Just $ pLineIsLeft line1 (lineToInside, lineToInsideErr) == Just True
   | otherwise = Nothing
   where
-    (lineToInside, (_,_, lineToInsideErr)) = join2PP myMidPoint innerPoint
-    myMidPoint          = pPointBetweenPPoints (eToPP p1) (eToPP p2) 0.5 0.5
-    line1               = eToPL $ makeLineSeg p1 p2
-    innerPoint          = fromJust $ innerContourPoint contour
-    (p1, p2)            = firstPointPairOfContour contour
+    (lineToInside, (_,_, lineToInsideErr)) = join2PP midPoint innerPoint
+    midPoint   = pPointBetweenPPoints (eToPP p1) (eToPP p2) 0.5 0.5
+    line1      = join2EP p1 p2
+    innerPoint = fromJust $ innerContourPoint contour
+    (p1, p2)   = firstPointPairOfContour contour
 
 -- | Find a point on the interior of a given contour, on the perpendicular bisector of the first line segment, a given distance away from the line segment.
 innerContourPoint :: Contour -> Maybe PPoint2
 innerContourPoint contour
-  | odd numIntersections && perpErr < realToFrac minDistanceFromSeg = Just perpPoint
+  | odd numIntersections && realToFrac (ulpVal perpErr) < minDistanceFromSeg = Just perpPoint
   | odd numIntersections = error "cannot ensure perp point is on right side of contour."
-  | odd otherIntersections && otherErr < realToFrac minDistanceFromSeg = Just otherPoint
+  | odd otherIntersections && realToFrac (ulpVal otherErr) < minDistanceFromSeg = Just otherPoint
   | odd otherIntersections = error "cannot ensure other point is on the right side of the contour."
   | otherwise = Nothing
   where
-    (p1, p2)    = firstPointPairOfContour contour
-    source      = fst $ join2EP p1 p2
-    myMidPoint  = pPointBetweenPPoints (eToPP p1) (eToPP p2) 0.5 0.5
-    (perpPoint, (_,_,_, UlpSum perpErr)) = pPointOnPerpWithErr source myMidPoint minDistanceFromSeg
-    (otherPoint,(_,_,_, UlpSum otherErr)) = pPointOnPerpWithErr source myMidPoint (-minDistanceFromSeg)
     numIntersections   = contourIntersectionCount contour (pToEPoint2 perpPoint, outsidePoint)
     otherIntersections = contourIntersectionCount contour (pToEPoint2 otherPoint, outsidePoint)
-    outsidePoint       = pointFarOutsideContour contour
+    (perpPoint,  (_,_,_, perpErr))  = pPointOnPerpWithErr source midPoint minDistanceFromSeg
+    (otherPoint, (_,_,_, otherErr)) = pPointOnPerpWithErr source midPoint (-minDistanceFromSeg)
+    midPoint     = pPointBetweenPPoints (eToPP p1) (eToPP p2) 0.5 0.5
+    source       = fst $ join2EP p1 p2
+    outsidePoint = pointFarOutsideContour contour
+    (p1, p2)     = firstPointPairOfContour contour
     -- | the minimum measurable distance of a point from a line segment
     -- FIXME: make this smaller, make more errors.
     -- FIXME: magic number
