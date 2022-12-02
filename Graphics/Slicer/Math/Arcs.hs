@@ -28,7 +28,7 @@ import Graphics.Slicer.Math.Definitions (Point2, addPoints, distance, makeLineSe
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
 
-import Graphics.Slicer.Math.Intersections (isCollinear, isAntiCollinear, intersectionOf, noIntersection)
+import Graphics.Slicer.Math.Intersections (intersectionOf, isAntiCollinear, isCollinear, noIntersection)
 
 import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(PLine2), ProjectiveLine2, ProjectivePoint2, angleBetween2PL, distance2PP, eToPL, flipL, join2PP, normalizeL, vecOfL)
 

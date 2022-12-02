@@ -46,7 +46,7 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.ContourIntersections (contourIntersectionCount)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, lineSegsOfContour, minMaxPoints, xOf, yOf, startPoint, endPoint, fudgeFactor, makeLineSeg)
+import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg(endPoint, startPoint), fudgeFactor, lineSegsOfContour, makeLineSeg, minMaxPoints, xOf, yOf)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.Intersections (noIntersection)
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, eToPL, eToPP, join2EP, join2PP, pLineIsLeft, pPointOnPerpWithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, eToPP, join2EP, join2PP, pLineIsLeft, pPointOnPerpWithErr)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.

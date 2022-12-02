@@ -21,13 +21,51 @@
 
 {-# LANGUAGE DataKinds #-}
 
-{-# LANGUAGE TupleSections #-}
-
 -- So we can map applying (,mempty) to a list.
 {-# LANGUAGE TupleSections #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•+), (•), (⋅+), (⋅), (∧+), (∧), addErr, addValPairWithErr, addValWithErr, addValWithoutErr, addVecPair, addVecPairWithErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, subVal, subValPairWithErr, subVecPair, sumErrVals, ulpVal, valOf, divVecScalarWithErr, scalarPart, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
+module Graphics.Slicer.Math.GeometricAlgebra(
+  ErrVal(ErrVal),
+  GNum(G0, GEMinus, GEPlus, GEZero),
+  GVal(GVal),
+  GVec(GVec),
+  UlpSum(UlpSum),
+  (⎣+),
+  (⎣),
+  (⎤+),
+  (⎤),
+  (⨅+),
+  (⨅),
+  (•+),
+  (•),
+  (⋅+),
+  (⋅),
+  (∧+),
+  (∧),
+  addErr,
+  addValPairWithErr,
+  addValWithErr,
+  addValWithoutErr,
+  addVecPair,
+  addVecPairWithErr,
+  addVecPairWithoutErr,
+  divVecScalarWithErr,
+  eValOf,
+  getVal,
+  hpDivVecScalar,
+  mulScalarVecWithErr,
+  reduceVecPair,
+  scalarPart,
+  subVal,
+  subValPairWithErr,
+  subVecPair,
+  sumErrVals,
+  ulpVal,
+  unlikeVecPair,
+  valOf,
+  vectorPart
+  ) where
 
 import Prelude (Eq, Monoid(mempty), Ord(compare), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), not, null, realToFrac, abs, (.), realToFrac)
 
