@@ -29,6 +29,7 @@ library
         Graphics.Slicer.Math.Arcs
         Graphics.Slicer.Math.CheckFacets
         Graphics.Slicer.Math.Contour
+        Graphics.Slicer.Math.ContourIntersections
         Graphics.Slicer.Math.Definitions
         Graphics.Slicer.Math.Facet
         Graphics.Slicer.Math.Ganja

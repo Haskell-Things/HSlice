@@ -18,23 +18,19 @@
 
 {- Purpose of this file: to hold the logic and routines responsible for checking for intersections with contours, or portions of contours. -}
 
-module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getPLine2Intersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
+module Graphics.Slicer.Math.Intersections (filterIntersections, getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, getPLine2Intersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
 
-import Prelude (Bool, Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), zip, Int, (<), (*), (||), (==), fst, length, mempty, odd, realToFrac)
+import Prelude (Bool, Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), zip, (<), (*), (||), (==), fst, length, mempty, odd, realToFrac)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
+import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
 import Data.List as L (filter)
 
-import Slist.Type (Slist)
-
-import Slist (len, slist)
-
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighbors, startPoint, distance, lineSegsOfContour, endPoint, fudgeFactor, makeLineSeg)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighbors, startPoint, distance, lineSegsOfContour, endPoint, fudgeFactor)
 
-import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
+import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, PLine2Err, PPoint2Err, ProjectiveLine2, distance2PL, intersectsWithErr, outputIntersectsLineSeg, plinesIntersectIn, pToEP)
 
@@ -78,20 +74,6 @@ getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _ _) c = stripIn
       where
         -- filter out inSeg and outSeg outSeg
         fun (seg,_) = seg /= inSeg && seg /= outSeg
-
--- | return the number of intersections with a given contour when traveling in a straight line from the beginning of the given line segment to the end of the line segment.
--- Not for use when line segments can overlap or are collinear with one of the line segments that are a part of the contour.
-contourIntersectionCount :: Contour -> (Point2, Point2) -> Int
-contourIntersectionCount contour (start, end) = len $ getIntersections contour (start, end)
-  where
-    getIntersections :: Contour -> (Point2, Point2) -> Slist (LineSeg, Either Point2 CPPoint2)
-    getIntersections c (pt1, pt2) = slist $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour contour) $ intersectsWithErr targetSeg <$> segs
-      where
-        segs :: [Either LineSeg (NPLine2, PLine2Err)]
-        segs =  Left <$> lineSegsOfContour c
-        targetSeg :: Either LineSeg (NPLine2, PLine2Err)
-        targetSeg = Left $ makeLineSeg pt1 pt2
-        openCircuit v = Just <$> v
 
 -- | Get the intersections between a PLine2 and a contour as a series of points. always returns an even number of intersections.
 -- FIXME: accept error on this first pLine!
@@ -194,13 +176,13 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
 intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 (CPPoint2, PPoint2Err))
 intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn (pl1,mempty) (pl2,mempty)
   where
-    (foundDistance, (_,_,UlpSum foundErr)) = distance2PL pl1 pl2
+    (foundDistance, (_,_, foundErr)) = distance2PL pl1 pl2
     saneIntersection PAntiCollinear     = Just $ Left pl1
     saneIntersection PCollinear         = Just $ Left pl1
-    saneIntersection PParallel          = if foundDistance < realToFrac foundErr
+    saneIntersection PParallel          = if foundDistance < realToFrac (ulpVal foundErr)
                                           then Just $ Left pl1
                                           else Nothing
-    saneIntersection PAntiParallel      = if foundDistance < realToFrac foundErr
+    saneIntersection PAntiParallel      = if foundDistance < realToFrac (ulpVal foundErr)
                                           then Just $ Left pl1
                                           else Nothing
     saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p,pErr)

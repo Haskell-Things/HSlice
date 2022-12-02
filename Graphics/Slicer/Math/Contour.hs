@@ -44,11 +44,13 @@ import Slist.Size (Size(Infinity))
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg, lineSegsOfContour, minMaxPoints, xOf, yOf, startPoint, endPoint, fudgeFactor, makeLineSeg)
+import Graphics.Slicer.Math.ContourIntersections (contourIntersectionCount)
+
+import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg(endPoint, startPoint), fudgeFactor, lineSegsOfContour, makeLineSeg, minMaxPoints, xOf, yOf) 
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.Intersections (contourIntersectionCount, noIntersection)
+import Graphics.Slicer.Math.Intersections (noIntersection)
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, pToEPoint2)
 
