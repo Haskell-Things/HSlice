@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (outputIntersectsPLine, outputsInterse
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPPoint2, outAndErrOf)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPP, outAndErrOf)
 
 import Graphics.Slicer.Math.PGAPrimitives (ProjectivePoint, angleBetween2PL, join2PP)
 
@@ -191,9 +191,9 @@ findNextCell (RemainingContour (Slist [(Slist lineSegs _, divides)] _) ) =
         EQ -> distanceBetweenPPoints (startPPoint $ fst $ fst div1) (toPPoint2 $ snd $ fst div1) `compare` distanceBetweenPPoints (startPPoint $ fst $ fst div2) (toPPoint2 $ snd $ fst div2)
       where
         toPPoint2 :: Either Point2 ProjectivePoint -> ProjectivePoint
-        toPPoint2 (Left point2) = eToPPoint2 point2
+        toPPoint2 (Left point2) = eToPP point2
         toPPoint2 (Right ppoint2) = ppoint2
-        startPPoint (LineSeg start _) = eToPPoint2 start
+        startPPoint (LineSeg start _) = eToPP start
 
 -- | Where the intersection intersects a contour.
 data AtOrAround = At
@@ -416,7 +416,7 @@ crossoverINodes nodeTree@(NodeTree _ (INodeSet (Slist iNodes _))) cellDivision =
   where
     nodeCrosses :: INode -> Bool
     nodeCrosses a = Just False `elem` (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)
-    pointOnSide = eToPPoint2 $ pointInCell nodeTree cellDivision
+    pointOnSide = eToPP $ pointInCell nodeTree cellDivision
     pointInCell cell (CellDivide (DividingMotorcycles m _) _)
       | firstSegOf cell == lastCSegOf m = endPoint $ firstSegOf cell
       | lastSegOf cell == firstCSegOf m = startPoint $ lastSegOf cell

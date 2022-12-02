@@ -116,7 +116,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), 
 
 import Graphics.Slicer.Math.Lossy (eToPLine2, join2PPoints, pPointBetweenPPoints, pToEPoint2, translateRotatePPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint(CPPoint2, PPoint2), ProjectiveLine(NPLine2, PLine2), PLine2Err, PPoint2Err, eToPL, eToPPoint2, hasArc, flipL, normalizeL, outOf, pPointOf)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(CPPoint2, PPoint2), ProjectiveLine(NPLine2, PLine2), PLine2Err, PPoint2Err, eToPL, eToPP, hasArc, flipL, normalizeL, outOf, pPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode)
 
@@ -662,12 +662,12 @@ randomStarPoly centerX centerY radianDistPairs = fromMaybe dumpError $ maybeFlip
     contour            = makePointContour points
     points             = pToEPoint2 <$> pointsAroundCenter
     pointsAroundCenter = (\(distanceFromPoint, angle) -> translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)) <$> radianDistPairs
-    centerPPoint       = eToPPoint2 $ Point2 (centerX, centerY)
+    centerPPoint       = eToPP $ Point2 (centerX, centerY)
     dumpError          = error $ "failed to flip a contour:" <> dumpGanjas [toGanja contour, toGanja (Point2 (centerX, centerY)), toGanja outsidePLine] <> "\n"
       where
         outsidePLine   = join2PPoints myMidPoint outsidePoint
-        outsidePoint   = eToPPoint2 $ pointFarOutsideContour contour
-        myMidPoint     = pPointBetweenPPoints (eToPPoint2 p1) (eToPPoint2 p2) 0.5 0.5
+        outsidePoint   = eToPP $ pointFarOutsideContour contour
+        myMidPoint     = pPointBetweenPPoints (eToPP p1) (eToPP p2) 0.5 0.5
         (p1, p2)       = firstPointPairOfContour contour
 
 randomENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> ENode
@@ -680,7 +680,7 @@ randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
     pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
     p1 = pToEPoint2 pp1
     p2 = pToEPoint2 pp2
-    intersectionPPoint = eToPPoint2 intersectionPoint
+    intersectionPPoint = eToPP intersectionPoint
 
 randomINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> INode
 randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,maybeFlippedpl2] $ Just (bisector1,bisectorErr)

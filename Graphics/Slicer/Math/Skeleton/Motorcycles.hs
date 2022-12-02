@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersectio
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2, pLineFromEndpoints)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, eToPPoint2, flipL, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outAndErrOf, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, eToPP, flipL, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outAndErrOf, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -186,7 +186,7 @@ convexMotorcycles contour = mapMaybe onlyMotorcycles $ zip (rotateLeft $ linePai
 motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, PLine2Err)
 motorcycleFromPoints p1 p2 p3 = (res, resErr)
   where
-    (res, resErr) = getOutsideArc (eToPPoint2 p1, mempty) (pLineFromEndpoints p1 p2, mempty) (eToPPoint2 p3, mempty) (flipL $ pLineFromEndpoints p2 p3, mempty)
+    (res, resErr) = getOutsideArc (eToPP p1, mempty) (pLineFromEndpoints p1 p2, mempty) (eToPP p3, mempty) (flipL $ pLineFromEndpoints p2 p3, mempty)
 
 -- | Find where a motorcycle intersects a set of line segments, if it does.
 motorcycleMightIntersectWith :: [LineSeg] -> Motorcycle -> Maybe (LineSeg, Either Point2 ProjectivePoint)
@@ -211,13 +211,13 @@ motorcycleMightIntersectWith lineSegs motorcycle
                                    (_, Right intersectionPPoint2) ->
                                      distanceBetweenPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenPPoints motorcyclePoint intersectionPPoint2
                                    (_, Left intersectionPoint2) ->
-                                     distanceBetweenPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenPPoints motorcyclePoint (eToPPoint2 intersectionPoint2)
+                                     distanceBetweenPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenPPoints motorcyclePoint (eToPP intersectionPoint2)
                                (_, Left intersectionPoint1) ->
                                  case i2 of
                                    (_, Right intersectionPPoint2) ->
-                                     distanceBetweenPPoints motorcyclePoint (eToPPoint2 intersectionPoint1) `compare` distanceBetweenPPoints motorcyclePoint intersectionPPoint2
+                                     distanceBetweenPPoints motorcyclePoint (eToPP intersectionPoint1) `compare` distanceBetweenPPoints motorcyclePoint intersectionPPoint2
                                    (_, Left intersectionPoint2) ->
-                                     distanceBetweenPPoints motorcyclePoint (eToPPoint2 intersectionPoint1) `compare` distanceBetweenPPoints motorcyclePoint (eToPPoint2 intersectionPoint2)
+                                     distanceBetweenPPoints motorcyclePoint (eToPP intersectionPoint1) `compare` distanceBetweenPPoints motorcyclePoint (eToPP intersectionPoint2)
     filterIntersection :: (LineSeg, Either Point2 ProjectivePoint) -> Maybe (LineSeg, Either Point2 ProjectivePoint)
     filterIntersection intersection = case intersection of
                                         (_, Right intersectionPPoint) -> if intersectionPPointIsBehind intersectionPPoint
@@ -247,13 +247,13 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                                                                  (_, Right intersectionPPoint2) ->
                                                                                    distanceBetweenPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenPPoints motorcyclePoint intersectionPPoint2
                                                                                  (_, Left intersectionPoint2) ->
-                                                                                   distanceBetweenPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenPPoints motorcyclePoint (eToPPoint2 intersectionPoint2)
+                                                                                   distanceBetweenPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenPPoints motorcyclePoint (eToPP intersectionPoint2)
                                                                              (_, Left intersectionPoint1) ->
                                                                                case i2 of
                                                                                  (_, Right intersectionPPoint2) ->
-                                                                                   distanceBetweenPPoints motorcyclePoint (eToPPoint2 intersectionPoint1) `compare` distanceBetweenPPoints motorcyclePoint intersectionPPoint2
+                                                                                   distanceBetweenPPoints motorcyclePoint (eToPP intersectionPoint1) `compare` distanceBetweenPPoints motorcyclePoint intersectionPPoint2
                                                                                  (_, Left intersectionPoint2) ->
-                                                                                   distanceBetweenPPoints motorcyclePoint (eToPPoint2 intersectionPoint1) `compare` distanceBetweenPPoints motorcyclePoint (eToPPoint2 intersectionPoint2)
+                                                                                   distanceBetweenPPoints motorcyclePoint (eToPP intersectionPoint1) `compare` distanceBetweenPPoints motorcyclePoint (eToPP intersectionPoint2)
   where
     filterIntersection :: (LineSeg, Either Point2 ProjectivePoint) -> Maybe (LineSeg, Either Point2 ProjectivePoint)
     filterIntersection intersection = case intersection of
@@ -264,7 +264,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                                                        then Nothing
                                                                        else Just intersection
       where
-        intersectionPointIsBehind point = oppositeDirection (outOf motorcycle) (fst $ join2PP (pPointOf motorcycle) (eToPPoint2 point))
+        intersectionPointIsBehind point = oppositeDirection (outOf motorcycle) (fst $ join2PP (pPointOf motorcycle) (eToPP point))
         intersectionPPointIsBehind pPoint = oppositeDirection (outOf motorcycle) (fst $ join2PP (pPointOf motorcycle) pPoint)
     motorcyclePoint = pPointOf motorcycle
     intersections = getMotorcycleContourIntersections motorcycle contour
