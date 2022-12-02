@@ -61,6 +61,7 @@ module Graphics.Slicer.Math.PGA(
   interpolate2PP,
   intersectsWithErr,
   intersect2PL,
+  join2EP,
   join2PP,
   makePPoint2,
   outAndErrOf,
@@ -529,3 +530,9 @@ euclidianToProjectiveLine l = (res, resErr)
   where
     (res, (_, _, resErr)) = join2PP (eToPP $ startPoint l) (eToPP $ endPoint l)
 eToPL l = euclidianToProjectiveLine l
+
+joinTwoEuclidianPoints, join2EP :: Point2 -> Point2 -> (PLine2, PLine2Err)
+joinTwoEuclidianPoints p1 p2 = (res, resErr)
+  where
+    (res, (_, _, resErr)) = join2PP (eToPP p1) (eToPP p2)
+join2EP p1 p2 = joinTwoEuclidianPoints p1 p2
