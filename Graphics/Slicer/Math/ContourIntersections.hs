@@ -19,10 +19,11 @@
 {- Purpose of this file: to hold the logic and routines responsible for checking for intersections with contours, or portions of contours. -}
 
 module Graphics.Slicer.Math.ContourIntersections (
-  contourIntersectionCount
+  contourIntersectionCount,
+  getLineContourIntersections
   ) where
 
-import Prelude (Either(Left), Int, (<$>), ($), zip)
+import Prelude (Either(Left, Right), Int, Show(show), (<$>), (<>), ($), error, fst, length, mempty, odd, otherwise, zip)
 
 import Data.Maybe (Maybe(Just), catMaybes)
 
@@ -34,7 +35,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, lineSegsOfCon
 
 import Graphics.Slicer.Math.Intersections (filterIntersections)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2Err, intersectsWithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PLine2Err, intersectsWithErr, pToEP)
 
 -- | return the number of intersections with a given contour when traveling in a straight line from the beginning of the given line segment to the end of the line segment.
 -- Not for use when line segments can overlap or are collinear with one of the line segments that are a part of the contour.
@@ -50,5 +51,23 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
         targetSeg = Left $ makeLineSeg pt1 pt2
         openCircuit v = Just <$> v
 
+-- | Get the intersections between a PLine2 and a contour as a series of points. always returns an even number of intersections.
+-- FIXME: accept error on this first pLine!
+getLineContourIntersections :: PLine2 -> Contour -> [Point2]
+getLineContourIntersections pLine c
+  | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show pLine <> "\n" <> show res <> "\n"
+  | otherwise = res
+  where
+    res = getPoints $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour c) $ intersectsWithErr targetLine <$> segs
+      where
+        segs :: [Either LineSeg (NPLine2, PLine2Err)]
+        segs =  Left <$> lineSegsOfContour c
+        targetLine :: Either LineSeg (PLine2, PLine2Err)
+        targetLine = Right (pLine, mempty)
+    openCircuit v = Just <$> v
+    getPoints :: [(LineSeg, Either Point2 CPPoint2)] -> [Point2]
+    getPoints vs = getPoint <$> vs
+      where
+        getPoint (_, Left v) = v
+        getPoint (_, Right v) = fst $ pToEP v
 
-  

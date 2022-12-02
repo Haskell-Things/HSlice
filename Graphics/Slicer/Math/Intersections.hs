@@ -18,9 +18,9 @@
 
 {- Purpose of this file: to hold the logic and routines responsible for checking for intersections with contours, or portions of contours. -}
 
-module Graphics.Slicer.Math.Intersections (filterIntersections, getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, getPLine2Intersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
+module Graphics.Slicer.Math.Intersections (filterIntersections, getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
 
-import Prelude (Bool, Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), zip, (<), (*), (||), (==), fst, length, mempty, odd, realToFrac)
+import Prelude (Bool, Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), zip, (<), (*), (||), (==), mempty, realToFrac)
 
 import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
@@ -32,7 +32,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, PLine2Err, PPoint2Err, ProjectiveLine2, distance2PL, intersectsWithErr, outputIntersectsLineSeg, plinesIntersectIn, pToEP)
+import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, PLine2Err, PPoint2Err, ProjectiveLine2, distance2PL, outputIntersectsLineSeg, plinesIntersectIn)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -74,26 +74,6 @@ getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _ _) c = stripIn
       where
         -- filter out inSeg and outSeg outSeg
         fun (seg,_) = seg /= inSeg && seg /= outSeg
-
--- | Get the intersections between a PLine2 and a contour as a series of points. always returns an even number of intersections.
--- FIXME: accept error on this first pLine!
-getPLine2Intersections :: PLine2 -> Contour -> [Point2]
-getPLine2Intersections pLine c
-  | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show pLine <> "\n" <> show res <> "\n"
-  | otherwise = res
-  where
-    res = getPoints $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour c) $ intersectsWithErr targetLine <$> segs
-      where
-        segs :: [Either LineSeg (NPLine2, PLine2Err)]
-        segs =  Left <$> lineSegsOfContour c
-        targetLine :: Either LineSeg (PLine2, PLine2Err)
-        targetLine = Right (pLine, mempty)
-    openCircuit v = Just <$> v
-    getPoints :: [(LineSeg, Either Point2 CPPoint2)] -> [Point2]
-    getPoints vs = getPoint <$> vs
-      where
-        getPoint (_, Left v) = v
-        getPoint (_, Right v) = fst $ pToEP v
 
 -- | filter the intersections given.
 -- The purpose of this function is to ensure we only count the crossing of a line (segment) across a contour's edge more than once. so if it hits a sttartpoint, make sure we don't count the endpoint.. etc.

@@ -35,7 +35,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg, addPoints, distance, makeLineSeg, minMaxPoints, xOf, yOf, roundToFifth)
 
-import Graphics.Slicer.Math.Intersections (getPLine2Intersections)
+import Graphics.Slicer.Math.ContourIntersections (getLineContourIntersections)
 
 import Graphics.Slicer.Math.Line (makeLineSegs)
 
@@ -66,7 +66,7 @@ infillLineSegInside contour childContours line
       allLines :: [LineSeg]
       allLines = makeLineSegs allPoints
         where
-          allPoints = (filterTooShort . sort) $ concatMap (getPLine2Intersections line) (contour:childContours)
+          allPoints = (filterTooShort . sort) $ concatMap (getLineContourIntersections line) (contour:childContours)
           filterTooShort :: [Point2] -> [Point2]
           filterTooShort [] = []
           filterTooShort [a] = [a]
