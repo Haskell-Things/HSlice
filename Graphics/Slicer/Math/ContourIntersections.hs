@@ -18,11 +18,16 @@
 
 {- Purpose of this file: to hold the logic and routines responsible for checking for intersections with contours, or portions of contours. -}
 
-module Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getLineContourIntersections) where
+module Graphics.Slicer.Math.ContourIntersections (
+  contourIntersectionCount,
+  getLineContourIntersections,
+  getMotorcycleContourIntersections,
+  getMotorcycleSegSetIntersections
+  ) where
 
 import Prelude (Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), zip, Int, (<), (*), length, odd)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
+import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
 import Data.List as L (filter)
 

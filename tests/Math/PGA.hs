@@ -86,7 +86,9 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Math.Util ((-->), (-/>))
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
-import Graphics.Slicer.Math.Ganja (ListThree, Radian(Radian), cellFrom, edgesOf, generationsOf, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, dumpGanjas, toGanja, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
+import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
+
+import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian(Radian), cellFrom, edgesOf, generationsOf, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
