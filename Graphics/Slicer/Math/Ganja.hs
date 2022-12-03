@@ -101,7 +101,7 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPo
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint(CPPoint2, PPoint2), ProjectiveLine(NPLine2, PLine2), PPoint2Err, hasArc, outOf)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(CPPoint2, PPoint2), ProjectiveLine, PPoint2Err, hasArc, outOf, vecOfL)
 
 import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg)
 
@@ -188,9 +188,7 @@ instance GanjaAble ProjectiveLine where
       e0 = valOf 0 (getVal [GEZero 1] vals)
       -- because ganja's website does not handle scientific notation.
       showFullPrecision v = showFFloat Nothing v ""
-      vals = case pline of
-        (PLine2 (GVec v)) -> v
-        (NPLine2 (GVec v)) -> v
+      (GVec vals) = vecOfL pline
 
 instance GanjaAble Contour where
   toGanja contour varname = (invars, inrefs)
