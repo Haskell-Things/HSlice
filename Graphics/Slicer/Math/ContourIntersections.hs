@@ -36,7 +36,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.Lossy (pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), ProjectivePoint, Intersection(HitEndPoint, HitStartPoint, NoIntersection), ProjectiveLine, PLine2Err, intersectsWithErr, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), ProjectivePoint, Intersection(HitEndPoint, HitStartPoint, NoIntersection), ProjectiveLine, ProjectiveLine2, PLine2Err, intersectsWithErr, normalizeL, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -92,17 +92,19 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
         openCircuit v = Just <$> v
 
 -- | Get the intersections between a Line and a contour as a series of points. always returns an even number of intersections.
-getLineContourIntersections :: (ProjectiveLine,PLine2Err) -> Contour -> [Point2]
-getLineContourIntersections pLine c
-  | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show pLine <> "\n" <> show res <> "\n"
+getLineContourIntersections :: (ProjectiveLine2 a) => (a, PLine2Err) -> Contour -> [Point2]
+getLineContourIntersections (line, lineErr) c
+  | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show line <> "\n" <> show res <> "\n"
   | otherwise = res
   where
     res = getPoints $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour c) $ intersectsWithErr targetLine <$> segs
     openCircuit v = Just <$> v
     segs :: [Either LineSeg (ProjectiveLine, PLine2Err)]
     segs =  Left <$> lineSegsOfContour c
+    -- FIXME: why do we have to use a concrete type here?
     targetLine :: Either LineSeg (ProjectiveLine, PLine2Err)
-    targetLine = Right pLine
+    targetLine = Right (nLine, lineErr <> nLineErr)
+    (nLine, nLineErr) = normalizeL line
     getPoints :: [(LineSeg, Either Point2 ProjectivePoint)] -> [Point2]
     getPoints vs = getPoint <$> vs
       where
