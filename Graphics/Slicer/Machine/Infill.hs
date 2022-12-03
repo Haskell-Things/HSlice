@@ -39,7 +39,7 @@ import Graphics.Slicer.Math.ContourIntersections (getLineContourIntersections)
 
 import Graphics.Slicer.Math.Line (makeLineSegs)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, join2EP)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, ProjectiveLine2, PLine2Err, join2EP)
 
 -- | what direction to put down infill lines.
 data InfillType = Diag1 | Diag2 | Vert | Horiz
@@ -56,7 +56,7 @@ makeInfill contour insideContours ls layerType = mapMaybe (infillLineSegInside c
       infillCover Diag2 = coveringPLinesNegative contour ls
 
 -- Get the segments of an infill line that are inside of a contour, skipping space occluded by any of the child contours.
-infillLineSegInside :: Contour -> [Contour] -> (ProjectiveLine,PLine2Err) -> Maybe [LineSeg]
+infillLineSegInside :: (ProjectiveLine2 a) => Contour -> [Contour] -> (a, PLine2Err) -> Maybe [LineSeg]
 infillLineSegInside contour childContours line
   | not (null allLines) = Just $ (allLines !!) <$> [0,2..length allLines - 1]
   | otherwise = Nothing
