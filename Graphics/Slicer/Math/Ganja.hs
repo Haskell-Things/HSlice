@@ -83,16 +83,18 @@
 
 module Graphics.Slicer.Math.Ganja (
   GanjaAble,
-  toGanja,
   dumpGanja,
-  dumpGanjas
+  dumpGanjas,
+  toGanja
   ) where
 
 import Prelude (String, (<>), (<>), (<$>), ($), (>=), (==), (.), (/=), concat, error, fst, otherwise, show, snd, zip)
 
+import Data.List (concatMap)
+
 import Data.Maybe (Maybe(Nothing), catMaybes, maybeToList)
 
-import Numeric(showFFloat)
+import Numeric (showFFloat)
 
 import Slist.Type (Slist(Slist))
 
@@ -170,7 +172,7 @@ instance GanjaAble Contour where
   toGanja contour varname = (invars, inrefs)
     where
       contourPoints = pointsOfContour contour
-      (invars, inrefs) = (concat $ fst <$> res, concat (snd <$> res) <> "    0x882288,\n" <> linePairs)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res <> "    0x882288,\n" <> linePairs)
         where
           linePairs    = concat $ mapWithFollower (\(_,a) (_,b) -> "    [" <> varname <> a <> "," <> varname <> b <> "],\n") pairs
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> pairs
@@ -210,12 +212,12 @@ instance GanjaAble Motorcycle where
 instance GanjaAble Cell where
   toGanja (Cell segsDivides) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip allSides allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
-          allSegs      = concat $ listFromSlist . fst <$> segsDivides
+          allSegs      = concatMap (listFromSlist . fst) segsDivides
           allDivides   = catMaybes $ listFromSlist $ snd <$> segsDivides
           allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
           listFromSlist (Slist a _) = a
@@ -223,7 +225,7 @@ instance GanjaAble Cell where
 instance GanjaAble CellDivide where
   toGanja (CellDivide (DividingMotorcycles firstMotorcycle (Slist moreMotorcycles _)) _) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res            = (\(a,b) -> toGanja a (varname <> b)) <$> zip allMotorcycles allStrings
           allStrings     = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
@@ -232,20 +234,20 @@ instance GanjaAble CellDivide where
 instance GanjaAble RemainingContour where
   toGanja (RemainingContour (Slist segsDivides _)) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip allSides allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
-          allSegs      = concat $ listFromSlist . fst <$> segsDivides
-          allDivides   = concat $ snd <$> segsDivides
+          allSegs      = concatMap (listFromSlist . fst) segsDivides
+          allDivides   = concatMap snd segsDivides
           allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
           listFromSlist (Slist a _) = a
 
 instance GanjaAble INode where
   toGanja (INode firstPLine secondPLine (Slist rawMorePLines _) outPLine) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res          = (\(a,b) -> toGanja (fst a) (varname <> b)) <$> zip allPLines allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
@@ -258,7 +260,7 @@ instance GanjaAble StraightSkeleton where
 instance GanjaAble NodeTree where
   toGanja (NodeTree (ENodeSet eNodeSides) iNodeSet) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip (allEdges <> allINodes) allStrings
@@ -285,7 +287,7 @@ instance GanjaAble NodeTree where
 instance GanjaAble Face where
   toGanja (Face edge firstArc (Slist arcs _) lastArc) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip (toGanja edge : allPLines) allStrings
@@ -295,9 +297,9 @@ instance GanjaAble Face where
 instance GanjaAble (Slist Face) where
   toGanja (Slist faces _) varname = (invars, inrefs)
     where
-      (invars, inrefs) = (concat $ fst <$> res, concat $ snd <$> res)
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
-          allArcs      = concat $ (\(Face _ firstArc (Slist arcs _) lastArc) -> [firstArc] <> arcs <> [lastArc]) <$> faces
+          allArcs      = concatMap (\(Face _ firstArc (Slist arcs _) lastArc) -> [firstArc] <> arcs <> [lastArc]) faces
           allEdges     = (\(Face edge _ _ _) -> toGanja edge) <$> faces
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip (allEdges <> allPLines) allStrings
@@ -312,7 +314,7 @@ dumpGanjas [f] = ganjaHeader <> vars <> ganjaFooterStart <> refs <> ganjaFooterE
     (vars, refs) = f "a"
 dumpGanjas xs = ganjaHeader <> vars <> ganjaFooterStart <> refs <> ganjaFooterEnd
   where
-    (vars, refs) =  (concat $ fst <$> res, concat $ snd <$> res)
+    (vars, refs) =  (concatMap fst res, concatMap snd res)
       where
         res          = (\(a,b) -> a b) <$> zip xs allStrings
         allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]

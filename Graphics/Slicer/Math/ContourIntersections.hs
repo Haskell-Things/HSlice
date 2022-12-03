@@ -58,7 +58,6 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
         openCircuit v = Just <$> v
 
 -- | Get the intersections between a Line and a contour as a series of points. always returns an even number of intersections.
--- FIXME: accept error on this first pLine!
 getLineContourIntersections :: (ProjectiveLine2 a) => (a, PLine2Err) -> Contour -> [Point2]
 getLineContourIntersections (line, lineErr) c
   | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show line <> "\n" <> show res <> "\n"
@@ -71,12 +70,12 @@ getLineContourIntersections (line, lineErr) c
         targetLine :: Either LineSeg (NPLine2, PLine2Err)
         targetLine = Right (nLine, lineErr <> nLineErr)
         (nLine, nLineErr) = normalizeL line
-    openCircuit v = Just <$> v
-    getPoints :: [(LineSeg, Either Point2 CPPoint2)] -> [Point2]
-    getPoints vs = getPoint <$> vs
-      where
-        getPoint (_, Left v) = v
-        getPoint (_, Right v) = fst $ pToEP v
+        openCircuit v = Just <$> v
+        getPoints :: [(LineSeg, Either Point2 CPPoint2)] -> [Point2]
+        getPoints vs = getPoint <$> vs
+          where
+            getPoint (_, Left v) = v
+            getPoint (_, Right v) = fst $ pToEP v
 
 -- | Get all possible intersections between the motorcycle and the contour.
 -- Filters out the input and output segment of the motorcycle.
