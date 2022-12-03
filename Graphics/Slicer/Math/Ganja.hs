@@ -101,7 +101,7 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPo
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint(CPPoint2, PPoint2), ProjectiveLine, PPoint2Err, hasArc, outOf, vecOfL)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PPoint2Err, hasArc, outOf, vecOfL, vecOfP)
 
 import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg)
 
@@ -149,12 +149,10 @@ instance GanjaAble ProjectivePoint where
       e01 = valOf 0 (getVal [GEZero 1, GEPlus 1] vals)
       -- because ganja's website does not handle scientific notation.
       showFullPrecision v = showFFloat Nothing v ""
-      vals = case ppoint of
-        (PPoint2 (GVec v)) -> v
-        (CPPoint2 (GVec v)) -> v
+      (GVec vals) = vecOfP ppoint
 
-instance GanjaAble (ProjectivePoint,PPoint2Err) where
-  toGanja (ppoint,pErr) varname = (
+instance GanjaAble (ProjectivePoint, PPoint2Err) where
+  toGanja (ppoint, pErr) varname = (
     "  var " <> varname <> " = "
       <> showFullPrecision (valOf 0 (getVal [GEPlus 1, GEPlus 2] vals)) <> "e12"
       <> (if e02 >= 0 then "+" <> showFullPrecision e02 else showFullPrecision e02)
@@ -169,9 +167,7 @@ instance GanjaAble (ProjectivePoint,PPoint2Err) where
       e01 = valOf 0 (getVal [GEZero 1, GEPlus 1] vals)
       -- because ganja's website does not handle scientific notation.
       showFullPrecision v = showFFloat Nothing v ""
-      vals = case ppoint of
-        (PPoint2 (GVec v)) -> v
-        (CPPoint2 (GVec v)) -> v
+      (GVec vals) = vecOfP ppoint
 
 instance GanjaAble ProjectiveLine where
   toGanja pline varname = (
