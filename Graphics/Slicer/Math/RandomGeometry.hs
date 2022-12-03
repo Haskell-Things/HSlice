@@ -56,7 +56,7 @@ module Graphics.Slicer.Math.RandomGeometry (
   randomTriangle,
   randomX1Y1LineSegToOrigin,
   randomX1Y1LineSegToPoint,
-  remainderFrom,
+  remainderFrom
   ) where
 
 import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, Int, (<>), (<>), (<$>), ($), (==), (+), (-), (*), (<), (/), (>), (<=), (&&), abs, error, fromInteger, fromRational, fst, mempty, mod, otherwise, replicate, show, signum, snd)

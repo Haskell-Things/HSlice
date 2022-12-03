@@ -18,17 +18,17 @@
 
 {- Purpose of this file: to hold the logic and routines responsible for checking for intersections with contours, or portions of contours. -}
 
-module Graphics.Slicer.Math.Intersections (filterIntersections, getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
+module Graphics.Slicer.Math.Intersections (filterIntersections, getMotorcycleSegSetIntersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
 
 import Prelude (Bool, Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), zip, (<), (*), (||), (==), mempty, realToFrac)
 
-import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust, fromJust)
+import Data.List (filter)
 
-import Data.List as L (filter)
+import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust, fromJust)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighbors, startPoint, distance, lineSegsOfContour, endPoint, fudgeFactor)
+import Graphics.Slicer.Math.Definitions (LineSeg, Point2, mapWithNeighbors, startPoint, distance, endPoint, fudgeFactor)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
@@ -55,24 +55,9 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _ _) segs = strip
         shortCircuitItem (Just seg, Just intersection) = Just (seg, intersection)
         shortCircuitItem item = error $ "cannot short circuit item: " <> show item <> "\n"
     stripInSegOutSeg :: [(LineSeg, Either Point2 CPPoint2)] -> [(LineSeg, Either Point2 CPPoint2)]
-    stripInSegOutSeg = L.filter fun
+    stripInSegOutSeg = filter fun
       where
         -- make sure neither of these segments are inSeg or outSeg
-        fun (seg,_) = seg /= inSeg && seg /= outSeg
-
--- | Get all possible intersections between the motorcycle and the contour.
--- Filters out the input and output segment of the motorcycle.
-getMotorcycleContourIntersections :: Motorcycle -> Contour -> [(LineSeg, Either Point2 CPPoint2)]
-getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _ _) c = stripInSegOutSeg $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip contourLines $ willIntersect <$> contourLines
-  where
-    willIntersect :: LineSeg -> Either Intersection PIntersection
-    willIntersect mySeg = outputIntersectsLineSeg m mySeg
-    openCircuit v = Just <$> v
-    contourLines = lineSegsOfContour c
-    stripInSegOutSeg :: [(LineSeg, Either Point2 CPPoint2)] -> [(LineSeg, Either Point2 CPPoint2)]
-    stripInSegOutSeg = L.filter fun
-      where
-        -- filter out inSeg and outSeg outSeg
         fun (seg,_) = seg /= inSeg && seg /= outSeg
 
 -- | filter the intersections given.
