@@ -74,12 +74,8 @@
  cut, and paste the output into https://enkimute.github.io/ganja.js/examples/coffeeshop.html, click 'Run'
  -}
 
+-- loosen some instance restrictions, so we can work with String and others.
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ParallelListComp #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
--- so we can define a Num instance for Positive.
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Graphics.Slicer.Math.Ganja (
   GanjaAble,
@@ -114,6 +110,9 @@ import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
 class GanjaAble a where
   toGanja :: a -> String -> (String, String)
+
+instance GanjaAble String where
+  toGanja string varname = (" // " <> varname <> " -- " <> string <> "\n","")
 
 instance GanjaAble Point2 where
   toGanja (Point2 (x,y)) varname = (
