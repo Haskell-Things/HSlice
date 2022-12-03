@@ -60,7 +60,7 @@ module Graphics.Slicer.Math.PGAPrimitives
     yIntercept
   ) where
 
-import Prelude(Bool(False), Eq((==),(/=)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), ($), (+), (*), (/), (<$>), (&&), abs, error, filter, fst, negate, otherwise, realToFrac, snd, sqrt)
+import Prelude(Bool(False), Eq((==),(/=)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), ($), (+), (*), (/), (<$>), (&&), (-), abs, error, filter, fst, negate, otherwise, realToFrac, snd, sqrt)
 
 import Control.DeepSeq (NFData)
 
@@ -389,8 +389,8 @@ pLineErrAtPPoint (line, lineErr) errPoint
     xMin, xMax, yMin, yMax :: ℝ
     xMax = xInterceptDistance + realToFrac (ulpVal rawXInterceptFuzz)
     yMax = yInterceptDistance + realToFrac (ulpVal rawYInterceptFuzz)
-    xMin = xInterceptDistance
-    yMin = yInterceptDistance
+    xMin = xInterceptDistance - realToFrac (ulpVal rawXInterceptFuzz)
+    yMin = yInterceptDistance - realToFrac (ulpVal rawYInterceptFuzz)
     rawYInterceptFuzz = snd $ fromJust $ yIntercept (nPLine, nPLineErr)
     rawXInterceptFuzz = snd $ fromJust $ xIntercept (nPLine, nPLineErr)
     yInterceptDistance = abs $ fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
