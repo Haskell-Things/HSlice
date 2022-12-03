@@ -33,13 +33,13 @@ import Data.Maybe (Maybe(Just, Nothing), mapMaybe)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg, addPoints, distance, makeLineSeg, minMaxPoints, xOf, yOf, roundToFifth)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg, addPoints, distance, minMaxPoints, xOf, yOf, roundToFifth)
 
-import Graphics.Slicer.Math.ContourIntersections (getPLine2Intersections)
+import Graphics.Slicer.Math.ContourIntersections (getLineContourIntersections)
 
 import Graphics.Slicer.Math.Line (makeLineSegs)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, eToPL)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, join2EP)
 
 -- | what direction to put down infill lines.
 data InfillType = Diag1 | Diag2 | Vert | Horiz
@@ -64,7 +64,7 @@ infillLineSegInside contour childContours line
       allLines :: [LineSeg]
       allLines = makeLineSegs allPoints
         where
-          allPoints = (filterTooShort . sort) $ concatMap (getPLine2Intersections line) (contour:childContours)
+          allPoints = (filterTooShort . sort) $ concatMap (getLineContourIntersections line) (contour:childContours)
           filterTooShort :: [Point2] -> [Point2]
           filterTooShort [] = []
           filterTooShort [a] = [a]
@@ -72,9 +72,9 @@ infillLineSegInside contour childContours line
 
 -- Generate lines covering the entire contour, where each one is aligned with a +1 slope, which is to say, lines parallel to a line where x = y.
 coveringPLinesPositive :: Contour -> ℝ -> [(ProjectiveLine, PLine2Err)]
-coveringPLinesPositive contour ls = eToPL . makeSeg <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
+coveringPLinesPositive contour ls = makeLine <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
     where
-      makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope
+      makeLine a = join2EP (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
       slope = Point2 (1,1)
       f v = Point2 (v-xDiff,0)
@@ -92,9 +92,9 @@ coveringPLinesPositive contour ls = eToPL . makeSeg <$> [0,lss..(xMax-xMinRaw)+(
 
 -- Generate lines covering the entire contour, where each one is aligned with a -1 slope, which is to say, lines parallel to a line where x = -y.
 coveringPLinesNegative :: Contour -> ℝ -> [(ProjectiveLine, PLine2Err)]
-coveringPLinesNegative contour ls = eToPL . makeSeg <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
+coveringPLinesNegative contour ls = makeLine <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
     where
-      makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope
+      makeLine a = join2EP (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
       slope =  Point2 (1,-1)
       f v = Point2 (v+yDiff,0)
@@ -112,9 +112,9 @@ coveringPLinesNegative contour ls = eToPL . makeSeg <$> [0,lss..(xMax-xMin)+(yMa
 
 -- Generate lines covering the entire contour, where each line is aligned with the Y axis, which is to say, parallel to the Y basis vector.
 coveringPLinesVertical :: Contour -> ℝ -> [(ProjectiveLine, PLine2Err)]
-coveringPLinesVertical contour ls = eToPL . makeSeg <$> [xMin,xMin+ls..xMax]
+coveringPLinesVertical contour ls = makeLine <$> [xMin,xMin+ls..xMax]
     where
-      makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope
+      makeLine a = join2EP (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
       slope = Point2 (0,1)
       f v = Point2 (v,0)
@@ -127,9 +127,9 @@ coveringPLinesVertical contour ls = eToPL . makeSeg <$> [xMin,xMin+ls..xMax]
 
 -- Generate lines covering the entire contour, where each line is aligned with the X axis, which is to say, parallel to the X basis vector.
 coveringPLinesHorizontal :: Contour -> ℝ -> [(ProjectiveLine, PLine2Err)]
-coveringPLinesHorizontal contour ls = eToPL . makeSeg <$> [yMin,yMin+ls..yMax]
+coveringPLinesHorizontal contour ls = makeLine <$> [yMin,yMin+ls..yMax]
     where
-      makeSeg a = makeLineSeg (f a) $ addPoints (f a) slope
+      makeLine a = join2EP (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
       slope = Point2 (1,0)
       f v = Point2 (0,v)

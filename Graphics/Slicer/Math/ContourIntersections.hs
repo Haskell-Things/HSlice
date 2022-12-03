@@ -18,7 +18,7 @@
 
 {- Purpose of this file: to hold the logic and routines responsible for checking for intersections with contours, or portions of contours. -}
 
-module Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getPLine2Intersections) where
+module Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getLineContourIntersections) where
 
 import Prelude (Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), zip, Int, (<), (*), length, odd)
 
@@ -91,9 +91,9 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
         targetSeg = Left $ makeLineSeg pt1 pt2
         openCircuit v = Just <$> v
 
--- | Get the intersections between a PLine2 and a contour as a series of points. always returns an even number of intersections.
-getPLine2Intersections :: (ProjectiveLine,PLine2Err) -> Contour -> [Point2]
-getPLine2Intersections pLine c
+-- | Get the intersections between a Line and a contour as a series of points. always returns an even number of intersections.
+getLineContourIntersections :: (ProjectiveLine,PLine2Err) -> Contour -> [Point2]
+getLineContourIntersections pLine c
   | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show pLine <> "\n" <> show res <> "\n"
   | otherwise = res
   where
