@@ -88,7 +88,7 @@ import Prelude (String, (<>), (<>), (<$>), ($), (>=), (==), (.), (/=), concat, e
 
 import Data.List (concatMap)
 
-import Data.Maybe (Maybe(Nothing), catMaybes, maybeToList)
+import Data.Maybe (Maybe(Nothing), catMaybes)
 
 import Numeric (showFFloat)
 
@@ -102,7 +102,7 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPo
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf)
 
-import Graphics.Slicer.Math.PGA (PLine2(PLine2), PPoint2(PPoint2), outOf)
+import Graphics.Slicer.Math.PGA (PLine2, PPoint2, PPoint2Err, hasArc, outAndErrOf, outOf, vecOfL, vecOfP)
 
 import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg)
 
@@ -136,7 +136,7 @@ instance GanjaAble LineSeg where
       (p2var, p2ref) = toGanja (endPoint l1) (varname <> "b")
 
 instance GanjaAble PPoint2 where
-  toGanja (PPoint2 (GVec vals)) varname = (
+  toGanja point varname = (
     "  var " <> varname <> " = "
       <> showFullPrecision (valOf 0 (getVal [GEPlus 1, GEPlus 2] vals)) <> "e12"
       <> (if e02 >= 0 then "+" <> showFullPrecision e02 else showFullPrecision e02)
@@ -150,9 +150,28 @@ instance GanjaAble PPoint2 where
       e01 = valOf 0 (getVal [GEZero 1, GEPlus 1] vals)
       -- because ganja's website does not handle scientific notation.
       showFullPrecision v = showFFloat Nothing v ""
+      (GVec vals) = vecOfP point
+
+instance GanjaAble (PPoint2, PPoint2Err) where
+  toGanja (point, pointErr) varname = (
+    "  var " <> varname <> " = "
+      <> showFullPrecision (valOf 0 (getVal [GEPlus 1, GEPlus 2] vals)) <> "e12"
+      <> (if e02 >= 0 then "+" <> showFullPrecision e02 else showFullPrecision e02)
+      <> "e02"
+      <> (if e01 >= 0 then "+" <> showFullPrecision e01 else showFullPrecision e01)
+      <> "e01;\n"
+      <> "// " <> show pointErr <> "\n"
+    ,
+    "    " <> varname <> ", " <> show varname <> ",\n")
+    where
+      e02 = valOf 0 (getVal [GEZero 1, GEPlus 2] vals)
+      e01 = valOf 0 (getVal [GEZero 1, GEPlus 1] vals)
+      -- because ganja's website does not handle scientific notation.
+      showFullPrecision v = showFFloat Nothing v ""
+      (GVec vals) = vecOfP point
 
 instance GanjaAble PLine2 where
-  toGanja (PLine2 (GVec vals)) varname = (
+  toGanja line varname = (
     "  var " <> varname <> " = "
       <> showFullPrecision (valOf 0 (getVal [GEPlus 1] vals)) <> "e1"
       <> (if e2 >= 0 then "+" <> showFullPrecision e2 else showFullPrecision e2)
@@ -166,6 +185,7 @@ instance GanjaAble PLine2 where
       e0 = valOf 0 (getVal [GEZero 1] vals)
       -- because ganja's website does not handle scientific notation.
       showFullPrecision v = showFFloat Nothing v ""
+      (GVec vals) = vecOfL line
 
 instance GanjaAble Contour where
   toGanja contour varname = (invars, inrefs)
@@ -244,13 +264,13 @@ instance GanjaAble RemainingContour where
           listFromSlist (Slist a _) = a
 
 instance GanjaAble INode where
-  toGanja (INode firstPLine secondPLine (Slist rawMorePLines _) outPLine) varname = (invars, inrefs)
+  toGanja iNode@(INode firstPLine secondPLine (Slist rawMorePLines _) _) varname = (invars, inrefs)
     where
       (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res          = (\(a,b) -> toGanja (fst a) (varname <> b)) <$> zip allPLines allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
-          allPLines    = firstPLine:secondPLine:rawMorePLines <> maybeToList outPLine
+          allPLines    = firstPLine:secondPLine:rawMorePLines <> (if hasArc iNode then [outAndErrOf iNode] else [])
 
 instance GanjaAble StraightSkeleton where
   toGanja (StraightSkeleton (Slist [[nodetree]] _) _) = toGanja nodetree

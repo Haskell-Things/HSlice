@@ -71,7 +71,8 @@ module Graphics.Slicer.Math.PGA(
   pToEP,
   plinesIntersectIn,
   translateL,
-  translateRotatePPoint2WithErr
+  translateRotatePPoint2WithErr,
+  vecOfP
   ) where
 
 import Prelude (Bool, Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (-), (>=), (&&), (<$>), otherwise, signum, (>), (<=), (+), negate, (/), (||), (<), abs, error, sin, cos, realToFrac)
