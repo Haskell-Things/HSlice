@@ -39,7 +39,7 @@ import Graphics.Slicer.Math.Lossy (eToPLine2, pToEPoint2)
 
 import Graphics.Slicer.Math.PGA (combineConsecutiveLineSegs, eToPL, translateL)
 
-import Graphics.Slicer.Definitions(ℝ)
+import Graphics.Slicer.Definitions (ℝ)
 
 ---------------------------------------------------------------
 -------------------- Contour Optimizer ------------------------
