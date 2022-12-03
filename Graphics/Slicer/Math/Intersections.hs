@@ -18,47 +18,19 @@
 
 {- Purpose of this file: to hold the logic and routines responsible for checking for intersections with contours, or portions of contours. -}
 
-module Graphics.Slicer.Math.Intersections (filterIntersections, getMotorcycleSegSetIntersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
+module Graphics.Slicer.Math.Intersections (filterIntersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
 
-import Prelude (Bool, Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), zip, (<), (*), (||), (==), mempty, realToFrac)
+import Prelude (Bool, Either(Left,Right), error, otherwise, show, (<>), ($), (<), (*), (||), (==), mempty, realToFrac)
 
-import Data.List (filter)
-
-import Data.Maybe (Maybe(Just,Nothing), catMaybes, isJust, fromJust)
+import Data.Maybe (Maybe(Just,Nothing), isJust, fromJust)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (LineSeg, Point2, mapWithNeighbors, startPoint, distance, endPoint, fudgeFactor)
+import Graphics.Slicer.Math.Definitions (LineSeg, Point2, startPoint, distance, endPoint, fudgeFactor)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, PLine2Err, PPoint2Err, ProjectiveLine2, distance2PL, outputIntersectsLineSeg, plinesIntersectIn)
-
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
-
--- | Get all possible intersections between the motorcycle and the given list of segments.
--- Filters out the input and output segment of the motorcycle.
-getMotorcycleSegSetIntersections :: Motorcycle -> [LineSeg] -> [(LineSeg, Either Point2 CPPoint2)]
-getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _ _) segs = stripInSegOutSeg $ catMaybes $ mapWithNeighbors filterIntersections $ shortCircuit $ zip bufferedLineSegs $ mightIntersect <$> bufferedLineSegs
-  where
-    -- since this is a list of segments, we terminate the list with Nothings, so that the saneIntersections pattern matching logic can deal with "there is no neighbor, but i hit a start/end point"
-    bufferedLineSegs :: [Maybe LineSeg]
-    bufferedLineSegs = Nothing : (Just <$> segs) <> [Nothing]
-    mightIntersect :: Maybe LineSeg -> Maybe (Either Intersection PIntersection)
-    mightIntersect maybeSeg = case maybeSeg of
-                                Nothing -> Nothing
-                                (Just seg) -> Just $ outputIntersectsLineSeg m seg
-    shortCircuit :: [(Maybe LineSeg, Maybe (Either Intersection PIntersection))] -> [Maybe (LineSeg, Either Intersection PIntersection)]
-    shortCircuit items = shortCircuitItem <$> items
-      where
-        shortCircuitItem (Nothing, Nothing) = Nothing
-        shortCircuitItem (Just seg, Just intersection) = Just (seg, intersection)
-        shortCircuitItem item = error $ "cannot short circuit item: " <> show item <> "\n"
-    stripInSegOutSeg :: [(LineSeg, Either Point2 CPPoint2)] -> [(LineSeg, Either Point2 CPPoint2)]
-    stripInSegOutSeg = filter fun
-      where
-        -- make sure neither of these segments are inSeg or outSeg
-        fun (seg,_) = seg /= inSeg && seg /= outSeg
+import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, PLine2Err, PPoint2Err, ProjectiveLine2, distance2PL, plinesIntersectIn)
 
 -- | filter the intersections given.
 -- The purpose of this function is to ensure we only count the crossing of a line (segment) across a contour's edge more than once. so if it hits a sttartpoint, make sure we don't count the endpoint.. etc.

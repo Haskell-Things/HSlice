@@ -21,14 +21,15 @@
 module Graphics.Slicer.Math.ContourIntersections (
   contourIntersectionCount,
   getLineContourIntersections,
-  getMotorcycleContourIntersections
+  getMotorcycleContourIntersections,
+  getMotorcycleSegSetIntersections
   ) where
 
 import Prelude (Either(Left, Right), Int, Show(show), (<$>), (<>), ($), (/=), (&&), error, fst, length, odd, otherwise, zip)
 
 import Data.List (filter)
 
-import Data.Maybe (Maybe(Just), catMaybes)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes)
 
 import Slist.Type (Slist)
 
@@ -38,7 +39,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, lineSegsOfCon
 
 import Graphics.Slicer.Math.Intersections (filterIntersections)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2Err, ProjectiveLine2, intersectsWithErr, normalizeL, outputIntersectsLineSeg, pToEP)
+import Graphics.Slicer.Math.PGA (CPPoint2, Intersection, NPLine2, PIntersection, PLine2Err, ProjectiveLine2, intersectsWithErr, normalizeL, outputIntersectsLineSeg, pToEP)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -89,3 +90,28 @@ getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _ _) c = stripIn
       where
         -- filter out inSeg and outSeg outSeg
         fun (seg,_) = seg /= inSeg && seg /= outSeg
+
+-- | Get all possible intersections between the motorcycle and the given list of segments.
+-- Filters out the input and output segment of the motorcycle.
+getMotorcycleSegSetIntersections :: Motorcycle -> [LineSeg] -> [(LineSeg, Either Point2 CPPoint2)]
+getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _ _) segs = stripInSegOutSeg $ catMaybes $ mapWithNeighbors filterIntersections $ shortCircuit $ zip bufferedLineSegs $ mightIntersect <$> bufferedLineSegs
+  where
+    -- since this is a list of segments, we terminate the list with Nothings, so that the saneIntersections pattern matching logic can deal with "there is no neighbor, but i hit a start/end point"
+    bufferedLineSegs :: [Maybe LineSeg]
+    bufferedLineSegs = Nothing : (Just <$> segs) <> [Nothing]
+    mightIntersect :: Maybe LineSeg -> Maybe (Either Intersection PIntersection)
+    mightIntersect maybeSeg = case maybeSeg of
+                                Nothing -> Nothing
+                                (Just seg) -> Just $ outputIntersectsLineSeg m seg
+    shortCircuit :: [(Maybe LineSeg, Maybe (Either Intersection PIntersection))] -> [Maybe (LineSeg, Either Intersection PIntersection)]
+    shortCircuit items = shortCircuitItem <$> items
+      where
+        shortCircuitItem (Nothing, Nothing) = Nothing
+        shortCircuitItem (Just seg, Just intersection) = Just (seg, intersection)
+        shortCircuitItem item = error $ "cannot short circuit item: " <> show item <> "\n"
+    stripInSegOutSeg :: [(LineSeg, Either Point2 CPPoint2)] -> [(LineSeg, Either Point2 CPPoint2)]
+    stripInSegOutSeg = filter fun
+      where
+        -- make sure neither of these segments are inSeg or outSeg
+        fun (seg,_) = seg /= inSeg && seg /= outSeg
+

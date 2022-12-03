@@ -44,10 +44,11 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Contour (pointsOfContour)
 
-import Graphics.Slicer.Math.ContourIntersections (getMotorcycleContourIntersections)
+import Graphics.Slicer.Math.ContourIntersections (getMotorcycleContourIntersections, getMotorcycleSegSetIntersections)
+
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighbors, startPoint, endPoint, makeLineSeg)
 
-import Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, intersectionOf, isAntiCollinear, noIntersection)
+import Graphics.Slicer.Math.Intersections (intersectionOf, isAntiCollinear, noIntersection)
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, pPointBetweenPPoints, distanceBetweenPPoints, eToCPPoint2, eToPLine2, normalizePLine2, pToEPoint2)
 
