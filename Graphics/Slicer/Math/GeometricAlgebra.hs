@@ -16,9 +16,11 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
--- for adding Generic and NFData to our types.
-{-# LANGUAGE DeriveGeneric, DeriveAnyClass, FlexibleInstances #-}
+-- For adding Generic and NFData to our types.
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
+-- For TowardInf.
 {-# LANGUAGE DataKinds #-}
 
 -- So we can map applying (,mempty) to a list.

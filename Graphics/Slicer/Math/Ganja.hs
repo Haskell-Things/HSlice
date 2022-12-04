@@ -74,6 +74,7 @@
  cut, and paste the output into https://enkimute.github.io/ganja.js/examples/coffeeshop.html, click 'Run'
  -}
 
+-- loosen some instance restrictions, so we can work with String and others.
 {-# LANGUAGE FlexibleInstances #-}
 
 module Graphics.Slicer.Math.Ganja (
@@ -122,7 +123,7 @@ instance GanjaAble Point2 where
       showFullPrecision v = showFFloat Nothing v ""
 
 instance GanjaAble LineSeg where
-  toGanja l1 varname = (
+  toGanja lineSeg varname = (
        p1var
     <> p2var,
        "    0x882288,\n"
@@ -131,11 +132,11 @@ instance GanjaAble LineSeg where
     <> p1ref
     <> p2ref)
     where
-      (p1var, p1ref) = toGanja (startPoint l1) (varname <> "a")
-      (p2var, p2ref) = toGanja (endPoint l1) (varname <> "b")
+      (p1var, p1ref) = toGanja (startPoint lineSeg) (varname <> "a")
+      (p2var, p2ref) = toGanja (endPoint lineSeg) (varname <> "b")
 
 instance GanjaAble ProjectivePoint where
-  toGanja ppoint varname = (
+  toGanja point varname = (
     "  var " <> varname <> " = "
       <> showFullPrecision (valOf 0 (getVal [GEPlus 1, GEPlus 2] vals)) <> "e12"
       <> (if e02 >= 0 then "+" <> showFullPrecision e02 else showFullPrecision e02)
@@ -149,17 +150,17 @@ instance GanjaAble ProjectivePoint where
       e01 = valOf 0 (getVal [GEZero 1, GEPlus 1] vals)
       -- because ganja's website does not handle scientific notation.
       showFullPrecision v = showFFloat Nothing v ""
-      (GVec vals) = vecOfP ppoint
+      (GVec vals) = vecOfP point
 
 instance GanjaAble (ProjectivePoint, PPoint2Err) where
-  toGanja (ppoint, pErr) varname = (
+  toGanja (point, pointErr) varname = (
     "  var " <> varname <> " = "
       <> showFullPrecision (valOf 0 (getVal [GEPlus 1, GEPlus 2] vals)) <> "e12"
       <> (if e02 >= 0 then "+" <> showFullPrecision e02 else showFullPrecision e02)
       <> "e02"
       <> (if e01 >= 0 then "+" <> showFullPrecision e01 else showFullPrecision e01)
       <> "e01;\n"
-      <> "// " <> show pErr <> "\n"
+      <> "// " <> show pointErr <> "\n"
     ,
     "    " <> varname <> ", " <> show varname <> ",\n")
     where
@@ -167,10 +168,10 @@ instance GanjaAble (ProjectivePoint, PPoint2Err) where
       e01 = valOf 0 (getVal [GEZero 1, GEPlus 1] vals)
       -- because ganja's website does not handle scientific notation.
       showFullPrecision v = showFFloat Nothing v ""
-      (GVec vals) = vecOfP ppoint
+      (GVec vals) = vecOfP point
 
 instance GanjaAble ProjectiveLine where
-  toGanja pline varname = (
+  toGanja line varname = (
     "  var " <> varname <> " = "
       <> showFullPrecision (valOf 0 (getVal [GEPlus 1] vals)) <> "e1"
       <> (if e2 >= 0 then "+" <> showFullPrecision e2 else showFullPrecision e2)
@@ -184,7 +185,7 @@ instance GanjaAble ProjectiveLine where
       e0 = valOf 0 (getVal [GEZero 1] vals)
       -- because ganja's website does not handle scientific notation.
       showFullPrecision v = showFFloat Nothing v ""
-      (GVec vals) = vecOfL pline
+      (GVec vals) = vecOfL line
 
 instance GanjaAble Contour where
   toGanja contour varname = (invars, inrefs)
@@ -247,7 +248,7 @@ instance GanjaAble CellDivide where
         where
           res            = (\(a,b) -> toGanja a (varname <> b)) <$> zip allMotorcycles allStrings
           allStrings     = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
-          allMotorcycles =   firstMotorcycle:moreMotorcycles
+          allMotorcycles = firstMotorcycle:moreMotorcycles
 
 instance GanjaAble RemainingContour where
   toGanja (RemainingContour (Slist segsDivides _)) varname = (invars, inrefs)
@@ -263,13 +264,13 @@ instance GanjaAble RemainingContour where
           listFromSlist (Slist a _) = a
 
 instance GanjaAble INode where
-  toGanja inode@(INode firstPLine secondPLine (Slist rawMorePLines _) _) varname = (invars, inrefs)
+  toGanja iNode@(INode firstPLine secondPLine (Slist rawMorePLines _) _) varname = (invars, inrefs)
     where
       (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> zip allPLines allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
-          allPLines    =   firstPLine:secondPLine:rawMorePLines <> (if hasArc inode then [outOf inode] else [])
+          allPLines    = firstPLine:secondPLine:rawMorePLines <> (if hasArc iNode then [outOf iNode] else [])
 
 instance GanjaAble StraightSkeleton where
   toGanja (StraightSkeleton (Slist [[nodetree]] _) _) = toGanja nodetree

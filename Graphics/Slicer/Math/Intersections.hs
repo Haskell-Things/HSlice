@@ -17,10 +17,21 @@
  -}
 
 {-
-   This file contains code for examining and retrieving the intersection of two projective lines.
+   This file contains code for retrieving and reasoning about the intersection of two projective lines.
 -}
 
-module Graphics.Slicer.Math.Intersections (noIntersection, intersectionOf, intersectionBetween, intersectionsAtSamePoint, isCollinear, isAntiCollinear, isParallel, isAntiParallel, outputIntersectsPLine, outputsIntersect) where
+module Graphics.Slicer.Math.Intersections (
+  intersectionBetween,
+  intersectionOf,
+  intersectionsAtSamePoint,
+  isAntiCollinear,
+  isAntiParallel,
+  isCollinear,
+  isParallel,
+  noIntersection,
+  outputIntersectsPLine,
+  outputsIntersect
+  ) where
 
 import Prelude (Bool(True), ($), (<), (<=), (<>), (==), (||), (&&), (<$>), Maybe(Just, Nothing), Either(Right, Left), and, error, otherwise, realToFrac, show)
 
@@ -36,49 +47,49 @@ import Graphics.Slicer.Math.PGA (Arcable(hasArc), PIntersection(IntersectsIn, PP
 
 -- | Check if two lines cannot intersect.
 noIntersection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
-noIntersection pline1 pline2 = isCollinear pline1 pline2 || isParallel pline1 pline2 || isAntiCollinear pline1 pline2 || isAntiParallel pline1 pline2
+noIntersection line1 line2 = isCollinear line1 line2 || isParallel line1 line2 || isAntiCollinear line1 line2 || isAntiParallel line1 line2
 
 -- | Check if two lines are really the same line.
 isCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
-isCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PCollinear
+isCollinear line1 line2 = plinesIntersectIn line1 line2 == PCollinear
 
 -- | Check if two lines are really the same line.
 isAntiCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
-isAntiCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiCollinear
+isAntiCollinear line1 line2 = plinesIntersectIn line1 line2 == PAntiCollinear
 
 -- | Check if two lines are parallel.
 isParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
-isParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PParallel
+isParallel line1 line2 = plinesIntersectIn line1 line2 == PParallel
 
 -- | Check if two lines are anti-parallel.
 isAntiParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
-isAntiParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiParallel
+isAntiParallel line1 line2 = plinesIntersectIn line1 line2 == PAntiParallel
 
 -- | Get the intersection point of two lines we know have an intersection point.
 intersectionOf :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectivePoint, PPoint2Err)
-intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
+intersectionOf line1 line2 = saneIntersection $ plinesIntersectIn line1 line2
   where
-    saneIntersection PAntiCollinear     = error $ "cannot get the intersection of anti-collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection PCollinear         = error $ "cannot get the intersection of collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection PParallel          = error $ "cannot get the intersection of parallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection PAntiParallel      = error $ "cannot get the intersection of antiparallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection (IntersectsIn p (_,_,pErr)) = (p, pErr)
+    saneIntersection PAntiCollinear     = error $ "cannot get the intersection of anti-collinear lines.\nline1: " <> show line1 <> "\nline2: " <> show line2 <> "\n"
+    saneIntersection PCollinear         = error $ "cannot get the intersection of collinear lines.\nline1: " <> show line1 <> "\nline2: " <> show line2 <> "\n"
+    saneIntersection PParallel          = error $ "cannot get the intersection of parallel lines.\nline1: " <> show line1 <> "\nline2: " <> show line2 <> "\n"
+    saneIntersection PAntiParallel      = error $ "cannot get the intersection of antiparallel lines.\nline1: " <> show line1 <> "\nline2: " <> show line2 <> "\n"
+    saneIntersection (IntersectsIn p (_,_, pErr)) = (p, pErr)
 
 -- | Get the intersection point of two lines. if they are collinear, returns a line, and if they are parallel, returns Nothing.
 -- FIXME: adding two different types of error.
-intersectionBetween :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Maybe (Either (ProjectiveLine, PLine2Err) (ProjectivePoint, PPoint2Err))
-intersectionBetween pl1@(rawPl1,_) pl2@(rawPl2,_) = saneIntersection $ plinesIntersectIn pl1 pl2
+intersectionBetween :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe (Either (a, PLine2Err) (ProjectivePoint, PPoint2Err))
+intersectionBetween line1@(rawLine1,_) line2@(rawLine2,_) = saneIntersection $ plinesIntersectIn line1 line2
   where
-    (foundDistance, (_,_,foundErr)) = distance2PL rawPl1 rawPl2
-    saneIntersection PCollinear         = Just $ Left pl1
-    saneIntersection PAntiCollinear     = Just $ Left pl1
+    (foundDistance, (_,_, foundErr)) = distance2PL rawLine1 rawLine2
+    saneIntersection PAntiCollinear     = Just $ Left line1
+    saneIntersection PCollinear         = Just $ Left line1
     saneIntersection PParallel          = if foundDistance < realToFrac (ulpVal foundErr)
-                                          then Just $ Left pl1
+                                          then Just $ Left line1
                                           else Nothing
     saneIntersection PAntiParallel      = if foundDistance < realToFrac (ulpVal foundErr)
-                                          then Just $ Left pl1
+                                          then Just $ Left line1
                                           else Nothing
-    saneIntersection (IntersectsIn p (_,_,pErr)) = Just $ Right (p, pErr)
+    saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p, pErr)
 
 -- | Find out where the output of an Arcable intersects a given PLine2. errors if no intersection.
 outputIntersectsPLine :: (Arcable a) => a -> (ProjectiveLine, PLine2Err) -> ProjectivePoint

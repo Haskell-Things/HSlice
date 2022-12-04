@@ -25,11 +25,11 @@ module Graphics.Slicer.Math.ContourIntersections (
   getMotorcycleSegSetIntersections
   ) where
 
-import Prelude (Either(Left, Right), Int, (<), (*), (&&), (<>), ($), (<$>), (/=), error, fst, length, odd, otherwise, show, zip)
+import Prelude (Either(Left, Right), Int, Show(show), (<), (*), (&&), (<>), ($), (<$>), (/=), error, fst, length, odd, otherwise, zip)
 
 import Data.List (filter)
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, isJust, fromJust)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromJust, isJust)
 
 import Slist.Type (Slist)
 
@@ -65,13 +65,13 @@ getLineContourIntersections (line, lineErr) c
   where
     res = getPoints $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour c) $ intersectsWithErr targetLine <$> segs
       where
-        openCircuit v = Just <$> v
         segs :: [Either LineSeg (ProjectiveLine, PLine2Err)]
         segs =  Left <$> lineSegsOfContour c
         -- FIXME: why do we have to use a concrete type here?
         targetLine :: Either LineSeg (ProjectiveLine, PLine2Err)
         targetLine = Right (nLine, lineErr <> nLineErr)
         (nLine, nLineErr) = normalizeL line
+        openCircuit v = Just <$> v
         getPoints :: [(LineSeg, Either Point2 ProjectivePoint)] -> [Point2]
         getPoints vs = getPoint <$> vs
           where
