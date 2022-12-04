@@ -123,7 +123,7 @@ instance GanjaAble Point2 where
       showFullPrecision v = showFFloat Nothing v ""
 
 instance GanjaAble LineSeg where
-  toGanja l1 varname = (
+  toGanja lineSeg varname = (
        p1var
     <> p2var,
        "    0x882288,\n"
@@ -132,8 +132,8 @@ instance GanjaAble LineSeg where
     <> p1ref
     <> p2ref)
     where
-      (p1var, p1ref) = toGanja (startPoint l1) (varname <> "a")
-      (p2var, p2ref) = toGanja (endPoint l1) (varname <> "b")
+      (p1var, p1ref) = toGanja (startPoint lineSeg) (varname <> "a")
+      (p2var, p2ref) = toGanja (endPoint lineSeg) (varname <> "b")
 
 instance GanjaAble PPoint2 where
   toGanja point varname = (
@@ -248,7 +248,7 @@ instance GanjaAble CellDivide where
         where
           res            = (\(a,b) -> toGanja a (varname <> b)) <$> zip allMotorcycles allStrings
           allStrings     = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
-          allMotorcycles =   firstMotorcycle:moreMotorcycles
+          allMotorcycles = firstMotorcycle:moreMotorcycles
 
 instance GanjaAble RemainingContour where
   toGanja (RemainingContour (Slist segsDivides _)) varname = (invars, inrefs)

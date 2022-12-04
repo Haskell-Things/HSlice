@@ -58,14 +58,14 @@ module Graphics.Slicer.Math.GeometricAlgebra(
   hpDivVecScalar,
   mulScalarVecWithErr,
   reduceVecPair,
+  scalarPart,
   subVal,
   subValPairWithErr,
   subVecPair,
   sumErrVals,
-  valOf,
-  scalarPart,
   ulpVal,
   unlikeVecPair,
+  valOf,
   vectorPart
   ) where
 
