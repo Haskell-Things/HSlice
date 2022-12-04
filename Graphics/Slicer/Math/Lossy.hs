@@ -19,11 +19,8 @@
 -- | The purpose of this file is to provide versions of PGA functionality that are known to be lossy.
 
 module Graphics.Slicer.Math.Lossy (
-  angleBetween,
   distanceBetweenPPoints,
-  distanceBetweenPLines,
   distancePPointToPLine,
-  eToNPLine2,
   eToPLine2,
   getFirstArc,
   getInsideArc,
@@ -47,26 +44,16 @@ import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getInsideArc, g
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
-import Graphics.Slicer.Math.PGA (angleBetween2PL, distance2PL, distance2PP, distancePPointToPLineWithErr, eToPL, interpolate2PP, join2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (distance2PP, distancePPointToPLineWithErr, eToPL, interpolate2PP, join2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectiveLine2(normalizeL), ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err)
 
-angleBetween :: ProjectiveLine -> ProjectiveLine -> ℝ
-angleBetween nPLine1 nPLine2 = fst $ angleBetween2PL nPLine1 nPLine2
-
 distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
-distanceBetweenPPoints point1 point2 = fst $ distance2PP (point1,mempty) (point2,mempty)
-
-distanceBetweenPLines :: ProjectiveLine -> ProjectiveLine -> ℝ
-distanceBetweenPLines pLine1 pLine2 = fst $ distance2PL pLine1 pLine2
+distanceBetweenPPoints point1 point2 = fst $ distance2PP (point1, mempty) (point2, mempty)
 
 -- | Find the unsigned distance between a point and a line.
 distancePPointToPLine :: (ProjectivePoint,PPoint2Err) -> (ProjectiveLine,PLine2Err) -> ℝ
 distancePPointToPLine point line = fst $ distancePPointToPLineWithErr point line
-
--- | Create a normalized projective line from a euclidian line segment.
-eToNPLine2 :: LineSeg -> ProjectiveLine
-eToNPLine2 l1 = normalizePLine2 $ fst $ eToPL l1
 
 -- | Create an un-normalized projective line from a euclidian line segment.
 eToPLine2 :: LineSeg -> ProjectiveLine

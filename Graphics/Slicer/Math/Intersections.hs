@@ -53,7 +53,7 @@ noIntersection line1 line2 = isCollinear line1 line2 || isParallel line1 line2 |
 isCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isCollinear line1 line2 = plinesIntersectIn line1 line2 == PCollinear
 
--- | Check if two lines are really the same line.
+-- | Check if two lines are really the same line, reversed.
 isAntiCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isAntiCollinear line1 line2 = plinesIntersectIn line1 line2 == PAntiCollinear
 
@@ -78,9 +78,9 @@ intersectionOf line1 line2 = saneIntersection $ plinesIntersectIn line1 line2
 -- | Get the intersection point of two lines. if they are collinear, returns a line, and if they are parallel, returns Nothing.
 -- FIXME: adding two different types of error.
 intersectionBetween :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe (Either (a, PLine2Err) (ProjectivePoint, PPoint2Err))
-intersectionBetween line1@(rawLine1,_) line2@(rawLine2,_) = saneIntersection $ plinesIntersectIn line1 line2
+intersectionBetween line1@(l1, _) line2@(l2, _) = saneIntersection $ plinesIntersectIn line1 line2
   where
-    (foundDistance, (_,_, foundErr)) = distance2PL rawLine1 rawLine2
+    (foundDistance, (_,_, foundErr)) = distance2PL l1 l2
     saneIntersection PAntiCollinear     = Just $ Left line1
     saneIntersection PCollinear         = Just $ Left line1
     saneIntersection PParallel          = if foundDistance < realToFrac (ulpVal foundErr)

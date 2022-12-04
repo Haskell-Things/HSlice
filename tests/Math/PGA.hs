@@ -56,10 +56,10 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 
 import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersectionBetween)
 
-import Graphics.Slicer.Math.Lossy (angleBetween, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
+import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2,PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), distance2PP, distancePPointToPLineWithErr, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, outputIntersectsLineSeg, sameDirection, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2,PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), distance2PL, distance2PP, distancePPointToPLineWithErr, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, outputIntersectsLineSeg, sameDirection, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (PPoint2Err(PPoint2Err), angleBetween2PL, xIntercept, yIntercept)
 
@@ -461,18 +461,14 @@ prop_PerpTranslateID x y dx dy rawT
                 $ "failed:\n"
                 <> "origPLine: " <> show origPLine <> "\n"
                 <> "resPLine: " <> show resPLine <> "\n"
-                <> "origNPline: " <> show origNPLine <> "\n"
-                <> "resNPline: " <> show resNPLine <> "\n"
                 <> "res: " <> show res <> "\n"
   where
-    res = distanceBetweenPLines resNPLine origNPLine
-    (resNPLine, resNErr) = normalizeL resPLine
-    (origNPLine, origNErr) = normalizeL origPLine
+    (res, _) = distance2PL resPLine origPLine
     (resPLine, resTransErr) = translateL translatedPLine (-t)
     (translatedPLine, origTransErr) = translateL origPLine t
     (origPLine, origPLineErr) = randomPLineWithErr x y dx dy
     resErr, t :: ℝ
-    resErr = realToFrac $ ulpVal $ fuzzinessOfL (resNPLine, resTransErr <> origTransErr)
+    resErr = realToFrac $ ulpVal $ fuzzinessOfL (resPLine, resTransErr <> origTransErr <> origPLineErr)
     t = coerce rawT
 
 pgaSpec :: Spec
@@ -557,7 +553,7 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
                 <> show lineSeg2 <> "\n"
                 <> show bisector1 <> "\n"
                 <> show eNode <> "\n"
-                <> show (angleBetween (outOf eNode) (PLine2 bisector1)) <> "\n"
+                <> show (angleBetween2PL (outOf eNode) (PLine2 bisector1)) <> "\n"
                 <> show (errOfOut eNode) <> "\n"
                 <> "(" <> show x3 <> "," <> show y3 <> ")\n"
                 <> "(" <> show x4 <> "," <> show y4 <> ")\n"
@@ -707,7 +703,7 @@ prop_LineSegIntersectionStableAtX1Y1Point pointD rawD1 x1 y1 rawX2 rawY2
       | otherwise = (rawX2,rawY2)
 
 -- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
--- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
+-- NOTE: hack, using angleBetween2PL to filter out minor numerical imprecision.
 prop_AxisAlignedRightAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAlignedRightAngles xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     =  (getFirstArc (Point2 (offset,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset)))
@@ -728,7 +724,7 @@ prop_AxisAlignedRightAngles xPos yPos offset rawMagnitude1 rawMagnitude2
     mag2 = coerce rawMagnitude2
 
 -- | ensure that a 135 degree angle with one side parallel with an axis and in the right place results in a line through the origin point.
--- NOTE: hack, using angleBetween and >= to filter out minor numerical imprecision.
+-- NOTE: hack, using angleBetween2PL and >= to filter out minor numerical imprecision.
 prop_AxisAligned135DegreeAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned135DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = (getFirstArc (Point2 (offset,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset-mag2)))
@@ -749,7 +745,7 @@ prop_AxisAligned135DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
     mag2 = coerce rawMagnitude2
 
 -- | ensure that a 45 degree angle with one side parallel with the X axis and in the right place results in a line through the origin point.
--- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
+-- NOTE: hack, using angleBetween2PL to filter out minor numerical imprecision.
 prop_AxisAligned45DegreeAngles :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned45DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = (getFirstArc (Point2 (offset+mag1,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset)))
@@ -770,28 +766,28 @@ prop_AxisAligned45DegreeAngles xPos yPos offset rawMagnitude1 rawMagnitude2
     mag2 = coerce rawMagnitude2
 
 -- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
--- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
+-- NOTE: hack, using angleBetween2PL to filter out minor numerical imprecision.
 -- NOTE: we use only one magnitude, because getOutsideArc requires normalized inputs.
 prop_AxisAlignedRightAnglesOutside :: Bool -> Bool -> ℝ -> Positive ℝ -> Bool
 prop_AxisAlignedRightAnglesOutside xPos yPos offset rawMagnitude
   | xPos && yPos = (
-    getOutsideArc (eToPP $ Point2 (offset,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset,offset+mag)) (Point2 (offset,offset)))
-                  (eToPP $ Point2 (offset+mag,offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (offset,offset))))
+    getOutsideArc (eToPP $ Point2 (offset,offset+mag)) (eToPLine2 $ LineSeg (Point2 (offset,offset+mag)) (Point2 (offset,offset)))
+                  (eToPP $ Point2 (offset+mag,offset)) (eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (offset,offset))))
                   `sameDirection`
                    (NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
   | xPos = (
-    getOutsideArc (eToPP $ Point2 (offset,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset,-(offset+mag))) (Point2 (offset,-offset)))
-                  (eToPP $ Point2 (offset+mag,-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (offset,-offset))))
+    getOutsideArc (eToPP $ Point2 (offset,-(offset+mag))) ( eToPLine2 $ LineSeg (Point2 (offset,-(offset+mag))) (Point2 (offset,-offset)))
+                  (eToPP $ Point2 (offset+mag,-offset)) ( eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (offset,-offset))))
                   `sameDirection`
                    (NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 0.7071067811865475 (singleton (GEPlus 2))]))
   | not xPos && yPos = (
-    getOutsideArc (eToPP $ Point2 (-offset,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-offset,offset+mag)) (Point2 (-offset,offset)))
-                  (eToPP $ Point2 (-(offset+mag),offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (-offset,offset))))
+    getOutsideArc (eToPP $ Point2 (-offset,offset+mag)) ( eToPLine2 $ LineSeg (Point2 (-offset,offset+mag)) (Point2 (-offset,offset)))
+                  (eToPP $ Point2 (-(offset+mag),offset)) ( eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (-offset,offset))))
                   `sameDirection`
                    (NPLine2 (GVec [GVal (-0.7071067811865475) (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
   | otherwise = (
-    getOutsideArc (eToPP $ Point2 (-offset,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (-offset,-offset)))
-                  (eToPP $ Point2 (-(offset+mag),-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (-offset,-offset))))
+    getOutsideArc (eToPP $ Point2 (-offset,-(offset+mag))) ( eToPLine2 $ LineSeg (Point2 (-offset,-(offset+mag))) (Point2 (-offset,-offset)))
+                  (eToPP $ Point2 (-(offset+mag),-offset)) ( eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (-offset,-offset))))
                   `sameDirection`
                    (NPLine2 (GVec [GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal (-0.7071067811865475) (singleton (GEPlus 2))]))
   where
@@ -799,30 +795,30 @@ prop_AxisAlignedRightAnglesOutside xPos yPos offset rawMagnitude
     mag = coerce rawMagnitude
 
 -- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
--- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
+-- NOTE: hack, using angleBetween2PL to filter out minor numerical imprecision.
 -- NOTE: we use only one magnitude, because getOutsideArc requires normalized inputs.
 -- NOTE: execrises the point-out-point-out path of getOutsideArc.
 -- FIXME: expressing this with the second line in each of these pairs the other direction (head->tail vs tail->head) results in falsification?
 prop_AxisAligned135DegreeAnglesOutside :: Bool -> Bool -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned135DegreeAnglesOutside xPos yPos rawOffset rawMagnitude
   | xPos && yPos = (
-    getOutsideArc (eToPP $ Point2 (offset+mag,offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (offset,offset)))
-                  (eToPP $ Point2 (offset+mag,offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,offset+mag)) (Point2 (offset,offset))))
+    getOutsideArc (eToPP $ Point2 (offset+mag,offset)) ( eToPLine2 $ LineSeg (Point2 (offset+mag,offset)) (Point2 (offset,offset)))
+                  (eToPP $ Point2 (offset+mag,offset+mag)) ( eToPLine2 $ LineSeg (Point2 (offset+mag,offset+mag)) (Point2 (offset,offset))))
                   `sameDirection`
                    (NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
   | xPos = (
-    getOutsideArc (eToPP $ Point2 (offset+mag,-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (offset,-offset)))
-                  (eToPP $ Point2 (offset+mag,-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (offset+mag,-(offset+mag))) (Point2 (offset,-offset))))
+    getOutsideArc (eToPP $ Point2 (offset+mag,-offset)) ( eToPLine2 $ LineSeg (Point2 (offset+mag,-offset)) (Point2 (offset,-offset)))
+                  (eToPP $ Point2 (offset+mag,-(offset+mag))) ( eToPLine2 $ LineSeg (Point2 (offset+mag,-(offset+mag))) (Point2 (offset,-offset))))
                   `sameDirection`
                    (NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal 0.9238795325112867 (singleton (GEPlus 2))]))
   | not xPos && yPos = (
-    getOutsideArc (eToPP $ Point2 (-(offset+mag),offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (-offset,offset)))
-                  (eToPP $ Point2 (-(offset+mag),offset+mag)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset+mag)) (Point2 (-offset,offset))))
+    getOutsideArc (eToPP $ Point2 (-(offset+mag),offset)) ( eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset)) (Point2 (-offset,offset)))
+                  (eToPP $ Point2 (-(offset+mag),offset+mag)) ( eToPLine2 $ LineSeg (Point2 (-(offset+mag),offset+mag)) (Point2 (-offset,offset))))
                   `sameDirection`
                    (NPLine2 (GVec [GVal (-0.3826834323650899) (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]))
   | otherwise = (
-    getOutsideArc (eToPP $ Point2 (-(offset+mag),-offset)) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (-offset,-offset)))
-                  (eToPP $ Point2 (-(offset+mag),-(offset+mag))) (normalizePLine2 $ eToPLine2 $ LineSeg (Point2 (-(offset+mag),-(offset+mag))) (Point2 (-offset,-offset))))
+    getOutsideArc (eToPP $ Point2 (-(offset+mag),-offset)) ( eToPLine2 $ LineSeg (Point2 (-(offset+mag),-offset)) (Point2 (-offset,-offset)))
+                  (eToPP $ Point2 (-(offset+mag),-(offset+mag))) ( eToPLine2 $ LineSeg (Point2 (-(offset+mag),-(offset+mag))) (Point2 (-offset,-offset))))
                   `sameDirection`
                    (NPLine2 (GVec [GVal 0.3826834323650899 (singleton (GEPlus 1)), GVal (-0.9238795325112867) (singleton (GEPlus 2))]))
   where
@@ -831,7 +827,7 @@ prop_AxisAligned135DegreeAnglesOutside xPos yPos rawOffset rawMagnitude
     mag = coerce rawMagnitude
 
 -- | ensure that a right angle with one side parallel with an axis and the other side parallel to the other axis results in a line through the origin point.
--- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
+-- NOTE: hack, using angleBetween2PL to filter out minor numerical imprecision.
 prop_AxisAlignedRightAnglesInENode :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAlignedRightAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = (outOf (onlyOne $ makeENodes [LineSeg (Point2 (offset,offset+mag1)) (Point2 (offset,offset)),LineSeg (Point2 (offset,offset)) (Point2 (offset+mag2,offset))]))
@@ -852,7 +848,7 @@ prop_AxisAlignedRightAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
     mag2 = coerce rawMagnitude2
 
 -- | ensure that a 135 degree angle with one side parallel with an axis and in the right place results in a line through the origin point.
--- NOTE: hack, using angleBetween and >= to filter out minor numerical imprecision.
+-- NOTE: hack, using angleBetween2PL and >= to filter out minor numerical imprecision.
 prop_AxisAligned135DegreeAnglesInENode :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned135DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = (outOf (onlyOne $ makeENodes [LineSeg (Point2 (offset,offset+mag1)) (Point2 (offset,offset)),LineSeg (Point2 (offset,offset)) (Point2 (offset+mag2,offset-mag2))]))
@@ -873,7 +869,7 @@ prop_AxisAligned135DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitu
     mag2 = coerce rawMagnitude2
 
 -- | ensure that a 45 degree angle with one side parallel with the X axis and in the right place results in a line through the origin point.
--- NOTE: hack, using angleBetween to filter out minor numerical imprecision.
+-- NOTE: hack, using angleBetween2PL to filter out minor numerical imprecision.
 prop_AxisAligned45DegreeAnglesInENode :: Bool -> Bool -> ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitude2
   | xPos && yPos     = (outOf (makeENode (Point2 (offset+mag1,offset+mag1)) (Point2 (offset,offset)) (Point2 (offset+mag2,offset))))
@@ -1366,10 +1362,9 @@ prop_eNodeAwayFromIntersection2 x y d1 rawR1 d2 rawR2 = l2TowardIntersection -->
     eNode = randomENode x y d1 rawR1 d2 rawR2
 
 prop_translateRotateMoves :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Expectation
-prop_translateRotateMoves x y rawD rawR = distanceBetweenPPoints (translateRotatePPoint2 pPoint d r) cPPoint /= 0 --> True
+prop_translateRotateMoves x y rawD rawR = distanceBetweenPPoints (translateRotatePPoint2 point d r) point /= 0 --> True
   where
-    pPoint = makePPoint2 x y
-    cPPoint = makePPoint2 x y
+    point = makePPoint2 x y
     r,d::ℝ
     r = coerce rawR
     d = coerce rawD

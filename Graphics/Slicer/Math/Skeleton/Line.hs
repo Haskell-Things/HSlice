@@ -92,10 +92,10 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
 
     -- | what is the distance from the edge to the place we can no longer place lines.
     distanceUntilEnd = case midArcs of
-                         (Slist [] 0) -> distancePPointToPLine (intersectionOf (firstArc,mempty) (lastArc,mempty)) (eToPL edge)
+                         (Slist [] 0) -> distancePPointToPLine (intersectionOf (firstArc, mempty) (lastArc, mempty)) (eToPL edge)
                          (Slist [oneArc] 1) -> if firstArcLonger
-                                               then distancePPointToPLine (intersectionOf (firstArc,mempty) (oneArc,mempty)) (eToPL edge)
-                                               else distancePPointToPLine (intersectionOf (oneArc,mempty) (lastArc,mempty)) (eToPL edge)
+                                               then distancePPointToPLine (intersectionOf (firstArc, mempty) (oneArc, mempty)) (eToPL edge)
+                                               else distancePPointToPLine (intersectionOf (oneArc, mempty) (lastArc, mempty)) (eToPL edge)
                          (Slist _ _) -> closestArcDistance
 
     -----------------------------------------------------------
