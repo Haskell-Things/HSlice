@@ -629,8 +629,8 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
       | and $ isJust <$> intersections = and $ pointsCloseEnough <> linesCloseEnough
       | otherwise = False
       where
-        intersections = mapWithFollower intersectionBetween ((outOf <$> nonAntiCollinearNodes eNodes (antiCollinearNodePairsOf eNodes) <> firstAntiCollinearNodes (antiCollinearNodePairsOf eNodes)) <>
-                                                             (outOf <$> nonAntiCollinearNodes iNodes (antiCollinearNodePairsOf iNodes) <> firstAntiCollinearNodes (antiCollinearNodePairsOf iNodes)))
+        intersections = mapWithFollower intersectionBetween ((outAndErrOf <$> nonAntiCollinearNodes eNodes (antiCollinearNodePairsOf eNodes) <> firstAntiCollinearNodes (antiCollinearNodePairsOf eNodes)) <>
+                                                             (outAndErrOf <$> nonAntiCollinearNodes iNodes (antiCollinearNodePairsOf iNodes) <> firstAntiCollinearNodes (antiCollinearNodePairsOf iNodes)))
         pointIntersections = rights $ catMaybes intersections
         lineIntersections = lefts $ catMaybes intersections
         pointsCloseEnough = mapWithFollower pairCloseEnough pointIntersections

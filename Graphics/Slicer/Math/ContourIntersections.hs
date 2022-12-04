@@ -67,6 +67,7 @@ getLineContourIntersections (line, lineErr) c
       where
         segs :: [Either LineSeg (NPLine2, PLine2Err)]
         segs =  Left <$> lineSegsOfContour c
+        -- FIXME: why do we have to use a concrete type here?
         targetLine :: Either LineSeg (NPLine2, PLine2Err)
         targetLine = Right (nLine, lineErr <> nLineErr)
         (nLine, nLineErr) = normalizeL line

@@ -16,7 +16,9 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- Purpose of this file: to hold the logic and routines responsible for checking for intersections with contours, or portions of contours. -}
+{-
+  Purpose of this file: This file contains code for retrieving and reasoning about the intersection of two projective lines.
+-}
 
 module Graphics.Slicer.Math.Intersections (
   intersectionBetween,
@@ -28,13 +30,13 @@ module Graphics.Slicer.Math.Intersections (
   noIntersection
   ) where
 
-import Prelude (Bool, Either(Left, Right), (<>), ($), (<), (||), (==), error, show, mempty, realToFrac) 
+import Prelude (Bool, Either(Left, Right), (<>), ($), (<), (||), (==), error, show, realToFrac)
 
 import Data.Maybe (Maybe(Just, Nothing))
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2, PLine2Err, PPoint2Err, ProjectiveLine2, distance2PL, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine2, distance2PL, plinesIntersectIn)
 
 -- | Check if two lines cannot intersect.
 noIntersection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
@@ -67,17 +69,17 @@ intersectionOf line1 line2 = saneIntersection $ plinesIntersectIn line1 line2
     saneIntersection (IntersectsIn p (_,_, pErr)) = (p, pErr)
 
 -- | Get the intersection point of two lines.
-intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 (CPPoint2, PPoint2Err))
-intersectionBetween line1 line2 = saneIntersection $ plinesIntersectIn (line1, mempty) (line2, mempty)
+intersectionBetween :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe (Either a (CPPoint2, PPoint2Err))
+intersectionBetween line1@(l1, _) line2@(l2, _) = saneIntersection $ plinesIntersectIn line1 line2
   where
-    (foundDistance, (_,_, foundErr)) = distance2PL line1 line2
-    saneIntersection PAntiCollinear     = Just $ Left line1
-    saneIntersection PCollinear         = Just $ Left line1
+    (foundDistance, (_,_, foundErr)) = distance2PL l1 l2
+    saneIntersection PAntiCollinear     = Just $ Left l1
+    saneIntersection PCollinear         = Just $ Left l1
     saneIntersection PParallel          = if foundDistance < realToFrac (ulpVal foundErr)
-                                          then Just $ Left line1
+                                          then Just $ Left l1
                                           else Nothing
     saneIntersection PAntiParallel      = if foundDistance < realToFrac (ulpVal foundErr)
-                                          then Just $ Left line1
+                                          then Just $ Left l1
                                           else Nothing
     saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p, pErr)
 
