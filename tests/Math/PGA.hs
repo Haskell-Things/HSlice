@@ -56,7 +56,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 
 import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersectionBetween)
 
-import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, join2PPoints, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
+import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, normalizePLine2, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
 import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2,PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), distance2PL, distance2PP, distancePPointToPLineWithErr, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, outputIntersectsLineSeg, sameDirection, translateRotatePPoint2WithErr)
@@ -373,7 +373,7 @@ proj2DGeomAlgSpec = do
     it "A line constructed from a line segment is correct" $
       eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,1))) --> pl1
     it "A line constructed from by joining two points is correct" $
-      join2PPoints (eToPP (Point2 (0,0))) (eToPP (Point2 (1,1))) --> pl1
+      fst (join2PP (eToPP (Point2 (0,0))) (eToPP (Point2 (1,1)))) --> pl1
   where
     pl1 = PLine2 $ GVec [GVal 1 (singleton (GEPlus 1)), GVal (-1) (singleton (GEPlus 2))]
 
@@ -905,8 +905,8 @@ prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions trian
     (p1, p2)        = firstPointPairOfContour triangle
     (myMidPoint,_)  = interpolate2PP (eToPP p1) (eToPP p2) 0.5 0.5
     -- we normalize this for Ganja.js.
-    (NPLine2 pLineToInside) = normalizePLine2 $ join2PPoints myMidPoint innerPoint
-    (NPLine2 pLineToOutside) = normalizePLine2 $ join2PPoints innerPoint $ eToPP outsidePoint
+    (NPLine2 pLineToInside) = fst $ normalizeL $ fst $ join2PP myMidPoint innerPoint
+    (NPLine2 pLineToOutside) = fst $ normalizeL $ fst $ join2PP innerPoint $ eToPP outsidePoint
     innerPoint      = fromMaybe dumpError2 maybeInnerPoint
     minPoint        = fst $ minMaxPoints triangle
     outsidePoint    = Point2 (xOf minPoint - 0.00000001 , yOf minPoint - 0.00000001)

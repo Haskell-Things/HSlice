@@ -24,7 +24,6 @@ module Graphics.Slicer.Math.Lossy (
   eToPLine2,
   getFirstArc,
   getOutsideArc,
-  join2PPoints,
   normalizePLine2,
   pLineFromEndpoints,
   pPointBetweenPPoints,
@@ -43,7 +42,7 @@ import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getOutsideArc)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
-import Graphics.Slicer.Math.PGA (distance2PP, distancePPointToPLineWithErr, eToPL, interpolate2PP, join2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (distance2PP, distancePPointToPLineWithErr, eToPL, interpolate2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectiveLine2(normalizeL), ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err)
 
@@ -64,10 +63,6 @@ getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 
 getOutsideArc :: (ProjectivePoint, PPoint2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectivePoint, PPoint2Err) -> (ProjectiveLine, PLine2Err) -> ProjectiveLine
 getOutsideArc a b c d = fst $ Arcs.getOutsideArc a b c d
-
--- | a typed join function. join two points, returning a line.
-join2PPoints :: ProjectivePoint -> ProjectivePoint -> ProjectiveLine
-join2PPoints pp1 pp2 = fst $ join2PP pp1 pp2
 
 -- | Normalize a ProjectiveLine.
 normalizePLine2 :: ProjectiveLine -> ProjectiveLine
