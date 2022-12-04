@@ -36,23 +36,23 @@ import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2, PLine2Err, PPoint2Err, ProjectiveLine2, distance2PL, plinesIntersectIn)
 
--- | check if two lines cannot intersect.
+-- | Check if two lines cannot intersect.
 noIntersection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 noIntersection line1 line2 = isCollinear line1 line2 || isParallel line1 line2 || isAntiCollinear line1 line2 || isAntiParallel line1 line2
 
--- | check if two lines are really the same line.
+-- | Check if two lines are really the same line.
 isCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isCollinear line1 line2 = plinesIntersectIn line1 line2 == PCollinear
 
--- | check if two lines are really the same line.
+-- | Check if two lines are really the same line, reversed.
 isAntiCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isAntiCollinear line1 line2 = plinesIntersectIn line1 line2 == PAntiCollinear
 
--- | check if two lines are parallel.
+-- | Check if two lines are parallel.
 isParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isParallel line1 line2 = plinesIntersectIn line1 line2 == PParallel
 
--- | check if two lines are anti-parallel.
+-- | Check if two lines are anti-parallel.
 isAntiParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isAntiParallel line1 line2 = plinesIntersectIn line1 line2 == PAntiParallel
 
@@ -64,7 +64,7 @@ intersectionOf line1 line2 = saneIntersection $ plinesIntersectIn line1 line2
     saneIntersection PCollinear         = error $ "cannot get the intersection of collinear lines.\nline1: " <> show line1 <> "\nline2: " <> show line2 <> "\n"
     saneIntersection PParallel          = error $ "cannot get the intersection of parallel lines.\nline1: " <> show line1 <> "\nline2: " <> show line2 <> "\n"
     saneIntersection PAntiParallel      = error $ "cannot get the intersection of antiparallel lines.\nline1: " <> show line1 <> "\nline2: " <> show line2 <> "\n"
-    saneIntersection (IntersectsIn p (_,_, pErr)) = (p,pErr)
+    saneIntersection (IntersectsIn p (_,_, pErr)) = (p, pErr)
 
 -- | Get the intersection point of two lines.
 intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 (CPPoint2, PPoint2Err))
