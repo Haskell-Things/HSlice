@@ -18,7 +18,15 @@
 
 {- Purpose of this file: to hold the logic and routines responsible for checking for intersections with contours, or portions of contours. -}
 
-module Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
+module Graphics.Slicer.Math.Intersections (
+  intersectionBetween,
+  intersectionOf,
+  isAntiCollinear,
+  isAntiParallel,
+  isCollinear,
+  isParallel,
+  noIntersection
+  ) where
 
 import Prelude (Bool, Either(Left, Right), (<>), ($), (<), (||), (==), error, show, mempty, realToFrac) 
 
@@ -30,7 +38,7 @@ import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel
 
 -- | check if two lines cannot intersect.
 noIntersection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
-noIntersection pline1@(pl1,_) pline2@(pl2,_) = isCollinear pline1 pline2 || isParallel pl1 pl2 || isAntiCollinear pline1 pline2 || isAntiParallel pl1 pl2
+noIntersection pline1@(pl1,_) pline2@(pl2,_) = isCollinear pline1 pline2 || isParallel pline1 pline2 || isAntiCollinear pline1 pline2 || isAntiParallel pl1 pl2
 
 -- | check if two lines are really the same line.
 isCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
@@ -41,8 +49,8 @@ isAntiCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (
 isAntiCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiCollinear
 
 -- | check if two lines are parallel.
-isParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
-isParallel pline1 pline2 = plinesIntersectIn (pline1, mempty) (pline2, mempty) == PParallel
+isParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
+isParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PParallel
 
 -- | check if two lines are anti-parallel.
 isAntiParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
@@ -60,7 +68,7 @@ intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
 
 -- | Get the intersection point of two lines.
 intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 (CPPoint2, PPoint2Err))
-intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn (pl1,mempty) (pl2,mempty)
+intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn (pl1, mempty) (pl2, mempty)
   where
     (foundDistance, (_,_, foundErr)) = distance2PL pl1 pl2
     saneIntersection PAntiCollinear     = Just $ Left pl1
@@ -71,5 +79,5 @@ intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn (pl1,mempty) 
     saneIntersection PAntiParallel      = if foundDistance < realToFrac (ulpVal foundErr)
                                           then Just $ Left pl1
                                           else Nothing
-    saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p,pErr)
+    saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p, pErr)
 
