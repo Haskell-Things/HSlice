@@ -46,7 +46,7 @@ import Slist as SL (head, last, tail)
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Arcs (getFirstArc, getOutsideArc)
+import Graphics.Slicer.Math.Arcs (getFirstArc, getInsideArc, getOutsideArc)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
@@ -56,9 +56,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.Intersections (noIntersection, intersectionsAtSamePoint, intersectionOf, isCollinear, isParallel, isAntiCollinear, isAntiParallel, outputsIntersect)
 
-import Graphics.Slicer.Math.Lossy (eToPLine2, getInsideArc)
-
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), ProjectiveLine, PLine2Err, flipL, distance2PP, outAndErrOf, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), ProjectiveLine, PLine2Err, eToPL, flipL, distance2PP, outAndErrOf, pLineIsLeft)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
@@ -105,17 +103,19 @@ findINodes inSegSets
   | len inSegSets == 2 =
     -- Two walls, no closed ends. solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
     case initialENodes of
-      [] -> INodeSet $ slist [[makeINode [getInsideArc (flipL $ eToPLine2 firstSeg) (eToPLine2 lastSeg), getInsideArc (eToPLine2 firstSeg) (flipL $ eToPLine2 lastSeg)] Nothing]]
+      [] -> INodeSet $ slist [[makeINode [fst $ getInsideArc firstSegFlipped lastSeg, fst $ getInsideArc firstSeg lastSegFlipped] Nothing]]
         where
-          firstSeg = SL.head $ slist $ SL.head inSegSets
-          lastSeg = SL.head $ slist $ SL.last inSegSets
-      [a] -> INodeSet $ slist [[makeINode [getInsideArc (eToPLine2 lastSeg) (eToPLine2 shortSide), getInsideArc (eToPLine2 firstSeg) (eToPLine2 shortSide)] (Just (flipL $ outOf a, errOfOut a))]]
+          firstSeg@(fs, fsErr) = eToPL $ SL.head $ slist $ SL.head inSegSets
+          firstSegFlipped = (flipL fs, fsErr)
+          lastSeg@(ls, lsErr) = eToPL $ SL.head $ slist $ SL.last inSegSets
+          lastSegFlipped = (flipL ls, lsErr)
+      [a] -> INodeSet $ slist [[makeINode [fst $ getInsideArc lastSeg shortSide, fst $ getInsideArc firstSeg shortSide] (Just (flipL $ outOf a, errOfOut a))]]
         where
-          firstSeg = fromMaybe (error "no first segment?") $ safeHead $ slist longSide
-          lastSeg = SL.last $ slist longSide
-          (shortSide,longSide)
-            | null (SL.head inSegSets) = (SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
-            | otherwise = (SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
+          firstSeg = eToPL $ fromMaybe (error "no first segment?") $ safeHead $ slist longSide
+          lastSeg = eToPL $ SL.last $ slist longSide
+          (shortSide, longSide)
+            | null (SL.head inSegSets) = (eToPL $ SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
+            | otherwise = (eToPL $ SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
       (_:_) -> error
                $ "too many items in makeInitialGeneration.\n"
                <> show initialENodes <> "\n"

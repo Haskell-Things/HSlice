@@ -23,7 +23,6 @@ module Graphics.Slicer.Math.Lossy (
   distancePPointToPLine,
   eToPLine2,
   getFirstArc,
-  getInsideArc,
   getOutsideArc,
   join2PPoints,
   normalizePLine2,
@@ -40,7 +39,7 @@ import Prelude (($), fst, mempty)
 -- The numeric type in HSlice.
 import Graphics.Slicer.Definitions (ℝ)
 
-import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getInsideArc, getOutsideArc) 
+import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getOutsideArc)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
@@ -63,11 +62,8 @@ eToPLine2 l1 = fst $ eToPL l1
 getFirstArc :: Point2 -> Point2 -> Point2 -> ProjectiveLine
 getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 
-getInsideArc :: ProjectiveLine -> ProjectiveLine -> ProjectiveLine
-getInsideArc pl1 pl2 = fst $ Arcs.getInsideArc (pl1, mempty) (pl2, mempty)
-
-getOutsideArc :: ProjectivePoint -> ProjectiveLine -> ProjectivePoint -> ProjectiveLine -> ProjectiveLine
-getOutsideArc a b c d = fst $ Arcs.getOutsideArc (a, mempty) (b, mempty) (c, mempty) (d, mempty)
+getOutsideArc :: (ProjectivePoint, PPoint2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectivePoint, PPoint2Err) -> (ProjectiveLine, PLine2Err) -> ProjectiveLine
+getOutsideArc a b c d = fst $ Arcs.getOutsideArc a b c d
 
 -- | a typed join function. join two points, returning a line.
 join2PPoints :: ProjectivePoint -> ProjectivePoint -> ProjectiveLine
