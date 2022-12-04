@@ -62,7 +62,7 @@ import Graphics.Slicer.Math.Intersections (intersectionBetween, intersectionOf, 
 
 import Graphics.Slicer.Math.Lossy as Lossy (distancePPointToPLine)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2, PLine2Err, CPPoint2(CPPoint2), PPoint2(PPoint2), distance2PP, eToPL, flipL, outAndErrOf, pLineIsLeft, distancePPointToPLineWithErr)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2, PLine2Err, distance2PP, eToPL, flipL, outAndErrOf, pLineIsLeft, distancePPointToPLineWithErr)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLinesWithErr, isLoop)
 
@@ -645,7 +645,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                      [] -> error "one line, no points.. makes no sense."
                      (x:_) -> [and pointsCloseEnough && foundDistance < realToFrac foundErr]
                        where
-                         (foundDistance, (_,_,_,_,_,UlpSum foundErr)) = distancePPointToPLineWithErr ((\(CPPoint2 v,_) -> PPoint2 v) x, mempty) (a, mempty)
+                         (foundDistance, (_,_,_,_,_,UlpSum foundErr)) = distancePPointToPLineWithErr x a
             (_:_) -> error
                      $ "detected multiple lines?\n"
                      <> show lineIntersections <> "\n"

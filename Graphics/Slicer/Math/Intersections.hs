@@ -69,17 +69,17 @@ intersectionOf line1 line2 = saneIntersection $ plinesIntersectIn line1 line2
     saneIntersection (IntersectsIn p (_,_, pErr)) = (p, pErr)
 
 -- | Get the intersection point of two lines.
-intersectionBetween :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe (Either a (CPPoint2, PPoint2Err))
+intersectionBetween :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe (Either (a, PLine2Err) (CPPoint2, PPoint2Err))
 intersectionBetween line1@(l1, _) line2@(l2, _) = saneIntersection $ plinesIntersectIn line1 line2
   where
     (foundDistance, (_,_, foundErr)) = distance2PL l1 l2
-    saneIntersection PAntiCollinear     = Just $ Left l1
-    saneIntersection PCollinear         = Just $ Left l1
+    saneIntersection PAntiCollinear     = Just $ Left line1
+    saneIntersection PCollinear         = Just $ Left line1
     saneIntersection PParallel          = if foundDistance < realToFrac (ulpVal foundErr)
-                                          then Just $ Left l1
+                                          then Just $ Left line1
                                           else Nothing
     saneIntersection PAntiParallel      = if foundDistance < realToFrac (ulpVal foundErr)
-                                          then Just $ Left l1
+                                          then Just $ Left line1
                                           else Nothing
     saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p, pErr)
 
