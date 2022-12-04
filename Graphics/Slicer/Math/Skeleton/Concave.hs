@@ -34,7 +34,7 @@ import Prelude as PL (head, last, tail, init)
 
 import Data.Either (lefts,rights)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, fromMaybe, isJust, isNothing, mapMaybe)
+import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromMaybe, isJust, isNothing, mapMaybe)
 
 import Data.List (takeWhile, dropWhile, sortBy, nub)
 
@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endP
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
-import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetween, isCollinear, isParallel, isAntiCollinear, noIntersection)
+import Graphics.Slicer.Math.Intersections (intersectionBetween, intersectionOf, isAntiCollinear, isAntiParallel, isCollinear, isParallel, noIntersection)
 
 import Graphics.Slicer.Math.Lossy as Lossy (distancePPointToPLine)
 
@@ -176,6 +176,7 @@ averageNodes n1 n2
   | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n" <> dumpInput
   | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\n" <> dumpInput
   | isParallel (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
+  | isAntiParallel (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
   | isCollinear (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
   | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
   | n1Distance < getRounded n1Err = error $ "intersection is AT the point of n1!\n" <> dumpInput
