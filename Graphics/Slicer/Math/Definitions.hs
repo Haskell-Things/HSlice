@@ -20,7 +20,34 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
 -- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
-module Graphics.Slicer.Math.Definitions(Point3(Point3), Point2(Point2), Contour(PointContour, LineSegContour), LineSeg(LineSeg), SpacePoint, PlanePoint, xOf, yOf, zOf, flatten, distance, addPoints, scalePoint, (~=), roundToFifth, roundPoint2, mapWithNeighbors, mapWithFollower, mapWithPredecessor, minMaxPoints, endPoint, fudgeFactor, startPoint, lineSegsOfContour, makeLineSeg, negatePoint) where
+module Graphics.Slicer.Math.Definitions(
+  Point3(Point3),
+  Point2(Point2),
+  Contour(PointContour, LineSegContour),
+  LineSeg(LineSeg),
+  SpacePoint,
+  PlanePoint,
+  (~=),
+  addPoints,
+  distance,
+  endPoint,
+  flatten,
+  fudgeFactor,
+  lineSegsOfContour,
+  makeLineSeg,
+  mapWithNeighbors,
+  mapWithFollower,
+  mapWithPredecessor,
+  minMaxPoints,
+  negatePoint,
+  roundPoint2,
+  roundToFifth,
+  scalePoint,
+  startPoint,
+  xOf,
+  yOf,
+  zOf
+  ) where
 
 import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, (<>), error, show, (<), (&&), negate)
 
