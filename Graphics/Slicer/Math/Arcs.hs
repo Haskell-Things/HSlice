@@ -114,13 +114,13 @@ getObtuseAngleBisectorFromPointedLines ppoint1 line1 ppoint2 line2
       l1TowardPoint = towardIntersection ppoint1 line1 intersectionPoint
       l2TowardPoint = towardIntersection ppoint2 line2 intersectionPoint
 
--- | Determine if the line segment formed by the two given points starts with the first point, or the second.
--- FIXME: angleBetween2PL should be handling line error.
+-- | Determine if the line formed by the two given points starts with the first point, or the second.
 towardIntersection :: (ProjectivePoint2 a, ProjectiveLine2 b, ProjectivePoint2 c) => (a, PPoint2Err) -> (b, PLine2Err) -> (c, PPoint2Err) -> Bool
 towardIntersection point1@(pp1, _) (pl1, _) point2@(pp2, _)
   | d <= realToFrac (ulpVal dErr) = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
   | otherwise = angleFound > realToFrac (ulpVal angleErr)
   where
+    -- FIXME: angleBetween2PL should be handling line error.
     (angleFound, (_,_, angleErr)) = angleBetween2PL newPLine pl1
     (d, (_,_, dErr)) = distance2PP point1 point2
     (newPLine, _) = join2PP pp1 pp2

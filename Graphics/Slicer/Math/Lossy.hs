@@ -24,8 +24,6 @@ module Graphics.Slicer.Math.Lossy (
   eToPLine2,
   getFirstArc,
   getOutsideArc,
-  normalizePLine2,
-  pLineFromEndpoints,
   pPointBetweenPPoints,
   pPointOnPerp,
   pToEPoint2,
@@ -40,11 +38,11 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getOutsideArc)
 
-import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
+import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 
 import Graphics.Slicer.Math.PGA (distance2PP, distancePPointToPLineWithErr, eToPL, interpolate2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
-import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectiveLine2(normalizeL), ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err)
+import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err)
 
 distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
 distanceBetweenPPoints point1 point2 = fst $ distance2PP (point1, mempty) (point2, mempty)
@@ -63,14 +61,6 @@ getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 
 getOutsideArc :: (ProjectivePoint, PPoint2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectivePoint, PPoint2Err) -> (ProjectiveLine, PLine2Err) -> ProjectiveLine
 getOutsideArc a b c d = fst $ Arcs.getOutsideArc a b c d
-
--- | Normalize a ProjectiveLine.
-normalizePLine2 :: ProjectiveLine -> ProjectiveLine
-normalizePLine2 pl = fst $ normalizeL pl
-
--- | Create a projective line from a pair of euclidian points.
-pLineFromEndpoints :: Point2 -> Point2 -> ProjectiveLine
-pLineFromEndpoints point1 point2 = eToPLine2 $ makeLineSeg point1 point2
 
 -- | Find a point somewhere along the line between the two points given.
 --  requires two weights. the ratio of these weights determines the position of the found points, E.G: (2/3,1/3) is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint. weights can sum to anything.

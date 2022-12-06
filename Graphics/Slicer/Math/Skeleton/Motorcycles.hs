@@ -42,7 +42,7 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Arcs (getOutsideArc)
+import Graphics.Slicer.Math.Arcs (getOutsideArc, getInsideArc)
 
 import Graphics.Slicer.Math.Contour (pointsOfContour)
 
@@ -52,9 +52,9 @@ import Graphics.Slicer.Math.Intersections (noIntersection, isAntiCollinear, outp
 
 import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections)
 
-import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2, pLineFromEndpoints)
+import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, eToPP, flipL, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outAndErrOf, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, eToPP, flipL, join2EP, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outAndErrOf, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -184,9 +184,13 @@ convexMotorcycles contour = mapMaybe onlyMotorcycles $ zip (rotateLeft $ linePai
 
 -- | generate the PLine2 of a motorcycle created by the three points given.
 motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, PLine2Err)
-motorcycleFromPoints p1 p2 p3 = (res, resErr)
+motorcycleFromPoints p1 p2 p3 = (flipL res, resErr)
   where
-    (res, resErr) = getOutsideArc (eToPP p1, mempty) (pLineFromEndpoints p1 p2, mempty) (eToPP p3, mempty) (flipL $ pLineFromEndpoints p2 p3, mempty)
+--    (res, resErr) = getOutsideArc (eToPP p1, mempty) firstLine (eToPP p3, mempty) secondLine
+    (res, resErr) = getInsideArc firstLine secondLine
+      where
+        firstLine = join2EP p1 p2
+        secondLine = join2EP p2 p3
 
 -- | Find where a motorcycle intersects a set of line segments, if it does.
 motorcycleMightIntersectWith :: [LineSeg] -> Motorcycle -> Maybe (LineSeg, Either Point2 ProjectivePoint)
