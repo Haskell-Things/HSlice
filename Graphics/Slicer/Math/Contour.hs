@@ -71,7 +71,7 @@ import Graphics.Slicer.Math.PGA (PPoint2, eToPP, join2EP, join2PP, pLineIsLeft, 
 -- so that we have the loop, and also knowledge of how
 -- the list is built (the "sides" of it).
 
-getLoops :: (Show a,Eq a) => [[a]] -> Maybe [[[a]]]
+getLoops :: (Show a, Eq a) => [[a]] -> Maybe [[[a]]]
 getLoops [] = Just []
 getLoops (x:xs) = getLoops' xs (slist [x]) (snd $ fromMaybe (error "empty first sequence") $ unsnoc x)
 -- We will be actually doing the loop extraction with
@@ -157,11 +157,11 @@ getContours pointPairs = fromMaybe (error $ "failed to flip a contour\n" <> show
     foundContourSets :: [[[Point2]]]
     foundContourSets = fromMaybe (error "could not complete loop detection.") $ getLoops $ (\(a,b) -> [a,b]) <$> sortPairs pointPairs
       where
-        -- Sort the list to begin with, so that differently ordered input lists give the same output.
+        -- Sort the list, so that differently ordered input lists give the same output.
         sortPairs :: [(Point2,Point2)] -> [(Point2,Point2)]
         sortPairs = sortBy (\a b -> if fst a == fst b then compare (snd a) (snd b) else compare (fst a) (fst b))
 
--- make sure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
+-- | Ensure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
 maybeFlipContour :: Contour -> Maybe Contour
 maybeFlipContour contour
   | isJust maybeIsLeft && maybeIsLeft == Just True = Just contour
@@ -250,7 +250,8 @@ innerContourPoint contour
     (perpPoint,  (_,_,_, perpErr))  = pPointOnPerpWithErr source midPoint minDistanceFromSeg
     (otherPoint, (_,_,_, otherErr)) = pPointOnPerpWithErr source midPoint (-minDistanceFromSeg)
     midPoint     = pPointBetweenPPoints (eToPP p1) (eToPP p2) 0.5 0.5
-    source       = fst $ join2EP p1 p2
+    -- FIXME: Error loss.
+    (source, _)  = join2EP p1 p2
     outsidePoint = pointFarOutsideContour contour
     (p1, p2)     = firstPointPairOfContour contour
     -- | the minimum measurable distance of a point from a line segment
@@ -267,7 +268,7 @@ pointFarOutsideContour contour
   | not (noIntersection line3 firstLine) = outsidePoint3
   | otherwise = error "cannot get here."
   where
-    minPoint      = fst $ minMaxPoints contour
+    (minPoint, _) = minMaxPoints contour
     (p1, p2)      = firstPointPairOfContour contour
     firstLine     = join2EP p1 p2
     line1         = join2EP p1 outsidePoint1
@@ -285,8 +286,8 @@ pointFarOutsideContours contour1 contour2
   | not (noIntersection line3 firstLine) && not (noIntersection line3 secondLine) = outsidePoint3
   | otherwise = error "cannot get here...?"
   where
-    minPoint1     = fst $ minMaxPoints contour1
-    minPoint2     = fst $ minMaxPoints contour2
+    (minPoint1, _)= minMaxPoints contour1
+    (minPoint2, _)= minMaxPoints contour2
     minPoint      = Point2 (min (xOf minPoint1) (xOf minPoint2),min (yOf minPoint1) (yOf minPoint2))
     (p1, p2)      = firstPointPairOfContour contour1
     (p3, p4)      = firstPointPairOfContour contour2

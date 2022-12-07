@@ -21,12 +21,12 @@
 
 -- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
 module Graphics.Slicer.Math.Definitions(
-  Point3(Point3),
-  Point2(Point2),
   Contour(PointContour, LineSegContour),
   LineSeg(LineSeg),
-  SpacePoint,
   PlanePoint,
+  Point2(Point2),
+  Point3(Point3),
+  SpacePoint,
   (~=),
   addPoints,
   distance,
@@ -40,6 +40,7 @@ module Graphics.Slicer.Math.Definitions(
   mapWithPredecessor,
   minMaxPoints,
   negatePoint,
+  pointBetweenPoints,
   roundPoint2,
   roundToFifth,
   scalePoint,
@@ -180,6 +181,10 @@ minMaxPoints :: Contour -> (Point2, Point2)
 minMaxPoints contour = case contour of
                          (PointContour foundMinPoint foundMaxPoint _ _ _ _) -> (foundMinPoint, foundMaxPoint)
                          (LineSegContour foundMinPoint foundMaxPoint _ _ _) -> (foundMinPoint, foundMaxPoint)
+
+-- | Find a point between the two given points.
+pointBetweenPoints :: Point2 -> Point2 -> Point2
+pointBetweenPoints point1 point2 = scalePoint 0.5 $ addPoints point1 point2
 
 -- | round a value
 roundToFifth :: ℝ -> ℝ
