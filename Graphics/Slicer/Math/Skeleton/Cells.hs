@@ -54,11 +54,11 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, dist
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf, outputIntersectsPLineAt)
+import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf, isAntiCollinear, outputIntersectsPLineAt)
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToCPPoint2, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), CPPoint2, Pointable(canPoint, ePointOf, pPointOf), PIntersection(PAntiCollinear), angleBetween2PL, distance2PP, eToPL, eToPP, outAndErrOf, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), CPPoint2, Pointable(canPoint, ePointOf, pPointOf), angleBetween2PL, distance2PP, eToPL, eToPP, outAndErrOf)
 
 import Graphics.Slicer.Math.PGAPrimitives (join2PP)
 
@@ -136,7 +136,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
         eNodesInPath = opposingNodes myContour myMotorcycle
           where
             opposingNodes :: Contour -> Motorcycle -> [ENode]
-            opposingNodes c m = filter (\eNode -> plinesIntersectIn (outAndErrOf eNode) (outAndErrOf m) == PAntiCollinear) $ eNodesOfOutsideContour c
+            opposingNodes c m = filter (\eNode -> isAntiCollinear (outAndErrOf eNode) (outAndErrOf m)) $ eNodesOfOutsideContour c
 
 -- | Find a single Cell of the given contour. always finds the cell on the 'open end' of the contour.
 findFirstCellOfContour :: Contour -> [CellDivide] -> Maybe (Cell, Maybe [RemainingContour])
