@@ -28,7 +28,8 @@ module Graphics.Slicer.Math.Intersections (
   isAntiParallel,
   isCollinear,
   isParallel,
-  noIntersection
+  noIntersection,
+  outputIntersectsPLineAt
   ) where
 
 import Prelude (Bool, Either(Left, Right), (<>), ($), (<), (||), (==), (&&), error, show, otherwise, realToFrac)
@@ -93,3 +94,13 @@ intersectionBetweenArcsOf node1 node2
   | otherwise = error $ "Tried to check if the outputs of two nodes intersect, but a node with no output:\n" <> show node1 <> "\n" <> show node2 <> "\n"
   where
     res = plinesIntersectIn (outAndErrOf node1) (outAndErrOf node2)
+
+-- | Find out where the output of an Arcable intersects a given PLine2. errors if no intersection.
+outputIntersectsPLineAt :: (Arcable a, ProjectiveLine2 b) => a -> (b, PLine2Err) -> Maybe (CPPoint2, PPoint2Err)
+outputIntersectsPLineAt n line
+  | hasArc n = case res of
+                       (IntersectsIn p (_,_, pErr)) -> Just (p, pErr)
+                       _ -> Nothing
+  | otherwise = error $ "Tried to check if the output of node intersects PLine on a node with no output:\n" <> show n <> "\n" <> show line <> "\n"
+  where
+    res = plinesIntersectIn (outAndErrOf n) line
