@@ -17,7 +17,7 @@
  -}
 
 {-
- - This file contains code for retrieving and reasoning about the intersection of two projective lines.
+ -  This file contains code for retrieving and reasoning about the intersection of two projective lines.
  -}
 
 module Graphics.Slicer.Math.Intersections (
@@ -99,8 +99,8 @@ intersectionBetweenArcsOf node1 node2
 outputIntersectsPLineAt :: (Arcable a, ProjectiveLine2 b) => a -> (b, PLine2Err) -> Maybe (CPPoint2, PPoint2Err)
 outputIntersectsPLineAt n line
   | hasArc n = case res of
-                       (IntersectsIn p (_,_, pErr)) -> Just (p, pErr)
-                       _ -> Nothing
+                 (IntersectsIn p (_,_, pErr)) -> Just (p, pErr)
+                 _ -> Nothing
   | otherwise = error $ "Tried to check if the output of node intersects PLine on a node with no output:\n" <> show n <> "\n" <> show line <> "\n"
   where
     res = plinesIntersectIn (outAndErrOf n) line

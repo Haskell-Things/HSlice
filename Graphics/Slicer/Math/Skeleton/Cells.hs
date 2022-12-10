@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf, outputInte
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToCPPoint2, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), CPPoint2(CPPoint2), Pointable(canPoint, ePointOf, pPointOf), PIntersection(PAntiCollinear), PPoint2(PPoint2), angleBetween2PL, distance2PP, eToPL, eToPP, outAndErrOf, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), CPPoint2, Pointable(canPoint, ePointOf, pPointOf), PIntersection(PAntiCollinear), angleBetween2PL, distance2PP, eToPL, eToPP, outAndErrOf, plinesIntersectIn)
 
 import Graphics.Slicer.Math.PGAPrimitives (join2PP)
 
@@ -416,8 +416,8 @@ crossoverINodes :: NodeTree -> CellDivide -> [INode]
 crossoverINodes nodeTree@(NodeTree _ (INodeSet (Slist iNodes _))) cellDivision = filter nodeCrosses (filter canPoint $ concat iNodes)
   where
     nodeCrosses :: INode -> Bool
-    nodeCrosses a = Just False `elem` (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)
-    pointOnSide = (\(CPPoint2 a) -> PPoint2 a) $ eToPP $ pointInCell nodeTree cellDivision
+    nodeCrosses a = Just False `elem` (intersectionSameSide (pointOnSide, mempty) a <$> motorcyclesInDivision cellDivision)
+    pointOnSide = eToPP $ pointInCell nodeTree cellDivision
     pointInCell cell (CellDivide (DividingMotorcycles m _) _)
       | firstSegOf cell == lastCSegOf m = endPoint $ firstSegOf cell
       | lastSegOf cell == firstCSegOf m = startPoint $ lastSegOf cell

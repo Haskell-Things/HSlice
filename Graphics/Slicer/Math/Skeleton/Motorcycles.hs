@@ -52,7 +52,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf, isAntiCollinear, noIn
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, pPointBetweenPPoints, distanceBetweenPPoints, eToCPPoint2, eToPLine2, normalizePLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), angleBetween2PL, distance2PP, eToPP, join2PP, outAndErrOf, outputIntersectsLineSeg, plinesIntersectIn, translateL) 
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2, PPoint2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), ProjectivePoint2, angleBetween2PL, distance2PP, eToPP, join2PP, outAndErrOf, outputIntersectsLineSeg, plinesIntersectIn, translateL) 
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -313,12 +313,13 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
 
 -- | Determine if a node is on one side of a motorcycle, or the other.
 --   Assumes the starting point of the second line segment is a point on the path.
-intersectionSameSide :: (Pointable a, Show a) => PPoint2 -> a -> Motorcycle -> Maybe Bool
-intersectionSameSide pointOnSide node (Motorcycle _ path _)
-  | canPoint node && pPointOf node == pointOnSide = Just True
-  | canPoint node = pPointsOnSameSideOfPLine (pPointOf node) pointOnSide path
+intersectionSameSide :: (ProjectivePoint2 a, Pointable b) => (a, PPoint2Err) -> b -> Motorcycle -> Maybe Bool
+intersectionSameSide point@(pp1, _) node (Motorcycle _ path _)
+  | canPoint node && d < realToFrac (ulpVal dErr) = Just True
+  | canPoint node = pPointsOnSameSideOfPLine (pPointOf node) pp1 path
   | otherwise = error $ "cannot resolve provided item to a point: " <> show node <> "\n"
-
+    where
+      (d, (_,_, dErr)) = distance2PP (pPointOf node, mempty) point
 -- | Check if the output of two motorcycles are anti-collinear with each other.
 motorcyclesAreAntiCollinear :: Motorcycle -> Motorcycle -> Bool
 motorcyclesAreAntiCollinear motorcycle1 motorcycle2 = plinesIntersectIn (outAndErrOf motorcycle1) (outAndErrOf motorcycle2) == PAntiCollinear
