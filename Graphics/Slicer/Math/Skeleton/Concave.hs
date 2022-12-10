@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endP
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.Intersections (noIntersection, intersectionsAtSamePoint, intersectionOf, isCollinear, isParallel, isAntiCollinear, isAntiParallel, outputsIntersect)
+import Graphics.Slicer.Math.Intersections (noIntersection, intersectionBetweenArcsOf, intersectionsAtSamePoint, intersectionOf, isCollinear, isParallel, isAntiCollinear, isAntiParallel)
 
 import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), ProjectiveLine, PLine2Err, eToPL, flipL, distance2PP, outAndErrOf, pLineIsLeft)
 
@@ -746,9 +746,9 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
                     <> show n1 <> "\n"
                     <> show n2 <> "\n"
       where
-        intersectionPoint = outputsIntersect n1 n2
-        (n1Distance, (_,_, n1Err)) = distance2PP (intersectionPoint, mempty) (pPointOf n1,mempty)
-        (n2Distance, (_,_, n2Err)) = distance2PP (intersectionPoint, mempty) (pPointOf n2,mempty)
+        intersectionPoint = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf n1 n2
+        (n1Distance, (_,_, n1Err)) = distance2PP intersectionPoint (pPointOf n1,mempty)
+        (n2Distance, (_,_, n2Err)) = distance2PP intersectionPoint (pPointOf n2,mempty)
 
     -- | get the list of sorted pairs of intersecting nodes.
     shortestNeighboringPairs :: (Arcable a, Pointable a, Eq a) => [(a,a)] -> [(a, a)]

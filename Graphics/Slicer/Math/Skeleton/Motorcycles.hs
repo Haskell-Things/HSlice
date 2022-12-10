@@ -42,13 +42,13 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Arcs (getOutsideArc, getInsideArc)
+import Graphics.Slicer.Math.Arcs (getInsideArc)
 
 import Graphics.Slicer.Math.Contour (pointsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, distance, mapWithNeighbors, startPoint, endPoint, makeLineSeg)
 
-import Graphics.Slicer.Math.Intersections (noIntersection, isAntiCollinear, outputsIntersect, outputIntersectsPLine)
+import Graphics.Slicer.Math.Intersections (noIntersection, intersectionBetweenArcsOf, isAntiCollinear, outputIntersectsPLine)
 
 import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections)
 
@@ -158,7 +158,7 @@ crashMotorcycles contour holes
                                  EQ -> Just $ Collision (mot1, mot2, slist []) (Just mot1) SideSwipe
                           _ -> Nothing
               where
-                intersectionPPoint = outputsIntersect mot1 mot2
+                (intersectionPPoint, _) = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf mot1 mot2
                 intersectionIsBehind m = oppositeDirection (outOf m) (fst $ join2PP (pPointOf m) intersectionPPoint)
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
@@ -186,7 +186,6 @@ convexMotorcycles contour = mapMaybe onlyMotorcycles $ zip (rotateLeft $ linePai
 motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, PLine2Err)
 motorcycleFromPoints p1 p2 p3 = (flipL res, resErr)
   where
---    (res, resErr) = getOutsideArc (eToPP p1, mempty) firstLine (eToPP p3, mempty) secondLine
     (res, resErr) = getInsideArc firstLine secondLine
       where
         firstLine = join2EP p1 p2
