@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, dist
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.Intersections (intersectionOf)
+import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf)
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, eToCPPoint2, eToPLine2, pToEPoint2)
 
@@ -115,7 +115,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                                                    where
                                                      (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf m) (eToPLine2 $ lineSegToIntersection m)
                                                  lineSegToIntersection m = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
-                                                 intersectionPPoint = fst $ intersectionOf (outAndErrOf firstMC) (outAndErrOf secondMC)
+                                                 (intersectionPPoint, _) = fromMaybe (error "no intersection between motorcycles!") $ intersectionBetweenArcsOf firstMC secondMC
                                              (Slist (_:_) _) -> error "too many motorcycles."
     motorcyclesIn (CrashTree motorcycles _ _) = motorcycles
     -- | find where the last motorcycle of a divide lands

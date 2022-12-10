@@ -22,6 +22,7 @@
 
 module Graphics.Slicer.Math.Intersections (
   intersectionBetween,
+  intersectionBetweenArcsOf,
   intersectionOf,
   isAntiCollinear,
   isAntiParallel,
@@ -30,13 +31,13 @@ module Graphics.Slicer.Math.Intersections (
   noIntersection
   ) where
 
-import Prelude (Bool, Either(Left, Right), (<>), ($), (<), (||), (==), error, show, realToFrac)
+import Prelude (Bool, Either(Left, Right), (<>), ($), (<), (||), (==), (&&), error, show, otherwise, realToFrac)
 
 import Data.Maybe (Maybe(Just, Nothing))
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine2, distance2PL, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc), CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine2, distance2PL, outAndErrOf, plinesIntersectIn)
 
 -- | Check if two lines cannot intersect.
 noIntersection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
@@ -83,3 +84,12 @@ intersectionBetween line1@(l1, _) line2@(l2, _) = saneIntersection $ plinesInter
                                           else Nothing
     saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p, pErr)
 
+-- | Find out where the output of two Arcables intersect. returns Nothing if no intersection, errors if no output Arc exists on either input.
+intersectionBetweenArcsOf :: (Arcable a, Arcable b) => a -> b -> Maybe (CPPoint2, PPoint2Err)
+intersectionBetweenArcsOf node1 node2
+  | hasArc node1 && hasArc node2 = case res of
+                                     (IntersectsIn p (_,_, pErr)) -> Just (p, pErr)
+                                     _ -> Nothing
+  | otherwise = error $ "Tried to check if the outputs of two nodes intersect, but a node with no output:\n" <> show node1 <> "\n" <> show node2 <> "\n"
+  where
+    res = plinesIntersectIn (outAndErrOf node1) (outAndErrOf node2)

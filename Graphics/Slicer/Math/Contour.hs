@@ -83,7 +83,7 @@ getLoops (x:xs) = getLoops' xs (slist [x]) (snd $ fromMaybe (error "empty first 
 
 -- | so we begin with the "building loop" being empty.
 getLoops'
-  :: (Show a,Eq a)
+  :: (Show a, Eq a)
   => [[a]]     -- ^ input
   -> Slist [a] -- ^ accumulator
   -> a         -- ^ last element in the acumulator
