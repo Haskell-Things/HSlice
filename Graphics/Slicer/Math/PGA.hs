@@ -75,7 +75,7 @@ module Graphics.Slicer.Math.PGA(
   vecOfP
   ) where
 
-import Prelude (Bool, Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (-), (>=), (&&), (<$>), otherwise, signum, (>), (<=), (+), negate, (/), (||), (<), abs, error, sin, cos, realToFrac)
+import Prelude (Bool, Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (-), (>=), (&&), (<$>), (>), (<=), (+), (/), (||), (<), abs, cos, error, negate, otherwise, realToFrac, signum, sin)
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
