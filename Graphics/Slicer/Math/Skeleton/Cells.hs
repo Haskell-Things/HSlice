@@ -166,7 +166,7 @@ findNextCell (RemainingContour (Slist [(Slist lineSegs _, divides)] _) ) =
         cell = createCellFromStraightWalls (slist [lineSegs]) [closestDivide]
         remainder = findRemainder cell lineSegs divides
         remainingSegmentsOf (RemainingContour l) = l
-        closestDivide = if fst (fst $ head divideClosestSorted) == fst ( fst $ head divideFurthestSorted)
+        closestDivide = if fst (fst $ head divideClosestSorted) == fst (fst $ head divideFurthestSorted)
                         then snd $ head divideClosestSorted
                         else error $ "Divide collision:\n" <> show divideClosestSorted <> "\n" <> show divideFurthestSorted <> "\n"
         divideClosestSorted = slist $ sortBy (compareDivides lineSegs) $ closestSegOfDivide lineSegs <$> divides
@@ -367,10 +367,7 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
       case nub $ insOf $ lastINodeOf iNodeGens of
         [] -> error "unpossible."
         [_] -> NodeTree eNodes $ INodeSet $ init gens
-        (_:_) -> NodeTree eNodes $ INodeSet $ init gens <> one [makeINode (nub $ insOf $ lastINodeOf iNodeGens) (Just myOut)]
-          where
-            myOut = second (\(_,_,a) -> a) joinOut
-            joinOut = join2PP (finalPointOfNodeTree nodeTree) myCrossover
+        (_:_) -> NodeTree eNodes $ INodeSet $ init gens <> one [makeINode (nub $ insOf $ lastINodeOf iNodeGens) (Just $ (\(res, (_,_,resErr)) -> (res, resErr)) $ join2PP (finalPointOfNodeTree nodeTree) myCrossover)]
     -- | find the last resolvable point in a NodeTree
     finalPointOfNodeTree (NodeTree _ iNodeGens)
       | canPoint (lastINodeOf iNodeGens) = pPointOf $ lastINodeOf iNodeGens

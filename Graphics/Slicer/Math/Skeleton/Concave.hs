@@ -17,7 +17,7 @@
  -}
 
 {-
--- This contains a geometric solver handling the creation of a straight skeleton for all concave contours without holes
+   This contains a geometric solver handling the creation of a straight skeleton for all concave contours without holes
 -}
 
 -- inherit instances when deriving.

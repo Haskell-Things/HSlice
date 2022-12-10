@@ -90,16 +90,6 @@ intersectionBetween line1@(l1, _) line2@(l2, _) = saneIntersection $ plinesInter
                                           else Nothing
     saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p, pErr)
 
--- | Find out where the output of an Arcable intersects a given PLine2. errors if no intersection.
-outputIntersectsPLineAt :: (Arcable a) => a -> (ProjectiveLine, PLine2Err) -> Maybe (ProjectivePoint, PPoint2Err)
-outputIntersectsPLineAt n line
-  | hasArc n = case res of
-                 (IntersectsIn p (_,_, pErr)) -> Just (p, pErr)
-                 _ -> Nothing
-  | otherwise = error $ "Tried to check if the output of node intersects PLine on a node with no output:\n" <> show n <> "\n" <> show line <> "\n"
-  where
-    res = plinesIntersectIn (outAndErrOf n) line
-
 -- | Find out where the output two Arcables intersect. returns Nothing if no intersection, and errors if one of the inputs has no output Arc.
 intersectionBetweenArcsOf :: (Arcable a, Arcable b) => a -> b -> Maybe (ProjectivePoint, PPoint2Err)
 intersectionBetweenArcsOf node1 node2
@@ -109,6 +99,16 @@ intersectionBetweenArcsOf node1 node2
   | otherwise = error $ "Tried to check if the outputs of two nodes intersect, but a node with no output:\n" <> show node1 <> "\n" <> show node2 <> "\n"
   where
     res = plinesIntersectIn (outAndErrOf node1) (outAndErrOf node2)
+
+-- | Find out where the output of an Arcable intersects a given PLine2. errors if no intersection.
+outputIntersectsPLineAt :: (Arcable a, ProjectiveLine2 b) => a -> (b, PLine2Err) -> Maybe (ProjectivePoint, PPoint2Err)
+outputIntersectsPLineAt n line
+  | hasArc n = case res of
+                 (IntersectsIn p (_,_, pErr)) -> Just (p, pErr)
+                 _ -> Nothing
+  | otherwise = error $ "Tried to check if the output of node intersects PLine on a node with no output:\n" <> show n <> "\n" <> show line <> "\n"
+  where
+    res = plinesIntersectIn (outAndErrOf n) line
 
 -- | Find out if all of the possible intersections between all of the given nodes are close enough to be considered intersecting at the same point.
 intersectionsAtSamePoint :: [(ProjectiveLine, PLine2Err)] -> Bool
