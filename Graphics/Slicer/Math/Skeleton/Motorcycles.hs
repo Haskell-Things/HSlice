@@ -48,13 +48,13 @@ import Graphics.Slicer.Math.Contour (pointsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, distance, mapWithNeighbors, startPoint, endPoint, makeLineSeg)
 
-import Graphics.Slicer.Math.Intersections (noIntersection, intersectionBetweenArcsOf, isAntiCollinear, outputIntersectsPLine)
+import Graphics.Slicer.Math.Intersections (noIntersection, intersectionBetweenArcsOf, isAntiCollinear, outputIntersectsPLineAt)
 
 import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections)
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, eToPP, flipL, join2EP, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outAndErrOf, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), distance2PP, eToPL, eToPP, flipL, join2EP, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outAndErrOf, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -92,17 +92,17 @@ motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle)
                       (WithMotorcycle motorcycle2) -> pPointOf motorcycle2
     tSpeedOf :: MotorcycleIntersection -> ℝ
     tSpeedOf myTarget = case myTarget of
-                  (WithLineSeg lineSeg) -> distanceBetweenPPoints
-                                           (outputIntersectsPLine motorcycle (translateL (eToPLine2 lineSeg) 1))
-                                           (outputIntersectsPLine motorcycle (eToPLine2 lineSeg, mempty))
-                  (WithENode eNode) -> distanceBetweenPPoints
-                                       (pPointOf eNode)
-                                       (outputIntersectsPLine eNode (translateL (eToPLine2 $ getFirstLineSeg eNode) 1))
+                  (WithLineSeg lineSeg) -> fst $ distance2PP
+                                           (fromMaybe (error "no outArc?") $ outputIntersectsPLineAt motorcycle (translateL (eToPLine2 lineSeg) 1))
+                                           (fromMaybe (error "no outArc?") $ outputIntersectsPLineAt motorcycle (eToPL lineSeg))
+                  (WithENode eNode) -> fst $ distance2PP
+                                       (pPointOf eNode, mempty)
+                                       (fromMaybe (error "no outArc?") $ outputIntersectsPLineAt eNode (translateL (eToPLine2 $ getFirstLineSeg eNode) 1))
                   (WithMotorcycle motorcycle2) -> mSpeedOf motorcycle2
     mSpeedOf :: Motorcycle -> ℝ
-    mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _ _) = distanceBetweenPPoints
-                                                      (pPointOf myMotorcycle)
-                                                      (outputIntersectsPLine myMotorcycle (translateL (eToPLine2 seg1) 1))
+    mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _ _) = fst $ distance2PP
+                                                      (pPointOf myMotorcycle, mempty)
+                                                      (fromMaybe (error "no outArc?") $ outputIntersectsPLineAt myMotorcycle (translateL (eToPLine2 seg1) 1))
 
 -- | Create a crash tree for all of the motorcycles in the given contour, with the given holes.
 -- FIXME: may fail, returning Nothing.

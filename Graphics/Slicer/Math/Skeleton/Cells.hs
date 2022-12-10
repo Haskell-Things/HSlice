@@ -56,11 +56,11 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, dist
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf, isAntiCollinear, outputIntersectsPLine) 
+import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf, isAntiCollinear, outputIntersectsPLineAt)
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPP, outAndErrOf)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), distance2PP, eToPL, eToPP, outAndErrOf)
 
 import Graphics.Slicer.Math.PGAPrimitives (ProjectivePoint, angleBetween2PL, join2PP)
 
@@ -132,7 +132,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
             cMotorcyclePoint = pPointOf myMotorcycle
             cNodePoint = pPointOf oneNode
             motorcycleENodeDistance = distanceBetweenPPoints cMotorcyclePoint cNodePoint
-            motorcycleLineSegDistance = distanceBetweenPPoints cMotorcyclePoint $ outputIntersectsPLine myMotorcycle (eToPLine2 $ fst $ motorcycleIntersectsAt myContour myMotorcycle, mempty)
+            motorcycleLineSegDistance = distanceBetweenPPoints cMotorcyclePoint $ fst $ fromMaybe (error "no outArc?") $ outputIntersectsPLineAt myMotorcycle (eToPL $ fst $ motorcycleIntersectsAt myContour myMotorcycle)
         (_:_) -> error "more than one opposing exterior node. cannot yet handle this situation."
       where
         eNodesInPath = opposingNodes myContour myMotorcycle
@@ -408,7 +408,11 @@ nodeTreesDoNotOverlap nodeTree1 nodeTree2 cellDivide@(CellDivide motorcycles1 _)
     -- | Check that the outputs of the NodeTrees collide at the same point at the division between the two cells the NodeTrees correspond to.
     lastOutsIntersect :: NodeTree -> NodeTree -> CellDivide -> Bool
     lastOutsIntersect nt1 nt2 (CellDivide motorcycles _) = case motorcycles of
-                                                             (DividingMotorcycles m (Slist _ 0)) -> outputIntersectsPLine m (finalPLine nt1, mempty) == outputIntersectsPLine m (finalPLine nt2, mempty)
+                                                             (DividingMotorcycles m (Slist _ 0)) -> d < realToFrac (ulpVal dErr)
+                                                               where
+                                                                 (d, (_,_, dErr)) = distance2PP point1 point2
+                                                                 point1 = fromMaybe (error "no outArc?") $ outputIntersectsPLineAt m (finalPLine nt1, mempty)
+                                                                 point2 = fromMaybe (error "no outArc?") $ outputIntersectsPLineAt m (finalPLine nt2, mempty)
                                                              (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet check outpoint intersections of more than one motorcycle."
 
 -- | Given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
