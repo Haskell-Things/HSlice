@@ -56,7 +56,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf)
 
-import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, eToCPPoint2, eToPLine2, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToCPPoint2, eToPLine2, pToEPoint2)
 
 import Graphics.Slicer.Math.PGA (Arcable(outOf), CPPoint2(CPPoint2), Pointable(canPoint, ePointOf, pPointOf), PIntersection(PAntiCollinear, IntersectsIn), PPoint2(PPoint2), angleBetween2PL, distance2PP, eToPL, eToPP, outAndErrOf, plinesIntersectIn)
 
@@ -127,8 +127,8 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                      then WithENode oneNode
                      else WithLineSeg $ fst $ motorcycleIntersectsAt myContour myMotorcycle
           where
-            cMotorcyclePoint = canonicalizePPoint2 $ pPointOf myMotorcycle
-            cNodePoint = canonicalizePPoint2 $ pPointOf oneNode
+            cMotorcyclePoint = pPointOf myMotorcycle
+            cNodePoint = pPointOf oneNode
             motorcycleENodeDistance = distanceBetweenPPoints cMotorcyclePoint cNodePoint
             motorcycleLineSegDistance = distanceBetweenPPoints cMotorcyclePoint $ justIntersectsIn $ plinesIntersectIn (outAndErrOf myMotorcycle) (eToPL $ fst $ motorcycleIntersectsAt myContour myMotorcycle)
         (_:_) -> error "more than one opposing exterior node. cannot yet handle this situation."
