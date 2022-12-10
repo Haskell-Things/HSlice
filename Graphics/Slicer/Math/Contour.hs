@@ -71,7 +71,7 @@ import Graphics.Slicer.Math.PGA (ProjectivePoint, eToPP, join2EP, join2PP, pLine
 -- so that we have the loop, and also knowledge of how
 -- the list is built (the "sides" of it).
 
-getLoops :: (Show a,Eq a) => [[a]] -> Maybe [[[a]]]
+getLoops :: (Show a, Eq a) => [[a]] -> Maybe [[[a]]]
 getLoops [] = Just []
 getLoops (x:xs) = getLoops' xs (slist [x]) (snd $ fromMaybe (error "empty first sequence") $ unsnoc x)
 -- We will be actually doing the loop extraction with
@@ -161,7 +161,7 @@ getContours pointPairs = fromMaybe (error $ "failed to flip a contour\n" <> show
         sortPairs :: [(Point2,Point2)] -> [(Point2,Point2)]
         sortPairs = sortBy (\a b -> if fst a == fst b then compare (snd a) (snd b) else compare (fst a) (fst b))
 
--- make sure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
+-- | Ensure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
 maybeFlipContour :: Contour -> Maybe Contour
 maybeFlipContour contour
   | isJust maybeIsLeft && maybeIsLeft == Just True = Just contour
@@ -250,7 +250,7 @@ innerContourPoint contour
     (perpPoint,  (_,_,_, perpErr))  = pPointOnPerpWithErr source midPoint minDistanceFromSeg
     (otherPoint, (_,_,_, otherErr)) = pPointOnPerpWithErr source midPoint (-minDistanceFromSeg)
     midPoint     = pPointBetweenPPoints (eToPP p1) (eToPP p2) 0.5 0.5
-    -- FIXME: error loss.
+    -- FIXME: Error loss.
     (source, _)  = join2EP p1 p2
     outsidePoint = pointFarOutsideContour contour
     (p1, p2)     = firstPointPairOfContour contour

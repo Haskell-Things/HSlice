@@ -17,8 +17,8 @@
  -}
 
 {-
-   This file contains code for retrieving and reasoning about the intersection of two projective lines.
--}
+ -  This file contains code for retrieving and reasoning about the intersection of two projective lines.
+ -}
 
 module Graphics.Slicer.Math.Intersections (
   intersectionBetween,
@@ -76,7 +76,6 @@ intersectionOf line1 line2 = saneIntersection $ plinesIntersectIn line1 line2
     saneIntersection (IntersectsIn p (_,_, pErr)) = (p, pErr)
 
 -- | Get the intersection point of two lines. if they are collinear, returns a line, and if they are parallel, returns Nothing.
--- FIXME: adding two different types of error.
 intersectionBetween :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe (Either (a, PLine2Err) (ProjectivePoint, PPoint2Err))
 intersectionBetween line1@(l1, _) line2@(l2, _) = saneIntersection $ plinesIntersectIn line1 line2
   where

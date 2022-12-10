@@ -338,7 +338,7 @@ data Intersection =
   | HitEndPoint !LineSeg
   deriving Show
 
--- | Entry point usable for all intersection needs, complete with passed in error values.
+-- | Entry point usable for common intersection needs, complete with passed in error values.
 intersectsWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => Either LineSeg (a, PLine2Err) -> Either LineSeg (b, PLine2Err) -> Either Intersection PIntersection
 intersectsWithErr (Left l1)   (Left l2)   =         lineSegIntersectsLineSeg l1 l2
 intersectsWithErr (Right pl1) (Right pl2) = Right $ plinesIntersectIn pl1 pl2
@@ -506,6 +506,7 @@ combineConsecutiveLineSegs lines = case lines of
 ----- And now draw the rest of the algebra -----
 ------------------------------------------------
 
+-- | Create a canonical euclidian projective point from the given euclidian point.
 euclidianToProjectivePoint2, eToPP :: Point2 -> ProjectivePoint
 euclidianToProjectivePoint2 (Point2 (x,y)) = res
   where
@@ -541,5 +542,5 @@ eToPL l = euclidianToProjectiveLine l
 joinTwoEuclidianPoints, join2EP :: Point2 -> Point2 -> (ProjectiveLine, PLine2Err)
 joinTwoEuclidianPoints p1 p2 = (res, resErr)
   where
-        (res, (_, _, resErr)) = join2PP (eToPP p1) (eToPP p2)
+    (res, (_, _, resErr)) = join2PP (eToPP p1) (eToPP p2)
 join2EP p1 p2 = joinTwoEuclidianPoints p1 p2

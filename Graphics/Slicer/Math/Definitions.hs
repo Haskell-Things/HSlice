@@ -28,8 +28,6 @@ module Graphics.Slicer.Math.Definitions(
   Point3(Point3),
   SpacePoint,
   (~=),
-  roundToFifth,
-  roundPoint2,
   addPoints,
   distance,
   endPoint,
@@ -43,8 +41,10 @@ module Graphics.Slicer.Math.Definitions(
   minMaxPoints,
   negatePoint,
   pointBetweenPoints,
-  startPoint,
+  roundPoint2,
+  roundToFifth,
   scalePoint,
+  startPoint,
   xOf,
   yOf,
   zOf
@@ -182,6 +182,7 @@ minMaxPoints contour = case contour of
                          (PointContour foundMinPoint foundMaxPoint _ _ _ _) -> (foundMinPoint, foundMaxPoint)
                          (LineSegContour foundMinPoint foundMaxPoint _ _ _) -> (foundMinPoint, foundMaxPoint)
 
+-- | Find a point between the two given points.
 pointBetweenPoints :: Point2 -> Point2 -> Point2
 pointBetweenPoints point1 point2 = scalePoint 0.5 $ addPoints point1 point2
 
