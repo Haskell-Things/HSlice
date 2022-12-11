@@ -97,7 +97,7 @@ data INode = INode
    -- _moreInArcs ::
    !(Slist ProjectiveLine)
    -- _outArc ::
-   !(Maybe (ProjectiveLine,PLine2Err))
+   !(Maybe (ProjectiveLine, PLine2Err))
   deriving Eq
   deriving stock Show
 

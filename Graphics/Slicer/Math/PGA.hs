@@ -301,7 +301,7 @@ outAndErrOf a
   | otherwise = error $ "Asked for out and err of Arcable with no out!\n" <> show a <> "\n"
 
 -- | Typeclass for nodes that may be able to be resolved into a point.
-class Pointable a where
+class (Show a) => Pointable a where
   -- | Can this node be resolved into a point in 2d space?
   canPoint :: a -> Bool
   -- | Get a euclidian representation of this point.

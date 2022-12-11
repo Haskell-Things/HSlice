@@ -89,9 +89,9 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, makeL
 
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
-import Graphics.Slicer.Math.Lossy (eToPLine2, pToEPoint2, translateRotatePPoint2)
+import Graphics.Slicer.Math.Lossy (pToEPoint2, translateRotatePPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, eToPL, eToPP, flipL, join2EP, normalizeL, pPointOf)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, eToPL, eToPP, flipL, join2EP, pPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode)
 
@@ -396,19 +396,21 @@ randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
     intersectionPPoint = eToPP intersectionPoint
 
 randomINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> INode
-randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,maybeFlippedpl2] $ Just (bisector1,bisectorErr)
+randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [fst maybeFlippedpl1, fst maybeFlippedpl2] $ Just (bisector1,bisectorErr)
   where
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
-    pl1 = fst $ normalizeL $ eToPLine2 $ getFirstLineSeg eNode
-    pl2 = flipL $ eToPLine2 $ getLastLineSeg eNode
+    (pl1, pl1Err) = eToPL $ getFirstLineSeg eNode
+    (pl2, pl2Err) = (flipL ls, lsErr)
+      where
+        (ls, lsErr) = eToPL $ getLastLineSeg eNode
     intersectionPPoint = pPointOf eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
     pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
     pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
-    maybeFlippedpl1 = if flipIn1 then flipL pl1 else pl1
-    maybeFlippedpl2 = if flipIn2 then flipL pl2 else pl2
-    (bisector1, bisectorErr) = getOutsideArc (pp1, mempty) (maybeFlippedpl1, mempty) (pp2, mempty) (maybeFlippedpl2, mempty)
+    maybeFlippedpl1 = (if flipIn1 then flipL pl1 else pl1, pl1Err)
+    maybeFlippedpl2 = (if flipIn2 then flipL pl2 else pl2, pl2Err)
+    (bisector1, bisectorErr) = getOutsideArc (pp1, mempty) maybeFlippedpl1 (pp2, mempty) maybeFlippedpl2
 
 -- | A helper function. constructs a random PLine.
 randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> ProjectiveLine
