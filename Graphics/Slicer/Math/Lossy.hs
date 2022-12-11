@@ -23,7 +23,6 @@ module Graphics.Slicer.Math.Lossy (
   distanceBetweenPPoints,
   distanceBetweenPLines,
   distancePPointToPLine,
-  eToCPPoint2,
   eToNPLine2,
   eToPLine2,
   getFirstArc,
@@ -47,7 +46,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
 import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getInsideArc)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, canonicalizeP, distance2PP, distance2PL, distancePPointToPLineWithErr, eToPL, eToPP, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, canonicalizeP, distance2PP, distance2PL, distancePPointToPLineWithErr, eToPL, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL)
 
 -- | canonicalize a euclidian point.
 canonicalizePPoint2 :: PPoint2 -> CPPoint2
@@ -62,10 +61,6 @@ distanceBetweenPLines nPLine1 nPLine2 = fst $ distance2PL nPLine1 nPLine2
 -- | Find the unsigned distance between a point and a line.
 distancePPointToPLine :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> ℝ
 distancePPointToPLine point line = fst $ distancePPointToPLineWithErr (point, mempty) (line, mempty)
-
--- | Create a projective point from a euclidian point.
-eToCPPoint2 :: Point2 -> CPPoint2
-eToCPPoint2 point = eToPP point
 
 -- | Create a normalized projective line from a euclidian line segment.
 eToNPLine2 :: LineSeg -> NPLine2
