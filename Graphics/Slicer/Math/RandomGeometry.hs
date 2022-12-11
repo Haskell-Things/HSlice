@@ -90,9 +90,9 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, makeL
 
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
-import Graphics.Slicer.Math.Lossy (eToPLine2, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (eToPLine2, pToEPoint2, translateRotatePPoint2)
 
-import Graphics.Slicer.Math.PGA (PLine2(PLine2), PLine2Err, eToPL, eToPP, flipL, join2EP, normalizeL, translateRotatePPoint2WithErr, pPointOf, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (PLine2(PLine2), PLine2Err, eToPL, eToPP, flipL, join2EP, normalizeL, pPointOf, NPLine2(NPLine2))
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode)
 
@@ -374,7 +374,7 @@ randomStarPoly centerX centerY radianDistPairs = fromMaybe dumpError $ maybeFlip
   where
     contour            = makePointContour points
     points             = pToEPoint2 <$> pointsAroundCenter
-    pointsAroundCenter = (\(distanceFromPoint, angle) -> fst $ translateRotatePPoint2WithErr centerPPoint (coerce distanceFromPoint) (coerce angle)) <$> radianDistPairs
+    pointsAroundCenter = (\(distanceFromPoint, angle) -> translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)) <$> radianDistPairs
     centerPPoint       = eToPP $ Point2 (centerX, centerY)
     dumpError          = error $ "failed to flip a contour:" <> dumpGanjas [toGanja contour, toGanja (Point2 (centerX, centerY)), toGanja outsidePLine] <> "\n"
       where
@@ -389,8 +389,8 @@ randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
     intersectionPoint = Point2 (x,y)
-    pp1 = fst $ translateRotatePPoint2WithErr intersectionPPoint (coerce d1) (coerce r1)
-    pp2 = fst $ translateRotatePPoint2WithErr intersectionPPoint (coerce d2) (coerce r2)
+    pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
+    pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
     p1 = pToEPoint2 pp1
     p2 = pToEPoint2 pp2
     intersectionPPoint = eToPP intersectionPoint
@@ -404,8 +404,8 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
     pl2 = (\(NPLine2 a,b) -> (PLine2 a,b)) $ normalizeL $ flipL $ eToPLine2 $ getLastLineSeg eNode
     intersectionPPoint = pPointOf eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
-    pp1 = fst $ translateRotatePPoint2WithErr intersectionPPoint (coerce d1) (coerce r1)
-    pp2 = fst $ translateRotatePPoint2WithErr intersectionPPoint (coerce d2) (coerce r2)
+    pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
+    pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
     maybeFlippedpl1 = (if flipIn1 then flipL (fst pl1) else (fst pl1), snd pl1)
     maybeFlippedpl2 = (if flipIn2 then flipL (fst pl2) else (fst pl2), snd pl2)
     bisector1 = normalizeL outsideRes

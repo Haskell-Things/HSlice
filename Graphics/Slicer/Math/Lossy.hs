@@ -34,6 +34,7 @@ module Graphics.Slicer.Math.Lossy (
   pPointBetweenPPoints,
   pPointOnPerp,
   pToEPoint2,
+  translateRotatePPoint2,
   translatePLine2
   ) where
 
@@ -46,7 +47,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
 import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getInsideArc)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, canonicalizeP, distance2PP, distance2PL, distancePPointToPLineWithErr, eToPL, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, canonicalizeP, distance2PP, distance2PL, distancePPointToPLineWithErr, eToPL, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
 -- | canonicalize a euclidian point.
 canonicalizePPoint2 :: PPoint2 -> CPPoint2
@@ -104,6 +105,10 @@ pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ interpolate2PP
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
 pPointOnPerp :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> PPoint2
 pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
+
+-- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
+translateRotatePPoint2 :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> PPoint2
+translateRotatePPoint2 ppoint d rotation = fst $ translateRotatePPoint2WithErr ppoint d rotation
 
 -- | translate a PLine2 along it's perpendicular bisector.
 translatePLine2 :: PLine2 -> ℝ -> PLine2
