@@ -28,8 +28,6 @@ module Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason(INodeCrossesDivide
 
 import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, (*), ($), (<$>), (==), (<>), (&&), (/=), (||), (<), (<=), compare, concat, elem, error, filter, fst, mempty, null, otherwise, realToFrac, show, snd) 
 
-import Data.Bifunctor (second)
-
 import Data.Either(Either(Left, Right))
 
 import Data.List (elemIndex, sortBy, dropWhile, takeWhile, nub)
@@ -60,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf, isAntiColl
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), distance2PP, eToPL, eToPP, outAndErrOf)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), distance2PP, eToPL, eToPP, pPointAndErrOf, outAndErrOf)
 
 import Graphics.Slicer.Math.PGAPrimitives (ProjectivePoint, angleBetween2PL, join2PP)
 
@@ -129,10 +127,10 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                      then WithENode oneNode
                      else WithLineSeg $ fst $ motorcycleIntersectsAt myContour myMotorcycle
           where
-            cMotorcyclePoint = pPointOf myMotorcycle
-            cNodePoint = pPointOf oneNode
-            motorcycleENodeDistance = distanceBetweenPPoints cMotorcyclePoint cNodePoint
-            motorcycleLineSegDistance = distanceBetweenPPoints cMotorcyclePoint $ fst $ fromMaybe (error "no outArc?") $ outputIntersectsPLineAt myMotorcycle (eToPL $ fst $ motorcycleIntersectsAt myContour myMotorcycle)
+            cMotorcyclePoint = pPointAndErrOf myMotorcycle
+            cNodePoint = pPointAndErrOf oneNode
+            motorcycleENodeDistance = fst $ distance2PP cMotorcyclePoint cNodePoint
+            motorcycleLineSegDistance = fst $ distance2PP cMotorcyclePoint $ fromMaybe (error "no outArc?") $ outputIntersectsPLineAt myMotorcycle (eToPL $ fst $ motorcycleIntersectsAt myContour myMotorcycle)
         (_:_) -> error "more than one opposing exterior node. cannot yet handle this situation."
       where
         eNodesInPath = opposingNodes myContour myMotorcycle

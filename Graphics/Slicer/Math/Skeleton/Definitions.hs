@@ -31,7 +31,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, (||), (<>), show, (<), (*), mempty, snd)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, (||), (<>), show, (<), (*), mempty)
 
 import Prelude as PL (head, last)
 
@@ -55,7 +55,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint)
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (eToPP, PLine2Err, outAndErrOf, pToEP, plinesIntersectIn, PIntersection(IntersectsIn), flipL, ProjectiveLine(PLine2), pLineIsLeft, Pointable(canEPoint, canPoint, errOfEPoint, errOfPPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2))
+import Graphics.Slicer.Math.PGA (eToPP, PLine2Err, outAndErrOf, pToEP, plinesIntersectIn, PIntersection(IntersectsIn), flipL, ProjectiveLine(PLine2), pLineIsLeft, Pointable(canEPoint, canPoint, errOfPPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2))
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
@@ -87,7 +87,6 @@ instance Pointable ENode where
   pPointOf a = eToPP $ ePointOf a
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
   errOfPPoint = mempty
-  errOfEPoint = mempty
 
 -- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -153,7 +152,8 @@ instance Pointable INode where
           saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
           saneIntersect _                  = Nothing
   ePointOf a = fst $ pToEP $ pPointOf a
-  errOfEPoint a = snd $ pToEP $ pPointOf a
+  -- FIXME: implement this properly.
+  errOfPPoint _ = mempty
 
 -- Produce a list of the inputs to a given INode.
 insOf :: INode -> [ProjectiveLine]
@@ -180,8 +180,10 @@ instance Arcable Motorcycle where
 instance Pointable Motorcycle where
   -- A motorcycle always contains a point.
   canPoint _ = True
+  canEPoint _ = True
   pPointOf a = eToPP $ ePointOf a
   ePointOf (Motorcycle (_, LineSeg point _) _ _) = point
+  errOfPPoint _ = mempty
 
 -- | The motorcycles that are involved in dividing two cells.
 data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle, moreMotorcycles :: !(Slist Motorcycle) }

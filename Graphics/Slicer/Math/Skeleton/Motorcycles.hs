@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersectio
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), distance2PP, eToPL, eToPP, flipL, join2EP, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outAndErrOf, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), distance2PP, eToPL, eToPP, flipL, join2EP, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outAndErrOf, outputIntersectsLineSeg, pPointAndErrOf)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -96,12 +96,12 @@ motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle)
                                            (fromMaybe (error "no outArc?") $ outputIntersectsPLineAt motorcycle (translateL (eToPLine2 lineSeg) 1))
                                            (fromMaybe (error "no outArc?") $ outputIntersectsPLineAt motorcycle (eToPL lineSeg))
                   (WithENode eNode) -> fst $ distance2PP
-                                       (pPointOf eNode, mempty)
+                                       (pPointAndErrOf eNode)
                                        (fromMaybe (error "no outArc?") $ outputIntersectsPLineAt eNode (translateL (eToPLine2 $ getFirstLineSeg eNode) 1))
                   (WithMotorcycle motorcycle2) -> mSpeedOf motorcycle2
     mSpeedOf :: Motorcycle -> ℝ
     mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _ _) = fst $ distance2PP
-                                                      (pPointOf myMotorcycle, mempty)
+                                                      (pPointAndErrOf myMotorcycle)
                                                       (fromMaybe (error "no outArc?") $ outputIntersectsPLineAt myMotorcycle (translateL (eToPLine2 seg1) 1))
 
 -- | Create a crash tree for all of the motorcycles in the given contour, with the given holes.
@@ -152,14 +152,14 @@ crashMotorcycles contour holes
             | intersectionIsBehind mot2 = Nothing
             -- FIXME: this should be providing a distance to intersectionPPoint along the motorcycle to check.
             | otherwise = case getMotorcycleContourIntersections mot1 contour of
-                          [] -> case distanceBetweenPPoints (pPointOf mot1) intersectionPPoint `compare` distanceBetweenPPoints (pPointOf mot2) intersectionPPoint of
+                          [] -> case fst (distance2PP (pPointAndErrOf mot1) intersectionPPoint) `compare` fst (distance2PP (pPointAndErrOf mot2) intersectionPPoint) of
                                  GT -> Just $ Collision (mot1, mot2, slist []) (Just mot2) Normal
                                  LT -> Just $ Collision (mot1, mot2, slist []) (Just mot1) Normal
                                  EQ -> Just $ Collision (mot1, mot2, slist []) (Just mot1) SideSwipe
                           _ -> Nothing
               where
-                (intersectionPPoint, _) = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf mot1 mot2
-                intersectionIsBehind m = oppositeDirection (outOf m) (fst $ join2PP (pPointOf m) intersectionPPoint)
+                intersectionPPoint = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf mot1 mot2
+                intersectionIsBehind m = oppositeDirection (outOf m) (fst $ join2PP (pPointOf m) (fst intersectionPPoint))
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
 --   This function is meant to be used on the exterior contour.
@@ -207,20 +207,20 @@ motorcycleMightIntersectWith lineSegs motorcycle
     results = slist $ sortByDistance $ mapMaybe filterIntersection intersections
     sortByDistance :: [(LineSeg, Either Point2 ProjectivePoint)] -> [(LineSeg, Either Point2 ProjectivePoint)]
     sortByDistance = sortBy compareDistances
-    motorcyclePoint = pPointOf motorcycle
+    motorcyclePoint = pPointAndErrOf motorcycle
     compareDistances i1 i2 = case i1 of
                                (_, Right intersectionPPoint1) ->
                                  case i2 of
                                    (_, Right intersectionPPoint2) ->
-                                     distanceBetweenPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenPPoints motorcyclePoint intersectionPPoint2
+                                     fst (distance2PP motorcyclePoint (intersectionPPoint1, mempty)) `compare` fst (distance2PP motorcyclePoint (intersectionPPoint2, mempty))
                                    (_, Left intersectionPoint2) ->
-                                     distanceBetweenPPoints motorcyclePoint intersectionPPoint1 `compare` distanceBetweenPPoints motorcyclePoint (eToPP intersectionPoint2)
+                                     fst (distance2PP motorcyclePoint (intersectionPPoint1, mempty)) `compare` fst (distance2PP motorcyclePoint (eToPP intersectionPoint2, mempty))
                                (_, Left intersectionPoint1) ->
                                  case i2 of
                                    (_, Right intersectionPPoint2) ->
-                                     distanceBetweenPPoints motorcyclePoint (eToPP intersectionPoint1) `compare` distanceBetweenPPoints motorcyclePoint intersectionPPoint2
+                                     fst (distance2PP motorcyclePoint (eToPP intersectionPoint1, mempty)) `compare` fst (distance2PP motorcyclePoint (intersectionPPoint2, mempty))
                                    (_, Left intersectionPoint2) ->
-                                     distanceBetweenPPoints motorcyclePoint (eToPP intersectionPoint1) `compare` distanceBetweenPPoints motorcyclePoint (eToPP intersectionPoint2)
+                                     fst (distance2PP motorcyclePoint (eToPP intersectionPoint1, mempty)) `compare` fst (distance2PP motorcyclePoint (eToPP intersectionPoint2, mempty))
     filterIntersection :: (LineSeg, Either Point2 ProjectivePoint) -> Maybe (LineSeg, Either Point2 ProjectivePoint)
     filterIntersection intersection = case intersection of
                                         (_, Right intersectionPPoint) -> if intersectionPPointIsBehind intersectionPPoint
@@ -276,7 +276,6 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
 --   Assumes the starting point of the second line segment is a point on the path.
 intersectionSameSide :: (Pointable a, Show a) => ProjectivePoint -> a -> Motorcycle -> Maybe Bool
 intersectionSameSide pointOnSide node (Motorcycle _ path _)
-  | canPoint node && pPointOf node == pointOnSide = Just True
   | canPoint node = pPointsOnSameSideOfPLine (pPointOf node) pointOnSide path
   | otherwise = error $ "cannot resolve provided item to a point: " <> show node <> "\n"
 

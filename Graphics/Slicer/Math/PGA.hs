@@ -36,7 +36,6 @@ module Graphics.Slicer.Math.PGA(
       canEPoint,
       canPoint,
       errOfPPoint,
-      errOfEPoint,
       ePointOf,
       pPointOf
       ),
@@ -72,6 +71,7 @@ module Graphics.Slicer.Math.PGA(
   outAndErrOf,
   oppositeDirection,
   pLineIsLeft,
+  pPointAndErrOf,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
   pToEP,
@@ -310,11 +310,15 @@ class Pointable a where
   -- | Get a euclidian representation of this point.
   ePointOf :: a -> Point2
   -- | If the point is not a native euclidian point, the error generated while converting from a projective form. otherwise mempty.
-  errOfEPoint :: a -> PPoint2Err
-  -- | The accumulated error of the projective point this resolves to.
   errOfPPoint :: a -> PPoint2Err
   -- | Get a projective representation of this point.
   pPointOf :: a -> ProjectivePoint
+
+pPointAndErrOf :: (Pointable a) => a -> (ProjectivePoint, PPoint2Err)
+pPointAndErrOf a
+  | canEPoint a = (eToPP $ ePointOf a, mempty)
+  | canPoint a = (pPointOf a, errOfPPoint a)
+  | otherwise = error "not able to resolve node to a point."
 
 -- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
 outputIntersectsLineSeg :: (Arcable a) => a -> LineSeg -> Either Intersection PIntersection
