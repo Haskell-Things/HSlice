@@ -55,7 +55,7 @@ import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint)
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (eToPP, PLine2Err, outAndErrOf, pToEP, plinesIntersectIn, PIntersection(IntersectsIn), flipL, ProjectiveLine(PLine2), pLineIsLeft, Pointable(canEPoint, canPoint, errOfPPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2))
+import Graphics.Slicer.Math.PGA (eToPP, PLine2Err, outAndErrOf, pToEP, plinesIntersectIn, PIntersection(IntersectsIn), flipL, ProjectiveLine(PLine2), pLineIsLeft, Pointable(canPoint, errOfPPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2))
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
@@ -83,7 +83,6 @@ instance Arcable ENode where
 instance Pointable ENode where
   -- an ENode always contains a point.
   canPoint _ = True
-  canEPoint _ = True
   pPointOf a = eToPP $ ePointOf a
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
   errOfPPoint = mempty
@@ -127,7 +126,6 @@ instance Pointable INode where
         where
           saneIntersect (IntersectsIn _ _) = True
           saneIntersect _                  = False
-  canEPoint _ = False
   -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? angle based, etc?
   pPointOf iNode@(INode firstPLine secondPLine (Slist rawPLines _) _)
     | allPointsSame = case results of
@@ -180,7 +178,6 @@ instance Arcable Motorcycle where
 instance Pointable Motorcycle where
   -- A motorcycle always contains a point.
   canPoint _ = True
-  canEPoint _ = True
   pPointOf a = eToPP $ ePointOf a
   ePointOf (Motorcycle (_, LineSeg point _) _ _) = point
   errOfPPoint _ = mempty

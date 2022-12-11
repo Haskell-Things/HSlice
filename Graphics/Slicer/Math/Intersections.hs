@@ -75,7 +75,7 @@ intersectionOf line1 line2 = saneIntersection $ plinesIntersectIn line1 line2
     saneIntersection PAntiParallel      = error $ "cannot get the intersection of antiparallel lines.\nline1: " <> show line1 <> "\nline2: " <> show line2 <> "\n"
     saneIntersection (IntersectsIn p (_,_, pErr)) = (p, pErr)
 
--- | Get the intersection point of two lines. if they are collinear, returns a line, and if they are parallel, returns Nothing.
+-- | Get the intersection point of two lines. If they are collinear, returns a line, and if they are parallel, returns Nothing.
 intersectionBetween :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe (Either (a, PLine2Err) (ProjectivePoint, PPoint2Err))
 intersectionBetween line1@(l1, _) line2@(l2, _) = saneIntersection $ plinesIntersectIn line1 line2
   where
@@ -90,7 +90,7 @@ intersectionBetween line1@(l1, _) line2@(l2, _) = saneIntersection $ plinesInter
                                           else Nothing
     saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p, pErr)
 
--- | Find out where the output two Arcables intersect. returns Nothing if no intersection, and errors if one of the inputs has no output Arc.
+-- | Find out where the output of two Arcables intersect. returns Nothing if no intersection, and errors if no output Arc exists on either input.
 intersectionBetweenArcsOf :: (Arcable a, Arcable b) => a -> b -> Maybe (ProjectivePoint, PPoint2Err)
 intersectionBetweenArcsOf node1 node2
   | hasArc node1 && hasArc node2 = case res of

@@ -33,7 +33,6 @@ module Graphics.Slicer.Math.PGA(
   PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn),
   PLine2Err(PLine2Err),
   Pointable(
-      canEPoint,
       canPoint,
       errOfPPoint,
       ePointOf,
@@ -305,8 +304,6 @@ outAndErrOf a
 class Pointable a where
   -- | Can this node be resolved into a point in 2d space?
   canPoint :: a -> Bool
-  -- | Does this point originate from our input set of euclidian points?
-  canEPoint :: a -> Bool
   -- | Get a euclidian representation of this point.
   ePointOf :: a -> Point2
   -- | If the point is not a native euclidian point, the error generated while converting from a projective form. otherwise mempty.
@@ -316,7 +313,6 @@ class Pointable a where
 
 pPointAndErrOf :: (Pointable a) => a -> (ProjectivePoint, PPoint2Err)
 pPointAndErrOf a
-  | canEPoint a = (eToPP $ ePointOf a, mempty)
   | canPoint a = (pPointOf a, errOfPPoint a)
   | otherwise = error "not able to resolve node to a point."
 
