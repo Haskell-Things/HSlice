@@ -58,7 +58,7 @@ module Graphics.Slicer.Math.RandomGeometry (
   remainderFrom
   ) where
 
-import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, Int, (<>), (<>), (<$>), ($), (==), (+), (-), (*), (<), (/), (>), (<=), (&&), abs, error, fromInteger, fromRational, fst, mempty, mod, otherwise, replicate, show, signum, snd)
+import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, Int, (<>), (<>), (<$>), ($), (==), (+), (-), (*), (<), (/), (>), (<=), (&&), abs, error, fromInteger, fromRational, fst, mempty, mod, otherwise, replicate, show, signum)
 
 import Data.Coerce (coerce)
 
@@ -400,18 +400,18 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
   where
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
-    pl1 = eToPL $ getFirstLineSeg eNode
-    pl2 = (flipL $ ls, lsErr)
+    (pl1, pl1Err) = eToPL $ getFirstLineSeg eNode
+    (pl2, pl2Err) = (flipL $ ls, lsErr)
       where
         (ls, lsErr) = eToPL $ getLastLineSeg eNode
     intersectionPPoint = pPointOf eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
     pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
     pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
-    maybeFlippedpl1 = (if flipIn1 then flipL (fst pl1) else (fst pl1), snd pl1)
-    maybeFlippedpl2 = (if flipIn2 then flipL (fst pl2) else (fst pl2), snd pl2)
+    maybeFlippedpl1 = (if flipIn1 then flipL pl1 else pl1, pl1Err)
+    maybeFlippedpl2 = (if flipIn2 then flipL pl2 else pl2, pl2Err)
     bisector1 = normalizeL outsideRes
-    (outsideRes, outsideResErr) = getOutsideArc (pp1, mempty) (normalizeL $ fst maybeFlippedpl1) (pp2, mempty) (normalizeL $ fst maybeFlippedpl2)
+    (outsideRes, outsideResErr) = getOutsideArc (pp1, mempty) maybeFlippedpl1 (pp2, mempty) maybeFlippedpl2
 
 -- | A helper function. constructs a random PLine.
 randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> PLine2
