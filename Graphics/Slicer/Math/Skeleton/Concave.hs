@@ -169,8 +169,8 @@ averageNodes n1 n2 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPoint
 -- | Take a pair of arcables, and return their outOfs, in a sorted order.
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [ProjectiveLine]
 sortedPair n1 n2
-  | not (hasArc n1) || not (hasArc n2) = error "Cannot get the average of nodes if one of the nodes does not have an out!\n"
-  | otherwise = sortedPLines [outOf n1, outOf n2]
+  | hasArc n1 && hasArc n2 = sortedPLines [outOf n1, outOf n2]
+  | otherwise = error "Cannot get the average of nodes if one of the nodes does not have an out!\n"
 
 -- | Make a first generation node.
 makeENode :: Point2 -> Point2 -> Point2 -> ENode
@@ -516,8 +516,8 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
     -- | add together a child and it's parent.
     addINodeToParent :: INode -> INode -> INode
     addINodeToParent iNode1 iNode2@(INode _ _ _ out2)
-      | not (hasArc iNode1) = error "cannot merge a child inode with no output!"
-      | otherwise = orderInsByENodes $ makeINode (insOf iNode1 <> withoutPLine (outOf iNode1) (insOf iNode2)) out2
+      | hasArc iNode1 = orderInsByENodes $ makeINode (insOf iNode1 <> withoutPLine (outOf iNode1) (insOf iNode2)) out2
+      | otherwise = error "cannot merge a child inode with no output!"
       where
         withoutPLine :: ProjectiveLine -> [ProjectiveLine] -> [ProjectiveLine]
         withoutPLine myPLine = filter (/= myPLine)
