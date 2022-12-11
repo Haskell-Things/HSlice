@@ -109,19 +109,19 @@ findINodes inSegSets
   | len inSegSets == 2 =
     -- Two walls, no closed ends. solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
     case initialENodes of
-      [] -> INodeSet $ slist [[makeINode [getInsideArc firstSegFlipped lastSeg, getInsideArc firstSeg lastSegFlipped] Nothing]]
+      [] -> INodeSet $ slist [[makeINode [getInsideArc firstLineFlipped lastLine, getInsideArc firstLine lastLineFlipped] Nothing]]
         where
-          firstSeg@(fs, fsErr) = eToPL $ SL.head $ slist $ SL.head inSegSets
-          firstSegFlipped = (flipL fs, fsErr)
-          lastSeg@(ls, lsErr) = eToPL $ SL.head $ slist $ SL.last inSegSets
-          lastSegFlipped = (flipL ls, lsErr)
-      [a] -> INodeSet $ slist [[makeINode [getInsideArc (eToPL lastSeg) (eToPL shortSide), getInsideArc (eToPL firstSeg) (eToPL shortSide)] (Just (flipL $ outOf a, errOfOut a))]]
+          firstLine@(fs, fsErr) = eToPL $ SL.head $ slist $ SL.head inSegSets
+          firstLineFlipped = (flipL fs, fsErr)
+          lastLine@(ls, lsErr) = eToPL $ SL.head $ slist $ SL.last inSegSets
+          lastLineFlipped = (flipL ls, lsErr)
+      [a] -> INodeSet $ slist [[makeINode [getInsideArc lastLine shortSide, getInsideArc firstLine shortSide] (Just (flipL $ outOf a, errOfOut a))]]
         where
-          firstSeg = fromMaybe (error "no first segment?") $ safeHead $ slist longSide
-          lastSeg = SL.last $ slist longSide
-          (shortSide,longSide)
-            | null (SL.head inSegSets) = (SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
-            | otherwise = (SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
+          firstLine = eToPL $ fromMaybe (error "no first segment?") $ safeHead $ slist longSide
+          lastLine = eToPL $ SL.last $ slist longSide
+          (shortSide, longSide)
+            | null (SL.head inSegSets) = (eToPL $ SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
+            | otherwise = (eToPL $ SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
       (_:_) -> error
                $ "too many items in makeInitialGeneration.\n"
                <> show initialENodes <> "\n"
