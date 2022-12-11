@@ -54,13 +54,11 @@ import Graphics.Slicer.Math.Arcs (getFirstArc, getInsideArc, getOutsideArc)
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, mapWithFollower, fudgeFactor, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, mapWithFollower, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionBetween, intersectionOf, isAntiCollinear, isAntiParallel, isCollinear, isParallel, noIntersection)
-
-import Graphics.Slicer.Math.Lossy as Lossy (distancePPointToPLine)
 
 import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2, PLine2Err, distance2PP, eToPL, flipL, outAndErrOf, pLineIsLeft, distancePPointToPLineWithErr)
 
@@ -192,7 +190,9 @@ averageNodes n1 n2
 
 -- | Take a pair of arcables, and return their outOfs, in a sorted order.
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [(PLine2, PLine2Err)]
-sortedPair n1 n2 = sortedPLinesWithErr [outAndErrOf n1, outAndErrOf n2]
+sortedPair n1 n2
+  | hasArc n1 && hasArc n2 = sortedPLinesWithErr [outAndErrOf n1, outAndErrOf n2]
+  | otherwise = error "Cannot get the average of nodes if one of the nodes does not have an out!\n"
 
 -- | Make a first generation node.
 makeENode :: Point2 -> Point2 -> Point2 -> ENode
@@ -232,10 +232,9 @@ convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWith
 -- | A better anticollinear checker.
 -- distance is used here to get a better anticollinear than PGA has, because we have a point, and floating point hurts us.
 -- FIXME: shouldn't this be pulled into PGA.hs, as part of an outsIntersectIn?
-nodesAreAntiCollinear :: (Pointable a, Arcable a, Pointable b, Arcable b) => a -> b -> Bool
+nodesAreAntiCollinear :: (Arcable a, Arcable b) => a -> b -> Bool
 nodesAreAntiCollinear node1 node2
-  | hasArc node1 && hasArc node2 && isAntiCollinear (outAndErrOf node1) (outAndErrOf node2) = True
-  | canPoint node1 && canPoint node2 && hasArc node1 && hasArc node2 = (distancePPointToPLine (pPointOf node1) (outOf node2) < fudgeFactor*50) && (distancePPointToPLine (pPointOf node2) (outOf node1) < fudgeFactor*50)
+  | hasArc node1 && hasArc node2 = isAntiCollinear (outAndErrOf node1) (outAndErrOf node2)
   | otherwise = False
 
 -- | Walk the result tree, and find our enodes. Used to test the property that a walk of our result tree should result in the input ENodes in order.
@@ -815,7 +814,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     intersectingNeighboringNodePairsOf inNodePairs = mapMaybe (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) $ inNodePairs
 
     -- | find nodes that have output segments that are antiCollinear with one another.
-    antiCollinearNodePairsOf :: (Pointable a, Arcable a) => [a] -> [(a, a)]
+    antiCollinearNodePairsOf :: (Arcable a) => [a] -> [(a, a)]
     antiCollinearNodePairsOf inNodes = mapMaybe (\(node1, node2) -> if nodesAreAntiCollinear node1 node2 then Just (node1, node2) else Nothing) $ getPairs inNodes
 
     -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
