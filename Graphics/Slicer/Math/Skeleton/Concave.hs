@@ -103,16 +103,16 @@ findINodes inSegSets
   | len inSegSets == 2 =
     -- Two walls, no closed ends. solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
     case initialENodes of
-      [] -> INodeSet $ slist [[makeINode [fst $ getInsideArc firstSegFlipped lastSeg, fst $ getInsideArc firstSeg lastSegFlipped] Nothing]]
+      [] -> INodeSet $ slist [[makeINode [fst $ getInsideArc firstLineFlipped lastLine, fst $ getInsideArc firstLine lastLineFlipped] Nothing]]
         where
-          firstSeg@(fs, fsErr) = eToPL $ SL.head $ slist $ SL.head inSegSets
-          firstSegFlipped = (flipL fs, fsErr)
-          lastSeg@(ls, lsErr) = eToPL $ SL.head $ slist $ SL.last inSegSets
-          lastSegFlipped = (flipL ls, lsErr)
-      [a] -> INodeSet $ slist [[makeINode [fst $ getInsideArc lastSeg shortSide, fst $ getInsideArc firstSeg shortSide] (Just (flipL $ outOf a, errOfOut a))]]
+          firstLine@(fs, fsErr) = eToPL $ SL.head $ slist $ SL.head inSegSets
+          firstLineFlipped = (flipL fs, fsErr)
+          lastLine@(ls, lsErr) = eToPL $ SL.head $ slist $ SL.last inSegSets
+          lastLineFlipped = (flipL ls, lsErr)
+      [a] -> INodeSet $ slist [[makeINode [fst $ getInsideArc lastLine shortSide, fst $ getInsideArc firstLine shortSide] (Just (flipL $ outOf a, errOfOut a))]]
         where
-          firstSeg = eToPL $ fromMaybe (error "no first segment?") $ safeHead $ slist longSide
-          lastSeg = eToPL $ SL.last $ slist longSide
+          firstLine = eToPL $ fromMaybe (error "no first segment?") $ safeHead $ slist longSide
+          lastLine = eToPL $ SL.last $ slist longSide
           (shortSide, longSide)
             | null (SL.head inSegSets) = (eToPL $ SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
             | otherwise = (eToPL $ SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
@@ -161,9 +161,8 @@ errorIfLeft :: Either PartialNodes INodeSet -> INodeSet
 errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure
 errorIfLeft (Right val)    = val
 
--- | For a given piar of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
---  Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
---  Note: assumes outOf the two input nodes is already normalized.
+-- | For a given pair of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
+--   Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
 averageNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> INode
 averageNodes n1 n2 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1, mempty) (outAndErrOf n1) (pPointOf n2, mempty) (outAndErrOf n2)
 
@@ -213,8 +212,7 @@ convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWith
 -- FIXME: shouldn't this be pulled into PGA.hs, as part of an outsIntersectIn?
 nodesAreAntiCollinear :: (Arcable a, Arcable b) => a -> b -> Bool
 nodesAreAntiCollinear node1 node2
-  | not (hasArc node1) || not (hasArc node2) = False
-  | isAntiCollinear (outAndErrOf node1) (outAndErrOf node2) = True
+  | hasArc node1 && hasArc node2 = isAntiCollinear (outAndErrOf node1) (outAndErrOf node2)
   | otherwise = False
 
 -- | Walk the result tree, and find our enodes. Used to test the property that a walk of our result tree should result in the input ENodes in order.
