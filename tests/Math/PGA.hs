@@ -91,7 +91,7 @@ import Math.Util ((-->), (-/>))
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
 -- Our Geometry generation library. For random shaped geometry.
-import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian(Radian), cellFrom, edgesOf, generationsOf, randomPL, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
+import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian(Radian), cellFrom, edgesOf, generationsOf, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
@@ -1435,7 +1435,7 @@ prop_PLineIntersectsAtXAxis x y rawX2 y2 m
     axisIntersectionPoint = eToPP $ Point2 ((fromRight (error "not right?") $ fst $ fromJust axisIntersection), 0)
     axisIntersection = xIntercept (randomPLine1, pline1Err)
     (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL randomPLine1 axisPLine
-    (randomPLine1, pline1Err) = randomPL x y rawX2 (coerce y2)
+    (randomPLine1, pline1Err) = randomPLineWithErr x y rawX2 (coerce y2)
     -- Error in this line should be in directions that should not matter.
     (axisPLine, _) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (coerce m,0))
 
@@ -1464,7 +1464,7 @@ prop_PLineIntersectsAtYAxis x y x2 rawY2 m
     axisIntersectionPoint = eToPP $ Point2 (0,(fromRight (error "not right?") $ fst $ fromJust axisIntersection))
     axisIntersection = yIntercept (randomPLine1, pline1Err)
     (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL randomPLine1 axisPLine
-    (randomPLine1, pline1Err) = randomPL (coerce x) y (coerce x2) (coerce y2)
+    (randomPLine1, pline1Err) = randomPLineWithErr (coerce x) y (coerce x2) (coerce y2)
     -- Error in this line should be in directions that should not matter.
     (axisPLine, _) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (0,coerce m))
     y2 :: ℝ

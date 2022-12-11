@@ -46,7 +46,6 @@ module Graphics.Slicer.Math.RandomGeometry (
   randomLineSeg,
   randomLineSegFromOriginNotX1Y1,
   randomLineSegFromPointNotX1Y1,
-  randomPL,
   randomPLine,
   randomPLineThroughOrigin,
   randomPLineThroughPoint,
@@ -90,7 +89,7 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, makeL
 
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
-import Graphics.Slicer.Math.Lossy (eToPLine2, pToEPoint2, translateRotatePPoint2)
+import Graphics.Slicer.Math.Lossy (pToEPoint2, translateRotatePPoint2)
 
 import Graphics.Slicer.Math.PGA (PLine2(PLine2), PLine2Err, eToPL, eToPP, flipL, join2EP, normalizeL, pPointOf, NPLine2(NPLine2))
 
@@ -161,6 +160,7 @@ instance (Ord a, Num a, Fractional a) => Fractional (Positive a) where
   fromRational a = Positive $ fromRational a
 
 -- | Generate a random triangle.
+-- FIXME: what stops this from trying to generate a triangle with all three points on the same line?
 randomTriangle :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Contour
 randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX centerY $ makePairs dists radians
   where
@@ -400,8 +400,10 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
   where
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
-    pl1 = (\(NPLine2 a,b) -> (PLine2 a,b)) $ normalizeL $ eToPLine2 $ getFirstLineSeg eNode
-    pl2 = (\(NPLine2 a,b) -> (PLine2 a,b)) $ normalizeL $ flipL $ eToPLine2 $ getLastLineSeg eNode
+    pl1 = eToPL $ getFirstLineSeg eNode
+    pl2 = (flipL $ ls, lsErr)
+      where
+        (ls, lsErr) = eToPL $ getLastLineSeg eNode
     intersectionPPoint = pPointOf eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
     pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
@@ -418,10 +420,6 @@ randomPLine x y dx dy = fst $ randomPLineWithErr x y dx dy
 -- | A helper function. constructs a random PLine.
 randomPLineWithErr :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (PLine2, PLine2Err)
 randomPLineWithErr x y dx dy = eToPL $ makeLineSeg (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
-
--- | A helper function. constructs a random PLine.
-randomPL :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (PLine2, PLine2Err)
-randomPL x y dx dy = eToPL $ makeLineSeg (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
 
 -- | A helper function. constructs a random LineSeg.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
