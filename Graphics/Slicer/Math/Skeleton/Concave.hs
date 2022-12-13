@@ -28,7 +28,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, concat, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), mempty, realToFrac)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), concatMap, mempty, realToFrac)
 
 import Prelude as PL (head, last, tail, init)
 
@@ -139,7 +139,7 @@ isHallway (NodeTree _ iNodeSet) = iNodeSetHasOneMember iNodeSet
 
 -- | Create the set of ENodes for a set of segments
 makeInitialGeneration :: Bool -> Slist [LineSeg] -> [ENode]
-makeInitialGeneration gensAreLoop inSegSets = concat (firstENodes <$> inSegSets) <> maybeLoop
+makeInitialGeneration gensAreLoop inSegSets = concatMap firstENodes inSegSets <> maybeLoop
   where
     -- Generate the first generation of nodes, from the passed in line segments.
     -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
@@ -246,7 +246,7 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodes
     findENodesRecursive myGens =
       case unsnoc myGens of
         Nothing -> []
-        (Just (ancestorGens,workingGen)) -> concat $ findENodesOfInRecursive <$> nub (insOf (onlyINodeIn workingGen) <> maybePLineOut (onlyINodeIn workingGen))
+        (Just (ancestorGens,workingGen)) -> concatMap findENodesOfInRecursive $ nub (insOf (onlyINodeIn workingGen) <> maybePLineOut (onlyINodeIn workingGen))
           where
             maybePLineOut :: INode -> [(PLine2,PLine2Err)]
             maybePLineOut myINode = if hasArc myINode
@@ -266,7 +266,7 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodes
                     where
                       -- strip the new last generation until it only contains the INode matching myPLine.
                       lastGenWithOnlyMyINode :: [[INode]]
-                      lastGenWithOnlyMyINode = case filter (\a -> outOf a == fst myPLine) newLastGen of
+                      lastGenWithOnlyMyINode = case filter (\a -> hasArc a && isCollinear (outAndErrOf a) myPLine) newLastGen of
                                                  [] -> []
                                                  a -> [[first a]]
                                                    where
@@ -676,13 +676,13 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
       | null foundENodes = inSegSets
       | otherwise = case inSegSets of
                       (Slist [] _) -> error "cannot remove segment from empty set."
-                      (Slist segLists _) -> slist $ concat $ removeENodesFromSegList (slist foundENodes) <$> segLists
+                      (Slist segLists _) -> slist $ concatMap (removeENodesFromSegList (slist foundENodes)) segLists
       where
         removeENodesFromSegList :: Slist ENode -> [LineSeg] -> [[LineSeg]]
         removeENodesFromSegList eNodesIn lineSegs =
           filterTooShorts $ case eNodesIn of
                               (Slist [] _) -> [lineSegs]
-                              (Slist (oneENode:moreENodes) _) -> concat $ removeENodeFromSegList oneENode <$> removeENodesFromSegList (slist moreENodes) lineSegs
+                              (Slist (oneENode:moreENodes) _) -> concatMap (removeENodeFromSegList oneENode) $ removeENodesFromSegList (slist moreENodes) lineSegs
           where
             filterTooShorts sets = mapMaybe isTooShort sets
             isTooShort set = case set of
@@ -802,7 +802,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     intersectingMixedNodePairs = mapMaybe (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) $ getMixedPairs eNodes iNodes
       where
         getMixedPairs ::  [a] -> [b] -> [(a, b)]
-        getMixedPairs set1 set2 = concat $ (\a -> (a,) <$> set2) <$> set1
+        getMixedPairs set1 set2 = concatMap (\a -> (a,) <$> set2) set1
 
     -- | find nodes of the same type that can intersect.
     intersectingNodePairsOf :: (Arcable a, Pointable a) => [a] -> [(a, a)]

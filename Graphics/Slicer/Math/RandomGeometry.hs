@@ -401,7 +401,7 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
     (pl1, pl1Err) = eToPL $ getFirstLineSeg eNode
-    (pl2, pl2Err) = (flipL $ ls, lsErr)
+    (pl2, pl2Err) = (flipL ls, lsErr)
       where
         (ls, lsErr) = eToPL $ getLastLineSeg eNode
     intersectionPPoint = pPointOf eNode
@@ -424,7 +424,6 @@ randomPLineWithErr x y dx dy = eToPL $ makeLineSeg (Point2 (x, y)) (Point2 (coer
 -- | A helper function. constructs a random LineSeg.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
 randomLineSeg x y dx dy = makeLineSeg (Point2 (x, y)) (Point2 (dx,dy))
-
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
 randomPLineThroughOrigin :: ℝ -> ℝ -> (PLine2, PLine2Err)
