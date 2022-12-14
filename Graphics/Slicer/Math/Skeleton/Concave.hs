@@ -243,6 +243,7 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodes
                   (Just (newAncestors, newLastGen)) -> findENodesRecursive $ newAncestors <> lastGenWithOnlyMyINode
                     where
                       -- strip the new last generation until it only contains the INode matching myPLine.
+                      -- FIXME: why can't we use isCollinear here? doing so makes tests fail intermittently..
                       lastGenWithOnlyMyINode :: [[INode]]
                       lastGenWithOnlyMyINode = case filter (\a -> hasArc a && outOf a == myPLine) newLastGen of
                                                  [] -> []
@@ -418,10 +419,10 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
     -- check to see if an INode can be merged with another INode.
     canMergeWith :: INode -> INode -> Bool
-    canMergeWith inode1 inode2 = hasArc inode1 && hasIn inode2 (outOf inode1)
+    canMergeWith inode1 inode2 = hasArc inode1 && hasIn inode2 (outAndErrOf inode1)
       where
-        hasIn :: INode -> ProjectiveLine -> Bool
-        hasIn iNode pLine2 = case filter (==pLine2) $ insOf iNode of
+        hasIn :: INode -> (ProjectiveLine, PLine2Err) -> Bool
+        hasIn iNode pLine2 = case filter (\a -> isCollinear (a, mempty) pLine2) $ insOf iNode of
                                [] -> False
                                [_] -> True
                                (_:_) -> error "filter passed too many options."
@@ -467,7 +468,7 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
     -- how many input PLines does an INode have.
     inCountOf (INode in1 in2 moreIns _)
-      -- handle two identical inputs.
+      -- HACK: handle two identical inputs.
       | in1 == in2 = 1+len moreIns
       | otherwise = 2+len moreIns
 

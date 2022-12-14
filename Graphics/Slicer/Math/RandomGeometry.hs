@@ -422,7 +422,7 @@ randomPLineWithErr x y dx dy = eToPL $ makeLineSeg (Point2 (x, y)) (Point2 (coer
 
 -- | A helper function. constructs a random LineSeg.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
-randomLineSeg x y rawDx rawDy = makeLineSeg (Point2 (x,y)) (Point2 (rawDx, rawDy))
+randomLineSeg x y dx dy = makeLineSeg (Point2 (x,y)) (Point2 (dx, dy))
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
 randomPLineThroughOrigin :: ℝ -> ℝ -> (ProjectiveLine, PLine2Err)
@@ -503,4 +503,3 @@ generationsOf Nothing = 0
 generationsOf (Just (StraightSkeleton (Slist [] _) _)) = 0
 generationsOf (Just (StraightSkeleton a@(Slist [_] _) _)) = len a
 generationsOf a = error $ "what is this?" <> show a <> "\n"
-
