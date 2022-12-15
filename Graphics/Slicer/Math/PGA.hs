@@ -54,9 +54,12 @@ module Graphics.Slicer.Math.PGA(
   distancePPointToPLineWithErr,
   distance2PP,
   distance2PL,
+  errOfPPoint,
   eToPL,
   eToPP,
   flipL,
+  fuzzinessOfL,
+  fuzzinessOfP,
   interpolate2PP,
   intersectsWithErr,
   intersect2PL,
@@ -66,9 +69,11 @@ module Graphics.Slicer.Math.PGA(
   outAndErrOf,
   outputIntersectsLineSeg,
   pLineIsLeft,
+  pPointAndErrOf,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
   pToEP,
+  pLineErrAtPPoint,
   plinesIntersectIn,
   translateL,
   translateRotatePPoint2WithErr,
@@ -252,7 +257,7 @@ perpLineAt line point = (PLine2 res, resErr)
     (cPoint, cPointErr) = canonicalizeP point
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
---   FIXME: make a single error quotent?
+-- FIXME: throw this error into PPoint2Err.
 translateRotatePPoint2WithErr :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> (PPoint2, (UlpSum, UlpSum, [ErrVal], PLine2Err, PLine2Err, PPoint2Err, ([ErrVal],[ErrVal])))
 translateRotatePPoint2WithErr point d rotation = (res, resErr)
   where
@@ -300,13 +305,16 @@ class (Show a) => Pointable a where
   canPoint :: a -> Bool
   -- | Get a euclidian representation of this point.
   ePointOf :: a -> Point2
+  -- | If the point is not a native euclidian point, the error generated while converting from a projective form. otherwise mempty.
+  errOfPPoint :: a -> PPoint2Err
   -- | Get a projective representation of this point.
   pPointOf :: a -> PPoint2
 
-{-
+-- | If the given node can be resolved to a point, return it, along with it's error quotent.
 pPointAndErrOf :: (Pointable a) => a -> (PPoint2, PPoint2Err)
-  | canPoint a = (
--}
+pPointAndErrOf node
+  | canPoint node = (pPointOf node, errOfPPoint node)
+  | otherwise = error "not able to resolve node to a point."
 
 -- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
 outputIntersectsLineSeg :: (Arcable a) => a -> LineSeg -> Either Intersection PIntersection
@@ -498,7 +506,7 @@ combineConsecutiveLineSegs lines = case lines of
 ----- And now draw the rest of the algebra -----
 ------------------------------------------------
 
--- | Create a canonical projective point from the given euclidian point.
+-- | Create a canonical euclidian projective point from the given euclidian point.
 euclidianToProjectivePoint2, eToPP :: Point2 -> CPPoint2
 euclidianToProjectivePoint2 (Point2 (x,y)) = res
   where

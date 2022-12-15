@@ -24,6 +24,7 @@ module Graphics.Slicer.Math.Intersections (
   intersectionBetween,
   intersectionBetweenArcsOf,
   intersectionOf,
+  intersectionsAtSamePoint,
   isAntiCollinear,
   isAntiParallel,
   isCollinear,
@@ -32,13 +33,17 @@ module Graphics.Slicer.Math.Intersections (
   outputIntersectsPLineAt
   ) where
 
-import Prelude (Bool, Either(Left, Right), (<>), ($), (<), (||), (==), (&&), error, show, otherwise, realToFrac)
+import Prelude (Bool(True), Either(Left, Right), (<>), ($), (<), (||), (==), (&&), (<$>), (<=), and, error, show, otherwise, realToFrac)
 
-import Data.Maybe (Maybe(Just, Nothing))
+import Data.Either (rights, lefts)
+
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, isJust)
+
+import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc), CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine2, distance2PL, outAndErrOf, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc), CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine2, distance2PL, distance2PP, distancePPointToPLineWithErr, fuzzinessOfL, fuzzinessOfP, outAndErrOf, pLineErrAtPPoint, plinesIntersectIn)
 
 -- | Check if two lines cannot intersect.
 noIntersection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
@@ -85,7 +90,7 @@ intersectionBetween line1@(l1, _) line2@(l2, _) = saneIntersection $ plinesInter
                                           else Nothing
     saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p, pErr)
 
--- | Find out where the output of two Arcables intersect. returns Nothing if no intersection, errors if no output Arc exists on either input.
+-- | Find out where the output of two Arcables intersect. returns Nothing if no intersection, and errors if no output Arc exists on either input.
 intersectionBetweenArcsOf :: (Arcable a, Arcable b) => a -> b -> Maybe (CPPoint2, PPoint2Err)
 intersectionBetweenArcsOf node1 node2
   | hasArc node1 && hasArc node2 = case res of
@@ -104,3 +109,54 @@ outputIntersectsPLineAt n line
   | otherwise = error $ "Tried to check if the output of node intersects PLine on a node with no output:\n" <> show n <> "\n" <> show line <> "\n"
   where
     res = plinesIntersectIn (outAndErrOf n) line
+
+-- | Find out if all of the possible intersections between all of the given nodes are close enough to be considered intersecting at the same point.
+intersectionsAtSamePoint :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> Bool
+intersectionsAtSamePoint nodeOutsAndErrs
+  = case nodeOutsAndErrs of
+        [] -> error "given an empty list."
+        [a] -> error $ "asked to check for same point intersection of:\n" <> show a <> "\n"
+        [a,b] -> isJust $ intersectionBetween a b
+        _ -> and (isJust <$> intersections) && pointsCloseEnough && linesCloseEnough
+      where
+        intersections = mapWithFollower myIntersectionBetween nodeOutsAndErrs
+          where
+            myIntersectionBetween a b = case intersectionBetween a b of
+                                          Nothing -> Nothing
+                                          (Just (Right p)) -> Just $ Right (a,b,p)
+                                          (Just (Left l)) -> Just $ Left (a,b,l)
+        -- intersections that resulted in a point.
+--        pointIntersections :: (ProjectiveLine2 b) => [((b, PLine2Err), (b, PLine2Err), (CPPoint2, PPoint2Err))]
+        pointIntersections = rights $ catMaybes intersections
+        -- intersections that resulted in a line, but are not anticollinear.
+        lineIntersections = lefts $ catMaybes intersections
+        pointsCloseEnough = and $ mapWithFollower pairCloseEnough pointIntersections
+          where
+            -- Minor optimization: first check against resErr, then actually use the fuzziness.
+            pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= realToFrac (ulpVal resErr) || res < realToFrac errSum
+              where
+                errSum = ulpVal $ resErr <> fuzzinessOfP point1
+                                         <> pLineErrAtPPoint a1 c1
+                                         <> pLineErrAtPPoint b1 c1
+                                         <> fuzzinessOfP point2
+                                         <> pLineErrAtPPoint a2 c2
+                                         <> pLineErrAtPPoint b2 c2
+                (res, (_,_,resErr)) = distance2PP point1 point2
+        linesCloseEnough =
+          case lineIntersections of
+            [] -> True
+            [(a1,b1,l1)] -> case pointIntersections of
+                           [] -> error "one line, no points.. makes no sense."
+                           ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < realToFrac errSum
+                             where
+                               (foundDistance, (_, _, _, _, _, resErr)) = distancePPointToPLineWithErr ppoint1 l1
+                               errSum = ulpVal $ resErr <> fuzzinessOfP ppoint1
+                                                        <> pLineErrAtPPoint a2 p1
+                                                        <> pLineErrAtPPoint b2 p1
+                                                        <> fuzzinessOfL a1
+                                                        <> fuzzinessOfL b1
+                                                        <> fuzzinessOfL l1
+            (_:_) -> error
+                     $ "detected multiple lines?\n"
+                     <> show lineIntersections <> "\n"
+                     <> show pointIntersections <> "\n"

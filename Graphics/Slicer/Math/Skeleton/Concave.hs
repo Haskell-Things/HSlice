@@ -265,8 +265,9 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodes
                   (Just (newAncestors, newLastGen)) -> findENodesRecursive $ newAncestors <> lastGenWithOnlyMyINode
                     where
                       -- strip the new last generation until it only contains the INode matching myPLine.
+                      -- FIXME: why can't we use isCollinear here? doing so makes tests fail intermittently..
                       lastGenWithOnlyMyINode :: [[INode]]
-                      lastGenWithOnlyMyINode = case filter (\a -> hasArc a && isCollinear (outAndErrOf a) myPLine) newLastGen of
+                      lastGenWithOnlyMyINode = case filter (\a -> hasArc a && outAndErrOf a == myPLine) newLastGen of
                                                  [] -> []
                                                  a -> [[first a]]
                                                    where
@@ -440,10 +441,10 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
     -- check to see if an INode can be merged with another INode.
     canMergeWith :: INode -> INode -> Bool
-    canMergeWith inode1@(INode _ _ _ maybeOut) inode2 = isJust maybeOut && hasIn inode2 (outOf inode1)
+    canMergeWith inode1@(INode _ _ _ maybeOut) inode2 = isJust maybeOut && hasIn inode2 (outAndErrOf inode1)
       where
-        hasIn :: INode -> PLine2 -> Bool
-        hasIn iNode pLine2 = case filter (\a -> fst a == pLine2) $ insOf iNode of
+        hasIn :: INode -> (PLine2, PLine2Err) -> Bool
+        hasIn iNode pLine2 = case filter (\a -> isCollinear a pLine2) $ insOf iNode of
                                [] -> False
                                [_] -> True
                                (_:_) -> error "filter passed too many options."
@@ -489,7 +490,7 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
     -- how many input PLines does an INode have.
     inCountOf (INode in1 in2 moreIns _)
-      -- handle two identical inputs.
+      -- HACK: handle two identical inputs.
       | in1 == in2 = 1+len moreIns
       | otherwise = 2+len moreIns
 
