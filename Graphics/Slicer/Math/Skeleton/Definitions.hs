@@ -31,7 +31,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, sortedPLinesWithErr, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, and, (||), (<>), show, (<), (*), mempty, not, realToFrac)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, (||), (<>), show, (<), (*), mempty, not)
 
 import Prelude as PL (head, last)
 
@@ -53,44 +53,58 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
-import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum), addVecPair)
+import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
 import Graphics.Slicer.Math.Intersections (noIntersection, intersectionsAtSamePoint)
 
-import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), PLine2Err, pLineIsLeft, distance2PP, Pointable(canPoint, pPointOf, ePointOf, errOfPPoint), Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), PPoint2(PPoint2), eToPL, eToPP, outAndErrOf, pToEP, vecOfL, vecOfP)
+import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), PLine2Err, pLineIsLeft, Pointable(canPoint, pPointOf, ePointOf, errOfPPoint), Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), PPoint2(PPoint2), eToPL, eToPP, outAndErrOf, pToEP, vecOfL, vecOfP)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
 -- FIXME: provide our own Eq instance, cause floats suck? :)
-data ENode = ENode { _inPoints :: !(Point2, Point2, Point2), _arcOut :: !PLine2, _arcOutErr :: !PLine2Err}
+data ENode = ENode
+  -- Input points. three points in order, with the inside of the contour to the left. 
+  !(Point2, Point2, Point2)
+  -- The projective line eminating from the middle point. refered to as an Arc.
+  !PLine2
+  -- The imprecision of the Arc.
+  !PLine2Err
   deriving Eq
   deriving stock Show
 
 instance Arcable ENode where
-  -- an ENode always has an arc.
+  errOfOut (ENode _ _ outErr) = outErr
+  -- | an ENode always has an arc.
   hasArc _ = True
   outOf (ENode _ outArc _) = outArc
-  errOfOut (ENode _ _ outErr) = outErr
 
 instance Pointable ENode where
-  -- an ENode always contains a point.
+  -- | an ENode always contains a point.
   canPoint _ = True
-  -- FIXME: this is going to cause double canonicalization.
-  pPointOf a = PPoint2 $ vecOfP $ eToPP $ ePointOf a
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
   errOfPPoint _ = mempty
+  -- FIXME: this is going to cause double canonicalization.
+  pPointOf a = PPoint2 $ vecOfP $ eToPP $ ePointOf a
 
 -- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
-data INode = INode { _firstInArc :: !(PLine2, PLine2Err), _secondInArc :: !(PLine2, PLine2Err), _moreInArcs :: !(Slist (PLine2, PLine2Err)), _outArc :: !(Maybe (PLine2, PLine2Err))}
+data INode = INode
+  -- _firstInArc ::
+  !(PLine2, PLine2Err)
+  -- _secondInArc ::
+  !(PLine2, PLine2Err)
+  -- _moreInArcs ::
+  !(Slist (PLine2, PLine2Err))
+  -- _outArc ::
+  !(Maybe (PLine2, PLine2Err))
   deriving Eq
   deriving stock Show
 
 instance Arcable INode where
   -- an INode might just end here.
-  errOfOut (INode _ _ _ outArc) =  case outArc of
-                                 (Just (_,rawOutArcErr)) -> rawOutArcErr
-                                 Nothing -> error "tried to get an outArc that has no output arc."
+  errOfOut (INode _ _ _ outArc) = case outArc of
+                                    (Just (_,rawOutErr)) -> rawOutErr
+                                    Nothing -> error "tried to get an outArc that has no output arc."
   hasArc (INode _ _ _ outArc) = isJust outArc
   outOf (INode _ _ _ outArc) = case outArc of
                                  (Just (rawOutArc,_)) -> rawOutArc
@@ -105,8 +119,7 @@ instance Pointable INode where
   pPointOf iNode
     | allPointsSame = case results of
                         [] -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
-                        [a] -> a
-                        (a:_) -> a
+                        l -> PL.head l
     -- Allow the pebbles to vote.
     | otherwise = case safeLast (slist $ count_ results) of
                     Nothing -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
@@ -138,7 +151,13 @@ lastINodeOf (INodeSet gens) = case unsnoc (SL.last gens) of
 -- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior or the exterior of a contour.
 --   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.
 --   FIXME: Note that a new motorcycle may be created in the case of degenerate polygons... with it's inSegs being two other motorcycles.
-data Motorcycle = Motorcycle { _inCSegs :: !(LineSeg, LineSeg), _outPline :: !PLine2, _outPlineErr :: PLine2Err}
+data Motorcycle = Motorcycle
+  -- The two line segments from which this motorcycle projects
+  !(LineSeg, LineSeg)
+  -- The output arc of this motorcycle. really, the motorcycle.
+  !PLine2
+  -- The error quotent of the output arc.
+  PLine2Err
   deriving Eq
   deriving stock Show
 
