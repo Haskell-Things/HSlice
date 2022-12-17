@@ -132,12 +132,13 @@ intersectionsAtSamePoint nodeOutsAndErrs
               -- Minor optimization: first check against resErr, then actually use the fuzziness.
               pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= realToFrac (ulpVal resErr) || res < realToFrac errSum
                 where
-                  errSum = ulpVal $ resErr <> fuzzinessOfP point1
-                                           <> pLineErrAtPPoint a1 c1
-                                           <> pLineErrAtPPoint b1 c1
-                                           <> fuzzinessOfP point2
-                                           <> pLineErrAtPPoint a2 c2
-                                           <> pLineErrAtPPoint b2 c2
+                  errSum = ulpVal $ resErr
+                                  <> fuzzinessOfP point1
+                                  <> pLineErrAtPPoint a1 c1
+                                  <> pLineErrAtPPoint b1 c1
+                                  <> fuzzinessOfP point2
+                                  <> pLineErrAtPPoint a2 c2
+                                  <> pLineErrAtPPoint b2 c2
                   (res, (_,_,resErr)) = distance2PP point1 point2
           linesCloseEnough =
             case lineIntersections of
@@ -147,16 +148,16 @@ intersectionsAtSamePoint nodeOutsAndErrs
                                 ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < realToFrac errSum
                                   where
                                     (foundDistance, (_, _, _, _, _, resErr)) = distancePPointToPLineWithErr ppoint1 l1
-                                    errSum = ulpVal $ resErr <> fuzzinessOfP ppoint1
-                                                             <> pLineErrAtPPoint a2 p1
-                                                             <> pLineErrAtPPoint b2 p1
-                                                             <> fuzzinessOfL a1
-                                                             <> fuzzinessOfL b1
-                                                             <> fuzzinessOfL l1
-              (_:_) -> error
-                       $ "detected multiple lines?\n"
-                       <> show lineIntersections <> "\n"
-                       <> show pointIntersections <> "\n"
+                                    errSum = ulpVal $ resErr
+                                                    <> fuzzinessOfP ppoint1
+                                                    <> pLineErrAtPPoint a2 p1
+                                                    <> pLineErrAtPPoint b2 p1
+                                                    <> fuzzinessOfL a1
+                                                    <> fuzzinessOfL b1
+                                                    <> fuzzinessOfL l1
+              (_:_) -> error $ "detected multiple lines?\n"
+                             <> show lineIntersections <> "\n"
+                             <> show pointIntersections <> "\n"
             where
               -- intersections that resulted in a point.
               pointIntersections = rights $ catMaybes intersections
