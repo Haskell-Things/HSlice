@@ -39,7 +39,9 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(endPoint, startPoint), Point2, distance, fudgeFactor, lineSegsOfContour, makeLineSeg, mapWithNeighbors)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, Intersection(HitEndPoint, HitStartPoint, NoIntersection), NPLine2, PIntersection(IntersectsIn, PAntiCollinear, PAntiParallel, PCollinear, PParallel), PLine2Err, ProjectiveLine2, intersectsWithErr, normalizeL, outputIntersectsLineSeg, pToEP)
+import Graphics.Slicer.Math.Intersections (outputIntersectsLineSeg)
+
+import Graphics.Slicer.Math.PGA (CPPoint2, Intersection(HitEndPoint, HitStartPoint, NoIntersection), NPLine2, PIntersection(IntersectsIn, PAntiCollinear, PAntiParallel, PCollinear, PParallel), PLine2Err, ProjectiveLine2, intersectsWithErr, normalizeL, pToEP)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 

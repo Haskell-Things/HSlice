@@ -48,11 +48,11 @@ import Graphics.Slicer.Math.ContourIntersections (getMotorcycleContourIntersecti
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighbors, startPoint, endPoint, makeLineSeg)
 
-import Graphics.Slicer.Math.Intersections (intersectionOf, isAntiCollinear, noIntersection)
+import Graphics.Slicer.Math.Intersections (intersectionOf, isAntiCollinear, noIntersection, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2, normalizePLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2, PPoint2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), ProjectivePoint2, angleBetween2PL, distance2PP, eToPP, join2PP, outAndErrOf, outputIntersectsLineSeg, plinesIntersectIn, translateL) 
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2, PPoint2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), ProjectivePoint2, angleBetween2PL, distance2PP, eToPP, join2PP, outAndErrOf, plinesIntersectIn, translateL) 
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -313,6 +313,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
 
 -- | Determine if a node is on one side of a motorcycle, or the other.
 --   Assumes the starting point of the second line segment is a point on the path.
+{-# INLINABLE intersectionSameSide #-}
 intersectionSameSide :: (ProjectivePoint2 a, Pointable b) => (a, PPoint2Err) -> b -> Motorcycle -> Maybe Bool
 intersectionSameSide point@(pp1, _) node (Motorcycle _ path _)
   | canPoint node && d < realToFrac (ulpVal dErr) = Just True

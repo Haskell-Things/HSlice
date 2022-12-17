@@ -207,7 +207,6 @@ gcodeForInfill :: ℝ -> ℝ -> ℝ -> ℝ -> [[LineSeg]] -> [GCode]
 gcodeForInfill _ _ _ _ [] = []
 gcodeForInfill lh pathWidth infillFeedRate travelFeedRate lineGroups =
   case lineGroups of
-    [] -> []
     (headGroup:tailGroups) -> concat $ renderLineSegGroup headGroup : zipWith (\group1 group2 -> moveBetweenLineSegGroups group1 group2 <> renderLineSegGroup group2) lineGroups tailGroups
   where
     -- FIXME: this should be a single gcode. why are we getting empty line groups given to us?

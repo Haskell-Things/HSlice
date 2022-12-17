@@ -64,7 +64,6 @@ pathTo :: NodeTree -> Direction -> ([PLine2], [INode], ENode)
 pathTo (NodeTree (ENodeSet (Slist [] _)) _) _ = error "unable to pathTo a Nodetree without ENodes."
 pathTo (NodeTree eNodeSet@(ENodeSet eNodeSides) iNodeSet@(INodeSet generations)) direction
   | isEmpty generations = case eNodeSides of
-                            (Slist [] _) -> error "looking for a first ENode in an empty ENodeSet."
                             (Slist [(firstENode,_)] _) -> ([outOf firstENode], [], firstENode)
                             (Slist _ _) -> error "looking for a first ENode in an ENodeSet with more than one side."
   | otherwise = pathInner (ancestorsOf iNodeSet) eNodeSet (finalINodeOf iNodeSet)
