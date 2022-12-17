@@ -22,10 +22,13 @@
 
 {-# LANGUAGE DataKinds #-}
 
+-- So we can add Eq instances here, instead of in the library.
+{-# LANGUAGE StandaloneDeriving #-}
+
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), (>=), error, (/=), (<=), mempty, otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, realToFrac, sqrt, (<), (>), (-), (/), (||), (*), snd)
+import Prelude (($), Bool(True, False), Eq, Show, (<$>), (==), (>=), error, (/=), (<=), mempty, otherwise, abs, (&&), (+), show, length, (<>), fst, not, length, realToFrac, sqrt, (<), (>), (-), (/), (||), (*), snd)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -78,7 +81,7 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 import Graphics.Slicer.Math.Arcs (getOutsideArc, towardIntersection)
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode, makeENodes, averageNodes)
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), RemainingContour(RemainingContour), INode(INode), Cell(Cell), getFirstLineSeg, getLastLineSeg)
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), RemainingContour(RemainingContour), Spine(Spine), StraightSkeleton(StraightSkeleton), INode(INode), Cell(Cell), getFirstLineSeg, getLastLineSeg)
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
@@ -95,6 +98,15 @@ import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian(Radian), cellFrom,
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
+
+deriving instance Eq RemainingContour
+deriving instance Show RemainingContour
+
+deriving instance Eq Cell
+
+deriving instance Eq Spine
+
+deriving instance Eq StraightSkeleton
 
 contourSpec :: Spec
 contourSpec = do

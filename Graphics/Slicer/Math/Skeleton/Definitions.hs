@@ -61,7 +61,6 @@ import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn),
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
--- FIXME: provide our own Eq instance, cause floats suck? :)
 data ENode = ENode
   -- Input points. three points in order, with the inside of the contour to the left. 
   !(Point2, Point2, Point2)
@@ -69,8 +68,12 @@ data ENode = ENode
   !PLine2
   -- The imprecision of the Arc.
   !PLine2Err
-  deriving Eq
   deriving stock Show
+
+-- Since the PLine2 and PLine2Err are derived from the points, only check the points for Eq.
+instance Eq ENode where
+  (==) (ENode points _ _) (ENode morePoints _ _) = points == morePoints
+  (/=) a b = not $ a == b
 
 instance Arcable ENode where
   errOfOut (ENode _ _ outErr) = outErr
@@ -97,8 +100,12 @@ data INode = INode
   !(Slist (PLine2, PLine2Err))
   -- _outArc ::
   !(Maybe (PLine2, PLine2Err))
-  deriving Eq
   deriving stock Show
+
+-- Since the outgoing PLine2 and PLine2Err are derived from the input arcs, only check the input arcs for Eq.
+instance Eq INode where
+  (==) (INode arcA1 arcA2 moreA _) (INode arcB1 arcB2 moreB _) = arcA1 == arcB1 && arcA2 == arcB2 && moreA == moreB
+  (/=) a b = not $ a == b
 
 instance Arcable INode where
   -- an INode might just end here.
@@ -158,8 +165,13 @@ data Motorcycle = Motorcycle
   !PLine2
   -- The error quotent of the output arc.
   PLine2Err
-  deriving Eq
   deriving stock Show
+
+
+-- Since the PLine2 and PLine2Err are derived from the line segments, only check them for Eq.
+instance Eq Motorcycle where
+  (==) (Motorcycle segsA _ _) (Motorcycle segsB _ _) = segsA == segsB
+  (/=) a b = not $ a == b
 
 instance Arcable Motorcycle where
   -- A Motorcycle always has an arc, which is it's path.
@@ -180,7 +192,6 @@ data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle,
 
 -- A concave region of a contour.
 newtype Cell = Cell { _sides :: Slist (Slist LineSeg, Maybe CellDivide)}
-  deriving Eq
   deriving stock Show
 
 -- | the border dividing two cells of a contour.
@@ -198,8 +209,6 @@ data MotorcycleIntersection =
 
 -- The part of a contour that remains once we trim a concave section from it.
 newtype RemainingContour = RemainingContour (Slist (Slist LineSeg, [CellDivide]))
-  deriving Eq
-  deriving stock Show
 
 -- | The exterior nodes of a whole contour or just a cell of a contour.
 newtype ENodeSet = ENodeSet { _eNodeSides :: Slist (ENode,Slist ENode) }
@@ -217,18 +226,20 @@ newtype INodeSet = INodeSet (Slist [INode])
 
 -- | The complete graph of exterior nodes, and their interior intersection. note this may be for a cell, a contour, or the border between two cells.
 data NodeTree = NodeTree { _eNodes :: !ENodeSet, _iNodes :: !INodeSet }
-  deriving Eq
   deriving stock Show
+
+-- | All nodetrees with identical eNodes have identical iNodes.
+instance Eq NodeTree where
+  (==) (NodeTree enodeset1 _) (NodeTree enodeset2 _) = enodeset1 == enodeset2
+  (/=) a b = not $ a == b
 
 -- | A Spine component:
 --   Similar to a node, only without the in and out heirarchy. always connects to inArcs from a NodeTree. One per generation. allows us to build loops.
 newtype Spine = Spine { _spineArcs :: NonEmpty PLine2 }
-  deriving newtype Eq
   deriving stock Show
 
 -- | The straight skeleton of a contour.
 data StraightSkeleton = StraightSkeleton { _nodeSets :: !(Slist [NodeTree]), _spineNodes :: !(Slist Spine) }
-  deriving Eq
   deriving stock Show
 
 -- | Cut a list into all possible pairs. Used in a few places, but here because the Pointable instance for INode uses it.
