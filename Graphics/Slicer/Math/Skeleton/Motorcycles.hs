@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersectio
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, distanceBetweenPPointsWithErr, eToPLine2)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), distance2PP, eToPL, eToPP, flipL, join2EP, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outAndErrOf, outputIntersectsLineSeg, pPointAndErrOf)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PLine2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, eToPP, flipL, join2EP, join2PP, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn), translateL, oppositeDirection, outAndErrOf, outputIntersectsLineSeg, pPointAndErrOf)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -152,7 +152,7 @@ crashMotorcycles contour holes
             | intersectionIsBehind mot2 = Nothing
             -- FIXME: this should be providing a distance to intersectionPPoint along the motorcycle to check.
             | otherwise = case getMotorcycleContourIntersections mot1 contour of
-                          [] -> case fst (distance2PP (pPointAndErrOf mot1) intersectionPPoint) `compare` fst (distance2PP (pPointAndErrOf mot2) intersectionPPoint) of
+                          [] -> case distanceBetweenPPointsWithErr (pPointAndErrOf mot1) intersectionPPoint `compare` distanceBetweenPPointsWithErr (pPointAndErrOf mot2) intersectionPPoint of
                                  GT -> Just $ Collision (mot1, mot2, slist []) (Just mot2) Normal
                                  LT -> Just $ Collision (mot1, mot2, slist []) (Just mot1) Normal
                                  EQ -> Just $ Collision (mot1, mot2, slist []) (Just mot1) SideSwipe
@@ -212,15 +212,15 @@ motorcycleMightIntersectWith lineSegs motorcycle
                                (_, Right intersectionPPoint1) ->
                                  case i2 of
                                    (_, Right intersectionPPoint2) ->
-                                     fst (distance2PP motorcyclePoint (intersectionPPoint1, mempty)) `compare` fst (distance2PP motorcyclePoint (intersectionPPoint2, mempty))
+                                     distanceBetweenPPointsWithErr motorcyclePoint (intersectionPPoint1, mempty) `compare` distanceBetweenPPointsWithErr motorcyclePoint (intersectionPPoint2, mempty)
                                    (_, Left intersectionPoint2) ->
-                                     fst (distance2PP motorcyclePoint (intersectionPPoint1, mempty)) `compare` fst (distance2PP motorcyclePoint (eToPP intersectionPoint2, mempty))
+                                     distanceBetweenPPointsWithErr motorcyclePoint (intersectionPPoint1, mempty) `compare` distanceBetweenPPointsWithErr motorcyclePoint (eToPP intersectionPoint2, mempty)
                                (_, Left intersectionPoint1) ->
                                  case i2 of
                                    (_, Right intersectionPPoint2) ->
-                                     fst (distance2PP motorcyclePoint (eToPP intersectionPoint1, mempty)) `compare` fst (distance2PP motorcyclePoint (intersectionPPoint2, mempty))
+                                     distanceBetweenPPointsWithErr motorcyclePoint (eToPP intersectionPoint1, mempty) `compare` distanceBetweenPPointsWithErr motorcyclePoint (intersectionPPoint2, mempty)
                                    (_, Left intersectionPoint2) ->
-                                     fst (distance2PP motorcyclePoint (eToPP intersectionPoint1, mempty)) `compare` fst (distance2PP motorcyclePoint (eToPP intersectionPoint2, mempty))
+                                     distanceBetweenPPointsWithErr motorcyclePoint (eToPP intersectionPoint1, mempty) `compare` distanceBetweenPPointsWithErr motorcyclePoint (eToPP intersectionPoint2, mempty)
     filterIntersection :: (LineSeg, Either Point2 ProjectivePoint) -> Maybe (LineSeg, Either Point2 ProjectivePoint)
     filterIntersection intersection = case intersection of
                                         (_, Right intersectionPPoint) -> if intersectionPPointIsBehind intersectionPPoint
