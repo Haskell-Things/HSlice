@@ -21,6 +21,7 @@
 module Graphics.Slicer.Math.Lossy (
   canonicalizePPoint2,
   distanceBetweenPPoints,
+  distanceBetweenPPointsWithErr,
   distanceBetweenPLines,
   distancePPointToPLine,
   eToNPLine2,
@@ -34,8 +35,8 @@ module Graphics.Slicer.Math.Lossy (
   pPointBetweenPPoints,
   pPointOnPerp,
   pToEPoint2,
-  translateRotatePPoint2,
-  translatePLine2
+  translatePLine2,
+  translateRotatePPoint2
   ) where
 
 import Prelude (($), fst, mempty)
@@ -47,7 +48,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
 import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getInsideArc)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, ProjectiveLine2, ProjectivePoint2, canonicalizeP, distance2PP, distance2PL, distancePPointToPLineWithErr, eToPL, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, PPoint2Err, ProjectiveLine2, ProjectivePoint2, canonicalizeP, distance2PP, distance2PL, distancePPointToPLineWithErr, eToPL, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
 -- | canonicalize a euclidian point.
 canonicalizePPoint2 :: PPoint2 -> CPPoint2
@@ -55,6 +56,9 @@ canonicalizePPoint2 point = fst $ canonicalizeP point
 
 distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
 distanceBetweenPPoints point1 point2 = fst $ distance2PP (point1, mempty) (point2, mempty)
+
+distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> ℝ
+distanceBetweenPPointsWithErr point1 point2 = fst $ distance2PP point1 point2
 
 distanceBetweenPLines :: (ProjectiveLine2 a) => a -> a -> ℝ
 distanceBetweenPLines nPLine1 nPLine2 = fst $ distance2PL nPLine1 nPLine2
@@ -106,10 +110,10 @@ pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ interpolate2PP
 pPointOnPerp :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> PPoint2
 pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
 
--- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
-translateRotatePPoint2 :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> PPoint2
-translateRotatePPoint2 ppoint d rotation = fst $ translateRotatePPoint2WithErr ppoint d rotation
-
 -- | translate a PLine2 along it's perpendicular bisector.
 translatePLine2 :: PLine2 -> ℝ -> PLine2
 translatePLine2 pline distance = fst $ translateL pline distance
+
+-- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
+translateRotatePPoint2 :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> PPoint2
+translateRotatePPoint2 ppoint d rotation = fst $ translateRotatePPoint2WithErr ppoint d rotation
