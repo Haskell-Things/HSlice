@@ -56,7 +56,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf, isAntiCollinear, outputIntersectsPLineAt)
 
-import Graphics.Slicer.Math.Lossy (distanceBetweenPPointsWithErr, eToPLine2, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distanceBetweenPPointsWithErr, eToPLine2, pToEPoint2)
 
 import Graphics.Slicer.Math.PGA (Arcable(outOf), CPPoint2, Pointable(canPoint, ePointOf, pPointOf), angleBetween2PL, distance2PP, eToPL, eToPP, outAndErrOf, pPointAndErrOf)
 
@@ -188,7 +188,7 @@ findNextCell (RemainingContour (Slist [(Slist lineSegs _, divides)] _) ) =
       case elemIndex (fst $ fst div1) contourSegs `compare` elemIndex (fst $ fst div2) contourSegs of
         LT -> LT
         GT -> GT
-        EQ -> fst (distance2PP (startPPoint $ fst $ fst div1, mempty) (toPPoint2 $ snd $ fst div1, mempty)) `compare` fst (distance2PP (startPPoint $ fst $ fst div2, mempty) (toPPoint2 $ snd $ fst div2, mempty))
+        EQ -> distanceBetweenPPoints (startPPoint $ fst $ fst div1) (toPPoint2 $ snd $ fst div1) `compare` distanceBetweenPPoints (startPPoint $ fst $ fst div2) (toPPoint2 $ snd $ fst div2)
       where
         toPPoint2 :: Either Point2 CPPoint2 -> CPPoint2
         toPPoint2 (Left point2) = eToPP point2
