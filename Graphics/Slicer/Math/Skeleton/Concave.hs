@@ -56,6 +56,8 @@ import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.Intersections (noIntersection, intersectionBetweenArcsOf, intersectionsAtSamePoint, intersectionOf, isCollinear, isParallel, isAntiCollinear, isAntiParallel)
 
+import Graphics.Slicer.Math.Lossy (distanceBetweenPPointsWithErr)
+
 import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint), ProjectiveLine, PLine2Err, eToPL, flipL, distance2PP, outAndErrOf, pLineIsLeft, pPointAndErrOf)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
@@ -805,9 +807,9 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
         && hasArc node1
         && hasArc node2
         && intersectsInPoint node1 node2 =
-        Just $ fst (distance2PP (pPointAndErrOf node1) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)))
+        Just $ distanceBetweenPPointsWithErr (pPointAndErrOf node1) (intersectionOf (outAndErrOf node1) (outAndErrOf node2))
                `max`
-               fst (distance2PP (pPointAndErrOf node2) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)))
+               distanceBetweenPPointsWithErr (pPointAndErrOf node2) (intersectionOf (outAndErrOf node1) (outAndErrOf node2))
       | otherwise = Nothing
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Bool
