@@ -20,6 +20,7 @@
 
 module Graphics.Slicer.Math.Lossy (
   distanceBetweenPPoints,
+  distanceBetweenPPointsWithErr,
   distancePPointToPLine,
   eToPLine2,
   getFirstArc,
@@ -44,8 +45,13 @@ import Graphics.Slicer.Math.PGA (distance2PP, distancePPointToPLineWithErr, eToP
 
 import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err)
 
+-- | Find the distance between two projective points.
 distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
 distanceBetweenPPoints point1 point2 = fst $ distance2PP (point1, mempty) (point2, mempty)
+
+-- | Find the distance between two projectivePoints with attached error quotents.
+distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> ℝ
+distanceBetweenPPointsWithErr point1 point2 = fst $ distance2PP point1 point2
 
 -- | Find the unsigned distance between a point and a line.
 distancePPointToPLine :: (ProjectivePoint,PPoint2Err) -> (ProjectiveLine,PLine2Err) -> ℝ

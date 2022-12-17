@@ -118,45 +118,48 @@ intersectionsAtSamePoint nodeOutsAndErrs
       [a] -> error $ "asked to check for same point intersection of:\n" <> show a <> "\n"
       [a,b] -> isJust $ intersectionBetween a b
       _ -> and (isJust <$> intersections) && pointsCloseEnough && linesCloseEnough
-      where
-        intersections = mapWithFollower myIntersectionBetween nodeOutsAndErrs
-          where
-            myIntersectionBetween a b = case intersectionBetween a b of
-                                          Nothing -> Nothing
-                                          (Just (Right p)) -> Just $ Right (a,b,p)
-                                          (Just (Left l)) -> Just $ Left (a,b,l)
-        -- intersections that resulted in a point.
-        pointIntersections :: [((ProjectiveLine,PLine2Err), (ProjectiveLine,PLine2Err), (ProjectivePoint,PPoint2Err))]
-        pointIntersections = rights $ catMaybes intersections
-        -- intersections that resulted in a line, but are not anticollinear.
-        lineIntersections = lefts $ catMaybes intersections
-        pointsCloseEnough = and $ mapWithFollower pairCloseEnough pointIntersections
-          where
-            -- Minor optimization: first check against resErr, then actually use the fuzziness.
-            pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= realToFrac (ulpVal resErr) || res < realToFrac errSum
-              where
-                errSum = ulpVal $ resErr <> fuzzinessOfP point1
-                                         <> pLineErrAtPPoint a1 c1
-                                         <> pLineErrAtPPoint b1 c1
-                                         <> fuzzinessOfP point2
-                                         <> pLineErrAtPPoint a2 c2
-                                         <> pLineErrAtPPoint b2 c2
-                (res, (_,_,resErr)) = distance2PP point1 point2
-        linesCloseEnough =
-          case lineIntersections of
-            [] -> True
-            [(a1,b1,l1)] -> case pointIntersections of
-                           [] -> error "one line, no points.. makes no sense."
-                           ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < realToFrac errSum
-                             where
-                               (foundDistance, (_, _, _, _, _, resErr)) = distancePPointToPLineWithErr ppoint1 l1
-                               errSum = ulpVal $ resErr <> fuzzinessOfP ppoint1
-                                                        <> pLineErrAtPPoint a2 p1
-                                                        <> pLineErrAtPPoint b2 p1
-                                                        <> fuzzinessOfL a1
-                                                        <> fuzzinessOfL b1
-                                                        <> fuzzinessOfL l1
-            (_:_) -> error
-                     $ "detected multiple lines?\n"
-                     <> show lineIntersections <> "\n"
-                     <> show pointIntersections <> "\n"
+        where
+          intersections = mapWithFollower myIntersectionBetween nodeOutsAndErrs
+            where
+              myIntersectionBetween a b = case intersectionBetween a b of
+                                            Nothing -> Nothing
+                                            (Just (Right p)) -> Just $ Right (a,b,p)
+                                            (Just (Left l)) -> Just $ Left (a,b,l)
+          pointsCloseEnough = and $ mapWithFollower pairCloseEnough pointIntersections
+            where
+              -- intersections that resulted in a point.
+              pointIntersections = rights $ catMaybes intersections
+              -- Minor optimization: first check against resErr, then actually use the fuzziness.
+              pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= realToFrac (ulpVal resErr) || res < realToFrac errSum
+                where
+                  errSum = ulpVal $ resErr
+                                  <> fuzzinessOfP point1
+                                  <> pLineErrAtPPoint a1 c1
+                                  <> pLineErrAtPPoint b1 c1
+                                  <> fuzzinessOfP point2
+                                  <> pLineErrAtPPoint a2 c2
+                                  <> pLineErrAtPPoint b2 c2
+                  (res, (_,_,resErr)) = distance2PP point1 point2
+          linesCloseEnough =
+            case lineIntersections of
+              [] -> True
+              [(a1,b1,l1)] -> case pointIntersections of
+                                [] -> error "one line, no points.. makes no sense."
+                                ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < realToFrac errSum
+                                  where
+                                    (foundDistance, (_, _, _, _, _, resErr)) = distancePPointToPLineWithErr ppoint1 l1
+                                    errSum = ulpVal $ resErr
+                                                    <> fuzzinessOfP ppoint1
+                                                    <> pLineErrAtPPoint a2 p1
+                                                    <> pLineErrAtPPoint b2 p1
+                                                    <> fuzzinessOfL a1
+                                                    <> fuzzinessOfL b1
+                                                    <> fuzzinessOfL l1
+              (_:_) -> error $ "detected multiple lines?\n"
+                             <> show lineIntersections <> "\n"
+                             <> show pointIntersections <> "\n"
+            where
+              -- intersections that resulted in a point.
+              pointIntersections = rights $ catMaybes intersections
+              -- intersections that resulted in a line, but are not anticollinear.
+              lineIntersections = lefts $ catMaybes intersections
