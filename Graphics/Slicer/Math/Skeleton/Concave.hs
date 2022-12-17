@@ -28,13 +28,11 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, and, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), concatMap, mempty, realToFrac)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), concatMap, mempty, realToFrac)
 
 import Prelude as PL (head, last, tail, init)
 
-import Data.Either (lefts,rights)
-
-import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromMaybe, isJust, isNothing, mapMaybe)
+import Data.Maybe (Maybe(Just,Nothing), fromMaybe, isJust, isNothing, mapMaybe)
 
 import Data.List (takeWhile, dropWhile, sortBy, nub)
 
@@ -58,9 +56,9 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endP
 
 import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
-import Graphics.Slicer.Math.Intersections (intersectionBetween, intersectionOf, isAntiCollinear, isAntiParallel, isCollinear, isParallel, noIntersection)
+import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionsAtSamePoint, isAntiCollinear, isAntiParallel, isCollinear, isParallel, noIntersection)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2, PLine2Err, distance2PP, eToPL, flipL, outAndErrOf, pLineIsLeft, distancePPointToPLineWithErr)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2, PLine2Err, distance2PP, eToPL, flipL, outAndErrOf, pLineIsLeft)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLinesWithErr, isLoop)
 
@@ -471,7 +469,7 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
                                [v] -> v
                                (_:_) -> error "filter passed too many connecting PLines."
         iNodeInsOf myINode = filter (\a -> isNothing . findENodeByOutput (eNodeSetOf $ slist initialENodes) $ fst a) $  insOf myINode
-        withoutConnectingPLine = filter (\a -> a /= oldConnectingPLine)
+        withoutConnectingPLine = filter (/= oldConnectingPLine)
 
     -- Determine if the given INode has a PLine that points to an ENode.
     hasENode iNode = any (isJust . findENodeByOutput (eNodeSetOf $ slist initialENodes)) $ fst <$> insOf iNode
@@ -538,8 +536,9 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
     -- | add together a child and it's parent.
     addINodeToParent :: INode -> INode -> INode
-    addINodeToParent (INode _ _ _ Nothing) _ = error "cannot merge a child inode with no output!"
-    addINodeToParent iNode1@(INode _ _ _ (Just out1)) iNode2@(INode _ _ _ out2) = orderInsByENodes $ makeINode (insOf iNode1 <> withoutPLine (fst out1) (insOf iNode2)) out2
+    addINodeToParent iNode1 iNode2@(INode _ _ _ out2)
+      | hasArc iNode1 = orderInsByENodes $ makeINode (insOf iNode1 <> withoutPLine (outOf iNode1) (insOf iNode2)) out2
+      | otherwise = error "cannot merge a child inode with no output!"
       where
         withoutPLine :: PLine2 -> [(PLine2,PLine2Err)] -> [(PLine2,PLine2Err)]
         withoutPLine myPLine = filter (\a -> fst a /= myPLine)
@@ -569,7 +568,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                    else
                      -- Construct an INode with two identical inputs, and return it.
                      -- FIXME: shouldn't we be able to return an empty set, instead?
-                     Right $ INodeSet $ one [INode (outAndErrOf eNode) (outAndErrOf eNode) (slist []) Nothing]
+                     Right $ INodeSet $ one [makeINode [outAndErrOf eNode, outAndErrOf eNode] Nothing]
                  [iNode] -> handleTwoNodes eNode iNode
                  (_:_) -> handleThreeOrMoreNodes
     [eNode1,eNode2] -> case iNodes of
@@ -584,9 +583,11 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     --   Handle the the case of two nodes.
     handleTwoNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Either PartialNodes INodeSet
     handleTwoNodes node1 node2
+      | not (hasArc node1) || not (hasArc node2) = error $ "ran across a node without an output?\n" <> show node1 <> "\n" <> show node2 <> "\n"
       | isCollinear (outAndErrOf node1) (outAndErrOf node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
       | nodesAreAntiCollinear node1 node2 && contourLooped = Right $ INodeSet $ one [makeLastPair node1 node2]
-      | contourLooped = -- this is a complete loop, so this last INode will be re-written in sortINodesByENodes anyways.
+      | contourLooped =
+        -- this is a complete loop, so this last INode will be re-written in sortINodesByENodes anyways.
         Right $ INodeSet $ one [makeINode (sortedPLinesWithErr [outAndErrOf node1,outAndErrOf node2]) Nothing]
       | intersectsInPoint node1 node2 = Right $ INodeSet $ one [averageNodes node1 node2]
       | otherwise = errorLen2
@@ -623,39 +624,21 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
 
     -- | When all of our nodes end in the same point we should create a single Node with all of them as input. This checks for that case.
     endsAtSamePoint :: Bool
-    endsAtSamePoint
-      | and $ isJust <$> intersections = and $ pointsCloseEnough <> linesCloseEnough
-      | otherwise = False
+    endsAtSamePoint = intersectionsAtSamePoint nodeOutsAndErrs
       where
-        intersections = mapWithFollower intersectionBetween ((outAndErrOf <$> nonAntiCollinearNodes eNodes (antiCollinearNodePairsOf eNodes) <> firstAntiCollinearNodes (antiCollinearNodePairsOf eNodes)) <>
-                                                             (outAndErrOf <$> nonAntiCollinearNodes iNodes (antiCollinearNodePairsOf iNodes) <> firstAntiCollinearNodes (antiCollinearNodePairsOf iNodes)))
-        pointIntersections = rights $ catMaybes intersections
-        lineIntersections = lefts $ catMaybes intersections
-        pointsCloseEnough = mapWithFollower pairCloseEnough pointIntersections
-          where
-            pairCloseEnough a b = res < realToFrac errRes
-              where
-                (res, (_,_,UlpSum errRes)) = distance2PP a b
-        linesCloseEnough =
-          case lineIntersections of
-            [] -> []
-            [a] -> case pointIntersections of
-                     [] -> error "one line, no points.. makes no sense."
-                     (x:_) -> [and pointsCloseEnough && foundDistance < realToFrac foundErr]
-                       where
-                         (foundDistance, (_,_,_,_,_,UlpSum foundErr)) = distancePPointToPLineWithErr x a
-            (_:_) -> error
-                     $ "detected multiple lines?\n"
-                     <> show lineIntersections <> "\n"
-                     <> show pointIntersections <> "\n"
+        nodeOutsAndErrs = nonAntiCollinearOutErrPairs allOuts (antiCollinearOutErrPairsOf allOuts)
+                          <> firstofAntiCollinearOutErrPairs (antiCollinearOutErrPairsOf allOuts)
+        allOuts = (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)
         -- since anti-collinear nodes end at the same point, only count one of them.
-        firstAntiCollinearNodes nodePairs = fst <$> nodePairs
-        -- find nodes that do not have an anti-collinear pair.
+        firstofAntiCollinearOutErrPairs nodePairs = fst <$> nodePairs
+        -- filter out collinear pairs. eliminates both ends.
         -- FIXME: is there a better way do do this with Ord?
-        nonAntiCollinearNodes :: (Eq a) => [a] -> [(a,a)] -> [a]
-        nonAntiCollinearNodes myNodes nodePairs = filter (`notElem` allAntiCollinearNodes nodePairs) myNodes
+        nonAntiCollinearOutErrPairs :: (Eq a) => [a] -> [(a,a)] -> [a]
+        nonAntiCollinearOutErrPairs myNodes nodePairs = filter (`notElem` allAntiCollinearNodes nodePairs) myNodes
           where
             allAntiCollinearNodes myNodePairs = (fst <$> myNodePairs) <> (snd <$> myNodePairs)
+        -- Find our anti-collinear pairs.
+        antiCollinearOutErrPairsOf inOutErrPairs = filter (uncurry isAntiCollinear) $ getPairs inOutErrPairs
 
     -- | make sure we have a potential intersection between two nodes to work with.
     hasShortestNeighboringPair :: Bool
@@ -813,10 +796,6 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     -- NOTE: accepts node pairs, so that we can ensure we check just following ENodes.
     intersectingNeighboringNodePairsOf :: (Arcable a, Pointable a) => [(a,a)] -> [(a, a)]
     intersectingNeighboringNodePairsOf inNodePairs = mapMaybe (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) $ inNodePairs
-
-    -- | find nodes that have output segments that are antiCollinear with one another.
-    antiCollinearNodePairsOf :: (Arcable a) => [a] -> [(a, a)]
-    antiCollinearNodePairsOf inNodes = mapMaybe (\(node1, node2) -> if nodesAreAntiCollinear node1 node2 then Just (node1, node2) else Nothing) $ getPairs inNodes
 
     -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
     distanceToIntersection :: (Pointable a, Arcable a, Pointable b, Arcable b) => a -> b -> Maybe ℝ

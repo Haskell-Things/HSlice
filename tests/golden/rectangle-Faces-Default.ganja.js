@@ -12,13 +12,11 @@ Algebra(2,0,1,()=>{
   var ae = -1.0e1+1.0e2+0.0e0;
   var af = 1.0e1+1.0e2+0.0e0;
   var ag = -1.0e1-1.0e2-1.0e0;
-  var ah = 0.0e1+1.414213562373095e2+0.0e0;
-  var ai = -1.0e1+1.0e2+0.0e0;
-  var aj = 1.0e1-1.0e2+1.0e0;
-  var ak = -1.0e1-1.0e2-1.0e0;
-  var al = 1.0e1+1.0e2+0.0e0;
-  var am = 0.0e1+1.414213562373095e2+0.0e0;
-  var an = 1.0e1-1.0e2+1.0e0;
+  var ah = -1.0e1+1.0e2+0.0e0;
+  var ai = 1.0e1-1.0e2+1.0e0;
+  var aj = -1.0e1-1.0e2-1.0e0;
+  var ak = 1.0e1+1.0e2+0.0e0;
+  var al = 1.0e1-1.0e2+1.0e0;
   document.body.appendChild(this.graph([
     0x882288,
     [aaa,aab],
@@ -48,8 +46,6 @@ Algebra(2,0,1,()=>{
     aj, "aj",
     ak, "ak",
     al, "al",
-    am, "am",
-    an, "an",
   ],{
     grid: true,
     labels: true,

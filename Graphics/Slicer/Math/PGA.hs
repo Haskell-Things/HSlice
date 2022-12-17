@@ -38,6 +38,7 @@ module Graphics.Slicer.Math.PGA(
   Pointable(
       canPoint,
       ePointOf,
+      errOfPPoint,
       pPointOf
       ),
   PPoint2(PPoint2),
@@ -54,7 +55,6 @@ module Graphics.Slicer.Math.PGA(
   distancePPointToPLineWithErr,
   distance2PP,
   distance2PL,
-  errOfPPoint,
   eToPL,
   eToPP,
   flipL,

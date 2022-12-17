@@ -1,26 +1,22 @@
 Algebra(2,0,1,()=>{
   var line = (a,b,c)=>a*1e1 + b*1e2 + c*1e0;
   var point = (x,y)=>!(1e0 + x*1e1 + y*1e2);
-  var aaa = point(-1.0,1.0);
-  var aab = point(-1.0,-1.0);
-  var aba = point(-1.0,-1.0);
-  var abb = point(1.0,-1.0);
-  var aca = point(1.0,-1.0);
-  var acb = point(1.0,1.0);
-  var ada = point(1.0,1.0);
-  var adb = point(-1.0,1.0);
-  var ae = 1.0e1-1.0e2+0.0e0;
-  var af = 1.414213562373095e1+0.0e2+0.0e0;
-  var ag = -1.414213562373095e1+0.0e2+0.0e0;
-  var ah = -1.0e1-1.0e2+0.0e0;
-  var ai = 1.0e1+1.0e2+0.0e0;
-  var aj = 1.0e1-1.0e2+0.0e0;
-  var ak = -1.0e1+1.0e2+0.0e0;
-  var al = -1.414213562373095e1+0.0e2+0.0e0;
-  var am = 1.414213562373095e1+0.0e2+0.0e0;
-  var an = 1.0e1+1.0e2+0.0e0;
-  var ao = -1.0e1-1.0e2+0.0e0;
-  var ap = -1.0e1+1.0e2+0.0e0;
+  var aaa = point(1.0,-1.0);
+  var aab = point(1.0,1.0);
+  var aba = point(1.0,1.0);
+  var abb = point(-1.0,1.0);
+  var aca = point(-1.0,1.0);
+  var acb = point(-1.0,-1.0);
+  var ada = point(-1.0,-1.0);
+  var adb = point(1.0,-1.0);
+  var ae = -1.0e1+1.0e2+0.0e0;
+  var af = 1.0e1+1.0e2+0.0e0;
+  var ag = -1.0e1-1.0e2+0.0e0;
+  var ah = -1.0e1+1.0e2+0.0e0;
+  var ai = 1.0e1-1.0e2+0.0e0;
+  var aj = -1.0e1-1.0e2+0.0e0;
+  var ak = 1.0e1+1.0e2+0.0e0;
+  var al = 1.0e1-1.0e2+0.0e0;
   document.body.appendChild(this.graph([
     0x882288,
     [aaa,aab],
@@ -50,10 +46,6 @@ Algebra(2,0,1,()=>{
     aj, "aj",
     ak, "ak",
     al, "al",
-    am, "am",
-    an, "an",
-    ao, "ao",
-    ap, "ap",
   ],{
     grid: true,
     labels: true,
