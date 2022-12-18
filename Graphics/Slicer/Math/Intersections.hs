@@ -44,7 +44,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc), Intersection, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectiveLine2, ProjectivePoint, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, distancePPToPL, eToPL, fuzzinessOfL, fuzzinessOfP, outAndErrOf, pLineIntersectsLineSeg, pLineErrAtPPoint, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc), Intersection, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine2, ProjectivePoint, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, distancePPToPL, eToPL, fuzzinessOfL, fuzzinessOfP, outAndErrOf, pLineIntersectsLineSeg, pLineErrAtPPoint, plinesIntersectIn)
 
 -- | Check if two lines cannot intersect.
 {-# INLINABLE noIntersection #-}

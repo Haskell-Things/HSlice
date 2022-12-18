@@ -82,13 +82,13 @@ pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ interpolate2PP
 pPointOnPerp :: ProjectiveLine -> ProjectivePoint -> ℝ -> ProjectivePoint
 pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
 
-pToEPoint2 :: ProjectivePoint -> Point2
+pToEPoint2 :: (ProjectivePoint2 a) => a -> Point2
 pToEPoint2 ppoint = fst $ pToEP ppoint
 
 -- | translate a ProjectiveLine along it's perpendicular bisector.
-translatePLine2 :: ProjectiveLine -> ℝ -> ProjectiveLine
+translatePLine2 :: (ProjectiveLine2 a) => a -> ℝ -> ProjectiveLine
 translatePLine2 pline distance = fst $ translateL pline distance
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
-translateRotatePPoint2 :: ProjectivePoint -> ℝ -> ℝ -> ProjectivePoint
+translateRotatePPoint2 :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> ProjectivePoint
 translateRotatePPoint2 ppoint d rotation = fst $ translateRotatePPoint2WithErr ppoint d rotation
