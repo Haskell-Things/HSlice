@@ -116,6 +116,7 @@ getObtuseAngleBisectorFromPointedLines ppoint1 line1 ppoint2 line2
       l2TowardPoint = towardIntersection ppoint2 line2 intersectionPoint
 
 -- | Determine if the line formed by the two given points goes through the first point first, or the second.
+{-# INLINABLE towardIntersection #-}
 towardIntersection :: (ProjectivePoint2 a, ProjectiveLine2 b, ProjectivePoint2 c) => (a, PPoint2Err) -> (b, PLine2Err) -> (c, PPoint2Err) -> Bool
 towardIntersection point1@(pp1, _) (pl1, _) point2@(pp2, _)
   | d <= realToFrac (ulpVal dErr) = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"

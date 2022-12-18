@@ -193,8 +193,8 @@ instance Monoid PLine2Err where
 
 -- | Return the sine of the angle between the two lines, along with the error.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
-angleBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
 {-# INLINABLE angleBetweenProjectiveLines #-}
+angleBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
 angleBetweenProjectiveLines line1 line2 = (scalarPart likeRes, resErr)
   where
     resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
@@ -282,9 +282,9 @@ fuzzinessOfL l = fuzzinessOfProjectiveLine l
 
 -- | Find out where two lines intersect, returning a projective point, and the error quotents.
 -- Note: This should only be used when you can guarantee the input lines are not collinear, or parallel.
+{-# INLINABLE intersectionOfProjectiveLines #-}
 intersectionOfProjectiveLines, intersect2PL :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (PPoint2, (PLine2Err, PLine2Err, PPoint2Err))
 -- | Actual implementation.
-{-# INLINABLE intersectionOfProjectiveLines #-}
 intersectionOfProjectiveLines line1 line2 = (res, (line1Err, line2Err, resErr))
   where
     (res, (line1Err, line2Err, resUnlikeErrs)) = meetOfProjectiveLines line1 line2
@@ -496,9 +496,9 @@ angleCosBetween2PL l1 l2 = angleCosBetweenProjectiveLines l1 l2
 
 -- | Get the canonicalized intersection of two lines.
 -- NOTE: Returns Nothing when the lines are (anti)parallel.
+{-# INLINABLE canonicalizedIntersectionOfProjectiveLines #-}
 canonicalizedIntersectionOfProjectiveLines, canonicalizedIntersectionOf2PL :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe (CPPoint2, (PLine2Err, PLine2Err, PPoint2Err))
 -- | Actual implementation.
-{-# INLINABLE canonicalizedIntersectionOfProjectiveLines #-}
 canonicalizedIntersectionOfProjectiveLines line1 line2
   -- | Check whether the result of our intersection returns an ideal point. if it does, it means the two lines are (anti)parallel, and we should fail.
   | isIdealP pp1 = Nothing
@@ -673,6 +673,7 @@ join2PP p1 p2 = joinOfProjectivePoints p1 p2
 -- | Find a point along the line between the two given points.
 -- The position of the found point is determined by the ratio betwenn the two weights supplied.
 -- If the weights are equal, the distance will be right between the two points.
+{-# INLINABLE projectivePointBetweenProjectivePoints #-}
 projectivePointBetweenProjectivePoints, interpolate2PP :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (PPoint2, (PPoint2Err, PPoint2Err, PPoint2Err))
 -- | Actual implementation.
 projectivePointBetweenProjectivePoints startPoint stopPoint weight1 weight2
