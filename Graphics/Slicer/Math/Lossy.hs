@@ -24,6 +24,7 @@ module Graphics.Slicer.Math.Lossy (
   distanceBetweenPPointsWithErr,
   distanceBetweenPLines,
   distancePPointToPLine,
+  distancePPointToPLineWithErr,
   eToNPLine2,
   eToPLine2,
   getFirstArc,
@@ -48,24 +49,31 @@ import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
 import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getInsideArc)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PPoint2, PPoint2Err, ProjectiveLine2, ProjectivePoint2, canonicalizeP, distance2PP, distance2PL, distancePPointToPLineWithErr, eToPL, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PLine2Err, PPoint2, PPoint2Err, ProjectiveLine2, ProjectivePoint2, canonicalizeP, distance2PP, distance2PL, distancePPToPL, eToPL, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
 -- | canonicalize a euclidian point.
 canonicalizePPoint2 :: PPoint2 -> CPPoint2
 canonicalizePPoint2 point = fst $ canonicalizeP point
 
+-- | Find the distance between two projective points.
 distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
 distanceBetweenPPoints point1 point2 = fst $ distance2PP (point1, mempty) (point2, mempty)
 
+-- | find the distance between two projective points, with error quotents attached.
 distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> ℝ
 distanceBetweenPPointsWithErr point1 point2 = fst $ distance2PP point1 point2
 
 distanceBetweenPLines :: (ProjectiveLine2 a) => a -> a -> ℝ
 distanceBetweenPLines nPLine1 nPLine2 = fst $ distance2PL nPLine1 nPLine2
 
--- | Find the unsigned distance between a point and a line.
+-- | Find the distance between a point and a line.
 distancePPointToPLine :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> ℝ
-distancePPointToPLine point line = fst $ distancePPointToPLineWithErr (point, mempty) (line, mempty)
+distancePPointToPLine point line = fst $ distancePPToPL (point, mempty) (line, mempty)
+
+-- | Find the distance between a point and a line, both with error quotents.
+distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> ℝ
+distancePPointToPLineWithErr point line = fst $ distancePPToPL point line
+
 
 -- | Create a normalized projective line from a euclidian line segment.
 eToNPLine2 :: LineSeg -> NPLine2
