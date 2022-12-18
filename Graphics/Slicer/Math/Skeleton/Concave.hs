@@ -101,7 +101,7 @@ findINodes inSegSets
   | len inSegSets == 1 =
       -- One continuous wall without gaps. may gap between the beginning and end of the contour, if this is not a loop.
       -- Just return the output of skeletonOfNodes.
-      errorIfLeft $ skeletonOfNodes (isLoop inSegSets) inSegSets []
+      errorIfLeft $ skeletonOfNodes (isLoop inSegSets) inSegSets inSegSets []
   | len inSegSets == 2 =
     -- Two walls, no closed ends. solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
     case initialENodes of
@@ -531,8 +531,8 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
 -- | Apply a recursive algorithm to obtain a raw INode set.
 --   FIXME: does not handle more than two point intersections of arcs properly.
-skeletonOfNodes :: Bool -> Slist [LineSeg] -> [INode] -> Either PartialNodes INodeSet
-skeletonOfNodes connectedLoop inSegSets iNodes =
+skeletonOfNodes :: Bool -> Slist [LineSeg] -> Slist [LineSeg] -> [INode] -> Either PartialNodes INodeSet
+skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
   case eNodes of
     [] -> case iNodes of
             [] -> -- zero nodes == return emptyset. allows us to simplify our return loop.
@@ -581,7 +581,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
       | endsAtSamePoint && contourLooped = Right $ INodeSet $ one [makeINode (sortedPLinesWithErr $ (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)) Nothing]
       -- FIXME: this can happen for non-loops. which means this Nothing is wrong. it should be the result of the intersection tree from the first and last node in the segment.
       | endsAtSamePoint && not contourLooped = error $ show $ INodeSet $ one [makeINode (sortedPLinesWithErr $ (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)) Nothing]
-      | hasShortestNeighboringPair = Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes remainingLoop remainingLineSegs (remainingINodes <> averageOfShortestPairs)))
+      | hasShortestNeighboringPair = Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes remainingLoop origSegSets remainingLineSegs (remainingINodes <> averageOfShortestPairs)))
       | otherwise = errorLen3
       where
         inodesOf (INodeSet set) = set

@@ -87,7 +87,7 @@ eToPLine2 l1 = fst $ eToPL l1
 getFirstArc :: Point2 -> Point2 -> Point2 -> PLine2
 getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 
-getInsideArc :: PLine2 -> PLine2 -> PLine2
+getInsideArc :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> PLine2
 getInsideArc pl1 pl2 = fst $ Arcs.getInsideArc (pl1, mempty) (pl2, mempty)
 
 -- | a typed join function. join two points, returning a line.
@@ -119,7 +119,7 @@ pPointOnPerp :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> PPoi
 pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
 
 -- | translate a PLine2 along it's perpendicular bisector.
-translatePLine2 :: PLine2 -> ℝ -> PLine2
+translatePLine2 :: (ProjectiveLine2 a) => a -> ℝ -> PLine2
 translatePLine2 pline distance = fst $ translateL pline distance
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
