@@ -50,7 +50,7 @@ import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectiveLine2, Proj
 distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
 distanceBetweenPPoints point1 point2 = fst $ distance2PP (point1, mempty) (point2, mempty)
 
--- | Find the distance between two projective Points with attached error quotents.
+-- | Find the distance between two projective points, with attached error quotents.
 distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> ℝ
 distanceBetweenPPointsWithErr point1 point2 = fst $ distance2PP point1 point2
 
@@ -75,11 +75,11 @@ getOutsideArc a b c d = fst $ Arcs.getOutsideArc a b c d
 
 -- | Find a point somewhere along the line between the two points given.
 --  requires two weights. the ratio of these weights determines the position of the found points, E.G: (2/3,1/3) is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint. weights can sum to anything.
-pPointBetweenPPoints :: ProjectivePoint -> ProjectivePoint -> ℝ -> ℝ -> ProjectivePoint
+pPointBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> ProjectivePoint
 pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ interpolate2PP startOfSeg stopOfSeg weight1 weight2
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
-pPointOnPerp :: ProjectiveLine -> ProjectivePoint -> ℝ -> ProjectivePoint
+pPointOnPerp :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ProjectivePoint
 pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
 
 pToEPoint2 :: (ProjectivePoint2 a) => a -> Point2
