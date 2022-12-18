@@ -313,8 +313,8 @@ class (Show a) => Pointable a where
   pPointOf :: a -> ProjectivePoint
 
 pPointAndErrOf :: (Pointable a) => a -> (ProjectivePoint, PPoint2Err)
-pPointAndErrOf a
-  | canPoint a = (pPointOf a, errOfPPoint a)
+pPointAndErrOf node
+  | canPoint node = (pPointOf node, errOfPPoint node)
   | otherwise = error "not able to resolve node to a point."
 
 ----------------------------------------------------------

@@ -60,6 +60,7 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
         openCircuit v = Just <$> v
 
 -- | Get the intersections between a Line and a contour as a series of points. always returns an even number of intersections.
+{-# INLINABLE getLineContourIntersections #-}
 getLineContourIntersections :: (ProjectiveLine2 a) => (a, PLine2Err) -> Contour -> [Point2]
 getLineContourIntersections (line, lineErr) c
   | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show line <> "\n" <> show res <> "\n"

@@ -274,6 +274,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
 
 -- | Determine if a node is on one side of a motorcycle, or the other.
 --   Assumes the starting point of the second line segment is a point on the path.
+{-# INLINABLE intersectionSameSide #-}
 intersectionSameSide :: (Pointable a) => ProjectivePoint -> a -> Motorcycle -> Maybe Bool
 intersectionSameSide pointOnSide node (Motorcycle _ path _)
   | canPoint node = pPointsOnSameSideOfPLine (pPointOf node) pointOnSide path

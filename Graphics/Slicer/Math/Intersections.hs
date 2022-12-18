@@ -105,6 +105,7 @@ intersectionBetweenArcsOf node1 node2
     res = plinesIntersectIn (outAndErrOf node1) (outAndErrOf node2)
 
 -- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
+{-# INLINABLE outputIntersectsLineSeg #-}
 outputIntersectsLineSeg :: (Arcable a) => a -> LineSeg -> Either Intersection PIntersection
 outputIntersectsLineSeg source l1
   -- handle the case where a segment that is an input to the node is checked against.
@@ -116,6 +117,7 @@ outputIntersectsLineSeg source l1
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
 -- | Find out where the output of an Arcable intersects a given PLine2. errors if no intersection.
+{-# INLINABLE outputIntersectsPLineAt #-}
 outputIntersectsPLineAt :: (Arcable a, ProjectiveLine2 b) => a -> (b, PLine2Err) -> Maybe (ProjectivePoint, PPoint2Err)
 outputIntersectsPLineAt n line
   | hasArc n = case res of
