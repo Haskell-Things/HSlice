@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionsAtSamePoint, isAntiCollinear, isAntiParallel, isCollinear, isParallel, noIntersection)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2, PLine2Err, distance2PP, eToPL, flipL, outAndErrOf, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2, PLine2Err, distance2PP, eToPL, flipL, outAndErrOf, pPointAndErrOf, pLineIsLeft)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLinesWithErr, isLoop)
 
@@ -166,25 +166,7 @@ errorIfLeft (Right val)    = val
 -- | For a given pair of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
 --   Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
 averageNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> INode
-averageNodes n1 n2
-  | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n" <> dumpInput
-  | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\n" <> dumpInput
-  | isParallel (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
-  | isAntiParallel (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
-  | isCollinear (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
-  | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
-  | n1Distance < getRounded n1Err = error $ "intersection is AT the point of n1!\n" <> dumpInput
-  | n2Distance < getRounded n2Err = error $ "intersection is AT the point of n2!\n" <> dumpInput
-  | otherwise                 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointOf n1, mempty) (outAndErrOf n1) (pPointOf n2, mempty) (outAndErrOf n2)
-  where
-    (n1Distance, (_,_, UlpSum n1Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointOf n1, mempty)
-    (n2Distance, (_,_, UlpSum n2Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointOf n2, mempty)
-    dumpInput =    "Node1: " <> show n1
-                <> "\nNode2: " <> show n2
-                <> "\nNode1Out: " <> show (outOf n1)
-                <> "\nNode2Out: "<> show (outOf n2)
-                <> "\nNode1PPoint: " <> show (pPointOf n1)
-                <> "\nNode2PPoint: " <> show (pPointOf n2) <> "\n"
+averageNodes n1 n2 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointAndErrOf n1) (outAndErrOf n1) (pPointAndErrOf n2) (outAndErrOf n2)
 
 -- | Take a pair of arcables, and return their outOfs, in a sorted order.
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [(PLine2, PLine2Err)]
@@ -607,15 +589,15 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                 $ "shortestPairDistance: " <> show shortestPairDistance <> "\n"
                 <> "ePairDistance: " <> show shortestEPairDistance <> "\n"
                 <> "shortestEPairs: " <> show (shortestPairs eNodes) <> "\n"
-                <> "ePairResults: " <> show (uncurry averageNodes <$> shortestPairs eNodes) <> "\n"
+                <> "ePairResults: " <> show (uncurry safeAverageNodes <$> shortestPairs eNodes) <> "\n"
                 <> show (isSomething shortestEPairDistance) <> "\n"
                 <> "iPairDistance: " <> show shortestIPairDistance <> "\n"
                 <> "shortestIPairs: " <> show (shortestPairs iNodes) <> "\n"
-                <> "iPairResults: " <> show (uncurry averageNodes <$> shortestPairs iNodes) <> "\n"
+                <> "iPairResults: " <> show (uncurry safeAverageNodes <$> shortestPairs iNodes) <> "\n"
                 <> show (isSomething shortestIPairDistance) <> "\n"
                 <> "mixedPairDistance: " <> show shortestMixedPairDistance <> "\n"
                 <> "shortestMixedPairs: " <> show shortestMixedPairs <> "\n"
-                <> "MixedPairResults: " <> show (uncurry averageNodes <$> shortestMixedPairs) <> "\n"
+                <> "MixedPairResults: " <> show (uncurry safeAverageNodes <$> shortestMixedPairs) <> "\n"
                 <> show (isSomething shortestMixedPairDistance) <> "\n"
                 <> show (shortestEPairDistance == shortestPairDistance) <> "\n"
                 <> "remainingLineSegs: " <> show remainingLineSegs <> "\n"
@@ -696,7 +678,7 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
     -- | collect our set of result nodes.
     -- Note: we're putting these in the order "most likely to contain INodes" to least likely. to make the optimizer easier to write.
     averageOfShortestPairs :: [INode]
-    averageOfShortestPairs = (uncurry averageNodes <$> iPairsFound) <> (uncurry averageNodes <$> mixedPairsFound) <> (uncurry averageNodes <$> ePairsFound)
+    averageOfShortestPairs = (uncurry safeAverageNodes <$> iPairsFound) <> (uncurry safeAverageNodes <$> mixedPairsFound) <> (uncurry safeAverageNodes <$> ePairsFound)
 
     iPairsFound =
       if isSomething shortestIPairDistance && shortestIPairDistance == shortestPairDistance
@@ -748,6 +730,29 @@ skeletonOfNodes connectedLoop inSegSets iNodes =
                                   [] -> []
                                   [a] -> [a]
                                   (x@(node1, node2) :xs) -> x : filterCommonIns (filter (\(myNode1, myNode2) -> node1 /= myNode1 && node2 /= myNode1 && node1 /= myNode2 && node2 /= myNode2) xs)
+
+    safeAverageNodes n1 n2
+      | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n" <> dumpInput
+      | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\n" <> dumpInput
+      | isParallel (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
+      | isAntiParallel (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
+      | isCollinear (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
+      | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
+      | n1Distance < getRounded n1Err = error $ "intersection is AT the point of n1!\n" <> dumpInput
+      | n2Distance < getRounded n2Err = error $ "intersection is AT the point of n2!\n" <> dumpInput
+      | n1Distance > getRounded n1Err && n2Distance > getRounded n2Err = averageNodes n1 n2
+      | otherwise                 = error $ "found node too close:\n"
+                                          <> show n1 <> "\n"
+                                          <> show n2 <> "\n"
+      where
+        (n1Distance, (_,_, UlpSum n1Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointOf n1, mempty)
+        (n2Distance, (_,_, UlpSum n2Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointOf n2, mempty)
+        dumpInput =    "Node1: " <> show n1
+                  <> "\nNode2: " <> show n2
+                  <> "\nNode1Out: " <> show (outOf n1)
+                  <> "\nNode2Out: "<> show (outOf n2)
+                  <> "\nNode1PPoint: " <> show (pPointOf n1)
+                  <> "\nNode2PPoint: " <> show (pPointOf n2) <> "\n"
 
     -- | get the list of sorted pairs of intersecting nodes.
     shortestNeighboringPairs :: (Arcable a, Pointable a, Eq a) => [(a,a)] -> [(a, a)]

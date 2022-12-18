@@ -122,6 +122,7 @@ instance Pointable INode where
   canPoint iNode = len (allPLinesOfINode iNode) > 1 && hasIntersectingPairs (allPLinesOfINode iNode)
     where
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> not $ noIntersection pl1 pl2) $ getPairs pLines
+  errOfPPoint _ = mempty
   -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? angle based, etc?
   pPointOf iNode
     | allPointsSame = case results of
@@ -176,14 +177,15 @@ instance Eq Motorcycle where
 instance Arcable Motorcycle where
   -- A Motorcycle always has an arc, which is it's path.
   hasArc _ = True
-  outOf (Motorcycle _ outArc _) = outArc
   errOfOut (Motorcycle _ _ outErr) = outErr
+  outOf (Motorcycle _ outArc _) = outArc
 
 instance Pointable Motorcycle where
   -- A motorcycle always contains a point.
   canPoint _ = True
-  pPointOf a = (\(CPPoint2 v) -> PPoint2 v) $ eToPP $ ePointOf a
   ePointOf (Motorcycle (_, LineSeg point _) _ _) = point
+  errOfPPoint _ = mempty
+  pPointOf a = (\(CPPoint2 v) -> PPoint2 v) $ eToPP $ ePointOf a
 
 -- | The motorcycles that are involved in dividing two cells.
 data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle, moreMotorcycles :: !(Slist Motorcycle) }
