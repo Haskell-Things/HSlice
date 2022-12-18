@@ -43,7 +43,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 
 import Graphics.Slicer.Math.PGA (distance2PP, distancePPointToPLineWithErr, eToPL, interpolate2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
-import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err)
+import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectiveLine2, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err)
 
 -- | Find the distance between two projective points.
 distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
@@ -54,7 +54,7 @@ distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a,
 distanceBetweenPPointsWithErr point1 point2 = fst $ distance2PP point1 point2
 
 -- | Find the unsigned distance between a point and a line.
-distancePPointToPLine :: (ProjectivePoint,PPoint2Err) -> (ProjectiveLine,PLine2Err) -> ℝ
+distancePPointToPLine :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> ℝ
 distancePPointToPLine point line = fst $ distancePPointToPLineWithErr point line
 
 -- | Create an un-normalized projective line from a euclidian line segment.

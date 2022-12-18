@@ -30,6 +30,7 @@ module Graphics.Slicer.Math.Intersections (
   isCollinear,
   isParallel,
   noIntersection,
+  outputIntersectsLineSeg,
   outputIntersectsPLineAt
   ) where
 
@@ -37,15 +38,16 @@ import Prelude (Bool(True), ($), (<), (<=), (<>), (==), (||), (&&), (<$>), Maybe
 
 import Data.Either (rights, lefts)
 
-import Data.Maybe (catMaybes, isJust)
+import Data.Maybe (catMaybes, isJust, isNothing)
 
-import Graphics.Slicer.Math.Definitions (mapWithFollower)
+import Graphics.Slicer.Math.Definitions (LineSeg, mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectiveLine2, ProjectivePoint, distance2PL, distance2PP, distancePPointToPLineWithErr, fuzzinessOfL, fuzzinessOfP, outAndErrOf, pLineErrAtPPoint, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc), Intersection, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectiveLine2, ProjectivePoint, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, distancePPointToPLineWithErr, eToPL, fuzzinessOfL, fuzzinessOfP, outAndErrOf, pLineIntersectsLineSeg, pLineErrAtPPoint, plinesIntersectIn)
 
 -- | Check if two lines cannot intersect.
+{-# INLINABLE noIntersection #-}
 noIntersection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 noIntersection line1 line2 = isCollinear line1 line2 || isParallel line1 line2 || isAntiCollinear line1 line2 || isAntiParallel line1 line2
 
@@ -66,6 +68,7 @@ isAntiParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b
 isAntiParallel line1 line2 = plinesIntersectIn line1 line2 == PAntiParallel
 
 -- | Get the intersection point of two lines we know have an intersection point.
+{-# INLINABLE intersectionOf #-}
 intersectionOf :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectivePoint, PPoint2Err)
 intersectionOf line1 line2 = saneIntersection $ plinesIntersectIn line1 line2
   where
@@ -91,6 +94,7 @@ intersectionBetween line1@(l1, _) line2@(l2, _) = saneIntersection $ plinesInter
     saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p, pErr)
 
 -- | Find out where the output of two Arcables intersect. returns Nothing if no intersection, and errors if no output Arc exists on either input.
+{-# INLINABLE intersectionBetweenArcsOf #-}
 intersectionBetweenArcsOf :: (Arcable a, Arcable b) => a -> b -> Maybe (ProjectivePoint, PPoint2Err)
 intersectionBetweenArcsOf node1 node2
   | hasArc node1 && hasArc node2 = case res of
@@ -99,6 +103,17 @@ intersectionBetweenArcsOf node1 node2
   | otherwise = error $ "Tried to check if the outputs of two nodes intersect, but a node with no output:\n" <> show node1 <> "\n" <> show node2 <> "\n"
   where
     res = plinesIntersectIn (outAndErrOf node1) (outAndErrOf node2)
+
+-- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
+outputIntersectsLineSeg :: (Arcable a) => a -> LineSeg -> Either Intersection PIntersection
+outputIntersectsLineSeg source l1
+  -- handle the case where a segment that is an input to the node is checked against.
+  | isNothing canonicalizedIntersection = Right $ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
+  | otherwise = pLineIntersectsLineSeg (pl1, pl1Err) l1
+  where
+    (pl2, pl2Err) = eToPL l1
+    (pl1, pl1Err) = outAndErrOf source
+    canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
 -- | Find out where the output of an Arcable intersects a given PLine2. errors if no intersection.
 outputIntersectsPLineAt :: (Arcable a, ProjectiveLine2 b) => a -> (b, PLine2Err) -> Maybe (ProjectivePoint, PPoint2Err)

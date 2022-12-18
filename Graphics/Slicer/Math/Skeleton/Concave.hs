@@ -619,7 +619,6 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
             allAntiCollinearNodes myNodePairs = (fst <$> myNodePairs) <> (snd <$> myNodePairs)
         -- Find our anti-collinear pairs.
         antiCollinearOutErrPairsOf :: [(ProjectiveLine, PLine2Err)] -> [((ProjectiveLine, PLine2Err),(ProjectiveLine, PLine2Err))]
---        antiCollinearOutErrPairsOf inOutErrPairs = catMaybes $ (\(errPair1, errPair2) -> if isAntiCollinear errPair1 errPair2 then Just (errPair1, errPair2) else Nothing) <$> getPairs inOutErrPairs
         antiCollinearOutErrPairsOf inOutErrPairs = filter (uncurry isAntiCollinear) $ getPairs inOutErrPairs
 
     -- | make sure we have a potential intersection between two nodes to work with.

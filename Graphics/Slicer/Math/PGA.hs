@@ -50,6 +50,7 @@ module Graphics.Slicer.Math.PGA(
       vecOfP
       ),
   angleBetween2PL,
+  canonicalizedIntersectionOf2PL,
   combineConsecutiveLineSegs,
   distancePPointToPLineWithErr,
   distance2PL,
@@ -66,9 +67,9 @@ module Graphics.Slicer.Math.PGA(
   join2EP,
   join2PP,
   makePPoint2,
-  outputIntersectsLineSeg,
   outAndErrOf,
   oppositeDirection,
+  pLineIntersectsLineSeg,
   pLineIsLeft,
   pPointAndErrOf,
   pPointOnPerpWithErr,
@@ -315,17 +316,6 @@ pPointAndErrOf :: (Pointable a) => a -> (ProjectivePoint, PPoint2Err)
 pPointAndErrOf a
   | canPoint a = (pPointOf a, errOfPPoint a)
   | otherwise = error "not able to resolve node to a point."
-
--- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
-outputIntersectsLineSeg :: (Arcable a) => a -> LineSeg -> Either Intersection PIntersection
-outputIntersectsLineSeg source l1
-  -- handle the case where a segment that is an input to the node is checked against.
-  | isNothing canonicalizedIntersection = Right $ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
-  | otherwise = pLineIntersectsLineSeg (pl1, pl1Err) l1
-  where
-    (pl2, pl2Err) = eToPL l1
-    (pl1, pl1Err) = outAndErrOf source
-    canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
 ----------------------------------------------------------
 -------------- Euclidian Mixed Interface -----------------

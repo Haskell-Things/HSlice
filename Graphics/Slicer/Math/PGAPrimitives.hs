@@ -22,7 +22,6 @@
 -- | The purpose of this file is to hold primitive projective geometric algebraic arithmatic.
 -- Primitives here are defined as functions that work on types which have an implementation of the ProjectivePoint2 or ProjectiveLine2 typeclasses. Think "Pure 2D PGA functions only".
 
--- | What we export. Almost everything is part of a typeclass.
 module Graphics.Slicer.Math.PGAPrimitives
   (
     PLine2Err(PLine2Err),
