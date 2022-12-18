@@ -52,7 +52,7 @@ module Graphics.Slicer.Math.PGA(
   angleBetween2PL,
   canonicalizedIntersectionOf2PL,
   combineConsecutiveLineSegs,
-  distancePPointToPLineWithErr,
+  distancePPToPL,
   distance2PL,
   distance2PP,
   flipL,
@@ -169,8 +169,8 @@ pLineIsLeft (pl1, _) (pl2, _)
 
 -- | Find the distance between a projective point and a projective line, along with the difference's error quotent.
 -- Note: Fails in the case of ideal points.
-distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> (ℝ, (PPoint2Err, PLine2Err, ([ErrVal],[ErrVal]), PLine2Err, PPoint2Err, UlpSum))
-distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, inLineErr)
+distanceProjectivePointToProjectiveLine, distancePPToPL :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> (ℝ, (PPoint2Err, PLine2Err, ([ErrVal],[ErrVal]), PLine2Err, PPoint2Err, UlpSum))
+distanceProjectivePointToProjectiveLine (inPoint, inPointErr) (inLine, inLineErr)
   | isIdealP inPoint = error "attempted to get the distance of an ideal point."
   | otherwise = (res, resErr)
   where
@@ -188,6 +188,7 @@ distancePPointToPLineWithErr (inPoint, inPointErr) (inLine, inLineErr)
     pointErr = inPointErr <> cPointErr
     (nLine, nLineErr) = normalizeL inLine
     (cPoint, cPointErr) = canonicalizeP inPoint
+distancePPToPL = distanceProjectivePointToProjectiveLine
 
 -- | Determine if two points are on the same side of a given line.
 -- Returns Nothing if one of the points is on the line.

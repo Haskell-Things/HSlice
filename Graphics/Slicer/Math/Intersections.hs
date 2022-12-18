@@ -44,7 +44,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc), Intersection, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectiveLine2, ProjectivePoint, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, distancePPointToPLineWithErr, eToPL, fuzzinessOfL, fuzzinessOfP, outAndErrOf, pLineIntersectsLineSeg, pLineErrAtPPoint, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc), Intersection, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectiveLine2, ProjectivePoint, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, distancePPToPL, eToPL, fuzzinessOfL, fuzzinessOfP, outAndErrOf, pLineIntersectsLineSeg, pLineErrAtPPoint, plinesIntersectIn)
 
 -- | Check if two lines cannot intersect.
 {-# INLINABLE noIntersection #-}
@@ -164,7 +164,7 @@ intersectionsAtSamePoint nodeOutsAndErrs
                                 [] -> error "one line, no points.. makes no sense."
                                 ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < realToFrac errSum
                                   where
-                                    (foundDistance, (_, _, _, _, _, resErr)) = distancePPointToPLineWithErr ppoint1 l1
+                                    (foundDistance, (_, _, _, _, _, resErr)) = distancePPToPL ppoint1 l1
                                     errSum = ulpVal $ resErr
                                                     <> fuzzinessOfP ppoint1
                                                     <> pLineErrAtPPoint a2 p1

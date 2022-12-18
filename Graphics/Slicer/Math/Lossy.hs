@@ -22,6 +22,7 @@ module Graphics.Slicer.Math.Lossy (
   distanceBetweenPPoints,
   distanceBetweenPPointsWithErr,
   distancePPointToPLine,
+  distancePPointToPLineWithErr,
   eToPLine2,
   getFirstArc,
   getOutsideArc,
@@ -41,7 +42,7 @@ import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getOutsideArc)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 
-import Graphics.Slicer.Math.PGA (distance2PP, distancePPointToPLineWithErr, eToPL, interpolate2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (distance2PP, distancePPToPL, eToPL, interpolate2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectiveLine2, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err)
 
@@ -54,8 +55,12 @@ distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a,
 distanceBetweenPPointsWithErr point1 point2 = fst $ distance2PP point1 point2
 
 -- | Find the unsigned distance between a point and a line.
-distancePPointToPLine :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> ℝ
-distancePPointToPLine point line = fst $ distancePPointToPLineWithErr point line
+distancePPointToPLine :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> ℝ
+distancePPointToPLine point line = fst $ distancePPToPL (point, mempty) (line, mempty)
+
+-- | Find the unsigned distance between a point and a line, both with error quotents.
+distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> ℝ
+distancePPointToPLineWithErr point line = fst $ distancePPToPL point line
 
 -- | Create an un-normalized projective line from a euclidian line segment.
 eToPLine2 :: LineSeg -> ProjectiveLine

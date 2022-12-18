@@ -56,10 +56,10 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 
 import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersectionBetween, outputIntersectsLineSeg)
 
-import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distancePPointToPLine, eToPLine2, getFirstArc, getOutsideArc, pPointOnPerp, translateRotatePPoint2)
+import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distancePPointToPLine, distancePPointToPLineWithErr, eToPLine2, getFirstArc, getOutsideArc, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2,PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), distance2PL, distance2PP, distancePPointToPLineWithErr, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, distancePPointToPLineWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, sameDirection, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2,PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), distance2PL, distance2PP, distancePPToPL, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, sameDirection, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (PPoint2Err(PPoint2Err), angleBetween2PL, xIntercept, yIntercept)
 
@@ -423,8 +423,8 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
 -- | A property test making sure the distance between a point an an axis is equal to the corresponding euclidian component of the point.
 prop_DistanceToAxis :: NonZero ℝ -> NonZero ℝ -> Bool -> Expectation
 prop_DistanceToAxis v v2 xAxis
-  | xAxis = distancePPointToPLine (eToPP $ Point2 (coerce v2,coerce v), mempty) (eToPL $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> abs (coerce v)
-  | otherwise = distancePPointToPLine (eToPP $ Point2 (coerce v,coerce v2), mempty) (eToPL $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> abs (coerce v)
+  | xAxis = distancePPointToPLineWithErr (eToPP $ Point2 (coerce v2,coerce v), mempty) (eToPL $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> abs (coerce v)
+  | otherwise = distancePPointToPLineWithErr (eToPP $ Point2 (coerce v,coerce v2), mempty) (eToPL $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> abs (coerce v)
 
 -- | A property test making sure two points on the same side of an axis show as being on the same side of the axis.
 prop_SameSideOfAxis :: NonZero ℝ -> NonZero ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool -> Bool -> Expectation
@@ -1239,8 +1239,8 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
               <> "PPoint1: " <> show pPoint1 <> "\n"
               <> "PPoint2: " <> show pPoint2 <> "\n"
     -- distance1 and distance2 should be 0, in an ideal world.
-    (distance1, (_, _, _, _, _, distance1Err)) = distancePPointToPLineWithErr pPoint1 nPLine
-    (distance2, (_, _, _, _, _, distance2Err)) = distancePPointToPLineWithErr pPoint2 nPLine
+    (distance1, (_, _, _, _, _, distance1Err)) = distancePPToPL pPoint1 nPLine
+    (distance2, (_, _, _, _, _, distance2Err)) = distancePPToPL pPoint2 nPLine
     pPoint1, pPoint2 :: (ProjectivePoint, PPoint2Err)
     pPoint1@(rawPPoint1,_) = (makePPoint2 x1 y1, mempty)
     pPoint2@(rawPPoint2,_) = (makePPoint2 x2 y2, mempty)
@@ -1273,8 +1273,8 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
               <> "PPoint1: " <> show pPoint1 <> "\n"
               <> "PPoint2: " <> show pPoint2 <> "\n"
     -- distance1 and distance2 should be 0, in an ideal world.
-    (distance1, (_,_,_,_,_, distance1Err)) = distancePPointToPLineWithErr (pPoint1,mempty) (pLine1,mempty)
-    (distance2, (_,_,_,_,_, distance2Err)) = distancePPointToPLineWithErr (pPoint2,mempty) (pLine1,mempty)
+    (distance1, (_,_,_,_,_, distance1Err)) = distancePPToPL (pPoint1,mempty) (pLine1,mempty)
+    (distance2, (_,_,_,_,_, distance2Err)) = distancePPToPL (pPoint2,mempty) (pLine1,mempty)
     pPoint1 = makePPoint2 x1 y1
     pPoint2 = makePPoint2 x2 y2
     pLineErrAtPPoint1 = pLineErrAtPPoint (pLine1, pline1Err) pPoint1
@@ -1303,8 +1303,8 @@ prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
               <> "PLine: " <> show pLine <> "\n"
               <> "PLineAddErr: " <> show pLineErr <> "\n"
     -- res should be d, in an ideal world.
-    (res1, _) = distancePPointToPLineWithErr (perp1, mempty) (pLine, mempty)
-    (res2, _) = distancePPointToPLineWithErr (perp2, mempty) (pLine, mempty)
+    res1 = distancePPointToPLineWithErr (perp1, mempty) (pLine, mempty)
+    res2 = distancePPointToPLineWithErr (perp2, mempty) (pLine, mempty)
     (perp1, _) = pPointOnPerpWithErr pLine pPoint1 d
     (perp2, _) = pPointOnPerpWithErr pLine pPoint2 d
     pPoint1 = makePPoint2 x1 y1
