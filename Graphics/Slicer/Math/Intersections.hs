@@ -34,11 +34,11 @@ module Graphics.Slicer.Math.Intersections (
   outputIntersectsPLineAt
   ) where
 
-import Prelude (Bool(True), ($), (<), (<=), (<>), (==), (||), (&&), (<$>), Maybe(Just, Nothing), Either(Right, Left), and, error, otherwise, realToFrac, show)
+import Prelude (Bool(True), ($), (<), (<=), (<>), (==), (||), (&&), (<$>), and, error, otherwise, realToFrac, show)
 
-import Data.Either (rights, lefts)
+import Data.Either (Either(Left, Right), rights, lefts)
 
-import Data.Maybe (catMaybes, isJust, isNothing)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, isJust, isNothing)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, mapWithFollower)
 
@@ -128,7 +128,7 @@ outputIntersectsPLineAt n line
     res = plinesIntersectIn (outAndErrOf n) line
 
 -- | Find out if all of the possible intersections between all of the given nodes are close enough to be considered intersecting at the same point.
-intersectionsAtSamePoint :: [(ProjectiveLine, PLine2Err)] -> Bool
+intersectionsAtSamePoint :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> Bool
 intersectionsAtSamePoint nodeOutsAndErrs
   = case nodeOutsAndErrs of
       [] -> error "given an empty list."

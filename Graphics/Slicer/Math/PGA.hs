@@ -34,8 +34,8 @@ module Graphics.Slicer.Math.PGA(
   PLine2Err(PLine2Err),
   Pointable(
       canPoint,
-      errOfPPoint,
       ePointOf,
+      errOfPPoint,
       pPointOf
       ),
   PPoint2Err,
@@ -55,10 +55,9 @@ module Graphics.Slicer.Math.PGA(
   distancePPToPL,
   distance2PL,
   distance2PP,
-  flipL,
-  pLineErrAtPPoint,
   eToPL,
   eToPP,
+  flipL,
   fuzzinessOfL,
   fuzzinessOfP,
   interpolate2PP,
@@ -67,8 +66,9 @@ module Graphics.Slicer.Math.PGA(
   join2EP,
   join2PP,
   makePPoint2,
-  outAndErrOf,
   oppositeDirection,
+  outAndErrOf,
+  pLineErrAtPPoint,
   pLineIntersectsLineSeg,
   pLineIsLeft,
   pPointAndErrOf,
@@ -188,6 +188,7 @@ distanceProjectivePointToProjectiveLine (inPoint, inPointErr) (inLine, inLineErr
     pointErr = inPointErr <> cPointErr
     (nLine, nLineErr) = normalizeL inLine
     (cPoint, cPointErr) = canonicalizeP inPoint
+-- FIXME: return result is a bit soupy.
 distancePPToPL = distanceProjectivePointToProjectiveLine
 
 -- | Determine if two points are on the same side of a given line.
@@ -313,6 +314,7 @@ class (Show a) => Pointable a where
   -- | Get a projective representation of this point.
   pPointOf :: a -> ProjectivePoint
 
+-- | If the given node can be resolved to a point, return it, along with it's error quotent.
 pPointAndErrOf :: (Pointable a) => a -> (ProjectivePoint, PPoint2Err)
 pPointAndErrOf node
   | canPoint node = (pPointOf node, errOfPPoint node)

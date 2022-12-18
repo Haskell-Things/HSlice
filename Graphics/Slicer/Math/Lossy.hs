@@ -50,15 +50,15 @@ import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectiveLine2, Proj
 distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
 distanceBetweenPPoints point1 point2 = fst $ distance2PP (point1, mempty) (point2, mempty)
 
--- | Find the distance between two projectivePoints with attached error quotents.
+-- | Find the distance between two projective Points with attached error quotents.
 distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> ℝ
 distanceBetweenPPointsWithErr point1 point2 = fst $ distance2PP point1 point2
 
--- | Find the unsigned distance between a point and a line.
+-- | Find the distance between a point and a line.
 distancePPointToPLine :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> ℝ
 distancePPointToPLine point line = fst $ distancePPToPL (point, mempty) (line, mempty)
 
--- | Find the unsigned distance between a point and a line, both with error quotents.
+-- | Find the distance between a point and a line, both with error quotents.
 distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> ℝ
 distancePPointToPLineWithErr point line = fst $ distancePPToPL point line
 

@@ -680,6 +680,7 @@ join2PP p1 p2 = joinOfProjectivePoints p1 p2
 -- | Find a point along the line between the two given points.
 -- The position of the found point is determined by the ratio betwenn the two weights supplied.
 -- If the weights are equal, the distance will be right between the two points.
+{-# INLINABLE projectivePointBetweenProjectivePoints #-}
 projectivePointBetweenProjectivePoints, interpolate2PP :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, PPoint2Err))
 -- | Actual implementation.
 projectivePointBetweenProjectivePoints startPoint stopPoint weight1 weight2
