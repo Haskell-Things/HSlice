@@ -685,23 +685,25 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
 
     mixedPairsFound =
       if isSomething shortestMixedPairDistance && shortestMixedPairDistance == shortestPairDistance
-      then filterINodesOf shortestMixedPairs
+      then removeFoundINodesOf shortestMixedPairs
       else []
       where
-        -- | remove pairs containing INodes from the shortest INode pairs from a list of mixed pairs.
-        filterINodesOf :: [(ENode, INode)] -> [(ENode, INode)]
-        filterINodesOf = filter onlyINodes
+        removeFoundINodesOf :: [(ENode, INode)] -> [(ENode, INode)]
+        removeFoundINodesOf = filter withoutINodes
           where
-            onlyINodes (_,myINode) = myINode `notElem` ((fst <$> iPairsFound) <> (snd <$> iPairsFound))
+            -- filter out any nodes in our list that are in the iPairsFound result.
+            withoutINodes (_,myINode) = myINode `notElem` ((fst <$> iPairsFound) <> (snd <$> iPairsFound))
 
     ePairsFound =
       if isSomething shortestEPairDistance && shortestEPairDistance == shortestPairDistance
-      then filterENodesOf $ shortestNeighboringPairs $ mapWithFollower (,) eNodes
+      then removeFoundENodesOf $ shortestNeighboringPairs $ mapWithFollower (,) eNodes
       else []
       where
-        -- | remove pairs containing ENodes from the shortest mixed pairs from a list of ENode pairs
-        filterENodesOf :: [(ENode, ENode)] -> [(ENode, ENode)]
-        filterENodesOf = filter (\(myENode1,myENode2) -> myENode1 `notElem` (fst <$> mixedPairsFound) && myENode2 `notElem` (fst <$> mixedPairsFound))
+        -- filter out any nodes in our list, that are in the mixedPairsFound result.
+        removeFoundENodesOf :: [(ENode, ENode)] -> [(ENode, ENode)]
+        removeFoundENodesOf = filter withoutENodes
+          where
+            withoutENodes (myENode1, myENode2) = myENode1 `notElem` (fst <$> mixedPairsFound) && myENode2 `notElem` (fst <$> mixedPairsFound)
 
     -- | calculate the distances to the shortest pairs of nodes. the shortest pair, along with all of the pairs of the same length, will be in our result set.
     shortestPairDistance = min (min shortestEPairDistance shortestMixedPairDistance) (min shortestIPairDistance shortestMixedPairDistance)
