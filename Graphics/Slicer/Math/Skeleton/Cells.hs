@@ -58,9 +58,7 @@ import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf, isAntiColl
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distanceBetweenPPointsWithErr, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), distance2PP, eToPL, eToPP, pPointAndErrOf, outAndErrOf)
-
-import Graphics.Slicer.Math.PGAPrimitives (ProjectivePoint, angleBetween2PL, join2PP)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), ProjectivePoint, angleBetween2PL, distance2PP, eToPL, eToPP, join2PP, outAndErrOf, pPointAndErrOf)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving (Show, Eq)

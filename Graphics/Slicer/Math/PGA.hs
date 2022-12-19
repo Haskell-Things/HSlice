@@ -71,11 +71,11 @@ module Graphics.Slicer.Math.PGA(
   pLineErrAtPPoint,
   pLineIntersectsLineSeg,
   pLineIsLeft,
+  plinesIntersectIn,
   pPointAndErrOf,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
   pToEP,
-  plinesIntersectIn,
   sameDirection,
   translateL,
   translateRotatePPoint2WithErr

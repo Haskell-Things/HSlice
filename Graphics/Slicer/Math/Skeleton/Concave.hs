@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (noIntersection, intersectionBetweenAr
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPointsWithErr)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint), ProjectiveLine, PLine2Err, eToPL, flipL, distance2PP, outAndErrOf, pLineIsLeft, pPointAndErrOf)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint), ProjectiveLine, ProjectiveLine2, PLine2Err, eToPL, flipL, distance2PP, outAndErrOf, pLineIsLeft, pPointAndErrOf)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
@@ -569,7 +569,7 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
       | isCollinear (outAndErrOf node1) (outAndErrOf node2) = Left $ PartialNodes (INodeSet $ one iNodes) $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
       | nodesAreAntiCollinear node1 node2 && contourLooped = Right $ INodeSet $ one [makeLastPair node1 node2]
       | contourLooped =
-      -- this is a complete loop, so this last INode will be re-written in sortINodesByENodes anyways.
+        -- this is a complete loop, so this last INode will be re-written in sortINodesByENodes anyways.
         Right $ INodeSet $ one [makeINode (sortedPLines [outOf node1,outOf node2]) Nothing]
       | intersectsInPoint node1 node2 = Right $ INodeSet $ one [safeAverageNodes node1 node2]
       | otherwise = errorLen2
@@ -618,7 +618,7 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
           where
             allAntiCollinearNodes myNodePairs = (fst <$> myNodePairs) <> (snd <$> myNodePairs)
         -- Find our anti-collinear pairs.
-        antiCollinearOutErrPairsOf :: [(ProjectiveLine, PLine2Err)] -> [((ProjectiveLine, PLine2Err),(ProjectiveLine, PLine2Err))]
+        antiCollinearOutErrPairsOf :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> [((a, PLine2Err),(a, PLine2Err))]
         antiCollinearOutErrPairsOf inOutErrPairs = filter (uncurry isAntiCollinear) $ getPairs inOutErrPairs
 
     -- | make sure we have a potential intersection between two nodes to work with.
