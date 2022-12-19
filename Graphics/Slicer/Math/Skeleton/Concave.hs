@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
 
 import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionsAtSamePoint, isAntiCollinear, isAntiParallel, isCollinear, isParallel, noIntersection)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2, PLine2Err, distance2PP, eToPL, flipL, outAndErrOf, pPointAndErrOf, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2, PLine2Err, ProjectiveLine2, distance2PP, eToPL, flipL, outAndErrOf, pPointAndErrOf, pLineIsLeft)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLinesWithErr, isLoop)
 
@@ -622,6 +622,7 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
           where
             allAntiCollinearNodes myNodePairs = (fst <$> myNodePairs) <> (snd <$> myNodePairs)
         -- Find our anti-collinear pairs.
+        antiCollinearOutErrPairsOf :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> [((a, PLine2Err),(a, PLine2Err))]
         antiCollinearOutErrPairsOf inOutErrPairs = filter (uncurry isAntiCollinear) $ getPairs inOutErrPairs
 
     -- | make sure we have a potential intersection between two nodes to work with.
@@ -648,11 +649,10 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
       where
         removeENodesFromSegList :: Slist ENode -> [LineSeg] -> [[LineSeg]]
         removeENodesFromSegList eNodesIn lineSegs =
-          filterTooShorts $ case eNodesIn of
-                              (Slist [] _) -> [lineSegs]
-                              (Slist (oneENode:moreENodes) _) -> concatMap (removeENodeFromSegList oneENode) $ removeENodesFromSegList (slist moreENodes) lineSegs
+          mapMaybe isTooShort $ case eNodesIn of
+                                  (Slist [] _) -> [lineSegs]
+                                  (Slist (oneENode:moreENodes) _) -> concatMap (removeENodeFromSegList oneENode) $ removeENodesFromSegList (slist moreENodes) lineSegs
           where
-            filterTooShorts sets = mapMaybe isTooShort sets
             isTooShort set = case set of
                                [] -> Nothing
                                [val] -> Just [val]
@@ -689,13 +689,14 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
 
     mixedPairsFound =
       if isSomething shortestMixedPairDistance && shortestMixedPairDistance == shortestPairDistance
-      then filterINodesOf shortestMixedPairs
+      then shortestINodesOf shortestMixedPairs
       else []
       where
         -- | remove pairs containing INodes from the shortest INode pairs from a list of mixed pairs.
-        filterINodesOf :: [(ENode, INode)] -> [(ENode, INode)]
-        filterINodesOf = filter (\(_,myINode) -> myINode `notElem` ((fst <$> iPairsFound) <> (snd <$> iPairsFound)))
-
+        shortestINodesOf :: [(ENode, INode)] -> [(ENode, INode)]
+        shortestINodesOf = filter onlyShortestPairs
+          where
+            onlyShortestPairs (_,myINode) = myINode `notElem` ((fst <$> iPairsFound) <> (snd <$> iPairsFound))
     ePairsFound =
       if isSomething shortestEPairDistance && shortestEPairDistance == shortestPairDistance
       then filterENodesOf $ shortestNeighboringPairs $ mapWithFollower (,) eNodes
@@ -721,7 +722,7 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
     shortestPairs :: (Arcable a, Pointable a, Eq a) => [a] -> [(a, a)]
     shortestPairs myNodes = case nodePairsSortedByDistance myNodes of
                               [] -> []
-                              [onePair] -> [onePair]
+                              [(node1, node2)] -> [(node1, node2)]
                               (pair:morePairs) -> filterCommonIns $ pair : takeWhile (\a -> uncurry distanceToIntersection a == uncurry distanceToIntersection pair) morePairs
       where
         -- | get the intersection of each node pair, sorted based on which one has the shortest maximum distance of the two line segments from it's ancestor nodes to the intersection point.
@@ -733,15 +734,16 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
                                   [a] -> [a]
                                   (x@(node1, node2) :xs) -> x : filterCommonIns (filter (\(myNode1, myNode2) -> node1 /= myNode1 && node2 /= myNode1 && node1 /= myNode2 && node2 /= myNode2) xs)
 
+    safeAverageNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> INode
     safeAverageNodes n1 n2
-      | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n" <> dumpInput
-      | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\n" <> dumpInput
-      | isParallel (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
-      | isAntiParallel (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> dumpInput
-      | isCollinear (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
-      | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> dumpInput
-      | n1Distance < getRounded n1Err = error $ "intersection is AT the point of n1!\n" <> dumpInput
-      | n2Distance < getRounded n2Err = error $ "intersection is AT the point of n2!\n" <> dumpInput
+      | not (hasArc n1) || not (hasArc n2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n" <> errorLen3
+      | not (canPoint n1) || not (canPoint n2) = error $ "Cannot get the average of nodes if we cannot resolve them to a point!\n" <> errorLen3
+      | isParallel (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> errorLen3
+      | isAntiParallel (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> errorLen3
+      | isCollinear (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> errorLen3
+      | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> errorLen3
+      | n1Distance < getRounded n1Err = error $ "intersection is AT the point of n1!\n" <> errorLen3
+      | n2Distance < getRounded n2Err = error $ "intersection is AT the point of n2!\n" <> errorLen3
       | n1Distance > getRounded n1Err && n2Distance > getRounded n2Err = averageNodes n1 n2
       | otherwise                 = error $ "found node too close:\n"
                                           <> show n1 <> "\n"
@@ -749,12 +751,6 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
       where
         (n1Distance, (_,_, UlpSum n1Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointOf n1, mempty)
         (n2Distance, (_,_, UlpSum n2Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointOf n2, mempty)
-        dumpInput =    "Node1: " <> show n1
-                  <> "\nNode2: " <> show n2
-                  <> "\nNode1Out: " <> show (outOf n1)
-                  <> "\nNode2Out: "<> show (outOf n2)
-                  <> "\nNode1PPoint: " <> show (pPointOf n1)
-                  <> "\nNode2PPoint: " <> show (pPointOf n2) <> "\n"
 
     -- | get the list of sorted pairs of intersecting nodes.
     shortestNeighboringPairs :: (Arcable a, Pointable a, Eq a) => [(a,a)] -> [(a, a)]
@@ -790,25 +786,27 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
 
     -- | find nodes of two different types that can intersect.
     intersectingMixedNodePairs :: [(ENode, INode)]
-    intersectingMixedNodePairs = mapMaybe (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) $ getMixedPairs eNodes iNodes
+    intersectingMixedNodePairs = filter (uncurry intersectsInPoint) $ getMixedPairs eNodes iNodes
       where
         getMixedPairs ::  [a] -> [b] -> [(a, b)]
         getMixedPairs set1 set2 = concatMap (\a -> (a,) <$> set2) set1
 
     -- | find nodes of the same type that can intersect.
     intersectingNodePairsOf :: (Arcable a, Pointable a) => [a] -> [(a, a)]
-    intersectingNodePairsOf inNodes = mapMaybe (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) $ getPairs inNodes
+    intersectingNodePairsOf inNodes = filter (uncurry intersectsInPoint) $ getPairs inNodes
 
     -- | find nodes of the same type that can intersect.
     -- NOTE: accepts node pairs, so that we can ensure we check just following ENodes.
     intersectingNeighboringNodePairsOf :: (Arcable a, Pointable a) => [(a,a)] -> [(a, a)]
-    intersectingNeighboringNodePairsOf inNodePairs = mapMaybe (\(node1, node2) -> if intersectsInPoint node1 node2 then Just (node1, node2) else Nothing) $ inNodePairs
+    intersectingNeighboringNodePairsOf = filter (uncurry intersectsInPoint)
 
     -- | for a given pair of nodes, find the longest distance between one of the two nodes and the intersection of the two output plines.
     distanceToIntersection :: (Pointable a, Arcable a, Pointable b, Arcable b) => a -> b -> Maybe ℝ
     distanceToIntersection node1 node2
       | canPoint node1
         && canPoint node2
+        && hasArc node1
+        && hasArc node2
         && intersectsInPoint node1 node2 =
         Just $ fst (distance2PP (pPointOf node1, mempty) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)))
                `max`
