@@ -28,7 +28,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), concatMap, mempty, realToFrac)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), all, notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), concatMap, mempty, realToFrac)
 
 import Prelude as PL (head, last, tail, init)
 
@@ -421,7 +421,7 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
     -- check to see if an INode can be merged with another INode.
     canMergeWith :: INode -> INode -> Bool
-    canMergeWith inode1@(INode _ _ _ maybeOut) inode2 = isJust maybeOut && hasIn inode2 (outAndErrOf inode1)
+    canMergeWith inode1 inode2 = hasArc inode1 && hasIn inode2 (outAndErrOf inode1)
       where
         hasIn :: INode -> (PLine2, PLine2Err) -> Bool
         hasIn iNode pLine2 = case filter (\a -> isCollinear a pLine2) $ insOf iNode of
@@ -571,22 +571,21 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
       | contourLooped =
         -- this is a complete loop, so this last INode will be re-written in sortINodesByENodes anyways.
         Right $ INodeSet $ one [makeINode (sortedPLinesWithErr [outAndErrOf node1,outAndErrOf node2]) Nothing]
-      | intersectsInPoint node1 node2 = Right $ INodeSet $ one [averageNodes node1 node2]
+      | intersectsInPoint node1 node2 = Right $ INodeSet $ one [safeAverageNodes node1 node2]
       | otherwise = errorLen2
       where
         errorLen2 = Left $ PartialNodes (INodeSet $ one iNodes) $ "NOMATCH - length 2?\n" <> show node1 <> "\n" <> show node2 <> "\n" <> show contourLooped <> "\n" <> show eNodes <> "\n" <> show iNodes <> "\n"
-
     --   Handle the the case of 3 or more nodes.
     handleThreeOrMoreNodes
+      | not (all hasArc iNodes) = error "found an Inode without an output!"
       | endsAtSamePoint && contourLooped = Right $ INodeSet $ one [makeINode (sortedPLinesWithErr $ (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)) Nothing]
       -- FIXME: this can happen for non-loops. which means this Nothing is wrong. it should be the result of the intersection tree from the first and last node in the segment.
       | endsAtSamePoint && not contourLooped = error $ show $ INodeSet $ one [makeINode (sortedPLinesWithErr $ (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)) Nothing]
       | hasShortestNeighboringPair = Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes remainingLoop origSegSets remainingLineSegs (remainingINodes <> averageOfShortestPairs)))
-      | otherwise = errorLen3
+      | otherwise = error $ "len3\n" <> errorLen3
       where
         inodesOf (INodeSet set) = set
-    errorLen3 = error
-                $ "shortestPairDistance: " <> show shortestPairDistance <> "\n"
+    errorLen3 =    "shortestPairDistance: " <> show shortestPairDistance <> "\n"
                 <> "ePairDistance: " <> show shortestEPairDistance <> "\n"
                 <> "shortestEPairs: " <> show (shortestPairs eNodes) <> "\n"
                 <> "ePairResults: " <> show (uncurry safeAverageNodes <$> shortestPairs eNodes) <> "\n"
@@ -603,14 +602,17 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
                 <> "remainingLineSegs: " <> show remainingLineSegs <> "\n"
                 <> "remainingINodes: " <> show remainingINodes <> "\n"
                 <> "thisGen: " <> show averageOfShortestPairs <> "\n"
+                <> "origSegSets: " <> show origSegSets <> "\n"
 
-    -- | When all of our nodes end in the same point we should create a single Node with all of them as input. This checks for that case.
+    -- | check to see if all of our nodes end in the same point
+    -- If so, this is a sign that we should create a single Node with all of them as input.
     endsAtSamePoint :: Bool
     endsAtSamePoint = intersectionsAtSamePoint nodeOutsAndErrs
       where
         nodeOutsAndErrs = nonAntiCollinearOutErrPairs allOuts (antiCollinearOutErrPairsOf allOuts)
                           <> firstofAntiCollinearOutErrPairs (antiCollinearOutErrPairsOf allOuts)
-        allOuts = (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)
+          where
+            allOuts = (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)
         -- since anti-collinear nodes end at the same point, only count one of them.
         firstofAntiCollinearOutErrPairs nodePairs = fst <$> nodePairs
         -- filter out collinear pairs. eliminates both ends.
