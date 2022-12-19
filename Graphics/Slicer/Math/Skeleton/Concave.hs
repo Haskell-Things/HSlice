@@ -694,7 +694,7 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
       where
         -- | Filter out any node pairs in our list that contain an INode from the iPairsFound list.
         removeFoundINodesOf :: [(ENode, INode)] -> [(ENode, INode)]
-        removeFoundINodesOf = filter removeFoundPairs
+        removeFoundINodesOf = filter withoutINodes
           where
             withoutINodes (_,myINode) = myINode `notElem` ((fst <$> iPairsFound) <> (snd <$> iPairsFound))
 
@@ -703,7 +703,7 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
       then removeFoundENodesOf $ shortestNeighboringPairs $ mapWithFollower (,) eNodes
       else []
       where
-        -- | Filter out any nodes pairs in our list that contain an ENode from the mixedPairsFound list.
+        -- | Filter out any node pairs in our list that contain an ENode from the mixedPairsFound list.
         removeFoundENodesOf :: [(ENode, ENode)] -> [(ENode, ENode)]
         removeFoundENodesOf = filter withoutENodes
           where
