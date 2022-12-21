@@ -19,6 +19,9 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
+-- for using Rounded flexibly.
+{-# LANGUAGE DataKinds #-}
+
 -- | The purpose of this file is to hold primitive projective geometric algebraic arithmatic.
 -- Primitives here are defined as functions that work on types which have an implementation of the ProjectivePoint2 or ProjectiveLine2 typeclasses. Think "Pure 2D PGA functions only".
 
@@ -78,7 +81,9 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2))
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpVal, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpRaw, ulpVal, valOf)
+
+import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardNegInf), getRounded)
 
 --------------------------------
 --- common support functions ---
@@ -393,13 +398,13 @@ pLineErrAtPPoint (line, lineErr) errPoint
     yInterceptIsRight = isJust (yIntercept (nPLine, nPLineErr))
                         && isRight (fst $ fromJust $ yIntercept (nPLine, nPLineErr))
                         && fromRight 0 (fst $ fromJust $ yIntercept (nPLine, nPLineErr)) /= 0
-    xInterceptFuzz = UlpSum $ ulpVal rawXInterceptFuzz * ( realToFrac $ xMax / (sqrt (xMin*xMin*yMax*yMax))) * realToFrac (abs xPos)
-    yInterceptFuzz = UlpSum $ ulpVal rawYInterceptFuzz * ( realToFrac $ yMax / (sqrt (xMax*xMax*yMin*yMin))) * realToFrac (abs yPos)
+    xInterceptFuzz = UlpSum $ ulpRaw rawXInterceptFuzz * ( realToFrac $ xMax / (sqrt (xMin*xMin*yMax*yMax))) * realToFrac (abs xPos)
+    yInterceptFuzz = UlpSum $ ulpRaw rawYInterceptFuzz * ( realToFrac $ yMax / (sqrt (xMax*xMax*yMin*yMin))) * realToFrac (abs yPos)
     xMin, xMax, yMin, yMax :: ℝ
-    xMax = xInterceptDistance + realToFrac (ulpVal rawXInterceptFuzz)
-    yMax = yInterceptDistance + realToFrac (ulpVal rawYInterceptFuzz)
-    xMin = xInterceptDistance - realToFrac (ulpVal rawXInterceptFuzz)
-    yMin = yInterceptDistance - realToFrac (ulpVal rawYInterceptFuzz)
+    xMax = ulpVal $ UlpSum (realToFrac xInterceptDistance) <> rawXInterceptFuzz
+    yMax = ulpVal $ UlpSum (realToFrac yInterceptDistance) <> rawYInterceptFuzz
+    xMin = getRounded $ realToFrac xInterceptDistance - (realToFrac (ulpVal rawXInterceptFuzz) :: Rounded 'TowardNegInf ℝ)
+    yMin = getRounded $ realToFrac yInterceptDistance - (realToFrac (ulpVal rawYInterceptFuzz) :: Rounded 'TowardNegInf ℝ)
     rawYInterceptFuzz = snd $ fromJust $ yIntercept (nPLine, nPLineErr)
     rawXInterceptFuzz = snd $ fromJust $ xIntercept (nPLine, nPLineErr)
     yInterceptDistance = abs $ fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
@@ -731,9 +736,9 @@ sumPPointErrs errs = eValOf mempty (getVal [GEZero 1, GEPlus 1] errs)
 -- FIXME: This 1000 here is completely made up BS.
 fuzzinessOfProjectivePoint, fuzzinessOfP :: (ProjectivePoint2 a) => (a, PPoint2Err) -> UlpSum
 -- | Actual implementation.
-fuzzinessOfProjectivePoint (point, pointErr) = UlpSum $ sumTotal * realToFrac (1+(1000*(abs angleIn + realToFrac (ulpVal $ sumPPointErrs angleUnlikeAddErr <> sumPPointErrs angleUnlikeMulErr))))
+fuzzinessOfProjectivePoint (point, pointErr) = UlpSum $ sumTotal * realToFrac (1+(1000*(abs angleIn + realToFrac (ulpRaw $ sumPPointErrs angleUnlikeAddErr <> sumPPointErrs angleUnlikeMulErr))))
   where
-    sumTotal = ulpVal $ sumPPointErrs pJoinAddErr
+    sumTotal = ulpRaw $ sumPPointErrs pJoinAddErr
                      <> sumPPointErrs pJoinMulErr
                      <> sumPPointErrs pCanonicalizeErr
                      <> sumPPointErrs pAddErr

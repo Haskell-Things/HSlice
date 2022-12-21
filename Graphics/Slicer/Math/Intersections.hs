@@ -34,7 +34,7 @@ module Graphics.Slicer.Math.Intersections (
   outputIntersectsPLineAt
   ) where
 
-import Prelude (Bool(True), ($), (<), (<=), (<>), (==), (||), (&&), (<$>), and, error, otherwise, realToFrac, show)
+import Prelude (Bool(True), ($), (<), (<=), (<>), (==), (||), (&&), (<$>), and, error, otherwise, show)
 
 import Data.Either (Either(Left, Right), rights, lefts)
 
@@ -85,10 +85,10 @@ intersectionBetween line1@(l1, _) line2@(l2, _) = saneIntersection $ plinesInter
     (foundDistance, (_,_, foundErr)) = distance2PL l1 l2
     saneIntersection PAntiCollinear     = Just $ Left line1
     saneIntersection PCollinear         = Just $ Left line1
-    saneIntersection PParallel          = if foundDistance < realToFrac (ulpVal foundErr)
+    saneIntersection PParallel          = if foundDistance < ulpVal foundErr
                                           then Just $ Left line1
                                           else Nothing
-    saneIntersection PAntiParallel      = if foundDistance < realToFrac (ulpVal foundErr)
+    saneIntersection PAntiParallel      = if foundDistance < ulpVal foundErr
                                           then Just $ Left line1
                                           else Nothing
     saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p, pErr)
@@ -147,7 +147,7 @@ intersectionsAtSamePoint nodeOutsAndErrs
               -- intersections that resulted in a point.
               pointIntersections = rights $ catMaybes intersections
               -- Minor optimization: first check against resErr, then actually use the fuzziness.
-              pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= realToFrac (ulpVal resErr) || res < realToFrac errSum
+              pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= ulpVal resErr || res < errSum
                 where
                   errSum = ulpVal $ resErr
                                   <> fuzzinessOfP point1
@@ -162,7 +162,7 @@ intersectionsAtSamePoint nodeOutsAndErrs
               [] -> True
               [(a1,b1,l1)] -> case pointIntersections of
                                 [] -> error "one line, no points.. makes no sense."
-                                ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < realToFrac errSum
+                                ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < errSum
                                   where
                                     (foundDistance, (_, _, _, _, _, resErr)) = distancePPToPL ppoint1 l1
                                     errSum = ulpVal $ resErr

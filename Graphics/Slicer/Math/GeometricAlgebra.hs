@@ -63,6 +63,7 @@ module Graphics.Slicer.Math.GeometricAlgebra(
   subValPairWithErr,
   subVecPair,
   sumErrVals,
+  ulpRaw,
   ulpVal,
   unlikeVecPair,
   valOf,
@@ -95,7 +96,7 @@ import Data.Set (Set, singleton, disjoint, elems, size, elemAt, fromAscList)
 
 import Data.Set as S (filter)
 
-import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf, ToNearest))
+import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf, ToNearest), getRounded)
 
 import Safe (headMay)
 
@@ -129,8 +130,12 @@ data GRVal = GRVal
   deriving (Eq, Generic, NFData, Show)
 
 -- | A constantly increasing sum of error. Used for increasing our error bars proportonally to error collected from the FPU during calculations.
-newtype UlpSum = UlpSum { ulpVal :: Rounded 'TowardInf ℝ }
+newtype UlpSum = UlpSum { ulpRaw :: Rounded 'TowardInf ℝ }
   deriving (Show, Eq, Generic, NFData, Ord)
+
+-- | A value extractor directly to ℝ, which is a newtype of Double.
+ulpVal :: UlpSum -> ℝ
+ulpVal = getRounded . ulpRaw
 
 instance Semigroup UlpSum where
   (<>) (UlpSum sum1) (UlpSum sum2) = UlpSum $ sum1 + sum2
@@ -792,4 +797,4 @@ vectorPart (GVec vals) = GVec $ foldl' addVal [] $ P.filter noRealValue vals
 
 -- | Temporary hack.
 sumErrVals :: [ErrVal] -> UlpSum
-sumErrVals errVals = UlpSum $ sum $ ulpVal . (\(ErrVal a _) -> a) <$> errVals
+sumErrVals errVals = UlpSum $ sum $ ulpRaw . (\(ErrVal a _) -> a) <$> errVals
