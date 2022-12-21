@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Math.Arcs (getFirstArc, getInsideArc, getOutsideArc, towardIntersection) where
 
-import Prelude (Bool, ($), (<>), (==), (>), (<=), (&&), (||), error, mempty, otherwise, realToFrac, show)
+import Prelude (Bool, ($), (<>), (==), (>), (<=), (&&), (||), error, mempty, otherwise, show)
 
 import Graphics.Slicer.Math.Definitions (Point2, addPoints, distance, makeLineSeg, scalePoint)
 
@@ -93,12 +93,12 @@ getObtuseAngleBisectorFromPointedLines ppoint1 line1 ppoint2 line2
   | isCollinear line1 line2 = error "Asked to find the obtuse bisector of two colinear lines!"
   | isAntiCollinear line1 line2 = error "Asked to find the obtuse bisector of two anti-colinear lines!"
   | noIntersection line1 line2 = error $ "No intersection between line " <> show line1 <> " and line " <> show line2 <> ".\n"
-  | pointDistance <= realToFrac (ulpVal pointDistanceErr) = error $ "cannot have two identical input points:\n" <> show ppoint1 <> "\n" <> show ppoint2 <> "\n"
-  | point1IntersectDistance <= realToFrac (ulpVal point1IntersectDistanceErr) = error $ "intersection of plines is at first ppoint:\n"
+  | pointDistance <= ulpVal pointDistanceErr = error $ "cannot have two identical input points:\n" <> show ppoint1 <> "\n" <> show ppoint2 <> "\n"
+  | point1IntersectDistance <= ulpVal point1IntersectDistanceErr = error $ "intersection of plines is at first ppoint:\n"
                                                                                 <> show ppoint1 <> "\n"
                                                                                 <> show line1 <> "\n"
                                                                                 <> show line2 <> "\n"
-  | point2IntersectDistance <= realToFrac (ulpVal point2IntersectDistanceErr) = error $ "intersection of plines is at second ppoint:\n"
+  | point2IntersectDistance <= ulpVal point2IntersectDistanceErr = error $ "intersection of plines is at second ppoint:\n"
                                                                                 <> show ppoint2 <> "\n"
                                                                                 <> show line1 <> "\n"
                                                                                 <> show line2 <> "\n"
@@ -119,8 +119,8 @@ getObtuseAngleBisectorFromPointedLines ppoint1 line1 ppoint2 line2
 {-# INLINABLE towardIntersection #-}
 towardIntersection :: (ProjectivePoint2 a, ProjectiveLine2 b, ProjectivePoint2 c) => (a, PPoint2Err) -> (b, PLine2Err) -> (c, PPoint2Err) -> Bool
 towardIntersection point1@(pp1, _) (pl1, _) point2@(pp2, _)
-  | d <= realToFrac (ulpVal dErr) = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
-  | otherwise = angleFound > realToFrac (ulpVal angleErr)
+  | d <= ulpVal dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
+  | otherwise = angleFound > ulpVal angleErr
   where
     -- FIXME: angleBetween2PL should be handling line error.
     (angleFound, (_,_, angleErr)) = angleBetween2PL newPLine pl1

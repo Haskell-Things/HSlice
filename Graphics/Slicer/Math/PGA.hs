@@ -103,7 +103,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, endPoint, distance)
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎤+), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, ulpVal, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎤+), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, ulpRaw, ulpVal, valOf)
 
 import Graphics.Slicer.Math.Line (combineLineSegs, makeLineSeg)
 
@@ -128,7 +128,7 @@ data PIntersection =
 plinesIntersectIn :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> PIntersection
 plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
   | isNothing canonicalizedIntersection
-  || (idealNorm <= realToFrac (ulpVal idnErr)
+  || (idealNorm <= ulpVal idnErr
      && (sameDirection pl1 pl2 ||
          oppositeDirection pl1 pl2)) = if sameDirection pl1 pl2
                                        then PCollinear
@@ -143,7 +143,7 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
   where
     -- | The distance within which we consider (anti)parallel lines to be (anti)colinear.
     parallelFuzziness :: ℝ
-    parallelFuzziness = realToFrac $ ulpVal $ dErr <> pLineErrAtPPoint (npl1, npl1Err <> pl1Err) res <> pLineErrAtPPoint (npl2, npl2Err <> pl2Err) res
+    parallelFuzziness = ulpVal $ dErr <> pLineErrAtPPoint (npl1, npl1Err <> pl1Err) res <> pLineErrAtPPoint (npl2, npl2Err <> pl2Err) res
     -- | When two lines are really close to parallel or antiparallel, we use the distance between the lines to decide whether to promote them to being (anti)colinear.
     (d, (_, _, dErr)) = distance2PL npl1 npl2
     (idealNorm, idnErr) = idealNormOfP res
@@ -161,7 +161,7 @@ pLineIsLeft (pl1, _) (pl2, _)
   | otherwise            = Just $ res > 0
   where
     angleFuzz :: ℝ
-    angleFuzz = realToFrac $ ulpVal angleFuzzRaw
+    angleFuzz = ulpVal angleFuzzRaw
     (res, (_,_, angleFuzzRaw)) = angleCosBetween2PL pl1 pl2
     (npl1, _) = normalizeL pl1
     (npl2, _) = normalizeL pl2
@@ -199,10 +199,10 @@ pPointsOnSameSideOfPLine point1 point2 line
     | otherwise = Just $ signum foundP1 == signum foundP2
   where
     foundErr1, foundErr2 :: ℝ
-    foundErr1 = realToFrac $ ulpVal (eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1AddErr)) +
-                             ulpVal (eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1MulErr))
-    foundErr2 = realToFrac $ ulpVal (eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2AddErr)) +
-                             ulpVal (eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2MulErr))
+    foundErr1 = realToFrac $ ulpRaw (eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1AddErr)) +
+                             ulpRaw (eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1MulErr))
+    foundErr2 = realToFrac $ ulpRaw (eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2AddErr)) +
+                             ulpRaw (eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2MulErr))
     foundP1 = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1
     foundP2 = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2
     (GVec unlikeP1, (unlikeP1MulErr, unlikeP1AddErr)) = pv1 ⎤+ lv1
@@ -217,7 +217,7 @@ sameDirection a b = res >= maxAngle
   where
     -- ceiling value. a value bigger than maxAngle is considered to be going the same direction.
     maxAngle :: ℝ
-    maxAngle = realToFrac (1 - ulpVal resErr :: Rounded 'TowardInf ℝ)
+    maxAngle = realToFrac (1 - ulpRaw resErr :: Rounded 'TowardInf ℝ)
     (res, (_,_,resErr)) = angleBetween2PL a b
 
 -- | A checker, to ensure two Projective Lines are going the opposite direction, and are parallel.
@@ -226,7 +226,7 @@ oppositeDirection a b = res <= minAngle
   where
     -- floor value. a value smaller than minAngle is considered to be going the opposite direction.
     minAngle :: ℝ
-    minAngle = realToFrac (realToFrac (ulpVal resErr) + (-1) :: Rounded 'TowardNegInf ℝ)
+    minAngle = realToFrac (realToFrac (ulpRaw resErr) + (-1) :: Rounded 'TowardNegInf ℝ)
     (res, (_,_,resErr)) = angleBetween2PL a b
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
@@ -344,7 +344,7 @@ pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
   | res == PAntiParallel = Right PAntiParallel
   | res == PCollinear = Right PCollinear
   | res == PAntiCollinear = Right PAntiCollinear
-  | hasIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (ulpVal $ startFudgeFactor <> endFudgeFactor <> tFuzz) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\n" <> dumpMiss
+  | hasIntersection && distance (startPoint l1) (endPoint l1) < ulpVal (startFudgeFactor <> endFudgeFactor <> tFuzz) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\n" <> dumpMiss
   | hasIntersection && startDistance <= ulpStartSum = Left $ HitStartPoint l1
   | hasIntersection && endDistance <= ulpEndSum = Left $ HitEndPoint l1
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
@@ -353,8 +353,8 @@ pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
   where
     res = plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
     ulpStartSum, ulpEndSum :: ℝ
-    ulpStartSum = realToFrac $ ulpVal startDistanceErr
-    ulpEndSum = realToFrac $ ulpVal endDistanceErr
+    ulpStartSum = ulpVal startDistanceErr
+    ulpEndSum = ulpVal endDistanceErr
     (startDistance, (_,_, startDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start, mempty)
     (endDistance, (_,_, endDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end, mempty)
     startFudgeFactor = startDistanceErr <> startErr
@@ -393,10 +393,10 @@ lineSegIntersectsLineSeg l1 l2
   | res == PAntiParallel = Right PAntiParallel
   | hasIntersection && res == PCollinear = Right PCollinear
   | hasIntersection && res == PAntiCollinear = Right PAntiCollinear
-  | hasIntersection && distance (startPoint l1) (endPoint l1) < realToFrac (ulpVal $ start1FudgeFactor <> end1FudgeFactor <> tFuzz1) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\n" <> dumpMiss
+  | hasIntersection && distance (startPoint l1) (endPoint l1) < ulpVal (start1FudgeFactor <> end1FudgeFactor <> tFuzz1) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\n" <> dumpMiss
   | hasIntersection && start1Distance <= ulpStart1Sum = Left $ HitStartPoint l1
   | hasIntersection && end1Distance <= ulpEnd1Sum = Left $ HitEndPoint l1
-  | hasIntersection && distance (startPoint l2) (endPoint l2) < realToFrac (ulpVal $ start2FudgeFactor <> end2FudgeFactor <> tFuzz2) = error $ "cannot resolve endpoints of segment: " <> show l2 <> ".\n" <> dumpMiss
+  | hasIntersection && distance (startPoint l2) (endPoint l2) < ulpVal (start2FudgeFactor <> end2FudgeFactor <> tFuzz2) = error $ "cannot resolve endpoints of segment: " <> show l2 <> ".\n" <> dumpMiss
   | hasIntersection && start2Distance <= ulpStart2Sum = Left $ HitStartPoint l2
   | hasIntersection && end2Distance <= ulpEnd2Sum = Left $ HitEndPoint l2
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
@@ -409,11 +409,11 @@ lineSegIntersectsLineSeg l1 l2
     start2FudgeFactor = start2DistanceErr <> pLineErrAtPPoint (pl2,pl2Err) start2
     end2FudgeFactor = end2DistanceErr <> pLineErrAtPPoint (pl2,pl2Err) end2
     ulpStart1Sum, ulpEnd1Sum :: ℝ
-    ulpStart1Sum = realToFrac $ ulpVal start1DistanceErr
-    ulpEnd1Sum = realToFrac $ ulpVal end1DistanceErr
+    ulpStart1Sum = ulpVal start1DistanceErr
+    ulpEnd1Sum = ulpVal end1DistanceErr
     ulpStart2Sum, ulpEnd2Sum :: ℝ
-    ulpStart2Sum = realToFrac $ ulpVal start2DistanceErr
-    ulpEnd2Sum = realToFrac $ ulpVal end2DistanceErr
+    ulpStart2Sum = ulpVal start2DistanceErr
+    ulpEnd2Sum = ulpVal end2DistanceErr
     (start1Distance, (_,_, start1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start1, mempty)
     (start2Distance, (_,_, start2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start2, mempty)
     (end1Distance, (_,_, end1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end1, mempty)
@@ -461,9 +461,9 @@ onSegment ls i =
     tFuzz = fuzzinessOfL $ eToPL ls
     lengthOfSegment = distance (startPoint ls) (endPoint ls)
     startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ
-    startFudgeFactor = realToFrac $ ulpVal $ startDistanceErr <> tFuzz <> pLineErrAtPPoint (eToPL ls) start
-    midFudgeFactor = realToFrac $ ulpVal $ midDistanceErr <> tFuzz <> pLineErrAtPPoint (eToPL ls) mid
-    endFudgeFactor = realToFrac $ ulpVal $ endDistanceErr <> tFuzz <> pLineErrAtPPoint (eToPL ls) end
+    startFudgeFactor = ulpVal $ startDistanceErr <> tFuzz <> pLineErrAtPPoint (eToPL ls) start
+    midFudgeFactor = ulpVal $ midDistanceErr <> tFuzz <> pLineErrAtPPoint (eToPL ls) mid
+    endFudgeFactor = ulpVal $ endDistanceErr <> tFuzz <> pLineErrAtPPoint (eToPL ls) end
 
 -- | Combine consecutive line segments. expects line segments with their end points connecting, EG, a contour generated by makeContours.
 combineConsecutiveLineSegs :: [LineSeg] -> [LineSeg]

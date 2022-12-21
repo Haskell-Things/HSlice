@@ -26,7 +26,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcycleToENode, Collision(Collision), motorcycleIntersectsAt, intersectionSameSide, crashMotorcycles, collisionResult, convexMotorcycles, lastCrashType, motorcyclesAreAntiCollinear, motorcyclesInDivision, motorcycleMightIntersectWith, motorcycleDivisor) where
 
-import Prelude (Bool(True, False), Either(Left,Right), Eq((==)), Show(show), Ordering (EQ, GT, LT), (&&), (<>), ($), (<), (>), compare, error, fst, mempty, notElem, null, otherwise, realToFrac, zip)
+import Prelude (Bool(True, False), Either(Left,Right), Eq((==)), Show(show), Ordering (EQ, GT, LT), (&&), (<>), ($), (<), (>), compare, error, fst, mempty, notElem, null, otherwise, zip)
 
 import Prelude as PL (init, last)
 
@@ -157,7 +157,7 @@ crashMotorcycles contour holes
                           _ -> Nothing
               where
                 intersectionPPoint = intersectionOf (outAndErrOf mot1) (outAndErrOf mot2)
-                intersectionIsBehind m = angleFound < realToFrac (ulpVal angleErr)
+                intersectionIsBehind m = angleFound < ulpVal angleErr
                   where
                     (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf m) (eToPLine2 $ lineSegToIntersection m)
                 lineSegToIntersection m = makeLineSeg (ePointOf m) (pToEPoint2 $ fst intersectionPPoint)
@@ -257,10 +257,10 @@ motorcycleMightIntersectWith lineSegs motorcycle
                                                                        then Nothing
                                                                        else Just intersection
       where
-        intersectionPointIsBehind point = angleFound < realToFrac (ulpVal angleErr)
+        intersectionPointIsBehind point = angleFound < ulpVal angleErr
           where
             (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf motorcycle) (eToPLine2 $ lineSegToIntersection point)
-        intersectionCPPointIsBehind pPoint = angleFound < realToFrac (ulpVal angleErr)
+        intersectionCPPointIsBehind pPoint = angleFound < ulpVal angleErr
           where
             (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf motorcycle) (eToPLine2 $ lineSegToIntersectionP pPoint)
         lineSegToIntersection myPoint = makeLineSeg (ePointOf motorcycle) myPoint
@@ -300,10 +300,10 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                                                        then Nothing
                                                                        else Just intersection
       where
-        intersectionPointIsBehind point = angleFound < realToFrac (ulpVal angleErr)
+        intersectionPointIsBehind point = angleFound < ulpVal angleErr
           where
             (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf motorcycle) (eToPLine2 $ lineSegToIntersection point)
-        intersectionPPointIsBehind pPoint = angleFound < realToFrac (ulpVal angleErr)
+        intersectionPPointIsBehind pPoint = angleFound < ulpVal angleErr
           where
             (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf motorcycle) (eToPLine2 $ lineSegToIntersectionP pPoint)
         lineSegToIntersection myPoint = makeLineSeg (ePointOf motorcycle) myPoint
@@ -316,7 +316,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
 {-# INLINABLE intersectionSameSide #-}
 intersectionSameSide :: (ProjectivePoint2 a, Pointable b) => (a, PPoint2Err) -> b -> Motorcycle -> Maybe Bool
 intersectionSameSide point@(pp1, _) node (Motorcycle _ path _)
-  | canPoint node && d < realToFrac (ulpVal dErr) = Just True
+  | canPoint node && d < ulpVal dErr = Just True
   | canPoint node = pPointsOnSameSideOfPLine (pPointOf node) pp1 path
   | otherwise = error $ "cannot resolve provided item to a point: " <> show node <> "\n"
     where

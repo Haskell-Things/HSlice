@@ -24,7 +24,7 @@
 -- | functions for handling contours.
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, maybeFlipContour, firstPointPairOfContour, insideIsLeft, innerContourPoint, pointFarOutsideContour) where
 
-import Prelude ((==), (&&), (*), (<), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, (-), not, realToFrac)
+import Prelude ((==), (&&), (*), (>), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
 
 import Data.List (partition, reverse, sortBy)
 
@@ -239,10 +239,10 @@ insideIsLeft contour
 -- | Find a point on the interior of a given contour, on the perpendicular bisector of the first line segment, a given distance away from the line segment.
 innerContourPoint :: Contour -> Maybe PPoint2
 innerContourPoint contour
-  | odd numIntersections && realToFrac (ulpVal perpErr) < minDistanceFromSeg = Just perpPoint
-  | odd numIntersections = error "cannot ensure perp point is on right side of contour."
-  | odd otherIntersections && realToFrac (ulpVal otherErr) < minDistanceFromSeg = Just otherPoint
-  | odd otherIntersections = error "cannot ensure other point is on the right side of the contour."
+  | odd numIntersections && minDistanceFromSeg > ulpVal perpErr = Just perpPoint
+  | odd numIntersections = error "cannot ensure perp point is on the correct side of contour."
+  | odd otherIntersections && minDistanceFromSeg > ulpVal otherErr = Just otherPoint
+  | odd otherIntersections = error "cannot ensure other point is on the correct side of the contour."
   | otherwise = Nothing
   where
     numIntersections   = contourIntersectionCount contour (pToEPoint2 perpPoint, outsidePoint)

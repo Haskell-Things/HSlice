@@ -25,6 +25,9 @@
 -- So we can add Eq instances here, instead of in the library.
 {-# LANGUAGE StandaloneDeriving #-}
 
+-- Ignore the orphan instances we create for testing purposes.
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
@@ -57,7 +60,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), roundPoint2, startPoint, distance, xOf, yOf, minMaxPoints, makeLineSeg, endPoint)
 
 -- Our Geometric Algebra library.
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, ulpVal, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, ulpRaw, ulpVal, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 import Graphics.Slicer.Math.Intersections (outputIntersectsLineSeg)
 
@@ -82,8 +85,8 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 -- Our Facet library.
 import Graphics.Slicer.Math.Arcs (getOutsideArc, towardIntersection)
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
-import Graphics.Slicer.Math.Skeleton.Concave (makeENode, makeENodes, averageNodes)
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), RemainingContour(RemainingContour), Spine(Spine), StraightSkeleton(StraightSkeleton), INode(INode), Cell(Cell), getFirstLineSeg, getLastLineSeg)
+import Graphics.Slicer.Math.Skeleton.Concave (makeENode, makeENodes)
+import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), RemainingContour(RemainingContour), Spine(Spine), StraightSkeleton(StraightSkeleton), Cell(Cell), getFirstLineSeg, getLastLineSeg)
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (addInset)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
@@ -407,7 +410,7 @@ prop_AxisProjection v xAxis whichDirection dv
 -- A property test making sure than for any LineSeg, a pointOnPerp is in fact on a 90 degree perpendicular line.
 prop_perpAt90Degrees :: ℝ -> ℝ -> Positive ℝ -> ℝ -> NonZero ℝ -> Bool
 prop_perpAt90Degrees x y rawX2 y2 rawD
-  | angle2 < realToFrac errTotal4 = True
+  | angle2 < errTotal4 = True
   | otherwise = error
                 $ "wrong angle?\n"
                 <> "pline3Err: " <> show pline3Err <> "\n"
@@ -422,9 +425,9 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
                 <> "angle2Err: " <> show angle2Err <> "\n"
   where
     (angle2, (_,_, angle2Err)) = angleBetween2PL normedPLine3 normedPLine4
-    (PPoint2 rawBisectorStart, bisectorStartErr) = interpolate2PP sourceStart sourceEnd 0.5 0.5
-    (bisectorEndRaw, bisectorEndRawErr) = pPointOnPerpWithErr pline4 (PPoint2 rawBisectorStart) d
-    (bisectorEnd, bisectorEndErr) = canonicalizeP bisectorEndRaw
+    (PPoint2 rawBisectorStart, _) = interpolate2PP sourceStart sourceEnd 0.5 0.5
+    (bisectorEndRaw, _) = pPointOnPerpWithErr pline4 (PPoint2 rawBisectorStart) d
+    (bisectorEnd, _) = canonicalizeP bisectorEndRaw
     (pline3, pline3Err) = join2PP (CPPoint2 rawBisectorStart) bisectorEnd
     (normedPLine3, norm3Err) = normalizeL pline3
     sourceStart = makePPoint2 x y
@@ -485,9 +488,9 @@ prop_PerpTranslateID x y dx dy rawT
     res = distanceBetweenPLines resPLine origPLine
     (resPLine, resPLineErr) = translateL translatedPLine (-t)
     (translatedPLine, translatedPLineErr) = translateL origPLine t
-    (origPLine, origPLineErr) = randomPLineWithErr x y dx dy
+    (origPLine, _) = randomPLineWithErr x y dx dy
     resErr, t :: ℝ
-    resErr = realToFrac $ ulpVal $ fuzzinessOfL (resPLine, resPLineErr) <> fuzzinessOfL (translatedPLine, translatedPLineErr)
+    resErr = ulpVal $ fuzzinessOfL (resPLine, resPLineErr) <> fuzzinessOfL (translatedPLine, translatedPLineErr)
     t = coerce rawT
 
 pgaSpec :: Spec
@@ -583,8 +586,8 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
     intersect3 = outputIntersectsLineSeg eNode lineSeg1
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
-    (bisector1, bisector1ErrRaw) = normalizeL bisector
-    (bisector, bisectorErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
+    (bisector1, _) = normalizeL bisector
+    (bisector, _) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
     x1,y1,x2,y2,times :: ℝ
@@ -725,7 +728,7 @@ prop_LineSegIntersectionStableAtX1Y1Point pointD rawD1 x1 y1 rawX2 rawY2
 -- | A checker, to ensure an angle is what is expected.
 myAngleBetween :: NPLine2 -> NPLine2 -> Bool
 myAngleBetween a b
-  | realToFrac res + (ulpVal resErr) >= 1.0-(ulpVal resErr) = True
+  | realToFrac res + (ulpRaw resErr) >= 1.0-(ulpRaw resErr) = True
   | otherwise = error
                 $ "angle wrong?\n"
                 <> show a <> "\n"
@@ -1261,8 +1264,8 @@ prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
 
 prop_PLineWithinErrRange2 :: ℝ -> ℝ -> ℝ -> ℝ -> Bool
 prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
-  | distance1 > realToFrac (ulpVal ulpTotal1) = error $ "startPoint outside of expected range:\n" <> dumpRes
-  | distance2 > realToFrac (ulpVal ulpTotal2) = error $ "endPoint outside of expected range:\n" <> dumpRes
+  | distance1 > ulpVal ulpTotal1 = error $ "startPoint outside of expected range:\n" <> dumpRes
+  | distance2 > ulpVal ulpTotal2 = error $ "endPoint outside of expected range:\n" <> dumpRes
   | otherwise = True
   where
     dumpRes =    "distance1: " <> show distance1 <> "\n"
@@ -1283,7 +1286,6 @@ prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
     pPoint1 = makePPoint2 x1 y1
     pPoint2 = makePPoint2 x2 y2
     (pLine1, (_,_,pLine1Err)) = join2PP pPoint1 pPoint2
-    ulpTotal1, ulpTotal2 :: UlpSum
     ulpTotal1 = distance1Err <> pLineErrAtPPoint (pLine1, pLine1Err) pPoint1
     ulpTotal2 = distance2Err <> pLineErrAtPPoint (pLine1, pLine1Err) pPoint2
     -- make sure we do not try to create a 0 length line segment.
@@ -1336,7 +1338,7 @@ prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
     bisector = (flipL $ outOf eNode, errOfOut eNode)
 
 prop_obtuseBisectorOnBiggerSide_makeINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> Expectation
-prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound > realToFrac (1-(ulpVal angleErr)), angleFound < realToFrac (-1 + (ulpVal angleErr) :: Rounded 'TowardInf ℝ)) --> (True, False)
+prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound > (1-ulpVal angleErr), angleFound < realToFrac (-1 + (ulpRaw angleErr) :: Rounded 'TowardInf ℝ)) --> (True, False)
   where
     (angleFound, (_,_, angleErr)) = angleBetween2PL bisector1 bisector2
     eNode = randomENode x y d1 rawR1 d2 rawR2
@@ -1388,7 +1390,6 @@ prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
     (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL randomPLine1 randomPLine2
     (randomPLine1, _) = randomPLineThroughOrigin x y
     (randomPLine2, _) = randomPLineThroughOrigin x2 y2
-    (_, canonicalizationErr) = canonicalizeP intersectionPPoint2
     errSum = distanceErr -- + canonicalizationErr
     x,x2,y2 :: ℝ
     x = coerce rawX
@@ -1416,7 +1417,6 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
     (intersectionPPoint2, (_,_, intersectionErr)) = intersect2PL randomPLine1 randomPLine2
     (randomPLine1, _) = randomPLineWithErr x y targetX targetY
     (randomPLine2, _) = randomPLineWithErr x2 y2 targetX targetY
-    (_, canonicalizationErr) = canonicalizeP intersectionPPoint2
     errSum = distanceErr -- + canonicalizationErr
     x,x2,y2 :: ℝ
     x = coerce rawX
@@ -1433,7 +1433,7 @@ prop_PLineIntersectsAtXAxis x y rawX2 y2 m
   | isNothing axisIntersection = True
   -- Ignore the case where the random PLine is colinear to the X axis.
   | isLeft $ fst $ fromJust axisIntersection = True
-  | foundDistance < realToFrac errSum = True
+  | foundDistance < errSum = True
   | otherwise = error
                 $ "wtf\n"
                 <> show foundDistance <> "\n"
@@ -1459,7 +1459,7 @@ prop_PLineIntersectsAtYAxis x y x2 rawY2 m
   | isNothing axisIntersection = True
   -- Ignore the case where the random PLine is colinear to the X axis.
   | isLeft $ fst $ fromJust axisIntersection = True
-  | foundDistance < realToFrac errSum = True
+  | foundDistance < errSum = True
   | otherwise = error
                 $ "wtf\n"
                 <> show foundDistance <> "\n"
@@ -1891,11 +1891,11 @@ facetSpec = do
       --   ~~~  <-- corner 3
       --   ^-- corner 4
       -- the top and the left side.
-      c2c2E1 = makeENode (Point2 (1.0,1.0)) (Point2 (-1.0,1.0)) (Point2 (-1.0,-1.0))
+--      c2c2E1 = makeENode (Point2 (1.0,1.0)) (Point2 (-1.0,1.0)) (Point2 (-1.0,-1.0))
       -- the left and the bottom side.
-      c2c3E1 = makeENode (Point2 (-1.0,1.0)) (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0))
+--      c2c3E1 = makeENode (Point2 (-1.0,1.0)) (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0))
       -- the bottom and the entrance to the convex angle.
-      c2c4E1 = makeENode (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0)) (Point2 (0.0,0.0))
+--      c2c4E1 = makeENode (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0)) (Point2 (0.0,0.0))
       -- The next corners are part of a 2x2 square around the origin with a slice and a corner missing: (c7 from above)
       --        v----- corner 2
       --  ┌───┐ ┌─┐<-- corner 1
@@ -1903,7 +1903,7 @@ facetSpec = do
       --  └───┐   │
       --      │   │
       --      └───┘
-      c7c1E1 = makeENode (Point2 (1.0,-1.0)) (Point2 (1.0,1.0)) (Point2 (0.5,1.0))
-      c7c2E1 = makeENode (Point2 (1.0,1.0)) (Point2 (0.5,1.0)) (Point2 (0.5,0.0))
+--      c7c1E1 = makeENode (Point2 (1.0,-1.0)) (Point2 (1.0,1.0)) (Point2 (0.5,1.0))
+--      c7c2E1 = makeENode (Point2 (1.0,1.0)) (Point2 (0.5,1.0)) (Point2 (0.5,0.0))
       -- A simple triangle.
       triangle = makePointContour [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]

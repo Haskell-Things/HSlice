@@ -28,15 +28,13 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), all, notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), concatMap, mempty, realToFrac)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), all, notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), concatMap, mempty)
 
 import Prelude as PL (head, last, tail, init)
 
 import Data.Maybe (Maybe(Just,Nothing), fromMaybe, isJust, isNothing, mapMaybe)
 
 import Data.List (takeWhile, dropWhile, sortBy, nub)
-
-import Numeric.Rounded.Hardware (getRounded)
 
 import Data.List.Extra (unsnoc)
 
@@ -54,11 +52,11 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, mapWithFollower, startPoint)
 
-import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
+import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionsAtSamePoint, isAntiCollinear, isAntiParallel, isCollinear, isParallel, noIntersection)
+import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetweenArcsOf, intersectionsAtSamePoint, isAntiCollinear, isAntiParallel, isCollinear, isParallel, noIntersection)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint, pPointOf), PLine2, PLine2Err, ProjectiveLine2, distance2PP, eToPL, flipL, outAndErrOf, pPointAndErrOf, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint), PLine2, PLine2Err, ProjectiveLine2, distance2PP, eToPL, flipL, outAndErrOf, pPointAndErrOf, pLineIsLeft)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLinesWithErr, isLoop)
 
@@ -588,20 +586,16 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
     errorLen3 =    "shortestPairDistance: " <> show shortestPairDistance <> "\n"
                 <> "ePairDistance: " <> show shortestEPairDistance <> "\n"
                 <> "shortestEPairs: " <> show (shortestPairs eNodes) <> "\n"
-                <> "ePairResults: " <> show (uncurry safeAverageNodes <$> shortestPairs eNodes) <> "\n"
                 <> show (isSomething shortestEPairDistance) <> "\n"
                 <> "iPairDistance: " <> show shortestIPairDistance <> "\n"
                 <> "shortestIPairs: " <> show (shortestPairs iNodes) <> "\n"
-                <> "iPairResults: " <> show (uncurry safeAverageNodes <$> shortestPairs iNodes) <> "\n"
                 <> show (isSomething shortestIPairDistance) <> "\n"
                 <> "mixedPairDistance: " <> show shortestMixedPairDistance <> "\n"
                 <> "shortestMixedPairs: " <> show shortestMixedPairs <> "\n"
-                <> "MixedPairResults: " <> show (uncurry safeAverageNodes <$> shortestMixedPairs) <> "\n"
                 <> show (isSomething shortestMixedPairDistance) <> "\n"
                 <> show (shortestEPairDistance == shortestPairDistance) <> "\n"
                 <> "remainingLineSegs: " <> show remainingLineSegs <> "\n"
                 <> "remainingINodes: " <> show remainingINodes <> "\n"
-                <> "thisGen: " <> show averageOfShortestPairs <> "\n"
                 <> "origSegSets: " <> show origSegSets <> "\n"
 
     -- | check to see if all of our nodes end in the same point
@@ -745,15 +739,16 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
       | isAntiParallel (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> errorLen3
       | isCollinear (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> errorLen3
       | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> errorLen3
-      | n1Distance < getRounded n1Err = error $ "intersection is AT the point of n1!\n" <> errorLen3
-      | n2Distance < getRounded n2Err = error $ "intersection is AT the point of n2!\n" <> errorLen3
-      | n1Distance > getRounded n1Err && n2Distance > getRounded n2Err = averageNodes n1 n2
-      | otherwise                 = error $ "found node too close:\n"
-                                          <> show n1 <> "\n"
-                                          <> show n2 <> "\n"
+      | n1Distance < ulpVal n1Err = error $ "intersection is AT the point of n1!\n" <> show n1Distance <> "\n" <> show n2Distance <> "\n" <> show intersectionPoint <> "\n" <> show n1 <> "\n" <> show n2 <> "\n" <> errorLen3
+      | n2Distance < ulpVal n2Err = error $ "intersection is AT the point of n2!\n" <> show n1Distance <> "\n" <> show n2Distance <> "\n" <> show intersectionPoint <> "\n" <> show n1 <> "\n" <> show n2 <> "\n" <> errorLen3
+      | n1Distance > ulpVal n1Err && n2Distance > ulpVal n2Err = averageNodes n1 n2
+      | otherwise = error $ "found node too close:\n"
+                          <> show n1 <> "\n"
+                          <> show n2 <> "\n"
       where
-        (n1Distance, (_,_, UlpSum n1Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointOf n1, mempty)
-        (n2Distance, (_,_, UlpSum n2Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointOf n2, mempty)
+        intersectionPoint = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf n1 n2
+        (n1Distance, (_,_, n1Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointAndErrOf n1)
+        (n2Distance, (_,_, n2Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointAndErrOf n2)
 
     -- | get the list of sorted pairs of intersecting nodes.
     shortestNeighboringPairs :: (Arcable a, Pointable a, Eq a) => [(a,a)] -> [(a, a)]
@@ -811,17 +806,17 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
         && hasArc node1
         && hasArc node2
         && intersectsInPoint node1 node2 =
-        Just $ fst (distance2PP (pPointOf node1, mempty) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)))
+        Just $ fst (distance2PP (pPointAndErrOf node1) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)))
                `max`
-               fst (distance2PP (pPointOf node2, mempty) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)))
+               fst (distance2PP (pPointAndErrOf node2) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)))
       | otherwise = Nothing
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Bool
     intersectsInPoint node1 node2
       | hasArc node1 && hasArc node2 = not (noIntersection (outAndErrOf node1) (outAndErrOf node2))
-                                       && (dist1 >= realToFrac dist1Err)
-                                       && (dist2 >= realToFrac dist2Err)
+                                       && dist1 >= ulpVal dist1Err
+                                       && dist2 >= ulpVal dist2Err
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, (_,_,UlpSum dist1Err)) = distance2PP (pPointOf node1, mempty) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) 
-        (dist2, (_,_,UlpSum dist2Err)) = distance2PP (pPointOf node2, mempty) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) 
+        (dist1, (_,_,dist1Err)) = distance2PP (pPointAndErrOf node1) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) 
+        (dist2, (_,_,dist2Err)) = distance2PP (pPointAndErrOf node2) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) 
