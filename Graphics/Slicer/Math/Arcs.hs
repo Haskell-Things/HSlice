@@ -95,13 +95,13 @@ getObtuseAngleBisectorFromPointedLines ppoint1 line1 ppoint2 line2
   | noIntersection line1 line2 = error $ "No intersection between line " <> show line1 <> " and line " <> show line2 <> ".\n"
   | pointDistance <= ulpVal pointDistanceErr = error $ "cannot have two identical input points:\n" <> show ppoint1 <> "\n" <> show ppoint2 <> "\n"
   | point1IntersectDistance <= ulpVal point1IntersectDistanceErr = error $ "intersection of plines is at first ppoint:\n"
-                                                                                <> show ppoint1 <> "\n"
-                                                                                <> show line1 <> "\n"
-                                                                                <> show line2 <> "\n"
+                                                                         <> show ppoint1 <> "\n"
+                                                                         <> show line1 <> "\n"
+                                                                         <> show line2 <> "\n"
   | point2IntersectDistance <= ulpVal point2IntersectDistanceErr = error $ "intersection of plines is at second ppoint:\n"
-                                                                                <> show ppoint2 <> "\n"
-                                                                                <> show line1 <> "\n"
-                                                                                <> show line2 <> "\n"
+                                                                         <> show ppoint2 <> "\n"
+                                                                         <> show line1 <> "\n"
+                                                                         <> show line2 <> "\n"
   | l1TowardPoint && l2TowardPoint = flipFst $ getAcuteAngleBisectorFromLines line1 $ flipFst line2
   | l1TowardPoint                  = flipFst $ getAcuteAngleBisectorFromLines line1 line2
   | l2TowardPoint                  = getAcuteAngleBisectorFromLines line1 line2

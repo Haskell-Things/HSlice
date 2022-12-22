@@ -19,6 +19,7 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
+-- for using Rounded flexibly.
 {-# LANGUAGE DataKinds #-}
 
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
@@ -142,7 +143,6 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
   | otherwise                        = IntersectsIn res (pl1Err <> npl1Err, pl2Err <> npl2Err, resErr)
   where
     -- | The distance within which we consider (anti)parallel lines to be (anti)colinear.
-    parallelFuzziness :: ℝ
     parallelFuzziness = ulpVal $ dErr <> pLineErrAtPPoint (npl1, npl1Err <> pl1Err) res <> pLineErrAtPPoint (npl2, npl2Err <> pl2Err) res
     -- | When two lines are really close to parallel or antiparallel, we use the distance between the lines to decide whether to promote them to being (anti)colinear.
     (d, (_, _, dErr)) = distance2PL npl1 npl2
@@ -160,7 +160,6 @@ pLineIsLeft (pl1, _) (pl2, _)
   | abs res <= angleFuzz = Nothing
   | otherwise            = Just $ res > 0
   where
-    angleFuzz :: ℝ
     angleFuzz = ulpVal angleFuzzRaw
     (res, (_,_, angleFuzzRaw)) = angleCosBetween2PL pl1 pl2
     (npl1, _) = normalizeL pl1
@@ -198,11 +197,8 @@ pPointsOnSameSideOfPLine point1 point2 line
      abs foundP2 < foundErr2    = Nothing
     | otherwise = Just $ signum foundP1 == signum foundP2
   where
-    foundErr1, foundErr2 :: ℝ
-    foundErr1 = realToFrac $ ulpRaw (eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1AddErr)) +
-                             ulpRaw (eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1MulErr))
-    foundErr2 = realToFrac $ ulpRaw (eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2AddErr)) +
-                             ulpRaw (eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2MulErr))
+    foundErr1 = ulpVal $ eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1AddErr) <> eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1MulErr)
+    foundErr2 = ulpVal $ eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2AddErr) <> eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2MulErr)
     foundP1 = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP1
     foundP2 = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeP2
     (GVec unlikeP1, (unlikeP1MulErr, unlikeP1AddErr)) = pv1 ⎤+ lv1
@@ -352,7 +348,6 @@ pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
   | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (pl1Err, pl2Err, rawIntersectErr)
   where
     res = plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
-    ulpStartSum, ulpEndSum :: ℝ
     ulpStartSum = ulpVal startDistanceErr
     ulpEndSum = ulpVal endDistanceErr
     (startDistance, (_,_, startDistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start, mempty)
@@ -408,10 +403,8 @@ lineSegIntersectsLineSeg l1 l2
     end1FudgeFactor = end1DistanceErr <> pLineErrAtPPoint (pl1,pl1Err) end1
     start2FudgeFactor = start2DistanceErr <> pLineErrAtPPoint (pl2,pl2Err) start2
     end2FudgeFactor = end2DistanceErr <> pLineErrAtPPoint (pl2,pl2Err) end2
-    ulpStart1Sum, ulpEnd1Sum :: ℝ
     ulpStart1Sum = ulpVal start1DistanceErr
     ulpEnd1Sum = ulpVal end1DistanceErr
-    ulpStart2Sum, ulpEnd2Sum :: ℝ
     ulpStart2Sum = ulpVal start2DistanceErr
     ulpEnd2Sum = ulpVal end2DistanceErr
     (start1Distance, (_,_, start1DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (start1, mempty)

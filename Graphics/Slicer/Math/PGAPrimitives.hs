@@ -19,6 +19,9 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
+-- for using Rounded flexibly.
+{-# LANGUAGE DataKinds #-}
+
 -- | The purpose of this file is to hold primitive projective geometric algebraic arithmatic.
 -- Primitives here are defined as functions that work on types which have an implementation of the ProjectivePoint2 or ProjectiveLine2 typeclasses. Think "Pure 2D PGA functions only".
 
@@ -81,6 +84,8 @@ import Graphics.Slicer.Definitions (ℝ)
 import Graphics.Slicer.Math.Definitions (Point2(Point2))
 
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpRaw, ulpVal, valOf)
+
+import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardNegInf), getRounded)
 
 --------------------------------
 --- common support functions ---
@@ -392,11 +397,10 @@ pLineErrAtPPoint (line, lineErr) errPoint
                         && fromRight 0 (fst $ fromJust $ yIntercept (nPLine, nPLineErr)) /= 0
     xInterceptFuzz = UlpSum $ ulpRaw rawXInterceptFuzz * ( realToFrac $ xMax / (sqrt (xMin*xMin*yMax*yMax))) * realToFrac (abs xPos)
     yInterceptFuzz = UlpSum $ ulpRaw rawYInterceptFuzz * ( realToFrac $ yMax / (sqrt (xMax*xMax*yMin*yMin))) * realToFrac (abs yPos)
-    xMin, xMax, yMin, yMax :: ℝ
-    xMax = xInterceptDistance + ulpVal rawXInterceptFuzz
-    yMax = yInterceptDistance + ulpVal rawYInterceptFuzz
-    xMin = xInterceptDistance - ulpVal rawXInterceptFuzz
-    yMin = yInterceptDistance - ulpVal rawYInterceptFuzz
+    xMax = ulpVal $ UlpSum (realToFrac xInterceptDistance) <> rawXInterceptFuzz
+    yMax = ulpVal $ UlpSum (realToFrac yInterceptDistance) <> rawYInterceptFuzz
+    xMin = getRounded $ realToFrac xInterceptDistance - (realToFrac (ulpVal rawXInterceptFuzz) :: Rounded 'TowardNegInf ℝ)
+    yMin = getRounded $ realToFrac yInterceptDistance - (realToFrac (ulpVal rawYInterceptFuzz) :: Rounded 'TowardNegInf ℝ)
     rawYInterceptFuzz = snd $ fromJust $ yIntercept (nPLine, nPLineErr)
     rawXInterceptFuzz = snd $ fromJust $ xIntercept (nPLine, nPLineErr)
     yInterceptDistance = abs $ fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)

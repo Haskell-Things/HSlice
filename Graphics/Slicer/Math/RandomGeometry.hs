@@ -91,7 +91,7 @@ import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
 import Graphics.Slicer.Math.Lossy (pToEPoint2, translateRotatePPoint2)
 
-import Graphics.Slicer.Math.PGA (PLine2(PLine2), PLine2Err, eToPL, eToPP, flipL, join2EP, normalizeL, pPointOf, NPLine2(NPLine2))
+import Graphics.Slicer.Math.PGA (PLine2, PLine2Err, eToPL, eToPP, flipL, join2EP, pPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode)
 
@@ -396,7 +396,7 @@ randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
     intersectionPPoint = eToPP intersectionPoint
 
 randomINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> INode
-randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,maybeFlippedpl2] (Just $ (\(NPLine2 a,b) -> (PLine2 a,b <> outsideResErr)) bisector1)
+randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,maybeFlippedpl2] (Just outsideRes)
   where
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
@@ -410,8 +410,7 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
     pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
     maybeFlippedpl1 = (if flipIn1 then flipL pl1 else pl1, pl1Err)
     maybeFlippedpl2 = (if flipIn2 then flipL pl2 else pl2, pl2Err)
-    bisector1 = normalizeL outsideRes
-    (outsideRes, outsideResErr) = getOutsideArc (pp1, mempty) maybeFlippedpl1 (pp2, mempty) maybeFlippedpl2
+    outsideRes = getOutsideArc (pp1, mempty) maybeFlippedpl1 (pp2, mempty) maybeFlippedpl2
 
 -- | A helper function. constructs a random PLine.
 randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> PLine2

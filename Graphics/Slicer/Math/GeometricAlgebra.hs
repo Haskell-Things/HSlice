@@ -133,7 +133,7 @@ data GRVal = GRVal
 newtype UlpSum = UlpSum { ulpRaw :: Rounded 'TowardInf ℝ }
   deriving (Show, Eq, Generic, NFData, Ord)
 
--- provide a value extractor directly to ℝ, which is a newtype of Double.
+-- | A value extractor directly to ℝ, which is a newtype of Double.
 ulpVal :: UlpSum -> ℝ
 ulpVal = getRounded . ulpRaw
 
