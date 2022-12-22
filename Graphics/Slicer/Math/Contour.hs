@@ -24,7 +24,7 @@
 -- | functions for handling contours.
 module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, maybeFlipContour, firstPointPairOfContour, insideIsLeft, innerContourPoint, pointFarOutsideContour) where
 
-import Prelude ((==), (&&), (*), (>), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, Show, compare, maximum, minimum, min, (-), not)
+import Prelude ((==), (&&), (*), (>), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
 
 import Data.List (partition, reverse, sortBy)
 
@@ -46,7 +46,7 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.ContourIntersections (contourIntersectionCount)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), Point2(Point2), LineSeg(endPoint, startPoint), fudgeFactor, lineSegsOfContour, makeLineSeg, minMaxPoints, xOf, yOf)
+import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), LineSeg(endPoint, startPoint), Point2(Point2), fudgeFactor, lineSegsOfContour, makeLineSeg, minMaxPoints, xOf, yOf)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
@@ -240,9 +240,9 @@ insideIsLeft contour
 innerContourPoint :: Contour -> Maybe ProjectivePoint
 innerContourPoint contour
   | odd numIntersections && minDistanceFromSeg > ulpVal perpErr = Just perpPoint
-  | odd numIntersections = error "cannot ensure perp point is on right side of contour."
+  | odd numIntersections = error "cannot ensure perp point is on the correct side of contour."
   | odd otherIntersections && minDistanceFromSeg > ulpVal otherErr = Just otherPoint
-  | odd otherIntersections = error "cannot ensure other point is on the right side of the contour."
+  | odd otherIntersections = error "cannot ensure other point is on the correct side of the contour."
   | otherwise = Nothing
   where
     numIntersections   = contourIntersectionCount contour (pToEPoint2 perpPoint, outsidePoint)

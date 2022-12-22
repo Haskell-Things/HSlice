@@ -25,14 +25,14 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, facetStatSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), error, (/=), (<=), otherwise, abs, (&&), (+), show, length, (<>), fst, not, snd, length, mempty, pi, realToFrac, sqrt, (<), (>), (-), (/), (*), (.))
+import Prelude (($), Bool(True, False), (<$>), (==), error, (/=), (<=), otherwise, (&&), (+), show, length, (<>), fst, not, snd, length, mempty, pi, (<), (>), (-), (/), (*), (.))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
 
 -- QuickCheck, for writing properties.
 import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive))
-import Test.QuickCheck.Property (Result, label , liftBool, succeeded, Property)
+import Test.QuickCheck.Property (label, liftBool, Property)
 import Data.Coerce (coerce)
 
 import Data.Either (Either(Left, Right), fromRight, isLeft, rights)
@@ -49,22 +49,22 @@ import Slist (slist, len)
 import Graphics.Slicer (ℝ)
 
 -- A euclidian point.
-import Graphics.Slicer.Math.Definitions(Point2(Point2), Contour(LineSegContour), LineSeg(LineSeg), mapWithFollower, roundPoint2, startPoint, distance, xOf, yOf, minMaxPoints, makeLineSeg, endPoint)
+import Graphics.Slicer.Math.Definitions(Point2(Point2), LineSeg(LineSeg), mapWithFollower, roundPoint2, startPoint, distance, xOf, yOf, minMaxPoints, makeLineSeg, endPoint)
 
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, intersectionBetween, outputIntersectsLineSeg)
 
-import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distancePPointToPLine, distancePPointToPLineWithErr, eToPLine2, getFirstArc, getOutsideArc, pPointOnPerp, translateRotatePPoint2)
+import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToPLine2, getFirstArc, getOutsideArc, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint(PPoint2), ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2,PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), distance2PL, distance2PP, distancePPToPL, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, sameDirection, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2,PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), distance2PL, distance2PP, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makePPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pPointOnPerpWithErr, outOf, pPointOf, errOfOut, errOfPPoint, fuzzinessOfL, sameDirection, translateRotatePPoint2WithErr)
 
-import Graphics.Slicer.Math.PGAPrimitives (PPoint2Err(PPoint2Err), angleBetween2PL, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives (angleBetween2PL, xIntercept, yIntercept)
 
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
+import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
 
 -- Our imprecise Contour library.
 import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
@@ -77,8 +77,7 @@ import Graphics.Slicer.Math.Arcs (towardIntersection)
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, makeENode, makeENodes, averageNodes)
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), RemainingContour(RemainingContour), INode(INode), Cell(Cell), getFirstLineSeg, getLastLineSeg)
-import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
-import Graphics.Slicer.Math.Skeleton.Line (addInset)
+import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
@@ -149,7 +148,6 @@ linearAlgSpec = do
     c1 = makePointContour cp1
     cl1 = makeLineSegContour (lineSegsOfContour c1)
     c2 = makePointContour [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
-    c2l1 = firstLineSegOfContour c2
 
 geomAlgSpec :: Spec
 geomAlgSpec = do
@@ -391,7 +389,7 @@ prop_AxisProjection v xAxis whichDirection dv
 -- A property test making sure than for any LineSeg, a pointOnPerp is in fact on a 90 degree perpendicular line.
 prop_perpAt90Degrees :: ℝ -> ℝ -> Positive ℝ -> ℝ -> NonZero ℝ -> Bool
 prop_perpAt90Degrees x y rawX2 y2 rawD
-  | angle2 < realToFrac errTotal4 = True
+  | angle2 < errTotal4 = True
   | otherwise = error
                 $ "wrong angle?\n"
                 <> "pline3Err: " <> show pline3Err <> "\n"
@@ -419,12 +417,6 @@ prop_perpAt90Degrees x y rawX2 y2 rawD
     x2,d :: ℝ
     x2 = coerce rawX2
     d = coerce rawD
-
--- | A property test making sure the distance between a point an an axis is equal to the corresponding euclidian component of the point.
-prop_DistanceToAxis :: NonZero ℝ -> NonZero ℝ -> Bool -> Expectation
-prop_DistanceToAxis v v2 xAxis
-  | xAxis = distancePPointToPLineWithErr (eToPP $ Point2 (coerce v2,coerce v), mempty) (eToPL $ LineSeg (Point2 (0,0)) (Point2 (1,0))) --> abs (coerce v)
-  | otherwise = distancePPointToPLineWithErr (eToPP $ Point2 (coerce v,coerce v2), mempty) (eToPL $ LineSeg (Point2 (0,0)) (Point2 (0,1))) --> abs (coerce v)
 
 -- | A property test making sure two points on the same side of an axis show as being on the same side of the axis.
 prop_SameSideOfAxis :: NonZero ℝ -> NonZero ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool -> Bool -> Expectation
@@ -468,7 +460,7 @@ prop_PerpTranslateID x y dx dy rawT
     (translatedPLine, origTransErr) = translateL origPLine t
     (origPLine, origPLineErr) = randomPLineWithErr x y dx dy
     resErr, t :: ℝ
-    resErr = realToFrac $ ulpVal $ fuzzinessOfL (resPLine, resTransErr <> origTransErr <> origPLineErr)
+    resErr = ulpVal $ fuzzinessOfL (resPLine, resTransErr <> origTransErr <> origPLineErr)
     t = coerce rawT
 
 pgaSpec :: Spec
@@ -510,7 +502,7 @@ prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
     (NPLine2 bisector1, bisector1Err) = normalizeL bisector
-    (bisector, bisectorRawErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
+    (bisector, _) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
     x1,y1,x2,y2 :: ℝ
@@ -562,7 +554,7 @@ prop_QuadBisectorCrossesMultiple rawX1 rawY1 rawX2 rawY2 rawTimes
     intersect4 = outputIntersectsLineSeg eNode lineSeg2
     -- note that our bisector always intersects the origin.
     (NPLine2 bisector1, bisector1Err) = normalizeL bisector
-    (bisector, bisectorErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
+    (bisector, _) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (x3,y3))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
     x1,y1,x2,y2,times :: ℝ
@@ -1220,107 +1212,6 @@ prop_LineSegWithinErrRange x1 y1 rawX2 rawY2
                                     else (0,0)
      | otherwise = (rawX2, rawY2)
 
--- | Check the distance between two points, and a line constructed between them. should be 0 in an ideal world, and should be less than ulpTotals in the floating point world.
--- FIXME: someone is lieing.
-prop_PLineWithinErrRange1 :: ℝ -> ℝ -> ℝ -> ℝ -> Bool
-prop_PLineWithinErrRange1 x1 y1 rawX2 rawY2
-  | distance1 > realToFrac (ulpVal ulpTotal1) = error $ "startPoint outside of expected range:\n" <> dumpRes
-  | distance2 > realToFrac (ulpVal ulpTotal2) = error $ "endPoint outside of expected range:\n" <> dumpRes
-  | otherwise = True
-  where
-    dumpRes =    "distance1: " <> show distance1 <> "\n"
-              <> "distance2: " <> show distance2 <> "\n"
-              <> "ulpTotal1: " <> show ulpTotal1 <> "\n"
-              <> "ulpTotal2: " <> show ulpTotal2 <> "\n"
-              <> "distance1Err: " <> show distance1Err <> "\n"
-              <> "distance2Err: " <> show distance2Err <> "\n"
-              <> "PLine: " <> show pLine <> "\n"
-              <> "NPLine: " <> show nPLine <> "\n"
-              <> "PPoint1: " <> show pPoint1 <> "\n"
-              <> "PPoint2: " <> show pPoint2 <> "\n"
-    -- distance1 and distance2 should be 0, in an ideal world.
-    (distance1, (_, _, _, _, _, distance1Err)) = distancePPToPL pPoint1 nPLine
-    (distance2, (_, _, _, _, _, distance2Err)) = distancePPToPL pPoint2 nPLine
-    pPoint1, pPoint2 :: (ProjectivePoint, PPoint2Err)
-    pPoint1@(rawPPoint1,_) = (makePPoint2 x1 y1, mempty)
-    pPoint2@(rawPPoint2,_) = (makePPoint2 x2 y2, mempty)
-    nPLine@(_,PLine2Err _ _ nPLineErr _ _ _) = normalizeL pLine
-    (pLine, pLineErr) = eToPL $ makeLineSeg (Point2 (x1,y1)) (Point2 (x2,y2))
-    ulpTotal1 = pLineErrAtPPoint nPLine rawPPoint1 <> nPLineErr
-    ulpTotal2 = pLineErrAtPPoint nPLine rawPPoint2 <> nPLineErr
-    -- make sure we do not try to create a 0 length line segment.
-    (x2,y2)
-     | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
-                                    then (1,1)
-                                    else (0,0)
-     | otherwise = (rawX2, rawY2)
-
-prop_PLineWithinErrRange2 :: ℝ -> ℝ -> ℝ -> ℝ -> Bool
-prop_PLineWithinErrRange2 x1 y1 rawX2 rawY2
-  | distance1 > realToFrac (ulpVal pLineErrAtPPoint1) = error $ "startPoint outside of expected range:\n" <> dumpRes
-  | distance2 > realToFrac (ulpVal pLineErrAtPPoint2) = error $ "endPoint outside of expected range:\n" <> dumpRes
-  | otherwise = True
-  where
-    dumpRes =    "distance1: " <> show distance1 <> "\n"
-              <> "distance2: " <> show distance2 <> "\n"
-              <> "pLineErrAtPPoint1: " <> show pLineErrAtPPoint1 <> "\n"
-              <> "pLineErrAtPPoint2: " <> show pLineErrAtPPoint2 <> "\n"
-              <> "distance1Err: " <> show distance1Err <> "\n"
-              <> "distance2Err: " <> show distance2Err <> "\n"
-              <> "PLine1NormULP: " <> show normErr <> "\n"
-              <> "PLine1: " <> show pLine1 <> "\n"
-              <> "PLine1Err: " <> show pline1Err <> "\n"
-              <> "PPoint1: " <> show pPoint1 <> "\n"
-              <> "PPoint2: " <> show pPoint2 <> "\n"
-    -- distance1 and distance2 should be 0, in an ideal world.
-    (distance1, (_,_,_,_,_, distance1Err)) = distancePPToPL (pPoint1,mempty) (pLine1,mempty)
-    (distance2, (_,_,_,_,_, distance2Err)) = distancePPToPL (pPoint2,mempty) (pLine1,mempty)
-    pPoint1 = makePPoint2 x1 y1
-    pPoint2 = makePPoint2 x2 y2
-    pLineErrAtPPoint1 = pLineErrAtPPoint (pLine1, pline1Err) pPoint1
-    pLineErrAtPPoint2 = pLineErrAtPPoint (pLine1, pline1Err) pPoint2
-    (pLine1, (_,_,pline1Err)) = join2PP pPoint1 pPoint2
-    (_, normErr) = normalizeL pLine1
-    -- make sure we do not try to create a 0 length line segment.
-    (x2,y2)
-     | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
-                                    then (1,1)
-                                    else (0,0)
-     | otherwise = (rawX2, rawY2)
-
-prop_PPointOnPerpWithinErrRange :: ℝ -> ℝ -> ℝ -> ℝ -> Positive ℝ -> Bool
-prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
-  | res1 > d + realToFrac (ulpVal pLineErrAtPPoint1) = error $ "too big startPoint\n" <> dumpRes
-  | res2 > d + realToFrac (ulpVal pLineErrAtPPoint2) = error $ "too big endPoint\n" <> dumpRes
-  | otherwise = True
-  where
-    dumpRes = "PPoint1: " <> show pPoint1 <> "\n"
-              <> "PPoint2: " <> show pPoint2 <> "\n"
-              <> "distance1: " <> show res1 <> "\n"
-              <> "distance2: " <> show res2 <> "\n"
-              <> "pLineErrAtPPoint1: " <> show pLineErrAtPPoint1 <> "\n"
-              <> "pLineErrAtPPoint2: " <> show pLineErrAtPPoint2 <> "\n"
-              <> "PLine: " <> show pLine <> "\n"
-              <> "PLineAddErr: " <> show pLineErr <> "\n"
-    -- res should be d, in an ideal world.
-    res1 = distancePPointToPLineWithErr (perp1, mempty) (pLine, mempty)
-    res2 = distancePPointToPLineWithErr (perp2, mempty) (pLine, mempty)
-    (perp1, _) = pPointOnPerpWithErr pLine pPoint1 d
-    (perp2, _) = pPointOnPerpWithErr pLine pPoint2 d
-    pPoint1 = makePPoint2 x1 y1
-    pPoint2 = makePPoint2 x2 y2
-    pLineErrAtPPoint1 = pLineErrAtPPoint (pLine, pLineErr) pPoint1
-    pLineErrAtPPoint2 = pLineErrAtPPoint (pLine, pLineErr) pPoint2
-    (pLine, (_,_,pLineErr)) = join2PP pPoint1 pPoint2
-    d :: ℝ
-    d = coerce rawD
-    -- make sure we do not try to create a 0 length line segment.
-    (x2,y2)
-     | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
-                                    then (1,1)
-                                    else (0,0)
-     | otherwise = (rawX2, rawY2)
-
 prop_obtuseBisectorOnBiggerSide_makeENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Expectation
 prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
   | testFirstLine = pLineIsLeft (bisector, mempty) pl1 --> Just True
@@ -1370,10 +1261,10 @@ prop_translateRotateMoves x y rawD rawR = distanceBetweenPPoints (translateRotat
 -- | translate a point along the X axis.
 prop_translateRotateMovesX :: ℝ -> ℝ -> Positive ℝ -> Bool
 prop_translateRotateMovesX x y rawD
-  | distance <= realToFrac (ulpVal distanceErr) = distance <= realToFrac (ulpVal distanceErr)
-  | otherwise = error $ "wtf\n" <> show distance <> "\n" <> show distanceErr <> "\n" <> show translateErr <> "\n"
+  | myDistance <= ulpVal myDistanceErr = myDistance <= ulpVal myDistanceErr
+  | otherwise = error $ "wtf\n" <> show myDistance <> "\n" <> show myDistanceErr <> "\n" <> show translateErr <> "\n"
   where
-    (distance, (_,_, distanceErr)) = distance2PP (translatedPoint, mempty) (dstPoint, mempty)
+    (myDistance, (_,_, myDistanceErr)) = distance2PP (translatedPoint, mempty) (dstPoint, mempty)
     (translatedPoint, translateErr) = translateRotatePPoint2WithErr srcPoint d 0
     srcPoint = makePPoint2 x y
     dstPoint = makePPoint2 (x+d) y
@@ -1383,12 +1274,12 @@ prop_translateRotateMovesX x y rawD
 -- | translate a point along the Y axis. really, translate, and rotate -90 degrees.
 prop_translateRotateMovesY :: ℝ -> ℝ -> Positive ℝ -> Bool
 prop_translateRotateMovesY x y rawD
-  | distance <= realToFrac distanceErr = distance <= realToFrac distanceErr
-  | otherwise = error $ "wtf\n" <> show distance <> "\n" <> show distanceErr <> "\n" <> show translateErr <> "\n" <> show srcPoint <> "\n" <> show dstPoint <> "\n" <> show translatedPoint <> "\n"
+  | myDistance <= myDistanceErr = myDistance <= myDistanceErr
+  | otherwise = error $ "wtf\n" <> show myDistance <> "\n" <> show myDistanceErr <> "\n" <> show translateErr <> "\n" <> show srcPoint <> "\n" <> show dstPoint <> "\n" <> show translatedPoint <> "\n"
   where
     -- times ten, because.. uh.. epic fail to precision when rotating.
-    distanceErr = 10 * ulpVal distanceErrRaw
-    (distance, (_,_, distanceErrRaw)) = distance2PP (translatedPoint, mempty) (dstPoint, mempty)
+    myDistanceErr = 10 * ulpVal myDistanceErrRaw
+    (myDistance, (_,_, myDistanceErrRaw)) = distance2PP (translatedPoint, mempty) (dstPoint, mempty)
     (translatedPoint, translateErr) = translateRotatePPoint2WithErr srcPoint d (-pi/2)
     srcPoint = makePPoint2 x y
     dstPoint = makePPoint2 x (y+d)
@@ -1403,7 +1294,7 @@ prop_NormPLineIsPLine x y dx dy = fst (normalizeL $ randomPLine x y dx dy)
 
 prop_PLinesIntersectAtOrigin :: NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> Bool
 prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
-  | foundDistance < realToFrac errSum = True
+  | foundDistance < errSum = True
   | otherwise = error $ "failed to find intersection at origin for:\n"
                       <> show randomPLine1 <> "\n"
                       <> show randomPLine2 <> "\n"
@@ -1428,7 +1319,7 @@ prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
 
 prop_PLinesIntersectAtPoint :: NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
 prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
-  | foundDistance < realToFrac errSum = True
+  | foundDistance < errSum = True
   | otherwise = error
                 $ "wtf\n"
                 <> show foundDistance <> "\n"
@@ -1440,8 +1331,8 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
     targetPPoint2 = makePPoint2 (coerce targetX) (coerce targetY)
     (foundDistance, (_,_, distanceErr)) = distance2PP (targetPPoint2,mempty) (intersectionPPoint2, intersectionErr)
     (intersectionPPoint2, (_, _, intersectionErr)) = intersect2PL pLine1 pLine2
-    randomPLine1@(pLine1, pline1RawErr) = randomPLineWithErr x y targetX targetY
-    randomPLine2@(pLine2, pline2RawErr) = randomPLineWithErr x2 y2 targetX targetY
+    randomPLine1@(pLine1, _) = randomPLineWithErr x y targetX targetY
+    randomPLine2@(pLine2, _) = randomPLineWithErr x2 y2 targetX targetY
     errSum = ulpVal $ pLineErrAtPPoint randomPLine1 targetPPoint2
                    <> pLineErrAtPPoint randomPLine2 targetPPoint2
                    <> distanceErr
@@ -1460,7 +1351,7 @@ prop_PLineIntersectsAtXAxis x y rawX2 y2 m
   | isNothing axisIntersection = True
   -- Ignore the case where the random PLine is colinear to the X axis.
   | isLeft $ fst $ fromJust axisIntersection = True
-  | foundDistance < realToFrac errSum = True
+  | foundDistance < errSum = True
   | otherwise = error
                 $ "wtf\n"
                 <> show foundDistance <> "\n"
@@ -1477,9 +1368,7 @@ prop_PLineIntersectsAtXAxis x y rawX2 y2 m
     axisIntersection = xIntercept (randomPLine1, pline1Err)
     (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL randomPLine1 axisPLine
     (randomPLine1, pline1Err) = randomPLineWithErr x y rawX2 (coerce y2)
-    (axisPLine, axisErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (coerce m,0))
-    x2 :: ℝ
-    x2 = coerce rawX2
+    (axisPLine, _) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (coerce m,0))
 
 prop_PLineIntersectsAtYAxis :: NonZero ℝ -> ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
 prop_PLineIntersectsAtYAxis x y x2 rawY2 m
@@ -1487,7 +1376,7 @@ prop_PLineIntersectsAtYAxis x y x2 rawY2 m
   | isNothing axisIntersection = True
   -- Ignore the case where the random PLine is colinear to the X axis.
   | isLeft $ fst $ fromJust axisIntersection = True
-  | foundDistance < realToFrac errSum = True
+  | foundDistance < errSum = True
   | otherwise = error
                 $ "wtf\n"
                 <> show foundDistance <> "\n"
@@ -1507,7 +1396,7 @@ prop_PLineIntersectsAtYAxis x y x2 rawY2 m
     axisIntersection = yIntercept (randomPLine1, pline1Err)
     (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL randomPLine1 axisPLine
     (randomPLine1, pline1Err) = randomPLineWithErr (coerce x) y (coerce x2) (coerce y2)
-    (axisPLine, axisErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (0,coerce m))
+    (axisPLine, _) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (0,coerce m))
     y2 :: ℝ
     y2 = coerce rawY2
 
@@ -1910,4 +1799,4 @@ facetSpec = do
       c7c1E1 = makeENode (Point2 (1.0,-1.0)) (Point2 (1.0,1.0)) (Point2 (0.5,1.0))
       c7c2E1 = makeENode (Point2 (1.0,1.0)) (Point2 (0.5,1.0)) (Point2 (0.5,0.0))
       -- A simple triangle.
-      triangle = makePointContour [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
+--      triangle = makePointContour [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
