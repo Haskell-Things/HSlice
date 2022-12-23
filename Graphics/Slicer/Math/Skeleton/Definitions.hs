@@ -51,44 +51,47 @@ import Slist as SL (last, head, init)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.Intersections(intersectionsAtSamePoint, noIntersection)
-
-import Graphics.Slicer.Math.Lossy (eToPLine2)
-
-import Graphics.Slicer.Math.PGA (eToPP, PLine2Err, outAndErrOf, pToEP, plinesIntersectIn, PIntersection(IntersectsIn), flipL, ProjectiveLine(PLine2), pLineIsLeft, Pointable(canPoint, errOfPPoint, pPointOf, ePointOf), Arcable(errOfOut, hasArc, outOf), ProjectivePoint(CPPoint2,PPoint2))
-
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
+import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersection)
+
+import Graphics.Slicer.Math.Lossy (eToPLine2)
+
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, errOfPPoint, pPointOf, ePointOf), ProjectiveLine(PLine2), ProjectivePoint(CPPoint2,PPoint2), eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft)
+
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
--- FIXME: provide our own Eq instance, cause floats suck? :)
 data ENode = ENode
-  -- _inPoints ::
+  -- Input points. three points in order, with the inside of the contour to the left.
   !(Point2, Point2, Point2)
-  --_arcOut ::
+  -- The projective line eminating from the middle point, bisecting the two lines created from the input point (first-middle, last-middle). refered to as an Arc.
   !ProjectiveLine
-  -- _arcErr ::
+  -- The imprecision of the Arc.
   PLine2Err
-  deriving Eq
   deriving stock Show
 
+-- | Since the PLine2 and PLine2Err are derived from the points, only check the points for Eq.
+instance Eq ENode where
+  (==) (ENode points _ _) (ENode morePoints _ _) = points == morePoints
+  (/=) a b = not $ a == b
+
+-- | an ENode always has an arc.
 instance Arcable ENode where
   errOfOut (ENode _ _ outErr) = outErr
-  -- | an ENode always has an arc.
   hasArc _ = True
   outOf (ENode _ outArc _) = outArc
 
+-- | An ENode always is resolvable to a point.
 instance Pointable ENode where
-  -- an ENode always contains a point.
   canPoint _ = True
   pPointOf a = eToPP $ ePointOf a
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
   errOfPPoint _ = mempty
 
 -- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
--- FIXME: a source should have a different UlpSum for it's point and it's output.
+-- FIXME: input arcs should have error quotents.
 data INode = INode
    --_firstInArc ::
    !ProjectiveLine
@@ -98,8 +101,12 @@ data INode = INode
    !(Slist ProjectiveLine)
    -- _outArc ::
    !(Maybe (ProjectiveLine, PLine2Err))
-  deriving Eq
   deriving stock Show
+
+-- Since the outgoing PLine2 and PLine2Err are derived from the input arcs, only check the input arcs for Eq.
+instance Eq INode where
+  (==) (INode arcA1 arcA2 moreA _) (INode arcB1 arcB2 moreB _) = arcA1 == arcB1 && arcA2 == arcB2 && moreA == moreB
+  (/=) a b = not $ a == b
 
 instance Arcable INode where
   -- an INode might just end here.

@@ -745,8 +745,8 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
       | n2Distance <= ulpVal n2Err = error $ "intersection is AT the point of n2!\n" <> show n1Distance <> "\n" <> show n2Distance <> "\n" <> show intersectionPoint <> "\n" <> show n1 <> "\n" <> show n2 <> "\n" <> errorLen3
       | n1Distance > ulpVal n1Err && n2Distance > ulpVal n2Err = averageNodes n1 n2
       | otherwise = error $ "found node too close:\n"
-                    <> show n1 <> "\n"
-                    <> show n2 <> "\n"
+                          <> show n1 <> "\n"
+                          <> show n2 <> "\n"
       where
         intersectionPoint = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf n1 n2
         (n1Distance, (_,_, n1Err)) = distance2PP intersectionPoint (pPointAndErrOf n1)

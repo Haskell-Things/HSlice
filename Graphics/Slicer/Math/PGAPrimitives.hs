@@ -400,7 +400,6 @@ pLineErrAtPPoint (line, lineErr) errPoint
                         && fromRight 0 (fst $ fromJust $ yIntercept (nPLine, nPLineErr)) /= 0
     xInterceptFuzz = UlpSum $ ulpRaw rawXInterceptFuzz * ( realToFrac $ xMax / (sqrt (xMin*xMin*yMax*yMax))) * realToFrac (abs xPos)
     yInterceptFuzz = UlpSum $ ulpRaw rawYInterceptFuzz * ( realToFrac $ yMax / (sqrt (xMax*xMax*yMin*yMin))) * realToFrac (abs yPos)
-    xMin, xMax, yMin, yMax :: ℝ
     xMax = ulpVal $ UlpSum (realToFrac xInterceptDistance) <> rawXInterceptFuzz
     yMax = ulpVal $ UlpSum (realToFrac yInterceptDistance) <> rawYInterceptFuzz
     xMin = getRounded $ realToFrac xInterceptDistance - (realToFrac (ulpVal rawXInterceptFuzz) :: Rounded 'TowardNegInf ℝ)

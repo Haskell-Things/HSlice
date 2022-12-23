@@ -102,7 +102,7 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPo
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, ProjectiveLine, PPoint2Err, hasArc, outOf, vecOfL, vecOfP)
+import Graphics.Slicer.Math.PGA (PPoint2Err, ProjectivePoint, ProjectiveLine, hasArc, outOf, vecOfL, vecOfP)
 
 import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg)
 

@@ -223,7 +223,7 @@ oppositeDirection a b = res <= minAngle
   where
     -- floor value. a value smaller than minAngle is considered to be going the opposite direction.
     minAngle :: ℝ
-    minAngle = realToFrac (realToFrac (ulpVal resErr) + (-1) :: Rounded 'TowardNegInf ℝ)
+    minAngle = realToFrac (realToFrac (ulpRaw resErr) + (-1) :: Rounded 'TowardNegInf ℝ)
     (res, (_,_,resErr)) = angleBetween2PL a b
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
