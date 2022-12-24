@@ -72,7 +72,7 @@ data ENode = ENode
   PLine2Err
   deriving stock Show
 
--- | Since the PLine2 and PLine2Err are derived from the points, only check the points for Eq.
+-- | Since the PLine2 and PLine2Err of an ENode are derived from the points, only check the points for Eq.
 instance Eq ENode where
   (==) (ENode points _ _) (ENode morePoints _ _) = points == morePoints
   (/=) a b = not $ a == b
@@ -90,17 +90,17 @@ instance Pointable ENode where
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
   errOfPPoint _ = mempty
 
--- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
+-- | A point in our straight skeleton where arcs intersect, resulting in the creation of another arc.
 -- FIXME: input arcs should have error quotents.
 data INode = INode
-   --_firstInArc ::
-   !ProjectiveLine
-   -- _secondInArc ::
-   !ProjectiveLine
-   -- _moreInArcs ::
-   !(Slist ProjectiveLine)
-   -- _outArc ::
-   !(Maybe (ProjectiveLine, PLine2Err))
+  -- The first input arc. We break out the first and second input arc to expose that we need at least two arcs to the type system.
+  !ProjectiveLine
+  -- The second input arc.
+  !ProjectiveLine
+  -- More input arcs.
+  !(Slist ProjectiveLine)
+  -- An output arc.
+  !(Maybe (ProjectiveLine, PLine2Err))
   deriving stock Show
 
 -- Since the outgoing PLine2 and PLine2Err are derived from the input arcs, only check the input arcs for Eq.
@@ -108,8 +108,8 @@ instance Eq INode where
   (==) (INode arcA1 arcA2 moreA _) (INode arcB1 arcB2 moreB _) = arcA1 == arcB1 && arcA2 == arcB2 && moreA == moreB
   (/=) a b = not $ a == b
 
+-- Not all INodes have an output Arc.
 instance Arcable INode where
-  -- an INode might just end here.
   errOfOut (INode _ _ _ outArc) = case outArc of
                                     (Just (_,rawOutErr)) -> rawOutErr
                                     Nothing -> error "tried to get an outArc that has no output arc."
@@ -118,34 +118,33 @@ instance Arcable INode where
                                  (Just (rawOutArc,_)) -> rawOutArc
                                  Nothing -> error "tried to get an outArc that has no output arc."
 
+-- INodes are only resolvable to a point sometimes.
 instance Pointable INode where
   -- an INode does not contain a point, we have to attempt to resolve one instead.
   canPoint iNode = len (allPLinesOfINode iNode) > 1 && hasIntersectingPairs (allPLinesOfINode iNode)
     where
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> not $ noIntersection pl1 pl2) $ getPairs pLines
-  -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? angle based, etc?
+  ePointOf a = fst $ pToEP $ pPointOf a
+  -- FIXME: implement this properly.
+  errOfPPoint _ = mempty
+  -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? maybe a pair that is at as close as possible to a right angle?
   pPointOf iNode
     | allPointsSame = case results of
                         [] -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
-                        [a] -> a
-                        (a:_) -> a
+                        l -> PL.head l
     -- Allow the pebbles to vote.
     | otherwise = case safeLast (slist $ count_ results) of
                     Nothing -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
                     (Just a) -> fst a
     where
-      results = intersectionsOfPairs (allPLinesOfINode iNode)
+      results = intersectionsOfPairs $ allPLinesOfINode iNode
       allPointsSame = intersectionsAtSamePoint ((\(Slist l _) -> l) $ allPLinesOfINode iNode)
       intersectionsOfPairs (Slist pLines _) = mapMaybe (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
         where
           saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
           saneIntersect _                  = Nothing
-  ePointOf a = fst $ pToEP $ pPointOf a
-  -- FIXME: implement this properly.
-  errOfPPoint _ = mempty
 
 -- | get all of the PLines that come from, or exit an iNode.
--- really, these are all Arcs.
 allPLinesOfINode :: INode -> Slist (ProjectiveLine, PLine2Err)
 allPLinesOfINode iNode@(INode firstPLine secondPLine (Slist morePLines _) _)
   | hasArc iNode = slist $ nub $ (outAndErrOf iNode) : ((,mempty) <$> (firstPLine : secondPLine : morePLines))
@@ -163,9 +162,19 @@ lastINodeOf (INodeSet gens) = case unsnoc (SL.last gens) of
 -- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior or the exterior of a contour.
 --   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.
 --   FIXME: Note that a new motorcycle may be created in the case of degenerate polygons... with it's inSegs being two other motorcycles.
-data Motorcycle = Motorcycle { _inCSegs :: !(LineSeg, LineSeg), _outPline :: !ProjectiveLine, _outPlineErr :: PLine2Err }
-  deriving Eq
+data Motorcycle = Motorcycle
+  -- The two line segments from which this motorcycle projects.
+  !(LineSeg, LineSeg)
+  -- The output arc of this motorcycle. really, the motorcycle.
+  !ProjectiveLine
+  -- The error quotent of the output arc.
+  !PLine2Err
   deriving stock Show
+
+-- | Since the PLine2 and PLine2Err are derived from the line segments, only check them for Eq.
+instance Eq Motorcycle where
+  (==) (Motorcycle segsA _ _) (Motorcycle segsB _ _) = segsA == segsB
+  (/=) a b = not $ a == b
 
 instance Arcable Motorcycle where
   errOfOut (Motorcycle _ _ outErr) = outErr
