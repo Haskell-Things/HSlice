@@ -69,7 +69,7 @@ data ENode = ENode
   -- The projective line eminating from the middle point, bisecting the two lines created from the input point (first-middle, last-middle). refered to as an Arc.
   !ProjectiveLine
   -- The imprecision of the Arc.
-  PLine2Err
+  !PLine2Err
   deriving stock Show
 
 -- | Since the PLine2 and PLine2Err of an ENode are derived from the points, only check the points for Eq.
@@ -121,7 +121,7 @@ instance Arcable INode where
 -- INodes are only resolvable to a point sometimes.
 instance Pointable INode where
   -- an INode does not contain a point, we have to attempt to resolve one instead.
-  canPoint iNode = len (allPLinesOfINode iNode) > 1 && hasIntersectingPairs (allPLinesOfINode iNode)
+  canPoint iNode = hasIntersectingPairs (allPLinesOfINode iNode)
     where
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> not $ noIntersection pl1 pl2) $ getPairs pLines
   ePointOf a = fst $ pToEP $ pPointOf a
