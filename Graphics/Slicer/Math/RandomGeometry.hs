@@ -396,7 +396,7 @@ randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
     intersectionPPoint = eToPP intersectionPoint
 
 randomINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> INode
-randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,maybeFlippedpl2] (Just outsideRes)
+randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,maybeFlippedpl2] (Just bisector)
   where
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
@@ -410,7 +410,7 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1,m
     pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
     maybeFlippedpl1 = (if flipIn1 then flipL pl1 else pl1, pl1Err)
     maybeFlippedpl2 = (if flipIn2 then flipL pl2 else pl2, pl2Err)
-    outsideRes = getOutsideArc (pp1, mempty) maybeFlippedpl1 (pp2, mempty) maybeFlippedpl2
+    bisector = getOutsideArc (pp1, mempty) maybeFlippedpl1 (pp2, mempty) maybeFlippedpl2
 
 -- | A helper function. constructs a random PLine.
 randomPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> PLine2

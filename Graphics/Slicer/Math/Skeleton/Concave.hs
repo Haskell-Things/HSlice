@@ -28,7 +28,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), all, notElem, otherwise, ($), (>), (<), (<$>), (==), (/=), (>=), error, (&&), fst, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), concatMap, mempty)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), all, notElem, otherwise, ($), (>), (<=), (<$>), (==), (/=), (>=), error, (&&), fst, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), concatMap, mempty)
 
 import Prelude as PL (head, last, tail, init)
 
@@ -55,6 +55,8 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endP
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetweenArcsOf, intersectionsAtSamePoint, isAntiCollinear, isAntiParallel, isCollinear, isParallel, noIntersection)
+
+import Graphics.Slicer.Math.Lossy (distanceBetweenPPointsWithErr)
 
 import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint), PLine2, PLine2Err, ProjectiveLine2, distance2PP, eToPL, flipL, outAndErrOf, pPointAndErrOf, pLineIsLeft)
 
@@ -739,16 +741,16 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
       | isAntiParallel (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot get the average of nodes if their outputs never intersect!\n" <> errorLen3
       | isCollinear (outAndErrOf n1) (outAndErrOf n2) = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> errorLen3
       | nodesAreAntiCollinear n1 n2 = error $ "Cannot (yet) handle two input plines that are collinear.\n" <> errorLen3
-      | n1Distance < ulpVal n1Err = error $ "intersection is AT the point of n1!\n" <> show n1Distance <> "\n" <> show n2Distance <> "\n" <> show intersectionPoint <> "\n" <> show n1 <> "\n" <> show n2 <> "\n" <> errorLen3
-      | n2Distance < ulpVal n2Err = error $ "intersection is AT the point of n2!\n" <> show n1Distance <> "\n" <> show n2Distance <> "\n" <> show intersectionPoint <> "\n" <> show n1 <> "\n" <> show n2 <> "\n" <> errorLen3
+      | n1Distance <= ulpVal n1Err = error $ "intersection is AT the point of n1!\n" <> show n1Distance <> "\n" <> show n2Distance <> "\n" <> show intersectionPoint <> "\n" <> show n1 <> "\n" <> show n2 <> "\n" <> errorLen3
+      | n2Distance <= ulpVal n2Err = error $ "intersection is AT the point of n2!\n" <> show n1Distance <> "\n" <> show n2Distance <> "\n" <> show intersectionPoint <> "\n" <> show n1 <> "\n" <> show n2 <> "\n" <> errorLen3
       | n1Distance > ulpVal n1Err && n2Distance > ulpVal n2Err = averageNodes n1 n2
       | otherwise = error $ "found node too close:\n"
                           <> show n1 <> "\n"
                           <> show n2 <> "\n"
       where
         intersectionPoint = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf n1 n2
-        (n1Distance, (_,_, n1Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointAndErrOf n1)
-        (n2Distance, (_,_, n2Err)) = distance2PP (intersectionOf (outAndErrOf n1) (outAndErrOf n2)) (pPointAndErrOf n2)
+        (n1Distance, (_,_, n1Err)) = distance2PP intersectionPoint (pPointAndErrOf n1)
+        (n2Distance, (_,_, n2Err)) = distance2PP intersectionPoint (pPointAndErrOf n2)
 
     -- | get the list of sorted pairs of intersecting nodes.
     shortestNeighboringPairs :: (Arcable a, Pointable a, Eq a) => [(a,a)] -> [(a, a)]
@@ -806,17 +808,17 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
         && hasArc node1
         && hasArc node2
         && intersectsInPoint node1 node2 =
-        Just $ fst (distance2PP (pPointAndErrOf node1) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)))
+        Just $ distanceBetweenPPointsWithErr (pPointAndErrOf node1) (intersectionOf (outAndErrOf node1) (outAndErrOf node2))
                `max`
-               fst (distance2PP (pPointAndErrOf node2) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)))
+               distanceBetweenPPointsWithErr (pPointAndErrOf node2) (intersectionOf (outAndErrOf node1) (outAndErrOf node2))
       | otherwise = Nothing
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Bool
     intersectsInPoint node1 node2
       | hasArc node1 && hasArc node2 = not (noIntersection (outAndErrOf node1) (outAndErrOf node2))
-                                       && dist1 >= ulpVal dist1Err
-                                       && dist2 >= ulpVal dist2Err
+                                       && not (dist1 <= ulpVal dist1Err)
+                                       && not (dist2 <= ulpVal dist2Err)
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, (_,_,dist1Err)) = distance2PP (pPointAndErrOf node1) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) 
-        (dist2, (_,_,dist2Err)) = distance2PP (pPointAndErrOf node2) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) 
+        (dist1, (_,_, dist1Err)) = distance2PP (pPointAndErrOf node1) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) 
+        (dist2, (_,_, dist2Err)) = distance2PP (pPointAndErrOf node2) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) 

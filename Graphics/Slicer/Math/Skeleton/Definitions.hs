@@ -16,22 +16,20 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- Purpose of this file: to hold the logic and routines required for building
-   a Straight Skeleton of a contour, with a set of sub-contours cut out of it.
+{- Purpose of this file:
+-- Hold Common types and functions used in the code responsible for generating straight skeletons of contours.
 -}
 
--- inherit instances when deriving.
+-- Inherit instances when deriving.
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DerivingStrategies #-}
 
--- So we can section tuples
+-- So we can section tuples.
 {-# LANGUAGE TupleSections #-}
-
--- | Common types and functions used in the code responsible for generating straight skeletons.
 
 module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, sortedPLinesWithErr, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, (||), (<>), show, (<), (*), mempty, not)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), ($), (<$>), (==), (/=), (||), (<>), (<), (*), (>), (&&), any, error, fst, mempty, not, otherwise, show)
 
 import Prelude as PL (head, last)
 
@@ -51,13 +49,13 @@ import Slist as SL (last, head, init)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, distance, endPoint, fudgeFactor, lineSegsOfContour, makeLineSeg, mapWithFollower, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
-import Graphics.Slicer.Math.Intersections (noIntersection, intersectionsAtSamePoint)
+import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersection)
 
-import Graphics.Slicer.Math.PGA (plinesIntersectIn, PIntersection(IntersectsIn), flipL, PLine2(PLine2), PLine2Err, pLineIsLeft, Pointable(canPoint, pPointOf, ePointOf, errOfPPoint), Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), PPoint2(PPoint2), eToPL, eToPP, outAndErrOf, pToEP, vecOfL, vecOfP)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), PIntersection(IntersectsIn), PLine2(PLine2), PLine2Err, Pointable(canPoint, pPointOf, ePointOf, errOfPPoint), PPoint2(PPoint2), eToPL, eToPP, flipL, outAndErrOf, plinesIntersectIn, pLineIsLeft, pToEP, vecOfL, vecOfP)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -70,45 +68,44 @@ data ENode = ENode
   !PLine2Err
   deriving stock Show
 
--- Since the PLine2 and PLine2Err are derived from the points, only check the points for Eq.
+-- Since the PLine2 and PLine2Err of an ENode are derived from the input points, only check the points for Eq.
 instance Eq ENode where
   (==) (ENode points _ _) (ENode morePoints _ _) = points == morePoints
   (/=) a b = not $ a == b
 
+-- | an ENode always has an arc.
 instance Arcable ENode where
   errOfOut (ENode _ _ outErr) = outErr
-  -- | an ENode always has an arc.
   hasArc _ = True
   outOf (ENode _ outArc _) = outArc
 
+-- | an ENode is always resolvable to a point.
 instance Pointable ENode where
-  -- | an ENode always contains a point.
   canPoint _ = True
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
   errOfPPoint _ = mempty
   -- FIXME: this is going to cause double canonicalization.
   pPointOf a = PPoint2 $ vecOfP $ eToPP $ ePointOf a
 
--- | A point in our straight skeleton where two arcs intersect, resulting in the creation of another arc.
--- FIXME: a source should have a different UlpSum for it's point and it's output.
+-- | A point in our straight skeleton where arcs intersect, resulting in the creation of another arc.
 data INode = INode
-  -- _firstInArc ::
+  -- The first input arc. We break out the first and second input arc to expose that we need at least two arcs to the type system.
   !(PLine2, PLine2Err)
-  -- _secondInArc ::
+  -- The second input arc.
   !(PLine2, PLine2Err)
-  -- _moreInArcs ::
+  -- More input arcs.
   !(Slist (PLine2, PLine2Err))
-  -- _outArc ::
+  -- An output arc.
   !(Maybe (PLine2, PLine2Err))
   deriving stock Show
 
--- Since the outgoing PLine2 and PLine2Err are derived from the input arcs, only check the input arcs for Eq.
+-- | Since the outgoing PLine2 and PLine2Err are derived from the input arcs, only check the input arcs for Eq.
 instance Eq INode where
   (==) (INode arcA1 arcA2 moreA _) (INode arcB1 arcB2 moreB _) = arcA1 == arcB1 && arcA2 == arcB2 && moreA == moreB
   (/=) a b = not $ a == b
 
+-- | Not all INodes have an output Arc.
 instance Arcable INode where
-  -- an INode might just end here.
   errOfOut (INode _ _ _ outArc) = case outArc of
                                     (Just (_,rawOutErr)) -> rawOutErr
                                     Nothing -> error "tried to get an outArc that has no output arc."
@@ -117,13 +114,17 @@ instance Arcable INode where
                                  (Just (rawOutArc,_)) -> rawOutArc
                                  Nothing -> error "tried to get an outArc that has no output arc."
 
+-- | INodes are only resolvable to a point sometimes.
 instance Pointable INode where
-  -- an INode does not contain a point, we have to attempt to resolve one instead.
-  canPoint iNode = len (allPLinesOfINode iNode) > 1 && hasIntersectingPairs (allPLinesOfINode iNode)
+  -- Since an INode does not contain a point, we have to attempt to resolve one instead.
+  canPoint iNode = hasIntersectingPairs (allPLinesOfINode iNode)
     where
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> not $ noIntersection pl1 pl2) $ getPairs pLines
+  -- just convert our resolved point.
+  ePointOf a = fst $ pToEP $ pPointOf a
+  -- FIXME: implement this properly.
   errOfPPoint _ = mempty
-  -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? angle based, etc?
+  -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? maybe a pair that is at as close as possible to a right angle?
   pPointOf iNode
     | allPointsSame = case results of
                         [] -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
@@ -139,7 +140,6 @@ instance Pointable INode where
         where
           saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
           saneIntersect _                  = Nothing
-  ePointOf a = fst $ pToEP $ pPointOf a
 
 -- | get all of the PLines that come from, or exit an iNode.
 allPLinesOfINode :: INode -> Slist (PLine2, PLine2Err)
@@ -165,11 +165,10 @@ data Motorcycle = Motorcycle
   -- The output arc of this motorcycle. really, the motorcycle.
   !PLine2
   -- The error quotent of the output arc.
-  PLine2Err
+  !PLine2Err
   deriving stock Show
 
-
--- Since the PLine2 and PLine2Err are derived from the line segments, only check them for Eq.
+-- | Since the PLine2 and PLine2Err are derived from the line segments, only check them for Eq.
 instance Eq Motorcycle where
   (==) (Motorcycle segsA _ _) (Motorcycle segsB _ _) = segsA == segsB
   (/=) a b = not $ a == b
