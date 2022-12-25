@@ -22,10 +22,16 @@
 
 {-# LANGUAGE DataKinds #-}
 
+-- So we can add instances of basic typeclasses (Eq, Show, ...) here, instead of in the library.
+{-# LANGUAGE StandaloneDeriving #-}
+
+-- Ignore the orphan instances we create for testing purposes.
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, facetStatSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (($), Bool(True, False), (<$>), (==), error, (/=), (<=), otherwise, (&&), (+), show, length, (<>), fst, not, snd, length, mempty, pi, (<), (>), (-), (/), (*), (.))
+import Prelude (Bool(True, False), Eq, Show, ($), (<$>), (==), error, (/=), (<=), otherwise, (&&), (+), show, length, (<>), fst, not, snd, length, mempty, pi, (<), (>), (-), (/), (*), (.))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -91,6 +97,13 @@ import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian(Radian), cellFrom,
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
+
+-- add some instances that are required for testing our types.
+deriving instance Show RemainingContour
+
+deriving instance Eq RemainingContour
+
+deriving instance Eq Cell
 
 -- | simple tests on contours.
 contourSpec :: Spec

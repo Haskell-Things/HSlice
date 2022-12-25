@@ -16,22 +16,20 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- Purpose of this file: to hold the logic and routines required for building
-   a Straight Skeleton of a contour, with a set of sub-contours cut out of it.
+{- Purpose of this file:
+   To hold common types and functions used in the code responsible for generating straight skeletons of contours.
 -}
 
--- inherit instances when deriving.
+-- Inherit instances when deriving.
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DerivingStrategies #-}
 
--- So we can section tuples
+-- So we can section tuples.
 {-# LANGUAGE TupleSections #-}
-
--- | Common types and functions used in the code responsible for generating straight skeletons.
 
 module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), not, otherwise, ($), (<$>), (==), (/=), error, (>), (&&), any, fst, (||), (<>), show, (<), (*), mempty)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), not, otherwise, ($), (<$>), (==), (/=), error, (&&), any, fst, (||), (<>), show, (<), (*), mempty)
 
 import Prelude as PL (head, last)
 
@@ -45,7 +43,7 @@ import Data.List.Unique (count_)
 
 import Data.Maybe (Maybe(Just,Nothing), isJust, mapMaybe)
 
-import Slist (len, slist, isEmpty, safeLast)
+import Slist (slist, isEmpty, safeLast, isEmpty)
 
 import Slist as SL (last, head, init)
 
@@ -124,6 +122,7 @@ instance Pointable INode where
   canPoint iNode = hasIntersectingPairs (allPLinesOfINode iNode)
     where
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> not $ noIntersection pl1 pl2) $ getPairs pLines
+  -- just convert our resolved point.
   ePointOf a = fst $ pToEP $ pPointOf a
   -- FIXME: implement this properly.
   errOfPPoint _ = mempty
@@ -185,9 +184,9 @@ instance Arcable Motorcycle where
 instance Pointable Motorcycle where
   -- A motorcycle always contains a point.
   canPoint _ = True
-  pPointOf a = eToPP $ ePointOf a
   ePointOf (Motorcycle (_, LineSeg point _) _ _) = point
   errOfPPoint _ = mempty
+  pPointOf a = eToPP $ ePointOf a
 
 -- | The motorcycles that are involved in dividing two cells.
 data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle, moreMotorcycles :: !(Slist Motorcycle) }
@@ -196,7 +195,6 @@ data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle,
 
 -- A concave region of a contour.
 newtype Cell = Cell { _sides :: Slist (Slist LineSeg, Maybe CellDivide)}
-  deriving Eq
   deriving stock Show
 
 -- | the border dividing two cells of a contour.
@@ -214,8 +212,6 @@ data MotorcycleIntersection =
 
 -- The part of a contour that remains once we trim a concave section from it.
 newtype RemainingContour = RemainingContour (Slist (Slist LineSeg, [CellDivide]))
-  deriving Eq
-  deriving stock Show
 
 -- | The exterior nodes of a whole contour or just a cell of a contour.
 newtype ENodeSet = ENodeSet { _eNodeSides :: Slist (ENode,Slist ENode) }
@@ -297,7 +293,7 @@ makeINode pLines maybeOut = case pLines of
 -- | Get the output of the given nodetree. fails if the nodetree has no output.
 finalPLine :: NodeTree -> ProjectiveLine
 finalPLine (NodeTree (ENodeSet (Slist [(firstENode,moreENodes)] _)) iNodeSet)
-  | hasNoINodes iNodeSet = if len moreENodes == 0
+  | hasNoINodes iNodeSet = if isEmpty moreENodes
                            then outOf firstENode
                            else error "cannot have final PLine of NodeTree with more than one ENode, and no generations!\n"
   | hasArc (finalINodeOf iNodeSet) = outOf $ finalINodeOf iNodeSet
@@ -366,8 +362,8 @@ indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesA
 -- | find the last PLine of an INode.
 lastInOf :: INode -> ProjectiveLine
 lastInOf (INode _ secondPLine morePLines _)
-  | len morePLines == 0 = secondPLine
-  | otherwise           = SL.last morePLines
+  | isEmpty morePLines = secondPLine
+  | otherwise          = SL.last morePLines
 
 -- | find the first PLine of an INode.
 firstInOf :: INode -> ProjectiveLine
