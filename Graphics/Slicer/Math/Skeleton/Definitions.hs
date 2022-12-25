@@ -43,13 +43,13 @@ import Data.List.Unique (count_)
 
 import Data.Maybe (Maybe(Just,Nothing), isJust, mapMaybe)
 
-import Slist (slist, isEmpty, safeLast, isEmpty)
+import Slist (isEmpty, safeLast, slist)
 
 import Slist as SL (last, head, init)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, mapWithFollower, fudgeFactor, startPoint, distance, endPoint, lineSegsOfContour, makeLineSeg)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, distance, endPoint, fudgeFactor, lineSegsOfContour, makeLineSeg, mapWithFollower, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
@@ -81,12 +81,12 @@ instance Arcable ENode where
   hasArc _ = True
   outOf (ENode _ outArc _) = outArc
 
--- | An ENode always is resolvable to a point.
+-- | An ENode is always resolvable to a point.
 instance Pointable ENode where
   canPoint _ = True
-  pPointOf a = eToPP $ ePointOf a
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
   errOfPPoint _ = mempty
+  pPointOf a = eToPP $ ePointOf a
 
 -- | A point in our straight skeleton where arcs intersect, resulting in the creation of another arc.
 -- FIXME: input arcs should have error quotents.
@@ -106,7 +106,7 @@ instance Eq INode where
   (==) (INode arcA1 arcA2 moreA _) (INode arcB1 arcB2 moreB _) = arcA1 == arcB1 && arcA2 == arcB2 && moreA == moreB
   (/=) a b = not $ a == b
 
--- Not all INodes have an output Arc.
+-- | Not all INodes have an output Arc.
 instance Arcable INode where
   errOfOut (INode _ _ _ outArc) = case outArc of
                                     (Just (_,rawOutErr)) -> rawOutErr
@@ -116,9 +116,9 @@ instance Arcable INode where
                                  (Just (rawOutArc,_)) -> rawOutArc
                                  Nothing -> error "tried to get an outArc that has no output arc."
 
--- INodes are only resolvable to a point sometimes.
+-- | INodes are only resolvable to a point sometimes.
 instance Pointable INode where
-  -- an INode does not contain a point, we have to attempt to resolve one instead.
+  -- Since an INode does not contain a point, we have to attempt to resolve one instead.
   canPoint iNode = hasIntersectingPairs (allPLinesOfINode iNode)
     where
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> not $ noIntersection pl1 pl2) $ getPairs pLines
@@ -229,7 +229,6 @@ newtype INodeSet = INodeSet (Slist [INode])
 
 -- | The complete graph of exterior nodes, and their interior intersection. note this may be for a cell, a contour, or the border between two cells.
 data NodeTree = NodeTree { _eNodes :: !ENodeSet, _iNodes :: !INodeSet }
-  deriving Eq
   deriving stock Show
 
 -- | A Spine component:
@@ -240,7 +239,6 @@ newtype Spine = Spine { _spineArcs :: NonEmpty ProjectiveLine }
 
 -- | The straight skeleton of a contour.
 data StraightSkeleton = StraightSkeleton { _nodeSets :: !(Slist [NodeTree]), _spineNodes :: !(Slist Spine) }
-  deriving Eq
   deriving stock Show
 
 -- | Cut a list into all possible pairs. Used in a few places, but here because the Pointable instance for INode uses it.

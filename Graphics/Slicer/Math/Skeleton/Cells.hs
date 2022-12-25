@@ -61,7 +61,7 @@ import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distanceBetweenPPoint
 import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), ProjectivePoint, angleBetween2PL, distance2PP, eToPL, eToPP, join2PP, outAndErrOf, pPointAndErrOf)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
-  deriving (Show, Eq)
+  deriving Show
 
 -- | get a naieve node tree for a given cell.
 -- Warning: in the cases where the cell has nodes outside of the cell wall, you must use tscherne's algorithm to merge two cells.

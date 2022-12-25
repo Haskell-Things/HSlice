@@ -74,7 +74,7 @@ orderedFacesOf start skeleton
 -- | take a straight skeleton, and create faces from it.
 facesOf :: StraightSkeleton -> Slist Face
 facesOf straightSkeleton@(StraightSkeleton nodeLists spine)
-  | len nodeLists == 0 = nodeListError
+  | isEmpty nodeLists = nodeListError
   | len nodeLists == 1 && null spine = findFaces (head nodeLists)
   | not $ null spine = error "cannot yet handle spines, or more than one NodeList."
   | otherwise = error "whoops. don't know how we got here."
@@ -207,7 +207,6 @@ intraNodeFace nodeTree1 nodeTree2
                                              makeFace (lastENodeOf nodeTree2) (init (firstPLinesOf nodeTree2) <> tail (tail $ SL.reverse $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
                                       else fromMaybe errNodesNotNeighbors $
                                              makeFace (firstENodeOf nodeTree2) (init (firstPLinesOf nodeTree2) <>       tail  (SL.reverse $ lastPLinesOf nodeTree1)) (lastENodeOf nodeTree1)
-  | nodeTree1 == nodeTree2          = error $ "two identical nodes given.\n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
   | otherwise = error $ "Two NodeTrees given that are not neighbors: " <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
   where
     errNodesNotNeighbors = error $ "cannot make a face from nodes that are not neighbors: \n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"

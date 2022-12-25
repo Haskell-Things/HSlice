@@ -82,7 +82,7 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 import Graphics.Slicer.Math.Arcs (towardIntersection)
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, makeENode, makeENodes, averageNodes)
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), RemainingContour(RemainingContour), INode(INode), Cell(Cell), getFirstLineSeg, getLastLineSeg)
+import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), INode(INode), Motorcycle(Motorcycle), NodeTree(NodeTree), RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), getFirstLineSeg, getLastLineSeg)
 import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
@@ -99,11 +99,15 @@ import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian(Radian), cellFrom,
 default (ℝ)
 
 -- add some instances that are required for testing our types.
+deriving instance Eq Cell
+
+deriving instance Eq NodeTree
+
 deriving instance Show RemainingContour
 
 deriving instance Eq RemainingContour
 
-deriving instance Eq Cell
+deriving instance Eq StraightSkeleton
 
 -- | simple tests on contours.
 contourSpec :: Spec
