@@ -17,7 +17,7 @@
  -}
 
 {- Purpose of this file:
--- Hold Common types and functions used in the code responsible for generating straight skeletons of contours.
+   To hold common types and functions used in the code responsible for generating straight skeletons of contours.
 -}
 
 -- Inherit instances when deriving.
@@ -29,7 +29,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, sortedPLinesWithErr, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), ($), (<$>), (==), (/=), (||), (<>), (<), (*), (>), (&&), any, error, fst, mempty, not, otherwise, show)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), ($), (<$>), (==), (/=), (||), (<>), (<), (*), (&&), any, error, fst, mempty, not, otherwise, show)
 
 import Prelude as PL (head, last)
 
@@ -43,7 +43,7 @@ import Data.List.Unique (count_)
 
 import Data.Maybe (Maybe(Just,Nothing), isJust, mapMaybe)
 
-import Slist (len, slist, isEmpty, safeLast)
+import Slist (isEmpty, safeLast, slist)
 
 import Slist as SL (last, head, init)
 
@@ -60,7 +60,7 @@ import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPo
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
 data ENode = ENode
-  -- Input points. three points in order, with the inside of the contour to the left. 
+  -- Input points. three points in order, with the inside of the contour to the left.
   !(Point2, Point2, Point2)
   -- The projective line eminating from the middle point. refered to as an Arc.
   !PLine2
@@ -68,7 +68,7 @@ data ENode = ENode
   !PLine2Err
   deriving stock Show
 
--- Since the PLine2 and PLine2Err of an ENode are derived from the input points, only check the points for Eq.
+-- | Since the PLine2 and PLine2Err of an ENode are derived from the input points, only check the points for Eq.
 instance Eq ENode where
   (==) (ENode points _ _) (ENode morePoints _ _) = points == morePoints
   (/=) a b = not $ a == b
@@ -84,7 +84,7 @@ instance Pointable ENode where
   canPoint _ = True
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
   errOfPPoint _ = mempty
-  -- FIXME: this is going to cause double canonicalization.
+  -- FIXME: this causes double canonicalization.
   pPointOf a = PPoint2 $ vecOfP $ eToPP $ ePointOf a
 
 -- | A point in our straight skeleton where arcs intersect, resulting in the creation of another arc.
@@ -160,7 +160,7 @@ lastINodeOf (INodeSet gens) = case unsnoc (SL.last gens) of
 --   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.
 --   FIXME: Note that a new motorcycle may be created in the case of degenerate polygons... with it's inSegs being two other motorcycles.
 data Motorcycle = Motorcycle
-  -- The two line segments from which this motorcycle projects
+  -- The two line segments from which this motorcycle projects.
   !(LineSeg, LineSeg)
   -- The output arc of this motorcycle. really, the motorcycle.
   !PLine2
@@ -174,9 +174,9 @@ instance Eq Motorcycle where
   (/=) a b = not $ a == b
 
 instance Arcable Motorcycle where
+  errOfOut (Motorcycle _ _ outErr) = outErr
   -- A Motorcycle always has an arc, which is it's path.
   hasArc _ = True
-  errOfOut (Motorcycle _ _ outErr) = outErr
   outOf (Motorcycle _ outArc _) = outArc
 
 instance Pointable Motorcycle where
@@ -293,7 +293,7 @@ makeINode pLines maybeOut = case pLines of
 -- | Get the output of the given nodetree. fails if the nodetree has no output.
 finalPLine :: NodeTree -> (PLine2, PLine2Err)
 finalPLine (NodeTree (ENodeSet (Slist [(firstENode,moreENodes)] _)) iNodeSet)
-  | hasNoINodes iNodeSet = if len moreENodes == 0
+  | hasNoINodes iNodeSet = if isEmpty moreENodes
                            then outAndErrOf firstENode
                            else error "cannot have final PLine of NodeTree with more than one ENode, and no generations!\n"
   | hasArc (finalINodeOf iNodeSet) = outAndErrOf $ finalINodeOf iNodeSet
@@ -367,8 +367,8 @@ indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesA
 -- | find the last PLine of an INode.
 lastInOf :: INode -> PLine2
 lastInOf (INode _ secondPLine morePLines _)
-  | len morePLines == 0 = fst $ secondPLine
-  | otherwise           = fst $ SL.last morePLines
+  | isEmpty morePLines = fst $ secondPLine
+  | otherwise          = fst $ SL.last morePLines
 
 -- | find the first PLine of an INode.
 firstInOf :: INode -> PLine2
