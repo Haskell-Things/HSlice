@@ -46,7 +46,7 @@ import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkele
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, findENodeByOutput, findINodeByOutput, firstSegOf, lastENodeOf, firstENodeOf, pathFirst, pathLast)
 
-import Graphics.Slicer.Math.PGA (PLine2, PLine2Err, Arcable(hasArc, outOf), ePointOf)
+import Graphics.Slicer.Math.PGA (PLine2, PLine2Err, Arcable(hasArc, outOf), ePointOf, outAndErrOf)
 
 --------------------------------------------------------------------
 -------------------------- Face Placement --------------------------
@@ -73,7 +73,7 @@ orderedFacesOf start skeleton
 -- | take a straight skeleton, and create faces from it.
 facesOf :: StraightSkeleton -> Slist Face
 facesOf straightSkeleton@(StraightSkeleton nodeLists spine)
-  | len nodeLists == 0 = nodeListError
+  | isEmpty nodeLists = nodeListError
   | len nodeLists == 1 && null spine = findFaces (head nodeLists)
   | not $ null spine = error "cannot yet handle spines, or more than one NodeList."
   | otherwise = error "whoops. don't know how we got here."
@@ -145,14 +145,11 @@ rotateFaces iNodeSet eNodes iNode = rTail <> [rHead]
 -- | Get the faces for all of the NodeTree under the given INode.
 -- uses a recursive resolver, and sometimes calls itsself, making it a co-recursive algorithm..
 getFaces :: INodeSet -> ENodeSet -> INode -> [Face]
-getFaces iNodeSet@(INodeSet myGenerations) eNodes iNode@(INode _ _ _ maybeOut) = findFacesRecurse iNode allPLines
+getFaces iNodeSet@(INodeSet myGenerations) eNodes iNode = findFacesRecurse iNode allPLines
   where
-    allPLines = sortedPLinesWithErr $ insOf iNode <> out
+    allPLines = sortedPLinesWithErr $ insOf iNode <> if hasArc iNode then [outAndErrOf iNode] else []
       where
         insOf (INode pLine1 pLine2 (Slist morePLines _) _) = pLine1 : pLine2 : morePLines
-        out = case maybeOut of
-                Nothing -> []
-                (Just o) -> [o]
     firstPLine = fst $ head $ slist allPLines
     -- responsible for placing faces under the first pline given (if applicable), and between that pline, and the following pline. then.. recurse!
     findFacesRecurse :: INode -> [(PLine2, PLine2Err)] -> [Face]

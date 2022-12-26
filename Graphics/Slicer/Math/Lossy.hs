@@ -25,7 +25,6 @@ module Graphics.Slicer.Math.Lossy (
   distanceBetweenPLines,
   distancePPointToPLine,
   distancePPointToPLineWithErr,
-  eToNPLine2,
   eToPLine2,
   getFirstArc,
   getInsideArc,
@@ -74,10 +73,6 @@ distancePPointToPLine point line = fst $ distancePPToPL (point, mempty) (line, m
 distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> ℝ
 distancePPointToPLineWithErr point line = fst $ distancePPToPL point line
 
-
--- | Create a normalized projective line from a euclidian line segment.
-eToNPLine2 :: LineSeg -> NPLine2
-eToNPLine2 l1 = fst $ normalizeL $ fst $ eToPL l1
 
 -- | Create an un-normalized projective line from a euclidian line segment.
 eToPLine2 :: LineSeg -> PLine2
