@@ -75,7 +75,7 @@ instance Eq ENode where
   (==) (ENode points _ _) (ENode morePoints _ _) = points == morePoints
   (/=) a b = not $ a == b
 
--- | an ENode always has an arc.
+-- | An ENode always has an arc.
 instance Arcable ENode where
   errOfOut (ENode _ _ outErr) = outErr
   hasArc _ = True
@@ -101,7 +101,7 @@ data INode = INode
   !(Maybe (ProjectiveLine, PLine2Err))
   deriving stock Show
 
--- Since the outgoing PLine2 and PLine2Err are derived from the input arcs, only check the input arcs for Eq.
+-- | Since the outgoing PLine2 and PLine2Err are derived from the input arcs, only check the input arcs for Eq.
 instance Eq INode where
   (==) (INode arcA1 arcA2 moreA _) (INode arcB1 arcB2 moreB _) = arcA1 == arcB1 && arcA2 == arcB2 && moreA == moreB
   (/=) a b = not $ a == b
@@ -118,14 +118,14 @@ instance Arcable INode where
 
 -- | INodes are only resolvable to a point sometimes.
 instance Pointable INode where
-  -- Since an INode does not contain a point, we have to attempt to resolve one instead.
   canPoint iNode = hasIntersectingPairs (allPLinesOfINode iNode)
     where
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> not $ noIntersection pl1 pl2) $ getPairs pLines
-  -- just convert our resolved point.
+  -- Just convert our resolved point.
   ePointOf a = fst $ pToEP $ pPointOf a
   -- FIXME: implement this properly.
   errOfPPoint _ = mempty
+  -- Since an INode does not contain a point, we have to attempt to resolve one instead.
   -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? maybe a pair that is at as close as possible to a right angle?
   pPointOf iNode
     | allPointsSame = case results of
@@ -143,7 +143,7 @@ instance Pointable INode where
           saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
           saneIntersect _                  = Nothing
 
--- | get all of the PLines that come from, or exit an iNode.
+-- | Get all of the PLines that come from, or exit an iNode.
 allPLinesOfINode :: INode -> Slist (ProjectiveLine, PLine2Err)
 allPLinesOfINode iNode@(INode firstPLine secondPLine (Slist morePLines _) _)
   | hasArc iNode = slist $ nub $ (outAndErrOf iNode) : ((,mempty) <$> (firstPLine : secondPLine : morePLines))
@@ -181,8 +181,8 @@ instance Arcable Motorcycle where
   hasArc _ = True
   outOf (Motorcycle _ outArc _) = outArc
 
+-- | A motorcycle always contains a point.
 instance Pointable Motorcycle where
-  -- A motorcycle always contains a point.
   canPoint _ = True
   ePointOf (Motorcycle (_, LineSeg point _) _ _) = point
   errOfPPoint _ = mempty
@@ -193,16 +193,16 @@ data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle,
   deriving Eq
   deriving stock Show
 
--- A concave region of a contour.
+-- | A concave region of a contour.
 newtype Cell = Cell { _sides :: Slist (Slist LineSeg, Maybe CellDivide)}
   deriving stock Show
 
--- | the border dividing two cells of a contour.
+-- | The border dividing two cells of a contour.
 data CellDivide = CellDivide { _divMotorcycles :: !DividingMotorcycles, _intersects :: !MotorcycleIntersection }
   deriving Eq
   deriving stock Show
 
--- note that if there is an ENode that is part of the division, it's anticolinear to the last motorcycle in _divMotorcycles.
+-- | Note that if there is an ENode that is part of the division, it's anticolinear to the last motorcycle in _divMotorcycles.
 data MotorcycleIntersection =
     WithLineSeg !LineSeg
   | WithENode !ENode
@@ -210,7 +210,7 @@ data MotorcycleIntersection =
   deriving Eq
   deriving stock Show
 
--- The part of a contour that remains once we trim a concave section from it.
+-- | The part of a contour that remains once we trim a concave section from it.
 newtype RemainingContour = RemainingContour (Slist (Slist LineSeg, [CellDivide]))
 
 -- | The exterior nodes of a whole contour or just a cell of a contour.
@@ -218,7 +218,7 @@ newtype ENodeSet = ENodeSet { _eNodeSides :: Slist (ENode,Slist ENode) }
   deriving Eq
   deriving stock Show
 
--- | a set of Interior nodes that are intersections of ENodes or other INodes.
+-- | A set of Interior nodes that are intersections of ENodes or other INodes.
 -- nodes are divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation always contains just one node.
 -- Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.
 -- The last generation may not have an outArc in the case of a complete contour.
@@ -230,6 +230,11 @@ newtype INodeSet = INodeSet (Slist [INode])
 -- | The complete graph of exterior nodes, and their interior intersection. note this may be for a cell, a contour, or the border between two cells.
 data NodeTree = NodeTree { _eNodes :: !ENodeSet, _iNodes :: !INodeSet }
   deriving stock Show
+
+-- | All nodetrees with identical eNodes have identical iNodes.
+instance Eq NodeTree where
+  (==) (NodeTree enodeset1 _) (NodeTree enodeset2 _) = enodeset1 == enodeset2
+  (/=) a b = not $ a == b
 
 -- | A Spine component:
 --   Similar to a node, only without the in and out heirarchy. always connects to inArcs from a NodeTree. One per generation. allows us to build loops.
@@ -250,7 +255,7 @@ getPairs (x:xs) = ((x,) <$> xs) <> getPairs xs
 -- Utility functions for our solvers --
 ---------------------------------------
 
--- | determine if the given line segment set contains just one loop.
+-- | Determine if the given line segment set contains just one loop.
 isLoop :: Slist [LineSeg] -> Bool
 isLoop inSegSets = endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
   where
@@ -260,15 +265,15 @@ isLoop inSegSets = endPoint lastSeg == startPoint firstSeg || distance (endPoint
                             oneOrMoreSets@(Slist (_:_:_) _) -> (PL.last $ SL.last oneOrMoreSets, PL.head $ SL.head oneOrMoreSets)
                             (Slist _ _) -> error "just one segment?"
 
--- | get the first line segment of an ENode.
+-- | Get the first line segment of an ENode.
 getFirstLineSeg :: ENode -> LineSeg
 getFirstLineSeg (ENode (p1,p2,_) _ _) = makeLineSeg p1 p2
 
--- | get the second line segment of an ENode.
+-- | Get the second line segment of an ENode.
 getLastLineSeg :: ENode -> LineSeg
 getLastLineSeg (ENode (_,p2,p3) _ _) = makeLineSeg p2 p3
 
--- | Get pairs of lines from the contour, including one pair that is the last line paired with the first.
+-- | Get pairs of lines from a contour, including the final pair that is the last line paired with the first.
 linePairs :: Contour -> [(LineSeg, LineSeg)]
 linePairs c = mapWithFollower (,) $ lineSegsOfContour c
 -- FIXME: this implementation looks better, but causes code to break because of numeric instability?
@@ -301,7 +306,7 @@ finalPLine (NodeTree _ iNodeSet)
   | hasArc (finalINodeOf iNodeSet) = outOf $ finalINodeOf iNodeSet
   | otherwise = error "has inodes, has no out, has no enodes?"
 
--- | get the last output PLine of a NodeTree, if there is one. otherwise, Nothing.
+-- | Get the last output PLine of a NodeTree, if there is one. otherwise, Nothing.
 finalOutOf :: NodeTree -> Maybe ProjectiveLine
 finalOutOf (NodeTree eNodeSet iNodeSet)
   | hasNoINodes iNodeSet = case eNodeSet of
@@ -310,7 +315,7 @@ finalOutOf (NodeTree eNodeSet iNodeSet)
   | hasArc (finalINodeOf iNodeSet) = Just $ outOf $ finalINodeOf iNodeSet
   | otherwise = Nothing
 
--- | in a NodeTree, the last generation is always a single item. retrieve this item.
+-- | In a NodeTree, the last generation is always a single item. retrieve this item.
 finalINodeOf :: INodeSet -> INode
 finalINodeOf (INodeSet generations)
   | isEmpty generations = error "cannot get final INode if there are no INodes."
@@ -323,7 +328,7 @@ finalINodeOf (INodeSet generations)
                         Nothing -> error "either infinite, or empty list"
                         (Just val) -> val
 
--- | strip off the latest generation of the given INodeSet.
+-- | Strip off the latest generation of the given INodeSet.
 ancestorsOf :: INodeSet -> INodeSet
 ancestorsOf (INodeSet generations)
   | isEmpty generations = error "cannot get all but the last generation of INodes if there are no INodes."
@@ -340,7 +345,7 @@ concavePLines seg1 seg2
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = flipL $ eToPLine2 seg2
 
--- | check if an INodeSet is empty.
+-- | Check if an INodeSet is empty.
 hasNoINodes :: INodeSet -> Bool
 hasNoINodes iNodeSet = case iNodeSet of
                          (INodeSet (Slist _ 0)) -> True
@@ -350,20 +355,20 @@ hasNoINodes iNodeSet = case iNodeSet of
 sortedPLines :: [ProjectiveLine] -> [ProjectiveLine]
 sortedPLines = sortBy (\n1 n2 -> if (n1, mempty) `pLineIsLeft` (n2, mempty) == Just True then LT else GT)
 
--- | take a sorted list of PLines, and make sure the list starts with the pline closest to (but not left of) the given PLine.
+-- | Take a sorted list of PLines, and make sure the list starts with the pline closest to (but not left of) the given PLine.
 indexPLinesTo :: ProjectiveLine -> [ProjectiveLine] -> [ProjectiveLine]
 indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesAfterIndex firstPLine pLines
   where
     pLinesBeforeIndex myFirstPLine = filter (\a -> (myFirstPLine, mempty) `pLineIsLeft` (a, mempty) /= Just False)
     pLinesAfterIndex myFirstPLine = filter (\a -> (myFirstPLine, mempty) `pLineIsLeft` (a, mempty) == Just False)
 
--- | find the last PLine of an INode.
+-- | Find the last PLine of an INode.
 lastInOf :: INode -> ProjectiveLine
 lastInOf (INode _ secondPLine morePLines _)
   | isEmpty morePLines = secondPLine
   | otherwise          = SL.last morePLines
 
--- | find the first PLine of an INode.
+-- | Find the first PLine of an INode.
 firstInOf :: INode -> ProjectiveLine
 firstInOf (INode a _ _ _) = a
 

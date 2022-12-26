@@ -101,8 +101,6 @@ default (ℝ)
 -- add some instances that are required for testing our types.
 deriving instance Eq Cell
 
-deriving instance Eq NodeTree
-
 deriving instance Show RemainingContour
 
 deriving instance Eq RemainingContour
