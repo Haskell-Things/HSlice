@@ -73,13 +73,13 @@ instance Eq ENode where
   (==) (ENode points _ _) (ENode morePoints _ _) = points == morePoints
   (/=) a b = not $ a == b
 
--- | an ENode always has an arc.
+-- | An ENode always has an arc.
 instance Arcable ENode where
   errOfOut (ENode _ _ outErr) = outErr
   hasArc _ = True
   outOf (ENode _ outArc _) = outArc
 
--- | an ENode is always resolvable to a point.
+-- | An ENode is always resolvable to a point.
 instance Pointable ENode where
   canPoint _ = True
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
@@ -141,13 +141,13 @@ instance Pointable INode where
           saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
           saneIntersect _                  = Nothing
 
--- | get all of the PLines that come from, or exit an iNode.
+-- | Get all of the PLines that come from, or exit an iNode.
 allPLinesOfINode :: INode -> Slist (PLine2, PLine2Err)
 allPLinesOfINode iNode@(INode firstPLine secondPLine (Slist morePLines _) _)
   | hasArc iNode = slist $ nub $ (outAndErrOf iNode) : firstPLine : secondPLine : morePLines
   | otherwise    = slist $ nub $ firstPLine : secondPLine : morePLines
 
--- Produce a list of the inputs to a given INode.
+-- | Produce a list of the inputs to a given INode.
 insOf :: INode -> [(PLine2, PLine2Err)]
 insOf (INode firstIn secondIn (Slist moreIns _) _) = firstIn:secondIn:moreIns
 
@@ -173,14 +173,14 @@ instance Eq Motorcycle where
   (==) (Motorcycle segsA _ _) (Motorcycle segsB _ _) = segsA == segsB
   (/=) a b = not $ a == b
 
+-- | A Motorcycle always has an arc, which is it's path.
 instance Arcable Motorcycle where
   errOfOut (Motorcycle _ _ outErr) = outErr
-  -- A Motorcycle always has an arc, which is it's path.
   hasArc _ = True
   outOf (Motorcycle _ outArc _) = outArc
 
+-- | A motorcycle always contains a point.
 instance Pointable Motorcycle where
-  -- A motorcycle always contains a point.
   canPoint _ = True
   ePointOf (Motorcycle (_, LineSeg point _) _ _) = point
   errOfPPoint _ = mempty
@@ -191,16 +191,17 @@ data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle,
   deriving Eq
   deriving stock Show
 
--- A concave region of a contour.
+-- | A concave region of a contour.
 newtype Cell = Cell { _sides :: Slist (Slist LineSeg, Maybe CellDivide)}
   deriving stock Show
 
--- | the border dividing two cells of a contour.
+-- | The border dividing two cells of a contour.
 data CellDivide = CellDivide { _divMotorcycles :: !DividingMotorcycles, _intersects :: !MotorcycleIntersection }
   deriving Eq
   deriving stock Show
 
--- note that if there is an ENode that is part of the division, it's anticolinear to the last motorcycle in _divMotorcycles.
+-- | What the last dividing motorcycle in a cell divide intersects with.
+--   Note that if the divide ends by coliding with an ENode, it's anticolinear to the last motorcycle in _divMotorcycles.
 data MotorcycleIntersection =
     WithLineSeg !LineSeg
   | WithENode !ENode
@@ -208,7 +209,7 @@ data MotorcycleIntersection =
   deriving Eq
   deriving stock Show
 
--- The part of a contour that remains once we trim a concave section from it.
+-- | The part of a contour that remains once we trim a concave section from it.
 newtype RemainingContour = RemainingContour (Slist (Slist LineSeg, [CellDivide]))
 
 -- | The exterior nodes of a whole contour or just a cell of a contour.
@@ -216,7 +217,7 @@ newtype ENodeSet = ENodeSet { _eNodeSides :: Slist (ENode,Slist ENode) }
   deriving Eq
   deriving stock Show
 
--- | a set of Interior nodes that are intersections of ENodes or other INodes.
+-- | A set of Interior nodes that are intersections of ENodes or other INodes.
 -- nodes are divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation always contains just one node.
 -- Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.
 -- The last generation may not have an outArc in the case of a complete contour.
@@ -252,7 +253,7 @@ getPairs (x:xs) = ((x,) <$> xs) <> getPairs xs
 -- Utility functions for our solvers --
 ---------------------------------------
 
--- | determine if the given line segment set contains just one loop.
+-- | Determine if the given line segment set contains just one loop.
 isLoop :: Slist [LineSeg] -> Bool
 isLoop inSegSets = endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
   where
@@ -262,11 +263,11 @@ isLoop inSegSets = endPoint lastSeg == startPoint firstSeg || distance (endPoint
                             oneOrMoreSets@(Slist (_:_:_) _) -> (PL.last $ SL.last oneOrMoreSets, PL.head $ SL.head oneOrMoreSets)
                             (Slist _ _) -> error "just one segment?"
 
--- | get the first line segment of an ENode.
+-- | Get the first line segment of an ENode.
 getFirstLineSeg :: ENode -> LineSeg
 getFirstLineSeg (ENode (p1,p2,_) _ _) = makeLineSeg p1 p2
 
--- | get the second line segment of an ENode.
+-- | Get the second line segment of an ENode.
 getLastLineSeg :: ENode -> LineSeg
 getLastLineSeg (ENode (_,p2,p3) _ _) = makeLineSeg p2 p3
 
@@ -303,7 +304,7 @@ finalPLine (NodeTree _ iNodeSet)
   | hasArc (finalINodeOf iNodeSet) = outAndErrOf $ finalINodeOf iNodeSet
   | otherwise = error "has inodes, has no out, has no enodes?"
 
--- | get the last output PLine of a NodeTree, if there is one. otherwise, Nothing.
+-- | Get the last output PLine of a NodeTree, if there is one. otherwise, Nothing.
 finalOutOf :: NodeTree -> Maybe PLine2
 finalOutOf (NodeTree eNodeSet iNodeSet)
   | hasNoINodes iNodeSet = case eNodeSet of
@@ -312,7 +313,7 @@ finalOutOf (NodeTree eNodeSet iNodeSet)
   | hasArc (finalINodeOf iNodeSet) = Just $ outOf $ finalINodeOf iNodeSet
   | otherwise = Nothing
 
--- | in a NodeTree, the last generation is always a single item. retrieve this item.
+-- | In a NodeTree, the last generation is always a single item. retrieve this item.
 finalINodeOf :: INodeSet -> INode
 finalINodeOf (INodeSet generations)
   | isEmpty generations = error "cannot get final INode if there are no INodes."
@@ -325,7 +326,7 @@ finalINodeOf (INodeSet generations)
                         Nothing -> error "either infinite, or empty list"
                         (Just val) -> val
 
--- | strip off the latest generation of the given INodeSet.
+-- | Strip off the latest generation of the given INodeSet.
 ancestorsOf :: INodeSet -> INodeSet
 ancestorsOf (INodeSet generations)
   | isEmpty generations = error "cannot get all but the last generation of INodes if there are no INodes."
@@ -343,7 +344,7 @@ concavePLines seg1 seg2
     pv2 = vecOfL $ flipL pl2
     (pl2,_) = eToPL seg2
 
--- | check if an INodeSet is empty.
+-- | Check if an INodeSet is empty.
 hasNoINodes :: INodeSet -> Bool
 hasNoINodes iNodeSet = case iNodeSet of
                          (INodeSet (Slist _ 0)) -> True
@@ -351,26 +352,26 @@ hasNoINodes iNodeSet = case iNodeSet of
 
 -- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
 sortedPLines :: [PLine2] -> [PLine2]
-sortedPLines = sortBy (\n1 n2 -> if ((n1, mempty) `pLineIsLeft` (n2, mempty)) == Just True then LT else GT)
+sortedPLines = sortBy (\n1 n2 -> if (n1, mempty) `pLineIsLeft` (n2, mempty) == Just True then LT else GT)
 
 -- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
 sortedPLinesWithErr :: [(PLine2, PLine2Err)] -> [(PLine2, PLine2Err)]
 sortedPLinesWithErr = sortBy (\n1 n2 -> if (n1 `pLineIsLeft` n2) == Just True then LT else GT)
 
--- | take a sorted list of PLines, and make sure the list starts with the pline closest to (but not left of) the given PLine.
+-- | Take a sorted list of PLines, and make sure the list starts with the pline closest to (but not left of) the given PLine.
 indexPLinesTo :: PLine2 -> [(PLine2, PLine2Err)] -> [(PLine2, PLine2Err)]
 indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesAfterIndex firstPLine pLines
   where
     pLinesBeforeIndex myFirstPLine = filter (\a -> (myFirstPLine, mempty) `pLineIsLeft` a /= Just False)
     pLinesAfterIndex myFirstPLine = filter (\a -> (myFirstPLine, mempty) `pLineIsLeft` a == Just False)
 
--- | find the last PLine of an INode.
+-- | Find the last PLine of an INode.
 lastInOf :: INode -> PLine2
 lastInOf (INode _ secondPLine morePLines _)
   | isEmpty morePLines = fst $ secondPLine
   | otherwise          = fst $ SL.last morePLines
 
--- | find the first PLine of an INode.
+-- | Find the first PLine of an INode.
 firstInOf :: INode -> PLine2
 firstInOf (INode a _ _ _) = fst a
 

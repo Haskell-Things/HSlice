@@ -28,7 +28,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), all, notElem, otherwise, ($), (>), (<=), (<$>), (==), (/=), (>=), error, (&&), fst, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), concatMap, mempty)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), all, notElem, otherwise, ($), (>), (<=), (<$>), (==), (/=), error, (&&), fst, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), concatMap, mempty)
 
 import Prelude as PL (head, last, tail, init)
 
@@ -820,5 +820,5 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
                                        && not (dist2 <= ulpVal dist2Err)
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, (_,_, dist1Err)) = distance2PP (pPointAndErrOf node1) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) 
-        (dist2, (_,_, dist2Err)) = distance2PP (pPointAndErrOf node2) (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) 
+        (dist1, (_,_, dist1Err)) = distance2PP (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) (pPointAndErrOf node1)
+        (dist2, (_,_, dist2Err)) = distance2PP (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) (pPointAndErrOf node2)
