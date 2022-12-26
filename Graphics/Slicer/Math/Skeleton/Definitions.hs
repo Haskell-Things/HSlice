@@ -70,7 +70,7 @@ data ENode = ENode
   !PLine2Err
   deriving stock Show
 
--- | Since the PLine2 and PLine2Err of an ENode are derived from the points, only check the points for Eq.
+-- | Since the PLine2 and PLine2Err of an ENode are derived from the input points, only check the points for Eq.
 instance Eq ENode where
   (==) (ENode points _ _) (ENode morePoints _ _) = points == morePoints
   (/=) a b = not $ a == b
@@ -149,7 +149,7 @@ allPLinesOfINode iNode@(INode firstPLine secondPLine (Slist morePLines _) _)
   | hasArc iNode = slist $ nub $ (outAndErrOf iNode) : ((,mempty) <$> (firstPLine : secondPLine : morePLines))
   | otherwise    = slist $ nub $ (, mempty) <$> firstPLine : secondPLine : morePLines
 
--- Produce a list of the inputs to a given INode.
+-- | Produce a list of the inputs to a given INode.
 insOf :: INode -> [ProjectiveLine]
 insOf (INode firstIn secondIn (Slist moreIns _) _) = firstIn:secondIn:moreIns
 
@@ -175,9 +175,9 @@ instance Eq Motorcycle where
   (==) (Motorcycle segsA _ _) (Motorcycle segsB _ _) = segsA == segsB
   (/=) a b = not $ a == b
 
+-- | A Motorcycle always has an arc, which is it's path.
 instance Arcable Motorcycle where
   errOfOut (Motorcycle _ _ outErr) = outErr
-  -- A Motorcycle always has an arc, which is it's path.
   hasArc _ = True
   outOf (Motorcycle _ outArc _) = outArc
 
@@ -202,7 +202,8 @@ data CellDivide = CellDivide { _divMotorcycles :: !DividingMotorcycles, _interse
   deriving Eq
   deriving stock Show
 
--- | Note that if there is an ENode that is part of the division, it's anticolinear to the last motorcycle in _divMotorcycles.
+-- | What the last dividing motorcycle in a cell divide intersects with.
+--   Note that if the divide ends by coliding with an ENode, it's anticolinear to the last motorcycle in _divMotorcycles.
 data MotorcycleIntersection =
     WithLineSeg !LineSeg
   | WithENode !ENode
