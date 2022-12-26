@@ -55,14 +55,16 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
 
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersection)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), PIntersection(IntersectsIn), PLine2(PLine2), PLine2Err, Pointable(canPoint, pPointOf, ePointOf, errOfPPoint), PPoint2(PPoint2), eToPL, eToPP, flipL, outAndErrOf, plinesIntersectIn, pLineIsLeft, pToEP, vecOfL, vecOfP)
+import Graphics.Slicer.Math.Lossy (eToPLine2)
+
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), PIntersection(IntersectsIn), PLine2(PLine2), PLine2Err, Pointable(canPoint, pPointOf, ePointOf, errOfPPoint), PPoint2(PPoint2), eToPL, eToPP, flipL, outAndErrOf, plinesIntersectIn, pLineIsLeft, pToEP, vecOfP)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
 data ENode = ENode
   -- Input points. three points in order, with the inside of the contour to the left.
   !(Point2, Point2, Point2)
-  -- The projective line eminating from the middle point. refered to as an Arc.
+  -- The projective line eminating from the middle point, bisecting the two lines created from the input point (first-middle, last-middle). refered to as an Arc.
   !PLine2
   -- The imprecision of the Arc.
   !PLine2Err
@@ -116,14 +118,14 @@ instance Arcable INode where
 
 -- | INodes are only resolvable to a point sometimes.
 instance Pointable INode where
-  -- Since an INode does not contain a point, we have to attempt to resolve one instead.
   canPoint iNode = hasIntersectingPairs (allPLinesOfINode iNode)
     where
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> not $ noIntersection pl1 pl2) $ getPairs pLines
-  -- just convert our resolved point.
+  -- Just convert our resolved point.
   ePointOf a = fst $ pToEP $ pPointOf a
   -- FIXME: implement this properly.
   errOfPPoint _ = mempty
+  -- Since an INode does not contain a point, we have to attempt to resolve one instead.
   -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? maybe a pair that is at as close as possible to a right angle?
   pPointOf iNode
     | allPointsSame = case results of
@@ -271,7 +273,7 @@ getFirstLineSeg (ENode (p1,p2,_) _ _) = makeLineSeg p1 p2
 getLastLineSeg :: ENode -> LineSeg
 getLastLineSeg (ENode (_,p2,p3) _ _) = makeLineSeg p2 p3
 
--- | Get pairs of lines from the contour, including one pair that is the last line paired with the first.
+-- | Get pairs of lines from a contour, including the final pair that is the last line paired with the first.
 linePairs :: Contour -> [(LineSeg, LineSeg)]
 linePairs c = mapWithFollower (,) $ lineSegsOfContour c
 -- FIXME: this implementation looks better, but causes code to break because of numeric instability?
@@ -340,9 +342,8 @@ concavePLines seg1 seg2
   | Just True == pLineIsLeft (eToPL seg1) (eToPL seg2) = Just $ PLine2 $ addVecPair pv1 pv2
   | otherwise                          = Nothing
   where
-    (PLine2 pv1,_) = eToPL seg1
-    pv2 = vecOfL $ flipL pl2
-    (pl2,_) = eToPL seg2
+    (PLine2 pv1) = eToPLine2 seg1
+    (PLine2 pv2) = flipL $ eToPLine2 seg2
 
 -- | Check if an INodeSet is empty.
 hasNoINodes :: INodeSet -> Bool
