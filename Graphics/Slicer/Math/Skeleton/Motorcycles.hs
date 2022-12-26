@@ -46,11 +46,11 @@ import Graphics.Slicer.Math.Arcs (getInsideArc)
 
 import Graphics.Slicer.Math.Contour (pointsOfContour)
 
+import Graphics.Slicer.Math.ContourIntersections (getMotorcycleContourIntersections, getMotorcycleSegSetIntersections)
+
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, distance, mapWithNeighbors, startPoint, endPoint, makeLineSeg)
 
 import Graphics.Slicer.Math.Intersections (noIntersection, intersectionBetweenArcsOf, isAntiCollinear, outputIntersectsLineSeg, outputIntersectsPLineAt)
-
-import Graphics.Slicer.Math.ContourIntersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections)
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, distanceBetweenPPointsWithErr, eToPLine2)
 
@@ -81,15 +81,14 @@ motorcycleToENode (Motorcycle (seg1,seg2) mcpath mcErr) = ENode (startPoint seg1
 
 -- | Find the point where the propogation from a motorcycle equals the propogation of what it impacts, taking into account the weight of a motorcycle, and the weight of what it impacts.
 motorcycleDivisor :: Motorcycle -> MotorcycleIntersection -> ProjectivePoint
-motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle) pointOfTarget (tSpeedOf target) (mSpeedOf motorcycle)
+motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle) (fst pointOfTarget) (tSpeedOf target) (mSpeedOf motorcycle)
   where
-    pointOfTarget :: ProjectivePoint
     pointOfTarget = case target of
                       (WithLineSeg lineSeg) -> case outputIntersectsLineSeg motorcycle lineSeg of
-                                        (Right (IntersectsIn p _)) -> p
+                                        (Right (IntersectsIn p (_,_, pErr))) -> (p, pErr)
                                         v -> error $ "impossible!\n" <> show v <> "\n" <> show lineSeg <> "\n" <> show motorcycle <> "\n" <> show target <> "\n"
-                      (WithENode eNode) -> pPointOf eNode
-                      (WithMotorcycle motorcycle2) -> pPointOf motorcycle2
+                      (WithENode eNode) -> (pPointOf eNode, mempty)
+                      (WithMotorcycle motorcycle2) -> (pPointOf motorcycle2, mempty)
     tSpeedOf :: MotorcycleIntersection -> ℝ
     tSpeedOf myTarget = case myTarget of
                   (WithLineSeg lineSeg) -> distanceBetweenPPointsWithErr

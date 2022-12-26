@@ -207,11 +207,12 @@ intraNodeFace nodeTree1 nodeTree2
                                              makeFace (lastENodeOf nodeTree2) (init (firstPLinesOf nodeTree2) <> tail (tail $ SL.reverse $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
                                       else fromMaybe errNodesNotNeighbors $
                                              makeFace (firstENodeOf nodeTree2) (init (firstPLinesOf nodeTree2) <>       tail  (SL.reverse $ lastPLinesOf nodeTree1)) (lastENodeOf nodeTree1)
+  | nodeTree1 == nodeTree2          = error $ "two identical nodes given.\n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
   | otherwise = error $ "Two NodeTrees given that are not neighbors: " <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
   where
     errNodesNotNeighbors = error $ "cannot make a face from nodes that are not neighbors: \n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
     follows :: NodeTree -> NodeTree -> Bool
-    follows nt1 nt2 = isCollinear (last $ firstPLinesOf nt1, mempty) (last $ lastPLinesOf nt2,mempty)
+    follows nt1 nt2 = isCollinear (last $ firstPLinesOf nt1, mempty) (last $ lastPLinesOf nt2, mempty)
     isLeftOf :: NodeTree -> NodeTree -> Bool
     isLeftOf nt1 nt2 = firstSegOf nt1 == lastSegOf nt2
     isRightOf :: NodeTree -> NodeTree -> Bool

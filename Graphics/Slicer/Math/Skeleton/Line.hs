@@ -26,7 +26,7 @@ import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<
 
 import Data.List (sortOn, dropWhile, takeWhile, transpose)
 
-import Data.Maybe (Maybe(Just,Nothing), mapMaybe, fromMaybe)
+import Data.Maybe (Maybe(Just,Nothing), fromMaybe, mapMaybe)
 
 import Safe (lastMay, initSafe)
 
@@ -42,7 +42,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf, isCollinear, isAntiCo
 
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face))
 
-import Graphics.Slicer.Math.Lossy (distancePPointToPLineWithErr, eToPLine2, translatePLine2, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (distancePPointToPLineWithErr, eToPLine2, pToEPoint2)
 
 import Graphics.Slicer.Math.PGA (ProjectiveLine, eToPL, pLineIsLeft, translateL)
 
@@ -77,14 +77,14 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     linesToRender          = maybe linesUntilEnd (min linesUntilEnd) insets
 
     -- | The line segments we are placing.
-    foundLineSegs          = [ makeLineSeg (pToEPoint2 $ fst $ intersectionOf newSide (firstArc,mempty)) (pToEPoint2 $ fst $ intersectionOf newSide (lastArc,mempty)) | newSide <- newSides ]
+    foundLineSegs          = [ makeLineSeg (pToEPoint2 $ fst $ intersectionOf newSide (firstArc, mempty)) (pToEPoint2 $ fst $ intersectionOf newSide (lastArc, mempty)) | newSide <- newSides ]
       where
         newSides = [ translateL (eToPLine2 edge) $ translateDir (-(distance+(distance * fromIntegral segmentNum))) | segmentNum <- [0..linesToRender-1] ]
 
     -- | The line where we are no longer able to fill this face. from the firstArc to the lastArc, along the point that the lines we place stop.
-    finalSide              = makeLineSeg (pToEPoint2 $ fst $ intersectionOf (finalLine,mempty) (firstArc,mempty)) (pToEPoint2 $ fst $ intersectionOf (finalLine,mempty) (lastArc,mempty))
+    finalSide              = makeLineSeg (pToEPoint2 $ fst $ intersectionOf finalLine (firstArc, mempty)) (pToEPoint2 $ fst $ intersectionOf finalLine (lastArc, mempty))
       where
-        finalLine = translatePLine2 (eToPLine2 edge) $ translateDir (distance * fromIntegral linesToRender)
+        finalLine = translateL (eToPLine2 edge) $ translateDir (distance * fromIntegral linesToRender)
 
     -- | how many lines can be fit in this Face.
     linesUntilEnd :: Fastℕ
@@ -161,13 +161,13 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     midArc = case midArcs of
                (Slist [oneArc] 1) -> oneArc
                (Slist _ _) -> error $ "evaluated midArc with the wrong insets of items\nd: " <> show distance <> "\nn: " <> show insets <> "\nFace: " <> show face <> "\n"
-    threeSideRemainder     = if distancePPointToPLineWithErr (intersectionOf (firstArc,mempty) (midArc,mempty)) (eToPL edge) /= distancePPointToPLineWithErr (intersectionOf (midArc,mempty) (lastArc,mempty)) (eToPL edge)
+    threeSideRemainder     = if distancePPointToPLineWithErr (intersectionOf (firstArc, mempty) (midArc, mempty)) (eToPL edge) /= distancePPointToPLineWithErr (intersectionOf (midArc, mempty) (lastArc, mempty)) (eToPL edge)
                              then subRemains
                              else Nothing
     (subSides, subRemains) = if firstArcLonger
                              then addLineSegsToFace distance insets (Face finalSide firstArc (slist []) midArc)
                              else addLineSegsToFace distance insets (Face finalSide midArc   (slist []) lastArc)
-    firstArcLonger         = distancePPointToPLineWithErr (intersectionOf (firstArc,mempty) (midArc,mempty)) (eToPL edge) > distancePPointToPLineWithErr (intersectionOf (midArc,mempty) (lastArc,mempty)) (eToPL edge)
+    firstArcLonger         = distancePPointToPLineWithErr (intersectionOf (firstArc, mempty) (midArc, mempty)) (eToPL edge) > distancePPointToPLineWithErr (intersectionOf (midArc, mempty) (lastArc, mempty)) (eToPL edge)
     ----------------------------------------------
     -- functions only used by a three-sided n-gon.
     ----------------------------------------------
