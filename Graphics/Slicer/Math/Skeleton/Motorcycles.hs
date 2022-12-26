@@ -50,9 +50,9 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.Intersections (intersectionOf, isAntiCollinear, noIntersection, outputIntersectsLineSeg)
 
-import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2, normalizePLine2, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, eToPLine2, normalizePLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2, PPoint2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), ProjectivePoint2, angleBetween2PL, distance2PP, eToPP, join2PP, outAndErrOf, plinesIntersectIn, translateL) 
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2(NPLine2), PLine2(PLine2), PLine2Err(PLine2Err), PPoint2, PPoint2Err, Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), eToPL, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), ProjectivePoint2, angleBetween2PL, canonicalizeP, distance2PP, eToPP, join2PP, outAndErrOf, plinesIntersectIn, translateL)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle), ENode(ENode), getFirstLineSeg, linePairs, CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle))
 
@@ -81,22 +81,21 @@ motorcycleToENode (Motorcycle (seg1,seg2) mcpath mcErr) = ENode (startPoint seg1
 
 -- | Find the point where the propogation from a motorcycle equals the propogation of what it impacts, taking into account the weight of a motorcycle, and the weight of what it impacts.
 motorcycleDivisor :: Motorcycle -> MotorcycleIntersection -> PPoint2
-motorcycleDivisor motorcycle target = pPointBetweenPPoints (canonicalizePPoint2 $ pPointOf motorcycle) pointOfTarget (tSpeedOf target) (mSpeedOf motorcycle)
+motorcycleDivisor motorcycle target = pPointBetweenPPoints (pPointOf motorcycle) (fst pointOfTarget) (tSpeedOf target) (mSpeedOf motorcycle)
   where
-    pointOfTarget :: CPPoint2
     pointOfTarget = case target of
                       (WithLineSeg lineSeg) -> case outputIntersectsLineSeg motorcycle lineSeg of
-                                        (Right (IntersectsIn p _)) -> p
+                                        (Right (IntersectsIn p (_,_, pErr))) -> (p, pErr)
                                         v -> error $ "impossible!\n" <> show v <> "\n" <> show lineSeg <> "\n" <> show motorcycle <> "\n" <> show target <> "\n"
-                      (WithENode eNode) -> canonicalizePPoint2 $ pPointOf eNode
-                      (WithMotorcycle motorcycle2) -> canonicalizePPoint2 $ pPointOf motorcycle2
+                      (WithENode eNode) -> canonicalizeP $ pPointOf eNode
+                      (WithMotorcycle motorcycle2) -> canonicalizeP $ pPointOf motorcycle2
     tSpeedOf :: MotorcycleIntersection -> ℝ
     tSpeedOf myTarget = case myTarget of
                   (WithLineSeg lineSeg) -> distanceBetweenPPoints (justIntersectsIn $ plinesIntersectIn (translateL (eToPLine2 lineSeg) 1) (outAndErrOf motorcycle)) (justIntersectsIn $ plinesIntersectIn (eToPL lineSeg) (outAndErrOf motorcycle))
-                  (WithENode eNode) -> distanceBetweenPPoints (canonicalizePPoint2 $ pPointOf eNode) (justIntersectsIn $ plinesIntersectIn (translateL (eToPLine2 $ getFirstLineSeg eNode) 1) (outAndErrOf eNode))
+                  (WithENode eNode) -> distanceBetweenPPoints (pPointOf eNode) (justIntersectsIn $ plinesIntersectIn (translateL (eToPLine2 $ getFirstLineSeg eNode) 1) (outAndErrOf eNode))
                   (WithMotorcycle motorcycle2) -> mSpeedOf motorcycle2
     mSpeedOf :: Motorcycle -> ℝ
-    mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _ _) = distanceBetweenPPoints (canonicalizePPoint2 $ pPointOf myMotorcycle) (justIntersectsIn $ plinesIntersectIn (translateL (eToPLine2 seg1) 1) (outAndErrOf myMotorcycle))
+    mSpeedOf myMotorcycle@(Motorcycle (seg1,_) _ _) = distanceBetweenPPoints (pPointOf myMotorcycle) (justIntersectsIn $ plinesIntersectIn (translateL (eToPLine2 seg1) 1) (outAndErrOf myMotorcycle))
     justIntersectsIn :: PIntersection -> CPPoint2
     justIntersectsIn res = case res of
                              (IntersectsIn p _) -> p
@@ -234,7 +233,7 @@ motorcycleMightIntersectWith lineSegs motorcycle
     results = slist $ sortByDistance $ mapMaybe filterIntersection intersections
     sortByDistance :: [(LineSeg, Either Point2 CPPoint2)] -> [(LineSeg, Either Point2 CPPoint2)]
     sortByDistance = sortBy compareDistances
-    motorcyclePoint = canonicalizePPoint2 $ pPointOf motorcycle
+    motorcyclePoint = pPointOf motorcycle
     compareDistances i1 i2 = case i1 of
                                (_, Right intersectionPPoint1) ->
                                  case i2 of
@@ -308,7 +307,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
             (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf motorcycle) (eToPLine2 $ lineSegToIntersectionP pPoint)
         lineSegToIntersection myPoint = makeLineSeg (ePointOf motorcycle) myPoint
         lineSegToIntersectionP myPPoint = makeLineSeg (ePointOf motorcycle) (pToEPoint2 myPPoint)
-    motorcyclePoint = canonicalizePPoint2 $ pPointOf motorcycle
+    motorcyclePoint = pPointOf motorcycle
     intersections = getMotorcycleContourIntersections motorcycle contour
 
 -- | Determine if a node is on one side of a motorcycle, or the other.
