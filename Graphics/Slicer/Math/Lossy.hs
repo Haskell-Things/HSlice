@@ -22,7 +22,6 @@ module Graphics.Slicer.Math.Lossy (
   canonicalizePPoint2,
   distanceBetweenPPoints,
   distanceBetweenPPointsWithErr,
-  distanceBetweenPLines,
   distancePPointToPLine,
   distancePPointToPLineWithErr,
   eToPLine2,
@@ -48,7 +47,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
 import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getInsideArc)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PLine2Err, PPoint2, PPoint2Err, ProjectiveLine2, ProjectivePoint2, canonicalizeP, distance2PP, distance2PL, distancePPToPL, eToPL, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PLine2Err, PPoint2, PPoint2Err, ProjectiveLine2, ProjectivePoint2, canonicalizeP, distance2PP, distancePPToPL, eToPL, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
 -- | canonicalize a euclidian point.
 canonicalizePPoint2 :: PPoint2 -> CPPoint2
@@ -61,9 +60,6 @@ distanceBetweenPPoints point1 point2 = fst $ distance2PP (point1, mempty) (point
 -- | Find the distance between two projective points, with attached error quotents.
 distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> ℝ
 distanceBetweenPPointsWithErr point1 point2 = fst $ distance2PP point1 point2
-
-distanceBetweenPLines :: (ProjectiveLine2 a) => a -> a -> ℝ
-distanceBetweenPLines nPLine1 nPLine2 = fst $ distance2PL nPLine1 nPLine2
 
 -- | Find the distance between a point and a line.
 distancePPointToPLine :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> ℝ

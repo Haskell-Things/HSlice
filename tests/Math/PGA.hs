@@ -64,14 +64,14 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 
 import Graphics.Slicer.Math.Intersections (outputIntersectsLineSeg)
 
-import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, distanceBetweenPLines, distancePPointToPLine, eToPLine2, getFirstArc, join2PPoint2, normalizePLine2, pPointOnPerp)
+import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, distancePPointToPLine, eToPLine2, getFirstArc, join2PPoint2, normalizePLine2, pPointOnPerp)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalizeP, distance2PP, distancePPToPL, eToPL, eToPP, eToPP, interpolate2PP, intersect2PL, translateL, translateRotatePPoint2WithErr, angleBetween2PL, flipL, join2PP, makeCPPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), cPPointAndErrOf, intersectsWithErr, errOfOut, pPointOnPerpWithErr, outOf)
+import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2(NPLine2), PPoint2(PPoint2), PLine2(PLine2), PLine2Err(PLine2Err), canonicalizeP, distance2PP, distancePPToPL, eToPL, eToPP, eToPP, interpolate2PP, intersect2PL, translateL, translateRotatePPoint2WithErr, angleBetween2PL, flipL, join2PP, makeCPPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), cPPointAndErrOf, distance2PL, intersectsWithErr, errOfOut, pPointOnPerpWithErr, outOf)
 
 
 -- The primitives of our PGA only library, and error estimation code.
-import Graphics.Slicer.Math.PGAPrimitives (fuzzinessOfL, pLineErrAtPPoint, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives (pLineErrAtPPoint, xIntercept, yIntercept)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, justOneContourFrom, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
@@ -478,7 +478,7 @@ prop_OtherSideOfAxis v1 v2 p1 p2 xAxis positive
 -- | Ensure that a PLine translated, then translated back is approximately the same PLine.
 prop_PerpTranslateID :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
 prop_PerpTranslateID x y dx dy rawT
-  | res <= resErr = res <= resErr
+  | res <= ulpVal resErr = res <= ulpVal resErr
   | otherwise = error
                 $ "failed:\n"
                 <> "origPLine: " <> show origPLine <> "\n"
@@ -486,12 +486,11 @@ prop_PerpTranslateID x y dx dy rawT
                 <> "res: " <> show res <> "\n"
                 <> "resErr: " <> show resErr <> "\n"
   where
-    res = distanceBetweenPLines resPLine origPLine
-    (resPLine, resPLineErr) = translateL translatedPLine (-t)
-    (translatedPLine, translatedPLineErr) = translateL origPLine t
+    (res, (_,_, resErr)) = distance2PL resPLine origPLine
+    (resPLine, _) = translateL translatedPLine (-t)
+    (translatedPLine, _) = translateL origPLine t
     (origPLine, _) = randomPLineWithErr x y dx dy
-    resErr, t :: ℝ
-    resErr = ulpVal $ fuzzinessOfL (resPLine, resPLineErr) <> fuzzinessOfL (translatedPLine, translatedPLineErr)
+    t :: ℝ
     t = coerce rawT
 
 pgaSpec :: Spec
