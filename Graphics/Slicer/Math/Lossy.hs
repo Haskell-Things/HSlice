@@ -77,7 +77,7 @@ getFirstArc :: Point2 -> Point2 -> Point2 -> PLine2
 getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 
 -- | a typed join function. join two points, returning a line.
-join2PPoint2 :: (ProjectivePoint2 a) => a -> a -> PLine2
+join2PPoint2 :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> PLine2
 join2PPoint2 pp1 pp2 = fst $ join2PP pp1 pp2
 
 -- | Normalize a PLine2.

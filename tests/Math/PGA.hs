@@ -945,7 +945,7 @@ prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions trian
     (myMidPoint,_)  = interpolate2PP (eToPP p1) (eToPP p2) 0.5 0.5
     -- we normalize this for Ganja.js.
     (NPLine2 pLineToInside) = normalizePLine2 $ join2PPoint2 myMidPoint innerPoint
-    (NPLine2 pLineToOutside) = normalizePLine2 $ join2PPoint2 innerPoint $ (\(CPPoint2 a) -> PPoint2 a) $ eToPP outsidePoint
+    (NPLine2 pLineToOutside) = normalizePLine2 $ join2PPoint2 innerPoint $ eToPP outsidePoint
     innerPoint      = fromMaybe (dumpError2) maybeInnerPoint
     minPoint        = fst $ minMaxPoints triangle
     outsidePoint    = Point2 (xOf minPoint - 0.00000001 , yOf minPoint - 0.00000001)
