@@ -38,9 +38,9 @@ module Graphics.Slicer.Math.PGA(
   PLine2Err(PLine2Err),
   Pointable(
       canPoint,
+      cPPointOf,
       ePointOf,
-      errOfPPoint,
-      pPointOf
+      errOfPPoint
       ),
   PPoint2(PPoint2),
   PPoint2Err,
@@ -54,6 +54,7 @@ module Graphics.Slicer.Math.PGA(
   angleBetween2PL,
   canonicalizedIntersectionOf2PL,
   combineConsecutiveLineSegs,
+  cPPointAndErrOf,
   distancePPToPL,
   distance2PL,
   distance2PP,
@@ -67,13 +68,12 @@ module Graphics.Slicer.Math.PGA(
   intersect2PL,
   join2EP,
   join2PP,
-  makePPoint2,
+  makeCPPoint2,
   outAndErrOf,
   pLineErrAtPPoint,
   pLineIntersectsLineSeg,
   pLineIsLeft,
   plinesIntersectIn,
-  pPointAndErrOf,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
   pToEP,
@@ -306,13 +306,13 @@ class (Show a) => Pointable a where
   ePointOf :: a -> Point2
   -- | If the point is not a native euclidian point, the error generated while converting from a projective form. otherwise mempty.
   errOfPPoint :: a -> PPoint2Err
-  -- | Get a projective representation of this point.
-  pPointOf :: a -> PPoint2
+  -- | Get a canonicalized projective representation of this point.
+  cPPointOf :: a -> CPPoint2
 
 -- | If the given node can be resolved to a point, return it, along with it's error quotent.
-pPointAndErrOf :: (Pointable a) => a -> (PPoint2, PPoint2Err)
-pPointAndErrOf node
-  | canPoint node = (pPointOf node, errOfPPoint node)
+cPPointAndErrOf :: (Pointable a) => a -> (CPPoint2, PPoint2Err)
+cPPointAndErrOf node
+  | canPoint node = (cPPointOf node, errOfPPoint node)
   | otherwise = error "not able to resolve node to a point."
 
 ----------------------------------------------------------
@@ -495,14 +495,14 @@ combineConsecutiveLineSegs lines = case lines of
 euclidianToProjectivePoint2, eToPP :: Point2 -> CPPoint2
 euclidianToProjectivePoint2 (Point2 (x,y)) = res
   where
-    res = makePPoint2 x y
+    res = makeCPPoint2 x y
 eToPP = euclidianToProjectivePoint2
 
 -- | Create a canonical euclidian projective point from the given coordinates.
-makePPoint2 :: ℝ -> ℝ -> CPPoint2
-makePPoint2 x y = pPoint
+makeCPPoint2 :: ℝ -> ℝ -> CPPoint2
+makeCPPoint2 x y = cPPoint
   where
-    pPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1])]
+    cPPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1])]
 
 -- | Reverse a vector. Really, take every value in it, and recompute it in the reverse order of the vectors (so instead of e0∧e1, e1∧e0). which has the effect of negating bi and tri-vectors.
 reverseGVec :: GVec -> GVec

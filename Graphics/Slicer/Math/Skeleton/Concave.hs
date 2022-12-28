@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf, intersectionBetweenAr
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPointsWithErr)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint), PLine2, PLine2Err, ProjectiveLine2, distance2PP, eToPL, flipL, outAndErrOf, pPointAndErrOf, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint), PLine2, PLine2Err, ProjectiveLine2, cPPointAndErrOf, distance2PP, eToPL, flipL, outAndErrOf, pLineIsLeft)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLinesWithErr, isLoop)
 
@@ -166,7 +166,7 @@ errorIfLeft (Right val)    = val
 -- | For a given pair of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
 --   Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
 averageNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> INode
-averageNodes n1 n2 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (pPointAndErrOf n1) (outAndErrOf n1) (pPointAndErrOf n2) (outAndErrOf n2)
+averageNodes n1 n2 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (cPPointAndErrOf n1) (outAndErrOf n1) (cPPointAndErrOf n2) (outAndErrOf n2)
 
 -- | Take a pair of arcables, and return their outOfs, in a sorted order.
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [(PLine2, PLine2Err)]
@@ -749,8 +749,8 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
                           <> show n2 <> "\n"
       where
         intersectionPoint = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf n1 n2
-        (n1Distance, (_,_, n1Err)) = distance2PP intersectionPoint (pPointAndErrOf n1)
-        (n2Distance, (_,_, n2Err)) = distance2PP intersectionPoint (pPointAndErrOf n2)
+        (n1Distance, (_,_, n1Err)) = distance2PP intersectionPoint (cPPointAndErrOf n1)
+        (n2Distance, (_,_, n2Err)) = distance2PP intersectionPoint (cPPointAndErrOf n2)
 
     -- | get the list of sorted pairs of intersecting nodes.
     shortestNeighboringPairs :: (Arcable a, Pointable a, Eq a) => [(a,a)] -> [(a, a)]
@@ -808,9 +808,9 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
         && hasArc node1
         && hasArc node2
         && intersectsInPoint node1 node2 =
-        Just $ distanceBetweenPPointsWithErr (pPointAndErrOf node1) (intersectionOf (outAndErrOf node1) (outAndErrOf node2))
+        Just $ distanceBetweenPPointsWithErr (cPPointAndErrOf node1) (intersectionOf (outAndErrOf node1) (outAndErrOf node2))
                `max`
-               distanceBetweenPPointsWithErr (pPointAndErrOf node2) (intersectionOf (outAndErrOf node1) (outAndErrOf node2))
+               distanceBetweenPPointsWithErr (cPPointAndErrOf node2) (intersectionOf (outAndErrOf node1) (outAndErrOf node2))
       | otherwise = Nothing
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Bool
@@ -820,5 +820,5 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
                                        && not (dist2 <= ulpVal dist2Err)
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
-        (dist1, (_,_, dist1Err)) = distance2PP (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) (pPointAndErrOf node1)
-        (dist2, (_,_, dist2Err)) = distance2PP (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) (pPointAndErrOf node2)
+        (dist1, (_,_, dist1Err)) = distance2PP (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) (cPPointAndErrOf node1)
+        (dist2, (_,_, dist2Err)) = distance2PP (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) (cPPointAndErrOf node2)

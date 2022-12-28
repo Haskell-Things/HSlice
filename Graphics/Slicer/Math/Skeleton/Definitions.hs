@@ -29,7 +29,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, sortedPLinesWithErr, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), ($), (<$>), (==), (/=), (||), (<>), (<), (*), (&&), any, error, fst, mempty, not, otherwise, show)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), ($), (<$>), (==), (/=), (||), (<>), (<), (*), (&&), any, error, fst, mempty, not, otherwise, show, snd)
 
 import Prelude as PL (head, last)
 
@@ -57,7 +57,7 @@ import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersect
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), CPPoint2(CPPoint2), PIntersection(IntersectsIn), PLine2(PLine2), PLine2Err, Pointable(canPoint, pPointOf, ePointOf, errOfPPoint), PPoint2(PPoint2), eToPL, eToPP, flipL, outAndErrOf, plinesIntersectIn, pLineIsLeft, pToEP, vecOfP)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), CPPoint2, PIntersection(IntersectsIn), PLine2(PLine2), PLine2Err, Pointable(canPoint, cPPointOf, ePointOf, errOfPPoint), PPoint2Err, eToPL, eToPP, flipL, outAndErrOf, plinesIntersectIn, pLineIsLeft, pToEP)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -86,8 +86,7 @@ instance Pointable ENode where
   canPoint _ = True
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
   errOfPPoint _ = mempty
-  -- FIXME: this causes double canonicalization.
-  pPointOf a = PPoint2 $ vecOfP $ eToPP $ ePointOf a
+  cPPointOf a = eToPP $ ePointOf a
 
 -- | A point in our straight skeleton where arcs intersect, resulting in the creation of another arc.
 data INode = INode
@@ -122,12 +121,14 @@ instance Pointable INode where
     where
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> not $ noIntersection pl1 pl2) $ getPairs pLines
   -- Just convert our resolved point.
-  ePointOf a = fst $ pToEP $ pPointOf a
-  -- FIXME: implement this properly.
-  errOfPPoint _ = mempty
-  -- Since an INode does not contain a point, we have to attempt to resolve one instead.
-  -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? maybe a pair that is at as close as possible to a right angle?
-  pPointOf iNode
+  ePointOf a = fst $ pToEP $ fst $ cPPointAndErrOfINode a
+  cPPointOf a = fst $ cPPointAndErrOfINode a
+  errOfPPoint a = snd $ cPPointAndErrOfINode a
+
+-- Since an INode does not contain a point, we have to attempt to resolve one instead.
+-- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? maybe a pair that is at as close as possible to a right angle?
+cPPointAndErrOfINode :: INode -> (CPPoint2, PPoint2Err)
+cPPointAndErrOfINode iNode
     | allPointsSame = case results of
                         [] -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
                         l -> PL.head l
@@ -140,7 +141,7 @@ instance Pointable INode where
       allPointsSame = intersectionsAtSamePoint ((\(Slist l _) -> l) $ allPLinesOfINode iNode)
       intersectionsOfPairs (Slist pLines _) = mapMaybe (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
         where
-          saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
+          saneIntersect (IntersectsIn p (_,_, pErr)) = Just (p, pErr)
           saneIntersect _                  = Nothing
 
 -- | Get all of the PLines that come from, or exit an iNode.
@@ -184,9 +185,9 @@ instance Arcable Motorcycle where
 -- | A motorcycle always contains a point.
 instance Pointable Motorcycle where
   canPoint _ = True
+  cPPointOf a = eToPP $ ePointOf a
   ePointOf (Motorcycle (_, LineSeg point _) _ _) = point
   errOfPPoint _ = mempty
-  pPointOf a = (\(CPPoint2 v) -> PPoint2 v) $ eToPP $ ePointOf a
 
 -- | The motorcycles that are involved in dividing two cells.
 data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle, moreMotorcycles :: !(Slist Motorcycle) }
