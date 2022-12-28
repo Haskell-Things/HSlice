@@ -27,7 +27,6 @@ module Graphics.Slicer.Math.Lossy (
   eToPLine2,
   getFirstArc,
   join2PPoint2,
-  pLineFromEndpoints,
   pPointBetweenPPoints,
   pPointOnPerp,
   pToEPoint2,
@@ -40,7 +39,7 @@ import Prelude (($), fst, mempty)
 -- The numeric type in HSlice.
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
+import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 
 import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc)
 
@@ -75,19 +74,16 @@ eToPLine2 l1 = fst $ eToPL l1
 getFirstArc :: Point2 -> Point2 -> Point2 -> PLine2
 getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 
--- | a typed join function. join two points, returning a line.
+-- | A typed join function. join two points, returning a line.
 join2PPoint2 :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> PLine2
 join2PPoint2 pp1 pp2 = fst $ join2PP pp1 pp2
 
--- | Create a projective line from a pair of euclidian points.
-pLineFromEndpoints :: Point2 -> Point2 -> PLine2
-pLineFromEndpoints point1 point2 = fst $ eToPL $ makeLineSeg point1 point2
-
+-- | Convert a projective endpoint to a euclidian endpoint.
 pToEPoint2 :: (ProjectivePoint2 a) => a -> Point2
 pToEPoint2 pp = fst $ pToEP pp
 
 -- | Find a point somewhere along the line between the two points given.
---  requires two weights. the ratio of these weights determines the position of the found points, E.G: (2/3,1/3) is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint. weights can sum to anything.
+--   Requires two weights. the ratio of these weights determines the position of the found points, E.G: (2/3,1/3) is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint. weights can sum to anything.
 pPointBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> PPoint2
 pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ interpolate2PP startOfSeg stopOfSeg weight1 weight2
 
