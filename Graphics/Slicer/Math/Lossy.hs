@@ -26,7 +26,6 @@ module Graphics.Slicer.Math.Lossy (
   distancePPointToPLineWithErr,
   eToPLine2,
   getFirstArc,
-  join2CPPoint2,
   join2PPoint2,
   normalizePLine2,
   pLineFromEndpoints,
@@ -80,10 +79,6 @@ getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 -- | a typed join function. join two points, returning a line.
 join2PPoint2 :: (ProjectivePoint2 a) => a -> a -> PLine2
 join2PPoint2 pp1 pp2 = fst $ join2PP pp1 pp2
-
--- | a typed join function. join two points, returning a line.
-join2CPPoint2 :: (ProjectivePoint2 a) => a -> a -> PLine2
-join2CPPoint2 pp1 pp2 = fst $ join2PP pp1 pp2
 
 -- | Normalize a PLine2.
 normalizePLine2 :: (ProjectiveLine2 a) => a -> NPLine2
