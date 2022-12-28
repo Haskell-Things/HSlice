@@ -27,7 +27,6 @@ module Graphics.Slicer.Math.Lossy (
   eToPLine2,
   getFirstArc,
   join2PPoint2,
-  normalizePLine2,
   pLineFromEndpoints,
   pPointBetweenPPoints,
   pPointOnPerp,
@@ -45,7 +44,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, Point2, makeLineSeg)
 
 import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, NPLine2, PLine2, PLine2Err, PPoint2, PPoint2Err, ProjectiveLine2, ProjectivePoint2, canonicalizeP, distance2PP, distancePPToPL, eToPL, interpolate2PP, join2PP, normalizeL, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (CPPoint2, PLine2, PLine2Err, PPoint2, PPoint2Err, ProjectiveLine2, ProjectivePoint2, canonicalizeP, distance2PP, distancePPToPL, eToPL, interpolate2PP, join2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
 -- | canonicalize a euclidian point.
 canonicalizePPoint2 :: PPoint2 -> CPPoint2
@@ -79,10 +78,6 @@ getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 -- | a typed join function. join two points, returning a line.
 join2PPoint2 :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> PLine2
 join2PPoint2 pp1 pp2 = fst $ join2PP pp1 pp2
-
--- | Normalize a PLine2.
-normalizePLine2 :: (ProjectiveLine2 a) => a -> NPLine2
-normalizePLine2 pl = fst $ normalizeL pl
 
 -- | Create a projective line from a pair of euclidian points.
 pLineFromEndpoints :: Point2 -> Point2 -> PLine2
