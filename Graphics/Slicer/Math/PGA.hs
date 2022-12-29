@@ -40,7 +40,7 @@ module Graphics.Slicer.Math.PGA(
       canPoint,
       cPPointOf,
       ePointOf,
-      errOfPPoint
+      errOfCPPoint
       ),
   PPoint2(PPoint2),
   PPoint2Err,
@@ -49,7 +49,8 @@ module Graphics.Slicer.Math.PGA(
       vecOfL
       ),
   ProjectivePoint2(
-      canonicalizeP
+      canonicalizeP,
+      vecOfP
       ),
   angleBetween2PL,
   canonicalizedIntersectionOf2PL,
@@ -78,8 +79,7 @@ module Graphics.Slicer.Math.PGA(
   pPointsOnSameSideOfPLine,
   pToEP,
   translateL,
-  translateRotatePPoint2WithErr,
-  vecOfP
+  translateRotatePPoint2WithErr
   ) where
 
 import Prelude (Bool, Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (-), (>=), (&&), (<$>), (>), (<=), (+), (/), (||), (<), abs, cos, error, negate, otherwise, realToFrac, signum, sin)
@@ -305,14 +305,14 @@ class (Show a) => Pointable a where
   -- | Get a euclidian representation of this point.
   ePointOf :: a -> Point2
   -- | If the point is not a native euclidian point, the error generated while converting from a projective form. otherwise mempty.
-  errOfPPoint :: a -> PPoint2Err
+  errOfCPPoint :: a -> PPoint2Err
   -- | Get a canonicalized projective representation of this point.
   cPPointOf :: a -> CPPoint2
 
 -- | If the given node can be resolved to a point, return it, along with it's error quotent.
 cPPointAndErrOf :: (Pointable a) => a -> (CPPoint2, PPoint2Err)
 cPPointAndErrOf node
-  | canPoint node = (cPPointOf node, errOfPPoint node)
+  | canPoint node = (cPPointOf node, errOfCPPoint node)
   | otherwise = error "not able to resolve node to a point."
 
 ----------------------------------------------------------

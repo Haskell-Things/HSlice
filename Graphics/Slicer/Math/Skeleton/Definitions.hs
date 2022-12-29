@@ -57,7 +57,7 @@ import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersect
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), CPPoint2, PIntersection(IntersectsIn), PLine2(PLine2), PLine2Err, Pointable(canPoint, cPPointOf, ePointOf, errOfPPoint), PPoint2Err, eToPL, eToPP, flipL, outAndErrOf, plinesIntersectIn, pLineIsLeft, pToEP)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), CPPoint2, PIntersection(IntersectsIn), PLine2(PLine2), PLine2Err, Pointable(canPoint, cPPointOf, ePointOf, errOfCPPoint), PPoint2Err, eToPL, eToPP, flipL, outAndErrOf, plinesIntersectIn, pLineIsLeft, pToEP)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -85,7 +85,7 @@ instance Arcable ENode where
 instance Pointable ENode where
   canPoint _ = True
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
-  errOfPPoint _ = mempty
+  errOfCPPoint _ = mempty
   cPPointOf a = eToPP $ ePointOf a
 
 -- | A point in our straight skeleton where arcs intersect, resulting in the creation of another arc.
@@ -123,7 +123,7 @@ instance Pointable INode where
   -- Just convert our resolved point.
   ePointOf a = fst $ pToEP $ fst $ cPPointAndErrOfINode a
   cPPointOf a = fst $ cPPointAndErrOfINode a
-  errOfPPoint a = snd $ cPPointAndErrOfINode a
+  errOfCPPoint a = snd $ cPPointAndErrOfINode a
 
 -- Since an INode does not contain a point, we have to attempt to resolve one instead.
 -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? maybe a pair that is at as close as possible to a right angle?
@@ -187,7 +187,7 @@ instance Pointable Motorcycle where
   canPoint _ = True
   cPPointOf a = eToPP $ ePointOf a
   ePointOf (Motorcycle (_, LineSeg point _) _ _) = point
-  errOfPPoint _ = mempty
+  errOfCPPoint _ = mempty
 
 -- | The motorcycles that are involved in dividing two cells.
 data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle, moreMotorcycles :: !(Slist Motorcycle) }
