@@ -16,7 +16,7 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
--- for adding Generic and NFData to our types.
+-- For adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
 -- For using Rounded flexibly.
@@ -67,7 +67,7 @@ module Graphics.Slicer.Math.PGA(
   intersect2PL,
   join2EP,
   join2PP,
-  makePPoint2,
+  makeCPPoint2,
   oppositeDirection,
   outAndErrOf,
   pLineErrAtPPoint,
@@ -496,12 +496,12 @@ combineConsecutiveLineSegs lines = case lines of
 euclidianToProjectivePoint2, eToPP :: Point2 -> ProjectivePoint
 euclidianToProjectivePoint2 (Point2 (x,y)) = res
   where
-    res = makePPoint2 x y
+    res = makeCPPoint2 x y
 eToPP = euclidianToProjectivePoint2
 
 -- | Create a canonical euclidian projective point from the given coordinates.
-makePPoint2 :: ℝ -> ℝ -> ProjectivePoint
-makePPoint2 x y = pPoint
+makeCPPoint2 :: ℝ -> ℝ -> ProjectivePoint
+makeCPPoint2 x y = pPoint
   where
     pPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1])]
 
