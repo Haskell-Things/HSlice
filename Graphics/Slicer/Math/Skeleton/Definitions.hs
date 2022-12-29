@@ -29,7 +29,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), not, otherwise, ($), (<$>), (==), (/=), error, (&&), any, fst, (||), (<>), show, (<), (*), mempty)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), not, otherwise, ($), (<$>), (==), (/=), error, (&&), any, fst, (||), (<>), show, (<), (*), snd, mempty)
 
 import Prelude as PL (head, last)
 
@@ -57,7 +57,7 @@ import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersect
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), ProjectiveLine(PLine2), ProjectivePoint(CPPoint2,PPoint2), eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), PPoint2Err, ProjectiveLine(PLine2), ProjectivePoint, eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -123,25 +123,31 @@ instance Pointable INode where
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> not $ noIntersection pl1 pl2) $ getPairs pLines
   -- Since an INode does not contain a point, we have to attempt to resolve one instead.
   -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? maybe a pair that is at as close as possible to a right angle?
-  cPPointOf iNode
-    | allPointsSame = case results of
-                        [] -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
-                        l -> PL.head l
-    -- Allow the pebbles to vote.
-    | otherwise = case safeLast (slist $ count_ results) of
-                    Nothing -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
-                    (Just a) -> fst a
-    where
-      results = intersectionsOfPairs $ allPLinesOfINode iNode
-      allPointsSame = intersectionsAtSamePoint ((\(Slist l _) -> l) $ allPLinesOfINode iNode)
-      intersectionsOfPairs (Slist pLines _) = mapMaybe (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
-        where
-          saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
-          saneIntersect _                  = Nothing
+  cPPointOf iNode = fst $ cPPointAndErrOfINode iNode
   -- Just convert our resolved point.
   ePointOf a = fst $ pToEP $ cPPointOf a
   -- FIXME: implement this properly.
-  errOfCPPoint _ = mempty
+  errOfCPPoint iNode = snd $ cPPointAndErrOfINode iNode
+
+-- Since an INode does not contain a point, we have to attempt to resolve one instead.
+-- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? maybe a pair that is at as close as possible to a right angle?
+cPPointAndErrOfINode :: INode -> (ProjectivePoint, PPoint2Err)
+cPPointAndErrOfINode iNode
+  | allPointsSame = case results of
+                      [] -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
+                      l -> PL.head l
+  -- Allow the pebbles to vote.
+  | otherwise = case safeLast (slist $ count_ results) of
+                  Nothing -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
+                  (Just a) -> fst a
+  where
+    results = intersectionsOfPairs $ allPLinesOfINode iNode
+    allPointsSame = intersectionsAtSamePoint ((\(Slist l _) -> l) $ allPLinesOfINode iNode)
+    intersectionsOfPairs (Slist pLines _) = mapMaybe (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
+      where
+        saneIntersect (IntersectsIn p (_,_, pErr)) = Just $ (p, pErr)
+        saneIntersect _                  = Nothing
+
 
 -- | Get all of the PLines that come from, or exit an iNode.
 allPLinesOfINode :: INode -> Slist (ProjectiveLine, PLine2Err)

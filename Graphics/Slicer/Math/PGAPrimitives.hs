@@ -61,7 +61,7 @@ module Graphics.Slicer.Math.PGAPrimitives
     yIntercept
   ) where
 
-import Prelude(Bool(False), Eq((==),(/=)), Monoid(mempty), Ord, Semigroup((<>)), Show(show), (||), (&&), ($), (+), (*), (/), (<$>), (-), abs, error, filter, fst, negate, otherwise, realToFrac, snd, sqrt)
+import Prelude(Bool(False), Eq((==),(/=)), Monoid(mempty), Ord(compare), Ordering(EQ), Semigroup((<>)), Show(show), (||), (&&), ($), (+), (*), (/), (<$>), (-), abs, error, filter, fst, negate, otherwise, realToFrac, snd, sqrt)
 
 import Control.DeepSeq (NFData)
 
@@ -563,6 +563,10 @@ instance Semigroup PPoint2Err where
 
 instance Monoid PPoint2Err where
   mempty = PPoint2Err mempty mempty mempty mempty mempty mempty mempty
+
+-- | A fake ORD instance; so when we are sorting (PPoint2, PPoint2Err) pairs, the latter doesn't matter.
+instance Ord PPoint2Err where
+  compare _ _ = EQ
 
 class (Show a) => ProjectivePoint2 a where
   canonicalizeP :: a -> (ProjectivePoint, PPoint2Err)
