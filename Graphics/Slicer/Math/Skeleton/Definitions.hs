@@ -301,16 +301,16 @@ makeINode pLines maybeOut = case pLines of
                               (first:second:more) -> INode first second (slist more) maybeOut
 
 -- | Get the output of the given nodetree. fails if the nodetree has no output.
-finalPLine :: NodeTree -> ProjectiveLine
+finalPLine :: NodeTree -> (ProjectiveLine, PLine2Err)
 finalPLine (NodeTree (ENodeSet (Slist [(firstENode,moreENodes)] _)) iNodeSet)
   | hasNoINodes iNodeSet = if isEmpty moreENodes
-                           then outOf firstENode
+                           then outAndErrOf firstENode
                            else error "cannot have final PLine of NodeTree with more than one ENode, and no generations!\n"
-  | hasArc (finalINodeOf iNodeSet) = outOf $ finalINodeOf iNodeSet
+  | hasArc (finalINodeOf iNodeSet) = outAndErrOf $ finalINodeOf iNodeSet
   | otherwise = error "has inodes, has no out, has enodes?"
 finalPLine (NodeTree _ iNodeSet)
   | hasNoINodes iNodeSet = error "cannot have final PLine of a NodeTree that is completely empty!"
-  | hasArc (finalINodeOf iNodeSet) = outOf $ finalINodeOf iNodeSet
+  | hasArc (finalINodeOf iNodeSet) = outAndErrOf $ finalINodeOf iNodeSet
   | otherwise = error "has inodes, has no out, has no enodes?"
 
 -- | Get the last output PLine of a NodeTree, if there is one. otherwise, Nothing.

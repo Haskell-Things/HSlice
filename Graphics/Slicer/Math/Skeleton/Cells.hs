@@ -26,7 +26,7 @@
 --    a contour into cells.
 module Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason(INodeCrossesDivide), findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell, nodeTreesDoNotOverlap, addNodeTreesAlongDivide, nodeTreesFromDivision, startOfDivide, endOfDivide, findRemainder, createCellFromStraightWalls, gatherLineSegsPreceedingDivide, startBeforeEnd) where
 
-import Prelude (Bool(False), Ordering(LT, GT, EQ), Show, (*), ($), (<$>), (==), (<>), (&&), (/=), (||), (<), (<=), compare, concat, elem, error, filter, fst, mempty, null, otherwise, show, snd)
+import Prelude (Bool(False), Ordering(LT, GT, EQ), Show, (*), ($), (<$>), (==), (<>), (&&), (/=), (||), (<), (<=), compare, concat, elem, error, filter, fst, null, otherwise, show, snd)
 
 import Data.Either(Either(Left, Right))
 
@@ -404,8 +404,8 @@ nodeTreesDoNotOverlap nodeTree1 nodeTree2 cellDivide@(CellDivide motorcycles1 _)
                                                              (DividingMotorcycles m (Slist _ 0)) -> d < ulpVal dErr
                                                                where
                                                                  (d, (_,_, dErr)) = distance2PP point1 point2
-                                                                 point1 = fromMaybe (error "no outArc?") $ outputIntersectsPLineAt m (finalPLine nt1, mempty)
-                                                                 point2 = fromMaybe (error "no outArc?") $ outputIntersectsPLineAt m (finalPLine nt2, mempty)
+                                                                 point1 = fromMaybe (error "no outArc?") $ outputIntersectsPLineAt m (finalPLine nt1)
+                                                                 point2 = fromMaybe (error "no outArc?") $ outputIntersectsPLineAt m (finalPLine nt2)
                                                              (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet check outpoint intersections of more than one motorcycle."
 
 -- | Given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.

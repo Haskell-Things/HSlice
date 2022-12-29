@@ -173,14 +173,14 @@ mergeNodeTrees nodeTrees =
       where
         nodeTreesInOrder myNodeTree1@(NodeTree myENodeSet1 _) myNodeTree2@(NodeTree myENodeSet2 _)
           | isOneSide myENodeSet1 && isOneSide myENodeSet2 = case compareSides (firstSide myENodeSet1) (firstSide myENodeSet2) of
-                                                               FirstLast -> [[makeINode [finalPLine myNodeTree1, finalPLine myNodeTree2] Nothing]]
-                                                               LastFirst -> [[makeINode [finalPLine myNodeTree2, finalPLine myNodeTree1] Nothing]]
+                                                               FirstLast -> [[makeINode [fst $ finalPLine myNodeTree1, fst $ finalPLine myNodeTree2] Nothing]]
+                                                               LastFirst -> [[makeINode [fst $ finalPLine myNodeTree2, fst $ finalPLine myNodeTree1] Nothing]]
                                                                NoMatch -> error "failed to connect"
           | otherwise = error "multi-sided ENodeSets not yet supported."
         nodeTreeAndInsInOrder myNodeTree1@(NodeTree myENodeSet1 _) myNodeTree2@(NodeTree myENodeSet2 _)
           | isOneSide myENodeSet1 && isOneSide myENodeSet2 = case compareSides (firstSide myENodeSet1) (firstSide myENodeSet2) of
-                                                               FirstLast -> [[makeINode (indexPLinesTo (outOf $ firstENodeOf myNodeTree2) $ sortedPLines $ insOf (finalINodeOf iNodeSet2) <> [finalPLine myNodeTree1]) Nothing]]
-                                                               LastFirst -> [[makeINode (indexPLinesTo (outOf $ firstENodeOf myNodeTree1) $ sortedPLines $ finalPLine myNodeTree1 : insOf (finalINodeOf iNodeSet2)) Nothing]]
+                                                               FirstLast -> [[makeINode (indexPLinesTo (outOf $ firstENodeOf myNodeTree2) $ sortedPLines $ insOf (finalINodeOf iNodeSet2) <> [fst $ finalPLine myNodeTree1]) Nothing]]
+                                                               LastFirst -> [[makeINode (indexPLinesTo (outOf $ firstENodeOf myNodeTree1) $ sortedPLines $ fst (finalPLine myNodeTree1) : insOf (finalINodeOf iNodeSet2)) Nothing]]
                                                                NoMatch -> error "failed to connect"
           | otherwise = error "multi-sided ENodeSets not yet supported."
         mergeINodeSetsInOrder (NodeTree myENodeSet1 myINodeSet1) (NodeTree myENodeSet2 myINodeSet2)
