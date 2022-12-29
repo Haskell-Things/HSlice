@@ -22,7 +22,7 @@
 
 module Graphics.Slicer.Math.Arcs (getFirstArc, getInsideArc, getOutsideArc, towardIntersection) where
 
-import Prelude (Bool, ($), (>), (<=), (<>), (==), (&&), (||), error, mempty, otherwise, show)
+import Prelude (Bool, ($), (<>), (==), (>), (<=), (&&), (||), error, mempty, otherwise, show)
 
 import Graphics.Slicer.Math.Definitions (Point2, addPoints, distance, makeLineSeg, scalePoint)
 

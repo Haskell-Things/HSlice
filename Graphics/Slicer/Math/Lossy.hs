@@ -66,15 +66,16 @@ distancePPointToPLineWithErr point line = fst $ distancePPToPL point line
 eToPLine2 :: LineSeg -> ProjectiveLine
 eToPLine2 l1 = fst $ eToPL l1
 
--- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
+-- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of a line segment from p1 to p2, and a line segment from p3 to p2.
 getFirstArc :: Point2 -> Point2 -> Point2 -> ProjectiveLine
 getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 
+-- | Get a PLine in the direction of the out of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
 getOutsideArc :: (ProjectivePoint, PPoint2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectivePoint, PPoint2Err) -> (ProjectiveLine, PLine2Err) -> ProjectiveLine
 getOutsideArc a b c d = fst $ Arcs.getOutsideArc a b c d
 
 -- | Find a point somewhere along the line between the two points given.
---  requires two weights. the ratio of these weights determines the position of the found points, E.G: (2/3,1/3) is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint. weights can sum to anything.
+--   Requires two weights. the ratio of these weights determines the position of the found points, E.G: (2/3,1/3) is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint. weights can sum to anything.
 pPointBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> ProjectivePoint
 pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ interpolate2PP startOfSeg stopOfSeg weight1 weight2
 
@@ -85,7 +86,7 @@ pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
 pToEPoint2 :: (ProjectivePoint2 a) => a -> Point2
 pToEPoint2 ppoint = fst $ pToEP ppoint
 
--- | translate a ProjectiveLine along it's perpendicular bisector.
+-- | Translate a projective line along it's perpendicular bisector.
 translatePLine2 :: (ProjectiveLine2 a) => a -> ℝ -> ProjectiveLine
 translatePLine2 pline distance = fst $ translateL pline distance
 

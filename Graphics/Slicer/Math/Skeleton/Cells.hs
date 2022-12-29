@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf, isAntiColl
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distanceBetweenPPointsWithErr, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, pPointOf), ProjectivePoint, angleBetween2PL, distance2PP, eToPL, eToPP, join2PP, outAndErrOf, pPointAndErrOf)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, cPPointOf), ProjectivePoint, angleBetween2PL, cPPointAndErrOf, distance2PP, eToPL, eToPP, join2PP, outAndErrOf)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving Show
@@ -125,8 +125,8 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                      then WithENode oneNode
                      else WithLineSeg $ fst $ motorcycleIntersectsAt myContour myMotorcycle
           where
-            cMotorcyclePoint = pPointAndErrOf myMotorcycle
-            cNodePoint = pPointAndErrOf oneNode
+            cMotorcyclePoint = cPPointAndErrOf myMotorcycle
+            cNodePoint = cPPointAndErrOf oneNode
             motorcycleENodeDistance = distanceBetweenPPointsWithErr cMotorcyclePoint cNodePoint
             motorcycleLineSegDistance = distanceBetweenPPointsWithErr cMotorcyclePoint $ fromMaybe (error "no outArc?") $ outputIntersectsPLineAt myMotorcycle (eToPL $ fst $ motorcycleIntersectsAt myContour myMotorcycle)
         (_:_) -> error "more than one opposing exterior node. cannot yet handle this situation."
@@ -366,7 +366,7 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
         (_:_) -> NodeTree eNodes $ INodeSet $ init gens <> one [makeINode (nub $ insOf $ lastINodeOf iNodeGens) (Just $ (\(res, (_,_,resErr)) -> (res, resErr)) $ join2PP (finalPointOfNodeTree nodeTree) myCrossover)]
     -- | find the last resolvable point in a NodeTree
     finalPointOfNodeTree (NodeTree _ iNodeGens)
-      | canPoint (lastINodeOf iNodeGens) = pPointOf $ lastINodeOf iNodeGens
+      | canPoint (lastINodeOf iNodeGens) = cPPointOf $ lastINodeOf iNodeGens
       | otherwise = error "last INode not pointable?"
     crossoverPoint = case division of
                        (CellDivide (DividingMotorcycles motorcycle1 (Slist [] _)) target) -> -- no eNode, and no opposing motorcycle.

@@ -25,7 +25,7 @@ module Graphics.Slicer.Math.ContourIntersections (
   getMotorcycleSegSetIntersections
   ) where
 
-import Prelude (Either(Left, Right), Int, Show(show), (<), (*), (&&), (<>), ($), (<$>), (/=), error, fst, length, odd, otherwise, zip)
+import Prelude (Either(Left, Right), Int, Show(show), (<$>), (<>), ($), (/=), (&&), (<), (*), error, fst, length, odd, otherwise, zip)
 
 import Data.List (filter)
 

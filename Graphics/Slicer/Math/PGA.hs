@@ -19,7 +19,7 @@
 -- for adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
--- For using rounded flexibly.
+-- For using Rounded flexibly.
 {-# LANGUAGE DataKinds #-}
 
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
@@ -35,9 +35,9 @@ module Graphics.Slicer.Math.PGA(
   PLine2Err(PLine2Err),
   Pointable(
       canPoint,
+      cPPointOf,
       ePointOf,
-      errOfPPoint,
-      pPointOf
+      errOfCPPoint
       ),
   PPoint2Err,
   ProjectiveLine(PLine2, NPLine2),
@@ -53,6 +53,7 @@ module Graphics.Slicer.Math.PGA(
   angleBetween2PL,
   canonicalizedIntersectionOf2PL,
   combineConsecutiveLineSegs,
+  cPPointAndErrOf,
   distancePPToPL,
   distance2PL,
   distance2PP,
@@ -73,7 +74,6 @@ module Graphics.Slicer.Math.PGA(
   pLineIntersectsLineSeg,
   pLineIsLeft,
   plinesIntersectIn,
-  pPointAndErrOf,
   pPointOnPerpWithErr,
   pPointsOnSameSideOfPLine,
   pToEP,
@@ -303,17 +303,17 @@ outAndErrOf a
 class (Show a) => Pointable a where
   -- | Can this node be resolved into a point in 2d space?
   canPoint :: a -> Bool
+  -- | Get a canonicalized projective representation of this point.
+  cPPointOf :: a -> ProjectivePoint
   -- | Get a euclidian representation of this point.
   ePointOf :: a -> Point2
   -- | If the point is not a native euclidian point, the error generated while converting from a projective form. otherwise mempty.
-  errOfPPoint :: a -> PPoint2Err
-  -- | Get a projective representation of this point.
-  pPointOf :: a -> ProjectivePoint
+  errOfCPPoint :: a -> PPoint2Err
 
 -- | If the given node can be resolved to a point, return it, along with it's error quotent.
-pPointAndErrOf :: (Pointable a) => a -> (ProjectivePoint, PPoint2Err)
-pPointAndErrOf node
-  | canPoint node = (pPointOf node, errOfPPoint node)
+cPPointAndErrOf :: (Pointable a) => a -> (ProjectivePoint, PPoint2Err)
+cPPointAndErrOf node
+  | canPoint node = (cPPointOf node, errOfCPPoint node)
   | otherwise = error "not able to resolve node to a point."
 
 ----------------------------------------------------------

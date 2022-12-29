@@ -91,7 +91,7 @@ import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
 import Graphics.Slicer.Math.Lossy (pToEPoint2, translateRotatePPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, eToPL, eToPP, flipL, join2EP, pPointOf)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, eToPL, eToPP, flipL, join2EP, cPPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode)
 
@@ -404,7 +404,7 @@ randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [fst maybeFlippedp
     (pl2, pl2Err) = (flipL ls, lsErr)
       where
         (ls, lsErr) = eToPL $ getLastLineSeg eNode
-    intersectionPPoint = pPointOf eNode
+    intersectionPPoint = cPPointOf eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
     pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
     pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)

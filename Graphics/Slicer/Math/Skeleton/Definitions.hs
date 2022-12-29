@@ -57,7 +57,7 @@ import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersect
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, errOfPPoint, pPointOf, ePointOf), ProjectiveLine(PLine2), ProjectivePoint(CPPoint2,PPoint2), eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), ProjectiveLine(PLine2), ProjectivePoint(CPPoint2,PPoint2), eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -84,9 +84,9 @@ instance Arcable ENode where
 -- | An ENode is always resolvable to a point.
 instance Pointable ENode where
   canPoint _ = True
+  cPPointOf a = eToPP $ ePointOf a
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
-  errOfPPoint _ = mempty
-  pPointOf a = eToPP $ ePointOf a
+  errOfCPPoint _ = mempty
 
 -- | A point in our straight skeleton where arcs intersect, resulting in the creation of another arc.
 -- FIXME: input arcs should have error quotents.
@@ -121,13 +121,9 @@ instance Pointable INode where
   canPoint iNode = hasIntersectingPairs (allPLinesOfINode iNode)
     where
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> not $ noIntersection pl1 pl2) $ getPairs pLines
-  -- Just convert our resolved point.
-  ePointOf a = fst $ pToEP $ pPointOf a
-  -- FIXME: implement this properly.
-  errOfPPoint _ = mempty
   -- Since an INode does not contain a point, we have to attempt to resolve one instead.
   -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? maybe a pair that is at as close as possible to a right angle?
-  pPointOf iNode
+  cPPointOf iNode
     | allPointsSame = case results of
                         [] -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
                         l -> PL.head l
@@ -142,6 +138,10 @@ instance Pointable INode where
         where
           saneIntersect (IntersectsIn a _) = Just $ (\(CPPoint2 v) -> PPoint2 v) a
           saneIntersect _                  = Nothing
+  -- Just convert our resolved point.
+  ePointOf a = fst $ pToEP $ cPPointOf a
+  -- FIXME: implement this properly.
+  errOfCPPoint _ = mempty
 
 -- | Get all of the PLines that come from, or exit an iNode.
 allPLinesOfINode :: INode -> Slist (ProjectiveLine, PLine2Err)
@@ -184,9 +184,9 @@ instance Arcable Motorcycle where
 -- | A motorcycle always contains a point.
 instance Pointable Motorcycle where
   canPoint _ = True
+  cPPointOf a = eToPP $ ePointOf a
   ePointOf (Motorcycle (_, LineSeg point _) _ _) = point
-  errOfPPoint _ = mempty
-  pPointOf a = eToPP $ ePointOf a
+  errOfCPPoint _ = mempty
 
 -- | The motorcycles that are involved in dividing two cells.
 data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle, moreMotorcycles :: !(Slist Motorcycle) }
@@ -215,7 +215,7 @@ data MotorcycleIntersection =
 newtype RemainingContour = RemainingContour (Slist (Slist LineSeg, [CellDivide]))
 
 -- | The exterior nodes of a whole contour or just a cell of a contour.
-newtype ENodeSet = ENodeSet { _eNodeSides :: Slist (ENode,Slist ENode) }
+newtype ENodeSet = ENodeSet { _eNodeSides :: Slist (ENode, Slist ENode) }
   deriving Eq
   deriving stock Show
 

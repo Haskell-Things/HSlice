@@ -34,9 +34,9 @@ module Graphics.Slicer.Math.Intersections (
   outputIntersectsPLineAt
   ) where
 
-import Prelude (Bool(True), ($), (<), (<=), (<>), (==), (||), (&&), (<$>), and, error, otherwise, show)
+import Prelude (Bool(True), (<>), ($), (<), (||), (==), (&&), (<$>), (<=), and, error, otherwise, show)
 
-import Data.Either (Either(Left, Right), rights, lefts)
+import Data.Either (Either(Left, Right), lefts, rights)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, isJust, isNothing)
 
