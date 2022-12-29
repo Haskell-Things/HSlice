@@ -91,7 +91,7 @@ pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ interpolate2PP
 pPointOnPerp :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> PPoint2
 pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
 
--- | translate a PLine2 along it's perpendicular bisector.
+-- | translate a projective line along it's perpendicular bisector.
 translatePLine2 :: (ProjectiveLine2 a) => a -> ℝ -> PLine2
 translatePLine2 pline distance = fst $ translateL pline distance
 

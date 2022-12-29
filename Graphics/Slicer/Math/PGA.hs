@@ -16,10 +16,10 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
--- for adding Generic and NFData to our types.
+-- For adding Generic and NFData to our types.
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
--- for using Rounded flexibly.
+-- For using Rounded flexibly.
 {-# LANGUAGE DataKinds #-}
 
 -- | The purpose of this file is to hold projective geometric algebraic arithmatic. It defines a 2D PGA with mixed linear components.
