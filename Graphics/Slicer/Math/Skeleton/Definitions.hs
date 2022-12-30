@@ -121,12 +121,9 @@ instance Pointable INode where
   canPoint iNode = hasIntersectingPairs (allPLinesOfINode iNode)
     where
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> not $ noIntersection pl1 pl2) $ getPairs pLines
-  -- Since an INode does not contain a point, we have to attempt to resolve one instead.
-  -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? maybe a pair that is at as close as possible to a right angle?
   cPPointOf iNode = fst $ cPPointAndErrOfINode iNode
   -- Just convert our resolved point.
   ePointOf a = fst $ pToEP $ cPPointOf a
-  -- FIXME: implement this properly.
   errOfCPPoint iNode = snd $ cPPointAndErrOfINode iNode
 
 -- Since an INode does not contain a point, we have to attempt to resolve one instead.
@@ -145,9 +142,8 @@ cPPointAndErrOfINode iNode
     allPointsSame = intersectionsAtSamePoint ((\(Slist l _) -> l) $ allPLinesOfINode iNode)
     intersectionsOfPairs (Slist pLines _) = mapMaybe (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
       where
-        saneIntersect (IntersectsIn p (_,_, pErr)) = Just $ (p, pErr)
+        saneIntersect (IntersectsIn p (_,_, pErr)) = Just (p, pErr)
         saneIntersect _                  = Nothing
-
 
 -- | Get all of the PLines that come from, or exit an iNode.
 allPLinesOfINode :: INode -> Slist (ProjectiveLine, PLine2Err)
@@ -295,7 +291,7 @@ linePairs contour = rotateRight $ mapWithNeighbors (\a b c -> (handleLineSegErro
 makeINode :: [ProjectiveLine] -> Maybe (ProjectiveLine,PLine2Err) -> INode
 makeINode pLines maybeOut = case pLines of
                               [] -> error "tried to construct a broken INode"
-                              [onePLine] -> error $ "tried to construct a broken INode from one ProjectiveLine: " <> show onePLine <> "\n"
+                              [onePLine] -> error $ "tried to construct a broken INode from one input: " <> show onePLine <> "\n"
                               [first,second] -> INode first second (slist []) maybeOut
                               (first:second:more) -> INode first second (slist more) maybeOut
 

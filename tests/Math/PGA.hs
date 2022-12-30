@@ -1311,7 +1311,7 @@ prop_NormPLineIsPLine x y dx dy = fst (normalizeL $ randomPLine x y dx dy)
 
 prop_PLinesIntersectAtOrigin :: NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> Bool
 prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
-  | foundDistance < errSum = True
+  | foundDistance <= ulpVal distanceErr = True
   | otherwise = error $ "failed to find intersection at origin for:\n"
                       <> show randomPLine1 <> "\n"
                       <> show randomPLine2 <> "\n"
@@ -1322,9 +1322,6 @@ prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
     (intersectionPPoint2, (_, _, intersectionErr)) = intersect2PL pLine1 pLine2
     randomPLine1@(pLine1,_) = randomPLineThroughOrigin x y
     randomPLine2@(pLine2,_) = randomPLineThroughOrigin x2 y2
-    errSum = ulpVal $ pLineErrAtPPoint randomPLine1 originPPoint2
-                   <> pLineErrAtPPoint randomPLine2 originPPoint2
-                   <> distanceErr
     x,x2,y2 :: ℝ
     x = coerce rawX
     x2
