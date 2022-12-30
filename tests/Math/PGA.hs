@@ -60,7 +60,7 @@ import Graphics.Slicer.Math.Definitions(Point2(Point2), LineSeg(LineSeg), mapWit
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
-import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, intersectionBetween, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, intersectionBetween, isCollinear, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToPLine2, getFirstArc, getOutsideArc, pPointOnPerp, translateRotatePPoint2)
 
@@ -364,6 +364,12 @@ prop_TwoOverlappingLinesScalar x y dx dy = scalarPart (vecOfL (randomPLine x y d
 -- | A property test for making sure that there is never a vector result of the big-dot product of two identical PLines.
 prop_TwoOverlappingLinesVector :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Expectation
 prop_TwoOverlappingLinesVector x y dx dy = vectorPart (vecOfL (randomPLine x y dx dy) • vecOfL (randomPLine x y dx dy)) --> GVec []
+
+-- | A property test for: a pline is sameDirection as itsself.
+prop_PLineSameDirectionID :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
+prop_PLineSameDirectionID x y dx dy = isCollinear pLine pLine
+  where
+    pLine = randomPLineWithErr x y dx dy
 
 proj2DGeomAlgSpec :: Spec
 proj2DGeomAlgSpec = do
@@ -1467,6 +1473,8 @@ facetSpec = do
       property prop_LineSegWithinErrRange
     it "a normalized line normalized again is approximately itsself" $
       property prop_NormPLineIsPLine
+    it "a projective line is colinear with itsself" $
+      property prop_PLineSameDirectionID
   describe "Stability (Intersections)" $ do
     it "finds that the intersection of two PLines at the origin are within the returned UlpSum" $
       property prop_PLinesIntersectAtOrigin
