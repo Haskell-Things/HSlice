@@ -46,7 +46,7 @@ import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkele
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, findENodeByOutput, findINodeByOutput, firstSegOf, lastENodeOf, firstENodeOf, pathFirst, pathLast)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, Arcable(hasArc, outOf), ePointOf, outAndErrOf)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, Arcable(hasArc, outOf), ePointOf, outAndErrOf, plinesIntersectIn, sameDirection)
 
 --------------------------------------------------------------------
 -------------------------- Face Placement --------------------------
@@ -176,7 +176,15 @@ getFaces iNodeSet@(INodeSet myGenerations) eNodes iNode = findFacesRecurse iNode
          | isENode eNodes onePLine                         = [] -- don't climb down an enode, you're done
          | hasArc myINode && isCollinear (outAndErrOf myINode) (onePLine, mempty)     = [] -- don't try to climb back up the tree
          | hasArc myINode && isCollinear (outAndErrOf myINode) (anotherPLine, mempty) = [] -- don't try to climb back up the tree
-         | len myGenerations == 0 = error $ "wtf!\n" <> show onePLine <> "\n" <> show eNodes <> "\n" <> show iNodeSet
+         | len myGenerations == 0 = error $ "wtf!\nonePLine: " <> show onePLine
+                                          <> "\nanotherPLine: " <> show anotherPLine
+                                          <> "\noutAndErrOf iNode: " <> show (outAndErrOf myINode)
+                                          <> "\noneIntersection: " <> show (plinesIntersectIn (onePLine, mempty) (outAndErrOf myINode))
+                                          <> "\noneSameDirection: " <> show (sameDirection onePLine $ outOf myINode)
+                                          <> "\nanotherIntersection: " <> show (plinesIntersectIn (anotherPLine, mempty) (outAndErrOf myINode))
+                                          <> "\nanotherSameDirection: " <> show (sameDirection anotherPLine $ outOf myINode)
+                                          <> "\neNodes: " <> show eNodes
+                                          <> "\niNodeSet: " <> show iNodeSet <> "\n"
          | otherwise = getFaces (ancestorsOf iNodeSet) eNodes $ firstINodeOfPLine iNodeSet eNodes onePLine
 
 -- | Create a face covering the space between two PLines with a single Face. Both PLines must be a part of the same INode.
