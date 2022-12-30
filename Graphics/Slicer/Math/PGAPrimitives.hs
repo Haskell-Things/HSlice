@@ -206,8 +206,10 @@ angleBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b 
 angleBetweenProjectiveLines line1 line2 = (scalarPart likeRes, resErr)
   where
     resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
-    -- FIXME: this returned ULPsum is wrong. actually try to interpret it.
+    -- FIXME: this returned ULPsum is wrong. actually try to interpret it. If you can get this to fail, add more repetitions, and pray really hard.
     ulpSum = sumErrVals likeMulErr <> sumErrVals likeAddErr
+          <> sumErrVals likeMulErr <> sumErrVals likeAddErr
+          <> sumErrVals likeMulErr <> sumErrVals likeAddErr
     (likeRes, (likeMulErr, likeAddErr)) = lv1 ⎣+ lv2
     lv1 = vecOfL $ forceBasisOfL npl1
     lv2 = vecOfL $ forceBasisOfL npl2
