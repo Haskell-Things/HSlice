@@ -57,7 +57,7 @@ import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersect
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), PPoint2Err, ProjectiveLine(PLine2), ProjectivePoint, eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), PPoint2Err, ProjectiveLine(PLine2), ProjectivePoint, eToPL, eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -246,7 +246,6 @@ instance Eq NodeTree where
 -- | A Spine component:
 --   Similar to a node, only without the in and out heirarchy. always connects to inArcs from a NodeTree. One per generation. allows us to build loops.
 newtype Spine = Spine { _spineArcs :: NonEmpty ProjectiveLine }
-  deriving newtype Eq
   deriving stock Show
 
 -- | The straight skeleton of a contour.
@@ -346,7 +345,7 @@ ancestorsOf (INodeSet generations)
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a ProjectiveLine bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe ProjectiveLine
 concavePLines seg1 seg2
-  | Just True == pLineIsLeft (eToPLine2 seg1, mempty) (eToPLine2 seg2, mempty) = Just $ PLine2 $ addVecPair pv1 pv2
+  | Just True == pLineIsLeft (eToPL seg1) (eToPL seg2) = Just $ PLine2 $ addVecPair pv1 pv2
   | otherwise                          = Nothing
   where
     (PLine2 pv1) = eToPLine2 seg1

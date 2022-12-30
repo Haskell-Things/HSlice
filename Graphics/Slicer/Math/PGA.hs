@@ -440,7 +440,7 @@ lineSegIntersectsLineSeg l1 l2
                <> "tfuzz2: " <> show tFuzz2 <> "\n"
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
-onSegment :: LineSeg -> (ProjectivePoint,PPoint2Err) -> Bool
+onSegment :: LineSeg -> (ProjectivePoint, PPoint2Err) -> Bool
 onSegment ls i =
      (startDistance <= startFudgeFactor)
   || (midDistance <= (lengthOfSegment/2) + midFudgeFactor)
@@ -501,9 +501,9 @@ eToPP = euclidianToProjectivePoint2
 
 -- | Create a canonical euclidian projective point from the given coordinates.
 makeCPPoint2 :: ℝ -> ℝ -> ProjectivePoint
-makeCPPoint2 x y = pPoint
+makeCPPoint2 x y = cPPoint
   where
-    pPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1])]
+    cPPoint = CPPoint2 $ GVec $ foldl' addValWithoutErr [GVal 1 (fromList [GEPlus 1, GEPlus 2])] [ GVal (negate x) (fromList [GEZero 1, GEPlus 2]), GVal y (fromList [GEZero 1, GEPlus 1])]
 
 -- | Reverse a vector. Really, take every value in it, and recompute it in the reverse order of the vectors (so instead of e0∧e1, e1∧e0). which has the effect of negating bi and tri-vectors.
 reverseGVec :: GVec -> GVec
