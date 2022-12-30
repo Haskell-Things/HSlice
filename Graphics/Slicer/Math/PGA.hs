@@ -215,7 +215,7 @@ sameDirection a b = res >= maxAngle
     -- ceiling value. a value bigger than maxAngle is considered to be going the same direction.
     maxAngle :: ℝ
     maxAngle = realToFrac (1 - ulpRaw resErr :: Rounded 'TowardInf ℝ)
-    (res, (_,_,resErr)) = angleBetween2PL a b
+    (res, (_,_, resErr)) = angleBetween2PL a b
 
 -- | A checker, to ensure two Projective Lines are going the opposite direction, and are parallel.
 oppositeDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
@@ -224,7 +224,7 @@ oppositeDirection a b = res <= minAngle
     -- floor value. a value smaller than minAngle is considered to be going the opposite direction.
     minAngle :: ℝ
     minAngle = realToFrac (realToFrac (ulpRaw resErr) + (-1) :: Rounded 'TowardNegInf ℝ)
-    (res, (_,_,resErr)) = angleBetween2PL a b
+    (res, (_,_, resErr)) = angleBetween2PL a b
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
 -- FIXME: many operators here have error preserving forms, use those!
