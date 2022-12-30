@@ -509,7 +509,7 @@ angleCosBetween2PL l1 l2 = angleCosBetweenProjectiveLines l1 l2
 canonicalizedIntersectionOfProjectiveLines, canonicalizedIntersectionOf2PL :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe (ProjectivePoint, (PLine2Err, PLine2Err, PPoint2Err))
 -- | Actual implementation.
 canonicalizedIntersectionOfProjectiveLines line1 line2
-  -- | Check whether the result of our intersection returns an ideal point. if it does, it means the two lines are (anti)parallel, and we should fail.
+  -- Check whether the result of our intersection returns an ideal point. if it does, it means the two lines are (anti)parallel, and we should fail.
   | isIdealP pp1 = Nothing
   | otherwise = Just (cpp1, (l1Err, l2Err, pp1Err <> cpp1Err))
   where
