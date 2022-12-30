@@ -302,12 +302,12 @@ outAndErrOf a
 class (Show a) => Pointable a where
   -- | Can this node be resolved into a point in 2d space?
   canPoint :: a -> Bool
+  -- | Get a canonicalized projective representation of this point.
+  cPPointOf :: a -> CPPoint2
   -- | Get a euclidian representation of this point.
   ePointOf :: a -> Point2
   -- | If the point is not a native euclidian point, the error generated while converting from a projective form. otherwise mempty.
   errOfCPPoint :: a -> PPoint2Err
-  -- | Get a canonicalized projective representation of this point.
-  cPPointOf :: a -> CPPoint2
 
 -- | If the given node can be resolved to a point, return it, along with it's error quotent.
 cPPointAndErrOf :: (Pointable a) => a -> (CPPoint2, PPoint2Err)

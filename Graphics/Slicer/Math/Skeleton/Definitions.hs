@@ -84,9 +84,9 @@ instance Arcable ENode where
 -- | An ENode is always resolvable to a point.
 instance Pointable ENode where
   canPoint _ = True
+  cPPointOf a = eToPP $ ePointOf a
   ePointOf (ENode (_,centerPoint,_) _ _) = centerPoint
   errOfCPPoint _ = mempty
-  cPPointOf a = eToPP $ ePointOf a
 
 -- | A point in our straight skeleton where arcs intersect, resulting in the creation of another arc.
 data INode = INode
@@ -120,29 +120,29 @@ instance Pointable INode where
   canPoint iNode = hasIntersectingPairs (allPLinesOfINode iNode)
     where
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> not $ noIntersection pl1 pl2) $ getPairs pLines
+  cPPointOf a = fst $ cPPointAndErrOfINode a
   -- Just convert our resolved point.
   ePointOf a = fst $ pToEP $ fst $ cPPointAndErrOfINode a
-  cPPointOf a = fst $ cPPointAndErrOfINode a
   errOfCPPoint a = snd $ cPPointAndErrOfINode a
 
 -- Since an INode does not contain a point, we have to attempt to resolve one instead.
 -- FIXME: if we have multiple intersecting pairs, is there a preferred pair to use for resolving? maybe a pair that is at as close as possible to a right angle?
 cPPointAndErrOfINode :: INode -> (CPPoint2, PPoint2Err)
 cPPointAndErrOfINode iNode
-    | allPointsSame = case results of
-                        [] -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
-                        l -> PL.head l
-    -- Allow the pebbles to vote.
-    | otherwise = case safeLast (slist $ count_ results) of
-                    Nothing -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
-                    (Just a) -> fst a
-    where
-      results = intersectionsOfPairs $ allPLinesOfINode iNode
-      allPointsSame = intersectionsAtSamePoint ((\(Slist l _) -> l) $ allPLinesOfINode iNode)
-      intersectionsOfPairs (Slist pLines _) = mapMaybe (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
-        where
-          saneIntersect (IntersectsIn p (_,_, pErr)) = Just (p, pErr)
-          saneIntersect _                  = Nothing
+  | allPointsSame = case results of
+                      [] -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
+                      l -> PL.head l
+  -- Allow the pebbles to vote.
+  | otherwise = case safeLast (slist $ count_ results) of
+                  Nothing -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
+                  (Just a) -> fst a
+  where
+    results = intersectionsOfPairs $ allPLinesOfINode iNode
+    allPointsSame = intersectionsAtSamePoint ((\(Slist l _) -> l) $ allPLinesOfINode iNode)
+    intersectionsOfPairs (Slist pLines _) = mapMaybe (\(pl1, pl2) -> saneIntersect $ plinesIntersectIn pl1 pl2) $ getPairs pLines
+      where
+        saneIntersect (IntersectsIn p (_,_, pErr)) = Just (p, pErr)
+        saneIntersect _                  = Nothing
 
 -- | Get all of the PLines that come from, or exit an iNode.
 allPLinesOfINode :: INode -> Slist (PLine2, PLine2Err)
