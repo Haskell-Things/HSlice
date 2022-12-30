@@ -46,7 +46,7 @@ import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkele
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, findENodeByOutput, findINodeByOutput, firstSegOf, lastENodeOf, firstENodeOf, pathFirst, pathLast)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, Arcable(hasArc, outOf), ePointOf)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, Arcable(hasArc, outOf), ePointOf, outAndErrOf)
 
 --------------------------------------------------------------------
 -------------------------- Face Placement --------------------------
@@ -64,7 +64,7 @@ data Face = Face { _edge :: !LineSeg, _firstArc :: !ProjectiveLine, _arcs :: !(S
 -- accepts a line segment you want the first face to contain, and reorders the face list.
 orderedFacesOf :: LineSeg -> StraightSkeleton -> Slist Face
 orderedFacesOf start skeleton
- | res == slist [] = error $ "could not find the first face?\nLineSeg: " <> show start <> "\nFound faces: " <> show (facesOf skeleton) <> "\nStraightSkeleton: " <> show skeleton <> "\n"
+ | isEmpty res = error $ "could not find the first face?\nLineSeg: " <> show start <> "\nFound faces: " <> show (facesOf skeleton) <> "\nStraightSkeleton: " <> show skeleton <> "\n"
  | otherwise = res
   where
     res = facesFromIndex start $ facesOf skeleton
@@ -114,7 +114,7 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
     -- cover the space occupied by all of the ancestors of this node with a series of faces.
     areaBeneath :: ENodeSet -> INodeSet -> INode -> [Face]
     areaBeneath eNodes (INodeSet myGenerations) target
-      | len myGenerations == 0 = -- no ancestor generations.
+      | isEmpty myGenerations = -- no ancestor generations.
           if allInsAreENodes target
           then if hasArc target
                then -- skip the last triangle, as the target's output is somewhere within it.
@@ -168,14 +168,14 @@ getFaces iNodeSet@(INodeSet myGenerations) eNodes iNode = findFacesRecurse iNode
         -- zero or one face, not a real list.
         placeFaceBetween :: ProjectiveLine -> ProjectiveLine -> [Face]
         placeFaceBetween onePLine anotherPLine
-         | hasArc myINode && outOf myINode == onePLine     = [] -- don't place faces along the incoming PLine. the caller does that.
-         | hasArc myINode && outOf myINode == anotherPLine = [] -- don't place faces along the incoming PLine. the caller does that.
+         | hasArc myINode && isCollinear (outAndErrOf myINode) (onePLine, mempty)     = [] -- don't place faces along the incoming PLine. the caller does that.
+         | hasArc myINode && isCollinear (outAndErrOf myINode) (anotherPLine, mempty) = [] -- don't place faces along the incoming PLine. the caller does that.
          | otherwise = [areaBetween iNodeSet eNodes onePLine anotherPLine]
         placeFacesBeneath :: ProjectiveLine -> ProjectiveLine -> [Face]
         placeFacesBeneath onePLine anotherPLine
          | isENode eNodes onePLine                         = [] -- don't climb down an enode, you're done
-         | hasArc myINode && onePLine == outOf myINode     = [] -- don't try to climb back up the tree
-         | hasArc myINode && anotherPLine == outOf myINode = [] -- don't try to climb back up the tree
+         | hasArc myINode && isCollinear (outAndErrOf myINode) (onePLine, mempty)     = [] -- don't try to climb back up the tree
+         | hasArc myINode && isCollinear (outAndErrOf myINode) (anotherPLine, mempty) = [] -- don't try to climb back up the tree
          | len myGenerations == 0 = error $ "wtf!\n" <> show onePLine <> "\n" <> show eNodes <> "\n" <> show iNodeSet
          | otherwise = getFaces (ancestorsOf iNodeSet) eNodes $ firstINodeOfPLine iNodeSet eNodes onePLine
 
