@@ -36,9 +36,9 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Graphics.Slicer.Math.Contour (makePointContour)
 
 -- A euclidian point.
-import Graphics.Slicer.Math.Definitions(Point2(Point2), LineSeg(LineSeg))
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg))
 
-import Graphics.Slicer.Math.Ganja(cellFrom, remainderFrom, onlyOne)
+import Graphics.Slicer.Math.RandomGeometry (cellFrom, remainderFrom, onlyOne)
 
 import Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason, findFirstCellOfContour, findNextCell, findDivisions, getNodeTreeOfCell, nodeTreesFromDivision)
 

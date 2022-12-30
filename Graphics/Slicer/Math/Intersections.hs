@@ -16,203 +16,167 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- Purpose of this file: to hold the logic and routines responsible for checking for intersections with contours, or portions of contours. -}
+{-
+ -  This file contains code for retrieving and reasoning about the intersection of two projective lines.
+ -}
 
-module Graphics.Slicer.Math.Intersections (getMotorcycleSegSetIntersections, getMotorcycleContourIntersections, contourIntersectionCount, getPLine2Intersections, intersectionOf, intersectionBetween, noIntersection, isCollinear, isAntiCollinear, isParallel, isAntiParallel) where
+module Graphics.Slicer.Math.Intersections (
+  intersectionBetween,
+  intersectionBetweenArcsOf,
+  intersectionOf,
+  intersectionsAtSamePoint,
+  isAntiCollinear,
+  isAntiParallel,
+  isCollinear,
+  isParallel,
+  noIntersection,
+  outputIntersectsLineSeg,
+  outputIntersectsPLineAt
+  ) where
 
-import Prelude (Bool, Either(Left,Right), error, otherwise, show, (&&), (<>), ($), (<$>), (/=), (.), zip, Int, (<), (*), (||), (==), length, odd, realToFrac)
+import Prelude (Bool(True), (<>), ($), (<), (||), (==), (&&), (<$>), (<=), and, error, otherwise, show)
 
-import Data.Maybe( Maybe(Just,Nothing), catMaybes, isJust, fromJust)
+import Data.Either (Either(Left, Right), lefts, rights)
 
-import Data.List as L (filter)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, isJust, isNothing)
 
-import Slist.Type (Slist)
+import Graphics.Slicer.Math.Definitions (LineSeg, mapWithFollower)
 
-import Slist (len, slist)
+import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Definitions (ℝ)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc), CPPoint2, Intersection, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine2, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, distancePPToPL, eToPL, fuzzinessOfL, fuzzinessOfP, outAndErrOf, pLineErrAtPPoint, pLineIntersectsLineSeg, plinesIntersectIn)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighbors, startPoint, distance, lineSegsOfContour, endPoint, fudgeFactor, makeLineSeg)
+-- | Check if two lines cannot intersect.
+{-# INLINABLE noIntersection #-}
+noIntersection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
+noIntersection line1 line2 = isCollinear line1 line2 || isParallel line1 line2 || isAntiCollinear line1 line2 || isAntiParallel line1 line2
 
-import Graphics.Slicer.Math.GeometricAlgebra (UlpSum(UlpSum))
+-- | Check if two lines are really the same line.
+isCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
+isCollinear line1 line2 = plinesIntersectIn line1 line2 == PCollinear
 
-import Graphics.Slicer.Math.Lossy (normalizePLine2)
+-- | Check if two lines are really the same line, reversed.
+isAntiCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
+isAntiCollinear line1 line2 = plinesIntersectIn line1 line2 == PAntiCollinear
 
-import Graphics.Slicer.Math.PGA (CPPoint2, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), Intersection(HitEndPoint, HitStartPoint, NoIntersection), PLine2, intersectsWith, cPToEPoint2, distanceBetweenNPLine2sWithErr, outputIntersectsLineSeg, plinesIntersectIn, ulpOfLineSeg)
+-- | Check if two lines are parallel.
+isParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
+isParallel line1 line2 = plinesIntersectIn line1 line2 == PParallel
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
-
--- | Get all possible intersections between the motorcycle and the given list of segments.
--- Filters out the input and output segment of the motorcycle.
-getMotorcycleSegSetIntersections :: Motorcycle -> [LineSeg] -> [(LineSeg, Either Point2 CPPoint2)]
-getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _ _ _) segs = stripInSegOutSeg $ catMaybes $ mapWithNeighbors filterIntersections $ shortCircuit $ zip bufferedLineSegs $ mightIntersect <$> bufferedLineSegs
-  where
-    -- since this is a list of segments, we terminate the list with Nothings, so that the saneIntersections pattern matching logic can deal with "there is no neighbor, but i hit a start/end point"
-    bufferedLineSegs :: [Maybe LineSeg]
-    bufferedLineSegs = Nothing : (Just <$> segs) <> [Nothing]
-    mightIntersect :: Maybe LineSeg -> Maybe (Either Intersection PIntersection)
-    mightIntersect maybeSeg = case maybeSeg of
-                                Nothing -> Nothing
-                                (Just seg) -> Just $ outputIntersectsLineSeg m (seg, ulpOfLineSeg seg)
-    shortCircuit :: [(Maybe LineSeg, Maybe (Either Intersection PIntersection))] -> [Maybe (LineSeg, Either Intersection PIntersection)]
-    shortCircuit items = shortCircuitItem <$> items
-      where
-        shortCircuitItem (Nothing, Nothing) = Nothing
-        shortCircuitItem (Just seg, Just intersection) = Just (seg, intersection)
-        shortCircuitItem item = error $ "cannot short circuit item: " <> show item <> "\n"
-    stripInSegOutSeg :: [(LineSeg, Either Point2 CPPoint2)] -> [(LineSeg, Either Point2 CPPoint2)]
-    stripInSegOutSeg = L.filter fun
-      where
-        -- make sure neither of these segments are inSeg or outSeg
-        fun (seg,_) = seg /= inSeg && seg /= outSeg
-
--- | Get all possible intersections between the motorcycle and the contour.
--- Filters out the input and output segment of the motorcycle.
-getMotorcycleContourIntersections :: Motorcycle -> Contour -> [(LineSeg, Either Point2 CPPoint2)]
-getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _ _ _) c = stripInSegOutSeg $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip contourLines $ willIntersect <$> contourLines
-  where
-    willIntersect :: LineSeg -> Either Intersection PIntersection
-    willIntersect mySeg = outputIntersectsLineSeg m (mySeg, ulpOfLineSeg mySeg)
-    openCircuit v = Just <$> v
-    contourLines = lineSegsOfContour c
-    stripInSegOutSeg :: [(LineSeg, Either Point2 CPPoint2)] -> [(LineSeg, Either Point2 CPPoint2)]
-    stripInSegOutSeg = L.filter fun
-      where
-        -- filter out inSeg and outSeg outSeg
-        fun (seg,_) = seg /= inSeg && seg /= outSeg
-
--- | return the number of intersections with a given contour when traveling in a straight line from the beginning of the given line segment to the end of the line segment.
--- Not for use when line segments can overlap or are collinear with one of the line segments that are a part of the contour.
-contourIntersectionCount :: Contour -> (Point2, Point2) -> Int
-contourIntersectionCount contour (start, end) = len $ getIntersections contour (start, end)
-  where
-    getIntersections :: Contour -> (Point2, Point2) -> Slist (LineSeg, Either Point2 CPPoint2)
-    getIntersections c (pt1, pt2) = slist $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour contour) $ intersectsWith (Left $ makeLineSeg pt1 pt2) . Left <$> lineSegsOfContour c
-      where
-        openCircuit v = Just <$> v
-
--- | Get the intersections between a PLine2 and a contour as a series of points. always returns an even number of intersections.
-getPLine2Intersections :: PLine2 -> Contour -> [Point2]
-getPLine2Intersections pLine c
-  | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show pLine <> "\n" <> show res <> "\n"
-  | otherwise = res
-  where
-    res = getPoints $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour c) $ intersectsWith (Right pLine) . Left <$> lineSegsOfContour c
-    openCircuit v = Just <$> v
-    getPoints :: [(LineSeg, Either Point2 CPPoint2)] -> [Point2]
-    getPoints vs = getPoint <$> vs
-      where
-        getPoint (_, Left v) = v
-        getPoint (_, Right v) = cPToEPoint2 v
-
--- | filter the intersections given.
--- The purpose of this function is to ensure we only count the crossing of a line (segment) across a contour's edge more than once. so if it hits a sttartpoint, make sure we don't count the endpoint.. etc.
--- FIXME: does not take into account (anti)collinear line segments correctly.
-filterIntersections :: Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Point2 CPPoint2)
-filterIntersections  _ (Just (seg, Right (IntersectsIn p _)))   _ = Just (seg, Right p)
-filterIntersections  _ (Just (_  , Left  (NoIntersection _ _))) _ = Nothing
-filterIntersections  _ (Just (_  , Right PParallel))            _ = Nothing
-filterIntersections  _ (Just (_  , Right PAntiParallel))        _ = Nothing
--- when we hit a end -> start -> end, look at the distance to tell where we hit.
-filterIntersections (Just (seg1, Left (HitEndPoint   l1 ))) (Just (seg2, Left (HitStartPoint _ ))) (Just (seg3 , Left (HitEndPoint   l2)))
- | distance (endPoint seg1) (startPoint seg2) < fudgeFactor*15 = Just (seg2, Left $ endPoint l1)
- | distance (startPoint seg2) (endPoint seg3) < fudgeFactor*15 = Just (seg2, Left $ endPoint l2)
- | otherwise = error "wtf"
- -- only count the first start point, when going in one direction..
-filterIntersections  _                                     (Just (seg , Left (HitStartPoint _ ))) (Just (_    , Left (HitEndPoint     l1))) = Just (seg, Left $ endPoint l1)
-filterIntersections (Just (_ , Left (HitStartPoint  _  ))) (Just (_   , Left (HitEndPoint   _ )))  _                                        = Nothing
--- and only count the first start point, when going in the other direction.
-filterIntersections (Just (_ , Left (HitEndPoint    l1 ))) (Just (seg , Left (HitStartPoint _ )))  _                                        = Just (seg, Left $ endPoint l1)
-filterIntersections  _                                     (Just (_   , Left (HitEndPoint   _ ))) (Just (_    , Left (HitStartPoint _   ))) = Nothing
--- Ignore the end and start point that comes before / after a collinear section.
-filterIntersections (Just (_, Right PCollinear          )) (Just (_   , Left (HitStartPoint _ )))  _                                        = Nothing
-filterIntersections _                                      (Just (_   , Left (HitEndPoint   _ ))) (Just (_    , Right PCollinear         )) = Nothing
-filterIntersections (Just (_, Right PCollinear          )) (Just (_   , Left (HitEndPoint   _ )))  _                                        = Nothing
-filterIntersections _                                      (Just (_   , Left (HitStartPoint _ ))) (Just (_    , Right PCollinear         )) = Nothing
--- Ignore the end and start point that comes before / after an anticollinear section.
-filterIntersections (Just (_, Right PAntiCollinear      )) (Just (_   , Left (HitStartPoint _ )))  _                                        = Nothing
-filterIntersections _                                      (Just (_   , Left (HitEndPoint   _ ))) (Just (_    , Right PAntiCollinear     )) = Nothing
-filterIntersections (Just (_, Right PAntiCollinear      )) (Just (_   , Left (HitEndPoint   _ )))  _                                        = Nothing
-filterIntersections _                                      (Just (_   , Left (HitStartPoint _ ))) (Just (_    , Right PAntiCollinear     )) = Nothing
--- FIXME: we should return the (anti-)collinear segments so they can be stitched out, not just ignore them.
-filterIntersections _                                      (Just (_   , Right PCollinear       ))  _                                        = Nothing
-filterIntersections _                                      (Just (_   , Right PAntiCollinear   ))  _                                        = Nothing
--- And now handle the end segments, where there is nothing on the other side.
--- FIXME: these can't all be endpoint.
-filterIntersections  _                                      Nothing                                _                                        = Nothing
-filterIntersections (Just (_ , Left (NoIntersection _ _))) (Just (seg , Left (HitEndPoint   l1)))  Nothing                                  = Just (seg, Left $ endPoint l1)
-filterIntersections  Nothing                               (Just (seg , Left (HitEndPoint   l1))) (Just (_    , Left (NoIntersection _ _))) = Just (seg, Left $ endPoint l1)
-filterIntersections  Nothing                               (Just (seg , Left (HitStartPoint l1))) (Just (_    , Left (NoIntersection _ _))) = Just (seg, Left $ startPoint l1)
-filterIntersections (Just (_ , Left (NoIntersection _ _))) (Just (seg , Left (HitStartPoint l1)))  Nothing                                  = Just (seg, Left $ startPoint l1)
--- a segment, alone.
-filterIntersections  Nothing                               (Just (seg , Left (HitEndPoint   l1)))  Nothing                                  = Just (seg, Left $ endPoint l1)
-filterIntersections  Nothing                               (Just (seg , Left (HitStartPoint l1)))  Nothing                                  = Just (seg, Left $ startPoint l1)
--- FIXME: what are these for?
-filterIntersections  Nothing                               (Just (seg , Left (HitStartPoint l1))) (Just (_    , Right _))                   = Just (seg, Left $ startPoint l1)
-filterIntersections  Nothing                               (Just (seg , Left (HitEndPoint   l1))) (Just (_    , Right _))                   = Just (seg, Left $ endPoint l1)
-filterIntersections (Just (_ , Right _))                   (Just (seg , Left (HitStartPoint l1)))  Nothing                                  = Just (seg, Left $ startPoint l1)
-filterIntersections (Just (_ , Right _))                   (Just (seg , Left (HitEndPoint   l1)))  Nothing                                  = Just (seg, Left $ endPoint l1)
-filterIntersections l1 l2 l3 = error
-                               $ "insane result of filterIntersections\n"
-                               <> show l1 <> "\n"
-                               <> (if isJust l1
-                                   then "Endpoint: " <> show (endPoint $ lSeg $ fromJust l1) <> "\nLength: " <> show (lineLength $ fromJust l1) <> "\n"
-                                   else "")
-                               <> show l2 <> "\n"
-                               <> (if isJust l2
-                                   then "Endpoint: " <> show (endPoint $ lSeg $ fromJust l2) <> "\nLength: " <> show (lineLength $ fromJust l2) <> "\n"
-                                   else "")
-                               <> show l3 <> "\n"
-                               <> (if isJust l3
-                                   then "Endpoint: " <> show (endPoint $ lSeg $ fromJust l3) <> "\nLength: " <> show (lineLength $ fromJust l3) <> "\n"
-                                   else "")
-      where
-        lSeg :: (LineSeg, Either Intersection PIntersection) -> LineSeg
-        lSeg (myseg,_) = myseg
-        lineLength :: (LineSeg, Either Intersection PIntersection) -> ℝ
-        lineLength (mySeg, _) = distance (startPoint mySeg) (endPoint mySeg)
+-- | Check if two lines are anti-parallel.
+isAntiParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
+isAntiParallel line1 line2 = plinesIntersectIn line1 line2 == PAntiParallel
 
 -- | Get the intersection point of two lines we know have an intersection point.
-intersectionOf :: PLine2 -> PLine2 -> CPPoint2
-intersectionOf pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
+{-# INLINABLE intersectionOf #-}
+intersectionOf :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (CPPoint2, PPoint2Err)
+intersectionOf line1 line2 = saneIntersection $ plinesIntersectIn line1 line2
   where
-    saneIntersection PAntiCollinear     = error $ "cannot get the intersection of anti-collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection PCollinear         = error $ "cannot get the intersection of collinear lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection PParallel          = error $ "cannot get the intersection of parallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection PAntiParallel      = error $ "cannot get the intersection of antiparallel lines.\npl1: " <> show pl1 <> "\npl2: " <> show pl2 <> "\n"
-    saneIntersection (IntersectsIn p _) = p
+    saneIntersection PAntiCollinear     = error $ "cannot get the intersection of anti-collinear lines.\nline1: " <> show line1 <> "\nline2: " <> show line2 <> "\n"
+    saneIntersection PCollinear         = error $ "cannot get the intersection of collinear lines.\nline1: " <> show line1 <> "\nline2: " <> show line2 <> "\n"
+    saneIntersection PParallel          = error $ "cannot get the intersection of parallel lines.\nline1: " <> show line1 <> "\nline2: " <> show line2 <> "\n"
+    saneIntersection PAntiParallel      = error $ "cannot get the intersection of antiparallel lines.\nline1: " <> show line1 <> "\nline2: " <> show line2 <> "\n"
+    saneIntersection (IntersectsIn p (_,_, pErr)) = (p, pErr)
 
--- | Get the intersection point of two lines.
-intersectionBetween :: PLine2 -> PLine2 -> Maybe (Either PLine2 CPPoint2)
-intersectionBetween pl1 pl2 = saneIntersection $ plinesIntersectIn pl1 pl2
+-- | Get the intersection point of two lines. If they are collinear, returns a line, and if they are parallel, returns Nothing.
+intersectionBetween :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe (Either (a, PLine2Err) (CPPoint2, PPoint2Err))
+intersectionBetween line1@(l1, _) line2@(l2, _) = saneIntersection $ plinesIntersectIn line1 line2
   where
-    (foundDistance, UlpSum foundErr) = distanceBetweenNPLine2sWithErr (normalizePLine2 pl1) (normalizePLine2 pl2)
-    saneIntersection PAntiCollinear     = Just $ Left pl1
-    saneIntersection PCollinear         = Just $ Left pl1
-    saneIntersection PParallel          = if foundDistance < realToFrac foundErr
-                                          then Just $ Left pl1
+    (foundDistance, (_,_, foundErr)) = distance2PL l1 l2
+    saneIntersection PAntiCollinear     = Just $ Left line1
+    saneIntersection PCollinear         = Just $ Left line1
+    saneIntersection PParallel          = if foundDistance < ulpVal foundErr
+                                          then Just $ Left line1
                                           else Nothing
-    saneIntersection PAntiParallel      = if foundDistance < realToFrac foundErr
-                                          then Just $ Left pl1
+    saneIntersection PAntiParallel      = if foundDistance < ulpVal foundErr
+                                          then Just $ Left line1
                                           else Nothing
-    saneIntersection (IntersectsIn p _) = Just $ Right p
+    saneIntersection (IntersectsIn p (_,_, pErr)) = Just $ Right (p, pErr)
 
--- | check if two lines cannot intersect.
-noIntersection :: PLine2 -> PLine2 -> Bool
-noIntersection pline1 pline2 = isCollinear pline1 pline2 || isParallel pline1 pline2 || isAntiCollinear pline1 pline2 || isAntiParallel pline1 pline2
+-- | Find out where the output of two Arcables intersect. returns Nothing if no intersection, and errors if no output Arc exists on either input.
+{-# INLINABLE intersectionBetweenArcsOf #-}
+intersectionBetweenArcsOf :: (Arcable a, Arcable b) => a -> b -> Maybe (CPPoint2, PPoint2Err)
+intersectionBetweenArcsOf node1 node2
+  | hasArc node1 && hasArc node2 = case res of
+                                     (IntersectsIn p (_,_, pErr)) -> Just (p, pErr)
+                                     _ -> Nothing
+  | otherwise = error $ "Tried to check if the outputs of two nodes intersect, but a node with no output:\n" <> show node1 <> "\n" <> show node2 <> "\n"
+  where
+    res = plinesIntersectIn (outAndErrOf node1) (outAndErrOf node2)
 
--- | check if two lines are really the same line.
-isCollinear :: PLine2 -> PLine2 -> Bool
-isCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PCollinear
+-- | Check if/where the arc of a motorcycle, inode, or enode intersect a line segment.
+{-# INLINABLE outputIntersectsLineSeg #-}
+outputIntersectsLineSeg :: (Arcable a) => a -> LineSeg -> Either Intersection PIntersection
+outputIntersectsLineSeg source l1
+  -- handle the case where a segment that is an input to the node is checked against.
+  | isNothing canonicalizedIntersection = Right $ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
+  | otherwise = pLineIntersectsLineSeg (pl1, pl1Err) l1
+  where
+    (pl2, pl2Err) = eToPL l1
+    (pl1, pl1Err) = outAndErrOf source
+    canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
--- | check if two lines are really the same line.
-isAntiCollinear :: PLine2 -> PLine2 -> Bool
-isAntiCollinear pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiCollinear
+-- | Find out where the output of an Arcable intersects a given PLine2. errors if no intersection.
+{-# INLINABLE outputIntersectsPLineAt #-}
+outputIntersectsPLineAt :: (Arcable a, ProjectiveLine2 b) => a -> (b, PLine2Err) -> Maybe (CPPoint2, PPoint2Err)
+outputIntersectsPLineAt n line
+  | hasArc n = case res of
+                 (IntersectsIn p (_,_, pErr)) -> Just (p, pErr)
+                 _ -> Nothing
+  | otherwise = error $ "Tried to check if the output of node intersects PLine on a node with no output:\n" <> show n <> "\n" <> show line <> "\n"
+  where
+    res = plinesIntersectIn (outAndErrOf n) line
 
--- | check if two lines are parallel.
-isParallel :: PLine2 -> PLine2 -> Bool
-isParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PParallel
-
--- | check if two lines are anti-parallel.
-isAntiParallel :: PLine2 -> PLine2 -> Bool
-isAntiParallel pline1 pline2 = plinesIntersectIn pline1 pline2 == PAntiParallel
+-- | Find out if all of the possible intersections between all of the given nodes are close enough to be considered intersecting at the same point.
+intersectionsAtSamePoint :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> Bool
+intersectionsAtSamePoint nodeOutsAndErrs
+  = case nodeOutsAndErrs of
+      [] -> error "given an empty list."
+      [a] -> error $ "asked to check for same point intersection of:\n" <> show a <> "\n"
+      [a,b] -> isJust $ intersectionBetween a b
+      _ -> and (isJust <$> intersections) && pointsCloseEnough && linesCloseEnough
+        where
+          intersections = mapWithFollower myIntersectionBetween nodeOutsAndErrs
+            where
+              myIntersectionBetween a b = case intersectionBetween a b of
+                                            Nothing -> Nothing
+                                            (Just (Right p)) -> Just $ Right (a,b,p)
+                                            (Just (Left l)) -> Just $ Left (a,b,l)
+          pointsCloseEnough = and $ mapWithFollower pairCloseEnough pointIntersections
+            where
+              -- intersections that resulted in a point.
+              pointIntersections = rights $ catMaybes intersections
+              -- Minor optimization: first check against resErr, then actually use the fuzziness.
+              pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= ulpVal resErr || res < errSum
+                where
+                  errSum = ulpVal $ resErr
+                                  <> fuzzinessOfP point1
+                                  <> pLineErrAtPPoint a1 c1
+                                  <> pLineErrAtPPoint b1 c1
+                                  <> fuzzinessOfP point2
+                                  <> pLineErrAtPPoint a2 c2
+                                  <> pLineErrAtPPoint b2 c2
+                  (res, (_,_,resErr)) = distance2PP point1 point2
+          linesCloseEnough =
+            case lineIntersections of
+              [] -> True
+              [(a1,b1,l1)] -> case pointIntersections of
+                                [] -> error "one line, no points.. makes no sense."
+                                ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < errSum
+                                  where
+                                    (foundDistance, (_, _, _, _, _, resErr)) = distancePPToPL ppoint1 l1
+                                    errSum = ulpVal $ resErr
+                                                    <> fuzzinessOfP ppoint1
+                                                    <> pLineErrAtPPoint a2 p1
+                                                    <> pLineErrAtPPoint b2 p1
+                                                    <> fuzzinessOfL a1
+                                                    <> fuzzinessOfL b1
+                                                    <> fuzzinessOfL l1
+              (_:_) -> error $ "detected multiple lines?\n"
+                             <> show lineIntersections <> "\n"
+                             <> show pointIntersections <> "\n"
+            where
+              -- intersections that resulted in a point.
+              pointIntersections = rights $ catMaybes intersections
+              -- intersections that resulted in a line, but are not anticollinear.
+              lineIntersections = lefts $ catMaybes intersections

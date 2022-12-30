@@ -26,8 +26,10 @@ library
         Graphics.Slicer.Machine.Contour
         Graphics.Slicer.Mechanics.Definitions
         Graphics.Slicer.Machine.GCode
+        Graphics.Slicer.Math.Arcs
         Graphics.Slicer.Math.CheckFacets
         Graphics.Slicer.Math.Contour
+        Graphics.Slicer.Math.ContourIntersections
         Graphics.Slicer.Math.Definitions
         Graphics.Slicer.Math.Facet
         Graphics.Slicer.Math.Ganja
@@ -36,6 +38,8 @@ library
         Graphics.Slicer.Math.Lossy
         Graphics.Slicer.Math.Line
         Graphics.Slicer.Math.PGA
+        Graphics.Slicer.Math.PGAPrimitives
+        Graphics.Slicer.Math.RandomGeometry
         Graphics.Slicer.Math.Skeleton.Cells
         Graphics.Slicer.Math.Skeleton.Concave
         Graphics.Slicer.Math.Skeleton.Definitions
