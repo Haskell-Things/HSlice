@@ -60,6 +60,7 @@ import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distanceBetweenPPoint
 
 import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, cPPointOf), ProjectivePoint, angleBetween2PL, cPPointAndErrOf, distance2PP, eToPL, eToPP, join2PP, outAndErrOf)
 
+
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving Show
 
