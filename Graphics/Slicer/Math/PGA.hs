@@ -156,7 +156,7 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe Bool
 pLineIsLeft (pl1, _) (pl2, _)
-  -- | FIXME: Is there a way we can use Eq on a and b if they are the same type, rather than normalizing them first?
+  -- FIXME: Is there a way we can use Eq on a and b if they are the same type, rather than normalizing them first?
   | npl1 == npl2         = Nothing
   | abs res <= angleFuzz = Nothing
   | otherwise            = Just $ res > 0
