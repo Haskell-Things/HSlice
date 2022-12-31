@@ -596,7 +596,7 @@ instance ProjectivePoint2 ProjectivePoint where
 canonicalizeProjectivePoint :: (ProjectivePoint2 a) => a -> (ProjectivePoint, PPoint2Err)
 canonicalizeProjectivePoint point
   | isIdealP point = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
-  -- | Handle the ID case. The passed in point is canonicalized already.
+  -- Handle the ID case. The passed in point is canonicalized already.
   | valOf 1 foundVal == 1 = (CPPoint2 $ GVec rawVals, mempty)
   | otherwise = (res, PPoint2Err mempty scaledErrs mempty mempty mempty mempty mempty)
   where
