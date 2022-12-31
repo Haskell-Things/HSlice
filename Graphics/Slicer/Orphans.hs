@@ -43,6 +43,6 @@ instance NFData Fastℕ where
 
 instance Semigroup ℝ where
   (<>) a b = a + b
-  
+
 instance Monoid ℝ where
   mempty = 0
