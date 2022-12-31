@@ -811,6 +811,7 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
         Just $ distanceBetweenPPointsWithErr (cPPointAndErrOf node1) (intersectionOf (outAndErrOf node1) (outAndErrOf node2))
                `max`
                distanceBetweenPPointsWithErr (cPPointAndErrOf node2) (intersectionOf (outAndErrOf node1) (outAndErrOf node2))
+
       | otherwise = Nothing
     -- | Check if the intersection of two nodes results in a point or not.
     intersectsInPoint :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Bool

@@ -111,6 +111,7 @@ import Graphics.Slicer.Math.Line (combineLineSegs, makeLineSeg)
 import Graphics.Slicer.Math.PGAPrimitives(ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine2(normalizeL, vecOfL), ProjectivePoint2(canonicalizeP, isIdealP, vecOfP), angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, flipL, forceBasisOfL, forceBasisOfP, fuzzinessOfL, fuzzinessOfP, idealNormOfP, interpolate2PP, intersect2PL, join2PP, pLineErrAtPPoint, pToEP, translateL, xIntercept, yIntercept)
 
 
+
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
 -------------------------------------------------------------
@@ -207,6 +208,7 @@ pPointsOnSameSideOfPLine point1 point2 line
     pv1 = vecOfP $ forceBasisOfP point1
     pv2 = vecOfP $ forceBasisOfP point2
     lv1 = vecOfL $ forceBasisOfL line
+
 
 -- | A checker, to ensure two Projective Lines are going the same direction, and are parallel.
 sameDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
