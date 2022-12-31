@@ -25,10 +25,10 @@
 module Graphics.Slicer.Orphans () where
 
 import Control.DeepSeq (NFData (rnf))
-import Graphics.Slicer.Definitions (Fastℕ,ℝ)
+import Graphics.Slicer.Definitions (Fastℕ, ℝ)
 import Slist.Size (Size (Infinity, Size))
 import Slist.Type (Slist (Slist))
-import Prelude (Monoid(mempty), Semigroup((<>)), seq, (+))
+import Prelude (Monoid (mempty), Semigroup ((<>)), seq, (+))
 
 instance NFData a => NFData (Slist a) where
   rnf (Slist vals n) = rnf vals `seq` rnf n
@@ -46,4 +46,3 @@ instance Semigroup ℝ where
   
 instance Monoid ℝ where
   mempty = 0
-

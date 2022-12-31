@@ -245,9 +245,8 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodes
                   (Just (newAncestors, newLastGen)) -> findENodesRecursive $ newAncestors <> lastGenWithOnlyMyINode
                     where
                       -- strip the new last generation until it only contains the INode matching myPLine.
-                      -- FIXME: why can't we use isCollinear here? doing so makes tests fail intermittently..
                       lastGenWithOnlyMyINode :: [[INode]]
-                      lastGenWithOnlyMyINode = case filter (\a -> hasArc a && outOf a == myPLine) newLastGen of
+                      lastGenWithOnlyMyINode = case filter (\a -> hasArc a && isCollinear (outAndErrOf a) (myPLine, mempty)) newLastGen of
                                                  [] -> []
                                                  a -> [[first a]]
                                                    where

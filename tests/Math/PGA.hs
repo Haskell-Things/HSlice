@@ -1461,7 +1461,7 @@ facetStatSpec :: Spec
 facetStatSpec = do
   describe "Triangles" $ do
    it "finds that all motorcycles intersect at the same point in a triangle" $
-      property prop_TriangleMotorcyclesEndAtSamePoint 
+      property prop_TriangleMotorcyclesEndAtSamePoint
 
 facetSpec :: Spec
 facetSpec = do
@@ -1768,7 +1768,7 @@ facetSpec = do
         Just (CrashTree (slist $ convexMotorcycles c7)
                         (slist $ convexMotorcycles c7)
                         (slist []))
-{-        
+{-
   describe "insets (Skeleton/Line)" $ do
     it "insets a triangle (unit)" $
       addInset 1 0.25 (facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton triangle [])

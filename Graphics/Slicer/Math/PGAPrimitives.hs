@@ -61,7 +61,7 @@ module Graphics.Slicer.Math.PGAPrimitives
     yIntercept
   ) where
 
-import Prelude(Bool(False), Eq((==),(/=)), Monoid(mempty), Ord(compare), Ordering(EQ), Semigroup((<>)), Show(show), (||), (&&), ($), (+), (*), (/), (<$>), (-), abs, error, filter, fst, negate, otherwise, realToFrac, snd, sqrt)
+import Prelude(Bool(False), Eq((==),(/=)), Monoid(mempty), Ord(compare), Ordering(EQ), Semigroup((<>)), Show(show), (&&), ($), (+), (*), (/), (<$>), (-), abs, error, filter, fst, negate, otherwise, realToFrac, snd, sqrt)
 
 import Control.DeepSeq (NFData)
 
@@ -150,7 +150,7 @@ data ProjectiveLine =
   deriving (Eq, Generic, NFData, Show, Typeable)
 
 -- | The typeclass definition. functions that must be implemented for any projective line type.
-class (Show a, Typeable a, Eq a) => ProjectiveLine2 a where
+class (Eq a, Show a, Typeable a) => ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   normalizeL :: a -> (ProjectiveLine, PLine2Err)
   vecOfL :: a -> GVec
@@ -202,7 +202,7 @@ angleBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b 
 angleBetweenProjectiveLines line1 line2
  -- Short circuit (returning 1) if the two inputs are identical, and of the same type.
  | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (1, mempty)
- -- Short circuit (returning 1) if the two inputs are equvalent after normalization.
+ -- Short circuit (returning 1) if the two inputs are equivalent after normalization.
  | npl1 == npl2 = (1, mempty)
  -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
  | otherwise = (scalarPart likeRes, resErr)
@@ -227,7 +227,13 @@ angleBetween2PL l1 l2 = crushErr $ angleBetweenProjectiveLines l1 l2
 -- | Find the distance between two parallel or antiparallel projective lines.
 {-# INLINABLE distanceBetweenProjectiveLines #-}
 distanceBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
-distanceBetweenProjectiveLines line1 line2 = (res, resErr)
+distanceBetweenProjectiveLines line1 line2
+ -- Short circuit (returning 0) if the two inputs are identical, and of the same type.
+ | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (0, mempty)
+ -- Short circuit (returning 0) if the two inputs are equvalent after normalization.
+ | npl1 == npl2 = (0, mempty)
+ -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
+ | otherwise = (res, resErr)
   where
     (res, idealErr) = idealNormOfP $ PPoint2 like
     resErr = (npl1Err, npl2Err, likeErr, idealErr)
@@ -311,10 +317,13 @@ intersect2PL l1 l2 = intersectionOfProjectiveLines l1 l2
 -- Kept separate from intersectionOfProjectiveLines for verification reasons.
 {-# INLINABLE meetOfProjectiveLines #-}
 meetOfProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, ([ErrVal],[ErrVal])))
-meetOfProjectiveLines line1 line2 = (PPoint2 res,
-                                            (npl1Err,
-                                             npl2Err,
-                                             resUnlikeErr))
+meetOfProjectiveLines line1 line2
+  | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (PPoint2 $ GVec [], mempty)
+  | npl1 == npl2 = (PPoint2 $ GVec [], mempty)
+  | otherwise = (PPoint2 res,
+                  (npl1Err,
+                   npl2Err,
+                   resUnlikeErr))
   where
     (res, resUnlikeErr) = lv1 ⎤+ lv2
     lv1 = vecOfL $ forceBasisOfL npl1
@@ -528,12 +537,7 @@ canonicalizedIntersectionOf2PL l1 l2 = canonicalizedIntersectionOfProjectiveLine
 data ProjectivePoint =
   PPoint2 GVec
   | CPPoint2 GVec
-  deriving (Ord, Generic, NFData, Show)
-
-instance Eq ProjectivePoint where
-  (==) (CPPoint2 a1) (CPPoint2 a2) = a1 == a2
-  (==) p1@(PPoint2 a1) p2@(PPoint2 a2) = a1 == a2 || fst (canonicalizeP p1) == fst (canonicalizeP p2)
-  (==) p1 p2 = fst (canonicalizeP p1) == fst (canonicalizeP p2)
+  deriving (Eq, Ord, Generic, NFData, Show)
 
 -- | The error accumulated when calculating a projective point.
 data PPoint2Err =
@@ -572,7 +576,7 @@ instance Monoid PPoint2Err where
 instance Ord PPoint2Err where
   compare _ _ = EQ
 
-class (Show a) => ProjectivePoint2 a where
+class (Eq a, Show a, Typeable a) => ProjectivePoint2 a where
   canonicalizeP :: a -> (ProjectivePoint, PPoint2Err)
   consLikeP :: a -> (GVec -> a)
   isIdealP :: a -> Bool
@@ -612,7 +616,11 @@ canonicalizeProjectivePoint point
 -- | Find the distance between two projective points, and the error component of the result.
 distanceBetweenProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum))
 distanceBetweenProjectivePoints (point1, point1Err) (point2, point2Err)
+  -- Short circuit (returning 0) if the two inputs are identical, and of the same type.
+  | typeOf point1 == typeOf point2 && point1 == fromJust (cast point2) = (0, mempty)
+  -- Short circuit (returning 0) if the two inputs are equivalent after canonicalization.
   | cPoint1 == cPoint2 = (0, (cPoint1Err, cPoint2Err, mempty, mempty))
+  -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
   | otherwise = (res, resErr)
   where
     resErr = (cPoint1Err, cPoint2Err, newPLineErr, ulpSum)
@@ -676,8 +684,14 @@ idealNormOfP p = idealNormOfProjectivePoint p
 {-# INLINABLE joinOfProjectivePoints #-}
 joinOfProjectivePoints, join2PP :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PPoint2Err, PPoint2Err, PLine2Err))
 -- | Actual implementation.
-joinOfProjectivePoints point1 point2 = (PLine2 res,
-                                        (cPoint1Err, cPoint2Err, PLine2Err mempty mempty mempty mempty mempty resUlp))
+joinOfProjectivePoints point1 point2
+  -- Short circuit (returning 0) if the two inputs are identical, and of the same type.
+  | typeOf point1 == typeOf point2 && point1 == fromJust (cast point2) = (PLine2 (GVec []), mempty)
+  -- Short circuit (returning 0) if the two inputs are equivalent after canonicalization.
+  | cPoint1 == cPoint2 = (PLine2 (GVec []), (cPoint1Err, cPoint2Err, mempty))
+  -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
+  | otherwise = (PLine2 res,
+                  (cPoint1Err, cPoint2Err, PLine2Err mempty mempty mempty mempty mempty resUlp))
   where
     -- FIXME: how does error in canonicalization effect the PLine generated here?
     (res, resUlp) = pv1 ∨+ pv2
@@ -696,6 +710,10 @@ join2PP p1 p2 = joinOfProjectivePoints p1 p2
 projectivePointBetweenProjectivePoints, interpolate2PP :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> (ProjectivePoint, (PPoint2Err, PPoint2Err, PPoint2Err))
 -- | Actual implementation.
 projectivePointBetweenProjectivePoints startPoint stopPoint weight1 weight2
+  -- Short circuit (returning the starting point) if the two inputs are identical, and of the same type.
+  | typeOf startPoint == typeOf stopPoint && startPoint == fromJust (cast stopPoint) = (PPoint2 rawStartPoint, mempty)
+  -- Short circuit (returning the starting point) if the two inputs are equivalent after canonicalization.
+  | cStartPoint == cStopPoint = (PPoint2 rawStartPoint, (cStartPointErr, cStopPointErr, mempty))
   | isIdealP res = error "tried to generate an ideal point?"
   | otherwise = (res, resErr)
   where
