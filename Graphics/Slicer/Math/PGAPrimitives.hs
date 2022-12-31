@@ -75,6 +75,8 @@ import Data.Maybe (Maybe(Just,Nothing), fromJust, isJust, isNothing)
 
 import Data.Set (Set, elems, fromList, singleton)
 
+import Data.Typeable (Typeable, cast, typeOf)
+
 import GHC.Generics (Generic)
 
 import Graphics.Slicer.Definitions (ℝ)
@@ -145,10 +147,10 @@ forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
 data ProjectiveLine =
   PLine2 GVec
   | NPLine2 GVec
-  deriving (Generic, NFData, Show)
+  deriving (Eq, Generic, NFData, Show, Typeable)
 
 -- | The typeclass definition. functions that must be implemented for any projective line type.
-class (Show a) => ProjectiveLine2 a where
+class (Show a, Typeable a, Eq a) => ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   normalizeL :: a -> (ProjectiveLine, PLine2Err)
   vecOfL :: a -> GVec
@@ -164,12 +166,6 @@ instance ProjectiveLine2 ProjectiveLine where
   vecOfL l = case l of
                (NPLine2 v) -> v
                (PLine2 v) -> v
-
--- | An equality instance for ProjectiveLine. allows us to skip some normalization.
-instance Eq ProjectiveLine where
-  (==) (NPLine2 gvec1) (NPLine2 gvec2) = gvec1 == gvec2
-  (==) pl1@(PLine2 gvec1) pl2@(PLine2 gvec2) = gvec1 == gvec2 || normalizeL pl1 == normalizeL pl2
-  (==) pl1 pl2 = normalizeL pl1 == normalizeL pl2
 
 -- | The types of error of a projective line.
 data PLine2Err = PLine2Err
@@ -203,7 +199,13 @@ instance Monoid PLine2Err where
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
 {-# INLINABLE angleBetweenProjectiveLines #-}
 angleBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
-angleBetweenProjectiveLines line1 line2 = (scalarPart likeRes, resErr)
+angleBetweenProjectiveLines line1 line2
+ -- Short circuit (returning 1) if the two inputs are identical, and of the same type.
+ | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (1, mempty)
+ -- Short circuit (returning 1) if the two inputs are equvalent after normalization.
+ | npl1 == npl2 = (1, mempty)
+ -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
+ | otherwise = (scalarPart likeRes, resErr)
   where
     resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
     -- FIXME: this returned ULPsum is wrong. actually try to interpret it. If you can get this to fail, add more repetitions, and pray really hard.
