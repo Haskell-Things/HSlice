@@ -27,6 +27,7 @@ EXTADMESHBIN=$(call exebin,${EXTADMESH})
 # The location of the created test binary, for running haskell test cases.
 TESTSUITE=${TESTBUILDROOT}/test-hslice/build/test-hslice/test-hslice
 FLAKEYTESTSUITE=${TESTBUILDROOT}/test-flakey/build/test-flakey/test-flakey
+STATTESTSUITE=${TESTBUILDROOT}/test-stat/build/test-stat/test-stat
 
 
 ## Options used when calling ImplicitCAD. for testing, and for image generation.
@@ -48,7 +49,7 @@ LIBBUILD=$(shell find ${LIBDIR} -name '*.hi')
 LIBTARGET=${BUILDROOT}/build/${LIBDIR}/Hslice.o
 
 EXECBUILDDIRS=$(EXTCURAENGINEDIR) $(EXTADMESHDIR)
-EXECTARGETS=$(EXTCURAENGINEBIN) $(EXTADMESHBIN) $(TESTSUITE) $(FLAKEYTESTSUITE)
+EXECTARGETS=$(EXTCURAENGINEBIN) $(EXTADMESHBIN) $(TESTSUITE) $(FLAKEYTESTSUITE) $(STATTESTSUITE)
 TARGETS=$(EXECTARGETS) $(LIBTARGET)
 
 # Mark the below fake targets as unreal, so make will not get choked up if a file with one of these names is created.
@@ -127,6 +128,11 @@ ${TESTBUILDROOT}/test-hslice/build/test-hslice/test-hslice: Setup ${BUILDROOT}/s
 # The test suite, since it's source is stored in a different location than the other binaries we build:
 ${TESTBUILDROOT}/test-flakey/build/test-flakey/test-flakey: Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)
 	cabal v2-build test-flakey
+
+
+# The test suite, since it's source is stored in a different location than the other binaries we build:
+${TESTBUILDROOT}/test-stat/build/test-stat/test-stat: Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)
+	cabal v2-build test-stat
 
 # Build a binary target with cabal.
 ${EXEBUILDROOT}/%: programs/$$(word 1,$$(subst /, ,%)).hs Setup ${BUILDROOT}/setup-config $(LIBTARGET) $(LIBFILES)

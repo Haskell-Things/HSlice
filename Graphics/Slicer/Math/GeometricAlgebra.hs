@@ -16,16 +16,59 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
--- for adding Generic and NFData to our types.
-{-# LANGUAGE DeriveGeneric, DeriveAnyClass, FlexibleInstances #-}
+-- For adding Generic and NFData to our types.
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
+-- For TowardInf.
 {-# LANGUAGE DataKinds #-}
 
 -- So we can map applying (,mempty) to a list.
 {-# LANGUAGE TupleSections #-}
 
 -- | Our geometric algebra library.
-module Graphics.Slicer.Math.GeometricAlgebra(ErrVal(ErrVal), GNum(G0, GEMinus, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎣), (⎤+), (⎤), (⨅+), (⨅), (•+), (•), (⋅+), (⋅), (∧+), (∧), addErr, addValPairWithErr, addValWithErr, addValWithoutErr, addVecPair, addVecPairWithErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, subVal, subValPairWithErr, subVecPair, sumErrVals, valOf, divVecScalarWithErr, scalarPart, ulpVal, vectorPart, hpDivVecScalar, reduceVecPair, unlikeVecPair) where
+module Graphics.Slicer.Math.GeometricAlgebra(
+  ErrVal(ErrVal),
+  GNum(G0, GEMinus, GEPlus, GEZero),
+  GVal(GVal),
+  GVec(GVec),
+  UlpSum(UlpSum),
+  (⎣+),
+  (⎣),
+  (⎤+),
+  (⎤),
+  (⨅+),
+  (⨅),
+  (•+),
+  (•),
+  (⋅+),
+  (⋅),
+  (∧+),
+  (∧),
+  addErr,
+  addValPairWithErr,
+  addValWithErr,
+  addValWithoutErr,
+  addVecPair,
+  addVecPairWithErr,
+  addVecPairWithoutErr,
+  divVecScalarWithErr,
+  eValOf,
+  getVal,
+  hpDivVecScalar,
+  mulScalarVecWithErr,
+  reduceVecPair,
+  scalarPart,
+  subVal,
+  subValPairWithErr,
+  subVecPair,
+  sumErrVals,
+  ulpRaw,
+  ulpVal,
+  unlikeVecPair,
+  valOf,
+  vectorPart
+  ) where
 
 import Prelude (Eq, Monoid(mempty), Ord(compare), Semigroup((<>)), Show(show), (==), (/=), (+), fst, otherwise, snd, ($), not, (>), (*), concatMap, (<$>), sum, (&&), (/), Bool(True, False), error, flip, (&&), not, null, realToFrac, abs, (.), realToFrac)
 
@@ -53,7 +96,7 @@ import Data.Set (Set, singleton, disjoint, elems, size, elemAt, fromAscList)
 
 import Data.Set as S (filter)
 
-import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf, ToNearest))
+import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf, ToNearest), getRounded)
 
 import Safe (headMay)
 
@@ -87,8 +130,12 @@ data GRVal = GRVal
   deriving (Eq, Generic, NFData, Show)
 
 -- | A constantly increasing sum of error. Used for increasing our error bars proportonally to error collected from the FPU during calculations.
-newtype UlpSum = UlpSum { ulpVal :: Rounded 'TowardInf ℝ }
+newtype UlpSum = UlpSum { ulpRaw :: Rounded 'TowardInf ℝ }
   deriving (Show, Eq, Generic, NFData, Ord)
+
+-- | A value extractor directly to ℝ, which is a newtype of Double.
+ulpVal :: UlpSum -> ℝ
+ulpVal = getRounded . ulpRaw
 
 instance Semigroup UlpSum where
   (<>) (UlpSum sum1) (UlpSum sum2) = UlpSum $ sum1 + sum2
@@ -750,4 +797,4 @@ vectorPart (GVec vals) = GVec $ foldl' addVal [] $ P.filter noRealValue vals
 
 -- | Temporary hack.
 sumErrVals :: [ErrVal] -> UlpSum
-sumErrVals errVals = UlpSum $ sum $ ulpVal . (\(ErrVal a _) -> a) <$> errVals
+sumErrVals errVals = UlpSum $ sum $ ulpRaw . (\(ErrVal a _) -> a) <$> errVals

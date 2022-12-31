@@ -25,10 +25,10 @@
 module Graphics.Slicer.Orphans () where
 
 import Control.DeepSeq (NFData (rnf))
-import Graphics.Slicer.Definitions (Fastℕ)
+import Graphics.Slicer.Definitions (Fastℕ, ℝ)
 import Slist.Size (Size (Infinity, Size))
 import Slist.Type (Slist (Slist))
-import Prelude (seq)
+import Prelude (Monoid (mempty), Semigroup ((<>)), seq, (+))
 
 instance NFData a => NFData (Slist a) where
   rnf (Slist vals n) = rnf vals `seq` rnf n
@@ -40,3 +40,9 @@ instance NFData Size where
 -- | FIXME: move this to the proper place in ImplicitCAD.
 instance NFData Fastℕ where
   rnf a = seq a ()
+
+instance Semigroup ℝ where
+  (<>) a b = a + b
+
+instance Monoid ℝ where
+  mempty = 0

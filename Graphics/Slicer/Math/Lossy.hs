@@ -19,117 +19,82 @@
 -- | The purpose of this file is to provide versions of PGA functionality that are known to be lossy.
 
 module Graphics.Slicer.Math.Lossy (
-  angleBetween,
   canonicalizePPoint2,
   distanceBetweenPPoints,
-  distanceBetweenNPLine2s,
-  distanceCPPointToNPLine,
+  distanceBetweenPPointsWithErr,
   distancePPointToPLine,
-  eToCPPoint2,
-  eToNPLine2,
+  distancePPointToPLineWithErr,
   eToPLine2,
-  eToPPoint2,
   getFirstArc,
-  getInsideArc,
-  join2CPPoint2,
-  join2PPoint2,
-  makePPoint2,
-  makeCPPoint2,
-  normalizePLine2,
-  pLineFromEndpoints,
+  getOutsideArc,
   pPointBetweenPPoints,
   pPointOnPerp,
-  translatePLine2
+  pToEPoint2,
+  translatePLine2,
+  translateRotatePPoint2
   ) where
 
-import Prelude (($), fst)
+import Prelude (($), fst, mempty)
 
 -- The numeric type in HSlice.
 import Graphics.Slicer.Definitions (ℝ)
 
+import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getOutsideArc)
+
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2(CPPoint2), NPLine2, PLine2, PPoint2(PPoint2), ProjectivePoint2, angleBetweenWithErr, canonicalizePPoint2WithErr, distanceBetweenPPointsWithErr, distanceBetweenNPLine2sWithErr, distanceCPPointToNPLineWithErr, distancePPointToPLineWithErr, eToCPPoint2WithErr, eToPLine2WithErr, eToPPoint2WithErr, getFirstArcWithErr, getInsideArcWithErr, join2CPPoint2WithErr, join2PPoint2WithErr, makeCPPoint2WithErr, normalizePLine2WithErr, pLineFromEndpointsWithErr, pPointBetweenPPointsWithErr, pPointOnPerpWithErr, translatePLine2WithErr)
+import Graphics.Slicer.Math.PGA (canonicalizeP, distance2PP, distancePPToPL, eToPL, interpolate2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
-angleBetween :: NPLine2 -> NPLine2 -> ℝ
-angleBetween nPLine1 nPLine2 = fst $ angleBetweenWithErr nPLine1 nPLine2
+import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectiveLine2, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err)
 
--- | canonicalize a euclidian point.
-canonicalizePPoint2 :: PPoint2 -> CPPoint2
-canonicalizePPoint2 point = fst $ canonicalizePPoint2WithErr point
+-- | Canonicalize a projective point.
+canonicalizePPoint2 :: (ProjectivePoint2 a) => a -> ProjectivePoint
+canonicalizePPoint2 point = fst $ canonicalizeP point
 
+-- | Find the distance between two projective points.
 distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
-distanceBetweenPPoints point1 point2 = fst $ distanceBetweenPPointsWithErr point1 point2
+distanceBetweenPPoints point1 point2 = fst $ distance2PP (point1, mempty) (point2, mempty)
 
-distanceBetweenNPLine2s :: NPLine2 -> NPLine2 -> ℝ
-distanceBetweenNPLine2s nPLine1 nPLine2 = fst $ distanceBetweenNPLine2sWithErr nPLine1 nPLine2
+-- | Find the distance between two projective points, with attached error quotents.
+distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> ℝ
+distanceBetweenPPointsWithErr point1 point2 = fst $ distance2PP point1 point2
 
--- | Find the unsigned distance between a point and a line.
-distanceCPPointToNPLine :: CPPoint2 -> NPLine2 -> ℝ
-distanceCPPointToNPLine point line = fst $ distanceCPPointToNPLineWithErr point line
+-- | Find the distance between a point and a line.
+distancePPointToPLine :: (ProjectivePoint2 a, ProjectiveLine2 b) => a -> b -> ℝ
+distancePPointToPLine point line = fst $ distancePPToPL (point, mempty) (line, mempty)
 
--- | Find the unsigned distance between a point and a line.
-distancePPointToPLine :: PPoint2 -> PLine2 -> ℝ
-distancePPointToPLine point line = fst $ distancePPointToPLineWithErr point line
-
--- | Create a projective point from a euclidian point.
-eToCPPoint2 :: Point2 -> CPPoint2
-eToCPPoint2 point = fst $ eToCPPoint2WithErr point
-
--- | Create a normalized projective line from a euclidian line segment.
-eToNPLine2 :: LineSeg -> NPLine2
-eToNPLine2 l1 = normalizePLine2 $ fst $ eToPLine2WithErr l1
+-- | Find the distance between a point and a line, both with error quotents.
+distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> ℝ
+distancePPointToPLineWithErr point line = fst $ distancePPToPL point line
 
 -- | Create an un-normalized projective line from a euclidian line segment.
-eToPLine2 :: LineSeg -> PLine2
-eToPLine2 l1 = fst $ eToPLine2WithErr l1
+eToPLine2 :: LineSeg -> ProjectiveLine
+eToPLine2 l1 = fst $ eToPL l1
 
--- | Create a projective point from a euclidian point.
-eToPPoint2 :: Point2 -> PPoint2
-eToPPoint2 point = fst $ eToPPoint2WithErr point
+-- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of a line segment from p1 to p2, and a line segment from p3 to p2.
+getFirstArc :: Point2 -> Point2 -> Point2 -> ProjectiveLine
+getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 
--- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
-getFirstArc :: Point2 -> Point2 -> Point2 -> PLine2
-getFirstArc p1 p2 p3 = fst $ getFirstArcWithErr p1 p2 p3
-
-getInsideArc :: PLine2 -> PLine2 -> PLine2
-getInsideArc pl1 pl2 = fst $ getInsideArcWithErr pl1 pl2
-
--- | a typed join function. join two points, returning a line.
-join2PPoint2 :: PPoint2 -> PPoint2 -> PLine2
-join2PPoint2 pp1 pp2 = fst $ join2PPoint2WithErr pp1 pp2
-
--- | a typed join function. join two points, returning a line.
-join2CPPoint2 :: CPPoint2 -> CPPoint2 -> PLine2
-join2CPPoint2 pp1 pp2 = fst $ join2CPPoint2WithErr pp1 pp2
-
--- | create a canonical euclidian projective point from the given coordinates.
---   Really, just wraps makeCPPoint2WithErr
-makeCPPoint2 :: ℝ -> ℝ -> CPPoint2
-makeCPPoint2 x y = fst $ makeCPPoint2WithErr x y
-
--- | create a euclidian projective point from the given coordinates.
---   Really, just wraps makeCPPoint2WithErr
-makePPoint2 :: ℝ -> ℝ -> PPoint2
-makePPoint2 x y = (\(CPPoint2 p) -> PPoint2 p) $ fst $ makeCPPoint2WithErr x y
-
--- | Normalize a PLine2.
-normalizePLine2 :: PLine2 -> NPLine2
-normalizePLine2 pl = fst $ normalizePLine2WithErr pl
-
--- | Create a projective line from a pair of euclidian points.
-pLineFromEndpoints :: Point2 -> Point2 -> PLine2
-pLineFromEndpoints point1 point2 = fst $ pLineFromEndpointsWithErr point1 point2
+-- | Get a PLine in the direction of the out of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
+getOutsideArc :: (ProjectivePoint, PPoint2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectivePoint, PPoint2Err) -> (ProjectiveLine, PLine2Err) -> ProjectiveLine
+getOutsideArc a b c d = fst $ Arcs.getOutsideArc a b c d
 
 -- | Find a point somewhere along the line between the two points given.
---  requires two weights. the ratio of these weights determines the position of the found points, E.G: (2/3,1/3) is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint. weights can sum to anything.
-pPointBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> PPoint2
-pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ pPointBetweenPPointsWithErr startOfSeg stopOfSeg weight1 weight2
+--   Requires two weights. the ratio of these weights determines the position of the found points, E.G: (2/3,1/3) is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint. weights can sum to anything.
+pPointBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> ProjectivePoint
+pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ interpolate2PP startOfSeg stopOfSeg weight1 weight2
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
-pPointOnPerp :: PLine2 -> PPoint2 -> ℝ -> PPoint2
+pPointOnPerp :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ProjectivePoint
 pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
 
--- | translate a PLine2 along it's perpendicular bisector.
-translatePLine2 :: PLine2 -> ℝ -> PLine2
-translatePLine2 pline distance = fst $ translatePLine2WithErr pline distance
+pToEPoint2 :: (ProjectivePoint2 a) => a -> Point2
+pToEPoint2 ppoint = fst $ pToEP ppoint
+
+-- | Translate a projective line along it's perpendicular bisector.
+translatePLine2 :: (ProjectiveLine2 a) => a -> ℝ -> ProjectiveLine
+translatePLine2 pline distance = fst $ translateL pline distance
+
+-- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
+translateRotatePPoint2 :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> ProjectivePoint
+translateRotatePPoint2 ppoint d rotation = fst $ translateRotatePPoint2WithErr ppoint d rotation
