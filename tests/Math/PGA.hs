@@ -62,7 +62,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlu
 
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, intersectionBetween, isCollinear, outputIntersectsLineSeg)
 
-import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, eToPLine2, getFirstArc, getOutsideArc, pPointOnPerp, translateRotatePPoint2)
+import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, eToPLine2, getFirstArc, getOutsideArc, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
 import Graphics.Slicer.Math.PGA (ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2, PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), cPPointAndErrOf, distance2PL, distance2PP, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makeCPPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pPointOnPerpWithErr, outOf, errOfOut, fuzzinessOfL, sameDirection, translateRotatePPoint2WithErr)
@@ -389,7 +389,7 @@ proj2DGeomAlgSpec = do
       GVec [GVal (-2) (fromList [GEZero 1, GEPlus 1]), GVal 2 (fromList [GEZero 1, GEPlus 2]), GVal (-1) (fromList [GEPlus 1, GEPlus 2])]
     it "the geometric product of any two overlapping lines is only a Scalar" $
       property prop_TwoOverlappingLinesScalar
-    it "the geometric product of any two overlapping lines does not have produce a vector component" $
+    it "the geometric product of any two overlapping lines does not produce a vector component" $
       property prop_TwoOverlappingLinesVector
     it "A line constructed from a line segment is correct" $
       eToPLine2 (LineSeg (Point2 (0,0)) (Point2 (1,1))) --> pl1
@@ -399,15 +399,14 @@ proj2DGeomAlgSpec = do
     pl1 = PLine2 $ GVec [GVal 1 (singleton (GEPlus 1)), GVal (-1) (singleton (GEPlus 2))]
 
 -- | A property test making sure a PPoint projected from an axis-aligned line is along the opposite axis.
--- FIXME: use distance here.
 prop_AxisProjection :: Positive ℝ -> Bool -> Bool -> Positive ℝ -> Expectation
 prop_AxisProjection v xAxis whichDirection dv
   | xAxis = if whichDirection
-            then pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 (coerce v) 0) (makeCPPoint2 0 0) (coerce dv) --> makeCPPoint2 0 (coerce dv)
-            else pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 (-(coerce v)) 0) (makeCPPoint2 0 0) (coerce dv) --> makeCPPoint2 0 (-coerce dv)
+            then canonicalizePPoint2 (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 (coerce v) 0) (makeCPPoint2 0 0) (coerce dv)) --> makeCPPoint2 0 (coerce dv)
+            else canonicalizePPoint2 (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 (-(coerce v)) 0) (makeCPPoint2 0 0) (coerce dv)) --> makeCPPoint2 0 (-coerce dv)
   | otherwise = if whichDirection
-                then pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 0 (coerce v)) (makeCPPoint2 0 0) (coerce dv) --> makeCPPoint2 (-coerce dv) 0
-                else pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 0 (-(coerce v))) (makeCPPoint2 0 0) (coerce dv) --> makeCPPoint2 (coerce dv) 0
+                then canonicalizePPoint2 (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 0 (coerce v)) (makeCPPoint2 0 0) (coerce dv)) --> makeCPPoint2 (-coerce dv) 0
+                else canonicalizePPoint2 (pPointOnPerp (eToPLine2 $ randomLineSeg 0 0 0 (-(coerce v))) (makeCPPoint2 0 0) (coerce dv)) --> makeCPPoint2 (coerce dv) 0
 
 -- A property test making sure than for any LineSeg, a pointOnPerp is in fact on a 90 degree perpendicular line.
 prop_perpAt90Degrees :: ℝ -> ℝ -> Positive ℝ -> ℝ -> NonZero ℝ -> Bool
@@ -1207,6 +1206,11 @@ prop_ConcaveChevronQuadFacesInOrder a b c d e f = doTest $ randomConcaveChevronQ
         concaveChevronQuadAsSegs = lineSegsOfContour concaveChevronQuad
         firstSeg = onlyOneOf concaveChevronQuadAsSegs
 
+prop_PPointJoinID :: ℝ -> ℝ -> Expectation
+prop_PPointJoinID x y = fst (join2PP ppoint ppoint) --> PLine2 (GVec [])
+  where
+    ppoint = makeCPPoint2 x y
+
 {-
 -- | Test of dimensional accuracy.
 -- make sure that the measured distance between two points that have been placed as close as possible is less than the amount of error placing both points added to the amount of error of doing a measurement of distance.
@@ -1461,7 +1465,9 @@ facetStatSpec = do
 
 facetSpec :: Spec
 facetSpec = do
---  describe "Stability (Points)" $ do
+  describe "Stability (Points)" $ do
+    it "the join of two identical points is an empty projective line" $
+      property prop_PPointJoinID
 --    it "placing a Point within a the error range of another point results in a point a distance away thats less than the sum of the two errors" $
 --      property prop_PPointWithinErrRange
 --    it "both of the points used to join a PLine2 are within UlpSum of the PLine2" $

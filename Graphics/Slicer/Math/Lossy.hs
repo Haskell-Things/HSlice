@@ -19,6 +19,7 @@
 -- | The purpose of this file is to provide versions of PGA functionality that are known to be lossy.
 
 module Graphics.Slicer.Math.Lossy (
+  canonicalizePPoint2,
   distanceBetweenPPoints,
   distanceBetweenPPointsWithErr,
   distancePPointToPLine,
@@ -42,9 +43,13 @@ import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getOutsideArc)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 
-import Graphics.Slicer.Math.PGA (distance2PP, distancePPToPL, eToPL, interpolate2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (canonicalizeP, distance2PP, distancePPToPL, eToPL, interpolate2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectiveLine2, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err)
+
+-- | Canonicalize a projective point.
+canonicalizePPoint2 :: (ProjectivePoint2 a) => a -> ProjectivePoint
+canonicalizePPoint2 point = fst $ canonicalizeP point
 
 -- | Find the distance between two projective points.
 distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ
