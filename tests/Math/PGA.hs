@@ -1380,16 +1380,15 @@ prop_NormPLineIsPLine x y dx dy = randomPLine x y dx dy
 
 prop_PLinesIntersectAtOrigin :: NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> Bool
 prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
-  | foundDistance < realToFrac errSum = True
+  | foundDistance <= ulpVal distanceErr = True
   | otherwise = error $ "wtf"
                 <> show intersectionErr <> "\n"
   where
     originPPoint2 = makeCPPoint2 0 0
-    (foundDistance, (_,_,UlpSum distanceErr)) = distance2PP (originPPoint2, mempty) (intersectionPPoint2, intersectionErr)
+    (foundDistance, (_,_,distanceErr)) = distance2PP (originPPoint2, mempty) (intersectionPPoint2, intersectionErr)
     (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL randomPLine1 randomPLine2
     (randomPLine1, _) = randomPLineThroughOrigin x y
     (randomPLine2, _) = randomPLineThroughOrigin x2 y2
-    errSum = distanceErr -- + canonicalizationErr
     x,x2,y2 :: ℝ
     x = coerce rawX
     x2
