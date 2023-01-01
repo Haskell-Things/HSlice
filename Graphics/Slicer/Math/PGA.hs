@@ -151,6 +151,7 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
+{-# INLINABLE pLineIsLeft #-}
 pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe Bool
 pLineIsLeft (pl1, _) (pl2, _)
   | abs res <= ulpVal angleFuzz = Nothing

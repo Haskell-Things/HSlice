@@ -52,18 +52,22 @@ noIntersection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b
 noIntersection line1 line2 = isCollinear line1 line2 || isParallel line1 line2 || isAntiCollinear line1 line2 || isAntiParallel line1 line2
 
 -- | Check if two lines are really the same line.
+{-# INLINABLE isCollinear #-}
 isCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isCollinear line1 line2 = plinesIntersectIn line1 line2 == PCollinear
 
 -- | Check if two lines are really the same line, reversed.
+{-# INLINABLE isAntiCollinear #-}
 isAntiCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isAntiCollinear line1 line2 = plinesIntersectIn line1 line2 == PAntiCollinear
 
 -- | Check if two lines are parallel.
+{-# INLINABLE isParallel #-}
 isParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isParallel line1 line2 = plinesIntersectIn line1 line2 == PParallel
 
 -- | Check if two lines are anti-parallel.
+{-# INLINABLE isAntiParallel #-}
 isAntiParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isAntiParallel line1 line2 = plinesIntersectIn line1 line2 == PAntiParallel
 
