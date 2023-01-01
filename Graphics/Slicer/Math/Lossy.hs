@@ -39,13 +39,13 @@ import Prelude (($), fst, mempty)
 -- The numeric type in HSlice.
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
-
 import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc)
+
+import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 
 import Graphics.Slicer.Math.PGA (CPPoint2, PLine2, PLine2Err, PPoint2, PPoint2Err, ProjectiveLine2, ProjectivePoint2, canonicalizeP, distance2PP, distancePPToPL, eToPL, interpolate2PP, join2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
--- | canonicalize a euclidian point.
+-- | Canonicalize a euclidian projective point.
 canonicalizePPoint2 :: PPoint2 -> CPPoint2
 canonicalizePPoint2 point = fst $ canonicalizeP point
 
@@ -78,10 +78,6 @@ getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 join2PPoint2 :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> PLine2
 join2PPoint2 pp1 pp2 = fst $ join2PP pp1 pp2
 
--- | Convert a projective endpoint to a euclidian endpoint.
-pToEPoint2 :: (ProjectivePoint2 a) => a -> Point2
-pToEPoint2 pp = fst $ pToEP pp
-
 -- | Find a point somewhere along the line between the two points given.
 --   Requires two weights. the ratio of these weights determines the position of the found points, E.G: (2/3,1/3) is 1/3 the way FROM the stopPoint, and 2/3 the way FROM the startPoint. weights can sum to anything.
 pPointBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ℝ -> PPoint2
@@ -91,7 +87,11 @@ pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ interpolate2PP
 pPointOnPerp :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> PPoint2
 pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
 
--- | translate a projective line along it's perpendicular bisector.
+-- | Convert a projective endpoint to a euclidian endpoint.
+pToEPoint2 :: (ProjectivePoint2 a) => a -> Point2
+pToEPoint2 pp = fst $ pToEP pp
+
+-- | Translate a projective line along it's perpendicular bisector.
 translatePLine2 :: (ProjectiveLine2 a) => a -> ℝ -> PLine2
 translatePLine2 pline distance = fst $ translateL pline distance
 
