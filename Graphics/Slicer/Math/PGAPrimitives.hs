@@ -205,6 +205,8 @@ angleBetweenProjectiveLines line1 line2 = (scalarPart likeRes, resErr)
     resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
     -- FIXME: this returned ULPsum is wrong. actually try to interpret it.
     ulpSum = sumErrVals likeMulErr <> sumErrVals likeAddErr
+          <> sumErrVals likeMulErr <> sumErrVals likeAddErr
+          <> sumErrVals likeMulErr <> sumErrVals likeAddErr
     (likeRes, (likeMulErr, likeAddErr)) = lv1 ⎣+ lv2
     lv1 = vecOfL $ forceBasisOfL npl1
     lv2 = vecOfL $ forceBasisOfL npl2
