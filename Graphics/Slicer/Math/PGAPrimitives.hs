@@ -484,6 +484,7 @@ angleCosBetweenProjectiveLines, angleCosBetween2PL :: (ProjectiveLine2 a, Projec
 -- FIXME: the sum of iPointErrVals is not +/- radians.
 -- FIXME: lots of places for precision related error here, that are not recorded or reported.
 -- FIXME: what was the older method we used here? perhaps it has less opportunities for fuzziness?
+{-# INLINEABLE angleCosBetweenProjectiveLines #-}
 angleCosBetweenProjectiveLines line1 line2
   | isNothing canonicalizedIntersection = (0, mempty)
   | otherwise = (angle, (npl1Err, npl2Err, sumPPointErrs iPointErrVals))
@@ -498,6 +499,7 @@ angleCosBetweenProjectiveLines line1 line2
     lvec1 = vecOfL $ forceBasisOfL line1
     lvec2 = vecOfL $ forceBasisOfL line2
 -- | Wrapper.
+{-# INLINEABLE angleCosBetween2PL #-}
 angleCosBetween2PL l1 l2 = angleCosBetweenProjectiveLines l1 l2
 
 -- | Get the canonicalized intersection of two lines.

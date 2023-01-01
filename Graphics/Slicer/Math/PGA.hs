@@ -102,7 +102,7 @@ import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf, TowardNegInf))
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, endPoint, distance)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg, startPoint, endPoint, distance)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎤+), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, ulpRaw, ulpVal, valOf)
 
@@ -143,27 +143,22 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
   | otherwise                        = IntersectsIn res (pl1Err <> npl1Err, pl2Err <> npl2Err, resErr)
   where
     -- | The distance within which we consider (anti)parallel lines to be (anti)colinear.
-    parallelFuzziness = ulpVal $ dErr <> pLineErrAtPPoint (npl1, npl1Err <> pl1Err) res <> pLineErrAtPPoint (npl2, npl2Err <> pl2Err) res
+    parallelFuzziness = ulpVal $ dErr <> pLineErrAtPPoint (pl1, pl1Err) res <> pLineErrAtPPoint (pl2, pl2Err) res
     -- | When two lines are really close to parallel or antiparallel, we use the distance between the lines to decide whether to promote them to being (anti)colinear.
-    (d, (_, _, dErr)) = distance2PL npl1 npl2
+    (d, (_, _, dErr)) = distance2PL pl1 pl2
     (idealNorm, idnErr) = idealNormOfP res
-    (res, (_, _, resErr)) = fromJust canonicalizedIntersection
-    canonicalizedIntersection = canonicalizedIntersectionOf2PL npl1 npl2
-    (npl1, npl1Err) = normalizeL pl1
-    (npl2, npl2Err) = normalizeL pl2
+    (res, (npl1Err, npl2Err, resErr)) = fromJust canonicalizedIntersection
+    canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
+{-# INLINABLE pLineIsLeft #-}
 pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe Bool
 pLineIsLeft (pl1, _) (pl2, _)
-  -- | FIXME: Is there a way we can use Eq on a and b if they are the same type, rather than normalizing them first?
-  | npl1 == npl2         = Nothing
   | abs res <= angleFuzz = Nothing
   | otherwise            = Just $ res > 0
   where
     angleFuzz = ulpVal angleFuzzRaw
     (res, (_,_, angleFuzzRaw)) = angleCosBetween2PL pl1 pl2
-    (npl1, _) = normalizeL pl1
-    (npl2, _) = normalizeL pl2
 
 -- | Find the distance between a projective point and a projective line, along with the difference's error quotent.
 -- Note: Fails in the case of ideal points.
@@ -481,11 +476,10 @@ combineConsecutiveLineSegs lines = case lines of
                                    (Just v) -> if canCombineLineSegs v l1 then maybeToList (combineLineSegs v l1) <> (l2:initSafe ls) else v:l1:l2:initSafe ls
     -- | determine if two euclidian line segments are on the same projective line, and if they share a middle point.
     canCombineLineSegs :: LineSeg -> LineSeg -> Bool
-    canCombineLineSegs l1@(LineSeg p1 s1) l2@(LineSeg p2 _) = sameLineSeg && sameMiddlePoint
+    canCombineLineSegs l1 l2 = sameLineSeg && sameMiddlePoint
       where
-        -- FIXME: this does not take into account the Err introduced by eToPLine2.
         sameLineSeg = plinesIntersectIn (eToPL l1) (eToPL l2) == PCollinear
-        sameMiddlePoint = p2 == addPoints p1 s1
+        sameMiddlePoint = startPoint l2 == endPoint l1
 
 ------------------------------------------------
 ----- And now draw the rest of the algebra -----

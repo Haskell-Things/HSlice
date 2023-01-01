@@ -70,7 +70,7 @@ distancePPointToPLineWithErr point line = fst $ distancePPToPL point line
 eToPLine2 :: LineSeg -> PLine2
 eToPLine2 l1 = fst $ eToPL l1
 
--- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
+-- | Get a PLine in the direction of the inside of the contour, at the angle bisector of the intersection of a line segment from p1 to p2, and a line segment from p3 to p2.
 getFirstArc :: Point2 -> Point2 -> Point2 -> PLine2
 getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 
@@ -89,7 +89,7 @@ pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
 
 -- | Convert a projective endpoint to a euclidian endpoint.
 pToEPoint2 :: (ProjectivePoint2 a) => a -> Point2
-pToEPoint2 pp = fst $ pToEP pp
+pToEPoint2 ppoint = fst $ pToEP ppoint
 
 -- | Translate a projective line along it's perpendicular bisector.
 translatePLine2 :: (ProjectiveLine2 a) => a -> ℝ -> PLine2
