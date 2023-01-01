@@ -28,7 +28,7 @@ module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWal
 
 import GHC.Generics (Generic)
 
-import Prelude (Eq, Int, Rational, Show, ($), zipWith, concat, (<>), show, error, otherwise, (==), length, fst, pi, (/), (*), pure, toRational, fromRational, (+), div, Bool, snd)
+import Prelude (Bool, Eq, Int, Rational, Show, ($), (<>), (==), (/), (*), (+), concat, div, error, fromRational, fst, head, length, otherwise, pi, pure, show, snd, tail, toRational, zipWith)
 
 import Data.ByteString (ByteString)
 
@@ -205,10 +205,12 @@ gcodeForContour lh pathWidth feedRate contour = addFeedRate feedRate headRes : t
 -- | For each group of lines, generate gcode for the segments, with move commands between them.
 gcodeForInfill :: ℝ -> ℝ -> ℝ -> ℝ -> [[LineSeg]] -> [GCode]
 gcodeForInfill _ _ _ _ [] = []
-gcodeForInfill lh pathWidth infillFeedRate travelFeedRate lineGroups =
-  case lineGroups of
-    (headGroup:tailGroups) -> concat $ renderLineSegGroup headGroup : zipWith (\group1 group2 -> moveBetweenLineSegGroups group1 group2 <> renderLineSegGroup group2) lineGroups tailGroups
+gcodeForInfill lh pathWidth infillFeedRate travelFeedRate lineGroups
+  | lineGroups == [] = []
+  | lineGroups == [[]] = []
+  | otherwise = concat $ renderLineSegGroup headGroup : zipWith (\group1 group2 -> moveBetweenLineSegGroups group1 group2 <> renderLineSegGroup group2) lineGroups tailGroups
   where
+    (headGroup, tailGroups) = (head lineGroups, tail lineGroups)
     -- FIXME: this should be a single gcode. why are we getting empty line groups given to us?
     moveBetweenLineSegGroups :: [LineSeg] -> [LineSeg] -> [GCode]
     moveBetweenLineSegGroups g1 g2 = case unsnoc g1 of
@@ -219,7 +221,7 @@ gcodeForInfill lh pathWidth infillFeedRate travelFeedRate lineGroups =
     renderLineSegGroup :: [LineSeg] -> [GCode]
     renderLineSegGroup lineSegSet = case lineSegSet of
                                       [] -> []
-                                      (headGroup:tailGroups) -> renderSegment headGroup : concat (zipWith (\ l1 l2 -> moveBetween l1 l2 : [renderSegment l2]) lineSegSet tailGroups)
+                                      (myHeadGroup:myTailGroups) -> renderSegment myHeadGroup : concat (zipWith (\ l1 l2 -> moveBetween l1 l2 : [renderSegment l2]) lineSegSet myTailGroups)
     moveBetween :: LineSeg -> LineSeg -> GCode
     moveBetween l1 (LineSeg startPointl2 _) = addFeedRate travelFeedRate $ make2DTravelGCode (endPoint l1) startPointl2
     renderSegment :: LineSeg -> GCode
