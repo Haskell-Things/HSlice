@@ -122,7 +122,7 @@ instance Pointable INode where
       hasIntersectingPairs (Slist pLines _) = any (\(pl1, pl2) -> not $ noIntersection pl1 pl2) $ getPairs pLines
   cPPointOf a = fst $ cPPointAndErrOfINode a
   -- Just convert our resolved point.
-  ePointOf a = fst $ pToEP $ fst $ cPPointAndErrOfINode a
+  ePointOf a = fst $ pToEP $ cPPointOf a
   errOfCPPoint a = snd $ cPPointAndErrOfINode a
 
 -- Since an INode does not contain a point, we have to attempt to resolve one instead.
@@ -216,7 +216,7 @@ data MotorcycleIntersection =
 newtype RemainingContour = RemainingContour (Slist (Slist LineSeg, [CellDivide]))
 
 -- | The exterior nodes of a whole contour or just a cell of a contour.
-newtype ENodeSet = ENodeSet { _eNodeSides :: Slist (ENode,Slist ENode) }
+newtype ENodeSet = ENodeSet { _eNodeSides :: Slist (ENode, Slist ENode) }
   deriving Eq
   deriving stock Show
 
@@ -290,7 +290,7 @@ linePairs contour = rotateRight $ mapWithNeighbors (\a b c -> (handleLineSegErro
 makeINode :: [(PLine2, PLine2Err)] -> Maybe (PLine2, PLine2Err) -> INode
 makeINode pLines maybeOut = case pLines of
                               [] -> error "tried to construct a broken INode"
-                              [onePLine] -> error $ "tried to construct a broken INode from one PLine2: " <> show onePLine <> "\n"
+                              [onePLine] -> error $ "tried to construct a broken INode from one input: " <> show onePLine <> "\n"
                               [first,second] -> INode first second (slist []) maybeOut
                               (first:second:more) -> INode first second (slist more) maybeOut
 
@@ -337,7 +337,7 @@ ancestorsOf (INodeSet generations)
   where
     ancestors = SL.init generations
 
--- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a PLine2 bisecting them, pointing toward the interior of the Contour.
+-- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a projective line bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe PLine2
 concavePLines seg1 seg2
   | Just True == pLineIsLeft (eToPL seg1) (eToPL seg2) = Just $ PLine2 $ addVecPair pv1 pv2
@@ -368,12 +368,12 @@ indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesA
     pLinesAfterIndex myFirstPLine = filter (\a -> (myFirstPLine, mempty) `pLineIsLeft` a == Just False)
 
 -- | Find the last PLine of an INode.
-lastInOf :: INode -> PLine2
+lastInOf :: INode -> (PLine2, PLine2Err)
 lastInOf (INode _ secondPLine morePLines _)
-  | isEmpty morePLines = fst $ secondPLine
-  | otherwise          = fst $ SL.last morePLines
+  | isEmpty morePLines = secondPLine
+  | otherwise          = SL.last morePLines
 
 -- | Find the first PLine of an INode.
-firstInOf :: INode -> PLine2
-firstInOf (INode a _ _ _) = fst a
+firstInOf :: INode -> (PLine2, PLine2Err)
+firstInOf (INode a _ _ _) = a
 

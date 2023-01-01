@@ -28,7 +28,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Concave (skeletonOfConcaveRegion, findINodes, makeENode, makeENodes, averageNodes, eNodesOfOutsideContour) where
 
-import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), all, notElem, otherwise, ($), (>), (<=), (<$>), (==), (/=), error, (&&), fst, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), concatMap, mempty)
+import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), all, notElem, otherwise, ($), (>), (<=), (<$>), (==), (/=), error, (&&), fst, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), concatMap)
 
 import Prelude as PL (head, last, tail, init)
 
@@ -238,7 +238,7 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodes
             onlyINodeIn a = error $ "more than one inode: " <> show a <> "\n"
             findENodesOfInRecursive :: (PLine2,PLine2Err) -> [ENode]
             findENodesOfInRecursive myPLine
-              | isENode (fst myPLine) = [myENode]
+              | isENode myPLine = [myENode]
               | otherwise = -- must be an INode. recurse.
                 case unsnoc ancestorGens of
                   Nothing -> []
@@ -255,9 +255,9 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodes
                                                      first [] = error "found no INode?"
                                                      first (v:_) = v
               where
-                myENode = fromMaybe (error "could not find ENode?") $ findENodeByOutput eNodeSet (fst myPLine)
+                myENode = fromMaybe (error "could not find ENode?") $ findENodeByOutput eNodeSet myPLine
                 -- Determine if a PLine matches the output of an ENode.
-                isENode :: PLine2 -> Bool
+                isENode :: (PLine2, PLine2Err) -> Bool
                 isENode myPLine2 = isJust $ findENodeByOutput eNodeSet myPLine2
 findENodesInOrder a b = error $ "cannot find ENodes for :" <> show a <> "\n" <> show b <> "\n"
 
@@ -372,9 +372,9 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
     indexTo iNodes = iNodesBeforePLine iNodes <> iNodesAfterPLine iNodes
       where
         iNodesBeforePLine :: [INode] -> [INode]
-        iNodesBeforePLine = filter (\a -> (firstPLine, mempty) `pLineIsLeft` (firstInOf a, mempty) /= Just False)
+        iNodesBeforePLine = filter (\a -> firstPLine `pLineIsLeft` (firstInOf a) /= Just False)
         -- nodes in the right order, after the divide.
-        iNodesAfterPLine myINodes = withoutFlippedINodes $ filter (\a -> (firstPLine, mempty) `pLineIsLeft` (firstInOf a, mempty) == Just False) myINodes
+        iNodesAfterPLine myINodes = withoutFlippedINodes $ filter (\a -> firstPLine `pLineIsLeft` (firstInOf a) == Just False) myINodes
         withoutFlippedINodes maybeFlippedINodes = case flippedINodeOf maybeFlippedINodes of
                                                     Nothing -> maybeFlippedINodes
                                                     (Just a) -> filter (/= a) maybeFlippedINodes
@@ -450,13 +450,13 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
                                [] -> error "could not find old connecting PLine."
                                [v] -> v
                                (_:_) -> error "filter passed too many connecting PLines."
-        iNodeInsOf myINode = filter (\a -> isNothing . findENodeByOutput (eNodeSetOf $ slist initialENodes) $ fst a) $  insOf myINode
+        iNodeInsOf myINode = filter (\a -> isNothing $ findENodeByOutput (eNodeSetOf $ slist initialENodes) a) $ insOf myINode
         withoutConnectingPLine = filter (/= oldConnectingPLine)
 
     -- Determine if the given INode has a PLine that points to an ENode.
-    hasENode iNode = any (isJust . findENodeByOutput (eNodeSetOf $ slist initialENodes)) $ fst <$> insOf iNode
+    hasENode iNode = any (isJust . findENodeByOutput (eNodeSetOf $ slist initialENodes)) $ insOf iNode
     -- Determine if the given INode has a PLine that points to another INode.
-    hasINode iNode = any (isNothing . findENodeByOutput (eNodeSetOf $ slist initialENodes)) $ fst <$> insOf iNode
+    hasINode iNode = any (isNothing . findENodeByOutput (eNodeSetOf $ slist initialENodes)) $ insOf iNode
 
     -- Construct an ENodeSet
     eNodeSetOf :: Slist ENode -> ENodeSet
@@ -487,12 +487,12 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
     -- | Sort a generation by the first in PLine.
     sortGeneration :: [INode] -> [INode]
-    sortGeneration = sortBy (\a b -> if (firstInOf a, mempty) `pLineIsLeft` (firstInOf b, mempty) == Just False then LT else GT)
+    sortGeneration = sortBy (\a b -> if (firstInOf a) `pLineIsLeft` (firstInOf b) == Just False then LT else GT)
 
     -- Find an inode connecting the first and last ENode, if it exists.
     -- FIXME: this functions, but i don't know why. :)
     flippedINodeOf :: [INode] -> Maybe INode
-    flippedINodeOf inodes = case filter (\a -> (firstPLine, mempty) `pLineIsLeft` (firstInOf a, mempty) == Just False) inodes of
+    flippedINodeOf inodes = case filter (\a -> firstPLine `pLineIsLeft` (firstInOf a) == Just False) inodes of
                               [] -> Nothing
                               [a] -> -- if there is only one result, it's going to only point to enodes.
                                 Just a
@@ -507,7 +507,7 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
                                   allInsAreENodes iNode = not $ hasINode iNode
 
     -- the output PLine of the first ENode in the input ENode set.
-    firstPLine = outOf firstENode
+    firstPLine = outAndErrOf firstENode
       where
         -- the first ENode given to us. for sorting uses.
         firstENode = first initialENodes
@@ -527,7 +527,7 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
     -- Order the input nodes of an INode.
     orderInsByENodes :: INode -> INode
-    orderInsByENodes inode@(INode _ _ _ out) = makeINode (indexPLinesTo firstPLine $ sortedPLinesWithErr $ indexPLinesTo firstPLine $ insOf inode) out
+    orderInsByENodes inode@(INode _ _ _ out) = makeINode (indexPLinesTo (fst firstPLine) $ sortedPLinesWithErr $ indexPLinesTo (fst firstPLine) $ insOf inode) out
 
 -- | Apply a recursive algorithm to obtain a raw INode set.
 --   FIXME: does not handle more than two point intersections of arcs properly.

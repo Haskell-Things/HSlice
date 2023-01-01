@@ -21,7 +21,7 @@ module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastEN
 
 import Prelude (Bool(True,False), Eq, Show, (==), otherwise, snd, ($), error, (<>), notElem, show, (&&), (/=), null, (<$>), fst)
 
-import Data.Maybe( Maybe(Just, Nothing), fromJust, fromMaybe, isJust)
+import Data.Maybe( Maybe(Just, Nothing), fromMaybe, isJust)
 
 import Slist.Type (Slist(Slist))
 
@@ -31,9 +31,11 @@ import Slist as SL (filter, last, head, init, isEmpty)
 
 import Graphics.Slicer.Math.Definitions (LineSeg)
 
+import Graphics.Slicer.Math.Intersections (isCollinear)
+
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), finalINodeOf, finalPLine, getFirstLineSeg, getLastLineSeg, hasNoINodes, ancestorsOf, indexPLinesTo, makeINode, sortedPLinesWithErr)
 
-import Graphics.Slicer.Math.PGA (PLine2, Arcable(hasArc, outOf))
+import Graphics.Slicer.Math.PGA (PLine2, PLine2Err, Arcable(hasArc, outOf), outAndErrOf)
 
 lastSegOf :: NodeTree -> LineSeg
 lastSegOf nodeTree = getLastLineSeg $ lastENodeOf nodeTree
@@ -55,32 +57,32 @@ firstENodeOf (NodeTree (ENodeSet sides) _) = fst $ SL.head sides
 data Direction = Head
                | Last
 
-pathFirst, pathLast :: NodeTree -> ([PLine2], [INode], ENode)
+pathFirst, pathLast :: NodeTree -> ([(PLine2, PLine2Err)], [INode], ENode)
 pathFirst nodeTree = pathTo nodeTree Head
 pathLast nodeTree = pathTo nodeTree Last
 
 -- | Find all of the Nodes and all of the arcs between the last item in the nodeTree and the node that is part of the original contour on the given side.
-pathTo :: NodeTree -> Direction -> ([PLine2], [INode], ENode)
+pathTo :: NodeTree -> Direction -> ([(PLine2, PLine2Err)], [INode], ENode)
 pathTo (NodeTree (ENodeSet (Slist [] _)) _) _ = error "unable to pathTo a Nodetree without ENodes."
 pathTo (NodeTree eNodeSet@(ENodeSet eNodeSides) iNodeSet@(INodeSet generations)) direction
   | isEmpty generations = case eNodeSides of
-                            (Slist [(firstENode,_)] _) -> ([outOf firstENode], [], firstENode)
+                            (Slist [(firstENode,_)] _) -> ([outAndErrOf firstENode], [], firstENode)
                             (Slist _ _) -> error "looking for a first ENode in an ENodeSet with more than one side."
   | otherwise = pathInner (ancestorsOf iNodeSet) eNodeSet (finalINodeOf iNodeSet)
   where
-    pathInner :: INodeSet -> ENodeSet -> INode -> ([PLine2], [INode], ENode)
+    pathInner :: INodeSet -> ENodeSet -> INode -> ([(PLine2, PLine2Err)], [INode], ENode)
     pathInner myINodeSet@(INodeSet myGenerations) myENodeSet target@(INode firstPLine secondPLine morePLines _)
-      | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
-      | otherwise     = (               childPlines, target: endNodes, finalENode)
+      | hasArc target = (outAndErrOf target : childPlines, target: endNodes, finalENode)
+      | otherwise     = (                     childPlines, target: endNodes, finalENode)
       where
-        pLineToFollow = fst $ case direction of
-                                Head -> firstPLine
-                                Last -> SL.last (cons secondPLine morePLines)
+        pLineToFollow = case direction of
+                          Head -> firstPLine
+                          Last -> SL.last (cons secondPLine morePLines)
         iNodeOnThisLevel = findINodeByOutput myINodeSet pLineToFollow False
         iNodeOnLowerLevel = findINodeByOutput (ancestorsOf myINodeSet) pLineToFollow True
         result = findENodeByOutput myENodeSet pLineToFollow
         terminate = case result of
-                      (Just eNode) -> ([outOf eNode], [], eNode)
+                      (Just eNode) -> ([outAndErrOf eNode], [], eNode)
                       Nothing -> error "FIXME: cannot happen."
         myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodeSides <> "\n" <> show myINodeSet <> "\n"
         (childPlines, endNodes, finalENode) = if isJust result
@@ -96,7 +98,7 @@ pathTo (NodeTree eNodeSet@(ENodeSet eNodeSides) iNodeSet@(INodeSet generations))
                                                                                         Nothing -> myError
 
 -- | Find an exterior Node with an output of the PLine given.
-findENodeByOutput :: ENodeSet -> PLine2 -> Maybe ENode
+findENodeByOutput :: ENodeSet -> (PLine2, PLine2Err) -> Maybe ENode
 findENodeByOutput (ENodeSet eNodeSides) plineOut =
   case eNodeSides of
     (Slist [] _) -> Nothing
@@ -107,17 +109,17 @@ findENodeByOutput (ENodeSet eNodeSides) plineOut =
                          (_:_) -> error "more than one eNode found?"
       where res = (`findENodeOnSideByOutput` plineOut) <$> sides
   where
-  findENodeOnSideByOutput :: (ENode,Slist ENode) -> PLine2 -> Maybe ENode
+  findENodeOnSideByOutput :: (ENode,Slist ENode) -> (PLine2, PLine2Err) -> Maybe ENode
   findENodeOnSideByOutput (firstENode,moreENodes) myPlineOut = case nodesMatching of
                                                                  (Slist [] _) -> Nothing
                                                                  (Slist [oneNode] _) -> Just oneNode
                                                                  (Slist (_:_) _)->  error "more than one exterior node with the same PLine out!"
     where
-      nodesMatching = SL.filter (\eNode -> outOf eNode == myPlineOut) (cons firstENode moreENodes)
+      nodesMatching = SL.filter (\eNode -> isCollinear (outAndErrOf eNode) myPlineOut) (cons firstENode moreENodes)
 
 -- | Find an INode that has an output of the PLine given. Check the most recent generation, and if recurse is set, check previous generations.
 --   Also returns the generation the INode was found in, it's generation, and it's prior generations.
-findINodeByOutput :: INodeSet -> PLine2 -> Bool -> Maybe (INodeSet, INode)
+findINodeByOutput :: INodeSet -> (PLine2, PLine2Err) -> Bool -> Maybe (INodeSet, INode)
 findINodeByOutput iNodeSet@(INodeSet generations) plineOut recurse
   | isEmpty generations = Nothing
   | otherwise = case nodesMatching of
@@ -130,7 +132,7 @@ findINodeByOutput iNodeSet@(INodeSet generations) plineOut recurse
                   (Slist [iNode] _) -> Just (iNodeSet, iNode)
                   (Slist (_:_) _) -> error "more than one node in a the same generation with the same PLine out!"
   where
-    nodesMatching = SL.filter (\(INode _ _ _ a) -> isJust a && fst (fromJust a) == plineOut) $ slist (SL.last generations)
+    nodesMatching = SL.filter (\a -> hasArc a && isCollinear (outAndErrOf a) plineOut) $ slist (SL.last generations)
 
 -- | a smart constructor for a NodeTree
 makeNodeTree :: [ENode] -> INodeSet -> NodeTree
