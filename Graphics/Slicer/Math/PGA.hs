@@ -155,11 +155,10 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
 {-# INLINABLE pLineIsLeft #-}
 pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe Bool
 pLineIsLeft (pl1, _) (pl2, _)
-  | abs res <= angleFuzz = Nothing
-  | otherwise            = Just $ res > 0
+  | abs res <= ulpVal angleFuzz = Nothing
+  | otherwise                   = Just $ res > 0
   where
-    angleFuzz = ulpVal angleFuzzRaw
-    (res, (_,_, angleFuzzRaw)) = angleCosBetween2PL pl1 pl2
+    (res, (_,_, angleFuzz)) = angleCosBetween2PL pl1 pl2
 
 -- | Find the distance between a projective point and a projective line, along with the difference's error quotent.
 -- Note: Fails in the case of ideal points.
@@ -210,7 +209,7 @@ sameDirection a b = res >= maxAngle
     -- ceiling value. a value bigger than maxAngle is considered to be going the same direction.
     maxAngle :: ℝ
     maxAngle = realToFrac (1 - ulpRaw resErr :: Rounded 'TowardInf ℝ)
-    (res, (_,_,resErr)) = angleBetween2PL a b
+    (res, (_,_, resErr)) = angleBetween2PL a b
 
 -- | A checker, to ensure two Projective Lines are going the opposite direction, and are parallel.
 oppositeDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
@@ -219,7 +218,7 @@ oppositeDirection a b = res <= minAngle
     -- floor value. a value smaller than minAngle is considered to be going the opposite direction.
     minAngle :: ℝ
     minAngle = realToFrac (realToFrac (ulpRaw resErr) + (-1) :: Rounded 'TowardNegInf ℝ)
-    (res, (_,_,resErr)) = angleBetween2PL a b
+    (res, (_,_, resErr)) = angleBetween2PL a b
 
 -- | Find a projective point a given distance along a line perpendicularly bisecting the given line at a given point.
 -- FIXME: many operators here have error preserving forms, use those!

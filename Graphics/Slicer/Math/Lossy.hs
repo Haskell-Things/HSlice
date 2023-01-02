@@ -46,7 +46,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 import Graphics.Slicer.Math.PGA (CPPoint2, PLine2, PLine2Err, PPoint2, PPoint2Err, ProjectiveLine2, ProjectivePoint2, canonicalizeP, distance2PP, distancePPToPL, eToPL, interpolate2PP, join2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
 -- | Canonicalize a euclidian projective point.
-canonicalizePPoint2 :: PPoint2 -> CPPoint2
+canonicalizePPoint2 :: (ProjectivePoint2 a) => a -> CPPoint2
 canonicalizePPoint2 point = fst $ canonicalizeP point
 
 -- | Find the distance between two projective points.
