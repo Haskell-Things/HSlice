@@ -70,6 +70,7 @@ module Graphics.Slicer.Math.PGA(
   join2EP,
   join2PP,
   makeCPPoint2,
+  oppositeDirection,
   outAndErrOf,
   pLineErrAtPPoint,
   pLineIntersectsLineSeg,

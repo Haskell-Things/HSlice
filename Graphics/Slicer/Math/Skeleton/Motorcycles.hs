@@ -52,9 +52,9 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithNeighb
 
 import Graphics.Slicer.Math.Intersections (intersectionOf, isAntiCollinear, noIntersection, outputIntersectsLineSeg, outputIntersectsPLineAt)
 
-import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, distanceBetweenPPointsWithErr, eToPLine2, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, distanceBetweenPPointsWithErr, eToPLine2, join2PPoint2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, PLine2, PLine2Err, PPoint2, PPoint2Err, Arcable(outOf), Pointable(canPoint, cPPointOf, ePointOf), cPPointAndErrOf, eToPL, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), ProjectivePoint2, angleBetween2PL, distance2PP, eToPP, join2EP, outAndErrOf, plinesIntersectIn, translateL)
+import Graphics.Slicer.Math.PGA (CPPoint2, PLine2, PLine2Err, PPoint2, PPoint2Err, Arcable(outOf), Pointable(canPoint, cPPointOf, ePointOf), cPPointAndErrOf, eToPL, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), ProjectivePoint2, angleBetween2PL, distance2PP, eToPP, join2EP, oppositeDirection, outAndErrOf, plinesIntersectIn, translateL)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), ENode(ENode), Motorcycle(Motorcycle), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), getFirstLineSeg, linePairs)
 
@@ -162,10 +162,7 @@ crashMotorcycles contour holes
                           _ -> Nothing
               where
                 intersectionPPoint = intersectionOf (outAndErrOf mot1) (outAndErrOf mot2)
-                intersectionIsBehind m = angleFound < ulpVal angleErr
-                  where
-                    (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf m) (eToPLine2 $ lineSegToIntersection m)
-                lineSegToIntersection m = makeLineSeg (ePointOf m) (pToEPoint2 $ fst intersectionPPoint)
+                intersectionIsBehind m = oppositeDirection (outOf m) (join2PPoint2 (cPPointOf m) (fst intersectionPPoint))
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
 --   This function is meant to be used on the exterior contour.

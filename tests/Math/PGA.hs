@@ -47,9 +47,9 @@ import Data.List (foldl')
 
 import Data.Maybe (fromJust, fromMaybe, isNothing, Maybe(Just, Nothing))
 
-import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf))
-
 import Data.Set (singleton, fromList)
+
+import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf))
 
 import Slist (slist, len)
 
