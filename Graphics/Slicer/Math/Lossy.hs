@@ -65,7 +65,6 @@ distancePPointToPLine point line = fst $ distancePPToPL (point, mempty) (line, m
 distancePPointToPLineWithErr :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> ℝ
 distancePPointToPLineWithErr point line = fst $ distancePPToPL point line
 
-
 -- | Create an un-normalized projective line from a euclidian line segment.
 eToPLine2 :: LineSeg -> PLine2
 eToPLine2 l1 = fst $ eToPL l1

@@ -75,6 +75,8 @@ import Data.List (foldl', sort)
 
 import Data.Maybe (Maybe(Just,Nothing), fromJust, isJust, isNothing)
 
+import Data.Typeable (Typeable, cast, typeOf)
+
 import Data.Set (Set, elems, fromList, singleton)
 
 import GHC.Generics (Generic)
@@ -144,14 +146,14 @@ forceBasis numsets (GVec vals) = GVec $ forceVal vals <$> sort numsets
 
 -- | A projective line in 2D space.
 newtype PLine2 = PLine2 GVec
-  deriving (Eq, Generic, NFData, Show)
+  deriving (Eq, Generic, NFData, Show, Typeable)
 
 -- | A normalized projective line in 2D space.
 newtype NPLine2 = NPLine2 GVec
-  deriving (Eq, Generic, NFData, Show)
+  deriving (Eq, Generic, NFData, Show, Typeable)
 
 -- | The typeclass definition. functions that must be implemented for any projective line type.
-class (Show a) => ProjectiveLine2 a where
+class (Eq a, Show a, Typeable a) => ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   normalizeL :: a -> (NPLine2, PLine2Err)
   vecOfL :: a -> GVec
@@ -200,10 +202,16 @@ instance Monoid PLine2Err where
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
 {-# INLINABLE angleBetweenProjectiveLines #-}
 angleBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
-angleBetweenProjectiveLines line1 line2 = (scalarPart likeRes, resErr)
+angleBetweenProjectiveLines line1 line2
+  -- Short circuit (returning 1) if the two inputs are identical, and of the same type.
+  | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (1, mempty)
+  -- Short circuit (returning 1) if the two inputs are equivalent after normalization.
+  | npl1 == npl2 = (1, mempty)
+  -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
+  | otherwise = (scalarPart likeRes, resErr)
   where
     resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
-    -- FIXME: this returned ULPsum is wrong. actually try to interpret it.
+    -- FIXME: this returned ULPsum is wrong. actually try to interpret it. If you can get this to fail, add more repetitions, and pray really hard.
     ulpSum = sumErrVals likeMulErr <> sumErrVals likeAddErr
           <> sumErrVals likeMulErr <> sumErrVals likeAddErr
           <> sumErrVals likeMulErr <> sumErrVals likeAddErr
@@ -222,7 +230,13 @@ angleBetween2PL l1 l2 = crushErr $ angleBetweenProjectiveLines l1 l2
 -- | Find the distance between two parallel or antiparallel projective lines.
 {-# INLINABLE distanceBetweenProjectiveLines #-}
 distanceBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
-distanceBetweenProjectiveLines line1 line2 = (res, resErr)
+distanceBetweenProjectiveLines line1 line2
+  -- Short circuit (returning 0) if the two inputs are identical, and of the same type.
+  | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (0, mempty)
+  -- Short circuit (returning 0) if the two inputs are equvalent after normalization.
+  | npl1 == npl2 = (0, mempty)
+  -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
+  | otherwise = (res, resErr)
   where
     (res, idealErr) = idealNormOfP $ PPoint2 like
     resErr = (npl1Err, npl2Err, likeErr, idealErr)

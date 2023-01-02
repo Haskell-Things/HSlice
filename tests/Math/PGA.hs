@@ -1337,7 +1337,7 @@ prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
     bisector = (flipL $ outOf eNode, errOfOut eNode)
 
 prop_obtuseBisectorOnBiggerSide_makeINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> Expectation
-prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound > (1-ulpVal angleErr), angleFound < realToFrac (-1 + (ulpRaw angleErr) :: Rounded 'TowardInf ℝ)) --> (True, False)
+prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound >= (1-ulpVal angleErr), angleFound < realToFrac (-1 + (ulpRaw angleErr) :: Rounded 'TowardInf ℝ)) --> (True, False)
   where
     (angleFound, (_,_, angleErr)) = angleBetween2PL bisector1 bisector2
     eNode = randomENode x y d1 rawR1 d2 rawR2
