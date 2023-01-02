@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf, isAntiColl
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distanceBetweenPPointsWithErr, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), CPPoint2, Pointable(canPoint, ePointOf, cPPointOf), angleBetween2PL, distance2PP, eToPL, eToPP, join2PP, outAndErrOf, cPPointAndErrOf)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), CPPoint2, Pointable(canPoint, ePointOf, cPPointOf), distance2PP, eToPL, eToPP, join2PP, oppositeDirection, outAndErrOf, cPPointAndErrOf)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving (Show, Eq)
@@ -109,10 +109,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                                                                                      -- LOWHANGINGFRUIT: what about two motorcycles that are anticolinear?
                                                                                      error "don't know what to do with these motorcycles."
                                                where
-                                                 intersectionIsBehind m = angleFound < ulpVal angleErr
-                                                   where
-                                                     (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf m) (eToPLine2 $ lineSegToIntersection m)
-                                                 lineSegToIntersection m = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
+                                                 intersectionIsBehind m = oppositeDirection (outOf m) (eToPLine2 $ makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint))
                                                  (intersectionPPoint, _) = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf firstMC secondMC
                                              (Slist (_:_) _) -> error "too many motorcycles."
     motorcyclesIn (CrashTree motorcycles _ _) = motorcycles

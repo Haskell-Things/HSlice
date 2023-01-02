@@ -54,7 +54,7 @@ import Graphics.Slicer.Math.Intersections (intersectionOf, isAntiCollinear, noIn
 
 import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, distanceBetweenPPoints, distanceBetweenPPointsWithErr, eToPLine2, join2PPoint2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (CPPoint2, PLine2, PLine2Err, PPoint2, PPoint2Err, Arcable(outOf), Pointable(canPoint, cPPointOf, ePointOf), cPPointAndErrOf, eToPL, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), ProjectivePoint2, angleBetween2PL, distance2PP, eToPP, join2EP, oppositeDirection, outAndErrOf, plinesIntersectIn, translateL)
+import Graphics.Slicer.Math.PGA (CPPoint2, PLine2, PLine2Err, PPoint2, PPoint2Err, Arcable(outOf), Pointable(canPoint, cPPointOf, ePointOf), cPPointAndErrOf, eToPL, flipL, pLineIsLeft, pPointsOnSameSideOfPLine, PIntersection(IntersectsIn,PAntiCollinear), ProjectivePoint2, distance2PP, eToPP, join2EP, oppositeDirection, outAndErrOf, plinesIntersectIn, translateL)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), ENode(ENode), Motorcycle(Motorcycle), MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), getFirstLineSeg, linePairs)
 
@@ -284,12 +284,8 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                                                        then Nothing
                                                                        else Just intersection
       where
-        intersectionPointIsBehind point = oppositeDirection (outOf motorcycle) (eToPLine2 $ lineSegToIntersection point)
-        intersectionPPointIsBehind pPoint = angleFound < ulpVal angleErr
-          where
-            (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf motorcycle) (eToPLine2 $ lineSegToIntersectionP pPoint)
-        lineSegToIntersection myPoint = makeLineSeg (ePointOf motorcycle) myPoint
-        lineSegToIntersectionP myPPoint = makeLineSeg (ePointOf motorcycle) (pToEPoint2 myPPoint)
+        intersectionPointIsBehind point = oppositeDirection (outOf motorcycle) (eToPLine2 $ makeLineSeg (ePointOf motorcycle) point)
+        intersectionPPointIsBehind pPoint = oppositeDirection (outOf motorcycle) (eToPLine2 $ makeLineSeg (ePointOf motorcycle) (pToEPoint2 pPoint))
     motorcyclePoint = cPPointOf motorcycle
     intersections = getMotorcycleContourIntersections motorcycle contour
 
