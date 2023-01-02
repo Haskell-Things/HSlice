@@ -247,14 +247,8 @@ motorcycleMightIntersectWith lineSegs motorcycle
                                                                        then Nothing
                                                                        else Just intersection
       where
-        intersectionPointIsBehind point = angleFound < ulpVal angleErr
-          where
-            (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf motorcycle) (eToPLine2 $ lineSegToIntersection point)
-        intersectionCPPointIsBehind pPoint = angleFound < ulpVal angleErr
-          where
-            (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf motorcycle) (eToPLine2 $ lineSegToIntersectionP pPoint)
-        lineSegToIntersection myPoint = makeLineSeg (ePointOf motorcycle) myPoint
-        lineSegToIntersectionP myPPoint = makeLineSeg (ePointOf motorcycle) (pToEPoint2 myPPoint)
+        intersectionPointIsBehind point = oppositeDirection (outOf motorcycle) (eToPLine2 $ makeLineSeg (ePointOf motorcycle) point)
+        intersectionCPPointIsBehind pPoint = oppositeDirection (outOf motorcycle) (eToPLine2 $ makeLineSeg (ePointOf motorcycle) (pToEPoint2 pPoint))
 
 -- | Find the closest place where a motorcycle intersects a contour that is not the point where it ejects from.
 --   If the motorcycle lands between two segments, return the second line segment, otherwise return the PPoint2 of the intersection with the first LineSeg.
@@ -290,9 +284,7 @@ motorcycleIntersectsAt contour motorcycle = case intersections of
                                                                        then Nothing
                                                                        else Just intersection
       where
-        intersectionPointIsBehind point = angleFound < ulpVal angleErr
-          where
-            (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf motorcycle) (eToPLine2 $ lineSegToIntersection point)
+        intersectionPointIsBehind point = oppositeDirection (outOf motorcycle) (eToPLine2 $ lineSegToIntersection point)
         intersectionPPointIsBehind pPoint = angleFound < ulpVal angleErr
           where
             (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf motorcycle) (eToPLine2 $ lineSegToIntersectionP pPoint)
