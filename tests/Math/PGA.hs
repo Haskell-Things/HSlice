@@ -31,7 +31,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, facetStatSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (Bool(True, False), Eq, Show, ($), (<$>), (==), error, (/=), (<=), otherwise, (&&), (+), show, length, (<>), fst, not, snd, length, mempty, pi, (<), (>), (-), (/), (*), (.))
+import Prelude (Bool(True, False), Eq, Show, ($), (<$>), (==), (>=), error, realToFrac, (/=), (<=), otherwise, (&&), (+), show, length, (<>), fst, not, snd, length, mempty, pi, (<), (>), (-), (/), (*), (.))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -49,6 +49,8 @@ import Data.Maybe (fromMaybe, fromJust, isNothing, Maybe(Just, Nothing))
 
 import Data.Set (singleton, fromList)
 
+import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf))
+
 import Slist (slist, len)
 
 -- The numeric type in HSlice.
@@ -58,7 +60,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Definitions(Point2(Point2), LineSeg(LineSeg), mapWithFollower, roundPoint2, startPoint, distance, xOf, yOf, minMaxPoints, makeLineSeg, endPoint)
 
 -- Our Geometric Algebra library.
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpRaw, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, intersectionBetween, isCollinear, outputIntersectsLineSeg)
 
@@ -1251,9 +1253,9 @@ prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
     bisector = flipL $ outOf eNode
 
 prop_obtuseBisectorOnBiggerSide_makeINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> Expectation
-prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound > 1, angleFound < (-1)) --> (True, False)
+prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound >= (1-ulpVal angleErr), angleFound < realToFrac (-1 + (ulpRaw angleErr :: Rounded 'TowardInf ℝ))) --> (True, False)
   where
-    (angleFound, _) = angleBetween2PL bisector1 bisector2
+    (angleFound, (_,_, angleErr)) = angleBetween2PL bisector1 bisector2
     eNode = randomENode x y d1 rawR1 d2 rawR2
     iNode = randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2
     bisector1 = outOf iNode
