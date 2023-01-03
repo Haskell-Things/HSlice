@@ -434,7 +434,7 @@ lineSegIntersectsLineSeg l1 l2
                <> "tfuzz2: " <> show tFuzz2 <> "\n"
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
-onSegment :: LineSeg -> (CPPoint2, PPoint2Err) -> Bool
+onSegment :: (ProjectivePoint2 a) => LineSeg -> (a, PPoint2Err) -> Bool
 onSegment ls i =
      (startDistance <= startFudgeFactor)
   || (midDistance <= (lengthOfSegment/2) + midFudgeFactor)

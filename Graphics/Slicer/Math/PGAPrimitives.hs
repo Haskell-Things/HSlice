@@ -577,11 +577,11 @@ instance Semigroup PPoint2Err where
 instance Monoid PPoint2Err where
   mempty = PPoint2Err mempty mempty mempty mempty mempty mempty mempty
 
--- | A fake instance; so when we are sorting PPoint2, PPoint2Err pairs, the latter doesn't matter.
+-- | A fake instance; so when we are sorting (PPoint2, PPoint2Err) pairs, the latter doesn't matter.
 instance Ord PPoint2Err where
   compare _ _ = EQ
 
-class (Show a) => ProjectivePoint2 a where
+class (Eq a, Show a, Typeable a) => ProjectivePoint2 a where
   canonicalizeP :: a -> (CPPoint2, PPoint2Err)
   consLikeP :: a -> (GVec -> a)
   isIdealP :: a -> Bool
@@ -605,7 +605,7 @@ instance ProjectivePoint2 CPPoint2 where
 canonicalizeProjectivePoint :: (ProjectivePoint2 a) => a -> (CPPoint2, PPoint2Err)
 canonicalizeProjectivePoint point
   | isIdealP point = error $ "tried to canonicalize an ideal point: " <> show point <> "\n"
-  -- | Handle the ID case. The passed in point is canonicalized already.
+  -- Handle the ID case. The passed in point is canonicalized already.
   | valOf 1 foundVal == 1 = (CPPoint2 $ GVec rawVals, mempty)
   | otherwise = (res, PPoint2Err mempty scaledErrs mempty mempty mempty mempty mempty)
   where
@@ -619,7 +619,11 @@ canonicalizeProjectivePoint point
 -- | Find the distance between two projective points, and the error component of the result.
 distanceBetweenProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum))
 distanceBetweenProjectivePoints (point1, point1Err) (point2, point2Err)
+  -- Short circuit (returning 0) if the two inputs are identical, and of the same type.
+  | typeOf point1 == typeOf point2 && point1 == fromJust (cast point2) = (0, mempty)
+  -- Short circuit (returning 0) if the two inputs are equivalent after canonicalization.
   | cPoint1 == cPoint2 = (0, (cPoint1Err, cPoint2Err, mempty, mempty))
+  -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
   | otherwise = (res, resErr)
   where
     resErr = (cPoint1Err, cPoint2Err, newPLineErr, ulpSum)
@@ -683,8 +687,14 @@ idealNormOfP p = idealNormOfProjectivePoint p
 {-# INLINABLE joinOfProjectivePoints #-}
 joinOfProjectivePoints, join2PP :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> (PLine2, (PPoint2Err, PPoint2Err, PLine2Err))
 -- | Actual implementation.
-joinOfProjectivePoints point1 point2 = (PLine2 res,
-                                        (cPoint1Err, cPoint2Err, PLine2Err mempty mempty mempty mempty mempty resUlp))
+joinOfProjectivePoints point1 point2
+  -- Short circuit (returning 0) if the two inputs are identical, and of the same type.
+  | typeOf point1 == typeOf point2 && point1 == fromJust (cast point2) = (PLine2 (GVec []), mempty)
+  -- Short circuit (returning 0) if the two inputs are equivalent after canonicalization.
+  | cPoint1 == cPoint2 = (PLine2 (GVec []), (cPoint1Err, cPoint2Err, mempty))
+  -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
+  | otherwise = (PLine2 res,
+                  (cPoint1Err, cPoint2Err, PLine2Err mempty mempty mempty mempty mempty resUlp))
   where
     -- FIXME: how does error in canonicalization effect the PLine generated here?
     (res, resUlp) = pv1 ∨+ pv2
