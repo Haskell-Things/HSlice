@@ -363,12 +363,21 @@ prop_TwoAxisAlignedLines d1 d2 r1 r2 = (\(GVec gVals) -> bases gVals) ((\(PLine2
     bases gvals = (\(GVal _ base) -> base) <$> gvals
 
 -- | A property test making sure that the scalar part of the big-dot product of two identical PLines is not zero.
-prop_TwoOverlappingLinesScalar :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
-prop_TwoOverlappingLinesScalar x y dx dy = scalarPart ((\(PLine2 a) -> a) (randomPLine x y dx dy) • (\(PLine2 a) -> a) (randomPLine x y dx dy)) /= 0
+prop_TwoOverlappingLinesScalar :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
+prop_TwoOverlappingLinesScalar x1 y1 dx1 dy1 x2 y2 dx2 dy2 = scalarPart ((vecOfL pl1) • (vecOfL pl2)) /= 0
+  where
+    pl1 = randomPLine x1 y1 dx1 dy1
+    pl2 = randomPLine x2 y2 dx2 dy2
 
 -- | A property test for making sure that there is never a vector result of the big-dot product of two identical PLines.
 prop_TwoOverlappingLinesVector :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Expectation
 prop_TwoOverlappingLinesVector x y dx dy = vectorPart ((\(PLine2 a) -> a) (randomPLine x y dx dy) • (\(PLine2 a) -> a) (randomPLine x y dx dy)) --> GVec []
+
+-- | A property test making sure that the scalar part of the big-dot product of two identical PLines is not zero.
+prop_TwoIdenticalLinesScalar :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
+prop_TwoIdenticalLinesScalar x y dx dy = scalarPart ((vecOfL pl1) • (vecOfL pl1)) /= 0
+  where
+    pl1 = randomPLine x y dx dy
 
 proj2DGeomAlgSpec :: Spec
 proj2DGeomAlgSpec = do
@@ -388,6 +397,8 @@ proj2DGeomAlgSpec = do
       GVec [GVal (-2) (fromList [GEZero 1, GEPlus 1]), GVal 2 (fromList [GEZero 1, GEPlus 2]), GVal (-1) (fromList [GEPlus 1, GEPlus 2])]
     it "the geometric product of any two overlapping lines is only a Scalar" $
       property prop_TwoOverlappingLinesScalar
+    it "the geometric product of two identical lines is only a Scalar" $
+      property prop_TwoIdenticalLinesScalar
     it "the geometric product of any two overlapping lines does not have produce a vector component" $
       property prop_TwoOverlappingLinesVector
     it "A line constructed from a line segment is correct" $
@@ -538,7 +549,7 @@ prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
     bisector1Err = bisectorRawErr <> bisector1NormErr
     bisector2 = getFirstArc (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
     eNode = makeENode (Point2 (x1,y1)) (Point2 (0,0)) (Point2 (x2,y2))
-    -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree opposition).
+    -- X1, Y1 and X2 forced uniqueness. additionally, forced "not 180 degree" opposition.
     x1,y1,x2,y2 :: ℝ
     x1
      | coerce rawX1 == y1 = coerce rawX1 /2
@@ -935,18 +946,18 @@ prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions trian
                 <> show firstSeg <> "\n"
                 <> show firstPoints <> "\n"
                 <> show (insideIsLeft triangle) <> "\n"
-                <> show (pLineIsLeft pLine (PLine2 pLineToInside, mempty)) <> "\n"
+                <> show (pLineIsLeft pLine (PLine2 pLineToInside)) <> "\n"
     maybeInnerPoint = innerContourPoint triangle
     triangle        = randomTriangle centerX centerY rawRadians rawDists
     firstSeg        = firstLineSegOfContour triangle
-    pLine           = eToPL firstSeg
+    (pLine,_)       = eToPL firstSeg
     firstPoints     = firstPointPairOfContour triangle
     (p1, p2)        = firstPointPairOfContour triangle
     (myMidPoint,_)  = interpolate2PP (eToPP p1) (eToPP p2) 0.5 0.5
-    pLineToInside = vecOfL $ join2PPoint2 myMidPoint innerPoint
-    pLineToOutside = vecOfL $ join2PPoint2 innerPoint $ eToPP outsidePoint
+    pLineToInside   = vecOfL $ join2PPoint2 myMidPoint innerPoint
+    pLineToOutside  = vecOfL $ join2PPoint2 innerPoint $ eToPP outsidePoint
     innerPoint      = fromMaybe (dumpError2) maybeInnerPoint
-    minPoint        = fst $ minMaxPoints triangle
+    (minPoint,_)    = minMaxPoints triangle
     outsidePoint    = Point2 (xOf minPoint - 0.00000001 , yOf minPoint - 0.00000001)
 
 prop_TriangleHasStraightSkeleton :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
@@ -1329,12 +1340,12 @@ prop_PPointOnPerpWithinErrRange x1 y1 rawX2 rawY2 rawD
 prop_obtuseBisectorOnBiggerSide_makeENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Expectation
 prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
   | testFirstLine = pLineIsLeft bisector pl1 --> Just True
-  | otherwise     = pLineIsLeft (pl2, mempty) bisector --> Just True
+  | otherwise     = pLineIsLeft pl2 bisector --> Just True
   where
-    pl1 = eToPL $ getFirstLineSeg eNode
+    pl1 = fst $ eToPL $ getFirstLineSeg eNode
     pl2 = flipL $ eToPLine2 $ getLastLineSeg eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
-    bisector = (flipL $ outOf eNode, errOfOut eNode)
+    bisector = flipL $ outOf eNode
 
 prop_obtuseBisectorOnBiggerSide_makeINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> Expectation
 prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound >= (1-ulpVal angleErr), angleFound < realToFrac (-1 + (ulpRaw angleErr) :: Rounded 'TowardInf ℝ)) --> (True, False)

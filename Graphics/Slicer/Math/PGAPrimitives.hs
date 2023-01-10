@@ -419,7 +419,7 @@ pLineErrAtPPoint (line, lineErr) errPoint
     yMin = getRounded $ realToFrac yInterceptDistance - (realToFrac (ulpVal rawYInterceptFuzz) :: Rounded 'TowardNegInf ℝ)
     rawYInterceptFuzz = snd $ fromJust $ yIntercept (nPLine, nPLineErr)
     rawXInterceptFuzz = snd $ fromJust $ xIntercept (nPLine, nPLineErr)
-    yInterceptDistance = abs $ fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
+    yInterceptDistance = abs $ fromRight 0 $ fst $ fromJust $ yIntercept (nPLine, nPLineErr)
     xInterceptDistance = abs $ fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
     -- FIXME: collect this error, and take it into account.
     (Point2 (xPos,yPos),_) = pToEP errPoint

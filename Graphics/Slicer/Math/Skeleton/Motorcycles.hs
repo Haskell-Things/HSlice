@@ -182,8 +182,8 @@ convexMotorcycles contour = mapMaybe onlyMotorcycles $ zip (rotateLeft $ linePai
       | otherwise                        = Just resPLine
         where
           resPLine = motorcycleFromPoints p1 p2 p3
-          pl1 = eToPL $ makeLineSeg p1 p2
-          pl2 = eToPL $ makeLineSeg p2 p3
+          pl1 = fst $ eToPL $ makeLineSeg p1 p2
+          pl2 = fst $ eToPL $ makeLineSeg p2 p3
 
 -- | generate the PLine2 of a motorcycle created by the three points given.
 motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> (PLine2, PLine2Err)
