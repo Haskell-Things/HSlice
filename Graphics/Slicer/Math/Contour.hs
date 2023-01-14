@@ -286,8 +286,8 @@ pointFarOutsideContours contour1 contour2
   | not (noIntersection line3 firstLine) && not (noIntersection line3 secondLine) = outsidePoint3
   | otherwise = error "cannot get here...?"
   where
-    (minPoint1, _)= minMaxPoints contour1
-    (minPoint2, _)= minMaxPoints contour2
+    (minPoint1,_) = minMaxPoints contour1
+    (minPoint2,_) = minMaxPoints contour2
     minPoint      = Point2 (min (xOf minPoint1) (xOf minPoint2),min (yOf minPoint1) (yOf minPoint2))
     (p1, p2)      = firstPointPairOfContour contour1
     (p3, p4)      = firstPointPairOfContour contour2
@@ -300,7 +300,7 @@ pointFarOutsideContours contour1 contour2
     outsidePoint2 = Point2 (xOf minPoint - 0.2 , yOf minPoint - 0.1)
     outsidePoint3 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.2)
 
--- | return the contour as a list of points.
+-- | Return the contour as a list of points.
 pointsOfContour :: Contour -> [Point2]
 pointsOfContour (PointContour _ _ p1 p2 p3 pts@(Slist vals _))
   | size pts == Infinity = error "cannot handle infinite contours."
@@ -309,7 +309,7 @@ pointsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
   | size moreLines == Infinity = error "cannot handle infinite contours."
   | otherwise                  = startPoint l1:startPoint l2:(startPoint <$> lns)
 
--- | return the number of points in a contour.
+-- | Return the number of points in a contour.
 numPointsOfContour :: Contour -> Int
 numPointsOfContour (PointContour _ _ _ _ _ pts) = 3 + len pts
 numPointsOfContour (LineSegContour _ _ l1 l2 lns) = case safeLast lns of

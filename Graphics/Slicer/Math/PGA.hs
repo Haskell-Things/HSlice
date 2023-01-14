@@ -383,10 +383,10 @@ lineSegIntersectsLineSeg l1 l2
   | res == PAntiParallel = Right PAntiParallel
   | hasIntersection && res == PCollinear = Right PCollinear
   | hasIntersection && res == PAntiCollinear = Right PAntiCollinear
-  | hasIntersection && distance (startPoint l1) (endPoint l1) < ulpVal (start1FudgeFactor <> end1FudgeFactor <> tFuzz1) = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\n" <> dumpMiss
+  | hasIntersection && distance (startPoint l1) (endPoint l1) < lineSegError1 = error $ "cannot resolve endpoints of segment: " <> show l1 <> ".\n" <> dumpMiss
   | hasIntersection && start1Distance <= ulpStart1Sum = Left $ HitStartPoint l1
   | hasIntersection && end1Distance <= ulpEnd1Sum = Left $ HitEndPoint l1
-  | hasIntersection && distance (startPoint l2) (endPoint l2) < ulpVal (start2FudgeFactor <> end2FudgeFactor <> tFuzz2) = error $ "cannot resolve endpoints of segment: " <> show l2 <> ".\n" <> dumpMiss
+  | hasIntersection && distance (startPoint l2) (endPoint l2) < lineSegError2 = error $ "cannot resolve endpoints of segment: " <> show l2 <> ".\n" <> dumpMiss
   | hasIntersection && start2Distance <= ulpStart2Sum = Left $ HitStartPoint l2
   | hasIntersection && end2Distance <= ulpEnd2Sum = Left $ HitEndPoint l2
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
@@ -394,6 +394,9 @@ lineSegIntersectsLineSeg l1 l2
   | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (pl1Err, pl2Err, rawIntersectErr)
   where
     res = plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
+    -- The value below which it is impossible to tell whether we have hit the beginning, middle, or end of a line segment.
+    lineSegError1 = ulpVal $ start1FudgeFactor <> tFuzz1 <> end1FudgeFactor <> pFuzz
+    lineSegError2 = ulpVal $ start2FudgeFactor <> tFuzz2 <> end2FudgeFactor <> pFuzz
     start1FudgeFactor = start1DistanceErr <> pLineErrAtPPoint (pl1,pl1Err) start1
     end1FudgeFactor = end1DistanceErr <> pLineErrAtPPoint (pl1,pl1Err) end1
     start2FudgeFactor = start2DistanceErr <> pLineErrAtPPoint (pl2,pl2Err) start2
@@ -408,6 +411,7 @@ lineSegIntersectsLineSeg l1 l2
     (end2Distance, (_,_, end2DistanceErr)) = distance2PP (rawIntersection, rawIntersectionErr) (end2, mempty)
     tFuzz1 = fuzzinessOfL (pl1, pl1Err)
     tFuzz2 = fuzzinessOfL (pl2, pl2Err)
+    pFuzz  = fuzzinessOfP (rawIntersection, rawIntersectionErr)
     hasIntersection = hasRawIntersection && hitSegment
     hitSegment = onSegment l1 (rawIntersection, rawIntersectionErr) && onSegment l2 (rawIntersection, rawIntersectionErr)
     hasRawIntersection = isJust foundVal
