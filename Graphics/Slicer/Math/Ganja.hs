@@ -102,7 +102,7 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPo
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf)
 
-import Graphics.Slicer.Math.PGA (PPoint2Err, ProjectivePoint, ProjectiveLine, hasArc, outOf, vecOfL, vecOfP)
+import Graphics.Slicer.Math.PGA (PLine2Err, PPoint2Err, ProjectivePoint, ProjectiveLine, hasArc, normalizeL, outOf, vecOfL, vecOfP)
 
 import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg)
 
@@ -153,22 +153,7 @@ instance GanjaAble ProjectivePoint where
       (GVec vals) = vecOfP point
 
 instance GanjaAble (ProjectivePoint, PPoint2Err) where
-  toGanja (point, pointErr) varname = (
-    "  var " <> varname <> " = "
-      <> showFullPrecision (valOf 0 (getVal [GEPlus 1, GEPlus 2] vals)) <> "e12"
-      <> (if e02 >= 0 then "+" <> showFullPrecision e02 else showFullPrecision e02)
-      <> "e02"
-      <> (if e01 >= 0 then "+" <> showFullPrecision e01 else showFullPrecision e01)
-      <> "e01;\n"
-      <> "// " <> show pointErr <> "\n"
-    ,
-    "    " <> varname <> ", " <> show varname <> ",\n")
-    where
-      e02 = valOf 0 (getVal [GEZero 1, GEPlus 2] vals)
-      e01 = valOf 0 (getVal [GEZero 1, GEPlus 1] vals)
-      -- because ganja's website does not handle scientific notation.
-      showFullPrecision v = showFFloat Nothing v ""
-      (GVec vals) = vecOfP point
+  toGanja (point, _) varname = toGanja point varname
 
 instance GanjaAble ProjectiveLine where
   toGanja line varname = (
@@ -185,7 +170,10 @@ instance GanjaAble ProjectiveLine where
       e0 = valOf 0 (getVal [GEZero 1] vals)
       -- because ganja's website does not handle scientific notation.
       showFullPrecision v = showFFloat Nothing v ""
-      (GVec vals) = vecOfL line
+      (GVec vals) = vecOfL $ fst $ normalizeL line
+
+instance GanjaAble (ProjectiveLine, PLine2Err) where
+  toGanja (line, _) varname = toGanja line varname
 
 instance GanjaAble Contour where
   toGanja contour varname = (invars, inrefs)
