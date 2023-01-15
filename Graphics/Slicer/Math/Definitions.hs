@@ -245,15 +245,6 @@ makeLineSeg p1 p2
   | p1 == p2 = error "tried to make a zero length line segment."
   | otherwise = LineSeg p1 p2
 
--- | Return the contour as a list of points.
-pointsOfContour :: Contour -> [Point2]
-pointsOfContour (PointContour _ _ p1 p2 p3 pts@(Slist vals _))
-  | size pts == Infinity = error "cannot handle infinite contours."
-  | otherwise            = p1:p2:p3:vals
-pointsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
-  | size moreLines == Infinity = error "cannot handle infinite contours."
-  | otherwise                  = startPoint l1:startPoint l2:(startPoint <$> lns)
-
 -- | Return the contour as a list of LineSegs.
 lineSegsOfContour :: Contour -> [LineSeg]
 lineSegsOfContour (PointContour _ _ p1 p2 p3 pts) = [makeLineSeg p1 p2,
@@ -271,4 +262,13 @@ lineSegsOfContour (PointContour _ _ p1 p2 p3 pts) = [makeLineSeg p1 p2,
 lineSegsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
   | size moreLines == Infinity = error "cannot handle infinite contours."
   | otherwise                  = l1:l2:lns
+
+-- | Return the contour as a list of points.
+pointsOfContour :: Contour -> [Point2]
+pointsOfContour (PointContour _ _ p1 p2 p3 pts@(Slist vals _))
+  | size pts == Infinity = error "cannot handle infinite contours."
+  | otherwise            = p1:p2:p3:vals
+pointsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
+  | size moreLines == Infinity = error "cannot handle infinite contours."
+  | otherwise                  = startPoint l1:startPoint l2:(startPoint <$> lns)
 
