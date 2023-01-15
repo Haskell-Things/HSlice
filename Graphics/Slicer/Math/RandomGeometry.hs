@@ -83,9 +83,9 @@ import Graphics.Slicer (ℝ)
 
 import Graphics.Slicer.Math.Arcs (getOutsideArc)
 
-import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, firstPointPairOfContour, pointFarOutsideContour)
+import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, mostPerpPointAndLineSeg)
 
-import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, makeLineSeg, pointBetweenPoints)
+import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg(startPoint, endPoint), makeLineSeg, pointBetweenPoints)
 
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
@@ -379,9 +379,8 @@ randomStarPoly centerX centerY radianDistPairs = fromMaybe dumpError $ maybeFlip
     dumpError          = error $ "failed to flip a contour:" <> dumpGanjas [toGanja contour, toGanja (Point2 (centerX, centerY)), toGanja outsidePLine] <> "\n"
       where
         outsidePLine   = fst $ join2EP myMidPoint outsidePoint
-        outsidePoint   = pointFarOutsideContour contour
-        myMidPoint     = pointBetweenPoints p1 p2
-        (p1, p2)       = firstPointPairOfContour contour
+        myMidPoint     = pointBetweenPoints (startPoint lineSeg) (endPoint lineSeg)
+        (outsidePoint, lineSeg)  = mostPerpPointAndLineSeg contour
 
 randomENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> ENode
 randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
