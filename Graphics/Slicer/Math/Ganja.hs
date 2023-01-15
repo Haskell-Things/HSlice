@@ -96,9 +96,7 @@ import Slist.Type (Slist(Slist))
 
 import Slist (last, len)
 
-import Graphics.Slicer.Math.Contour (pointsOfContour)
-
-import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPoint, mapWithFollower, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPoint, mapWithFollower, pointsOfContour, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf)
 

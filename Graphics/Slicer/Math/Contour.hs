@@ -22,7 +22,7 @@
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 
 -- | functions for handling contours.
-module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, pointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, maybeFlipContour, firstPointPairOfContour, insideIsLeft, innerContourPoint, pointFarOutsideContour) where
+module Graphics.Slicer.Math.Contour (followingLineSeg, getContours, makeContourTreeSet, ContourTree(ContourTree), ContourTreeSet(ContourTreeSet), contourContainsContour, numPointsOfContour, firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, makePointContour, firstContourOfContourTreeSet, lineSegsOfContour, makeLineSegContour, maybeFlipContour, firstPointPairOfContour, insideIsLeft, innerContourPoint, pointFarOutsideContour) where
 
 import Prelude ((==), (&&), (*), (>), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
 
@@ -34,27 +34,25 @@ import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromJust, fromMaybe, isJust, mapMaybe)
 
-import Slist (len, size, slist, safeLast, safeLast, safeHead)
+import Slist (len, slist, safeLast, safeLast, safeHead)
 
 import Slist as SL (last)
 
 import Slist.Type (Slist(Slist))
 
-import Slist.Size (Size(Infinity))
-
 import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.ContourIntersections (contourIntersectionCount)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), LineSeg(endPoint, startPoint), Point2(Point2), fudgeFactor, lineSegsOfContour, makeLineSeg, minMaxPoints, xOf, yOf)
+import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), LineSeg(endPoint, startPoint), Point2(Point2), fudgeFactor, lineSegsOfContour, makeLineSeg, minMaxPoints, pointsOfContour, xOf, yOf)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.Intersections (noIntersection)
 
-import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (join2PPoint2, pPointBetweenPPoints, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (PPoint2, eToPP, join2EP, join2PP, pLineIsLeft, pPointOnPerpWithErr)
+import Graphics.Slicer.Math.PGA (PPoint2, eToPP, join2EP, pLineIsLeft, pPointOnPerpWithErr)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -230,7 +228,7 @@ insideIsLeft contour
   | isJust (innerContourPoint contour) = Just $ line1 `pLineIsLeft` lineToInside == Just True
   | otherwise = Nothing
   where
-    (lineToInside, (_,_, lineToInsideErr)) = join2PP midPoint innerPoint
+    lineToInside = join2PPoint2 midPoint innerPoint
     midPoint   = pPointBetweenPPoints (eToPP p1) (eToPP p2) 0.5 0.5
     (line1,_)  = join2EP p1 p2
     innerPoint = fromJust $ innerContourPoint contour
@@ -299,15 +297,6 @@ pointFarOutsideContours contour1 contour2
     outsidePoint1 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.1)
     outsidePoint2 = Point2 (xOf minPoint - 0.2 , yOf minPoint - 0.1)
     outsidePoint3 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.2)
-
--- | Return the contour as a list of points.
-pointsOfContour :: Contour -> [Point2]
-pointsOfContour (PointContour _ _ p1 p2 p3 pts@(Slist vals _))
-  | size pts == Infinity = error "cannot handle infinite contours."
-  | otherwise            = p1:p2:p3:vals
-pointsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
-  | size moreLines == Infinity = error "cannot handle infinite contours."
-  | otherwise                  = startPoint l1:startPoint l2:(startPoint <$> lns)
 
 -- | Return the number of points in a contour.
 numPointsOfContour :: Contour -> Int
