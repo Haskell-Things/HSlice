@@ -57,7 +57,7 @@ import Slist (slist, len)
 import Graphics.Slicer (ℝ)
 
 -- A euclidian point.
-import Graphics.Slicer.Math.Definitions(Point2(Point2), LineSeg(LineSeg), mapWithFollower, roundPoint2, startPoint, distance, xOf, yOf, minMaxPoints, makeLineSeg, endPoint)
+import Graphics.Slicer.Math.Definitions(Point2(Point2), LineSeg(LineSeg), mapWithFollower, pointsOfContour, roundPoint2, startPoint, distance, xOf, yOf, minMaxPoints, makeLineSeg, endPoint)
 
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpRaw, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
@@ -72,7 +72,7 @@ import Graphics.Slicer.Math.PGA (ProjectivePoint2(vecOfP), ProjectiveLine(NPLine
 import Graphics.Slicer.Math.PGAPrimitives (angleBetween2PL, xIntercept, yIntercept)
 
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
+import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, numPointsOfContour, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
 
 -- Our imprecise Contour library.
 import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)

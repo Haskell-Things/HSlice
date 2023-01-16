@@ -44,11 +44,9 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Arcs (getInsideArc)
 
-import Graphics.Slicer.Math.Contour (pointsOfContour)
-
 import Graphics.Slicer.Math.ContourIntersections (getMotorcycleContourIntersections, getMotorcycleSegSetIntersections)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, distance, mapWithNeighbors, startPoint, endPoint, makeLineSeg)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, distance, mapWithNeighbors, startPoint, endPoint, makeLineSeg, pointsOfContour)
 
 import Graphics.Slicer.Math.Intersections (noIntersection, intersectionBetweenArcsOf, isAntiCollinear, outputIntersectsLineSeg, outputIntersectsPLineAt)
 

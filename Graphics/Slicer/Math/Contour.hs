@@ -42,8 +42,7 @@ module Graphics.Slicer.Math.Contour (
   makePointContour,
   maybeFlipContour,
   numPointsOfContour,
-  pointFarOutsideContour,
-  pointsOfContour
+  pointFarOutsideContour
   ) where
 
 import Prelude ((==), (&&), (*), (>), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
@@ -56,19 +55,17 @@ import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromJust, fromMaybe, isJust, mapMaybe)
 
-import Slist (len, size, slist, safeLast, safeLast, safeHead)
+import Slist (len, slist, safeLast, safeLast, safeHead)
 
 import Slist as SL (last)
 
 import Slist.Type (Slist(Slist))
 
-import Slist.Size (Size(Infinity))
-
 import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.ContourIntersections (contourIntersectionCount)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), LineSeg(endPoint, startPoint), Point2(Point2), fudgeFactor, lineSegsOfContour, makeLineSeg, minMaxPoints, xOf, yOf)
+import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), LineSeg(endPoint, startPoint), Point2(Point2), fudgeFactor, lineSegsOfContour, makeLineSeg, minMaxPoints, pointsOfContour, xOf, yOf)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
@@ -321,15 +318,6 @@ pointFarOutsideContours contour1 contour2
     outsidePoint1 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.1)
     outsidePoint2 = Point2 (xOf minPoint - 0.2 , yOf minPoint - 0.1)
     outsidePoint3 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.2)
-
--- | return the contour as a list of points.
-pointsOfContour :: Contour -> [Point2]
-pointsOfContour (PointContour _ _ p1 p2 p3 pts@(Slist vals _))
-  | size pts == Infinity = error "cannot handle infinite contours."
-  | otherwise            = p1:p2:p3:vals
-pointsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
-  | size moreLines == Infinity = error "cannot handle infinite contours."
-  | otherwise                  = startPoint l1:startPoint l2:(startPoint <$> lns)
 
 -- | return the number of points in a contour.
 numPointsOfContour :: Contour -> Int

@@ -41,6 +41,7 @@ module Graphics.Slicer.Math.Definitions(
   minMaxPoints,
   negatePoint,
   pointBetweenPoints,
+  pointsOfContour,
   roundPoint2,
   roundToFifth,
   scalePoint,
@@ -50,7 +51,7 @@ module Graphics.Slicer.Math.Definitions(
   zOf
   ) where
 
-import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, (<>), error, show, (<), (&&), negate)
+import Prelude (Eq, Show, (==), (<$>), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, (<>), error, show, (<), (&&), negate)
 
 import Prelude as PL (zipWith)
 
@@ -261,4 +262,13 @@ lineSegsOfContour (PointContour _ _ p1 p2 p3 pts) = [makeLineSeg p1 p2,
 lineSegsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
   | size moreLines == Infinity = error "cannot handle infinite contours."
   | otherwise                  = l1:l2:lns
+
+-- | return the contour as a list of points.
+pointsOfContour :: Contour -> [Point2]
+pointsOfContour (PointContour _ _ p1 p2 p3 pts@(Slist vals _))
+  | size pts == Infinity = error "cannot handle infinite contours."
+  | otherwise            = p1:p2:p3:vals
+pointsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
+  | size moreLines == Infinity = error "cannot handle infinite contours."
+  | otherwise                  = startPoint l1:startPoint l2:(startPoint <$> lns)
 

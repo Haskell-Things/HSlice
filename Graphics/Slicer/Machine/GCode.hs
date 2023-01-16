@@ -50,9 +50,9 @@ import Control.DeepSeq (NFData)
 
 import Graphics.Slicer.Definitions(ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ)
 
-import Graphics.Slicer.Math.Contour (pointsOfContour, lastPointOfContour)
+import Graphics.Slicer.Math.Contour (lastPointOfContour)
 
-import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour, LineSeg(LineSeg), distance, endPoint, roundToFifth)
+import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), Contour, LineSeg(LineSeg), distance, endPoint, pointsOfContour, roundToFifth)
 
 import Graphics.Slicer.Math.Slicer (accumulateValues)
 
