@@ -51,6 +51,7 @@ module Graphics.Slicer.Math.PGA(
       vecOfP
       ),
   angleBetween2PL,
+  angleCosBetween2PL,
   canonicalizedIntersectionOf2PL,
   combineConsecutiveLineSegs,
   cPPointAndErrOf,
