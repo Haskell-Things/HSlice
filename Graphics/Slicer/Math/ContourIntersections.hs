@@ -39,9 +39,11 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(endPoint, startPoint), Point2, distance, fudgeFactor, lineSegsOfContour, makeLineSeg, mapWithNeighbors)
 
+import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
+
 import Graphics.Slicer.Math.Intersections (outputIntersectsLineSeg)
 
-import Graphics.Slicer.Math.PGA (Intersection(HitEndPoint, HitStartPoint, NoIntersection), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), ProjectivePoint, ProjectiveLine, ProjectiveLine2, PLine2Err, intersectsWithErr, normalizeL, pToEP)
+import Graphics.Slicer.Math.PGA (Intersection(HitEndPoint, HitStartPoint, NoIntersection), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), ProjectivePoint, ProjectiveLine, ProjectiveLine2, PLine2Err, intersectsWithErr, normalizeL, pToEP, eToPP)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -61,10 +63,10 @@ contourIntersectionCount contour (start, end) = len $ getIntersections contour (
 
 -- | Get the intersections between a Line and a contour as a series of points. always returns an even number of intersections.
 {-# INLINABLE getLineContourIntersections #-}
-getLineContourIntersections :: (ProjectiveLine2 a) => (a, PLine2Err) -> Contour -> [Point2]
+getLineContourIntersections :: (ProjectiveLine2 a) => (a, PLine2Err) -> Contour -> Maybe [Point2]
 getLineContourIntersections (line, lineErr) c
-  | odd $ length res = error $ "odd number of transitions: " <> show (length res) <> "\n" <> show c <> "\n" <> show line <> "\n" <> show res <> "\n"
-  | otherwise = res
+  | odd $ length res = Nothing
+  | otherwise = Just res
   where
     res = getPoints $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour c) $ intersectsWithErr targetLine <$> segs
       where
@@ -167,6 +169,13 @@ filterIntersections (Just (_ , Right _))                   (Just (seg , Left (Hi
 filterIntersections (Just (_ , Right _))                   (Just (seg , Left (HitEndPoint   l1)))  Nothing                                  = Just (seg, Left $ endPoint l1)
 filterIntersections l1 l2 l3 = error
                                $ "insane result of filterIntersections\n"
+                               <> (dumpGanjas $  (if isJust l1 then [toGanja "seg1", toGanja (lSeg $ fromJust l1)] else [])
+                                              <> (if isJust l1 && isJust (segIntersection (fromJust l1)) then [toGanja "point1", toGanja (fromJust $ segIntersection $ fromJust l1)] else [])
+                                              <> (if isJust l2 then [toGanja "seg2", toGanja (lSeg $ fromJust l2)] else [])
+                                              <> (if isJust l2 && isJust (segIntersection (fromJust l2)) then [toGanja "point2", toGanja (fromJust $ segIntersection $ fromJust l2)] else [])
+                                              <> (if isJust l3 then [toGanja "seg3", toGanja (lSeg $ fromJust l3)] else [])
+                                              <> (if isJust l3 && isJust (segIntersection (fromJust l3)) then [toGanja "point3", toGanja (fromJust $ segIntersection $ fromJust l3)] else [])
+                                  )
                                <> show l1 <> "\n"
                                <> (if isJust l1
                                    then "Endpoint: " <> show (endPoint $ lSeg $ fromJust l1) <> "\nLength: " <> show (lineLength $ fromJust l1) <> "\n"
@@ -182,5 +191,11 @@ filterIntersections l1 l2 l3 = error
       where
         lSeg :: (LineSeg, Either Intersection PIntersection) -> LineSeg
         lSeg (myseg,_) = myseg
+        segIntersection (_, myIntersect) = case myIntersect of
+                                             (Right (IntersectsIn p _)) -> Just p
+                                             (Left (NoIntersection p _)) -> Just p
+                                             (Left (HitStartPoint myL1)) -> Just $ eToPP $ startPoint myL1
+                                             (Left (HitEndPoint myL1)) -> Just $ eToPP $ endPoint myL1
+                                             _ -> Nothing
         lineLength :: (LineSeg, Either Intersection PIntersection) -> ℝ
         lineLength (mySeg, _) = distance (startPoint mySeg) (endPoint mySeg)
