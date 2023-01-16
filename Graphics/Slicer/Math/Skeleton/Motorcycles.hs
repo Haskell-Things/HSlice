@@ -172,12 +172,12 @@ convexMotorcycles contour = mapMaybe onlyMotorcycles $ zip (rotateLeft $ linePai
     --   Note that we know that the inside is to the left of the first line given, and that the first line points toward the intersection.
     convexPLines :: Point2 -> Point2 -> Point2 -> Maybe (ProjectiveLine, PLine2Err, ℝ)
     convexPLines p1 p2 p3
-      | Just True == pLineIsLeft pl1 pl2 = Nothing
-      | otherwise                        = Just (fst resPLine, snd resPLine, distance p1 p2 + distance p2 p3)
+      | pl1 `pLineIsLeft` pl2 == Just True = Nothing
+      | otherwise                          = Just (fst resPLine, snd resPLine, distance p1 p2 + distance p2 p3)
         where
           resPLine = motorcycleFromPoints p1 p2 p3
-          pl1 = eToPL $ makeLineSeg p1 p2
-          pl2 = eToPL $ makeLineSeg p2 p3
+          pl1 = eToPLine2 $ makeLineSeg p1 p2
+          pl2 = eToPLine2 $ makeLineSeg p2 p3
 
 -- | generate the PLine2 of a motorcycle created by the three points given.
 motorcycleFromPoints :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, PLine2Err)

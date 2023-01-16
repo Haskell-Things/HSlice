@@ -152,12 +152,12 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
 {-# INLINABLE pLineIsLeft #-}
-pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe Bool
-pLineIsLeft (pl1, _) (pl2, _)
+pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe Bool
+pLineIsLeft line1 line2
   | abs res <= ulpVal angleFuzz = Nothing
   | otherwise            = Just $ res > 0
   where
-    (res, (_,_, angleFuzz)) = angleCosBetween2PL pl1 pl2
+    (res, (_,_, angleFuzz)) = angleCosBetween2PL line1 line2
 
 -- | Find the distance between a projective point and a projective line, along with the difference's error quotent.
 -- Note: Fails in the case of ideal points.

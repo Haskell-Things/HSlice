@@ -908,20 +908,20 @@ prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions trian
   where
     dumpError = error errorString
     dumpError2 = error errorString
-    errorString =  dumpGanjas [toGanja triangle, toGanja (Point2 (centerX, centerY)), toGanja (PLine2 pLineToInside), toGanja (PLine2 pLineToOutside)] <> "\n"
+    errorString =  dumpGanjas [toGanja triangle, toGanja (Point2 (centerX, centerY)), toGanja pLineToInside, toGanja (PLine2 pLineToOutside)] <> "\n"
                 <> show firstSeg <> "\n"
                 <> show firstPoints <> "\n"
                 <> show (insideIsLeft triangle) <> "\n"
-                <> show (pLineIsLeft pLine (PLine2 pLineToInside, mempty)) <> "\n"
+                <> show (pl `pLineIsLeft` pLineToInside) <> "\n"
     maybeInnerPoint = innerContourPoint triangle
     triangle        = randomTriangle centerX centerY rawRadians rawDists
     firstSeg        = firstLineSegOfContour triangle
-    pLine           = eToPL firstSeg
+    (pl, _)         = eToPL firstSeg
     firstPoints     = firstPointPairOfContour triangle
     (p1, p2)        = firstPointPairOfContour triangle
     (myMidPoint,_)  = interpolate2PP (eToPP p1) (eToPP p2) 0.5 0.5
     -- we normalize this for Ganja.js.
-    (NPLine2 pLineToInside) = fst $ normalizeL $ fst $ join2PP myMidPoint innerPoint
+    pLineToInside = fst $ normalizeL $ fst $ join2PP myMidPoint innerPoint
     (NPLine2 pLineToOutside) = fst $ normalizeL $ fst $ join2PP innerPoint $ eToPP outsidePoint
     innerPoint      = fromMaybe dumpError2 maybeInnerPoint
     minPoint        = fst $ minMaxPoints triangle
@@ -1243,12 +1243,11 @@ prop_LineSegWithinErrRange x1 y1 rawX2 rawY2
 
 prop_obtuseBisectorOnBiggerSide_makeENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Expectation
 prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
-  | testFirstLine = pLineIsLeft (bisector, mempty) pl1 --> Just True
-  | otherwise     = pLineIsLeft (pl2, pl2Err) (bisector, mempty) --> Just True
+  | testFirstLine = pLineIsLeft bisector pl1 --> Just True
+  | otherwise     = pLineIsLeft pl2 bisector --> Just True
   where
-    pl1 = eToPL $ getFirstLineSeg eNode
-    pl2 = flipL pl2Raw
-    (pl2Raw, pl2Err) =  eToPL $ getLastLineSeg eNode
+    (pl1, _) = eToPL $ getFirstLineSeg eNode
+    pl2 = flipL $ fst $ eToPL $ getLastLineSeg eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
     bisector = flipL $ outOf eNode
 

@@ -68,7 +68,7 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     -----------------------------------------------------------------------------------------
 
     -- | The direction we need to translate our edge in order for it to be going inward.
-    translateDir v         = case pLineIsLeft (eToPL edge) (firstArc, mempty) of
+    translateDir v         = case (eToPLine2 edge) `pLineIsLeft` firstArc of
                                (Just True) -> (-v)
                                (Just False) -> v
                                Nothing -> error "cannot happen: edge and firstArc are the same line?"
