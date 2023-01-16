@@ -41,13 +41,14 @@ module Graphics.Slicer.Math.Contour (
   makeLineSegContour,
   makePointContour,
   maybeFlipContour,
-  numPointsOfContour,
-  pointFarOutsideContour
+  minDistanceFromSegMidPoint,
+  mostPerpPointAndLineSeg,
+  numPointsOfContour
   ) where
 
-import Prelude ((==), (&&), (*), (>), Int, (+), otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
+import Prelude ((==), (&&), (>), (*), Int, (+), abs, otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
 
-import Data.List (partition, reverse, sortBy)
+import Data.List (head, partition, reverse, sortBy, zip)
 
 import Data.List as DL (uncons)
 
@@ -61,19 +62,20 @@ import Slist as SL (last)
 
 import Slist.Type (Slist(Slist))
 
+-- The numeric type in HSlice.
 import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.ContourIntersections (contourIntersectionCount)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), LineSeg(endPoint, startPoint), Point2(Point2), fudgeFactor, lineSegsOfContour, makeLineSeg, minMaxPoints, pointsOfContour, xOf, yOf)
+import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), LineSeg(endPoint, startPoint), Point2(Point2), fudgeFactor, lineSegsOfContour, makeLineSeg, minMaxPoints, pointBetweenPoints, pointsOfContour, xOf, yOf)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.Intersections (noIntersection)
+import Graphics.Slicer.Math.Intersections (noIntersection, intersectionOf)
 
-import Graphics.Slicer.Math.Lossy (pPointBetweenPPoints, pToEPoint2)
+import Graphics.Slicer.Math.Lossy (pToEPoint2, eToPLine2)
 
-import Graphics.Slicer.Math.PGA (ProjectivePoint, eToPP, join2EP, join2PP, pLineIsLeft, pPointOnPerpWithErr)
+import Graphics.Slicer.Math.PGA (ProjectiveLine2, ProjectivePoint, angleCosBetween2PL, eToPL, eToPP, fuzzinessOfL, fuzzinessOfP, join2EP, join2PP, pLineErrAtPPoint, pLineIsLeft, pPointOnPerpWithErr)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -249,11 +251,11 @@ insideIsLeft contour
   | isJust (innerContourPoint contour) = Just $ line1 `pLineIsLeft` lineToInside == Just True
   | otherwise = Nothing
   where
-    (lineToInside, _) = join2PP midPoint innerPoint
-    midPoint   = pPointBetweenPPoints (eToPP p1) (eToPP p2) 0.5 0.5
-    (line1, _) = join2EP p1 p2
+    (lineToInside, _) = join2PP (eToPP midPoint) innerPoint
+    midPoint   = pointBetweenPoints (startPoint lineSeg) (endPoint lineSeg)
+    (line1,_)  = join2EP (startPoint lineSeg) (endPoint lineSeg)
     innerPoint = fromJust $ innerContourPoint contour
-    (p1, p2)   = firstPointPairOfContour contour
+    lineSeg    = firstLineSegOfContour contour
 
 -- | Find a point on the interior of a given contour, on the perpendicular bisector of the first line segment, a given distance away from the line segment.
 innerContourPoint :: Contour -> Maybe ProjectivePoint
@@ -266,36 +268,54 @@ innerContourPoint contour
   where
     numIntersections   = contourIntersectionCount contour (pToEPoint2 perpPoint, outsidePoint)
     otherIntersections = contourIntersectionCount contour (pToEPoint2 otherPoint, outsidePoint)
-    (perpPoint,  (_,_,_, perpErr))  = pPointOnPerpWithErr source midPoint minDistanceFromSeg
-    (otherPoint, (_,_,_, otherErr)) = pPointOnPerpWithErr source midPoint (-minDistanceFromSeg)
-    midPoint     = pPointBetweenPPoints (eToPP p1) (eToPP p2) 0.5 0.5
-    -- FIXME: Error loss.
-    (source, _)  = join2EP p1 p2
-    outsidePoint = pointFarOutsideContour contour
-    (p1, p2)     = firstPointPairOfContour contour
-    -- | the minimum measurable distance of a point from a line segment
-    -- FIXME: make this smaller, make more errors.
-    -- FIXME: magic number
-    minDistanceFromSeg :: ℝ
-    minDistanceFromSeg = fudgeFactor*10000000
+    (perpPoint,  (_,_,_, perpErr))  = pPointOnPerpWithErr pLine midPoint minDistanceFromSeg
+    (otherPoint, (_,_,_, otherErr)) = pPointOnPerpWithErr pLine midPoint (-minDistanceFromSeg)
+    minDistanceFromSeg  = minDistanceFromSegMidPoint outsidePoint lineSeg
+    midPoint = eToPP $ pointBetweenPoints (startPoint lineSeg) (endPoint lineSeg)
+    pLine = eToPLine2 lineSeg
+    (outsidePoint, lineSeg) = mostPerpPointAndLineSeg contour
 
--- | Find a point that is guaranteed to be outside of the given contour, and is not on the same line as the first line segment of the contour.
-pointFarOutsideContour :: Contour -> Point2
-pointFarOutsideContour contour
-  | not (noIntersection line1 firstLine) = outsidePoint1
-  | not (noIntersection line2 firstLine) = outsidePoint2
-  | not (noIntersection line3 firstLine) = outsidePoint3
-  | otherwise = error "cannot get here."
+-- | The minimum measurable distance of a point from the midpoint of a line segment
+minDistanceFromSegMidPoint :: Point2 -> LineSeg -> ℝ
+minDistanceFromSegMidPoint outsidePoint lineSeg = midPointFuzz + lineFuzz
   where
-    (minPoint, _) = minMaxPoints contour
-    (p1, p2)      = firstPointPairOfContour contour
-    firstLine     = join2EP p1 p2
-    line1         = join2EP p1 outsidePoint1
-    line2         = join2EP p1 outsidePoint2
-    line3         = join2EP p1 outsidePoint3
-    outsidePoint1 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.1)
-    outsidePoint2 = Point2 (xOf minPoint - 0.2 , yOf minPoint - 0.1)
-    outsidePoint3 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.2)
+    -- The minimum distance you have to get away from this line segment not to have intersection functions think you contact it.
+    -- FIXME: two magic numbers. the bigger these values are, the more likely we are to have a perpendicular segment that hits another line segment of the contour.
+    lineFuzz = case ulpVal (fuzzinessOfL pLine <> pLineErrAtPPoint pLine (eToPP midPoint)) of
+                 -- things very close to 0 have no error to multiply. we have to have some value, so use this.
+                 0 -> 10000 * fudgeFactor
+                 -- for points further away.
+                 v -> 10000 * v
+    -- The amount of error introduced by intersecting from the outsidePoint to the given line segment.
+    midPointFuzz = ulpVal $ fuzzinessOfP $ intersectionOf pLine outsideLine
+    outsideLine = join2EP midPoint outsidePoint
+    midPoint = pointBetweenPoints (startPoint lineSeg) (endPoint lineSeg)
+    pLine = eToPL lineSeg
+
+-- | Find a point that is guaranteed to be outside of the contour, along with the line segment of the contour that is most perpendicular to it.
+mostPerpPointAndLineSeg :: Contour -> (Point2, LineSeg)
+mostPerpPointAndLineSeg contour = res
+  where
+    res = if posAngle > negAngle
+          then if posAngle > midAngle
+               then (outsidePosPoint, posLineSeg)
+               else (outsideMidPoint, midLineSeg)
+          else if midAngle > negAngle
+               then (outsideMidPoint, midLineSeg)
+               else (outsideNegPoint, negLineSeg)
+    outsideMidPoint = pointBetweenPoints outsidePosPoint outsideNegPoint
+    outsidePosPoint = Point2 (xOf minPoint - 0.1 , yOf maxPoint + 0.1)
+    outsideNegPoint = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.1)
+    (minPoint, maxPoint) = minMaxPoints contour
+    (posLineSeg, posAngle) = mostPerp contour (eToPLine2 $ makeLineSeg (Point2 (0,0)) (Point2 (-1, 1)))
+    (midLineSeg, midAngle) = mostPerp contour (eToPLine2 $ makeLineSeg (Point2 (0,0)) (Point2 (-1, 0)))
+    (negLineSeg, negAngle) = mostPerp contour (eToPLine2 $ makeLineSeg (Point2 (0,0)) (Point2 (-1,-1)))
+    -- | Find the most perpendicular line segment of a contour, when compared to the given projective line.
+    mostPerp :: (ProjectiveLine2 a) => Contour -> a -> (LineSeg, ℝ)
+    mostPerp myContour line = (\(a, (b, _)) -> (a, abs b)) $ head $ sortBy (\(_, d) (_, f) -> compare (abs $ fst d) (abs $ fst f)) $ zip lineSegs $ angleCosBetween2PL line <$> lineSegsAsPLines
+      where
+        lineSegsAsPLines = fst . eToPL <$> lineSegs
+        lineSegs = lineSegsOfContour myContour
 
 -- | Find a point that is guaranteed to be outside of the given contour, and is not on the same line as the first line segment of the contour.
 pointFarOutsideContours :: Contour -> Contour -> Point2
