@@ -75,7 +75,7 @@ import Graphics.Slicer.Math.Intersections (noIntersection, intersectionOf)
 
 import Graphics.Slicer.Math.Lossy (pToEPoint2, eToPLine2)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine2, ProjectivePoint, angleCosBetween2PL, eToPL, eToPP, fuzzinessOfL, fuzzinessOfP, join2EP, join2PP, pLineErrAtPPoint, pLineIsLeft, pPointOnPerpWithErr)
+import Graphics.Slicer.Math.PGA (ProjectiveLine2, ProjectivePoint, angleBetween2PL, eToPL, eToPP, fuzzinessOfL, fuzzinessOfP, join2EP, join2PP, pLineErrAtPPoint, pLineIsLeft, pPointOnPerpWithErr)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -163,7 +163,7 @@ getLoops' segs workingLoop ultima =
 -- | Turn pairs of points into lists of points in sequence.
 --   The point pairs are the beginning and end of a line segment.
 getContours :: [(Point2,Point2)] -> [Contour]
-getContours pointPairs = fromMaybe (error $ "failed to flip a contour\n" <> show pointPairs <> "\n") . maybeFlipContour <$> foundContours
+getContours pointPairs = (\a -> fromMaybe (error $ "failed to flip a contour\n" <> show a <> "\n") $ maybeFlipContour a) <$> foundContours
   where
     contourAsLineSegs :: [[Point2]] -> [LineSeg]
     contourAsLineSegs contourPointPairs = (\[a,b] -> makeLineSeg a b) <$> contourPointPairs
@@ -312,7 +312,7 @@ mostPerpPointAndLineSeg contour = res
     (negLineSeg, negAngle) = mostPerp contour (eToPLine2 $ makeLineSeg (Point2 (0,0)) (Point2 (-1,-1)))
     -- | Find the most perpendicular line segment of a contour, when compared to the given projective line.
     mostPerp :: (ProjectiveLine2 a) => Contour -> a -> (LineSeg, ℝ)
-    mostPerp myContour line = (\(a, (b, _)) -> (a, abs b)) $ head $ sortBy (\(_, d) (_, f) -> compare (abs $ fst d) (abs $ fst f)) $ zip lineSegs $ angleCosBetween2PL line <$> lineSegsAsPLines
+    mostPerp myContour line = (\(a, (b, _)) -> (a, abs b)) $ head $ sortBy (\(_, d) (_, f) -> compare (abs $ fst d) (abs $ fst f)) $ zip lineSegs $ angleBetween2PL line <$> lineSegsAsPLines
       where
         lineSegsAsPLines = fst . eToPL <$> lineSegs
         lineSegs = lineSegsOfContour myContour
