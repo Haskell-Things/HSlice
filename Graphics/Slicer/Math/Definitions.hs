@@ -61,8 +61,6 @@ import Control.Parallel.Strategies (withStrategy, parList, rpar)
 
 import Control.Parallel (par, pseq)
 
-import Data.List as DL (uncons)
-
 import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe (Just, Nothing))
@@ -200,22 +198,22 @@ roundPoint2 :: Point2 -> Point2
 roundPoint2 (Point2 (x1,y1)) = Point2 (roundToFifth x1, roundToFifth y1)
 
 -- | like map, only with previous, current, and next item, and wrapping around so the first entry gets the last entry as previous, and vica versa.
-mapWithNeighbors :: (a -> a -> a -> b) -> [a] -> [b]
-mapWithNeighbors f l = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
-  where
-    z = zs <> [fz]
-    (fz, zs) = case DL.uncons l of
+mapWithNeighbors :: (Show a) => (a -> a -> a -> b) -> [a] -> [b]
+mapWithNeighbors f l =
+  case l of
+    []      -> error "Empty input list"
+    (_:[])  -> error $ "Too short of a list.\n" <> show l <> "\n"
+    (fz:zs) -> case unsnoc l of
                  Nothing -> error "Empty input list"
-                 (Just (_,[])) -> error "too short of a list."
-                 (Just vs) -> vs
-    x = lx:xs
-    (xs, lx) = case unsnoc l of
-                 Nothing -> error "Empty input list"
-                 (Just ([],_)) -> error "too short of a list."
-                 (Just vs) -> vs
+                 (Just ([],_)) -> error $ "too short of a list.\n" <> show l <> "\n"
+                 (Just (xs, lx)) -> withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
+                   where
+                     z = zs <> [fz]
+                     x = lx : xs
 
--- | like map, only with current, and next item, and wrapping around so the last entry gets the first entry as next.
+-- | Like map, only with current, and next item, and wrapping around so the last entry gets the first entry as next.
 mapWithFollower :: (Show a) => (a -> a -> b) -> [a] -> [b]
+{-# INLINABLE mapWithFollower #-}
 mapWithFollower f l =
   case l of
     []      -> error "Empty input list."
@@ -223,9 +221,8 @@ mapWithFollower f l =
     (fz:zs) -> withStrategy (parList rpar) $ z `pseq` PL.zipWith f l z
       where
         z = zs <> [fz]
-{-# INLINABLE mapWithFollower #-}
 
--- | like map, only with previous, and current item, and wrapping around so the first entry gets the last entry as previous.
+-- | Like map, only with previous, and current item, and wrapping around so the first entry gets the last entry as previous.
 mapWithPredecessor :: (a -> a -> b) -> [a] -> [b]
 mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` PL.zipWith f x l
   where
