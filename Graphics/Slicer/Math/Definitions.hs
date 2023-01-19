@@ -81,12 +81,12 @@ import Graphics.Slicer.Definitions (ℝ, ℝ2, ℝ3, Fastℕ)
 
 import Graphics.Slicer.Orphans ()
 
--- | A single Point in 3D linear space.
-newtype Point3 = Point3 ℝ3
-  deriving (Eq, Generic, NFData, Show)
-
 -- | A single Point on a 2D plane.
 newtype Point2 = Point2 ℝ2
+  deriving (Eq, Generic, NFData, Show)
+
+-- | A single Point in 3D linear space.
+newtype Point3 = Point3 ℝ3
   deriving (Eq, Generic, NFData, Show)
 
 -- | A typeclass containing our basic linear algebra functions.
@@ -95,7 +95,7 @@ class LinAlg p where
   distance    :: p -> p -> ℝ
   -- | Add the coordinates of two points
   addPoints   :: p -> p -> p
-  -- | Scale the coordinates of a point by s
+  -- | Scale the coordinates of a point by ℝ
   scalePoint  :: ℝ -> p -> p
   -- | negate a point.
   negatePoint :: p -> p
@@ -216,13 +216,13 @@ mapWithNeighbors f l = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f
 
 -- | like map, only with current, and next item, and wrapping around so the last entry gets the first entry as next.
 mapWithFollower :: (Show a) => (a -> a -> b) -> [a] -> [b]
-mapWithFollower f l = withStrategy (parList rpar) $ z `pseq` PL.zipWith f l z
-  where
-    z = zs <> [fz]
-    (fz, zs) = case DL.uncons l of
-                 Nothing -> error "Empty input list"
-                 (Just (a,[])) -> error $ "too short of a list.\n" <> show a <> "\n"
-                 (Just vs) -> vs
+mapWithFollower f l =
+  case l of
+    []      -> error "Empty input list."
+    (_:[])  -> error $ "too short of a list.\n" <> show l <> "\n"
+    (fz:zs) -> withStrategy (parList rpar) $ z `pseq` PL.zipWith f l z
+      where
+        z = zs <> [fz]
 {-# INLINABLE mapWithFollower #-}
 
 -- | like map, only with previous, and current item, and wrapping around so the first entry gets the last entry as previous.
@@ -271,4 +271,3 @@ pointsOfContour (PointContour _ _ p1 p2 p3 pts@(Slist vals _))
 pointsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
   | size moreLines == Infinity = error "cannot handle infinite contours."
   | otherwise                  = startPoint l1:startPoint l2:(startPoint <$> lns)
-
