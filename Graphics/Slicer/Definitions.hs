@@ -21,9 +21,9 @@
 
 -- The purpose of this file is to hold datatype definitions that are useful in all of the code.
 
-module Graphics.Slicer.Definitions (ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ, toFastℕ, fromℝtoFloat) where
+module Graphics.Slicer.Definitions (ℝ, ℝ2, ℝ3, ℕ, Fastℕ(Fastℕ), fromFastℕ, toFastℕ, fromℝtoFloat) where
 
 import Prelude ()
 
-import Graphics.Implicit.Definitions (Fastℕ, fromFastℕ, toFastℕ, ℕ, ℝ, fromℝtoFloat, ℝ2, ℝ3)
+import Graphics.Implicit.Definitions (ℝ, ℝ2, ℝ3, ℕ, Fastℕ(Fastℕ), fromFastℕ, toFastℕ, fromℝtoFloat)
 

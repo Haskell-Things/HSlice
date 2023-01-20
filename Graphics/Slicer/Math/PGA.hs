@@ -84,7 +84,7 @@ module Graphics.Slicer.Math.PGA(
   translateRotatePPoint2WithErr
   ) where
 
-import Prelude (Bool, Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (-), (&&), (<$>), (>), (>=), (<=), (+), (/), (||), (<), abs, cos, error, negate, otherwise, realToFrac, signum, sin)
+import Prelude (Bool(False), Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (-), (&&), (<$>), (>), (>=), (<=), (+), (/), (||), (<), abs, cos, error, negate, otherwise, realToFrac, signum, sin)
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
@@ -94,7 +94,9 @@ import Data.List (foldl')
 
 import Data.List.Ordered (foldt)
 
-import Data.Maybe (Maybe(Just, Nothing), maybeToList, fromJust, isJust, isNothing, maybeToList)
+import Data.Maybe (Maybe(Just, Nothing), fromJust, fromMaybe, isJust, isNothing, maybeToList)
+
+import Data.MemoTrie (memo2)
 
 import Data.Set (singleton, fromList)
 
@@ -203,7 +205,7 @@ pPointsOnSameSideOfPLine point1 point2 line
     pv2 = vecOfP $ forceBasisOfP point2
     lv1 = vecOfL $ forceBasisOfL line
 
--- | A checker, to ensure two Projective Lines are going the same direction, and are parallel.
+-- | A checker, to ensure two Projective Lines are going the same direction, and are parallel, or colinear.
 sameDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
 sameDirection a b = res >= maxAngle
   where
@@ -469,8 +471,8 @@ combineConsecutiveLineSegs lines = case lines of
     combine  l1      []  = l1
     combine  []      l2  = l2
     combine (l1:ls) (l2:l2s) = case lastMay ls of
-                               Nothing -> if canCombineLineSegs l1 l2 then maybeToList (combineLineSegs l1 l2) <> l2s else l1 : l2 : l2s
-                               (Just v) -> if canCombineLineSegs v l2 then l1:initSafe ls <> maybeToList (combineLineSegs v l2) <> l2s else (l1:ls) <> (l2:l2s)
+                               Nothing -> if canCombineLineSegs l1 l2 then fromMaybe (error "failed to combine!") (combineLineSegs l1 l2) : l2s else l1 : l2 : l2s
+                               (Just v) -> if canCombineLineSegs v l2 then l1:initSafe ls <> (fromMaybe (error "failed to combine!") (combineLineSegs v l2) : l2s) else (l1:ls) <> (l2:l2s)
     -- | responsible for placing the last value at the front of the list, to make up for the fold of combine putting the first value last.
     combineEnds :: [LineSeg] -> [LineSeg]
     combineEnds  []      = []
@@ -480,11 +482,7 @@ combineConsecutiveLineSegs lines = case lines of
                                    (Just v) -> if canCombineLineSegs v l1 then maybeToList (combineLineSegs v l1) <> (l2:initSafe ls) else v:l1:l2:initSafe ls
     -- | determine if two euclidian line segments are on the same projective line, and if they share a middle point.
     canCombineLineSegs :: LineSeg -> LineSeg -> Bool
-    canCombineLineSegs l1 l2 = sameMiddlePoint && sameLine
-      where
-        -- FIXME: this does not take into account the Err introduced by eToPLine2.
-        sameLine = plinesIntersectIn (eToPL l1) (eToPL l2) == PCollinear
-        sameMiddlePoint = endPoint l1 == startPoint l2
+    canCombineLineSegs l1 l2 = False -- plinesIntersectIn (eToPL l1) (eToPL l2) == PCollinear
 
 ------------------------------------------------
 ----- And now draw the rest of the algebra -----
