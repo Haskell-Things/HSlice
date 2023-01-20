@@ -49,7 +49,9 @@ import Graphics.Slicer.Math.PGA (Arcable(hasArc), Intersection, PIntersection(In
 -- | Check if two lines cannot intersect.
 {-# INLINABLE noIntersection #-}
 noIntersection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
-noIntersection line1 line2 = isCollinear line1 line2 || isParallel line1 line2 || isAntiCollinear line1 line2 || isAntiParallel line1 line2
+noIntersection line1 line2 = res == PCollinear || res == PAntiCollinear || res == PParallel || res == PAntiParallel
+    where
+      res = plinesIntersectIn line1 line2
 
 -- | Check if two lines are really the same line.
 {-# INLINABLE isCollinear #-}
