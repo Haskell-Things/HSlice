@@ -242,15 +242,15 @@ addValWithErr dstVals src@(GVal r1 _)
   | r1 == 0 = dstVals
   | null dstVals = [(src, mempty)]
   | otherwise = case sameI src dstVals of
-                  Nothing  -> insertSet (src,mempty) dstVals
+                  Nothing  -> insertSet (src, mempty) dstVals
                   (Just (a,e)) -> if rOf a == (-r1)
                                   then diffI src dstVals
-                                  else insertSet (GVal newVal $ iOf src, newErr) (diffI src dstVals)
+                                  else insertSet (GVal newVal $ iOf src, newErr) $ diffI src dstVals
                     where
                       newVal :: ℝ
                       newVal = realToFrac (realToFrac (rOf a) + realToFrac r1 :: Rounded 'ToNearest ℝ)
                       newErrVal = (realToFrac (rOf a) + realToFrac r1 :: Rounded 'TowardInf ℝ)
-                      newErr = e <> ErrVal (UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac newErrVal ) (iOf src)
+                      newErr = e <> ErrVal (UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac newErrVal) (iOf src)
   where
     sameI :: GVal -> [(GVal,ErrVal)] -> Maybe (GVal,ErrVal)
     sameI val srcVals = headMay $ P.filter (\(GVal _ i,_) -> i == iOf val) srcVals
@@ -299,8 +299,8 @@ addErr dstErrs src@(ErrVal _ i1)
   | src == mempty = dstErrs
   | dstErrs == mempty = [src]
   | otherwise = case sameI i1 dstErrs of
-      Nothing -> sort $ dstErrs <> [src]
-      Just match -> sort $ diffI i1 dstErrs <> [match <> src]
+      Nothing -> insertSet src dstErrs
+      Just match -> insertSet (src <> match) $ diffI i1 dstErrs
         where
           diffI :: Set GNum -> [ErrVal] -> [ErrVal]
           diffI i = P.filter (\(ErrVal _ i2) -> i2 /= i)
