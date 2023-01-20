@@ -28,7 +28,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), LineSeg(LineSeg), Point2, addPoints, scalePoint, zOf, flatten, makeLineSeg)
 
--- | Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). Only call this if p2 == p3 and the lines are really close to parallel
+-- | Combine lines (p1 -- p2) (p3 -- p4) to (p1 -- p4). Only call this if p2 == p3 and the lines are really close to colinear
 combineLineSegs :: LineSeg -> LineSeg -> Maybe LineSeg
 combineLineSegs (LineSeg s1 _) (LineSeg _ e2) = if s1 == e2 -- If line 2 ends where line 1 begins:
                                                 then Nothing -- handle a contour that loops back on itsself.
