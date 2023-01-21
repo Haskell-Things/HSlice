@@ -9,10 +9,10 @@ Algebra(2,0,1,()=>{
   var acb = point(-1.0,1.0);
   var ada = point(-1.0,1.0);
   var adb = point(-1.0,-1.0);
-  var aea = 1.0e1-1.0e2+0.0e0;
-  var aeb = 1.0e1+1.0e2+0.0e0;
-  var aec = -1.0e1+1.0e2+0.0e0;
-  var aed = -1.0e1-1.0e2+0.0e0;
+  var aea = 0.7071067811865475e1-0.7071067811865475e2+0.0e0;
+  var aeb = 0.7071067811865475e1+0.7071067811865475e2+0.0e0;
+  var aec = -0.7071067811865475e1+0.7071067811865475e2+0.0e0;
+  var aed = -0.7071067811865475e1-0.7071067811865475e2+0.0e0;
   document.body.appendChild(this.graph([
     0x882288,
     [aaa,aab],
