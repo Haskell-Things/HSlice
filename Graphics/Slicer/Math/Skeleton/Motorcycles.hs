@@ -105,7 +105,7 @@ motorcycleDivisor motorcycle target = pPointBetweenPPoints (cPPointOf motorcycle
 -- FIXME: may fail, returning Nothing.
 crashMotorcycles :: Contour -> [Contour] -> Maybe CrashTree
 crashMotorcycles contour holes
-  | null holes = getCrashTree (slist firstMotorcycles) [] (slist []) False
+  | null holes = getCrashTree contour (slist firstMotorcycles) [] (slist []) False
   | otherwise = Nothing
   where
     firstMotorcycles
@@ -115,48 +115,49 @@ crashMotorcycles contour holes
     -- FIXME: not yet used.
     --firstMotorcyclesOfHoles = concaveMotorcycles <$> holes
 
-    -- Function meant to be recursed, to give us a CrashTree. when it's complete...
-    -- For now, just cover the cases we know what to do with.
-    getCrashTree :: Slist Motorcycle -> [Motorcycle] -> Slist Collision -> Bool -> Maybe CrashTree
-    getCrashTree inMotorcycles crashedMotorcycles inCrashes hasHoles
-      | hasHoles = error "do not support holes yet"
-      -- We're done.
-      | null findSurvivors = Just $ CrashTree inMotorcycles findSurvivors inCrashes
-      | null crashedMotorcycles = case inMotorcycles of
-                                    (Slist [] _) -> -- there is no-one to collide with.
-                                      Just $ CrashTree inMotorcycles inMotorcycles (slist [])
-                                    (Slist _ 1) -> -- There is only one motorcycle.
-                                      Just $ CrashTree inMotorcycles inMotorcycles (slist [])
-                                    (Slist [firstMC, secondMC] 2) -> case crashOf firstMC secondMC of
-                                                                       Just collision ->
-                                                                         Just $ CrashTree inMotorcycles (slist []) (slist [collision])
-                                                                       Nothing ->
-                                                                         Just $ CrashTree inMotorcycles inMotorcycles (slist [])
-                                    (Slist (_:_) _) -> Nothing
-      -- Note that to solve this case, we will have to have a concept of speed of the motorcycle.
-      | otherwise = Nothing
-        where
-          -- determine the set of motorcycles have not yet had a crash.
-          findSurvivors = SL.filter (`notElem` crashedMotorcycles) inMotorcycles
+-- | Get a crash tree of the motorcycles within a contour.
+-- This Function is meant to be recursed, to give us a CrashTree. when it's complete... not yet.
+-- For now, just cover the cases we know what to do with.
+getCrashTree :: Contour -> Slist Motorcycle -> [Motorcycle] -> Slist Collision -> Bool -> Maybe CrashTree
+getCrashTree contour inMotorcycles crashedMotorcycles inCrashes hasHoles
+  | hasHoles = error "do not support holes yet"
+  -- We're done.
+  | null findSurvivors = Just $ CrashTree inMotorcycles findSurvivors inCrashes
+  | null crashedMotorcycles = case inMotorcycles of
+                                (Slist [] _) -> -- there is no-one to collide with.
+                                  Just $ CrashTree inMotorcycles inMotorcycles (slist [])
+                                (Slist _ 1) -> -- There is only one motorcycle.
+                                  Just $ CrashTree inMotorcycles inMotorcycles (slist [])
+                                (Slist [firstMC, secondMC] 2) -> case crashOf firstMC secondMC of
+                                                                   Just collision ->
+                                                                     Just $ CrashTree inMotorcycles (slist []) (slist [collision])
+                                                                   Nothing ->
+                                                                     Just $ CrashTree inMotorcycles inMotorcycles (slist [])
+                                (Slist (_:_) _) -> Nothing
+    -- Note that to solve this case, we will have to have a concept of speed of the motorcycle.
+  | otherwise = Nothing
+  where
+    -- determine the set of motorcycles have not yet had a crash.
+    findSurvivors = SL.filter (`notElem` crashedMotorcycles) inMotorcycles
 
-          -- Crash just two motorcycles. Returns Nothing when the motorcycles can't collide.
-          crashOf :: Motorcycle -> Motorcycle -> Maybe Collision
-          crashOf mot1 mot2@(Motorcycle (inSeg2, _) _ _)
-            -- If we have a clear path between mot1 and the origin of mot2
-            | isAntiCollinear (outAndErrOf mot1) (outAndErrOf mot2) && motorcycleIntersectsAt contour mot1 == (inSeg2, Left $ endPoint inSeg2) = Just $ Collision (mot1,mot2, slist []) Nothing HeadOn
-            | noIntersection (outAndErrOf mot1) (outAndErrOf mot2) = Nothing
-            | intersectionIsBehind mot1 = Nothing
-            | intersectionIsBehind mot2 = Nothing
-            -- FIXME: this should be providing a distance to intersectionPPoint along the motorcycle to check.
-            | otherwise = case getMotorcycleContourIntersections mot1 contour of
-                          [] -> case distanceBetweenPPointsWithErr (cPPointAndErrOf mot1) intersectionPPoint `compare` distanceBetweenPPointsWithErr (cPPointAndErrOf mot2) intersectionPPoint of
-                                 GT -> Just $ Collision (mot1, mot2, slist []) (Just mot2) Normal
-                                 LT -> Just $ Collision (mot1, mot2, slist []) (Just mot1) Normal
-                                 EQ -> Just $ Collision (mot1, mot2, slist []) (Just mot1) SideSwipe
-                          _ -> Nothing
-              where
-                intersectionPPoint = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf mot1 mot2
-                intersectionIsBehind m = oppositeDirection (outOf m) (fst $ join2PP (cPPointOf m) (fst intersectionPPoint))
+    -- Crash just two motorcycles. Returns Nothing when the motorcycles can't collide.
+    crashOf :: Motorcycle -> Motorcycle -> Maybe Collision
+    crashOf mot1 mot2@(Motorcycle (inSeg2, _) _ _)
+      -- If we have a clear path between mot1 and the origin of mot2
+      | isAntiCollinear (outAndErrOf mot1) (outAndErrOf mot2) && motorcycleIntersectsAt contour mot1 == (inSeg2, Left $ endPoint inSeg2) = Just $ Collision (mot1,mot2, slist []) Nothing HeadOn
+      | noIntersection (outAndErrOf mot1) (outAndErrOf mot2) = Nothing
+      | intersectionIsBehind mot1 = Nothing
+      | intersectionIsBehind mot2 = Nothing
+      -- FIXME: this should be providing a distance to intersectionPPoint along the motorcycle to check.
+      | otherwise = case getMotorcycleContourIntersections mot1 contour of
+                      [] -> case distanceBetweenPPointsWithErr (cPPointAndErrOf mot1) intersectionPPoint `compare` distanceBetweenPPointsWithErr (cPPointAndErrOf mot2) intersectionPPoint of
+                              GT -> Just $ Collision (mot1, mot2, slist []) (Just mot2) Normal
+                              LT -> Just $ Collision (mot1, mot2, slist []) (Just mot1) Normal
+                              EQ -> Just $ Collision (mot1, mot2, slist []) (Just mot1) SideSwipe
+                      _ -> Nothing
+      where
+        intersectionPPoint = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf mot1 mot2
+        intersectionIsBehind m = oppositeDirection (outOf m) (fst $ join2PP (cPPointOf m) (fst intersectionPPoint))
 
 -- | Find the non-reflex virtexes of a contour and draw motorcycles from them. Useful for contours that are a 'hole' in a bigger contour.
 --   This function is meant to be used on the exterior contour.
