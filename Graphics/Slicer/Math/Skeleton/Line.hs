@@ -24,11 +24,11 @@ module Graphics.Slicer.Math.Skeleton.Line (addInset, addInfill) where
 
 import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (<>), (>), min, Bool(True, False), fst, maybe, mempty, snd)
 
-import Data.List (sortOn, dropWhile, takeWhile, transpose)
+import Data.List (sortOn, dropWhile, takeWhile, transpose, uncons)
+
+import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe(Just,Nothing), fromMaybe, mapMaybe)
-
-import Safe (lastMay, initSafe)
 
 import Slist (slist, len)
 
@@ -68,7 +68,7 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     -----------------------------------------------------------------------------------------
 
     -- | The direction we need to translate our edge in order for it to be going inward.
-    translateDir v         = case (eToPLine2 edge) `pLineIsLeft` firstArc of
+    translateDir v         = case eToPLine2 edge `pLineIsLeft` firstArc of
                                (Just True) -> (-v)
                                (Just False) -> v
                                Nothing -> error "cannot happen: edge and firstArc are the same line?"
@@ -97,7 +97,6 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
                                                then distancePPointToPLineWithErr (intersectionOf (firstArc, mempty) (oneArc, mempty)) (eToPL edge)
                                                else distancePPointToPLineWithErr (intersectionOf (oneArc, mempty) (lastArc, mempty)) (eToPL edge)
                          (Slist _ _) -> closestArcDistance
-
     -----------------------------------------------------------
     -- functions only used by n-gons with more than four sides.
     -----------------------------------------------------------
@@ -106,7 +105,9 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
                        [] -> error "no remains for an nSideRemainder?"
 
     -- | Find the closest point where two of our arcs intersect, relative to our side.
-    arcIntersections = initSafe $ mapWithFollower (\a b -> (distancePPointToPLineWithErr (safeIntersectionOf (a,mempty) (b,mempty)) (eToPL edge), (a, b))) $ [firstArc] <> rawMidArcs <> [lastArc]
+    arcIntersections = case unsnoc $ mapWithFollower (\a b -> (distancePPointToPLineWithErr (safeIntersectionOf (a,mempty) (b,mempty)) (eToPL edge), (a, b))) $ firstArc : rawMidArcs <> [lastArc] of
+                         Nothing     -> []
+                         Just (xs,_) -> xs
     safeIntersectionOf a b
       | isCollinear a b = error $ "given a colinear pair when trying to find arcIntersectioins:\n"
                                 <> show a <> "\n"
@@ -145,16 +146,20 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     (sides1, remains1)     = if closestArc == firstArc
                              then noResult
                              else result firstArc untilArc
-    (sides2, remains2)     = case lastMay rawMidArcs of
+    (sides2, remains2)     = case unsnoc rawMidArcs of
                                Nothing -> noResult
-                               (Just a) -> if closestArc == a
-                                           then noResult
-                                           else result closestArcFollower afterArc
+                               Just (_,a) -> if closestArc == a
+                                             then noResult
+                                             else result closestArcFollower afterArc
     noResult = ([],Nothing)
-    result begin arcs = case arcs of
-                          [] -> error "unpossible!"
-                          [_oneArc] -> addLineSegsToFace distance insets (Face finalSide begin (slist []) lastArc)
-                          (_oneArc:manyArcs) -> addLineSegsToFace distance insets (Face finalSide begin (slist $ initSafe manyArcs) lastArc)
+    result begin arcs = case uncons arcs of
+                          Nothing -> error "unpossible!"
+                          Just (_,[]) -> addLineSegsToFace distance insets (Face finalSide begin (slist []) lastArc)
+                          Just (_,manyArcs) -> addLineSegsToFace distance insets (Face finalSide begin remainingArcs lastArc)
+                            where
+                              remainingArcs = case unsnoc manyArcs of
+                                                Nothing -> error "unpossible!"
+                                                Just (as,_) -> slist as
     ---------------------------------------------
     -- functions only used by a four-sided n-gon.
     ---------------------------------------------
