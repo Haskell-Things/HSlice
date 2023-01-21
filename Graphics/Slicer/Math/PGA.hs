@@ -84,7 +84,7 @@ module Graphics.Slicer.Math.PGA(
   translateRotatePPoint2WithErr
   ) where
 
-import Prelude (Bool(False), Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (-), (&&), (<$>), (>), (>=), (<=), (+), (/), (||), (<), abs, cos, error, negate, otherwise, realToFrac, signum, sin)
+import Prelude (Bool, Eq((==)), Monoid(mempty), Semigroup((<>)), Show(show), ($), (-), (&&), (<$>), (>), (>=), (<=), (+), (/), (||), (<), abs, cos, error, negate, otherwise, realToFrac, signum, sin)
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
@@ -92,15 +92,13 @@ import Data.Either (Either(Left, Right))
 
 import Data.List (foldl')
 
+import Data.List.Extra (unsnoc)
+
 import Data.List.Ordered (foldt)
 
-import Data.Maybe (Maybe(Just, Nothing), fromJust, fromMaybe, isJust, isNothing, maybeToList)
-
-import Data.MemoTrie (memo2)
+import Data.Maybe (Maybe(Just, Nothing), fromJust, fromMaybe, isJust, isNothing)
 
 import Data.Set (singleton, fromList)
-
-import Safe (lastMay, initSafe)
 
 import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf, TowardNegInf))
 
@@ -464,25 +462,25 @@ combineConsecutiveLineSegs :: [LineSeg] -> [LineSeg]
 combineConsecutiveLineSegs lines = case lines of
                                      [] -> []
                                      [a] -> [a]
-                                     (firstLine:manyLines) -> res firstLine manyLines
+                                     (firstLine:manyLines) -> combineEnds $ foldt combine [firstLine] ((:[]) <$> manyLines)
   where
-    res first many = combineEnds $ foldt combine [first] ((:[]) <$> many)
     combine :: [LineSeg] -> [LineSeg] -> [LineSeg]
-    combine  l1      []  = l1
-    combine  []      l2  = l2
-    combine (l1:ls) (l2:l2s) = case lastMay ls of
-                               Nothing -> if canCombineLineSegs l1 l2 then fromMaybe (error "failed to combine!") (combineLineSegs l1 l2) : l2s else l1 : l2 : l2s
-                               (Just v) -> if canCombineLineSegs v l2 then l1:initSafe ls <> (fromMaybe (error "failed to combine!") (combineLineSegs v l2) : l2s) else (l1:ls) <> (l2:l2s)
-    -- | responsible for placing the last value at the front of the list, to make up for the fold of combine putting the first value last.
+    combine  ls      []      = ls
+    combine  []      ls      = ls
+    combine (l1:ls) (l2:l2s) = case unsnoc ls of
+                                  Nothing -> if canCombineLineSegs l1 l2 then fromMaybe (error "failed to combine!") (combineLineSegs l1 l2) : l2s else l1 : l2 : l2s
+                                  (Just (vs, vl)) -> (l1:vs) <> (vl:l2:l2s)
+-- FIXME: how is this broken? causes our real world tests 4 and 5 to go into an infinite loop?
+--                                  (Just (vs, vl)) -> if canCombineLineSegs vl l2 then l1:vs <> (fromMaybe (error "failed to combine!") (combineLineSegs vl l2) : l2s) else (l1:ls) <> (l2:l2s)
     combineEnds :: [LineSeg] -> [LineSeg]
     combineEnds  []      = []
     combineEnds  [l1]    = [l1]
-    combineEnds  (l1:l2:ls) = case lastMay ls of
-                                   Nothing -> maybeToList $ combineLineSegs l1 l2
-                                   (Just v) -> if canCombineLineSegs v l1 then maybeToList (combineLineSegs v l1) <> (l2:initSafe ls) else v:l1:l2:initSafe ls
+    combineEnds  (l1:l2:ls)  = case unsnoc ls of
+                                 Nothing -> if canCombineLineSegs l2 l1 then [fromMaybe (error "failed to combine!") $ combineLineSegs l2 l1] else [l2, l1]
+                                 (Just (vs, vl)) -> if canCombineLineSegs vl l1 then fromMaybe (error "failed to combine!") (combineLineSegs vl l1) : l2 : vs else vl:l1:l2:vs
     -- | determine if two euclidian line segments are on the same projective line, and if they share a middle point.
     canCombineLineSegs :: LineSeg -> LineSeg -> Bool
-    canCombineLineSegs l1 l2 = False -- plinesIntersectIn (eToPL l1) (eToPL l2) == PCollinear
+    canCombineLineSegs l1 l2 = plinesIntersectIn (eToPL l1) (eToPL l2) == PCollinear
 
 ------------------------------------------------
 ----- And now draw the rest of the algebra -----
