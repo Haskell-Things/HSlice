@@ -86,7 +86,6 @@ library
         parallel -any,
         QuickCheck -any,
         rounded-hw -any,
-        safe -any,
         slist >=0.2.0.0,
         tau -any,
         Unique -any,
