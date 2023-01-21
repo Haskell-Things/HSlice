@@ -82,7 +82,7 @@ import Data.Bits.Floating.Ulp (doubleUlp)
 
 import Data.Either (Either(Left, Right))
 
-import Data.List (foldl')
+import Data.List (foldl', uncons)
 
 import Data.List.NonEmpty (NonEmpty((:|)), toList, cons, nonEmpty)
 
@@ -97,8 +97,6 @@ import Data.Set (Set, singleton, disjoint, elems, size, elemAt, fromAscList)
 import Data.Set as S (filter)
 
 import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf, ToNearest), getRounded)
-
-import Safe (headMay)
 
 import Graphics.Slicer.Definitions (ℝ, Fastℕ)
 
@@ -243,17 +241,18 @@ addValWithErr dstVals src@(GVal r1 _)
   | null dstVals = [(src, mempty)]
   | otherwise = case sameI src dstVals of
                   Nothing  -> insertSet (src, mempty) dstVals
-                  (Just (a,e)) -> if rOf a == (-r1)
-                                  then diffI src dstVals
-                                  else insertSet (GVal newVal $ iOf src, newErr) $ diffI src dstVals
+                  (Just ((a,e), [])) -> if rOf a == (-r1)
+                                        then diffI src dstVals
+                                        else insertSet (GVal newVal $ iOf src, newErr) $ diffI src dstVals
                     where
                       newVal :: ℝ
                       newVal = realToFrac (realToFrac (rOf a) + realToFrac r1 :: Rounded 'ToNearest ℝ)
-                      newErrVal = (realToFrac (rOf a) + realToFrac r1 :: Rounded 'TowardInf ℝ)
                       newErr = e <> ErrVal (UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac newErrVal) (iOf src)
+                      newErrVal = (realToFrac (rOf a) + realToFrac r1 :: Rounded 'TowardInf ℝ)
+                  _                  -> error "found too many sameI candidates."
   where
-    sameI :: GVal -> [(GVal,ErrVal)] -> Maybe (GVal,ErrVal)
-    sameI val srcVals = headMay $ P.filter (\(GVal _ i,_) -> i == iOf val) srcVals
+    sameI :: GVal -> [(GVal,ErrVal)] -> Maybe ((GVal,ErrVal), [(GVal, ErrVal)])
+    sameI val srcVals = uncons $ P.filter (\(GVal _ i,_) -> i == iOf val) srcVals
     diffI :: GVal -> [(GVal,ErrVal)] -> [(GVal,ErrVal)]
     diffI val = P.filter (\(GVal _ i,_) -> i /= iOf val)
     iOf (GVal _ i) = i
@@ -272,8 +271,8 @@ addValWithoutErr dstVals src@(GVal r1 _)
                                    <> show a <> "\n"
                                    <> show src <> "\n"
   where
-    sameI :: GVal -> [GVal] -> Maybe GVal
-    sameI val srcVals = headMay $ P.filter (\a -> iOf a == iOf val) srcVals
+    sameI :: GVal -> [GVal] -> Maybe (GVal, [GVal])
+    sameI val srcVals = uncons $ P.filter (\a -> iOf a == iOf val) srcVals
     iOf (GVal _ i) = i
 
 -- | Subtract a geometric value from a list of geometric values.
@@ -299,14 +298,14 @@ addErr dstErrs src@(ErrVal _ i1)
   | src == mempty = dstErrs
   | dstErrs == mempty = [src]
   | otherwise = case sameI i1 dstErrs of
-      Nothing -> insertSet src dstErrs
-      Just match -> insertSet (src <> match) $ diffI i1 dstErrs
-        where
-          diffI :: Set GNum -> [ErrVal] -> [ErrVal]
-          diffI i = P.filter (\(ErrVal _ i2) -> i2 /= i)
+      Nothing          -> insertSet src dstErrs
+      Just (match, []) -> insertSet (src <> match) $ diffI i1 dstErrs
+      _                -> error "too many sameI values"
   where
-    sameI :: Set GNum -> [ErrVal] -> Maybe ErrVal
-    sameI i errs = headMay $ P.filter (\(ErrVal _ i2) -> i2 == i) errs
+    diffI :: Set GNum -> [ErrVal] -> [ErrVal]
+    diffI i = P.filter (\(ErrVal _ i2) -> i2 /= i)
+    sameI :: Set GNum -> [ErrVal] -> Maybe (ErrVal, [ErrVal])
+    sameI i errs = uncons $ P.filter (\(ErrVal _ i2) -> i2 == i) errs
 
 -- | Add two vectors together.
 addVecPair :: GVec -> GVec -> GVec
