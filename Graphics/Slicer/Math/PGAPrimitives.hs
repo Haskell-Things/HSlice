@@ -22,6 +22,9 @@
 -- for using Rounded flexibly.
 {-# LANGUAGE DataKinds #-}
 
+--  for :->:
+{-# LANGUAGE TypeOperators, TypeFamilies #-}
+
 -- | The purpose of this file is to hold primitive projective geometric algebraic arithmatic.
 -- Primitives here are defined as functions that work on types which have an implementation of the ProjectivePoint2 or ProjectiveLine2 typeclasses. Think "Pure 2D PGA functions only".
 
@@ -72,6 +75,8 @@ import Data.Either (Either(Left, Right), fromRight, isRight)
 import Data.List (foldl', sort)
 
 import Data.Maybe (Maybe(Just,Nothing), fromJust, isJust, isNothing)
+
+import Data.MemoTrie (HasTrie(enumerate, trie, untrie), Reg, (:->:), enumerateGeneric, trieGeneric, untrieGeneric)
 
 import Data.Set (Set, elems, fromList, singleton)
 
@@ -150,10 +155,16 @@ data ProjectiveLine =
   deriving (Eq, Generic, NFData, Show, Typeable)
 
 -- | The typeclass definition. functions that must be implemented for any projective line type.
-class (Eq a, Show a, Typeable a) => ProjectiveLine2 a where
+class (Eq a, HasTrie a, Show a, Typeable a) => ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   normalizeL :: a -> (ProjectiveLine, PLine2Err)
   vecOfL :: a -> GVec
+
+instance HasTrie ProjectiveLine where
+  newtype (ProjectiveLine :->: b) = ProjectiveLineTrie { unProjectiveLineTrie :: Reg ProjectiveLine :->: b }
+  trie = trieGeneric ProjectiveLineTrie
+  untrie = untrieGeneric unProjectiveLineTrie
+  enumerate = enumerateGeneric unProjectiveLineTrie
 
 -- | The implementation of typeclass operations.
 instance ProjectiveLine2 ProjectiveLine where
@@ -181,7 +192,7 @@ data PLine2Err = PLine2Err
     UlpSum
   -- Join Error. when a PLine2 is constructed via join.
     ([ErrVal], [ErrVal])
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance Semigroup PLine2Err where
   (<>) (PLine2Err a1 b1 c1 d1 e1 (f1,g1)) (PLine2Err a2 b2 c2 d2 e2 (f2,g2)) =
@@ -194,6 +205,12 @@ instance Semigroup PLine2Err where
 
 instance Monoid PLine2Err where
   mempty = PLine2Err mempty mempty mempty mempty mempty mempty
+
+instance HasTrie PLine2Err where
+  newtype (PLine2Err :->: b) = PLine2ErrTrie { unPLine2ErrTrie :: Reg PLine2Err :->: b }
+  trie = trieGeneric PLine2ErrTrie
+  untrie = untrieGeneric unPLine2ErrTrie
+  enumerate = enumerateGeneric unPLine2ErrTrie
 
 -- | Return the sine of the angle between the two lines, along with the error.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.

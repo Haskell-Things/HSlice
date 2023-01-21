@@ -26,6 +26,12 @@
 -- So we can map applying (,mempty) to a list.
 {-# LANGUAGE TupleSections #-}
 
+-- For :->:
+{-# LANGUAGE TypeOperators, TypeFamilies #-}
+
+-- So we can create an instance of HasTrie for NonEmpty GNum.
+{-# LANGUAGE FlexibleInstances #-}
+
 -- | Our geometric algebra library.
 module Graphics.Slicer.Math.GeometricAlgebra(
   ErrVal(ErrVal),
@@ -90,6 +96,8 @@ import Data.List.Ordered (sort, insertSet)
 
 import Data.Maybe (Maybe(Just, Nothing), isJust)
 
+import Data.MemoTrie (HasTrie(enumerate, trie, untrie), Reg, (:->:), enumerateGeneric, trieGeneric, untrieGeneric)
+
 import Data.Number.BigFloat (BigFloat, PrecPlus20, Eps1)
 
 import Data.Set (Set, singleton, disjoint, elems, size, elemAt, fromAscList)
@@ -111,6 +119,18 @@ data GNum =
   | G0            -- A scalar type. short lived.
   deriving (Eq, Generic, NFData, Show, Ord)
 
+instance HasTrie GNum where
+  newtype (GNum :->: b) = GNumTrie { unGNumTrie :: Reg GNum :->: b }
+  trie = trieGeneric GNumTrie
+  untrie = untrieGeneric unGNumTrie
+  enumerate = enumerateGeneric unGNumTrie
+
+instance HasTrie (NonEmpty GNum) where
+  newtype ((NonEmpty GNum) :->: b) = NEGNumTrie { unNEGNumTrie :: Reg (NonEmpty GNum) :->: b }
+  trie = trieGeneric NEGNumTrie
+  untrie = untrieGeneric unNEGNumTrie
+  enumerate = enumerateGeneric unNEGNumTrie
+
 -- | A value in geometric algebra. this will have duplicate members filtered out, and the members will be in order.
 data GVal = GVal
   -- _real ::
@@ -118,6 +138,12 @@ data GVal = GVal
   -- _basis ::
   !(Set GNum)
   deriving (Eq, Generic, NFData, Show)
+
+instance HasTrie GVal where
+  newtype (GVal :->: b) = GValTrie { unGValTrie :: Reg GVal :->: b }
+  trie = trieGeneric GValTrie
+  untrie = untrieGeneric unGValTrie
+  enumerate = enumerateGeneric unGValTrie
 
 -- | A value in geometric algebra, in need of reduction. this may have duplicate members, or members out of order.
 data GRVal = GRVal
@@ -141,6 +167,12 @@ instance Semigroup UlpSum where
 instance Monoid UlpSum where
   mempty = UlpSum 0
 
+instance HasTrie UlpSum where
+  newtype (UlpSum :->: b) = UlpSumTrie { unUlpSumTrie :: Reg UlpSum :->: b }
+  trie = trieGeneric UlpSumTrie
+  untrie = untrieGeneric unUlpSumTrie
+  enumerate = enumerateGeneric unUlpSumTrie
+
 data ErrVal = ErrVal
   -- { _ulpVal ::
               !UlpSum
@@ -150,6 +182,12 @@ data ErrVal = ErrVal
 
 data ErrRVal = ErrRVal { _ulpRVal :: !UlpSum, _ulpRBasis :: NonEmpty GNum }
   deriving (Eq, Generic, NFData, Show)
+
+instance HasTrie ErrVal where
+  newtype (ErrVal :->: b) = ErrValTrie { unErrValTrie :: Reg ErrVal :->: b }
+  trie = trieGeneric ErrValTrie
+  untrie = untrieGeneric unErrValTrie
+  enumerate = enumerateGeneric unErrValTrie
 
 -- Fake instance. do not try to order by ErrVal.
 instance Ord ErrVal where
@@ -174,6 +212,12 @@ instance Ord GVal where
 -- | A (multi)vector in geometric algebra.
 newtype GVec = GVec [GVal]
   deriving (Eq, Generic, NFData, Show, Ord)
+
+instance HasTrie GVec where
+  newtype (GVec :->: b) = GVecTrie { unGVecTrie :: Reg GVec :->: b }
+  trie = trieGeneric GVecTrie
+  untrie = untrieGeneric unGVecTrie
+  enumerate = enumerateGeneric unGVecTrie
 
 -- | a list contains geometric values that can be queried.
 class UniqueVals a where
