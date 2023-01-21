@@ -371,9 +371,9 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
     indexTo iNodes = iNodesBeforePLine iNodes <> iNodesAfterPLine iNodes
       where
         iNodesBeforePLine :: [INode] -> [INode]
-        iNodesBeforePLine = filter (\a -> firstPLine `pLineIsLeft` (firstInOf a) /= Just False)
+        iNodesBeforePLine = filter (\a -> firstPLine `pLineIsLeft` firstInOf a /= Just False)
         -- nodes in the right order, after the divide.
-        iNodesAfterPLine myINodes = withoutFlippedINodes $ filter (\a -> firstPLine `pLineIsLeft` (firstInOf a) == Just False) myINodes
+        iNodesAfterPLine myINodes = withoutFlippedINodes $ filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) myINodes
         withoutFlippedINodes maybeFlippedINodes = case flippedINodeOf maybeFlippedINodes of
                                                     Nothing -> maybeFlippedINodes
                                                     (Just a) -> filter (/= a) maybeFlippedINodes
@@ -486,12 +486,12 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
     -- | Sort a generation by the first in PLine.
     sortGeneration :: [INode] -> [INode]
-    sortGeneration = sortBy (\a b -> if (firstInOf a) `pLineIsLeft` (firstInOf b) == Just False then LT else GT)
+    sortGeneration = sortBy (\a b -> if firstInOf a `pLineIsLeft` firstInOf b == Just False then LT else GT)
 
     -- Find an inode connecting the first and last ENode, if it exists.
     -- FIXME: this functions, but i don't know why. :)
     flippedINodeOf :: [INode] -> Maybe INode
-    flippedINodeOf inodes = case filter (\a -> firstPLine `pLineIsLeft` (firstInOf a) == Just False) inodes of
+    flippedINodeOf inodes = case filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) inodes of
                               [] -> Nothing
                               [a] -> -- if there is only one result, it's going to only point to enodes.
                                 Just a

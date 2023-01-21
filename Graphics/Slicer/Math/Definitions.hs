@@ -19,6 +19,9 @@
 
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
+--  for :->:
+{-# LANGUAGE TypeOperators, TypeFamilies #-}
+
 -- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
 module Graphics.Slicer.Math.Definitions(
   Contour(PointContour, LineSegContour),
@@ -64,6 +67,8 @@ import Control.Parallel (par, pseq)
 import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe (Just, Nothing))
+
+import Data.MemoTrie (HasTrie(enumerate, trie, untrie), Reg, (:->:), enumerateGeneric, trieGeneric, untrieGeneric)
 
 import GHC.Generics (Generic)
 
@@ -129,6 +134,12 @@ class PlanePoint p where
   -- | The Y value of a point in a plane.
   yOf :: p -> ℝ
 
+instance HasTrie Point2 where
+  newtype (Point2 :->: b) = Point2Trie { unPoint2Trie :: Reg Point2 :->: b } 
+  trie = trieGeneric Point2Trie
+  untrie = untrieGeneric unPoint2Trie
+  enumerate = enumerateGeneric unPoint2Trie
+
 instance Ord Point2 where
   -- Orders points by x and y (x first, then sorted by y for the same x-values)
   compare p1 p2
@@ -160,20 +171,30 @@ instance SpacePoint Point3 where
   zOf (Point3 (_,_,z)) = z
   flatten (Point3 (x,y,_)) = Point2 (x,y)
 
+-- | A euclidian line segment, starting at startPoint and stopping at endPoint.
+data LineSeg = LineSeg { startPoint :: !Point2, endPoint :: !Point2 }
+  deriving (Generic, NFData, Show)
+
 instance Eq LineSeg where
   (==) (LineSeg s1 e1) (LineSeg s2 e2) = distance s1 s2 < fudgeFactor && distance e1 e2 < fudgeFactor
 
--- | Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
--- it should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
--- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
-data LineSeg = LineSeg { startPoint :: !Point2, endPoint :: !Point2 }
-  deriving (Generic, NFData, Show)
+instance HasTrie LineSeg where
+  newtype (LineSeg :->: b) = LineSegTrie { unLineSegTrie :: Reg LineSeg :->: b }
+  trie = trieGeneric LineSegTrie
+  untrie = untrieGeneric unLineSegTrie
+  enumerate = enumerateGeneric unLineSegTrie
 
 -- | a list of points around a (2d) shape.
 -- Note that the minPoint and maxPoint define a bounding box for the contour that it does not spill out of.
 data Contour = PointContour { _minPoint :: !Point2, _maxPoint :: !Point2, _firstPoint :: !Point2, _secondPoint :: !Point2, _thirdPoint :: !Point2 , morePoints :: !(Slist Point2) }
              | LineSegContour { _myMinPoint :: !Point2, _myMaxPoint :: !Point2, _firstSeg :: !LineSeg, _secondSeg :: !LineSeg, moreSegs :: !(Slist LineSeg) }
   deriving (Eq, Generic, NFData, Show)
+
+instance HasTrie Contour where
+  newtype (Contour :->: b) = ContourTrie { unContourTrie :: Reg Contour :->: b }
+  trie = trieGeneric ContourTrie
+  untrie = untrieGeneric unContourTrie
+  enumerate = enumerateGeneric unContourTrie
 
 -- | find the minimum point and maximum point of a given contour.
 minMaxPoints :: Contour -> (Point2, Point2)
