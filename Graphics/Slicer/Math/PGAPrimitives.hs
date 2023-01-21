@@ -200,12 +200,12 @@ instance Monoid PLine2Err where
 {-# INLINABLE angleBetweenProjectiveLines #-}
 angleBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
 angleBetweenProjectiveLines line1 line2
- -- Short circuit (returning 1) if the two inputs are identical, and of the same type.
- | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (1, mempty)
- -- Short circuit (returning 1) if the two inputs are equivalent after normalization.
- | npl1 == npl2 = (1, mempty)
- -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
- | otherwise = (scalarPart likeRes, resErr)
+  -- Short circuit (returning 1) if the two inputs are identical, and of the same type.
+  | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (1, mempty)
+  -- Short circuit (returning 1) if the two inputs are equivalent after normalization.
+  | npl1 == npl2 = (1, mempty)
+  -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
+  | otherwise = (scalarPart likeRes, resErr)
   where
     resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
     -- FIXME: this returned ULPsum is wrong. actually try to interpret it. If you can get this to fail, add more repetitions, and pray really hard.
@@ -228,12 +228,12 @@ angleBetween2PL l1 l2 = crushErr $ angleBetweenProjectiveLines l1 l2
 {-# INLINABLE distanceBetweenProjectiveLines #-}
 distanceBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
 distanceBetweenProjectiveLines line1 line2
- -- Short circuit (returning 0) if the two inputs are identical, and of the same type.
- | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (0, mempty)
- -- Short circuit (returning 0) if the two inputs are equvalent after normalization.
- | npl1 == npl2 = (0, mempty)
- -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
- | otherwise = (res, resErr)
+  -- Short circuit (returning 0) if the two inputs are identical, and of the same type.
+  | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (0, mempty)
+  -- Short circuit (returning 0) if the two inputs are equvalent after normalization.
+  | npl1 == npl2 = (0, mempty)
+  -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
+  | otherwise = (res, resErr)
   where
     (res, idealErr) = idealNormOfP $ PPoint2 like
     resErr = (npl1Err, npl2Err, likeErr, idealErr)
@@ -318,8 +318,11 @@ intersect2PL l1 l2 = intersectionOfProjectiveLines l1 l2
 {-# INLINABLE meetOfProjectiveLines #-}
 meetOfProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, ([ErrVal],[ErrVal])))
 meetOfProjectiveLines line1 line2
+  -- Short circuit (returning an empty vector) if the two inputs are identical, and of the same type.
   | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (PPoint2 $ GVec [], mempty)
+  -- Short circuit (returning an empty vector) if the two inputs are equvalent after normalization.
   | npl1 == npl2 = (PPoint2 $ GVec [], mempty)
+  -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
   | otherwise = (PPoint2 res,
                   (npl1Err,
                    npl2Err,
