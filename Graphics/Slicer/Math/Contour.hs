@@ -56,6 +56,8 @@ import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromJust, fromMaybe, isJust, mapMaybe)
 
+import Data.MemoTrie (memo)
+
 import Slist (len, slist, safeLast, safeLast, safeHead)
 
 import Slist as SL (last)
@@ -182,9 +184,13 @@ getContours pointPairs = (\a -> fromMaybe (error $ "failed to flip a contour\n" 
         sortPairs :: [(Point2,Point2)] -> [(Point2,Point2)]
         sortPairs = sortBy (\a b -> if fst a == fst b then compare (snd a) (snd b) else compare (fst a) (fst b))
 
--- | Ensure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
+-- | A wrapper of maybeFlipContour, using memoization.
 maybeFlipContour :: Contour -> Maybe Contour
-maybeFlipContour contour
+maybeFlipContour = memo maybeFlipContour'
+
+-- | Ensure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
+maybeFlipContour' :: Contour -> Maybe Contour
+maybeFlipContour' contour
   | isJust maybeIsLeft && maybeIsLeft == Just True = Just contour
   | isJust maybeIsLeft = Just $ makePointContour $ reverse $ pointsOfContour contour
   | otherwise = Nothing

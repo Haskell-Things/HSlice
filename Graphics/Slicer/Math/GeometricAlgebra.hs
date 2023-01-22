@@ -96,7 +96,7 @@ import Data.List.Ordered (sort, insertSet)
 
 import Data.Maybe (Maybe(Just, Nothing), isJust)
 
-import Data.MemoTrie (HasTrie(enumerate, trie, untrie), Reg, (:->:), enumerateGeneric, trieGeneric, untrieGeneric)
+import Data.MemoTrie (HasTrie(enumerate, trie, untrie), Reg, (:->:), enumerateGeneric, memo, trieGeneric, untrieGeneric)
 
 import Data.Number.BigFloat (BigFloat, PrecPlus20, Eps1)
 
@@ -597,9 +597,13 @@ sortErrBasis (ErrRVal r i) = ErrRVal r basis
   where
     (_, basis) = sortBasis' i
 
+-- | Wrap sortBasisInternal in a memoization, so it becomes a tree lookup over time.
+sortBasis' :: NonEmpty GNum -> (Bool, NonEmpty GNum)
+sortBasis' = memo sortBasisInternal
+
 -- | Sort a set of basis vectors. Must return an ideal result, along with wehther the associated real value should be flipped or not.
-sortBasis'  :: NonEmpty GNum -> (Bool, NonEmpty GNum)
-sortBasis' thisBasis
+sortBasisInternal :: NonEmpty GNum -> (Bool, NonEmpty GNum)
+sortBasisInternal thisBasis
   -- If the basis part of calling sortBasis'' once vs calling sortBasis'' twice doesn't change, we are done sorting.
   | basisOf sortOnce == basisOf recurseTwice = sortOnce
   -- If not, recurse.
@@ -634,18 +638,21 @@ stripErrPairs (ErrRVal real vals) = ErrRVal real res
   where
     (_, res) = withoutPairs (Just False, vals)
 
+withoutPairs :: (Maybe Bool, NonEmpty GNum) -> (Maybe Bool, NonEmpty GNum)
+withoutPairs = memo withoutPairs'
+
 -- | Perform elimination of basis pairs from the given basis set. only works right if the basis set has been sorted first.
 -- The maybe bool tracks whether the result should be thrown away (two identical GEZeros), or if the result should have its value inverted.
-withoutPairs :: (Maybe Bool, NonEmpty GNum) -> (Maybe Bool, NonEmpty GNum)
-withoutPairs (_, oneI:|[]) = (Just False, oneI:|[])
-withoutPairs (r, is@((GEPlus a):|(GEPlus b):xs))
+withoutPairs' :: (Maybe Bool, NonEmpty GNum) -> (Maybe Bool, NonEmpty GNum)
+withoutPairs' (_, oneI:|[]) = (Just False, oneI:|[])
+withoutPairs' (r, is@((GEPlus a):|(GEPlus b):xs))
   | a == b = case nonEmpty xs of
                Nothing -> (r, G0:|[])
                (Just vs) -> withoutPairs (r, vs)
   | a /= b = case nonEmpty xs of
                Nothing -> (r, is)
                (Just _) -> prependI (GEPlus a) $ withoutPairs (r, GEPlus b:|xs)
-withoutPairs (r, is@((GEMinus a):|(GEMinus b):xs))
+withoutPairs' (r, is@((GEMinus a):|(GEMinus b):xs))
   | a == b = case nonEmpty xs of
                Nothing -> (maybeNot r,G0:|[])
                (Just vs) -> withoutPairs (maybeNot r,vs)
@@ -656,12 +663,12 @@ withoutPairs (r, is@((GEMinus a):|(GEMinus b):xs))
     maybeNot :: Maybe Bool -> Maybe Bool
     maybeNot Nothing = Nothing
     maybeNot (Just v) = Just $ not v
-withoutPairs (r, is@((GEZero a):|(GEZero b):xs))
+withoutPairs' (r, is@((GEZero a):|(GEZero b):xs))
   | a == b = (Nothing,G0:|[])
   | a /= b = case nonEmpty xs of
                Nothing -> (r,is)
                (Just _) -> prependI (GEZero a) $ withoutPairs (r, GEZero b:|xs)
-withoutPairs (r, a:|b:xs) = prependI a $ withoutPairs (r,b:|xs)
+withoutPairs' (r, a:|b:xs) = prependI a $ withoutPairs (r,b:|xs)
 
 -- | place a term on the front of the basis vector set.
 -- if the vector set contains only the scalar vector, eliminate it.

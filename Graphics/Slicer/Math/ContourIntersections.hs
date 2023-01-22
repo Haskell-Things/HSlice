@@ -31,6 +31,8 @@ import Data.List (filter)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromJust, isJust)
 
+import Data.MemoTrie (memo2)
+
 import Slist.Type (Slist)
 
 import Slist (len, slist)
@@ -47,10 +49,14 @@ import Graphics.Slicer.Math.PGA (Intersection(HitEndPoint, HitStartPoint, NoInte
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
+
+contourIntersectionCount :: Contour -> (Point2, Point2) -> Int
+contourIntersectionCount = memo2 contourIntersectionCount'
+
 -- | return the number of intersections with a given contour when traveling in a straight line from the beginning of the given line segment to the end of the line segment.
 -- Not for use when line segments can overlap or are collinear with one of the line segments that are a part of the contour.
-contourIntersectionCount :: Contour -> (Point2, Point2) -> Int
-contourIntersectionCount contour (start, end) = len $ getIntersections contour (start, end)
+contourIntersectionCount' :: Contour -> (Point2, Point2) -> Int
+contourIntersectionCount' contour (start, end) = len $ getIntersections contour (start, end)
   where
     getIntersections :: Contour -> (Point2, Point2) -> Slist (LineSeg, Either Point2 ProjectivePoint)
     getIntersections c (pt1, pt2) = slist $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour contour) $ intersectsWithErr targetSeg <$> segs
