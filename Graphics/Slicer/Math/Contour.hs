@@ -291,7 +291,7 @@ minDistanceFromSegMidPoint outsidePoint lineSeg = midPointFuzz + lineFuzz
                  -- things very close to 0 have no error to multiply. we have to have some value, so use this.
                  0 -> 10000 * fudgeFactor
                  -- for points further away.
-                 v -> 10000 * v
+                 v -> 10000 * v * 2
     -- The amount of error introduced by intersecting from the outsidePoint to the given line segment.
     midPointFuzz = ulpVal $ fuzzinessOfP $ intersectionOf pLine outsideLine
     outsideLine = join2EP midPoint outsidePoint

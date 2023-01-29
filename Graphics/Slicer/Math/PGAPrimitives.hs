@@ -64,13 +64,13 @@ module Graphics.Slicer.Math.PGAPrimitives
     yIntercept
   ) where
 
-import Prelude(Bool(False), Eq((==),(/=)), Monoid(mempty), Ord(compare), Ordering(EQ), Semigroup((<>)), Show(show), (&&), ($), (+), (*), (/), (<$>), (-), abs, error, filter, fst, negate, otherwise, realToFrac, snd, sqrt)
+import Prelude(Bool(False), Eq((==),(/=)), Monoid(mempty), Ord(compare), Ordering(EQ), Semigroup((<>)), Show(show), (&&), ($), (+), (*), (/), (<$>), abs, error, filter, fst, negate, otherwise, realToFrac, snd, sqrt)
 
 import Control.DeepSeq (NFData)
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
-import Data.Either (Either(Left, Right), fromRight, isRight)
+import Data.Either (Either(Left, Right), fromRight)
 
 import Data.List (foldl', sort)
 
@@ -88,9 +88,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2))
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpRaw, ulpVal, valOf)
-
-import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardNegInf), getRounded)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpRaw, valOf)
 
 --------------------------------
 --- common support functions ---
@@ -417,30 +415,33 @@ translateL l d = translateProjectiveLine l d
 pLineErrAtPPoint :: (ProjectiveLine2 a, ProjectivePoint2 b) => (a, PLine2Err) -> b -> UlpSum
 pLineErrAtPPoint (line, lineErr) errPoint
   -- Both intercepts are real. This line is not parallel or collinear to X or Y axises, and does not pass through the origin.
-  | xInterceptIsRight && yInterceptIsRight = xInterceptFuzz <> yInterceptFuzz
+  | xInterceptIsReal && yInterceptIsReal = xInterceptFuzz <> yInterceptFuzz
   -- Only the xIntercept is real. This line is parallel to the Y axis.
-  | xInterceptIsRight = rawXInterceptFuzz
+  | xInterceptIsReal = xInterceptFuzz
   -- Only the yIntercept is real. This line is parallel to the X axis.
-  | yInterceptIsRight = rawYInterceptFuzz
+  | yInterceptIsReal = yInterceptFuzz
   -- This line passes through the origin (0,0).
-  | otherwise = mempty
+  | xInterceptIsJust && yInterceptIsJust = if xPos /= 0 && yPos /= 0
+                                           then UlpSum $ (realToFrac $ 1 + sqrt (abs xPos + abs yPos)) * (ulpRaw $ rawXInterceptFuzz <> rawYInterceptFuzz)
+                                           else rawXInterceptFuzz <> rawYInterceptFuzz
+  | xInterceptIsJust = UlpSum $ (realToFrac $ 1 + abs xPos) * ulpRaw rawXInterceptFuzz
+  | yInterceptIsJust = UlpSum $ (realToFrac $ 1 + abs yPos) * ulpRaw rawYInterceptFuzz
+  | otherwise = error "whoops!"
   where
-    xInterceptIsRight = isJust (xIntercept (nPLine, nPLineErr))
-                        && isRight (fst $ fromJust $ xIntercept (nPLine, nPLineErr))
-                        && fromRight 0 (fst $ fromJust $ xIntercept (nPLine, nPLineErr)) /= 0
-    yInterceptIsRight = isJust (yIntercept (nPLine, nPLineErr))
-                        && isRight (fst $ fromJust $ yIntercept (nPLine, nPLineErr))
-                        && fromRight 0 (fst $ fromJust $ yIntercept (nPLine, nPLineErr)) /= 0
-    xInterceptFuzz = UlpSum $ ulpRaw rawXInterceptFuzz * ( realToFrac $ xMax / (sqrt (xMin*xMin*yMax*yMax))) * realToFrac (abs xPos)
-    yInterceptFuzz = UlpSum $ ulpRaw rawYInterceptFuzz * ( realToFrac $ yMax / (sqrt (xMax*xMax*yMin*yMin))) * realToFrac (abs yPos)
-    xMax = ulpVal $ UlpSum (realToFrac xInterceptDistance) <> rawXInterceptFuzz
-    yMax = ulpVal $ UlpSum (realToFrac yInterceptDistance) <> rawYInterceptFuzz
-    xMin = getRounded $ realToFrac xInterceptDistance - (realToFrac (ulpVal rawXInterceptFuzz) :: Rounded 'TowardNegInf ℝ)
-    yMin = getRounded $ realToFrac yInterceptDistance - (realToFrac (ulpVal rawYInterceptFuzz) :: Rounded 'TowardNegInf ℝ)
-    rawYInterceptFuzz = snd $ fromJust $ yIntercept (nPLine, nPLineErr)
+    xInterceptIsReal = xInterceptIsJust
+                        && xInterceptDistance /= 0
+    yInterceptIsReal = yInterceptIsJust
+                        && yInterceptDistance /= 0
+    xInterceptIsJust = isJust (xIntercept (nPLine, nPLineErr))
+    yInterceptIsJust = isJust (yIntercept (nPLine, nPLineErr))
+    xInterceptFuzz = UlpSum $ ulpRaw rawXInterceptFuzz * (realToFrac (abs xPos) / xMax)
+    yInterceptFuzz = UlpSum $ ulpRaw rawYInterceptFuzz * (realToFrac (abs yPos) / yMax)
+    xMax = realToFrac (abs xInterceptDistance) + ulpRaw rawXInterceptFuzz
+    yMax = realToFrac (abs yInterceptDistance) + ulpRaw rawYInterceptFuzz
     rawXInterceptFuzz = snd $ fromJust $ xIntercept (nPLine, nPLineErr)
-    yInterceptDistance = abs $ fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
-    xInterceptDistance = abs $ fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
+    rawYInterceptFuzz = snd $ fromJust $ yIntercept (nPLine, nPLineErr)
+    xInterceptDistance = fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
+    yInterceptDistance = fromRight 0 $ fst $ fromJust $ yIntercept (nPLine, nPLineErr)
     -- FIXME: collect this error, and take it into account.
     (Point2 (xPos,yPos),_) = pToEP errPoint
     nPLineErr = nPLineErrRaw <> lineErr
@@ -453,10 +454,10 @@ xIntercept (line, lineErr)
   | isNothing rawX = Nothing
   -- Use X and T to calculate our answer.
   | isJust rawT = Just (Right xDivRes, xDivErr)
-  -- This line is (anti)colinear with the X axis.
-  | isNothing rawY = Just (Left line, mempty)
-  -- We have an X and a Y, but no T component? This line passes through the origin.
-  | isNothing rawT = Just (Right 0, mempty)
+  -- This line is parallel with the Y axis.
+  | isNothing rawY = Just (Left line, rawXErr)
+  -- We have an X and a Y, but no T component? This line passes directly through the origin.
+  | isNothing rawT = Just (Right 0, rawXErr)
   | otherwise = error "totality failure: we should never get here."
   where
     -- negate is required, because the result is inverted.
@@ -483,10 +484,10 @@ yIntercept (line, lineErr)
   | isNothing rawY = Nothing
   -- Use Y and T to calculate our answer.
   | isJust rawT = Just $ (Right yDivRes, yDivErr)
-  -- This line is (anti)colinear with the Y axis.
-  | isNothing rawX = Just (Left line, mempty)
-  -- We have an X and a Y, but no T component? This line passes through the origin.
-  | isNothing rawT = Just (Right 0, mempty)
+  -- This line is parallel with the X axis.
+  | isNothing rawX = Just (Left line, rawYErr)
+  -- We have an X and a Y, but no T component? This line passes directly through the origin.
+  | isNothing rawT = Just (Right 0, rawYErr)
   | otherwise = error "totality failure: we should never get here."
   where
     -- negate is required, because the result is inverted.
