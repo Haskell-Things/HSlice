@@ -57,7 +57,7 @@ import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersect
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), PPoint2Err, ProjectiveLine(PLine2), ProjectivePoint, eToPL, eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), PPoint2Err, ProjectiveLine(PLine2), ProjectiveLine2, ProjectivePoint, eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -341,8 +341,8 @@ ancestorsOf (INodeSet generations)
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a ProjectiveLine bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe ProjectiveLine
 concavePLines seg1 seg2
-  | Just True == pLineIsLeft (eToPL seg1) (eToPL seg2) = Just $ PLine2 $ addVecPair pv1 pv2
-  | otherwise                          = Nothing
+  | eToPLine2 seg1 `pLineIsLeft` eToPLine2 seg2 == Just True = Just $ PLine2 $ addVecPair pv1 pv2
+  | otherwise = Nothing
   where
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = flipL $ eToPLine2 seg2
@@ -355,14 +355,14 @@ hasNoINodes iNodeSet = case iNodeSet of
 
 -- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
 sortedPLines :: [ProjectiveLine] -> [ProjectiveLine]
-sortedPLines = sortBy (\n1 n2 -> if (n1, mempty) `pLineIsLeft` (n2, mempty) == Just True then LT else GT)
+sortedPLines = sortBy (\n1 n2 -> if n1 `pLineIsLeft` n2 == Just True then LT else GT)
 
 -- | Take a sorted list of PLines, and make sure the list starts with the pline closest to (but not left of) the given PLine.
-indexPLinesTo :: ProjectiveLine -> [ProjectiveLine] -> [ProjectiveLine]
+indexPLinesTo :: (ProjectiveLine2 a) => a -> [a] -> [a]
 indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesAfterIndex firstPLine pLines
   where
-    pLinesBeforeIndex myFirstPLine = filter (\a -> (myFirstPLine, mempty) `pLineIsLeft` (a, mempty) /= Just False)
-    pLinesAfterIndex myFirstPLine = filter (\a -> (myFirstPLine, mempty) `pLineIsLeft` (a, mempty) == Just False)
+    pLinesBeforeIndex myFirstPLine = filter (\a -> myFirstPLine `pLineIsLeft` a /= Just False)
+    pLinesAfterIndex myFirstPLine = filter (\a -> myFirstPLine `pLineIsLeft` a == Just False)
 
 -- | Find the last PLine of an INode.
 lastInOf :: INode -> ProjectiveLine

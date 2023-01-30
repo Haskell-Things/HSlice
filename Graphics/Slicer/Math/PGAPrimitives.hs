@@ -22,6 +22,9 @@
 -- for using Rounded flexibly.
 {-# LANGUAGE DataKinds #-}
 
+--  for :->:
+{-# LANGUAGE TypeOperators, TypeFamilies #-}
+
 -- | The purpose of this file is to hold primitive projective geometric algebraic arithmatic.
 -- Primitives here are defined as functions that work on types which have an implementation of the ProjectivePoint2 or ProjectiveLine2 typeclasses. Think "Pure 2D PGA functions only".
 
@@ -61,17 +64,19 @@ module Graphics.Slicer.Math.PGAPrimitives
     yIntercept
   ) where
 
-import Prelude(Bool(False), Eq((==),(/=)), Monoid(mempty), Ord(compare), Ordering(EQ), Semigroup((<>)), Show(show), (&&), ($), (+), (*), (/), (<$>), (-), abs, error, filter, fst, negate, otherwise, realToFrac, snd, sqrt)
+import Prelude(Bool(False), Eq((==),(/=)), Monoid(mempty), Ord(compare), Ordering(EQ), Semigroup((<>)), Show(show), (&&), ($), (+), (*), (/), (<$>), abs, error, filter, fst, negate, otherwise, realToFrac, snd, sqrt)
 
 import Control.DeepSeq (NFData)
 
 import Data.Bits.Floating.Ulp (doubleUlp)
 
-import Data.Either (Either(Left, Right), fromRight, isRight)
+import Data.Either (Either(Left, Right), fromRight)
 
 import Data.List (foldl', sort)
 
 import Data.Maybe (Maybe(Just,Nothing), fromJust, isJust, isNothing)
+
+import Data.MemoTrie (HasTrie(enumerate, trie, untrie), Reg, (:->:), enumerateGeneric, trieGeneric, untrieGeneric)
 
 import Data.Set (Set, elems, fromList, singleton)
 
@@ -83,9 +88,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2))
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpRaw, ulpVal, valOf)
-
-import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardNegInf), getRounded)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpRaw, valOf)
 
 --------------------------------
 --- common support functions ---
@@ -150,10 +153,16 @@ data ProjectiveLine =
   deriving (Eq, Generic, NFData, Show, Typeable)
 
 -- | The typeclass definition. functions that must be implemented for any projective line type.
-class (Eq a, Show a, Typeable a) => ProjectiveLine2 a where
+class (Eq a, HasTrie a, Show a, Typeable a) => ProjectiveLine2 a where
   consLikeL :: a -> (GVec -> a)
   normalizeL :: a -> (ProjectiveLine, PLine2Err)
   vecOfL :: a -> GVec
+
+instance HasTrie ProjectiveLine where
+  newtype (ProjectiveLine :->: b) = ProjectiveLineTrie { unProjectiveLineTrie :: Reg ProjectiveLine :->: b }
+  trie = trieGeneric ProjectiveLineTrie
+  untrie = untrieGeneric unProjectiveLineTrie
+  enumerate = enumerateGeneric unProjectiveLineTrie
 
 -- | The implementation of typeclass operations.
 instance ProjectiveLine2 ProjectiveLine where
@@ -181,7 +190,7 @@ data PLine2Err = PLine2Err
     UlpSum
   -- Join Error. when a PLine2 is constructed via join.
     ([ErrVal], [ErrVal])
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance Semigroup PLine2Err where
   (<>) (PLine2Err a1 b1 c1 d1 e1 (f1,g1)) (PLine2Err a2 b2 c2 d2 e2 (f2,g2)) =
@@ -195,17 +204,23 @@ instance Semigroup PLine2Err where
 instance Monoid PLine2Err where
   mempty = PLine2Err mempty mempty mempty mempty mempty mempty
 
+instance HasTrie PLine2Err where
+  newtype (PLine2Err :->: b) = PLine2ErrTrie { unPLine2ErrTrie :: Reg PLine2Err :->: b }
+  trie = trieGeneric PLine2ErrTrie
+  untrie = untrieGeneric unPLine2ErrTrie
+  enumerate = enumerateGeneric unPLine2ErrTrie
+
 -- | Return the sine of the angle between the two lines, along with the error.
 -- Results in a value that is ~+1 when a line points in the same direction of the other given line, and ~-1 when pointing backwards.
 {-# INLINABLE angleBetweenProjectiveLines #-}
 angleBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
 angleBetweenProjectiveLines line1 line2
- -- Short circuit (returning 1) if the two inputs are identical, and of the same type.
- | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (1, mempty)
- -- Short circuit (returning 1) if the two inputs are equivalent after normalization.
- | npl1 == npl2 = (1, mempty)
- -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
- | otherwise = (scalarPart likeRes, resErr)
+  -- Short circuit (returning 1) if the two inputs are identical, and of the same type.
+  | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (1, mempty)
+  -- Short circuit (returning 1) if the two inputs are equivalent after normalization.
+  | npl1 == npl2 = (1, mempty)
+  -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
+  | otherwise = (scalarPart likeRes, resErr)
   where
     resErr = (npl1Err, npl2Err, (likeMulErr,likeAddErr), ulpSum)
     -- FIXME: this returned ULPsum is wrong. actually try to interpret it. If you can get this to fail, add more repetitions, and pray really hard.
@@ -228,12 +243,12 @@ angleBetween2PL l1 l2 = crushErr $ angleBetweenProjectiveLines l1 l2
 {-# INLINABLE distanceBetweenProjectiveLines #-}
 distanceBetweenProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ℝ, (PLine2Err, PLine2Err, ([ErrVal], [ErrVal]), UlpSum))
 distanceBetweenProjectiveLines line1 line2
- -- Short circuit (returning 0) if the two inputs are identical, and of the same type.
- | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (0, mempty)
- -- Short circuit (returning 0) if the two inputs are equvalent after normalization.
- | npl1 == npl2 = (0, mempty)
- -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
- | otherwise = (res, resErr)
+  -- Short circuit (returning 0) if the two inputs are identical, and of the same type.
+  | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (0, mempty)
+  -- Short circuit (returning 0) if the two inputs are equvalent after normalization.
+  | npl1 == npl2 = (0, mempty)
+  -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
+  | otherwise = (res, resErr)
   where
     (res, idealErr) = idealNormOfP $ PPoint2 like
     resErr = (npl1Err, npl2Err, likeErr, idealErr)
@@ -318,8 +333,11 @@ intersect2PL l1 l2 = intersectionOfProjectiveLines l1 l2
 {-# INLINABLE meetOfProjectiveLines #-}
 meetOfProjectiveLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> (ProjectivePoint, (PLine2Err, PLine2Err, ([ErrVal],[ErrVal])))
 meetOfProjectiveLines line1 line2
+  -- Short circuit (returning an empty vector) if the two inputs are identical, and of the same type.
   | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (PPoint2 $ GVec [], mempty)
+  -- Short circuit (returning an empty vector) if the two inputs are equvalent after normalization.
   | npl1 == npl2 = (PPoint2 $ GVec [], mempty)
+  -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
   | otherwise = (PPoint2 res,
                   (npl1Err,
                    npl2Err,
@@ -397,30 +415,34 @@ translateL l d = translateProjectiveLine l d
 pLineErrAtPPoint :: (ProjectiveLine2 a, ProjectivePoint2 b) => (a, PLine2Err) -> b -> UlpSum
 pLineErrAtPPoint (line, lineErr) errPoint
   -- Both intercepts are real. This line is not parallel or collinear to X or Y axises, and does not pass through the origin.
-  | xInterceptIsRight && yInterceptIsRight = xInterceptFuzz <> yInterceptFuzz
+  | xInterceptExists && xInterceptIsNonZero &&
+    yInterceptExists && yInterceptIsNonZero = xInterceptFuzz <> yInterceptFuzz
   -- Only the xIntercept is real. This line is parallel to the Y axis.
-  | xInterceptIsRight = rawXInterceptFuzz
+  | xInterceptExists && xInterceptIsNonZero = xInterceptFuzz
   -- Only the yIntercept is real. This line is parallel to the X axis.
-  | yInterceptIsRight = rawYInterceptFuzz
+  | yInterceptExists && yInterceptIsNonZero = yInterceptFuzz
   -- This line passes through the origin (0,0).
-  | otherwise = mempty
+  | xInterceptExists && yInterceptExists = if xPos /= 0 && yPos /= 0
+                                           then UlpSum $ (realToFrac $ 1 + sqrt (abs xPos + abs yPos)) * (ulpRaw $ rawXInterceptFuzz <> rawYInterceptFuzz)
+                                           else rawXInterceptFuzz <> rawYInterceptFuzz
+  | xInterceptExists = UlpSum $ (realToFrac $ 1 + abs xPos) * ulpRaw rawXInterceptFuzz
+  | yInterceptExists = UlpSum $ (realToFrac $ 1 + abs yPos) * ulpRaw rawYInterceptFuzz
+  | otherwise = error "whoops!"
   where
-    xInterceptIsRight = isJust (xIntercept (nPLine, nPLineErr))
-                        && isRight (fst $ fromJust $ xIntercept (nPLine, nPLineErr))
-                        && fromRight 0 (fst $ fromJust $ xIntercept (nPLine, nPLineErr)) /= 0
-    yInterceptIsRight = isJust (yIntercept (nPLine, nPLineErr))
-                        && isRight (fst $ fromJust $ yIntercept (nPLine, nPLineErr))
-                        && fromRight 0 (fst $ fromJust $ yIntercept (nPLine, nPLineErr)) /= 0
-    xInterceptFuzz = UlpSum $ ulpRaw rawXInterceptFuzz * ( realToFrac $ xMax / (sqrt (xMin*xMin*yMax*yMax))) * realToFrac (abs xPos)
-    yInterceptFuzz = UlpSum $ ulpRaw rawYInterceptFuzz * ( realToFrac $ yMax / (sqrt (xMax*xMax*yMin*yMin))) * realToFrac (abs yPos)
-    xMax = ulpVal $ UlpSum (realToFrac xInterceptDistance) <> rawXInterceptFuzz
-    yMax = ulpVal $ UlpSum (realToFrac yInterceptDistance) <> rawYInterceptFuzz
-    xMin = getRounded $ realToFrac xInterceptDistance - (realToFrac (ulpVal rawXInterceptFuzz) :: Rounded 'TowardNegInf ℝ)
-    yMin = getRounded $ realToFrac yInterceptDistance - (realToFrac (ulpVal rawYInterceptFuzz) :: Rounded 'TowardNegInf ℝ)
-    rawYInterceptFuzz = snd $ fromJust $ yIntercept (nPLine, nPLineErr)
+    xInterceptIsNonZero = xInterceptExists
+                          && xInterceptDistance /= 0
+    yInterceptIsNonZero = yInterceptExists
+                          && yInterceptDistance /= 0
+    xInterceptExists = isJust (xIntercept (nPLine, nPLineErr))
+    yInterceptExists = isJust (yIntercept (nPLine, nPLineErr))
+    xInterceptFuzz = UlpSum $ ulpRaw rawXInterceptFuzz * (realToFrac (abs xPos) / xMax)
+    yInterceptFuzz = UlpSum $ ulpRaw rawYInterceptFuzz * (realToFrac (abs yPos) / yMax)
+    xMax = realToFrac (abs xInterceptDistance) + ulpRaw rawXInterceptFuzz
+    yMax = realToFrac (abs yInterceptDistance) + ulpRaw rawYInterceptFuzz
     rawXInterceptFuzz = snd $ fromJust $ xIntercept (nPLine, nPLineErr)
-    yInterceptDistance = abs $ fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
-    xInterceptDistance = abs $ fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
+    rawYInterceptFuzz = snd $ fromJust $ yIntercept (nPLine, nPLineErr)
+    xInterceptDistance = fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
+    yInterceptDistance = fromRight 0 $ fst $ fromJust $ yIntercept (nPLine, nPLineErr)
     -- FIXME: collect this error, and take it into account.
     (Point2 (xPos,yPos),_) = pToEP errPoint
     nPLineErr = nPLineErrRaw <> lineErr
@@ -433,10 +455,10 @@ xIntercept (line, lineErr)
   | isNothing rawX = Nothing
   -- Use X and T to calculate our answer.
   | isJust rawT = Just (Right xDivRes, xDivErr)
-  -- This line is (anti)colinear with the X axis.
-  | isNothing rawY = Just (Left line, mempty)
-  -- We have an X and a Y, but no T component? This line passes through the origin.
-  | isNothing rawT = Just (Right 0, mempty)
+  -- This line is parallel with the Y axis.
+  | isNothing rawY = Just (Left line, rawXErr)
+  -- We have an X and a Y, but no T component? This line passes directly through the origin.
+  | isNothing rawT = Just (Right 0, rawXErr)
   | otherwise = error "totality failure: we should never get here."
   where
     -- negate is required, because the result is inverted.
@@ -463,10 +485,10 @@ yIntercept (line, lineErr)
   | isNothing rawY = Nothing
   -- Use Y and T to calculate our answer.
   | isJust rawT = Just $ (Right yDivRes, yDivErr)
-  -- This line is (anti)colinear with the Y axis.
-  | isNothing rawX = Just (Left line, mempty)
-  -- We have an X and a Y, but no T component? This line passes through the origin.
-  | isNothing rawT = Just (Right 0, mempty)
+  -- This line is parallel with the X axis.
+  | isNothing rawX = Just (Left line, rawYErr)
+  -- We have an X and a Y, but no T component? This line passes directly through the origin.
+  | isNothing rawT = Just (Right 0, rawYErr)
   | otherwise = error "totality failure: we should never get here."
   where
     -- negate is required, because the result is inverted.
@@ -498,6 +520,7 @@ angleCosBetweenProjectiveLines, angleCosBetween2PL :: (ProjectiveLine2 a, Projec
 -- FIXME: the sum of iPointErrVals is not +/- radians.
 -- FIXME: lots of places for precision related error here, that are not recorded or reported.
 -- FIXME: what was the older method we used here? perhaps it has less opportunities for fuzziness?
+{-# INLINABLE angleCosBetweenProjectiveLines #-}
 angleCosBetweenProjectiveLines line1 line2
   | isNothing canonicalizedIntersection = (0, mempty)
   | otherwise = (angle, (npl1Err, npl2Err, sumPPointErrs iPointErrVals))
@@ -512,6 +535,7 @@ angleCosBetweenProjectiveLines line1 line2
     lvec1 = vecOfL $ forceBasisOfL line1
     lvec2 = vecOfL $ forceBasisOfL line2
 -- | Wrapper.
+{-# INLINABLE angleCosBetween2PL #-}
 angleCosBetween2PL l1 l2 = angleCosBetweenProjectiveLines l1 l2
 
 -- | Get the canonicalized intersection of two lines.

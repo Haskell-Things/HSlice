@@ -43,11 +43,9 @@ import qualified Graphics.Slicer.Math.Arcs as Arcs (getFirstArc, getOutsideArc)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, Point2)
 
-import Graphics.Slicer.Math.PGA (canonicalizeP, distance2PP, distancePPToPL, eToPL, interpolate2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (PLine2Err, PPoint2Err, ProjectiveLine, ProjectiveLine2, ProjectivePoint, ProjectivePoint2, canonicalizeP, distance2PP, distancePPToPL, eToPL, interpolate2PP, pPointOnPerpWithErr, pToEP, translateL, translateRotatePPoint2WithErr)
 
-import Graphics.Slicer.Math.PGAPrimitives (ProjectiveLine, ProjectiveLine2, ProjectivePoint, ProjectivePoint2, PPoint2Err, PLine2Err)
-
--- | Canonicalize a projective point.
+-- | Canonicalize a euclidian projective point.
 canonicalizePPoint2 :: (ProjectivePoint2 a) => a -> ProjectivePoint
 canonicalizePPoint2 point = fst $ canonicalizeP point
 
@@ -75,7 +73,7 @@ eToPLine2 l1 = fst $ eToPL l1
 getFirstArc :: Point2 -> Point2 -> Point2 -> ProjectiveLine
 getFirstArc p1 p2 p3 = fst $ Arcs.getFirstArc p1 p2 p3
 
--- | Get a PLine in the direction of the out of the contour, at the angle bisector of the intersection of the line segment, and another segment from the end of the given line segment, toward the given point.
+-- | Get a projective line in the direction of the outside of the intersection of the two line segments. Uses a point on each line segment to determine the direction it is traveling.
 getOutsideArc :: (ProjectivePoint, PPoint2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectivePoint, PPoint2Err) -> (ProjectiveLine, PLine2Err) -> ProjectiveLine
 getOutsideArc a b c d = fst $ Arcs.getOutsideArc a b c d
 
@@ -88,6 +86,7 @@ pPointBetweenPPoints startOfSeg stopOfSeg weight1 weight2 = fst $ interpolate2PP
 pPointOnPerp :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> ProjectivePoint
 pPointOnPerp pline ppoint d = fst $ pPointOnPerpWithErr pline ppoint d
 
+-- | Convert a projective endpoint to a euclidian endpoint.
 pToEPoint2 :: (ProjectivePoint2 a) => a -> Point2
 pToEPoint2 ppoint = fst $ pToEP ppoint
 

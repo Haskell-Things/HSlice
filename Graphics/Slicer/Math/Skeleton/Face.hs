@@ -30,8 +30,6 @@ import Data.List.Extra (unsnoc)
 
 import Data.Maybe (isNothing, fromMaybe, Maybe(Just, Nothing), isJust)
 
-import Safe (initSafe)
-
 import Slist.Type (Slist(Slist))
 
 import Slist (slist, isEmpty, len, init, tail, take, dropWhile, head, one, last)
@@ -92,7 +90,7 @@ facesOf straightSkeleton@(StraightSkeleton nodeLists spine)
         rawFaces = case nodeTrees of
                      [] -> []
                      [firstNodeTree] -> facesOfNodeTree firstNodeTree
-                     [firstNodeTree, secondNodeTree] -> facesOfNodeTree firstNodeTree <> [intraNodeFace firstNodeTree secondNodeTree] <> facesOfNodeTree secondNodeTree <> [intraNodeFace secondNodeTree firstNodeTree]
+                     [firstNodeTree, secondNodeTree] -> facesOfNodeTree firstNodeTree <> (intraNodeFace firstNodeTree secondNodeTree : facesOfNodeTree secondNodeTree) <> [intraNodeFace secondNodeTree firstNodeTree]
                      (firstNodeTree: _ : moreNodeTrees) -> case unsnoc moreNodeTrees of
                                                         Nothing -> error "empty node tree?"
                                                         Just (_,lastNodeTree) -> findFacesRecurse nodeTrees <> [intraNodeFace lastNodeTree firstNodeTree]
@@ -102,8 +100,8 @@ facesOf straightSkeleton@(StraightSkeleton nodeLists spine)
         findFacesRecurse myNodeTrees = case myNodeTrees of
                                          [] -> error "Impossible. cannot happen."
                                          [firstNodeTree] -> facesOfNodeTree firstNodeTree
-                                         [firstNodeTree,secondNodeTree] -> facesOfNodeTree firstNodeTree <> [intraNodeFace firstNodeTree secondNodeTree] <> facesOfNodeTree secondNodeTree
-                                         (firstNodeTree:secondNodeTree:xs) -> facesOfNodeTree firstNodeTree <> [intraNodeFace firstNodeTree secondNodeTree] <> findFacesRecurse (secondNodeTree:xs)
+                                         [firstNodeTree,secondNodeTree] -> facesOfNodeTree firstNodeTree <> (intraNodeFace firstNodeTree secondNodeTree : facesOfNodeTree secondNodeTree)
+                                         (firstNodeTree:secondNodeTree:xs) -> facesOfNodeTree firstNodeTree <> (intraNodeFace firstNodeTree secondNodeTree : findFacesRecurse (secondNodeTree:xs))
 
 -- | Create a set of faces from a single nodetree.
 facesOfNodeTree :: NodeTree -> [Face]
@@ -118,12 +116,16 @@ facesOfNodeTree nodeTree@(NodeTree myENodes iNodeSet@(INodeSet generations))
           if allInsAreENodes target
           then if hasArc target
                then -- skip the last triangle, as the target's output is somewhere within it.
-                 initSafe $ rotateFaces iNodeSet myENodes target
+                 case unsnoc $ rotateFaces iNodeSet myENodes target of
+                   Nothing -> error "wtf"
+                   Just (xs,_) -> xs
                else rotateFaces iNodeSet myENodes target
           else errorNoMoreINodes
       | otherwise = -- one or more ancestor generations
         if hasArc target
-        then initSafe $ rotateFaces iNodeSet myENodes target
+        then case unsnoc $ rotateFaces iNodeSet myENodes target of
+               Nothing -> error "wtf"
+               Just (xs,_) -> xs
         else rotateFaces iNodeSet myENodes target
       where
         errorNoMoreINodes = error "one target, no generations, and target needs inodes?\n"

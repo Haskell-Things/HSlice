@@ -1,8 +1,4 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE PolyKinds #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-
+{- ORMOLU_DISABLE -}
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco
  - Copyright 2019 Julia Longtin
@@ -21,14 +17,48 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
--- | container for orphan instances. these should go in their appropriate upstreams.
+-- This file is a container for orphan instances. these should go in their appropriate upstreams.
+
+-- So that none of the orphans here generate warnings.
+{-# OPTIONS_GHC -Wno-orphans #-}
+
+-- So we can use ℝ in instance declarations.
+{-# LANGUAGE FlexibleInstances #-}
+
+-- So we can use TowardInf'
+{-# LANGUAGE DataKinds #-}
+
+-- So we can add generic to ℝ
+{-# LANGUAGE StandaloneDeriving #-}
+
+-- So we can add generic to ℝ
+{-# LANGUAGE DeriveGeneric #-}
+
+-- So we can add MemoTrie to ℝ
+{-# LANGUAGE TypeFamilies #-}
+
+-- So we can add MemoTrie to ℝ
+{-# LANGUAGE TypeOperators #-}
+
 module Graphics.Slicer.Orphans () where
 
+import Prelude (Double, Integer, Int, Monoid(mempty), Ord, Semigroup((<>)), (+), (.), ($), decodeFloat, error, encodeFloat, seq, uncurry)
+
 import Control.DeepSeq (NFData (rnf))
-import Graphics.Slicer.Definitions (Fastℕ, ℝ)
+
+import Data.MemoTrie (HasTrie(enumerate, trie, untrie), Reg, (:->:), enumerateGeneric, trieGeneric, untrieGeneric)
+
+import Data.Set (Set, elems, fromList)
+
+import GHC.Generics (Generic)
+
+import Graphics.Slicer.Definitions (Fastℕ(Fastℕ), ℝ)
+
+import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf))
+
 import Slist.Size (Size (Infinity, Size))
+
 import Slist.Type (Slist (Slist))
-import Prelude (Monoid (mempty), Semigroup ((<>)), seq, (+))
 
 instance NFData a => NFData (Slist a) where
   rnf (Slist vals n) = rnf vals `seq` rnf n
@@ -46,3 +76,55 @@ instance Semigroup ℝ where
 
 instance Monoid ℝ where
   mempty = 0
+
+deriving instance Generic ℝ
+
+deriving instance Generic Fastℕ
+
+deriving instance Generic Size
+
+deriving instance Generic (Slist a)
+
+-- FIXME: test decodeFloat
+mangle :: Double -> (Integer, Int)
+mangle = decodeFloat
+
+-- FIXME: test encodeFloat
+unMangle :: (Integer, Int) -> Double
+unMangle = uncurry encodeFloat
+
+instance HasTrie Double where
+  data Double :->: a = DoubleTrie ((Integer, Int) :->: a)
+  trie f = DoubleTrie $ trie $ f . unMangle
+  untrie (DoubleTrie t) = untrie t . mangle
+  enumerate = error "cannot enumerate doubles."
+
+instance (HasTrie a, Ord a) => HasTrie (Set a) where
+  data (Set a) :->: b = SetTrie ([a] :->: b)
+  trie s = SetTrie $ trie $ s . fromList
+  untrie (SetTrie t) = untrie t . elems
+  enumerate = error "cannot enumerate sets."
+
+instance HasTrie Size where
+  newtype (Size :->: b) = SizeTrie { unSizeTrie :: Reg Size :->: b }
+  trie = trieGeneric SizeTrie
+  untrie = untrieGeneric unSizeTrie
+  enumerate = enumerateGeneric unSizeTrie
+
+instance HasTrie Fastℕ where
+  newtype (Fastℕ :->: b) = FastℕTrie { unFastℕTrie :: Reg Fastℕ :->: b }
+  trie = trieGeneric FastℕTrie
+  untrie = untrieGeneric unFastℕTrie
+  enumerate = enumerateGeneric unFastℕTrie
+
+instance (HasTrie a) => HasTrie (Slist a) where
+  newtype ((Slist a) :->: b) = SlistTrie { unSlistTrie :: Reg (Slist a) :->: b }
+  trie = trieGeneric SlistTrie
+  untrie = untrieGeneric unSlistTrie
+  enumerate = enumerateGeneric unSlistTrie
+
+instance HasTrie (Rounded 'TowardInf ℝ) where
+  newtype ((Rounded 'TowardInf ℝ) :->: b) = RTℝTrie { unRTℝTrie :: Reg (Rounded 'TowardInf ℝ) :->: b }
+  trie = trieGeneric RTℝTrie
+  untrie = untrieGeneric unRTℝTrie
+  enumerate = enumerateGeneric unRTℝTrie

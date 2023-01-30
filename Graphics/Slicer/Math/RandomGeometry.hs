@@ -58,7 +58,7 @@ module Graphics.Slicer.Math.RandomGeometry (
   remainderFrom
   ) where
 
-import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, Int, (<>), (<>), (<$>), ($), (==), (+), (-), (*), (<), (/), (>), (<=), (&&), abs, error, fromInteger, fromRational, fst, mempty, mod, otherwise, replicate, show, signum)
+import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, Int, (<>), (<>), (<$>), ($), (.), (==), (+), (-), (*), (<), (/), (>), (<=), (&&), abs, error, fromInteger, fromRational, fst, mempty, mod, otherwise, replicate, show, signum, snd)
 
 import Data.Coerce (coerce)
 
@@ -83,15 +83,17 @@ import Graphics.Slicer (ℝ)
 
 import Graphics.Slicer.Math.Arcs (getOutsideArc)
 
-import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, firstPointPairOfContour, pointFarOutsideContour)
+import Graphics.Slicer.Math.Contour (makePointContour, maybeFlipContour, minDistanceFromSegMidPoint, mostPerpPointAndLineSeg)
 
-import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, makeLineSeg, pointBetweenPoints)
+import Graphics.Slicer.Math.ContourIntersections (contourIntersectionCount, getLineContourIntersections)
+
+import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPoint, lineSegsOfContour, makeLineSeg, pointBetweenPoints, startPoint)
 
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
-import Graphics.Slicer.Math.Lossy (pToEPoint2, translateRotatePPoint2)
+import Graphics.Slicer.Math.Lossy (eToPLine2, pToEPoint2, translateRotatePPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, eToPL, eToPP, flipL, join2EP, cPPointOf)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, eToPL, eToPP, flipL, join2PP, pPointOnPerpWithErr, cPPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode)
 
@@ -376,12 +378,32 @@ randomStarPoly centerX centerY radianDistPairs = fromMaybe dumpError $ maybeFlip
     points             = pToEPoint2 <$> pointsAroundCenter
     pointsAroundCenter = (\(distanceFromPoint, angle) -> translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)) <$> radianDistPairs
     centerPPoint       = eToPP $ Point2 (centerX, centerY)
-    dumpError          = error $ "failed to flip a contour:" <> dumpGanjas [toGanja contour, toGanja (Point2 (centerX, centerY)), toGanja outsidePLine] <> "\n"
+    dumpError          = error $ "failed to flip a contour.\n"
+                               <> (dumpGanjas $ [toGanja contour,
+                                                 toGanja "Center point", toGanja (Point2 (centerX, centerY)),
+                                                 toGanja "perp PLine", toGanja perpPl,
+                                                 toGanja "Other PLine", toGanja otherPl,
+                                                 toGanja "First MidPoint", toGanja midPoint,
+                                                 toGanja "First perpPoint", toGanja perpPoint,
+                                                 toGanja "Second otherPoint", toGanja otherPoint,
+                                                 toGanja "minDistance", toGanja (show minDistance),
+                                                 toGanja "intersection count1", toGanja (show intersectionCount1),
+                                                 toGanja "intersection count2", toGanja (show intersectionCount2)
+                                                ] <> (toGanja . fst . eToPL <$> lineSegsOfContour contour))<> "\n"
+                               <> show (getLineContourIntersections (perpPl, pErr) contour) <> "\n"
+                               <> show (getLineContourIntersections (otherPl, oErr) contour) <> "\n"
       where
-        outsidePLine   = fst $ join2EP myMidPoint outsidePoint
-        outsidePoint   = pointFarOutsideContour contour
-        myMidPoint     = pointBetweenPoints p1 p2
-        (p1, p2)       = firstPointPairOfContour contour
+        (perpPl,(_,_,pErr)) = join2PP perpPoint (eToPP outsidePoint)
+        (otherPl,(_,_,oErr)) = join2PP otherPoint (eToPP outsidePoint)
+        minDistance    = minDistanceFromSegMidPoint outsidePoint lineSeg
+        outsidePoint   = fst $ mostPerpPointAndLineSeg contour
+        midPoint       = pointBetweenPoints (startPoint lineSeg) (endPoint lineSeg)
+        intersectionCount1 = contourIntersectionCount contour (pToEPoint2 perpPoint, outsidePoint)
+        intersectionCount2 = contourIntersectionCount contour (pToEPoint2 otherPoint, outsidePoint)
+        perpPoint      = fst $ pPointOnPerpWithErr pl (eToPP midPoint) minDistance
+        otherPoint     = fst $ pPointOnPerpWithErr pl (eToPP midPoint) (-minDistance)
+        pl             = eToPLine2 lineSeg
+        lineSeg        = snd $ mostPerpPointAndLineSeg contour
 
 randomENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> ENode
 randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2

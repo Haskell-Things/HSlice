@@ -23,13 +23,13 @@
 
 module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringPLinesVertical) where
 
-import Prelude ((+), (<$>), ($), (.), (*), sqrt, (-), Ordering(EQ, GT, LT), otherwise, (==), length, not, null, (!!), fromIntegral, ceiling, (/), floor, Integer, compare)
+import Prelude (Show(show), (+), (<>), (<$>), ($), (.), (*), sqrt, (-), Ordering(EQ, GT, LT), otherwise, (==), length, not, null, (!!), fromIntegral, ceiling, (/), floor, Integer, compare, error)
 
 import Data.List (concatMap)
 
 import Data.List.Ordered (sort)
 
-import Data.Maybe (Maybe(Just, Nothing), mapMaybe)
+import Data.Maybe (Maybe(Just, Nothing), mapMaybe, fromMaybe)
 
 import Graphics.Slicer.Definitions (ℝ)
 
@@ -64,7 +64,11 @@ infillLineSegInside contour childContours line
       allLines :: [LineSeg]
       allLines = makeLineSegs allPoints
         where
-          allPoints = (filterTooShort . sort) $ concatMap (getLineContourIntersections line) (contour:childContours)
+          allPoints = (filterTooShort . sort) $ concatMap (\a -> fromMaybe (dumpError a) $ getLineContourIntersections line a) (contour:childContours)
+            where
+              dumpError failContour = error $ "getLineContourIntersections failed when placing line across contour:\n"
+                                           <> show line <> "\n"
+                                           <> show failContour <> "\n"
           filterTooShort :: [Point2] -> [Point2]
           filterTooShort [] = []
           filterTooShort [a] = [a]

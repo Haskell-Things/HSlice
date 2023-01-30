@@ -26,6 +26,12 @@
 -- So we can map applying (,mempty) to a list.
 {-# LANGUAGE TupleSections #-}
 
+-- For :->:
+{-# LANGUAGE TypeOperators, TypeFamilies #-}
+
+-- So we can create an instance of HasTrie for NonEmpty GNum.
+{-# LANGUAGE FlexibleInstances #-}
+
 -- | Our geometric algebra library.
 module Graphics.Slicer.Math.GeometricAlgebra(
   ErrVal(ErrVal),
@@ -82,13 +88,15 @@ import Data.Bits.Floating.Ulp (doubleUlp)
 
 import Data.Either (Either(Left, Right))
 
-import Data.List (foldl')
+import Data.List (foldl', uncons)
 
 import Data.List.NonEmpty (NonEmpty((:|)), toList, cons, nonEmpty)
 
 import Data.List.Ordered (sort, insertSet)
 
 import Data.Maybe (Maybe(Just, Nothing), isJust)
+
+import Data.MemoTrie (HasTrie(enumerate, trie, untrie), Reg, (:->:), enumerateGeneric, memo, trieGeneric, untrieGeneric)
 
 import Data.Number.BigFloat (BigFloat, PrecPlus20, Eps1)
 
@@ -97,8 +105,6 @@ import Data.Set (Set, singleton, disjoint, elems, size, elemAt, fromAscList)
 import Data.Set as S (filter)
 
 import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf, ToNearest), getRounded)
-
-import Safe (headMay)
 
 import Graphics.Slicer.Definitions (ℝ, Fastℕ)
 
@@ -113,6 +119,18 @@ data GNum =
   | G0            -- A scalar type. short lived.
   deriving (Eq, Generic, NFData, Show, Ord)
 
+instance HasTrie GNum where
+  newtype (GNum :->: b) = GNumTrie { unGNumTrie :: Reg GNum :->: b }
+  trie = trieGeneric GNumTrie
+  untrie = untrieGeneric unGNumTrie
+  enumerate = enumerateGeneric unGNumTrie
+
+instance HasTrie (NonEmpty GNum) where
+  newtype ((NonEmpty GNum) :->: b) = NEGNumTrie { unNEGNumTrie :: Reg (NonEmpty GNum) :->: b }
+  trie = trieGeneric NEGNumTrie
+  untrie = untrieGeneric unNEGNumTrie
+  enumerate = enumerateGeneric unNEGNumTrie
+
 -- | A value in geometric algebra. this will have duplicate members filtered out, and the members will be in order.
 data GVal = GVal
   -- _real ::
@@ -120,6 +138,12 @@ data GVal = GVal
   -- _basis ::
   !(Set GNum)
   deriving (Eq, Generic, NFData, Show)
+
+instance HasTrie GVal where
+  newtype (GVal :->: b) = GValTrie { unGValTrie :: Reg GVal :->: b }
+  trie = trieGeneric GValTrie
+  untrie = untrieGeneric unGValTrie
+  enumerate = enumerateGeneric unGValTrie
 
 -- | A value in geometric algebra, in need of reduction. this may have duplicate members, or members out of order.
 data GRVal = GRVal
@@ -143,6 +167,12 @@ instance Semigroup UlpSum where
 instance Monoid UlpSum where
   mempty = UlpSum 0
 
+instance HasTrie UlpSum where
+  newtype (UlpSum :->: b) = UlpSumTrie { unUlpSumTrie :: Reg UlpSum :->: b }
+  trie = trieGeneric UlpSumTrie
+  untrie = untrieGeneric unUlpSumTrie
+  enumerate = enumerateGeneric unUlpSumTrie
+
 data ErrVal = ErrVal
   -- { _ulpVal ::
               !UlpSum
@@ -152,6 +182,12 @@ data ErrVal = ErrVal
 
 data ErrRVal = ErrRVal { _ulpRVal :: !UlpSum, _ulpRBasis :: NonEmpty GNum }
   deriving (Eq, Generic, NFData, Show)
+
+instance HasTrie ErrVal where
+  newtype (ErrVal :->: b) = ErrValTrie { unErrValTrie :: Reg ErrVal :->: b }
+  trie = trieGeneric ErrValTrie
+  untrie = untrieGeneric unErrValTrie
+  enumerate = enumerateGeneric unErrValTrie
 
 -- Fake instance. do not try to order by ErrVal.
 instance Ord ErrVal where
@@ -176,6 +212,12 @@ instance Ord GVal where
 -- | A (multi)vector in geometric algebra.
 newtype GVec = GVec [GVal]
   deriving (Eq, Generic, NFData, Show, Ord)
+
+instance HasTrie GVec where
+  newtype (GVec :->: b) = GVecTrie { unGVecTrie :: Reg GVec :->: b }
+  trie = trieGeneric GVecTrie
+  untrie = untrieGeneric unGVecTrie
+  enumerate = enumerateGeneric unGVecTrie
 
 -- | a list contains geometric values that can be queried.
 class UniqueVals a where
@@ -242,18 +284,19 @@ addValWithErr dstVals src@(GVal r1 _)
   | r1 == 0 = dstVals
   | null dstVals = [(src, mempty)]
   | otherwise = case sameI src dstVals of
-                  Nothing  -> insertSet (src,mempty) dstVals
-                  (Just (a,e)) -> if rOf a == (-r1)
-                                  then diffI src dstVals
-                                  else insertSet (GVal newVal $ iOf src, newErr) (diffI src dstVals)
+                  Nothing  -> insertSet (src, mempty) dstVals
+                  (Just ((a,e), [])) -> if rOf a == (-r1)
+                                        then diffI src dstVals
+                                        else insertSet (GVal newVal $ iOf src, newErr) $ diffI src dstVals
                     where
                       newVal :: ℝ
                       newVal = realToFrac (realToFrac (rOf a) + realToFrac r1 :: Rounded 'ToNearest ℝ)
+                      newErr = e <> ErrVal (UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac newErrVal) (iOf src)
                       newErrVal = (realToFrac (rOf a) + realToFrac r1 :: Rounded 'TowardInf ℝ)
-                      newErr = e <> ErrVal (UlpSum $ abs $ realToFrac $ doubleUlp $ realToFrac newErrVal ) (iOf src)
+                  _                  -> error "found too many sameI candidates."
   where
-    sameI :: GVal -> [(GVal,ErrVal)] -> Maybe (GVal,ErrVal)
-    sameI val srcVals = headMay $ P.filter (\(GVal _ i,_) -> i == iOf val) srcVals
+    sameI :: GVal -> [(GVal,ErrVal)] -> Maybe ((GVal,ErrVal), [(GVal, ErrVal)])
+    sameI val srcVals = uncons $ P.filter (\(GVal _ i,_) -> i == iOf val) srcVals
     diffI :: GVal -> [(GVal,ErrVal)] -> [(GVal,ErrVal)]
     diffI val = P.filter (\(GVal _ i,_) -> i /= iOf val)
     iOf (GVal _ i) = i
@@ -272,8 +315,8 @@ addValWithoutErr dstVals src@(GVal r1 _)
                                    <> show a <> "\n"
                                    <> show src <> "\n"
   where
-    sameI :: GVal -> [GVal] -> Maybe GVal
-    sameI val srcVals = headMay $ P.filter (\a -> iOf a == iOf val) srcVals
+    sameI :: GVal -> [GVal] -> Maybe (GVal, [GVal])
+    sameI val srcVals = uncons $ P.filter (\a -> iOf a == iOf val) srcVals
     iOf (GVal _ i) = i
 
 -- | Subtract a geometric value from a list of geometric values.
@@ -299,14 +342,14 @@ addErr dstErrs src@(ErrVal _ i1)
   | src == mempty = dstErrs
   | dstErrs == mempty = [src]
   | otherwise = case sameI i1 dstErrs of
-      Nothing -> sort $ dstErrs <> [src]
-      Just match -> sort $ diffI i1 dstErrs <> [match <> src]
-        where
-          diffI :: Set GNum -> [ErrVal] -> [ErrVal]
-          diffI i = P.filter (\(ErrVal _ i2) -> i2 /= i)
+      Nothing          -> insertSet src dstErrs
+      Just (match, []) -> insertSet (src <> match) $ diffI i1 dstErrs
+      _                -> error "too many sameI values"
   where
-    sameI :: Set GNum -> [ErrVal] -> Maybe ErrVal
-    sameI i errs = headMay $ P.filter (\(ErrVal _ i2) -> i2 == i) errs
+    diffI :: Set GNum -> [ErrVal] -> [ErrVal]
+    diffI i = P.filter (\(ErrVal _ i2) -> i2 /= i)
+    sameI :: Set GNum -> [ErrVal] -> Maybe (ErrVal, [ErrVal])
+    sameI i errs = uncons $ P.filter (\(ErrVal _ i2) -> i2 == i) errs
 
 -- | Add two vectors together.
 addVecPair :: GVec -> GVec -> GVec
@@ -554,9 +597,13 @@ sortErrBasis (ErrRVal r i) = ErrRVal r basis
   where
     (_, basis) = sortBasis' i
 
+-- | Wrap sortBasisInternal in a memoization, so it becomes a tree lookup over time.
+sortBasis' :: NonEmpty GNum -> (Bool, NonEmpty GNum)
+sortBasis' = memo sortBasisInternal
+
 -- | Sort a set of basis vectors. Must return an ideal result, along with wehther the associated real value should be flipped or not.
-sortBasis'  :: NonEmpty GNum -> (Bool, NonEmpty GNum)
-sortBasis' thisBasis
+sortBasisInternal :: NonEmpty GNum -> (Bool, NonEmpty GNum)
+sortBasisInternal thisBasis
   -- If the basis part of calling sortBasis'' once vs calling sortBasis'' twice doesn't change, we are done sorting.
   | basisOf sortOnce == basisOf recurseTwice = sortOnce
   -- If not, recurse.
@@ -591,18 +638,21 @@ stripErrPairs (ErrRVal real vals) = ErrRVal real res
   where
     (_, res) = withoutPairs (Just False, vals)
 
+withoutPairs :: (Maybe Bool, NonEmpty GNum) -> (Maybe Bool, NonEmpty GNum)
+withoutPairs = memo withoutPairs'
+
 -- | Perform elimination of basis pairs from the given basis set. only works right if the basis set has been sorted first.
 -- The maybe bool tracks whether the result should be thrown away (two identical GEZeros), or if the result should have its value inverted.
-withoutPairs :: (Maybe Bool, NonEmpty GNum) -> (Maybe Bool, NonEmpty GNum)
-withoutPairs (_, oneI:|[]) = (Just False, oneI:|[])
-withoutPairs (r, is@((GEPlus a):|(GEPlus b):xs))
+withoutPairs' :: (Maybe Bool, NonEmpty GNum) -> (Maybe Bool, NonEmpty GNum)
+withoutPairs' (_, oneI:|[]) = (Just False, oneI:|[])
+withoutPairs' (r, is@((GEPlus a):|(GEPlus b):xs))
   | a == b = case nonEmpty xs of
                Nothing -> (r, G0:|[])
                (Just vs) -> withoutPairs (r, vs)
   | a /= b = case nonEmpty xs of
                Nothing -> (r, is)
                (Just _) -> prependI (GEPlus a) $ withoutPairs (r, GEPlus b:|xs)
-withoutPairs (r, is@((GEMinus a):|(GEMinus b):xs))
+withoutPairs' (r, is@((GEMinus a):|(GEMinus b):xs))
   | a == b = case nonEmpty xs of
                Nothing -> (maybeNot r,G0:|[])
                (Just vs) -> withoutPairs (maybeNot r,vs)
@@ -613,12 +663,12 @@ withoutPairs (r, is@((GEMinus a):|(GEMinus b):xs))
     maybeNot :: Maybe Bool -> Maybe Bool
     maybeNot Nothing = Nothing
     maybeNot (Just v) = Just $ not v
-withoutPairs (r, is@((GEZero a):|(GEZero b):xs))
+withoutPairs' (r, is@((GEZero a):|(GEZero b):xs))
   | a == b = (Nothing,G0:|[])
   | a /= b = case nonEmpty xs of
                Nothing -> (r,is)
                (Just _) -> prependI (GEZero a) $ withoutPairs (r, GEZero b:|xs)
-withoutPairs (r, a:|b:xs) = prependI a $ withoutPairs (r,b:|xs)
+withoutPairs' (r, a:|b:xs) = prependI a $ withoutPairs (r,b:|xs)
 
 -- | place a term on the front of the basis vector set.
 -- if the vector set contains only the scalar vector, eliminate it.

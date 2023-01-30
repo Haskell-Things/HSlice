@@ -51,6 +51,7 @@ module Graphics.Slicer.Math.PGA(
       vecOfP
       ),
   angleBetween2PL,
+  angleCosBetween2PL,
   canonicalizedIntersectionOf2PL,
   combineConsecutiveLineSegs,
   cPPointAndErrOf,
@@ -68,6 +69,7 @@ module Graphics.Slicer.Math.PGA(
   join2EP,
   join2PP,
   makeCPPoint2,
+  onSegment,
   oppositeDirection,
   outAndErrOf,
   pLineErrAtPPoint,
@@ -90,19 +92,19 @@ import Data.Either (Either(Left, Right))
 
 import Data.List (foldl')
 
+import Data.List.Extra (unsnoc)
+
 import Data.List.Ordered (foldt)
 
-import Data.Maybe (Maybe(Just, Nothing), maybeToList, fromJust, isJust, isNothing, maybeToList)
+import Data.Maybe (Maybe(Just, Nothing), fromJust, fromMaybe, isJust, isNothing)
 
 import Data.Set (singleton, fromList)
-
-import Safe (lastMay, initSafe)
 
 import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf, TowardNegInf))
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), addPoints, startPoint, endPoint, distance)
+import Graphics.Slicer.Math.Definitions (LineSeg, Point2(Point2), distance, endPoint, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎤+), (⨅+), (•), addValWithoutErr, addVecPairWithoutErr, eValOf, getVal, mulScalarVecWithErr, ulpRaw, ulpVal, valOf)
 
@@ -151,12 +153,13 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
 -- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
-pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe Bool
-pLineIsLeft (pl1, _) (pl2, _)
+{-# INLINABLE pLineIsLeft #-}
+pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe Bool
+pLineIsLeft line1 line2
   | abs res <= ulpVal angleFuzz = Nothing
-  | otherwise            = Just $ res > 0
+  | otherwise                   = Just $ res > 0
   where
-    (res, (_,_, angleFuzz)) = angleCosBetween2PL pl1 pl2
+    (res, (_,_, angleFuzz)) = angleCosBetween2PL line1 line2
 
 -- | Find the distance between a projective point and a projective line, along with the difference's error quotent.
 -- Note: Fails in the case of ideal points.
@@ -200,7 +203,7 @@ pPointsOnSameSideOfPLine point1 point2 line
     pv2 = vecOfP $ forceBasisOfP point2
     lv1 = vecOfL $ forceBasisOfL line
 
--- | A checker, to ensure two Projective Lines are going the same direction, and are parallel.
+-- | A checker, to ensure two Projective Lines are going the same direction, and are parallel, or colinear.
 sameDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
 sameDirection a b = res >= maxAngle
   where
@@ -432,53 +435,52 @@ lineSegIntersectsLineSeg l1 l2
                <> "tfuzz2: " <> show tFuzz2 <> "\n"
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
-onSegment :: LineSeg -> (ProjectivePoint, PPoint2Err) -> Bool
-onSegment ls i =
+onSegment :: (ProjectivePoint2 a) => LineSeg -> (a, PPoint2Err) -> Bool
+onSegment lineSeg iPoint@(iP, _) =
      (startDistance <= startFudgeFactor)
-  || (midDistance <= (lengthOfSegment/2) + midFudgeFactor)
+  || (lineDistance <= lineFudgeFactor && midDistance <= (lengthOfSegment/2) + midFudgeFactor)
   || (endDistance <= endFudgeFactor)
   where
-    start = eToPP $ startPoint ls
+    startFudgeFactor = ulpVal $ startDistanceErr <> iErr <> tErr <> pLineErrAtPPoint pLine start
+    midFudgeFactor   = ulpVal $ midDistanceErr   <> iErr <> tErr <> pLineErrAtPPoint pLine mid
+    lineFudgeFactor  = ulpVal $                     iErr <> tErr <> pLineErrAtPPoint pLine iP
+    endFudgeFactor   = ulpVal $ endDistanceErr   <> iErr <> tErr <> pLineErrAtPPoint pLine end
+    (startDistance, (_,_, startDistanceErr)) = distance2PP iPoint (start, mempty)
+    (midDistance, (_,_, midDistanceErr))     = distance2PP iPoint (mid, midErr)
+    (lineDistance, _)                        = distancePPToPL iPoint pLine
+    (endDistance, (_,_, endDistanceErr))     = distance2PP iPoint (end, mempty)
+    lengthOfSegment = distance (startPoint lineSeg) (endPoint lineSeg)
     (mid, (_, _, midErr)) = interpolate2PP start end 0.5 0.5
-    end = eToPP $ endPoint ls
-    (startDistance, (_,_, startDistanceErr)) = distance2PP i (start, mempty)
-    (midDistance, (_,_, midDistanceErr)) = distance2PP i (mid, midErr)
-    (endDistance, (_,_, endDistanceErr)) = distance2PP i (end, mempty)
-    tFuzz = fuzzinessOfL $ eToPL ls
-    lengthOfSegment = distance (startPoint ls) (endPoint ls)
-    startFudgeFactor, midFudgeFactor, endFudgeFactor :: ℝ
-    startFudgeFactor = ulpVal $ startDistanceErr <> tFuzz <> pLineErrAtPPoint (eToPL ls) start
-    midFudgeFactor = ulpVal $ midDistanceErr <> tFuzz <> pLineErrAtPPoint (eToPL ls) mid
-    endFudgeFactor = ulpVal $ endDistanceErr <> tFuzz <> pLineErrAtPPoint (eToPL ls) end
+    start = eToPP $ startPoint lineSeg
+    end = eToPP $ endPoint lineSeg
+    tErr = fuzzinessOfL pLine
+    iErr = fuzzinessOfP iPoint
+    pLine = eToPL lineSeg
 
 -- | Combine consecutive line segments. expects line segments with their end points connecting, EG, a contour generated by makeContours.
 combineConsecutiveLineSegs :: [LineSeg] -> [LineSeg]
 combineConsecutiveLineSegs lines = case lines of
                                      [] -> []
                                      [a] -> [a]
-                                     (firstLine:manyLines) -> res firstLine manyLines
+                                     (firstLine:manyLines) -> combineEnds $ foldt combine [firstLine] ((:[]) <$> manyLines)
   where
-    res first many = combineEnds $ foldt combine [first] ((:[]) <$> many)
     combine :: [LineSeg] -> [LineSeg] -> [LineSeg]
-    combine  l1      []  = l1
-    combine  []      l2  = l2
-    combine (l1:ls) (l2:l2s) = case lastMay ls of
-                               Nothing -> if canCombineLineSegs l1 l2 then maybeToList (combineLineSegs l1 l2) <> l2s else l1 : l2 : l2s
-                               (Just v) -> if canCombineLineSegs v l2 then l1:initSafe ls <> maybeToList (combineLineSegs v l2) <> l2s else (l1:ls) <> (l2:l2s)
-    -- | responsible for placing the last value at the front of the list, to make up for the fold of combine putting the first value last.
+    combine  ls      []      = ls
+    combine  []      ls      = ls
+    combine (l1:ls) (l2:l2s) = case unsnoc ls of
+                                  Nothing -> if canCombineLineSegs l1 l2 then fromMaybe (error "failed to combine!") (combineLineSegs l1 l2) : l2s else l1 : l2 : l2s
+                                  (Just (vs, vl)) -> (l1:vs) <> (vl:l2:l2s)
+-- FIXME: how is this broken? causes our real world tests 4 and 5 to go into an infinite loop?
+--                                  (Just (vs, vl)) -> if canCombineLineSegs vl l2 then l1:vs <> (fromMaybe (error "failed to combine!") (combineLineSegs vl l2) : l2s) else (l1:ls) <> (l2:l2s)
     combineEnds :: [LineSeg] -> [LineSeg]
     combineEnds  []      = []
     combineEnds  [l1]    = [l1]
-    combineEnds  (l1:l2:ls) = case lastMay ls of
-                                   Nothing -> maybeToList $ combineLineSegs l1 l2
-                                   (Just v) -> if canCombineLineSegs v l1 then maybeToList (combineLineSegs v l1) <> (l2:initSafe ls) else v:l1:l2:initSafe ls
+    combineEnds  (l1:l2:ls)  = case unsnoc ls of
+                                 Nothing -> if canCombineLineSegs l2 l1 then [fromMaybe (error "failed to combine!") $ combineLineSegs l2 l1] else [l2, l1]
+                                 (Just (vs, vl)) -> if canCombineLineSegs vl l1 then fromMaybe (error "failed to combine!") (combineLineSegs vl l1) : l2 : vs else vl:l1:l2:vs
     -- | determine if two euclidian line segments are on the same projective line, and if they share a middle point.
     canCombineLineSegs :: LineSeg -> LineSeg -> Bool
-    canCombineLineSegs l1@(LineSeg p1 s1) l2@(LineSeg p2 _) = sameLineSeg && sameMiddlePoint
-      where
-        -- FIXME: this does not take into account the Err introduced by eToPLine2.
-        sameLineSeg = plinesIntersectIn (eToPL l1) (eToPL l2) == PCollinear
-        sameMiddlePoint = p2 == addPoints p1 s1
+    canCombineLineSegs l1 l2 = plinesIntersectIn (eToPL l1) (eToPL l2) == PCollinear
 
 ------------------------------------------------
 ----- And now draw the rest of the algebra -----

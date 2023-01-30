@@ -19,6 +19,9 @@
 
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds, PolyKinds, FlexibleInstances #-}
 
+--  for :->:
+{-# LANGUAGE TypeOperators, TypeFamilies #-}
+
 -- | The purpose of this file is to hold the definitions of the data structures used when performing slicing related math.
 module Graphics.Slicer.Math.Definitions(
   Contour(PointContour, LineSegContour),
@@ -41,6 +44,7 @@ module Graphics.Slicer.Math.Definitions(
   minMaxPoints,
   negatePoint,
   pointBetweenPoints,
+  pointsOfContour,
   roundPoint2,
   roundToFifth,
   scalePoint,
@@ -50,7 +54,7 @@ module Graphics.Slicer.Math.Definitions(
   zOf
   ) where
 
-import Prelude (Eq, Show, (==), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, (<>), error, show, (<), (&&), negate)
+import Prelude (Eq, Show, (==), (<$>), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, (<>), error, show, (<), (&&), negate)
 
 import Prelude as PL (zipWith)
 
@@ -60,11 +64,11 @@ import Control.Parallel.Strategies (withStrategy, parList, rpar)
 
 import Control.Parallel (par, pseq)
 
-import Data.List as DL (uncons)
-
 import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe (Just, Nothing))
+
+import Data.MemoTrie (HasTrie(enumerate, trie, untrie), Reg, (:->:), enumerateGeneric, trieGeneric, untrieGeneric)
 
 import GHC.Generics (Generic)
 
@@ -80,12 +84,12 @@ import Graphics.Slicer.Definitions (ℝ, ℝ2, ℝ3, Fastℕ)
 
 import Graphics.Slicer.Orphans ()
 
--- | A single Point in 3D linear space.
-newtype Point3 = Point3 ℝ3
-  deriving (Eq, Generic, NFData, Show)
-
 -- | A single Point on a 2D plane.
 newtype Point2 = Point2 ℝ2
+  deriving (Eq, Generic, NFData, Show)
+
+-- | A single Point in 3D linear space.
+newtype Point3 = Point3 ℝ3
   deriving (Eq, Generic, NFData, Show)
 
 -- | A typeclass containing our basic linear algebra functions.
@@ -94,7 +98,7 @@ class LinAlg p where
   distance    :: p -> p -> ℝ
   -- | Add the coordinates of two points
   addPoints   :: p -> p -> p
-  -- | Scale the coordinates of a point by s
+  -- | Scale the coordinates of a point by ℝ
   scalePoint  :: ℝ -> p -> p
   -- | negate a point.
   negatePoint :: p -> p
@@ -130,6 +134,12 @@ class PlanePoint p where
   -- | The Y value of a point in a plane.
   yOf :: p -> ℝ
 
+instance HasTrie Point2 where
+  newtype (Point2 :->: b) = Point2Trie { unPoint2Trie :: Reg Point2 :->: b }
+  trie = trieGeneric Point2Trie
+  untrie = untrieGeneric unPoint2Trie
+  enumerate = enumerateGeneric unPoint2Trie
+
 instance Ord Point2 where
   -- Orders points by x and y (x first, then sorted by y for the same x-values)
   compare p1 p2
@@ -161,20 +171,30 @@ instance SpacePoint Point3 where
   zOf (Point3 (_,_,z)) = z
   flatten (Point3 (x,y,_)) = Point2 (x,y)
 
+-- | A euclidian line segment, starting at startPoint and stopping at endPoint.
+data LineSeg = LineSeg { startPoint :: !Point2, endPoint :: !Point2 }
+  deriving (Generic, NFData, Show)
+
 instance Eq LineSeg where
   (==) (LineSeg s1 e1) (LineSeg s2 e2) = distance s1 s2 < fudgeFactor && distance e1 e2 < fudgeFactor
 
--- | Data structure for a line segment in the form (x,y,z) = (x0,y0,z0) + t(mx,my,mz)
--- it should run from 0 to 1, so the endpoints are (x0,y0,z0) and (x0 + mx, y0 + my, z0 + mz)
--- note that this means slope and endpoint are entangled. make sure to derive what you want before using slope.
-data LineSeg = LineSeg { startPoint :: !Point2, endPoint :: !Point2 }
-  deriving (Generic, NFData, Show)
+instance HasTrie LineSeg where
+  newtype (LineSeg :->: b) = LineSegTrie { unLineSegTrie :: Reg LineSeg :->: b }
+  trie = trieGeneric LineSegTrie
+  untrie = untrieGeneric unLineSegTrie
+  enumerate = enumerateGeneric unLineSegTrie
 
 -- | a list of points around a (2d) shape.
 -- Note that the minPoint and maxPoint define a bounding box for the contour that it does not spill out of.
 data Contour = PointContour { _minPoint :: !Point2, _maxPoint :: !Point2, _firstPoint :: !Point2, _secondPoint :: !Point2, _thirdPoint :: !Point2 , morePoints :: !(Slist Point2) }
              | LineSegContour { _myMinPoint :: !Point2, _myMaxPoint :: !Point2, _firstSeg :: !LineSeg, _secondSeg :: !LineSeg, moreSegs :: !(Slist LineSeg) }
   deriving (Eq, Generic, NFData, Show)
+
+instance HasTrie Contour where
+  newtype (Contour :->: b) = ContourTrie { unContourTrie :: Reg Contour :->: b }
+  trie = trieGeneric ContourTrie
+  untrie = untrieGeneric unContourTrie
+  enumerate = enumerateGeneric unContourTrie
 
 -- | find the minimum point and maximum point of a given contour.
 minMaxPoints :: Contour -> (Point2, Point2)
@@ -199,32 +219,31 @@ roundPoint2 :: Point2 -> Point2
 roundPoint2 (Point2 (x1,y1)) = Point2 (roundToFifth x1, roundToFifth y1)
 
 -- | like map, only with previous, current, and next item, and wrapping around so the first entry gets the last entry as previous, and vica versa.
-mapWithNeighbors :: (a -> a -> a -> b) -> [a] -> [b]
-mapWithNeighbors f l = withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
-  where
-    z = zs <> [fz]
-    (fz, zs) = case DL.uncons l of
+mapWithNeighbors :: (Show a) => (a -> a -> a -> b) -> [a] -> [b]
+mapWithNeighbors f l =
+  case l of
+    []      -> error "Empty input list"
+    (_:[])  -> error $ "Too short of a list.\n" <> show l <> "\n"
+    (fz:zs) -> case unsnoc l of
                  Nothing -> error "Empty input list"
-                 (Just (_,[])) -> error "too short of a list."
-                 (Just vs) -> vs
-    x = lx:xs
-    (xs, lx) = case unsnoc l of
-                 Nothing -> error "Empty input list"
-                 (Just ([],_)) -> error "too short of a list."
-                 (Just vs) -> vs
+                 (Just ([],_)) -> error $ "too short of a list.\n" <> show l <> "\n"
+                 (Just (xs, lx)) -> withStrategy (parList rpar) $ x `par` z `pseq` zipWith3 f x l z
+                   where
+                     z = zs <> [fz]
+                     x = lx : xs
 
--- | like map, only with current, and next item, and wrapping around so the last entry gets the first entry as next.
+-- | Like map, only with current, and next item, and wrapping around so the last entry gets the first entry as next.
 mapWithFollower :: (Show a) => (a -> a -> b) -> [a] -> [b]
-mapWithFollower f l = withStrategy (parList rpar) $ z `pseq` PL.zipWith f l z
-  where
-    z = zs <> [fz]
-    (fz, zs) = case DL.uncons l of
-                 Nothing -> error "Empty input list"
-                 (Just (a,[])) -> error $ "too short of a list.\n" <> show a <> "\n"
-                 (Just vs) -> vs
 {-# INLINABLE mapWithFollower #-}
+mapWithFollower f l =
+  case l of
+    []      -> error "Empty input list."
+    (_:[])  -> error $ "too short of a list.\n" <> show l <> "\n"
+    (fz:zs) -> withStrategy (parList rpar) $ z `pseq` PL.zipWith f l z
+      where
+        z = zs <> [fz]
 
--- | like map, only with previous, and current item, and wrapping around so the first entry gets the last entry as previous.
+-- | Like map, only with previous, and current item, and wrapping around so the first entry gets the last entry as previous.
 mapWithPredecessor :: (a -> a -> b) -> [a] -> [b]
 mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` PL.zipWith f x l
   where
@@ -262,3 +281,11 @@ lineSegsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
   | size moreLines == Infinity = error "cannot handle infinite contours."
   | otherwise                  = l1:l2:lns
 
+-- | return the contour as a list of points.
+pointsOfContour :: Contour -> [Point2]
+pointsOfContour (PointContour _ _ p1 p2 p3 pts@(Slist vals _))
+  | size pts == Infinity = error "cannot handle infinite contours."
+  | otherwise            = p1:p2:p3:vals
+pointsOfContour (LineSegContour _ _ l1 l2 moreLines@(Slist lns _))
+  | size moreLines == Infinity = error "cannot handle infinite contours."
+  | otherwise                  = startPoint l1:startPoint l2:(startPoint <$> lns)

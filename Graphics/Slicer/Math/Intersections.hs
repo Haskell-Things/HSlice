@@ -49,21 +49,27 @@ import Graphics.Slicer.Math.PGA (Arcable(hasArc), Intersection, PIntersection(In
 -- | Check if two lines cannot intersect.
 {-# INLINABLE noIntersection #-}
 noIntersection :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
-noIntersection line1 line2 = isCollinear line1 line2 || isParallel line1 line2 || isAntiCollinear line1 line2 || isAntiParallel line1 line2
+noIntersection line1 line2 = res == PCollinear || res == PAntiCollinear || res == PParallel || res == PAntiParallel
+    where
+      res = plinesIntersectIn line1 line2
 
 -- | Check if two lines are really the same line.
+{-# INLINABLE isCollinear #-}
 isCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isCollinear line1 line2 = plinesIntersectIn line1 line2 == PCollinear
 
 -- | Check if two lines are really the same line, reversed.
+{-# INLINABLE isAntiCollinear #-}
 isAntiCollinear :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isAntiCollinear line1 line2 = plinesIntersectIn line1 line2 == PAntiCollinear
 
 -- | Check if two lines are parallel.
+{-# INLINABLE isParallel #-}
 isParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isParallel line1 line2 = plinesIntersectIn line1 line2 == PParallel
 
 -- | Check if two lines are anti-parallel.
+{-# INLINABLE isAntiParallel #-}
 isAntiParallel :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 isAntiParallel line1 line2 = plinesIntersectIn line1 line2 == PAntiParallel
 

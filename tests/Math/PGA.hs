@@ -31,7 +31,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, facetStatSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (Bool(True, False), Eq, Show, ($), (<$>), (==), error, (/=), (<=), otherwise, (&&), (+), show, length, (<>), fst, not, snd, length, mempty, pi, (<), (>), (-), (/), (*), (.))
+import Prelude (Bool(True, False), Eq, Show, ($), (<$>), (==), (>=), error, realToFrac, (/=), (<=), otherwise, (&&), (+), show, length, (<>), fst, not, snd, length, mempty, pi, (<), (>), (-), (/), (*), (.))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -45,32 +45,36 @@ import Data.Either (Either(Left, Right), fromRight, isLeft, rights)
 
 import Data.List (concat, foldl', transpose)
 
-import Data.Maybe (fromMaybe, fromJust, isNothing, Maybe(Just, Nothing))
+import Data.Maybe (fromMaybe, fromJust, isJust, isNothing, Maybe(Just, Nothing))
 
 import Data.Set (singleton, fromList)
+
+import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf))
 
 import Slist (slist, len)
 
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
+-- Our Contour library.
+import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, numPointsOfContour, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, maybeFlipContour)
+
+import Graphics.Slicer.Math.ContourIntersections (getLineContourIntersections)
+
 -- A euclidian point.
-import Graphics.Slicer.Math.Definitions(Point2(Point2), LineSeg(LineSeg), mapWithFollower, roundPoint2, startPoint, distance, xOf, yOf, minMaxPoints, makeLineSeg, endPoint)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), Contour(LineSegContour), mapWithFollower, pointsOfContour, roundPoint2, startPoint, distance, makeLineSeg, endPoint, pointBetweenPoints)
 
 -- Our Geometric Algebra library.
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpRaw, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, intersectionBetween, isCollinear, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, eToPLine2, getFirstArc, getOutsideArc, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2, PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), cPPointAndErrOf, distance2PL, distance2PP, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makeCPPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pPointOnPerpWithErr, outOf, errOfOut, fuzzinessOfL, sameDirection, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2, PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), cPPointAndErrOf, distance2PL, distance2PP, distancePPToPL, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makeCPPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, plinesIntersectIn, pPointOnPerpWithErr, outOf, combineConsecutiveLineSegs, errOfOut, fuzzinessOfL, join2EP, onSegment, sameDirection, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (angleBetween2PL, xIntercept, yIntercept)
-
--- Our Contour library.
-import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, pointsOfContour, numPointsOfContour, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, firstLineSegOfContour)
 
 -- Our imprecise Contour library.
 import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
@@ -80,6 +84,7 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
 -- Our Facet library.
 import Graphics.Slicer.Math.Arcs (towardIntersection)
+import Graphics.Slicer.Math.Contour (mostPerpPointAndLineSeg)
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, makeENode, makeENodes, averageNodes)
 import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), INode(INode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), Spine(Spine), StraightSkeleton(StraightSkeleton), getFirstLineSeg, getLastLineSeg)
@@ -123,10 +128,12 @@ contourSpec = do
       contourContainsContour c2 c1 --> False
     it "ignores two contours that do not contain one another" $
       contourContainsContour c1 c3 --> False
+    it "retains order in a contour passed through combineConsecutiveLineSegs" $
+      makeLineSegContour (combineConsecutiveLineSegs $ lineSegsOfContour c1) --> (makeLineSegContour $ lineSegsOfContour c1)
   where
     cp1 = [Point2 (1,0), Point2 (1,1), Point2 (0,1), Point2 (0,0)]
-    oocl1 = [(Point2 (1,0), Point2 (0,0)), (Point2 (0,1), Point2 (1,1)), (Point2 (0,0), Point2 (0,1)), (Point2 (1,1), Point2 (1,0))]
     cl1 = [(Point2 (0,0), Point2 (0,1)), (Point2 (0,1), Point2 (1,1)), (Point2 (1,1), Point2 (1,0)), (Point2 (1,0), Point2 (0,0))]
+    oocl1 = [(Point2 (1,0), Point2 (0,0)), (Point2 (0,1), Point2 (1,1)), (Point2 (0,0), Point2 (0,1)), (Point2 (1,1), Point2 (1,0))]
     c1 = makePointContour cp1
     c2 = makePointContour [Point2 (0.75,0.25), Point2 (0.75,0.75), Point2 (0.25,0.75), Point2 (0.25,0.25)]
     c3 = makePointContour [Point2 (3,0), Point2 (3,1), Point2 (2,1), Point2 (2,0)]
@@ -901,29 +908,31 @@ prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitud
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
 
+prop_TriangleNoConvexMotorcycles :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
+prop_TriangleNoConvexMotorcycles centerX centerY rawRadians rawDists = convexMotorcycles triangle --> []
+  where
+    triangle  = randomTriangle centerX centerY rawRadians rawDists
+
 prop_TriangleNoDivides :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
 prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions triangle (fromMaybe dumpError $ crashMotorcycles triangle []) --> []
   where
-    dumpError = error errorString
-    dumpError2 = error errorString
-    errorString =  dumpGanjas [toGanja triangle, toGanja (Point2 (centerX, centerY)), toGanja (PLine2 pLineToInside), toGanja (PLine2 pLineToOutside)] <> "\n"
-                <> show firstSeg <> "\n"
+    dumpError = error $ "no crash tree?\n" <> errorString
+    errorString =  dumpGanjas ([toGanja triangle, toGanja (Point2 (centerX, centerY)), toGanja pLineFromInside, toGanja pLineFromMid] <> (toGanja . fst . eToPL <$> lineSegsOfContour triangle)) <> "\n"
+                <> show lineSeg <> "\n"
                 <> show firstPoints <> "\n"
                 <> show (insideIsLeft triangle) <> "\n"
-                <> show (pLineIsLeft pLine (PLine2 pLineToInside, mempty)) <> "\n"
-    maybeInnerPoint = innerContourPoint triangle
-    triangle        = randomTriangle centerX centerY rawRadians rawDists
-    firstSeg        = firstLineSegOfContour triangle
-    pLine           = eToPL firstSeg
-    firstPoints     = firstPointPairOfContour triangle
-    (p1, p2)        = firstPointPairOfContour triangle
-    (myMidPoint,_)  = interpolate2PP (eToPP p1) (eToPP p2) 0.5 0.5
+                <> show (plinesIntersectIn pLine pLineFromInside) <> "\n"
     -- we normalize this for Ganja.js.
-    (NPLine2 pLineToInside) = fst $ normalizeL $ fst $ join2PP myMidPoint innerPoint
-    (NPLine2 pLineToOutside) = fst $ normalizeL $ fst $ join2PP innerPoint $ eToPP outsidePoint
-    innerPoint      = fromMaybe dumpError2 maybeInnerPoint
-    minPoint        = fst $ minMaxPoints triangle
-    outsidePoint    = Point2 (xOf minPoint - 0.00000001 , yOf minPoint - 0.00000001)
+    pLineFromInside = normalizeL $ fst $ join2PP innerPoint $ eToPP outsidePoint
+    pLineFromMid    = fst $ normalizeL $ fst $ join2EP midPoint outsidePoint
+    firstPoints     = firstPointPairOfContour triangle
+    innerPoint      = fromMaybe (error "cannot find inner point.") maybeInnerPoint
+    maybeInnerPoint = innerContourPoint triangle
+    midPoint        = pointBetweenPoints (startPoint lineSeg) (endPoint lineSeg)
+    pLine           = eToPL lineSeg
+    outsidePoint    = fst $ mostPerpPointAndLineSeg triangle
+    lineSeg         = snd $ mostPerpPointAndLineSeg triangle
+    triangle        = randomTriangle centerX centerY rawRadians rawDists
 
 prop_TriangleMotorcyclesEndAtSamePoint  :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Property
 prop_TriangleMotorcyclesEndAtSamePoint centerX centerY rawRadians rawDists
@@ -1046,9 +1055,11 @@ prop_RectangleFacesInOrder x y rawFirstTilt rawSecondTilt rawDistanceToCorner = 
     firstSeg = onlyOneOf rectangleAsSegs
 
 prop_ConvexDualRightQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_ConvexDualRightQuadNoDivides x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = findDivisions convexDualRightQuad (fromMaybe (error $ show convexDualRightQuad) $ crashMotorcycles convexDualRightQuad []) --> []
+prop_ConvexDualRightQuadNoDivides x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = findDivisions convexDualRightQuad (fromMaybe (errorReport) $ crashMotorcycles convexDualRightQuad []) --> []
   where
     convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
+    errorReport = error $ "failed to generate a motorcycle crash report.\n"
+                        <> dumpGanjas [toGanja convexDualRightQuad] <> "\n"
 
 prop_ConvexDualRightQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_ConvexDualRightQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = findStraightSkeleton convexDualRightQuad [] -/> Nothing
@@ -1239,21 +1250,42 @@ prop_LineSegWithinErrRange x1 y1 rawX2 rawY2
                                     else (0,0)
      | otherwise = (rawX2, rawY2)
 
+-- | A property test, ensuring that a point that is at least two times the pLine error away from a LineSeg does not show as being 'on' the line segment.
+prop_LineSegDistanceAway ::  ℝ -> ℝ -> ℝ -> ℝ -> ℝ -> NonZero ℝ -> Bool -> Bool
+prop_LineSegDistanceAway x1 y1 rawX2 rawY2 d1 rawD2 side
+  | onSegment lineSeg (projectedPoint, mempty) = error $  "found point on segment:\n"
+                                                       <> "Segment: " <> show lineSeg <> "\n"
+                                                       <> "Point: " <> show projectedPoint <> "\n"
+                                                       <> "Distance Given: " <> show distanceAway <> "\n"
+                                                       <> "Distance found: " <> show (distancePPToPL (projectedPoint, mempty) pLine) <> "\n"
+  | otherwise = True
+  where
+    (projectedPoint, _) = pPointOnPerpWithErr pl measuringPoint distanceAway
+    distanceAway = (if side then 2 else (-2)) * if errAtMeasuringPoint == 0 then coerce rawD2 else errAtMeasuringPoint
+    errAtMeasuringPoint = ulpVal $ fuzzinessOfL pLine <> pLineErrAtPPoint pLine measuringPoint
+    (measuringPoint, _) = interpolate2PP (eToPP $ startPoint lineSeg) (eToPP $ endPoint lineSeg) d1 (coerce rawD2)
+    pLine@(pl,_) = eToPL lineSeg
+    lineSeg = randomLineSeg x1 y1 x2 y2
+    (x2,y2)
+     | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
+                                    then (1,1)
+                                    else (0,0)
+     | otherwise = (rawX2, rawY2)
+
 prop_obtuseBisectorOnBiggerSide_makeENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Expectation
 prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
-  | testFirstLine = pLineIsLeft (bisector, mempty) pl1 --> Just True
-  | otherwise     = pLineIsLeft (pl2, pl2Err) (bisector, mempty) --> Just True
+  | testFirstLine = pLineIsLeft bisector pl1 --> Just True
+  | otherwise     = pLineIsLeft pl2 bisector --> Just True
   where
-    pl1 = eToPL $ getFirstLineSeg eNode
-    pl2 = flipL pl2Raw
-    (pl2Raw, pl2Err) =  eToPL $ getLastLineSeg eNode
+    (pl1, _) = eToPL $ getFirstLineSeg eNode
+    pl2 = flipL $ fst $ eToPL $ getLastLineSeg eNode
     eNode = randomENode x y d1 rawR1 d2 rawR2
     bisector = flipL $ outOf eNode
 
 prop_obtuseBisectorOnBiggerSide_makeINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> Expectation
-prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound > 1, angleFound < (-1)) --> (True, False)
+prop_obtuseBisectorOnBiggerSide_makeINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = (angleFound >= (1-ulpVal angleErr), angleFound < realToFrac (-1 + (ulpRaw angleErr :: Rounded 'TowardInf ℝ))) --> (True, False)
   where
-    (angleFound, _) = angleBetween2PL bisector1 bisector2
+    (angleFound, (_,_, angleErr)) = angleBetween2PL bisector1 bisector2
     eNode = randomENode x y d1 rawR1 d2 rawR2
     iNode = randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2
     bisector1 = outOf iNode
@@ -1424,6 +1456,171 @@ prop_PLineIntersectsAtYAxis x y x2 rawY2 m
     y2 :: ℝ
     y2 = coerce rawY2
 
+unit_LineContourIntersection1 :: Bool
+unit_LineContourIntersection1 = isJust res
+  where
+    res = getLineContourIntersections line contour
+    line = (PLine2 (GVec [GVal 1.9109380841879906 (fromList [GEZero 1]),GVal 1.0 (fromList [GEPlus 1]),GVal (-1.0) (fromList [GEPlus 2])]),
+            PLine2Err [] [] (UlpSum 0.0) (UlpSum 0.0) (UlpSum 0.0) ([ErrVal (UlpSum 3.3306690738754696e-16) (fromList [GEPlus 2]),ErrVal (UlpSum 2.220446049250313e-16) (fromList [GEPlus 1]),ErrVal (UlpSum 2.220446049250313e-16) (fromList [GEZero 1])],[ErrVal (UlpSum 2.220446049250313e-16) (fromList [GEPlus 2])])
+           )
+    contour = LineSegContour (Point2 (95.69999999999982,95.69999999999982)) (Point2 (104.3000000000001,104.3000000000001)) (LineSeg (Point2 (95.69999999999982,95.69999999999982)) (Point2 (104.3000000000001,95.69999999999993))) (LineSeg (Point2 (104.3000000000001,95.69999999999993)) (Point2 (104.3,104.3))) (slist [LineSeg (Point2 (104.3,104.3)) (Point2 (95.69999999999993,104.3000000000001)), LineSeg (Point2 (95.69999999999993,104.3000000000001)) (Point2 (95.69999999999982,95.69999999999982))])
+
+-- | a contour that failed.
+unit_ContourFlip1 :: Bool
+unit_ContourFlip1
+  | isJust res = True
+  | otherwise = error $ "fail!\n"
+                      <> show (mostPerpPointAndLineSeg contour) <> "\n"
+  where
+    res = maybeFlipContour contour
+    contour = makeLineSegContour
+              [
+                LineSeg (Point2 (93.5,94.90828649116408)) (Point2 (93.50076817859392,94.96819764062953))
+              , LineSeg (Point2 (93.50076817859392,94.96819764062953)) (Point2 (93.5,95.0))
+              , LineSeg (Point2 (93.5,95.0)) (Point2 (93.50076817859392,95.03180235937047))
+              , LineSeg (Point2 (93.50076817859392,95.03180235937047)) (Point2 (93.5,95.09171350883592))
+              , LineSeg (Point2 (93.5,95.09171350883592)) (Point2 (93.50802402291995,95.12805658872026))
+              , LineSeg (Point2 (93.50802402291995,95.12805658872026)) (Point2 (93.51042508054853,95.17571341324486))
+              , LineSeg (Point2 (93.51042508054853,95.17571341324486)) (Point2 (93.51650085187936,95.20928521609989))
+              , LineSeg (Point2 (93.51650085187936,95.20928521609989)) (Point2 (93.53030551178848,95.3))
+              , LineSeg (Point2 (93.53030551178848,95.3)) (Point2 (93.5303052036906,95.3))
+              , LineSeg (Point2 (93.5303052036906,95.3)) (Point2 (93.54623152772308,95.36137354922205))
+              , LineSeg (Point2 (93.54623152772308,95.36137354922205)) (Point2 (93.5543599506901,95.3926959847688))
+              , LineSeg (Point2 (93.5543599506901,95.3926959847688)) (Point2 (93.56928030410899,95.45059503353703))
+              , LineSeg (Point2 (93.56928030410899,95.45059503353703)) (Point2 (93.59377323794409,95.51632485154659))
+              , LineSeg (Point2 (93.59377323794409,95.51632485154659)) (Point2 (93.62517113206894,95.6))
+              , LineSeg (Point2 (93.62517113206894,95.6)) (Point2 (93.66980260367518,95.68796916309205))
+              , LineSeg (Point2 (93.66980260367518,95.68796916309205)) (Point2 (93.70107642110081,95.75017147975183))
+              , LineSeg (Point2 (93.70107642110081,95.75017147975183)) (Point2 (93.75361660957962,95.83016909486017))
+              , LineSeg (Point2 (93.75361660957962,95.83016909486017)) (Point2 (93.79991901117867,95.9))
+              , LineSeg (Point2 (93.79991901117867,95.9)) (Point2 (93.8,95.90018235516857))
+              , LineSeg (Point2 (93.8,95.90018235516857)) (Point2 (93.86807142062428,95.97866928708568))
+              , LineSeg (Point2 (93.86807142062428,95.97866928708568)) (Point2 (93.9393399,96.0606601))
+              , LineSeg (Point2 (93.9393399,96.0606601)) (Point2 (94.02133071291432,96.13192857937572))
+              , LineSeg (Point2 (94.02133071291432,96.13192857937572)) (Point2 (94.09981764483143,96.2))
+              , LineSeg (Point2 (94.09981764483143,96.2)) (Point2 (94.1,96.20008098882133))
+              , LineSeg (Point2 (94.1,96.20008098882133)) (Point2 (94.16983090513983,96.24638339042038))
+              , LineSeg (Point2 (94.16983090513983,96.24638339042038)) (Point2 (94.24982852024817,96.29892357889919))
+              , LineSeg (Point2 (94.24982852024817,96.29892357889919)) (Point2 (94.31203083690795,96.33019739632482))
+              , LineSeg (Point2 (94.31203083690795,96.33019739632482)) (Point2 (94.4,96.37482886793106))
+              , LineSeg (Point2 (94.4,96.37482886793106)) (Point2 (94.48367514845341,96.40622676205591))
+              , LineSeg (Point2 (94.48367514845341,96.40622676205591)) (Point2 (94.54940496646297,96.43071969589101))
+              , LineSeg (Point2 (94.54940496646297,96.43071969589101)) (Point2 (94.6073040152312,96.4456400493099))
+              , LineSeg (Point2 (94.6073040152312,96.4456400493099)) (Point2 (94.7,96.46969448821152))
+              , LineSeg (Point2 (94.7,96.46969448821152)) (Point2 (94.79071478390011,96.48349914812064))
+              , LineSeg (Point2 (94.79071478390011,96.48349914812064)) (Point2 (94.82428658675514,96.48957491945147))
+              , LineSeg (Point2 (94.82428658675514,96.48957491945147)) (Point2 (94.87194341127974,96.49197597708005))
+              , LineSeg (Point2 (94.87194341127974,96.49197597708005)) (Point2 (94.90828649116408,96.5))
+              , LineSeg (Point2 (94.90828649116408,96.5)) (Point2 (94.96819764062953,96.49923182140608))
+              , LineSeg (Point2 (94.96819764062953,96.49923182140608)) (Point2 (95.0,96.5))
+              , LineSeg (Point2 (95.0,96.5)) (Point2 (95.03180235937047,96.49923182140608))
+              , LineSeg (Point2 (95.03180235937047,96.49923182140608)) (Point2 (95.09171350883592,96.5))
+              , LineSeg (Point2 (95.09171350883592,96.5)) (Point2 (95.12805658872026,96.49197597708005))
+              , LineSeg (Point2 (95.12805658872026,96.49197597708005)) (Point2 (95.17571341324486,96.48957491945147))
+              , LineSeg (Point2 (95.17571341324486,96.48957491945147)) (Point2 (95.20928521609989,96.48349914812064))
+              , LineSeg (Point2 (95.20928521609989,96.48349914812064)) (Point2 (95.3,96.46969448821152))
+              , LineSeg (Point2 (95.3,96.46969448821152)) (Point2 (95.3926959847688,96.4456400493099))
+              , LineSeg (Point2 (95.3926959847688,96.4456400493099)) (Point2 (95.45059503353703,96.43071969589101))
+              , LineSeg (Point2 (95.45059503353703,96.43071969589101)) (Point2 (95.51632485154659,96.40622676205591))
+              , LineSeg (Point2 (95.51632485154659,96.40622676205591)) (Point2 (95.6,96.37482886793106))
+              , LineSeg (Point2 (95.6,96.37482886793106)) (Point2 (95.68796916309205,96.33019739632482))
+              , LineSeg (Point2 (95.68796916309205,96.33019739632482)) (Point2 (95.75017147975183,96.29892357889919))
+              , LineSeg (Point2 (95.75017147975183,96.29892357889919)) (Point2 (95.83016909486017,96.24638339042038))
+              , LineSeg (Point2 (95.83016909486017,96.24638339042038)) (Point2 (95.9,96.20008098882133))
+              , LineSeg (Point2 (95.9,96.20008098882133)) (Point2 (95.90018235516857,96.2))
+              , LineSeg (Point2 (95.90018235516857,96.2)) (Point2 (95.97866928708568,96.13192857937572))
+              , LineSeg (Point2 (95.97866928708568,96.13192857937572)) (Point2 (96.0606601,96.0606601))
+              , LineSeg (Point2 (96.0606601,96.0606601)) (Point2 (96.13192857937572,95.97866928708568))
+              , LineSeg (Point2 (96.13192857937572,95.97866928708568)) (Point2 (96.2,95.90018235516857))
+              , LineSeg (Point2 (96.2,95.90018235516857)) (Point2 (96.20008098882133,95.9))
+              , LineSeg (Point2 (96.20008098882133,95.9)) (Point2 (96.24638339042038,95.83016909486017))
+              , LineSeg (Point2 (96.24638339042038,95.83016909486017)) (Point2 (96.29892357889919,95.75017147975183))
+              , LineSeg (Point2 (96.29892357889919,95.75017147975183)) (Point2 (96.33019739632482,95.68796916309205))
+              , LineSeg (Point2 (96.33019739632482,95.68796916309205)) (Point2 (96.37482886793106,95.6))
+              , LineSeg (Point2 (96.37482886793106,95.6)) (Point2 (96.40622676205591,95.51632485154659))
+              , LineSeg (Point2 (96.40622676205591,95.51632485154659)) (Point2 (96.43071969589101,95.45059503353703))
+              , LineSeg (Point2 (96.43071969589101,95.45059503353703)) (Point2 (96.4456400493099,95.3926959847688))
+              , LineSeg (Point2 (96.4456400493099,95.3926959847688)) (Point2 (96.46969448821152,95.3))
+              , LineSeg (Point2 (96.46969448821152,95.3)) (Point2 (96.4696947963094,95.3))
+              , LineSeg (Point2 (96.4696947963094,95.3)) (Point2 (96.47883479278863,95.23993819399247))
+              , LineSeg (Point2 (96.47883479278863,95.23993819399247)) (Point2 (96.48349914812064,95.20928521609989))
+              , LineSeg (Point2 (96.48349914812064,95.20928521609989)) (Point2 (96.48957491945147,95.17571341324486))
+              , LineSeg (Point2 (96.48957491945147,95.17571341324486)) (Point2 (96.49197597708005,95.12805658872026))
+              , LineSeg (Point2 (96.49197597708005,95.12805658872026)) (Point2 (96.5,95.09171350883592))
+              , LineSeg (Point2 (96.5,95.09171350883592)) (Point2 (96.49923182140608,95.03180235937047))
+              , LineSeg (Point2 (96.49923182140608,95.03180235937047)) (Point2 (96.5,95.0))
+              , LineSeg (Point2 (96.5,95.0)) (Point2 (96.49923182140608,94.96819764062953))
+              , LineSeg (Point2 (96.49923182140608,94.96819764062953)) (Point2 (96.5,94.90828649116408))
+              , LineSeg (Point2 (96.5,94.90828649116408)) (Point2 (96.49197597708005,94.87194341127974))
+              , LineSeg (Point2 (96.49197597708005,94.87194341127974)) (Point2 (96.48957491945147,94.82428658675514))
+              , LineSeg (Point2 (96.48957491945147,94.82428658675514)) (Point2 (96.48349914812064,94.79071478390011))
+              , LineSeg (Point2 (96.48349914812064,94.79071478390011)) (Point2 (96.46969448821152,94.7))
+              , LineSeg (Point2 (96.46969448821152,94.7)) (Point2 (96.4696947963094,94.7))
+              , LineSeg (Point2 (96.4696947963094,94.7)) (Point2 (96.45376847227692,94.63862645077795))
+              , LineSeg (Point2 (96.45376847227692,94.63862645077795)) (Point2 (96.4456400493099,94.6073040152312))
+              , LineSeg (Point2 (96.4456400493099,94.6073040152312)) (Point2 (96.43071969589101,94.54940496646297))
+              , LineSeg (Point2 (96.43071969589101,94.54940496646297)) (Point2 (96.40622676205591,94.48367514845341))
+              , LineSeg (Point2 (96.40622676205591,94.48367514845341)) (Point2 (96.37482886793106,94.4))
+              , LineSeg (Point2 (96.37482886793106,94.4)) (Point2 (96.33019739632482,94.31203083690795))
+              , LineSeg (Point2 (96.33019739632482,94.31203083690795)) (Point2 (96.29892357889919,94.24982852024817))
+              , LineSeg (Point2 (96.29892357889919,94.24982852024817)) (Point2 (96.24638339042038,94.16983090513983))
+              , LineSeg (Point2 (96.24638339042038,94.16983090513983)) (Point2 (96.20008098882133,94.1))
+              , LineSeg (Point2 (96.20008098882133,94.1)) (Point2 (96.2,94.09981764483143))
+              , LineSeg (Point2 (96.2,94.09981764483143)) (Point2 (96.13192857937572,94.02133071291432))
+              , LineSeg (Point2 (96.13192857937572,94.02133071291432)) (Point2 (96.0606601,93.9393399))
+              , LineSeg (Point2 (96.0606601,93.9393399)) (Point2 (95.97866928708568,93.86807142062428))
+              , LineSeg (Point2 (95.97866928708568,93.86807142062428)) (Point2 (95.90018235516857,93.8))
+              , LineSeg (Point2 (95.90018235516857,93.8)) (Point2 (95.9,93.79991901117867))
+              , LineSeg (Point2 (95.9,93.79991901117867)) (Point2 (95.83016909486017,93.75361660957962))
+              , LineSeg (Point2 (95.83016909486017,93.75361660957962)) (Point2 (95.75017147975183,93.70107642110081))
+              , LineSeg (Point2 (95.75017147975183,93.70107642110081)) (Point2 (95.68796916309205,93.66980260367518))
+              , LineSeg (Point2 (95.68796916309205,93.66980260367518)) (Point2 (95.6,93.62517113206894))
+              , LineSeg (Point2 (95.6,93.62517113206894)) (Point2 (95.51632485154659,93.59377323794409))
+              , LineSeg (Point2 (95.51632485154659,93.59377323794409)) (Point2 (95.45059503353703,93.56928030410899))
+              , LineSeg (Point2 (95.45059503353703,93.56928030410899)) (Point2 (95.3926959847688,93.5543599506901))
+              , LineSeg (Point2 (95.3926959847688,93.5543599506901)) (Point2 (95.3,93.53030551178848))
+              , LineSeg (Point2 (95.3,93.53030551178848)) (Point2 (95.20928521609989,93.51650085187936))
+              , LineSeg (Point2 (95.20928521609989,93.51650085187936)) (Point2 (95.17571341324486,93.51042508054853))
+              , LineSeg (Point2 (95.17571341324486,93.51042508054853)) (Point2 (95.12805658872026,93.50802402291995))
+              , LineSeg (Point2 (95.12805658872026,93.50802402291995)) (Point2 (95.09171350883592,93.5))
+              , LineSeg (Point2 (95.09171350883592,93.5)) (Point2 (95.03180235937047,93.50076817859392))
+              , LineSeg (Point2 (95.03180235937047,93.50076817859392)) (Point2 (95.0,93.5))
+              , LineSeg (Point2 (95.0,93.5)) (Point2 (94.96819764062953,93.50076817859392))
+              , LineSeg (Point2 (94.96819764062953,93.50076817859392)) (Point2 (94.90828649116408,93.5))
+              , LineSeg (Point2 (94.90828649116408,93.5)) (Point2 (94.87194341127974,93.50802402291995))
+              , LineSeg (Point2 (94.87194341127974,93.50802402291995)) (Point2 (94.82428658675514,93.51042508054853))
+              , LineSeg (Point2 (94.82428658675514,93.51042508054853)) (Point2 (94.79071478390011,93.51650085187936))
+              , LineSeg (Point2 (94.79071478390011,93.51650085187936)) (Point2 (94.7,93.53030551178848))
+              , LineSeg (Point2 (94.7,93.53030551178848)) (Point2 (94.7,93.5303052036906))
+              , LineSeg (Point2 (94.7,93.5303052036906)) (Point2 (94.63862645077795,93.54623152772308))
+              , LineSeg (Point2 (94.63862645077795,93.54623152772308)) (Point2 (94.6073040152312,93.5543599506901))
+              , LineSeg (Point2 (94.6073040152312,93.5543599506901)) (Point2 (94.54940496646297,93.56928030410899))
+              , LineSeg (Point2 (94.54940496646297,93.56928030410899)) (Point2 (94.48367514845341,93.59377323794409))
+              , LineSeg (Point2 (94.48367514845341,93.59377323794409)) (Point2 (94.4,93.62517113206894))
+              , LineSeg (Point2 (94.4,93.62517113206894)) (Point2 (94.31203083690795,93.66980260367518))
+              , LineSeg (Point2 (94.31203083690795,93.66980260367518)) (Point2 (94.25353875995638,93.69901822960128))
+              , LineSeg (Point2 (94.25353875995638,93.69901822960128)) (Point2 (94.19794823502583,93.73505399213997))
+              , LineSeg (Point2 (94.19794823502583,93.73505399213997)) (Point2 (94.1,93.8))
+              , LineSeg (Point2 (94.1,93.8)) (Point2 (93.99141809848126,93.89417267448127))
+              , LineSeg (Point2 (93.99141809848126,93.89417267448127)) (Point2 (93.9393399,93.9393399))
+              , LineSeg (Point2 (93.9393399,93.9393399)) (Point2 (93.89417267448127,93.99141809848126))
+              , LineSeg (Point2 (93.89417267448127,93.99141809848126)) (Point2 (93.8,94.1))
+              , LineSeg (Point2 (93.8,94.1)) (Point2 (93.73505399213997,94.19794823502583))
+              , LineSeg (Point2 (93.73505399213997,94.19794823502583)) (Point2 (93.69901822960128,94.25353875995638))
+              , LineSeg (Point2 (93.69901822960128,94.25353875995638)) (Point2 (93.66980260367518,94.31203083690795))
+              , LineSeg (Point2 (93.66980260367518,94.31203083690795)) (Point2 (93.62517113206894,94.4))
+              , LineSeg (Point2 (93.62517113206894,94.4)) (Point2 (93.59377323794409,94.48367514845341))
+              , LineSeg (Point2 (93.59377323794409,94.48367514845341)) (Point2 (93.56928030410899,94.54940496646297))
+              , LineSeg (Point2 (93.56928030410899,94.54940496646297)) (Point2 (93.5543599506901,94.6073040152312))
+              , LineSeg (Point2 (93.5543599506901,94.6073040152312)) (Point2 (93.53030551178848,94.7))
+              , LineSeg (Point2 (93.53030551178848,94.7)) (Point2 (93.5303052036906,94.7))
+              , LineSeg (Point2 (93.5303052036906,94.7)) (Point2 (93.52116520721137,94.76006180600753))
+              , LineSeg (Point2 (93.52116520721137,94.76006180600753)) (Point2 (93.51650085187936,94.79071478390011))
+              , LineSeg (Point2 (93.51650085187936,94.79071478390011)) (Point2 (93.51042508054853,94.82428658675514))
+              , LineSeg (Point2 (93.51042508054853,94.82428658675514)) (Point2 (93.50802402291995,94.87194341127974))
+              , LineSeg (Point2 (93.50802402291995,94.87194341127974)) (Point2 (93.5,94.90828649116408))
+              ]
+
 facetFlakeySpec :: Spec
 facetFlakeySpec = do
   describe "Stability (Points)" $ do
@@ -1479,6 +1676,8 @@ facetSpec = do
       property prop_LineSegWithinErrRange
     it "a normalized line normalized again is approximately itsself" $
       property prop_NormPLineIsPLine
+    it "points that are further than the accumulated error away from a line segment are not onSegment" $
+      property prop_LineSegDistanceAway
     it "a projective line is colinear with itsself" $
       property prop_PLineSameDirectionID
   describe "Stability (Intersections)" $ do
@@ -1508,6 +1707,8 @@ facetSpec = do
       property prop_AxisAligned135DegreeAnglesInENode
     it "finds the inside arcs of 45 degree angles with one side parallel to an axis (enode)" $
       property prop_AxisAligned45DegreeAnglesInENode
+    it "finds no convex motorcycles in a triangle" $
+      property prop_TriangleNoConvexMotorcycles
     it "finds no divides in a triangle" $
       property prop_TriangleNoDivides
 --    it "finds that all motorcycles intersect at the same point in a triangle" $
@@ -1791,6 +1992,10 @@ facetSpec = do
                  (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1))]))
            ])
 -}
+    it "finds an infill line (unit)" $
+      unit_LineContourIntersection1
+    it "flips a contour (unit)" $
+      unit_ContourFlip1
     where
       -- c0 - c4 are the contours of a square around the origin with a 90 degree chunk missing, rotated 0, 90, 180, 270 and 360 degrees:
       --    __
