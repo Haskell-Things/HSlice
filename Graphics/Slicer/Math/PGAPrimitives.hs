@@ -415,25 +415,26 @@ translateL l d = translateProjectiveLine l d
 pLineErrAtPPoint :: (ProjectiveLine2 a, ProjectivePoint2 b) => (a, PLine2Err) -> b -> UlpSum
 pLineErrAtPPoint (line, lineErr) errPoint
   -- Both intercepts are real. This line is not parallel or collinear to X or Y axises, and does not pass through the origin.
-  | xInterceptIsReal && yInterceptIsReal = xInterceptFuzz <> yInterceptFuzz
+  | xInterceptExists && xInterceptIsNonZero &&
+    yInterceptExists && yInterceptIsNonZero = xInterceptFuzz <> yInterceptFuzz
   -- Only the xIntercept is real. This line is parallel to the Y axis.
-  | xInterceptIsReal = xInterceptFuzz
+  | xInterceptExists && xInterceptIsNonZero = xInterceptFuzz
   -- Only the yIntercept is real. This line is parallel to the X axis.
-  | yInterceptIsReal = yInterceptFuzz
+  | yInterceptExists && yInterceptIsNonZero = yInterceptFuzz
   -- This line passes through the origin (0,0).
-  | xInterceptIsJust && yInterceptIsJust = if xPos /= 0 && yPos /= 0
+  | xInterceptExists && yInterceptExists = if xPos /= 0 && yPos /= 0
                                            then UlpSum $ (realToFrac $ 1 + sqrt (abs xPos + abs yPos)) * (ulpRaw $ rawXInterceptFuzz <> rawYInterceptFuzz)
                                            else rawXInterceptFuzz <> rawYInterceptFuzz
-  | xInterceptIsJust = UlpSum $ (realToFrac $ 1 + abs xPos) * ulpRaw rawXInterceptFuzz
-  | yInterceptIsJust = UlpSum $ (realToFrac $ 1 + abs yPos) * ulpRaw rawYInterceptFuzz
+  | xInterceptExists = UlpSum $ (realToFrac $ 1 + abs xPos) * ulpRaw rawXInterceptFuzz
+  | yInterceptExists = UlpSum $ (realToFrac $ 1 + abs yPos) * ulpRaw rawYInterceptFuzz
   | otherwise = error "whoops!"
   where
-    xInterceptIsReal = xInterceptIsJust
-                        && xInterceptDistance /= 0
-    yInterceptIsReal = yInterceptIsJust
-                        && yInterceptDistance /= 0
-    xInterceptIsJust = isJust (xIntercept (nPLine, nPLineErr))
-    yInterceptIsJust = isJust (yIntercept (nPLine, nPLineErr))
+    xInterceptIsNonZero = xInterceptExists
+                          && xInterceptDistance /= 0
+    yInterceptIsNonZero = yInterceptExists
+                          && yInterceptDistance /= 0
+    xInterceptExists = isJust (xIntercept (nPLine, nPLineErr))
+    yInterceptExists = isJust (yIntercept (nPLine, nPLineErr))
     xInterceptFuzz = UlpSum $ ulpRaw rawXInterceptFuzz * (realToFrac (abs xPos) / xMax)
     yInterceptFuzz = UlpSum $ ulpRaw rawYInterceptFuzz * (realToFrac (abs yPos) / yMax)
     xMax = realToFrac (abs xInterceptDistance) + ulpRaw rawXInterceptFuzz
