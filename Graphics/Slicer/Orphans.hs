@@ -1,8 +1,3 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE PolyKinds #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-
 {-
  - Copyright 2016 Noah Halford and Catherine Moresco
  - Copyright 2019 Julia Longtin
@@ -21,14 +16,29 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
+-- This file is a container for orphan instances. these should go in their appropriate upstreams.
+
+-- So that none of the orphans here generate warnings.
+{-# OPTIONS_GHC -Wno-orphans #-}
+
+-- So we can use ℝ in instance declarations.
+{-# LANGUAGE FlexibleInstances #-}
+
+-- So we can use TowardInf'
+{-# LANGUAGE DataKinds #-}
+
 -- So we can add generic to ℝ
 {-# LANGUAGE StandaloneDeriving #-}
+
+-- So we can add generic to ℝ
 {-# LANGUAGE DeriveGeneric #-}
 
 -- So we can add MemoTrie to ℝ
-{-# LANGUAGE TypeFamilies, TypeOperators #-}
+{-# LANGUAGE TypeFamilies #-}
 
--- | container for orphan instances. these should go in their appropriate upstreams.
+-- So we can add MemoTrie to ℝ
+{-# LANGUAGE TypeOperators #-}
+
 module Graphics.Slicer.Orphans () where
 
 import Prelude (Double, Integer, Int, Monoid(mempty), Ord, Semigroup((<>)), (+), (.), ($), decodeFloat, error, encodeFloat, seq, uncurry)

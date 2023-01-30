@@ -49,7 +49,7 @@ import Graphics.Slicer.Math.PGA (Intersection(HitEndPoint, HitStartPoint, NoInte
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
-
+-- | Memoized entry point for contourIntersectionCount'
 contourIntersectionCount :: Contour -> (Point2, Point2) -> Int
 contourIntersectionCount = memo2 contourIntersectionCount'
 

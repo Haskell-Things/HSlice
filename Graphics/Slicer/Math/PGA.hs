@@ -438,7 +438,7 @@ lineSegIntersectsLineSeg l1 l2
 onSegment :: (ProjectivePoint2 a) => LineSeg -> (a, PPoint2Err) -> Bool
 onSegment lineSeg iPoint@(iP, _) =
      (startDistance <= startFudgeFactor)
-  || (lineDistance <= lineFudgeFactor && midDistance <= (lengthOfSegment/2) + midFudgeFactor) 
+  || (lineDistance <= lineFudgeFactor && midDistance <= (lengthOfSegment/2) + midFudgeFactor)
   || (endDistance <= endFudgeFactor)
   where
     startFudgeFactor = ulpVal $ startDistanceErr <> iErr <> tErr <> pLineErrAtPPoint pLine start

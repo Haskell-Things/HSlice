@@ -79,7 +79,6 @@ import Graphics.Slicer.Math.PGAPrimitives (angleBetween2PL, xIntercept, yInterce
 -- Our imprecise Contour library.
 import Graphics.Slicer.Machine.Contour (shrinkContour, expandContour)
 
-
 -- Our Infill library.
 import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 
