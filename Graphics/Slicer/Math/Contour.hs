@@ -46,7 +46,7 @@ module Graphics.Slicer.Math.Contour (
   numPointsOfContour
   ) where
 
-import Prelude ((==), (&&), (>), (*), Int, (+), abs, otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
+import Prelude ((==), (&&), (>), (*), Int, (+), abs, mempty, otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
 
 import Data.List (head, partition, reverse, sortBy, zip)
 
@@ -69,7 +69,7 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.ContourIntersections (contourIntersectionCount)
 
-import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), LineSeg(endPoint, startPoint), Point2(Point2), fudgeFactor, lineSegsOfContour, makeLineSeg, minMaxPoints, pointBetweenPoints, pointsOfContour, xOf, yOf)
+import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), LineSeg(endPoint, startPoint), Point2(Point2), lineSegsOfContour, makeLineSeg, minMaxPoints, pointBetweenPoints, pointsOfContour, xOf, yOf)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
@@ -77,7 +77,7 @@ import Graphics.Slicer.Math.Intersections (noIntersection, intersectionOf)
 
 import Graphics.Slicer.Math.Lossy (pToEPoint2, eToPLine2)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine2, ProjectivePoint, angleBetween2PL, eToPL, eToPP, fuzzinessOfL, fuzzinessOfP, join2EP, join2PP, pLineErrAtPPoint, pLineIsLeft, pPointOnPerpWithErr)
+import Graphics.Slicer.Math.PGA (ProjectiveLine2, ProjectivePoint, angleBetween2PL, distance2PP, eToPL, eToPP, fuzzinessOfL, fuzzinessOfP, join2EP, join2PP, pLineErrAtPPoint, pLineIsLeft, pPointOnPerpWithErr)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -282,16 +282,14 @@ innerContourPoint contour
     (outsidePoint, lineSeg) = mostPerpPointAndLineSeg contour
 
 -- | The minimum measurable distance of a point from the midpoint of a line segment
+-- FIXME: magic number.
+-- Note: this should be the opposite of PGA.hs' onSegment. after all, we're trying to come up with a distance where onSegment won't trigger.
 minDistanceFromSegMidPoint :: Point2 -> LineSeg -> ℝ
-minDistanceFromSegMidPoint outsidePoint lineSeg = midPointFuzz + lineFuzz
+minDistanceFromSegMidPoint outsidePoint lineSeg = 3200 * (midDistance + ulpVal (midDistanceErr <> perpErr))
   where
-    -- The minimum distance you have to get away from this line segment not to have intersection functions think you contact it.
-    -- FIXME: two magic numbers. the bigger these values are, the more likely we are to have a perpendicular segment that hits another line segment of the contour.
-    lineFuzz = case ulpVal (fuzzinessOfL pLine <> pLineErrAtPPoint pLine (eToPP midPoint)) of
-                 -- things very close to 0 have no error to multiply. we have to have some value, so use this.
-                 0 -> 10000 * fudgeFactor
-                 -- for points further away.
-                 v -> 10000 * v * 2
+    (midDistance, (_,_, midDistanceErr)) = distance2PP (eToPP midPoint, mempty) (perpPoint, mempty)
+    (perpPoint,  (_,_,_, perpErr)) = pPointOnPerpWithErr (fst pLine) (eToPP midPoint) (lineFuzz + midPointFuzz)
+    lineFuzz = ulpVal (fuzzinessOfL pLine <> pLineErrAtPPoint pLine (eToPP midPoint))
     -- The amount of error introduced by intersecting from the outsidePoint to the given line segment.
     midPointFuzz = ulpVal $ fuzzinessOfP $ intersectionOf pLine outsideLine
     outsideLine = join2EP midPoint outsidePoint
