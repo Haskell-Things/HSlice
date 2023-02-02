@@ -25,7 +25,7 @@ module Graphics.Slicer.Math.ContourIntersections (
   getMotorcycleSegSetIntersections
   ) where
 
-import Prelude (Either(Left, Right), Int, Show(show), (<$>), (<>), ($), (/=), (&&), (<), (*), error, fst, length, odd, otherwise, zip)
+import Prelude (Either(Left, Right), Int, Show(show), (<$>), (<>), (<=), ($), (/=), (&&), error, fst, length, mempty, odd, otherwise, zip)
 
 import Data.List (filter)
 
@@ -39,13 +39,15 @@ import Slist (len, slist)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(endPoint, startPoint), Point2, distance, fudgeFactor, lineSegsOfContour, makeLineSeg, mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(endPoint, startPoint), Point2, distance, lineSegsOfContour, makeLineSeg, mapWithNeighbors)
 
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
+import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
+
 import Graphics.Slicer.Math.Intersections (outputIntersectsLineSeg)
 
-import Graphics.Slicer.Math.PGA (Intersection(HitEndPoint, HitStartPoint, NoIntersection), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), ProjectivePoint, ProjectiveLine, ProjectiveLine2, PLine2Err, intersectsWithErr, normalizeL, pToEP, eToPP)
+import Graphics.Slicer.Math.PGA (Intersection(HitEndPoint, HitStartPoint, NoIntersection), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), ProjectivePoint, ProjectiveLine, ProjectiveLine2, PLine2Err, distance2PP, intersectsWithErr, normalizeL, pToEP, eToPP)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -136,10 +138,13 @@ filterIntersections  _ (Just (_  , Right PParallel))            _ = Nothing
 filterIntersections  _ (Just (_  , Right PAntiParallel))        _ = Nothing
 -- when we hit a end -> start -> end, look at the distance to tell where we hit.
 filterIntersections (Just (seg1, Left (HitEndPoint   l1 ))) (Just (seg2, Left (HitStartPoint _ ))) (Just (seg3 , Left (HitEndPoint   l2)))
- | distance (endPoint seg1) (startPoint seg2) < fudgeFactor*15 = Just (seg2, Left $ endPoint l1)
- | distance (startPoint seg2) (endPoint seg3) < fudgeFactor*15 = Just (seg2, Left $ endPoint l2)
- | otherwise = error "wtf"
- -- only count the first start point, when going in one direction..
+  | distance1To2 <= ulpVal distance1To2Err = Just (seg2, Left $ endPoint l1)
+  | distance2To3 <= ulpVal distance2To3Err = Just (seg2, Left $ endPoint l2)
+  | otherwise = error "wtf"
+  where
+    (distance1To2, (_,_, distance1To2Err)) = distance2PP (eToPP $ endPoint seg1, mempty) (eToPP $ startPoint seg2, mempty)
+    (distance2To3, (_,_, distance2To3Err)) = distance2PP (eToPP $ startPoint seg2, mempty) (eToPP $ endPoint seg3, mempty)
+-- only count the first start point, when going in one direction..
 filterIntersections  _                                     (Just (seg , Left (HitStartPoint _ ))) (Just (_    , Left (HitEndPoint     l1))) = Just (seg, Left $ endPoint l1)
 filterIntersections (Just (_ , Left (HitStartPoint  _  ))) (Just (_   , Left (HitEndPoint   _ )))  _                                        = Nothing
 -- and only count the first start point, when going in the other direction.
