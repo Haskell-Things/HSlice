@@ -85,11 +85,11 @@ deriving instance Generic Size
 
 deriving instance Generic (Slist a)
 
--- FIXME: test decodeFloat
+-- | Take apart a double, returning things hasTrie can already handle.
 mangle :: Double -> (Integer, Int)
 mangle = decodeFloat
 
--- FIXME: test encodeFloat
+-- | Accept our mangled double's contents back from HasTrie, encoding it back into a Double.
 unMangle :: (Integer, Int) -> Double
 unMangle = uncurry encodeFloat
 
