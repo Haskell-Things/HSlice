@@ -36,7 +36,9 @@ import Slist (slist, isEmpty, len, init, tail, take, dropWhile, head, one, last)
 
 import Slist as SL (reverse)
 
-import Graphics.Slicer.Math.Definitions (LineSeg, distance, fudgeFactor)
+import Graphics.Slicer.Math.Definitions (LineSeg)
+
+import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.Intersections (isCollinear)
 
@@ -44,7 +46,7 @@ import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkele
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, findENodeByOutput, findINodeByOutput, firstSegOf, lastENodeOf, firstENodeOf, pathFirst, pathLast)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, Arcable(hasArc, outOf), ePointOf, outAndErrOf, plinesIntersectIn, sameDirection)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, Arcable(hasArc, outOf), distance2PP, cPPointAndErrOf, outAndErrOf, plinesIntersectIn, sameDirection)
 
 --------------------------------------------------------------------
 -------------------------- Face Placement --------------------------
@@ -200,7 +202,9 @@ areaBetween iNodeSet eNodeSet@(ENodeSet (Slist [(_,_)] _)) pLine1 pLine2
                       makeFace (firstDescendent iNodeSet eNodeSet pLine1) (SL.reverse (pathToFirstDescendent iNodeSet eNodeSet pLine2) <> pathToLastDescendent iNodeSet eNodeSet pLine1) (lastDescendent iNodeSet eNodeSet pLine2)
   where
     -- Detect the case where we are creating a face across the open end of the contour.
-    reverseTriangle = distance (ePointOf $ lastDescendent iNodeSet eNodeSet pLine1) (ePointOf $ firstDescendent iNodeSet eNodeSet pLine2) > fudgeFactor
+    reverseTriangle = distance > ulpVal distanceErr
+      where
+        (distance, (_,_,distanceErr)) = distance2PP (cPPointAndErrOf $ lastDescendent iNodeSet eNodeSet pLine1) (cPPointAndErrOf $ firstDescendent iNodeSet eNodeSet pLine2)
     -- our error condition.
     errNodesNotNeighbors = error $ "cannot make a face from nodes that are not neighbors: \n" <> show eNodeSet <> "\n" <> show pLine1 <> "\n" <> show pLine2 <> "\n"
 
