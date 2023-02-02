@@ -337,7 +337,7 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
                  <> show (one [orderInsByENodes oneINode] <> resSlist (slist $ [flippedINode:secondGen] <> [[rawLastINode]])) <> "\n"
                  <> show initialENodes <> "\n"
                x@(_:_) -> error $ "way too many nodes:" <> show x <> "\n"
-      | otherwise = error "too many generations?"
+      | otherwise = error $ "too many generations: " <> show (len generations) <> "\n" <> show generations <> "\n"
       where
         -- the first generation, as given to us.
         rawFirstGeneration = fromMaybe (error "no first generation!") $ safeHead generations
