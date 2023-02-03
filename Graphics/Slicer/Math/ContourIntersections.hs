@@ -185,7 +185,7 @@ filterAllIntersections (Just (lastSeg, _))                    (Just (seg , Right
 filterAllIntersections (Just (lastSeg, _))                    (Just (seg , Right PAntiCollinear   )) (Just (nextSeg, _))                       = if segIsLeft lastSeg seg == segIsLeft seg nextSeg
                                                                                                                                                  then Just (seg, Segment seg)
                                                                                                                                                  else Nothing
--- FIXME: still undeterminable.
+-- FIXME: still undeterminable. how do we represent this usefully?
 filterAllIntersections _                                      (Just (_   , Right PCollinear       ))  _                                        = Nothing
 filterAllIntersections _                                      (Just (_   , Right PAntiCollinear   ))  _                                        = Nothing
 -- And now handle the end segments, where there is nothing on the other side.
