@@ -44,13 +44,13 @@ getFirstArc a b c = (res, resErr)
 getAcuteArcFromPoints :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
 getAcuteArcFromPoints p1 p2 p3
   | p1 == p2 || p2 == p3 = error "given two input points that are identical!"
-  -- Since we hawe two equal sides, we can draw a point on the other side of the quad, and use it for constructing our result.
   | isCollinear line1 line2 = error "Given colinear points."
+  -- If we hawe two equal sides, we can draw a point on the other side of the quad, and use it for constructing our result.
   | distance p2 p1 == distance p2 p3 = (quad, (mempty, mempty, quadErr))
   | otherwise = (insideArc, (side1ConsErr <> side1NormErr, side2ConsErr <> side2NormErr, insideArcErr))
   where
     (insideArc, (_,_, insideArcErr)) = getAcuteAngleBisectorFromLines line1 line2
-    -- FIXME: how do these error quotents effect the resulting line?
+    -- FIXME: how do these error quotents effect the angle of the resulting line?
     line1@(_, side1NormErr) = normalizeL side1Raw
     (side1Raw, side1ConsErr) = eToPL (makeLineSeg p1 p2)
     line2@(_, side2NormErr) = normalizeL side2Raw
@@ -122,7 +122,6 @@ towardIntersection point1@(pp1, _) (pl1, _) point2@(pp2, _)
   | d <= ulpVal dErr = error $ "cannot resolve points finely enough.\nPPoint1: " <> show pp1 <> "\nPPoint2: " <> show pp2 <> "\nPLineIn: " <> show pl1 <> "\nnewPLine: " <> show newPLine <> "\n"
   | otherwise = angleFound > ulpVal angleErr
   where
-    -- FIXME: angleBetween2PL should be handling line error.
     (angleFound, (_,_, angleErr)) = angleBetween2PL newPLine pl1
     (d, (_,_, dErr)) = distance2PP point1 point2
     (newPLine, _) = join2PP pp1 pp2
