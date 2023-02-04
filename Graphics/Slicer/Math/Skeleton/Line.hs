@@ -38,13 +38,13 @@ import Graphics.Slicer.Math.Contour (makePointContour)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), (~=), mapWithFollower, mapWithPredecessor, scalePoint, addPoints, endPoint, makeLineSeg)
 
-import Graphics.Slicer.Math.Intersections (intersectionOf, isCollinear, isAntiCollinear, isParallel, isAntiParallel)
+import Graphics.Slicer.Math.Intersections (intersectionOf, noIntersection)
 
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face))
 
 import Graphics.Slicer.Math.Lossy (distancePPointToPLineWithErr, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, eToPL, pLineIsLeft, translateL)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, eToPL, plinesIntersectIn, pLineIsLeft, translateL)
 
 import Graphics.Slicer.Machine.Infill (makeInfill, InfillType)
 
@@ -66,7 +66,6 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     -----------------------------------------------------------------------------------------
     -- functions that are the same, regardless of number of sides of the ngon we are filling.
     -----------------------------------------------------------------------------------------
-
     -- | The direction we need to translate our edge in order for it to be going inward.
     translateDir v         = case eToPLine2 edge `pLineIsLeft` firstArc of
                                (Just True) -> (-v)
@@ -109,21 +108,10 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
                          Nothing     -> []
                          Just (xs,_) -> xs
     safeIntersectionOf a b
-      | isCollinear a b = error $ "given a colinear pair when trying to find arcIntersectioins:\n"
+      | noIntersection a b = error $ "given a non-intersecting pair of lines."
                                 <> show a <> "\n"
                                 <> show b <> "\n"
-                                <> showInputs
-      | isAntiCollinear a b = error $ "given an anti-colinear pair when trying to find arcIntersectioins:\n"
-                                <> show a <> "\n"
-                                <> show b <> "\n"
-                                <> showInputs
-      | isParallel a b = error $ "given a parallel pair when trying to find arcIntersectioins:\n"
-                                <> show a <> "\n"
-                                <> show b <> "\n"
-                                <> showInputs
-      | isAntiParallel a b = error $ "given an anti-parallel pair when trying to find arcIntersectioins:\n"
-                                <> show a <> "\n"
-                                <> show b <> "\n"
+                                <> show (plinesIntersectIn a b) <> "\n"
                                 <> showInputs
       | otherwise = intersectionOf a b
     showInputs = "distance: " <> show distance <> "\n"
