@@ -80,7 +80,7 @@ import Graphics.Slicer (Bed(RectBed), BuildArea(RectArea), Contour, getContours,
 
 import Graphics.Slicer.Formats.STL.Definitions (trianglesFromSTL)
 
-import Graphics.Slicer.Math.Contour (firstLineSegOfContour, firstPointOfContour, justOneContourFrom, lastPointOfContour, ContourTreeSet(ContourTreeSet), makeContourTreeSet, firstContourOfContourTreeSet)
+import Graphics.Slicer.Math.Contour (firstLineSegOfContour, firstPointOfContour, lastPointOfContour, ContourTreeSet(ContourTreeSet), makeContourTreeSet, firstContourOfContourTreeSet)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), LineSeg(LineSeg), xOf, yOf, zOf)
 
@@ -92,7 +92,7 @@ import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton)
 
 import Graphics.Slicer.Math.Skeleton.Face (orderedFacesOf)
 
-import Graphics.Slicer.Math.Skeleton.Line (addInset)
+import Graphics.Slicer.Math.Skeleton.Line (insetBy)
 
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
@@ -394,7 +394,7 @@ sliceLayer printer print@(Print _ infill _ _ _ _ ls outerWallBeforeInner _ _ _ _
           -- Fail to the old contour shrink method when the skeleton based one knows it's failed.
           reduceByShrink = fromMaybe (error "failed to clean contour") $ cleanContour $ fromMaybe (error "failed to shrink contour") $ shrinkContour insetAmt insideContours targetContour
           reduceBySkeleton = case targetSkeleton of
-                               Just skeleton -> Just $ justOneContourFrom $ addInset 1 insetAmt $ orderedFacesOf (firstLineSegOfContour targetContour) skeleton
+                               Just skeleton -> Just $ fst $ insetBy insetAmt $ orderedFacesOf (firstLineSegOfContour targetContour) skeleton
 -- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
 --                             Nothing -> error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
                                Nothing -> Nothing
