@@ -21,7 +21,7 @@ module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastEN
 
 import Prelude (Bool(True,False), Eq, Show, (==), otherwise, snd, ($), error, (<>), notElem, show, (&&), (/=), null, (<$>), fst)
 
-import Data.Maybe( Maybe(Just, Nothing), fromMaybe, isJust)
+import Data.Maybe( Maybe(Just, Nothing), fromJust, fromMaybe, isJust)
 
 import Slist.Type (Slist(Slist))
 
@@ -73,18 +73,8 @@ pathTo (NodeTree eNodeSet@(ENodeSet eNodeSides) iNodeSet@(INodeSet generations))
       | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
       | otherwise     = (               childPlines, target: endNodes, finalENode)
       where
-        pLineToFollow = case direction of
-                          Head -> firstPLine
-                          Last -> SL.last (cons secondPLine morePLines)
-        iNodeOnThisLevel = findINodeByOutput myINodeSet pLineToFollow False
-        iNodeOnLowerLevel = findINodeByOutput (ancestorsOf myINodeSet) pLineToFollow True
-        result = findENodeByOutput myENodeSet pLineToFollow
-        terminate = case result of
-                      (Just eNode) -> ([outOf eNode], [], eNode)
-                      Nothing -> error "FIXME: cannot happen."
-        myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodeSides <> "\n" <> show myINodeSet <> "\n"
         (childPlines, endNodes, finalENode) = if isJust result
-                                              then terminate
+                                              then returnResult (fromJust result)
                                               else case iNodeOnThisLevel of
                                                      (Just res) -> pathInner myINodeSet myENodeSet (snd res)
                                                      Nothing -> case myGenerations of
@@ -94,6 +84,17 @@ pathTo (NodeTree eNodeSet@(ENodeSet eNodeSides) iNodeSet@(INodeSet generations))
                                                                   (Slist ((INode {} :_):_) _) ->  case iNodeOnLowerLevel of
                                                                                         (Just (resINodeSet,resINode)) -> pathInner (ancestorsOf resINodeSet) myENodeSet resINode
                                                                                         Nothing -> myError
+          where
+            result = findENodeByOutput myENodeSet pLineToFollow
+            returnResult eNode = ([outOf eNode], [], eNode)
+            iNodeOnThisLevel = findINodeByOutput myINodeSet pLineToFollow False
+            iNodeOnLowerLevel = findINodeByOutput (ancestorsOf myINodeSet) pLineToFollow True
+            pLineToFollow = case direction of
+                              Head -> firstPLine
+                              Last -> SL.last (cons secondPLine morePLines)
+            myError = error $ "could not find enode for " <> show pLineToFollow <> "\n"
+                           <> show eNodeSides <> "\n"
+                           <> show myINodeSet <> "\n"
 
 -- | Find an exterior Node with an output of the PLine given.
 findENodeByOutput :: ENodeSet -> ProjectiveLine -> Maybe ENode
