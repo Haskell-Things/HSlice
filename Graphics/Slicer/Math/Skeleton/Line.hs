@@ -22,7 +22,7 @@
 -- | Functions for for applying inset line segments to a series of faces, and for adding infill to a face.
 module Graphics.Slicer.Math.Skeleton.Line (insetBy) where
 
-import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (<>), (>), min, Bool(True, False), fst, maybe, mempty, null, snd)
+import Prelude ((==), concat, otherwise, (<$>), (<=), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (<>), (>), min, Bool(True, False), fst, maybe, mempty, null, snd)
 
 import Data.List (sortOn, dropWhile, takeWhile, transpose, uncons)
 
@@ -36,7 +36,9 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (makePointContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), (~=), mapWithFollower, mapWithPredecessor, scalePoint, addPoints, endPoint, makeLineSeg, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithFollower, scalePoint, addPoints, endPoint, makeLineSeg, startPoint)
+
+import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
 import Graphics.Slicer.Math.Intersections (intersectionOf, noIntersection)
 
@@ -44,7 +46,7 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face))
 
 import Graphics.Slicer.Math.Lossy (distancePPointToPLineWithErr, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, ProjectiveLine2, eToPL, plinesIntersectIn, pLineIsLeft, translateL)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, ProjectiveLine2, distance2PP, eToPL, eToPP, fuzzinessOfL, pLineErrAtPPoint, plinesIntersectIn, pLineIsLeft, translateL)
 
 import Graphics.Slicer.Machine.Contour (cleanContour)
 
@@ -65,15 +67,21 @@ insetBy distance faceSet
     reconstructedContour = case cleanContour $ makePointContour fuzzyContourPoints of
                              (Just v) -> v
                              Nothing -> error "failed to reconstruct single contour."
-    fuzzyContourPoints = mapWithPredecessor recovery (concat $ transpose lineSegSets)
+    fuzzyContourPoints = mapWithFollower recovery (concat $ transpose lineSegSets)
       where
-        recovery l1@(LineSeg s1 _) l2@(LineSeg s2 _)
-          | endPoint l1 == startPoint l2 = endPoint l1
-          | endPoint l2 == startPoint l1 = endPoint l2
+        recovery l1 l2
           -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
-          | endPoint l1 ~= s2 = averagePoints (endPoint l1) s1
-          | endPoint l2 ~= s1 = averagePoints (endPoint l2) s1
+          | endPoint l2 == startPoint l1 = endPoint l2
+          | l1l2Distance <= l1l2DistanceErr = averagePoints (endPoint l2) (startPoint l1)
           | otherwise = error $ "out of order lineSegs generated from faces: " <> show faceSet <> "\n" <> show lineSegSets <> "\n"
+          where
+            --- FIXME: magic number: 64
+            l1l2DistanceErr = 64 * ulpVal (l1l2DistanceErrRaw
+                           <> pLineErrAtPPoint (eToPL l1) (eToPP $ startPoint l1)
+                           <> fuzzinessOfL (eToPL l1)
+                           <> pLineErrAtPPoint (eToPL l2) (eToPP $ endPoint l2) 
+                           <> fuzzinessOfL (eToPL l2))
+            (l1l2Distance, (_, _, l1l2DistanceErrRaw)) = distance2PP (eToPP $ endPoint l2, mempty) (eToPP $ startPoint l1, mempty)
     averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
     lineSegSets = fst <$> res
     remainingFaces = concat $ mapMaybe snd res
