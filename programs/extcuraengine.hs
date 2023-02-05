@@ -45,7 +45,7 @@ import Data.Eq ((==), (/=))
 
 import Data.Function ((.), ($))
 
-import Data.List (concatMap, length, zip, zipWith, maximum, minimum, concat, uncons)
+import Data.List (concatMap, head, length, zip, zipWith, maximum, minimum, concat, uncons)
 
 import Data.List.Extra (unsnoc)
 
@@ -394,7 +394,11 @@ sliceLayer printer print@(Print _ infill _ _ _ _ ls outerWallBeforeInner _ _ _ _
           -- Fail to the old contour shrink method when the skeleton based one knows it's failed.
           reduceByShrink = fromMaybe (error "failed to clean contour") $ cleanContour $ fromMaybe (error "failed to shrink contour") $ shrinkContour insetAmt insideContours targetContour
           reduceBySkeleton = case targetSkeleton of
-                               Just skeleton -> Just $ fst $ insetBy insetAmt $ orderedFacesOf (firstLineSegOfContour targetContour) skeleton
+                               Just skeleton -> if length foundContours == 1
+                                                then Just $ head foundContours
+                                                else error $ "could not reduce contour:\n" <> show targetContour <> "\n"
+                                 where
+                                   foundContours = fst $ insetBy insetAmt $ orderedFacesOf (firstLineSegOfContour targetContour) skeleton
 -- uncomment this line, and comment out the following if you want to break when the skeleton code throws it's hands up.
 --                             Nothing -> error $ show outsideContourSkeleton <> "\n" <> show outsideContourFaces <> "\n" <> show (firstLineSegOfContour outsideContourRaw) <> "\n"
                                Nothing -> Nothing

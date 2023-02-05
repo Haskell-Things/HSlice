@@ -22,7 +22,7 @@
 -- | Functions for for applying inset line segments to a series of faces, and for adding infill to a face.
 module Graphics.Slicer.Math.Skeleton.Line (insetBy) where
 
-import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (<>), (>), min, Bool(True, False), fst, maybe, mempty, snd)
+import Prelude ((==), concat, otherwise, (<$>), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (<>), (>), min, Bool(True, False), fst, maybe, mempty, null, snd)
 
 import Data.List (sortOn, dropWhile, takeWhile, transpose, uncons)
 
@@ -36,7 +36,7 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (makePointContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), (~=), mapWithFollower, mapWithPredecessor, scalePoint, addPoints, endPoint, makeLineSeg)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), (~=), mapWithFollower, mapWithPredecessor, scalePoint, addPoints, endPoint, makeLineSeg, startPoint)
 
 import Graphics.Slicer.Math.Intersections (intersectionOf, noIntersection)
 
@@ -57,19 +57,23 @@ import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 -- | inset the given set of faces, returning a new outside contour, and a new set of faces.
 -- Requires the faces are a closed set, AKA, a set of faces created from a contour.
 -- FIXME: handle inset requests that result in multiple contours.
-insetBy :: ℝ -> Slist Face -> (Contour, [Face])
-insetBy distance faceSet = (reconstructedContour, remainingFaces)
+insetBy :: ℝ -> Slist Face -> ([Contour], [Face])
+insetBy distance faceSet
+  | null (concat lineSegSets) = ([], [])
+  | otherwise = ([reconstructedContour], remainingFaces)
   where
-    reconstructedContour = case cleanContour $ makePointContour $ mapWithPredecessor recoveryFun (concat $ transpose lineSegSets) of
+    reconstructedContour = case cleanContour $ makePointContour fuzzyContourPoints of
                              (Just v) -> v
-                             Nothing -> error $ "failed to inset:" <> show faceSet <> "\n"
-    recoveryFun l1@(LineSeg s1 _) l2@(LineSeg s2 _)
-      | endPoint l1 == s2 = endPoint l1
-      | endPoint l2 == s1 = endPoint l2
-      -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
-      | endPoint l1 ~= s2 = averagePoints (endPoint l1) s1
-      | endPoint l2 ~= s1 = averagePoints (endPoint l2) s1
-      | otherwise = error $ "out of order lineSegs generated from faces: " <> show faceSet <> "\n" <> show lineSegSets <> "\n"
+                             Nothing -> error "failed to reconstruct single contour."
+    fuzzyContourPoints = mapWithPredecessor recovery (concat $ transpose lineSegSets)
+      where
+        recovery l1@(LineSeg s1 _) l2@(LineSeg s2 _)
+          | endPoint l1 == startPoint l2 = endPoint l1
+          | endPoint l2 == startPoint l1 = endPoint l2
+          -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
+          | endPoint l1 ~= s2 = averagePoints (endPoint l1) s1
+          | endPoint l2 ~= s1 = averagePoints (endPoint l2) s1
+          | otherwise = error $ "out of order lineSegs generated from faces: " <> show faceSet <> "\n" <> show lineSegSets <> "\n"
     averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
     lineSegSets = fst <$> res
     remainingFaces = concat $ mapMaybe snd res
@@ -151,7 +155,7 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
     threeSideRemainder     = if distancePPointToPLineWithErr (intersectionOf (firstArc, mempty) (midArc, mempty)) (eToPL edge) /= distancePPointToPLineWithErr (intersectionOf (midArc, mempty) (lastArc, mempty)) (eToPL edge)
                              then subRemains
                              else Nothing
-    (subSides, subRemains) = if firstArcLonger edge firstArc (head midArcs) lastArc
+    (subSides, subRemains) = if firstArcEndsFarthest edge firstArc (head midArcs) lastArc
                              then addLineSegsToFace distance insets (Face finalSide firstArc (slist []) midArc)
                              else addLineSegsToFace distance insets (Face finalSide midArc   (slist []) lastArc)
 
@@ -162,15 +166,15 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
                              then Just [Face finalSide firstArc (slist []) lastArc]
                              else Nothing
 
--- | how many lines can be fit into a given Face.
+-- | How many lines can be drawn onto a given Face, parallel to the face.
 linesUntilEnd :: ℝ -> Face -> Fastℕ
 linesUntilEnd distance face = floor (distanceUntilEnd face / distance)
 
--- | what is the distance from the edge of a face to the place where we can no longer place lines.
+-- | What is the distance from the edge of a face to the place where we can no longer place lines.
 distanceUntilEnd :: Face -> ℝ
 distanceUntilEnd (Face edge firstArc midArcs@(Slist rawMidArcs _) lastArc)
   | isEmpty midArcs  =  distancePPointToPLineWithErr (intersectionOf (firstArc, mempty) (lastArc, mempty)) edgeLine
-  | len midArcs == 1 = if firstArcLonger edge firstArc oneArc lastArc
+  | len midArcs == 1 = if firstArcEndsFarthest edge firstArc oneArc lastArc
                        then distancePPointToPLineWithErr firstIntersection edgeLine
                        else distancePPointToPLineWithErr lastIntersection edgeLine
   | otherwise        = fst $ findClosestArc edge firstArc rawMidArcs lastArc
@@ -180,8 +184,9 @@ distanceUntilEnd (Face edge firstArc midArcs@(Slist rawMidArcs _) lastArc)
     edgeLine = eToPL edge
     oneArc = head midArcs
 
-firstArcLonger :: (ProjectiveLine2 a) => LineSeg -> a -> a -> a -> Bool
-firstArcLonger edge firstArc midArc lastArc = distancePPointToPLineWithErr firstIntersection edgeLine > distancePPointToPLineWithErr lastIntersection edgeLine
+-- | for a face with four sides, see which arc attached to the face ends the furthest away from the line of the face.
+firstArcEndsFarthest :: (ProjectiveLine2 a) => LineSeg -> a -> a -> a -> Bool
+firstArcEndsFarthest edge firstArc midArc lastArc = distancePPointToPLineWithErr firstIntersection edgeLine > distancePPointToPLineWithErr lastIntersection edgeLine
   where
     firstIntersection = intersectionOf (firstArc, mempty) (midArc, mempty)
     lastIntersection  = intersectionOf (midArc, mempty) (lastArc, mempty)

@@ -43,7 +43,7 @@ import Data.Coerce (coerce)
 
 import Data.Either (Either(Left, Right), fromRight, isLeft, rights)
 
-import Data.List (concat, foldl', transpose)
+import Data.List (concat, foldl', head, transpose)
 
 import Data.Maybe (fromMaybe, fromJust, isJust, isNothing, Maybe(Just, Nothing))
 
@@ -88,6 +88,7 @@ import Graphics.Slicer.Math.Contour (mostPerpPointAndLineSeg)
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, makeENode, makeENodes, averageNodes)
 import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), INode(INode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), Spine(Spine), StraightSkeleton(StraightSkeleton), getFirstLineSeg, getLastLineSeg)
+import Graphics.Slicer.Math.Skeleton.Line (insetBy)
 import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
@@ -998,12 +999,11 @@ prop_SquareStraightSkeletonHasRightGenerationCount x y tilt distanceToCorner = g
   where
     square = randomSquare x y tilt distanceToCorner
 
-{-
+
 prop_SquareMotorcyclesIntersectAtPoint :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareMotorcyclesIntersectAtPoint x y tilt distanceToCorner = generationsOf (findStraightSkeleton square []) --> 1
   where
     square = randomSquare x y tilt distanceToCorner
--}
 
 prop_SquareCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareCanPlaceFaces x y tilt distanceToCorner = facesOf (fromMaybe (error $ show square) $ findStraightSkeleton square []) -/> slist []
@@ -1018,6 +1018,23 @@ prop_SquareHasRightFaceCount x y tilt distanceToCorner = length (facesOf $ fromM
 prop_SquareFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareFacesInOrder x y tilt distanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show square) $ findStraightSkeleton square []) --> squareAsSegs
   where
+    square = randomSquare x y tilt distanceToCorner
+    squareAsSegs = lineSegsOfContour square
+    firstSeg = onlyOneOf squareAsSegs
+
+prop_SquareFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_SquareFacesInsetWithRemainder x y tilt distanceToCorner = (length insetContours, length $ lineSegsOfContour insetContour, length remainingFaces) --> (1, 4, 4)
+  where
+    insetContour = head insetContours
+    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) (orderedFacesOf firstSeg $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
+    square = randomSquare x y tilt distanceToCorner
+    squareAsSegs = lineSegsOfContour square
+    firstSeg = onlyOneOf squareAsSegs
+
+prop_SquareFacesInsetWithoutRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_SquareFacesInsetWithoutRemainder x y tilt distanceToCorner = (length insetContours, length remainingFaces) --> (0, 0)
+  where
+    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (orderedFacesOf firstSeg $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
     square = randomSquare x y tilt distanceToCorner
     squareAsSegs = lineSegsOfContour square
     firstSeg = onlyOneOf squareAsSegs
@@ -1729,12 +1746,18 @@ facetSpec = do
       property prop_SquareHasStraightSkeleton
     it "only generates one generation for a square" $
       property prop_SquareStraightSkeletonHasRightGenerationCount
+    it "sees all of the faces of a square intersecting in a point" $
+      property prop_SquareMotorcyclesIntersectAtPoint
     it "places faces on the straight skeleton of a square" $
       property prop_SquareCanPlaceFaces
     it "only finds four face squares" $
       property prop_SquareHasRightFaceCount
     it "places faces on a square in the order the line segments were given" $
       property prop_SquareFacesInOrder
+    it "insets a square halfway, finding 4 remaining faces" $
+      property prop_SquareFacesInsetWithRemainder
+    it "insets a square completely, finding 0 remaining faces" $
+      property prop_SquareFacesInsetWithoutRemainder
     it "finds no divides in a rectangle" $
       property prop_RectangleNoDivides
     it "finds the straight skeleton of a rectangle (property)" $
