@@ -20,9 +20,9 @@
 {-# LANGUAGE DerivingStrategies #-}
 
 -- | Functions for for applying inset line segments to a series of faces, and for adding infill to a face.
-module Graphics.Slicer.Math.Skeleton.Line (insetBy) where
+module Graphics.Slicer.Math.Skeleton.Line (insetBy, infiniteInset) where
 
-import Prelude ((==), concat, otherwise, (<$>), (<=), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (<>), (>), min, Bool(True, False), fst, maybe, mempty, null, snd)
+import Prelude ((==), concat, otherwise, (<$>), (<=), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (.), (<>), (>), min, Bool(True, False), fst, maybe, mempty, null, snd)
 
 import Data.List (sortOn, dropWhile, takeWhile, transpose, uncons)
 
@@ -56,14 +56,14 @@ import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 ------------------ Line Segment Placement ------------------------
 ------------------------------------------------------------------
 
--- | inset the given set of faces, returning a new outside contour, and a new set of faces.
+-- | Inset the given set of faces, returning new outside contours, and a new set of faces.
 -- Requires the faces are a closed set, AKA, a set of faces created from a contour.
 -- FIXME: handle inset requests that result in multiple contours.
 insetBy :: ℝ -> Slist Face -> ([Contour], [Face])
-insetBy distance faceSet
+insetBy distance faces
   | null (concat lineSegSets) = ([], [])
   | otherwise = ([reconstructedContour], remainingFaces)
-  where
+   where
     reconstructedContour = case cleanContour $ makePointContour fuzzyContourPoints of
                              (Just v) -> v
                              Nothing -> error "failed to reconstruct single contour."
@@ -73,21 +73,26 @@ insetBy distance faceSet
           -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
           | endPoint l2 == startPoint l1 = endPoint l2
           | l1l2Distance <= l1l2DistanceErr = averagePoints (endPoint l2) (startPoint l1)
-          | otherwise = error $ "out of order lineSegs generated from faces: " <> show faceSet <> "\n" <> show lineSegSets <> "\n"
+          | otherwise = error $ "out of order lineSegs generated from faces: " <> show faces <> "\n" <> show lineSegSets <> "\n"
           where
             --- FIXME: magic number: 64
             l1l2DistanceErr = 64 * ulpVal (l1l2DistanceErrRaw
                            <> pLineErrAtPPoint (eToPL l1) (eToPP $ startPoint l1)
                            <> fuzzinessOfL (eToPL l1)
-                           <> pLineErrAtPPoint (eToPL l2) (eToPP $ endPoint l2) 
+                           <> pLineErrAtPPoint (eToPL l2) (eToPP $ endPoint l2)
                            <> fuzzinessOfL (eToPL l2))
             (l1l2Distance, (_, _, l1l2DistanceErrRaw)) = distance2PP (eToPP $ endPoint l2, mempty) (eToPP $ startPoint l1, mempty)
     averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
     lineSegSets = fst <$> res
     remainingFaces = concat $ mapMaybe snd res
-    res = addLineSegsToFace distance (Just 1) <$> (\(Slist a _) -> a) faceSet
+    res = addLineSegsToFace distance (Just 1) <$> (\(Slist a _) -> a) faces
 
 -- FUTUREWORK: Add a function that takes the contour formed by the remainders of the faces, and squeezes in a line segment, if possible.
+
+-- | Cover a contour with lines, aligned to the faces of the contour.
+-- FIXME: this should be returning a ContourTree.
+infiniteInset :: ℝ -> Slist Face -> [[LineSeg]]
+infiniteInset distance faces = fst . addLineSegsToFace distance Nothing <$> (\(Slist a _) -> a) faces
 
 -- | Place line segments on a face. Might return remainders, in the form of un-filled faces.
 addLineSegsToFace :: ℝ -> Maybe Fastℕ -> Face -> ([LineSeg], Maybe [Face])
@@ -105,7 +110,7 @@ addLineSegsToFace distance insets face@(Face edge firstArc midArcs@(Slist rawMid
                                (Just False) -> v
                                Nothing -> error "cannot happen: edge and firstArc are the same line?"
 
-    -- | How many lines we are going to place in this Face.
+    -- | How many lines we are going to place in this Face. If inset is Nothing, cover the face.
     linesToRender          = maybe availableLines (min availableLines) insets
       where
         availableLines = linesUntilEnd distance face
