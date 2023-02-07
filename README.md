@@ -31,6 +31,8 @@ All other settings are supplied in KEY=VALUE form, using the same keys that CURA
 * -s speed_travel=120
 * -s speed_wall_0=30
 * -s speed_wall_x=60
+* -s top_bottom_thickness=0.8
+* -s top_bottom_pattern_0=concentric
 
 ## FAQ 
 #### *Wait but...why?*

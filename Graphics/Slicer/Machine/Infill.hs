@@ -21,7 +21,7 @@
 ---------------------- Infill Generation ------------------------------
 -----------------------------------------------------------------------
 
-module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringPLinesVertical) where
+module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Concentric, Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringPLinesVertical) where
 
 import Prelude (Eq, Show(show), (+), (<>), (<$>), ($), (.), (*), sqrt, (-), Ordering(EQ, GT, LT), otherwise, (==), length, not, null, (!!), fromIntegral, ceiling, (/), floor, Integer, compare, error)
 
