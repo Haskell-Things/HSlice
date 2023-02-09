@@ -21,7 +21,13 @@
 ---------------------- Infill Generation ------------------------------
 -----------------------------------------------------------------------
 
-module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Concentric, Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringPLinesVertical) where
+module Graphics.Slicer.Machine.Infill (
+  InfillFamily(Concentric, Lines),
+  InfillType(ConcentricContours, Diag1, Diag2, Vert, Horiz),
+  coveringPLinesVertical,
+  infillLineSegInside,
+  makeInfill
+  ) where
 
 import Prelude (Eq, Show(show), (+), (<>), (<$>), ($), (.), (*), sqrt, (-), Ordering(EQ, GT, LT), otherwise, (==), length, not, null, (!!), fromIntegral, ceiling, (/), floor, Integer, compare, error)
 
@@ -47,23 +53,28 @@ import Graphics.Slicer.Math.Skeleton.Line (infiniteInset)
 
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
--- | What type of infill to generate.
-data InfillType = Diag1 | Diag2 | Vert | Horiz | Concentric
+-- | Which family of infill should we use for a given layer? each InfillType belongs to one Infill family.
+data InfillFamily = Lines | Concentric
+  deriving (Eq)
+
+-- | What type of infill in specific to generate.
+data InfillType = Diag1 | Diag2 | Vert | Horiz | ConcentricContours
   deriving (Eq)
 
 -- | Generate infill for a layer.
 -- Basically, cover the build plane in lines, then remove the portions of those lines that are not inside of the target contour.
--- The target contour should be pre-shrunk to the innermost parameter, and the target inside contours should also be the outermost parameters.
+-- The target contour should be pre-shrunk to the innermost parameter, and the target inside contours should also be expanded to their outermost parameters.
 makeInfill :: Contour -> [Contour] -> ℝ -> InfillType -> [[LineSeg]]
-makeInfill contour insideContours ls layerType
-  | layerType == Concentric = infillConcentricInside contour insideContours ls
-  | otherwise = mapMaybe (infillLineSegInside contour insideContours) $ infillCover layerType
+makeInfill contour insideContours ls layerType =
+  case layerType of
+    Vert -> intersectWithContours $ coveringPLinesVertical contour ls
+    Horiz -> intersectWithContours $ coveringPLinesHorizontal contour ls
+    Diag1 -> intersectWithContours $ coveringPLinesPositive contour ls
+    Diag2 -> intersectWithContours $ coveringPLinesNegative contour ls
+    ConcentricContours -> infillConcentricInside contour insideContours ls
   where
-    infillCover Vert = coveringPLinesVertical contour ls
-    infillCover Horiz = coveringPLinesHorizontal contour ls
-    infillCover Diag1 = coveringPLinesPositive contour ls
-    infillCover Diag2 = coveringPLinesNegative contour ls
-    infillCover Concentric = error "cannot get here."
+    intersectWithContours :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> [[LineSeg]]
+    intersectWithContours = mapMaybe (infillLineSegInside contour insideContours)
 
 infillConcentricInside :: Contour -> [Contour] -> ℝ -> [[LineSeg]]
 infillConcentricInside contour insideContours lineSpacing

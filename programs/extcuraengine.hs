@@ -96,7 +96,7 @@ import Graphics.Slicer.Math.Skeleton.Line (insetBy)
 
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
-import Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Concentric, Diag1, Diag2, Horiz, Vert))
+import Graphics.Slicer.Machine.Infill (makeInfill, InfillFamily(Lines, Concentric), InfillType(ConcentricContours, Diag1, Diag2, Horiz, Vert))
 
 import Graphics.Slicer.Machine.Contour (cleanContour, shrinkContour, expandContour)
 
@@ -108,7 +108,7 @@ default (ℕ, Fastℕ, ℝ)
 
 -------------------- TOTAL HACK -----------------------
 threads :: Fastℕ
-threads = 32
+threads = 56
 
 ------------------------ STEAL ME ---------------------------
 {-
@@ -175,16 +175,18 @@ zHeightOfLayer print layerNumber
 
 -- | Get the appropriate InfillType to use when generating infill for the given layer.
 -- FIXME: handle the tops and bottoms of surfaces
--- FIXME: handle and the top N layers of the object?
+-- FIXME: handle and the top N layers of the object.
 getInfillType :: Print -> Fastℕ -> InfillType
 getInfillType print layerNo
   | layerNo == 0 = topBottomPattern0 print
+  | defaultPattern == Concentric = ConcentricContours
   | layerNo <= surfaceLayers = if layerNo `mod` 2 == 0 then Horiz else Vert
   | layerNo `mod` 2 == 0 = Diag1
   | otherwise            = Diag2
  where
    surfaceLayers :: Fastℕ
    surfaceLayers = round $ topBottomThickness print / layerHeight print
+   defaultPattern = infillPattern print
 
 ----------------------------------------------------------------------
 ---------------------------- MISC ------------------------------------
@@ -303,7 +305,7 @@ sliceObject printer print allLayers =
 -- FIXME: remove layerheight and layerNumber from our calculations here?
 -- MOREFIXME: break this into "place -> annotate -> trace". Place gets the geometry, annotate adds regions of rules, trace converts to (abstracted) GCode.
 sliceLayer :: Printer -> Print -> Zone -> Bool -> ℝ -> ([Contour], Fastℕ) -> [GCode]
-sliceLayer printer print@(Print _ infillRatio _ _ _ _ _ ls outerWallBeforeInner _ _ _ _ _) _plan isLastLayer lh (layerContours, layerNumber) = do
+sliceLayer printer print@(Print _ infillRatio _ _ _ _ _ _ ls outerWallBeforeInner _ _ _ _ _) _plan isLastLayer lh (layerContours, layerNumber) = do
   let
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToContour :: Contour -> [GCode]
@@ -585,20 +587,21 @@ sliceParser = pure (ExtCuraEngineRootOpts "slice")
 -- | The parameters of the print that is being requested.
 data Print = Print
   {
-    _perimeters              :: !Fastℕ      -- ^ How many walls to place on the outside of an object.
-  , _infillRatio             :: !ℝ          -- ^ An proportion of infill from 0 (none) to 1 (full density).
-  , layerHeight              :: !ℝ          -- ^ The default thickness for each layer
-  , layer0Height             :: !ℝ          -- ^ The thickness of the first layer
-  , topBottomThickness       :: !ℝ          -- ^ The thickness of top and bottom surfaces. only used for infill patterning of the bottom layers.
-  , topBottomPattern0        :: !InfillType -- ^ The type of pattern to use on the first layer
+    _perimeters              :: !Fastℕ        -- ^ How many walls to place on the outside of an object.
+  , _infillRatio             :: !ℝ            -- ^ An proportion of infill from 0 (none) to 1 (full density).
+  , infillPattern            :: !InfillFamily -- ^ the type of infill to use by default.
+  , layerHeight              :: !ℝ            -- ^ The default thickness for each layer
+  , layer0Height             :: !ℝ            -- ^ The thickness of the first layer
+  , topBottomThickness       :: !ℝ            -- ^ The thickness of top and bottom surfaces. only used for infill patterning of the bottom layers.
+  , topBottomPattern0        :: !InfillType   -- ^ The type of pattern to use on the first layer
   , _withSupport             :: !Bool
-  , _lineSpacing             :: !ℝ          -- ^ In Millimeters.
-  , _outer_wall_before_inner :: !Bool       -- ^ print outer wall before inside wall.
-  , infillSpeed              :: !ℝ          -- ^ In millimeters per second
-  , layer0Speed              :: !ℝ          -- ^ In millimeters per second
-  , travelSpeed              :: !ℝ          -- ^ In millimeters per second
-  , wall0Speed               :: !ℝ          -- ^ In millimeters per second
-  , wallXSpeed               :: !ℝ          -- ^ In millimeters per second
+  , _lineSpacing             :: !ℝ            -- ^ In Millimeters.
+  , _outer_wall_before_inner :: !Bool         -- ^ print outer wall before inside wall.
+  , infillSpeed              :: !ℝ            -- ^ In millimeters per second
+  , layer0Speed              :: !ℝ            -- ^ In millimeters per second
+  , travelSpeed              :: !ℝ            -- ^ In millimeters per second
+  , wall0Speed               :: !ℝ            -- ^ In millimeters per second
+  , wallXSpeed               :: !ℝ            -- ^ In millimeters per second
   }
 
 run :: ExtCuraEngineRootOpts -> IO ()
@@ -667,10 +670,11 @@ run rawArgs = do
         printFromSettings vars = Print
                                  (fromMaybe 2 $ maybeWallLineCount vars)
                                  (fromMaybe 0.2 $ maybeInfillAmount vars)
+                                 (fromMaybe Lines $ maybeInfillPattern vars)
                                  (fromMaybe 0.2 $ maybeLayerHeight vars)
                                  (fromMaybe 0.3 $ maybeLayer0Height vars)
                                  (fromMaybe 0.8 $ maybeTopBottomThickness vars)
-                                 (fromMaybe Concentric $ maybeTopBottomPattern0 vars)
+                                 (fromMaybe ConcentricContours $ maybeTopBottomPattern0 vars)
                                  (fromMaybe False $ maybeSupport vars)
                                  (fromMaybe 0.4 $ maybeInfillLineWidth vars)
                                  (fromMaybe False $ maybeOuterWallBeforeInner vars)
@@ -684,6 +688,13 @@ run rawArgs = do
             maybeInfillAmount _ = Nothing
             maybeInfillLineWidth (lookupVarIn "infill_line_width" -> Just (ONum width)) = Just width
             maybeInfillLineWidth _ = Nothing
+            maybeInfillPattern (lookupVarIn "infill_pattern" -> Just (OString infillFamily)) = foundFamily
+              where
+                foundFamily = case infillFamily of
+                                "lines" -> Just Lines
+                                "concentric" -> Just Concentric
+                                _ -> Nothing
+            maybeInfillPattern _ = Nothing
             maybeInfillSpeed (lookupVarIn "speed_infill" -> Just (ONum speed)) = Just speed
             maybeInfillSpeed _ = Nothing
             maybeLayerHeight (lookupVarIn "layer_height" -> Just (ONum thickness)) = Just thickness
@@ -713,7 +724,7 @@ run rawArgs = do
               where
                 foundType = case infillType of
                               "line" -> Just Horiz
-                              "concentric" -> Just Concentric
+                              "concentric" -> Just ConcentricContours
                               _ -> Nothing
             maybeTopBottomPattern0 _ = Nothing
 --            maybeSupportInfillRate (lookupVarIn "support_enable" -> Just (OBool enable)) = Just enable
