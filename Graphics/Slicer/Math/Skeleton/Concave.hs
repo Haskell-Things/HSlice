@@ -26,7 +26,7 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Concave (averageNodes, skeletonOfConcaveRegion, findINodes, makeENode, makeENodes, eNodesOfOutsideContour) where
+module Graphics.Slicer.Math.Skeleton.Concave (averageNodes, skeletonOfConcaveRegion, skeletonOfNodes, findINodes, makeENode, makeENodes, eNodesOfOutsideContour) where
 
 import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), all, concatMap, notElem, otherwise, ($), (>), (<=), (<$>), (==), (/=), error, (&&), fst, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), mempty, )
 
@@ -58,7 +58,7 @@ import Graphics.Slicer.Math.Intersections (noIntersection, intersectionBetweenAr
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPointsWithErr)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint), ProjectiveLine, ProjectiveLine2, PLine2Err, cPPointAndErrOf, eToPL, flipL, distance2PP, outAndErrOf, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint), ProjectiveLine, PLine2Err, cPPointAndErrOf, eToPL, flipL, distance2PP, outAndErrOf, pLineIsLeft)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, lastINodeOf, linePairs, makeINode, sortedPLines, isLoop)
 
@@ -530,6 +530,7 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
 -- | Apply a recursive algorithm to obtain a raw INode set.
 --   FIXME: does not handle more than two point intersections of arcs properly.
+-- NOTE: the first two arguments are passed through to later recursive calls.
 skeletonOfNodes :: Bool -> Slist [LineSeg] -> Slist [LineSeg] -> [INode] -> Either PartialNodes INodeSet
 skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
   case eNodes of
@@ -598,27 +599,14 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
                 <> "remainingLineSegs: " <> show remainingLineSegs <> "\n"
                 <> "remainingINodes: " <> show remainingINodes <> "\n"
                 <> "origSegSets: " <> show origSegSets <> "\n"
+                <> "endsAtSamePoint: " <> show endsAtSamePoint <> "\n"
 
     -- | check to see if all of our nodes end in the same point
     -- If so, this is a sign that we should create a single Node with all of them as input.
     endsAtSamePoint :: Bool
-    endsAtSamePoint = intersectionsAtSamePoint nodeOutsAndErrs
+    endsAtSamePoint = intersectionsAtSamePoint allOuts
       where
-        nodeOutsAndErrs = nonAntiCollinearOutErrPairs allOuts (antiCollinearOutErrPairsOf allOuts)
-                          <> firstofAntiCollinearOutErrPairs (antiCollinearOutErrPairsOf allOuts)
-          where
-            allOuts = (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)
-        -- since anti-collinear nodes end at the same point, only count one of them.
-        firstofAntiCollinearOutErrPairs nodePairs = fst <$> nodePairs
-        -- filter out collinear pairs. eliminates both ends.
-        -- FIXME: is there a better way do do this with Ord?
-        nonAntiCollinearOutErrPairs :: (Eq a) => [a] -> [(a,a)] -> [a]
-        nonAntiCollinearOutErrPairs myNodes nodePairs = filter (`notElem` allAntiCollinearNodes nodePairs) myNodes
-          where
-            allAntiCollinearNodes myNodePairs = (fst <$> myNodePairs) <> (snd <$> myNodePairs)
-        -- Find our anti-collinear pairs.
-        antiCollinearOutErrPairsOf :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> [((a, PLine2Err),(a, PLine2Err))]
-        antiCollinearOutErrPairsOf inOutErrPairs = filter (uncurry isAntiCollinear) $ getPairs inOutErrPairs
+        allOuts = (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)
 
     -- | make sure we have a potential intersection between two nodes to work with.
     hasShortestNeighboringPair :: Bool
