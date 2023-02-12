@@ -33,7 +33,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), finalINodeOf, finalPLine, getFirstLineSeg, getLastLineSeg, hasNoINodes, ancestorsOf, indexPLinesTo, makeINode, sortedPLines)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, Arcable(hasArc, outOf), outAndErrOf)
+import Graphics.Slicer.Math.PGA (PLine2Err, ProjectiveLine, Arcable(hasArc, outOf), outAndErrOf)
 
 lastSegOf :: NodeTree -> LineSeg
 lastSegOf nodeTree = getLastLineSeg $ lastENodeOf nodeTree
@@ -55,23 +55,23 @@ firstENodeOf (NodeTree (ENodeSet sides) _) = fst $ SL.head sides
 data Direction = Head
                | Last
 
-pathFirst, pathLast :: NodeTree -> ([ProjectiveLine], [INode], ENode)
+pathFirst, pathLast :: NodeTree -> ([(ProjectiveLine, PLine2Err)], [INode], ENode)
 pathFirst nodeTree = pathTo nodeTree Head
 pathLast nodeTree = pathTo nodeTree Last
 
 -- | Find all of the Nodes and all of the arcs between the last item in the nodeTree and the node that is part of the original contour on the given side.
-pathTo :: NodeTree -> Direction -> ([ProjectiveLine], [INode], ENode)
+pathTo :: NodeTree -> Direction -> ([(ProjectiveLine, PLine2Err)], [INode], ENode)
 pathTo (NodeTree (ENodeSet (Slist [] _)) _) _ = error "unable to pathTo a Nodetree without ENodes."
 pathTo (NodeTree eNodeSet@(ENodeSet eNodeSides) iNodeSet@(INodeSet generations)) direction
   | isEmpty generations = case eNodeSides of
-                            (Slist [(firstENode,_)] _) -> ([outOf firstENode], [], firstENode)
+                            (Slist [(firstENode,_)] _) -> ([outAndErrOf firstENode], [], firstENode)
                             (Slist _ _) -> error "looking for a first ENode in an ENodeSet with more than one side."
   | otherwise = pathInner (ancestorsOf iNodeSet) eNodeSet (finalINodeOf iNodeSet)
   where
-    pathInner :: INodeSet -> ENodeSet -> INode -> ([ProjectiveLine], [INode], ENode)
+    pathInner :: INodeSet -> ENodeSet -> INode -> ([(ProjectiveLine, PLine2Err)], [INode], ENode)
     pathInner myINodeSet@(INodeSet myGenerations) myENodeSet target@(INode firstPLine secondPLine morePLines _)
-      | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
-      | otherwise     = (               childPlines, target: endNodes, finalENode)
+      | hasArc target = (outAndErrOf target : childPlines, target: endNodes, finalENode)
+      | otherwise     = (                     childPlines, target: endNodes, finalENode)
       where
         (childPlines, endNodes, finalENode) = if isJust result
                                               then returnResult (fromJust result)
@@ -86,7 +86,7 @@ pathTo (NodeTree eNodeSet@(ENodeSet eNodeSides) iNodeSet@(INodeSet generations))
                                                                                         Nothing -> myError
           where
             result = findENodeByOutput myENodeSet pLineToFollow
-            returnResult eNode = ([outOf eNode], [], eNode)
+            returnResult eNode = ([outAndErrOf eNode], [], eNode)
             iNodeOnThisLevel = findINodeByOutput myINodeSet pLineToFollow False
             iNodeOnLowerLevel = findINodeByOutput (ancestorsOf myINodeSet) pLineToFollow True
             pLineToFollow = case direction of

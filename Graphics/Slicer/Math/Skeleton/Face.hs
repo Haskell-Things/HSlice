@@ -22,7 +22,7 @@
 -- | This file contains code for creating a series of Faces, covering a straight skeleton.
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
-import Prelude ((==), otherwise, (<$>), ($), length, error, (<>), show, Eq, Show, (<>), Bool(True), null, not, and, snd, (&&), (>), (/=), fst, mempty)
+import Prelude ((==), otherwise, (<$>), ($), length, error, (<>), show, Eq, Show, (<>), Bool(True), null, not, and, snd, (&&), (>), (/=), fst)
 
 import Data.List (uncons)
 
@@ -56,7 +56,7 @@ import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, Arcable(hasArc, outO
 --   A portion of a contour, with a real side, and arcs (line segments between nodes) dividing it from other faces.
 --   Faces have no holes, and their arcs and nodes (line segments and points) are generated from a StraightSkeleton of a Contour.
 -- FIXME: these arcs should be Arcable.
-data Face = Face { _edge :: !LineSeg, _firstArc :: !ProjectiveLine, _arcs :: !(Slist ProjectiveLine), _lastArc :: !ProjectiveLine }
+data Face = Face { _edge :: !LineSeg, _firstArc :: !(ProjectiveLine, PLine2Err), _arcs :: !(Slist (ProjectiveLine, PLine2Err)), _lastArc :: !(ProjectiveLine, PLine2Err) }
   deriving Eq
   deriving stock Show
 
@@ -197,9 +197,9 @@ areaBetween _ (ENodeSet (Slist [] _)) _ _ = error "no sides?"
 areaBetween _ (ENodeSet (Slist (_:_:_) _)) _ _ = error "too many sides?"
 areaBetween iNodeSet eNodeSet@(ENodeSet (Slist [(_,_)] _)) pLine1 pLine2
   | reverseTriangle = fromMaybe errNodesNotNeighbors $
-                      makeFace (lastDescendent iNodeSet eNodeSet pLine1) (SL.reverse (pathToLastDescendent iNodeSet eNodeSet (fst pLine2)) <> pathToFirstDescendent iNodeSet eNodeSet (fst pLine1)) (firstDescendent iNodeSet eNodeSet pLine2)
+                      makeFace (lastDescendent iNodeSet eNodeSet pLine1) (SL.reverse (pathToLastDescendent iNodeSet eNodeSet pLine2) <> pathToFirstDescendent iNodeSet eNodeSet pLine1) (firstDescendent iNodeSet eNodeSet pLine2)
   | otherwise       = fromMaybe errNodesNotNeighbors $
-                      makeFace (firstDescendent iNodeSet eNodeSet pLine1) (SL.reverse (pathToFirstDescendent iNodeSet eNodeSet (fst pLine2)) <> pathToLastDescendent iNodeSet eNodeSet (fst pLine1)) (lastDescendent iNodeSet eNodeSet pLine2)
+                      makeFace (firstDescendent iNodeSet eNodeSet pLine1) (SL.reverse (pathToFirstDescendent iNodeSet eNodeSet pLine2) <> pathToLastDescendent iNodeSet eNodeSet pLine1) (lastDescendent iNodeSet eNodeSet pLine2)
   where
     -- Detect the case where we are creating a face across the open end of the contour.
     reverseTriangle = distance > ulpVal distanceErr
@@ -226,63 +226,64 @@ intraNodeFace nodeTree1 nodeTree2
   where
     errNodesNotNeighbors = error $ "cannot make a face from nodes that are not neighbors: \n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
     follows :: NodeTree -> NodeTree -> Bool
-    follows nt1 nt2 = isCollinear (last $ firstPLinesOf nt1, mempty) (last $ lastPLinesOf nt2, mempty)
+    follows nt1 nt2 = isCollinear (last $ firstPLinesOf nt1) (last $ lastPLinesOf nt2)
     isLeftOf :: NodeTree -> NodeTree -> Bool
     isLeftOf nt1 nt2 = firstSegOf nt1 == lastSegOf nt2
     isRightOf :: NodeTree -> NodeTree -> Bool
     isRightOf nt1 nt2 = lastSegOf nt1 == firstSegOf nt2
-    lastPLinesOf :: NodeTree -> Slist ProjectiveLine
+    lastPLinesOf :: NodeTree -> Slist (ProjectiveLine, PLine2Err)
     lastPLinesOf nodeTree = slist $ (\(a,_,_) -> a) $ pathLast nodeTree
-    firstPLinesOf :: NodeTree -> Slist ProjectiveLine
+    firstPLinesOf :: NodeTree -> Slist (ProjectiveLine, PLine2Err)
     firstPLinesOf nodeTree = slist $ (\(a,_,_) -> a) $ pathFirst nodeTree
 
 -- Find the bottom ENode going down the last paths from the given ProjectiveLine.
 lastDescendent :: INodeSet -> ENodeSet -> (ProjectiveLine, PLine2Err) -> ENode
 lastDescendent iNodeSet eNodeSet pLine
-  | null $ pathToLastDescendent iNodeSet eNodeSet (fst pLine) = -- handle the case where we're asked for an ENode's output.
+  -- handle the case where we're asked for an ENode's output.
+  | null $ pathToLastDescendent iNodeSet eNodeSet pLine =
       fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodeSet (fst pLine)
-  | otherwise = fromMaybe (error $ "could not find ENode!\nLooking for: " <> show pLine <> "\nIn InodeSet: " <> show iNodeSet <> "\n") $ findENodeByOutput eNodeSet $ fst $ lastInOf $ lastINodeOfPLine iNodeSet eNodeSet (fst pLine)
+  | otherwise = fromMaybe (error $ "could not find ENode!\nLooking for: " <> show pLine <> "\nIn InodeSet: " <> show iNodeSet <> "\n") $ findENodeByOutput eNodeSet $ fst $ lastInOf $ lastINodeOfPLine iNodeSet eNodeSet pLine
 
 -- Find the bottom ENode going down the first paths from the given ProjectiveLine.
 firstDescendent :: INodeSet -> ENodeSet -> (ProjectiveLine, PLine2Err) -> ENode
 firstDescendent iNodeSet eNodeSet pLine
   -- handle the case where we're asked for an ENode's output.
-  | null $ pathToFirstDescendent iNodeSet eNodeSet (fst pLine) =
+  | null $ pathToFirstDescendent iNodeSet eNodeSet pLine =
       fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodeSet (fst pLine)
   | otherwise = fromMaybe (error "could not find ENode!") $ findENodeByOutput eNodeSet $ fst $ firstInOf $ firstINodeOfPLine iNodeSet eNodeSet pLine
 
 -- | find the First INode of a PLine.
 firstINodeOfPLine :: INodeSet -> ENodeSet -> (ProjectiveLine, PLine2Err) -> INode
-firstINodeOfPLine iNodeSet eNodeSet pLine = snd $ fromMaybe (error $ "could not find INode!\nLooking for: " <> show pLine <> "\nIn InodeSet: " <> show iNodeSet <> "\n") $ findINodeByOutput iNodeSet (last $ pathToFirstDescendent iNodeSet eNodeSet (fst pLine)) True
+firstINodeOfPLine iNodeSet eNodeSet pLine = snd $ fromMaybe (error $ "could not find INode!\nLooking for: " <> show pLine <> "\nIn InodeSet: " <> show iNodeSet <> "\n") $ findINodeByOutput iNodeSet (fst $ last $ pathToFirstDescendent iNodeSet eNodeSet pLine) True
 
 -- | find the last INode of a PLine.
-lastINodeOfPLine :: INodeSet -> ENodeSet -> ProjectiveLine -> INode
-lastINodeOfPLine iNodeSet eNodeSet pLine = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput iNodeSet (last $ pathToLastDescendent iNodeSet eNodeSet pLine) True
+lastINodeOfPLine :: INodeSet -> ENodeSet -> (ProjectiveLine, PLine2Err) -> INode
+lastINodeOfPLine iNodeSet eNodeSet pLine = snd $ fromMaybe (error "could not find INode!") $ findINodeByOutput iNodeSet (fst $ last $ pathToLastDescendent iNodeSet eNodeSet pLine) True
 
 -- | Find the parent inode of a given ProjectiveLine.
-parentINodeOfPLine :: INodeSet -> ProjectiveLine -> INode
-parentINodeOfPLine iNodeSet pLine = snd $ fromMaybe (error $ "could not find INode!\nLooking for: " <> show pLine <> "\nIn INodeSet: " <> show iNodeSet <> "\n") $ findINodeByOutput iNodeSet pLine True
+parentINodeOfPLine :: INodeSet -> (ProjectiveLine, PLine2Err) -> INode
+parentINodeOfPLine iNodeSet line@(pLine, _) = snd $ fromMaybe (error $ "could not find INode!\nLooking for: " <> show line <> "\nIn INodeSet: " <> show iNodeSet <> "\n") $ findINodeByOutput iNodeSet pLine True
 
 -- | Determine if a PLine matches the output of an ENode.
 isENode :: ENodeSet -> ProjectiveLine -> Bool
 isENode eNodes pLine = isJust $ findENodeByOutput eNodes pLine
 
 -- | Travel down the INode tree, taking the 'First' path, marking down all of the pLine2s as we go, until we get to the bottom.
-pathToFirstDescendent :: INodeSet -> ENodeSet -> ProjectiveLine -> Slist ProjectiveLine
-pathToFirstDescendent iNodeSet eNodeSet pLine
+pathToFirstDescendent :: INodeSet -> ENodeSet -> (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err)
+pathToFirstDescendent iNodeSet eNodeSet line@(pLine, _)
   | isENode eNodeSet pLine = slist []
-  | otherwise = one pLine <> pathToFirstDescendent iNodeSet eNodeSet (fst $ firstInOf $ parentINodeOfPLine iNodeSet pLine)
+  | otherwise = one line <> pathToFirstDescendent iNodeSet eNodeSet (firstInOf $ parentINodeOfPLine iNodeSet line)
 
 -- | Travel down the INode tree, taking the 'Last' path, marking down all of the pLine2s as we go, until we get to the bottom.
-pathToLastDescendent :: INodeSet -> ENodeSet -> ProjectiveLine -> Slist ProjectiveLine
-pathToLastDescendent iNodeSet eNodeSet pLine
+pathToLastDescendent :: INodeSet -> ENodeSet -> (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err)
+pathToLastDescendent iNodeSet eNodeSet line@(pLine, _)
   | isENode eNodeSet pLine = slist []
-  | otherwise = one pLine <> pathToLastDescendent iNodeSet eNodeSet (fst $ lastInOf $ parentINodeOfPLine iNodeSet pLine)
+  | otherwise = one line <> pathToLastDescendent iNodeSet eNodeSet (lastInOf $ parentINodeOfPLine iNodeSet line)
 
 -- | Construct a face from two nodes, and a set of arcs. the nodes must follow each other on the contour.
-makeFace :: ENode -> Slist ProjectiveLine -> ENode -> Maybe Face
+makeFace :: ENode -> Slist (ProjectiveLine, PLine2Err) -> ENode -> Maybe Face
 makeFace e1 arcs e2
-  | getLastLineSeg e1 == getFirstLineSeg e2 = Just $ Face (getFirstLineSeg e2) (outOf e2) arcs (outOf e1)
-  | getFirstLineSeg e1 == getLastLineSeg e2 = Just $ Face (getFirstLineSeg e1) (outOf e1) arcs (outOf e2)
+  | getLastLineSeg e1 == getFirstLineSeg e2 = Just $ Face (getFirstLineSeg e2) (outAndErrOf e2) arcs (outAndErrOf e1)
+  | getFirstLineSeg e1 == getLastLineSeg e2 = Just $ Face (getFirstLineSeg e1) (outAndErrOf e1) arcs (outAndErrOf e2)
   | otherwise = error $ "failed to match inputs:\nE1: " <> show e1 <> "\nE2: " <> show e2 <> "\n"
 
