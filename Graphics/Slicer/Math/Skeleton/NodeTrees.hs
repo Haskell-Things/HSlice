@@ -21,7 +21,7 @@ module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastEN
 
 import Prelude (Bool(True,False), Eq, Show, (==), otherwise, snd, ($), error, (<>), notElem, show, (&&), (/=), null, (<$>), fst)
 
-import Data.Maybe( Maybe(Just, Nothing), fromJust, fromMaybe, isJust)
+import Data.Maybe (Maybe(Just, Nothing), fromJust, fromMaybe, isJust)
 
 import Slist.Type (Slist(Slist))
 
@@ -33,7 +33,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), finalINodeOf, finalPLine, getFirstLineSeg, getLastLineSeg, hasNoINodes, ancestorsOf, indexPLinesTo, makeINode, sortedPLines)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, Arcable(hasArc, outOf))
+import Graphics.Slicer.Math.PGA (ProjectiveLine, Arcable(hasArc, outOf), outAndErrOf)
 
 lastSegOf :: NodeTree -> LineSeg
 lastSegOf nodeTree = getLastLineSeg $ lastENodeOf nodeTree
@@ -90,8 +90,8 @@ pathTo (NodeTree eNodeSet@(ENodeSet eNodeSides) iNodeSet@(INodeSet generations))
             iNodeOnThisLevel = findINodeByOutput myINodeSet pLineToFollow False
             iNodeOnLowerLevel = findINodeByOutput (ancestorsOf myINodeSet) pLineToFollow True
             pLineToFollow = case direction of
-                              Head -> firstPLine
-                              Last -> SL.last (cons secondPLine morePLines)
+                              Head -> fst $ firstPLine
+                              Last -> fst $ SL.last (cons secondPLine morePLines)
             myError = error $ "could not find enode for " <> show pLineToFollow <> "\n"
                            <> show eNodeSides <> "\n"
                            <> show myINodeSet <> "\n"
@@ -174,14 +174,14 @@ mergeNodeTrees nodeTrees =
       where
         nodeTreesInOrder myNodeTree1@(NodeTree myENodeSet1 _) myNodeTree2@(NodeTree myENodeSet2 _)
           | isOneSide myENodeSet1 && isOneSide myENodeSet2 = case compareSides (firstSide myENodeSet1) (firstSide myENodeSet2) of
-                                                               FirstLast -> [[makeINode [fst $ finalPLine myNodeTree1, fst $ finalPLine myNodeTree2] Nothing]]
-                                                               LastFirst -> [[makeINode [fst $ finalPLine myNodeTree2, fst $ finalPLine myNodeTree1] Nothing]]
+                                                               FirstLast -> [[makeINode [finalPLine myNodeTree1, finalPLine myNodeTree2] Nothing]]
+                                                               LastFirst -> [[makeINode [finalPLine myNodeTree2, finalPLine myNodeTree1] Nothing]]
                                                                NoMatch -> error "failed to connect"
           | otherwise = error "multi-sided ENodeSets not yet supported."
         nodeTreeAndInsInOrder myNodeTree1@(NodeTree myENodeSet1 _) myNodeTree2@(NodeTree myENodeSet2 _)
           | isOneSide myENodeSet1 && isOneSide myENodeSet2 = case compareSides (firstSide myENodeSet1) (firstSide myENodeSet2) of
-                                                               FirstLast -> [[makeINode (indexPLinesTo (outOf $ firstENodeOf myNodeTree2) $ sortedPLines $ insOf (finalINodeOf iNodeSet2) <> [fst $ finalPLine myNodeTree1]) Nothing]]
-                                                               LastFirst -> [[makeINode (indexPLinesTo (outOf $ firstENodeOf myNodeTree1) $ sortedPLines $ fst (finalPLine myNodeTree1) : insOf (finalINodeOf iNodeSet2)) Nothing]]
+                                                               FirstLast -> [[makeINode (indexPLinesTo (outAndErrOf $ firstENodeOf myNodeTree2) $ sortedPLines $ insOf (finalINodeOf iNodeSet2) <> [finalPLine myNodeTree1]) Nothing]]
+                                                               LastFirst -> [[makeINode (indexPLinesTo (outAndErrOf $ firstENodeOf myNodeTree1) $ sortedPLines $ (finalPLine myNodeTree1) : insOf (finalINodeOf iNodeSet2)) Nothing]]
                                                                NoMatch -> error "failed to connect"
           | otherwise = error "multi-sided ENodeSets not yet supported."
         mergeINodeSetsInOrder (NodeTree myENodeSet1 myINodeSet1) (NodeTree myENodeSet2 myINodeSet2)

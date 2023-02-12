@@ -440,7 +440,7 @@ randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
     intersectionPPoint = eToPP intersectionPoint
 
 randomINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> INode
-randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [fst maybeFlippedpl1, fst maybeFlippedpl2] (Just bisector)
+randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1, maybeFlippedpl2] (Just bisector)
   where
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)

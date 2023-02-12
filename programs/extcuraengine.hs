@@ -117,6 +117,7 @@ https://hackaday.com/2020/05/17/look-ma-no-support-for-my-floating-holes/
 https://homes.cs.washington.edu/~ztatlock/pubs/reincarnate-nandi-icfp18.pdf
 https://github.com/uwplse/reincarnate-aec
 https://github.com/Zip-o-mat/Slic3r/tree/nonplanar
+https://cadquery.readthedocs.io/en/latest/apireference.html#selectors
 -}
 
 ---------------------------------------------------------------------------

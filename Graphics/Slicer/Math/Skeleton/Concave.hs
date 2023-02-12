@@ -105,13 +105,13 @@ findINodes inSegSets
   | len inSegSets == 2 =
     -- Two walls, no closed ends. solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
     case initialENodes of
-      [] -> INodeSet $ slist [[makeINode [fst $ getInsideArc firstLineFlipped lastLine, fst $ getInsideArc firstLine lastLineFlipped] Nothing]]
+      [] -> INodeSet $ slist [[makeINode [getInsideArc firstLineFlipped lastLine, getInsideArc firstLine lastLineFlipped] Nothing]]
         where
           firstLine@(fs, fsErr) = eToPL $ SL.head $ slist $ SL.head inSegSets
           firstLineFlipped = (flipL fs, fsErr)
           lastLine@(ls, lsErr) = eToPL $ SL.head $ slist $ SL.last inSegSets
           lastLineFlipped = (flipL ls, lsErr)
-      [a] -> INodeSet $ slist [[makeINode [fst $ getInsideArc lastLine shortSide, fst $ getInsideArc firstLine shortSide] (Just (flipL $ outOf a, errOfOut a))]]
+      [a] -> INodeSet $ slist [[makeINode [getInsideArc lastLine shortSide, getInsideArc firstLine shortSide] (Just (flipL $ outOf a, errOfOut a))]]
         where
           firstLine = eToPL $ fromMaybe (error "no first segment?") $ safeHead $ slist longSide
           lastLine = eToPL $ SL.last $ slist longSide
@@ -169,9 +169,9 @@ averageNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> IN
 averageNodes n1 n2 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (cPPointAndErrOf n1) (outAndErrOf n1) (cPPointAndErrOf n2) (outAndErrOf n2)
 
 -- | Take a pair of arcables, and return their outOfs, in a sorted order.
-sortedPair :: (Arcable a, Arcable b) => a -> b -> [ProjectiveLine]
+sortedPair :: (Arcable a, Arcable b) => a -> b -> [(ProjectiveLine, PLine2Err)]
 sortedPair n1 n2
-  | hasArc n1 && hasArc n2 = sortedPLines [outOf n1, outOf n2]
+  | hasArc n1 && hasArc n2 = sortedPLines [outAndErrOf n1, outAndErrOf n2]
   | otherwise = error "Cannot get the average of nodes if one of the nodes does not have an out!\n"
 
 -- | Make a first generation node.
@@ -226,11 +226,11 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [(_,_)] _)) generations = findENodes
     findENodesRecursive myGens =
       case unsnoc myGens of
         Nothing -> []
-        (Just (ancestorGens,workingGen)) -> concatMap findENodesOfInRecursive $ nub (insOf (onlyINodeIn workingGen) <> maybePLineOut (onlyINodeIn workingGen))
+        (Just (ancestorGens,workingGen)) -> concatMap findENodesOfInRecursive $ fst <$> nub (insOf (onlyINodeIn workingGen) <> maybePLineOut (onlyINodeIn workingGen))
           where
-            maybePLineOut :: INode -> [ProjectiveLine]
+            maybePLineOut :: INode -> [(ProjectiveLine, PLine2Err)]
             maybePLineOut myINode = if hasArc myINode
-                                    then [outOf myINode]
+                                    then [outAndErrOf myINode]
                                     else []
             -- for a generation with only one inode, retrieve that inode.
             onlyINodeIn :: [INode] -> INode
@@ -371,9 +371,9 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
     indexTo iNodes = iNodesBeforePLine iNodes <> iNodesAfterPLine iNodes
       where
         iNodesBeforePLine :: [INode] -> [INode]
-        iNodesBeforePLine = filter (\a -> firstPLine `pLineIsLeft` firstInOf a /= Just False)
+        iNodesBeforePLine = filter (\a -> fst firstPLine `pLineIsLeft` fst (firstInOf a) /= Just False)
         -- nodes in the right order, after the divide.
-        iNodesAfterPLine myINodes = withoutFlippedINodes $ filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) myINodes
+        iNodesAfterPLine myINodes = withoutFlippedINodes $ filter (\a -> fst firstPLine `pLineIsLeft` fst (firstInOf a) == Just False) myINodes
         withoutFlippedINodes maybeFlippedINodes = case flippedINodeOf maybeFlippedINodes of
                                                     Nothing -> maybeFlippedINodes
                                                     (Just a) -> filter (/= a) maybeFlippedINodes
@@ -423,7 +423,7 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
     canMergeWith inode1 inode2 = hasArc inode1 && hasIn inode2 (outAndErrOf inode1)
       where
         hasIn :: INode -> (ProjectiveLine, PLine2Err) -> Bool
-        hasIn iNode pLine2 = case filter (\a -> isCollinear (a, mempty) pLine2) $ insOf iNode of
+        hasIn iNode pLine2 = case filter (\a -> isCollinear a pLine2) $ insOf iNode of
                                [] -> False
                                [_] -> True
                                (_:_) -> error "filter passed too many options."
@@ -441,21 +441,21 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
     flipINodePair iNode1 iNode2@(INode _ _ _ maybeOut2) = one [orderInsByENodes newINode1] <> one [orderInsByENodes newINode2]
       where
         -- like iNode2, only with our flipped connecting line.
-        newINode1 = makeINode (withoutConnectingPLine $ insOf iNode2) (Just (newConnectingPLine, mempty))
+        newINode1 = makeINode (withoutConnectingPLine $ insOf iNode2) (Just newConnectingPLine)
         -- like iNode1, but with our flipped connecting line in, and iNode2's original out.
         newINode2 = makeINode ([newConnectingPLine] <> insOf iNode1) maybeOut2
-        newConnectingPLine = flipL oldConnectingPLine
+        newConnectingPLine = (flipL $ fst oldConnectingPLine, snd oldConnectingPLine)
         oldConnectingPLine = case iNodeInsOf iNode2 of
                                [] -> error "could not find old connecting PLine."
                                [v] -> v
                                (_:_) -> error "filter passed too many connecting PLines."
-        iNodeInsOf myINode = filter (isNothing . findENodeByOutput (eNodeSetOf $ slist initialENodes)) $ insOf myINode
+        iNodeInsOf myINode = filter (\a -> isNothing $ findENodeByOutput (eNodeSetOf $ slist initialENodes) (fst a)) $ insOf myINode
         withoutConnectingPLine = filter (/= oldConnectingPLine)
 
     -- Determine if the given INode has a PLine that points to an ENode.
-    hasENode iNode = any (isJust . findENodeByOutput (eNodeSetOf $ slist initialENodes)) $ insOf iNode
+    hasENode iNode = any (isJust . findENodeByOutput (eNodeSetOf $ slist initialENodes)) (fst <$> insOf iNode)
     -- Determine if the given INode has a PLine that points to another INode.
-    hasINode iNode = any (isNothing . findENodeByOutput (eNodeSetOf $ slist initialENodes)) $ insOf iNode
+    hasINode iNode = any (isNothing . findENodeByOutput (eNodeSetOf $ slist initialENodes)) (fst <$> insOf iNode)
 
     -- Construct an ENodeSet
     eNodeSetOf :: Slist ENode -> ENodeSet
@@ -486,12 +486,12 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
 
     -- | Sort a generation by the first in PLine.
     sortGeneration :: [INode] -> [INode]
-    sortGeneration = sortBy (\a b -> if firstInOf a `pLineIsLeft` firstInOf b == Just False then LT else GT)
+    sortGeneration = sortBy (\a b -> if fst (firstInOf a) `pLineIsLeft` fst (firstInOf b) == Just False then LT else GT)
 
     -- Find an inode connecting the first and last ENode, if it exists.
     -- FIXME: this functions, but i don't know why. :)
     flippedINodeOf :: [INode] -> Maybe INode
-    flippedINodeOf inodes = case filter (\a -> firstPLine `pLineIsLeft` firstInOf a == Just False) inodes of
+    flippedINodeOf inodes = case filter (\a -> fst firstPLine `pLineIsLeft` fst (firstInOf a) == Just False) inodes of
                               [] -> Nothing
                               [a] -> -- if there is only one result, it's going to only point to enodes.
                                 Just a
@@ -506,7 +506,7 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
                                   allInsAreENodes iNode = not $ hasINode iNode
 
     -- the output PLine of the first ENode in the input ENode set.
-    firstPLine = outOf firstENode
+    firstPLine = outAndErrOf firstENode
       where
         -- the first ENode given to us. for sorting uses.
         firstENode = first initialENodes
@@ -518,11 +518,11 @@ sortINodesByENodes loop inSegSets inGens@(INodeSet rawGenerations)
     -- | add together a child and it's parent.
     addINodeToParent :: INode -> INode -> INode
     addINodeToParent iNode1 iNode2@(INode _ _ _ out2)
-      | hasArc iNode1 = orderInsByENodes $ makeINode (insOf iNode1 <> withoutPLine (outOf iNode1) (insOf iNode2)) out2
+      | hasArc iNode1 = orderInsByENodes $ makeINode (insOf iNode1 <> withoutPLine (outAndErrOf iNode1) (insOf iNode2)) out2
       | otherwise = error "cannot merge a child inode with no output!"
       where
-        withoutPLine :: ProjectiveLine -> [ProjectiveLine] -> [ProjectiveLine]
-        withoutPLine myPLine = filter (/= myPLine)
+        withoutPLine :: (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)] -> [(ProjectiveLine, PLine2Err)]
+        withoutPLine myPLine = filter (\a -> fst a /= fst myPLine)
 
     -- Order the input nodes of an INode.
     orderInsByENodes :: INode -> INode
@@ -550,7 +550,7 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
                    else
                      -- Construct an INode with two identical inputs, and return it.
                      -- FIXME: shouldn't we be able to return an empty set, instead?
-                     Right $ INodeSet $ one [makeINode [outOf eNode,outOf eNode] Nothing]
+                     Right $ INodeSet $ one [makeINode [outAndErrOf eNode,outAndErrOf eNode] Nothing]
                  [iNode] -> handleTwoNodes eNode iNode
                  (_:_) -> handleThreeOrMoreNodes
     [eNode1,eNode2] -> case iNodes of
@@ -570,7 +570,7 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
       | nodesAreAntiCollinear node1 node2 && contourLooped = Right $ INodeSet $ one [makeLastPair node1 node2]
       | contourLooped =
         -- this is a complete loop, so this last INode will be re-written in sortINodesByENodes anyways.
-        Right $ INodeSet $ one [makeINode (sortedPLines [outOf node1,outOf node2]) Nothing]
+        Right $ INodeSet $ one [makeINode (sortedPLines [outAndErrOf node1,outAndErrOf node2]) Nothing]
       | intersectsInPoint node1 node2 = Right $ INodeSet $ one [safeAverageNodes node1 node2]
       | otherwise = errorLen2
       where
@@ -578,9 +578,9 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
     --   Handle the the case of 3 or more nodes.
     handleThreeOrMoreNodes
       | not (all hasArc iNodes) = error "found an Inode without an output!"
-      | endsAtSamePoint && contourLooped = Right $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) <> (outOf <$> iNodes)) Nothing]
+      | endsAtSamePoint && contourLooped = Right $ INodeSet $ one [makeINode (sortedPLines $ (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)) Nothing]
       -- FIXME: this can happen for non-loops. which means this Nothing is wrong. it should be the result of the intersection tree from the first and last node in the segment.
-      | endsAtSamePoint && not contourLooped = error $ show $ INodeSet $ one [makeINode (sortedPLines $ (outOf <$> eNodes) <> (outOf <$> iNodes)) Nothing]
+      | endsAtSamePoint && not contourLooped = error $ show $ INodeSet $ one [makeINode (sortedPLines $ (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)) Nothing]
       | hasShortestNeighboringPair = Right $ INodeSet $ averageOfShortestPairs `cons` inodesOf (errorIfLeft (skeletonOfNodes remainingLoop origSegSets remainingLineSegs (remainingINodes <> averageOfShortestPairs)))
       | otherwise = error $ "len3\n" <> errorLen3
       where

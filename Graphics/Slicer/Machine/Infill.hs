@@ -73,6 +73,7 @@ makeInfill contour insideContours ls layerType =
     Diag2 -> intersectWithContours $ coveringPLinesNegative contour ls
     ConcentricContours -> infillConcentricInside contour insideContours ls
   where
+    -- | Accept a list of line segments, colide them against our contours, and return a list of lists for where infill should be placed.
     intersectWithContours :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> [[LineSeg]]
     intersectWithContours = mapMaybe (infillLineSegInside contour insideContours)
 

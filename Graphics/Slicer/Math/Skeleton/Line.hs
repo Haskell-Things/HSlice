@@ -223,7 +223,7 @@ findClosestArc edge firstArc rawMidArcs lastArc = case sortOn fst arcIntersectio
                                 <> showInputs
       | otherwise = intersectionOf a b
     showInputs = "edge: " <> show edge <> "\n"
-              <> "firstArc:\n" <> show firstArc <> "\n"
-              <> "face:\n" <> show rawMidArcs <> "\n"
-              <> "lastArc:\n" <> show lastArc <> "\n"
+              <> "firstArc: \n" <> show firstArc <> "\n"
+              <> "midArcs: \n" <> show rawMidArcs <> "\n"
+              <> "lastArc: \n" <> show lastArc <> "\n"
 
