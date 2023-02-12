@@ -22,9 +22,9 @@
 -- | This file contains code for creating a series of Faces, covering a straight skeleton.
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
-import Prelude ((==), otherwise, (<$>), ($), length, error, (<>), show, Eq, Show, (<>), Bool(True), null, not, and, snd, (&&), (>), (/=), fst)
+import Prelude ((==), otherwise, (<$>), ($), (<), length, error, (<>), show, Eq, Show, (<>), Bool(False, True), null, not, and, snd, (&&), (>), (/=), fst)
 
-import Data.List (uncons)
+import Data.List (foldl, uncons)
 
 import Data.List.Extra (unsnoc)
 
@@ -40,7 +40,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.Intersections (isCollinear)
+import Graphics.Slicer.Math.Intersections (noIntersection, isCollinear)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), getFirstLineSeg, getLastLineSeg, finalINodeOf, finalOutOf, ancestorsOf, firstInOf, lastInOf, sortedPLines)
 
@@ -213,12 +213,12 @@ intraNodeFace :: NodeTree -> NodeTree -> Face
 intraNodeFace nodeTree1 nodeTree2
   | nodeTree1 `isLeftOf` nodeTree2  = if nodeTree1 `follows` nodeTree2
                                       then fromMaybe errNodesNotNeighbors $
-                                             makeFace (firstENodeOf nodeTree1) (init (lastPLinesOf nodeTree1) <> tail (tail $ SL.reverse $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
+                                             makeFace (firstENodeOf nodeTree1) (init (lastPLinesOf  nodeTree1) <> tail (tail $ SL.reverse $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
                                       else fromMaybe errNodesNotNeighbors $
-                                             makeFace (firstENodeOf nodeTree1) (init (lastPLinesOf nodeTree1) <>       tail  (SL.reverse $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
+                                             makeFace (firstENodeOf nodeTree1) (init (lastPLinesOf  nodeTree1) <>       tail  (SL.reverse $ firstPLinesOf nodeTree2)) (lastENodeOf nodeTree2)
   | nodeTree1 `isRightOf` nodeTree2 = if nodeTree2 `follows` nodeTree1
                                       then fromMaybe errNodesNotNeighbors $
-                                             makeFace (lastENodeOf nodeTree2) (init (firstPLinesOf nodeTree2) <> tail (tail $ SL.reverse $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
+                                             makeFace (lastENodeOf nodeTree2)  (init (firstPLinesOf nodeTree2) <> tail (tail $ SL.reverse $ lastPLinesOf nodeTree1)) (firstENodeOf nodeTree1)
                                       else fromMaybe errNodesNotNeighbors $
                                              makeFace (firstENodeOf nodeTree2) (init (firstPLinesOf nodeTree2) <>       tail  (SL.reverse $ lastPLinesOf nodeTree1)) (lastENodeOf nodeTree1)
   | nodeTree1 == nodeTree2          = error $ "two identical nodes given.\n" <> show nodeTree1 <> "\n" <> show nodeTree2 <> "\n"
@@ -283,7 +283,22 @@ pathToLastDescendent iNodeSet eNodeSet line@(pLine, _)
 -- | Construct a face from two nodes, and a set of arcs. the nodes must follow each other on the contour.
 makeFace :: ENode -> Slist (ProjectiveLine, PLine2Err) -> ENode -> Maybe Face
 makeFace e1 arcs e2
-  | getLastLineSeg e1 == getFirstLineSeg e2 = Just $ Face (getFirstLineSeg e2) (outAndErrOf e2) arcs (outAndErrOf e1)
-  | getFirstLineSeg e1 == getLastLineSeg e2 = Just $ Face (getFirstLineSeg e1) (outAndErrOf e1) arcs (outAndErrOf e2)
+  | getLastLineSeg e1 == getFirstLineSeg e2 = Just $ Face (getFirstLineSeg e2) (outAndErrOf e2) filteredArcs (outAndErrOf e1)
+  | getFirstLineSeg e1 == getLastLineSeg e2 = Just $ Face (getFirstLineSeg e1) (outAndErrOf e1) filteredArcs (outAndErrOf e2)
   | otherwise = error $ "failed to match inputs:\nE1: " <> show e1 <> "\nE2: " <> show e2 <> "\n"
-
+  where
+    filteredArcs = filterNoIntersection arcs
+    filterNoIntersection rawArcs
+      | len arcs < 2 = rawArcs
+      | otherwise = fst $ foldl dropNoIntersection (slist [head arcs], False) (tail arcs)
+        where
+          dropNoIntersection :: (Slist (ProjectiveLine, PLine2Err), Bool) -> (ProjectiveLine, PLine2Err) -> (Slist (ProjectiveLine, PLine2Err), Bool) 
+          dropNoIntersection searched target = case searched of
+                                                 (Slist [] _,_) -> error "empty searched set?"
+                                                 (Slist xs _, True) -> (slist $ xs <> [target], True)
+                                                 (Slist [a] _, False) -> if noIntersection a target
+                                                                         then (slist [a], True)
+                                                                         else (slist $ [a] <> [target], False)
+                                                 (xs@(Slist rawxs _), False) -> if noIntersection (last xs) target
+                                                                                then (xs, True)
+                                                                                else (slist $ rawxs <> [target], False)

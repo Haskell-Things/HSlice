@@ -1090,6 +1090,7 @@ prop_RectangleFacesRightArcCount x y rawFirstTilt rawSecondTilt rawDistanceToCor
   | otherwise = error $ "Too many arcs found:\n"
                      <> (concat $ show . arcCount <$> faces) <> "\n"
                      <> show skeleton <> "\n"
+                     <> show faces <> "\n"
   where
     res = all (\a -> arcCount a < 4) faces
     faces = orderedFacesOf firstSeg skeleton
