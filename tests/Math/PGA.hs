@@ -31,7 +31,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, facetStatSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (Bool(True, False), Eq, Show, ($), (<$>), (==), (>=), error, realToFrac, (/=), (<=), otherwise, (&&), (+), show, length, (<>), fst, not, snd, length, mempty, pi, (<), (>), (-), (/), (*), (.))
+import Prelude (Bool(True, False), Eq, Show, ($), (<$>), (==), (>=), error, realToFrac, sqrt, (/=), (<=), otherwise, (&&), (+), show, length, (<>), fst, not, snd, length, mempty, pi, (<), (>), (-), (/), (*), (.))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -1013,6 +1013,20 @@ prop_SquareHasRightFaceCount x y tilt distanceToCorner = length (facesOf $ fromM
   where
     square = randomSquare x y tilt distanceToCorner
 
+prop_SquareFacesRightArcCount :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
+prop_SquareFacesRightArcCount x y rawFirstTilt rawDistanceToCorner
+  | res == True = True
+  | otherwise = error $ "Too many arcs found:\n"
+                     <> (concat $ show . arcCount <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    res = all (\a -> arcCount a < 3) faces
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show square) $ findStraightSkeleton square []
+    arcCount (Face _ _ midArcs _) = 2 + len midArcs
+    square = randomSquare x y rawFirstTilt rawDistanceToCorner
+
 prop_SquareFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareFacesInOrder x y tilt distanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show square) $ findStraightSkeleton square []) --> squareAsSegs
   where
@@ -1098,7 +1112,7 @@ prop_RectangleFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ 
 prop_RectangleFacesInsetWithRemainder x y rawFirstTilt rawSecondTilt distanceToCorner = (length insetContours, length $ lineSegsOfContour insetContour, length remainingFaces) --> (1, 4, 4)
   where
     insetContour = head insetContours
-    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) (facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle [])
+    (insetContours, remainingFaces) = insetBy ((sqrt $ coerce distanceToCorner)/2) (facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle [])
     rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
 
 prop_RectangleFacesInsetWithoutRemainder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
@@ -1788,6 +1802,8 @@ facetSpec = do
       property prop_SquareCanPlaceFaces
     it "only finds four face squares" $
       property prop_SquareHasRightFaceCount
+    it "generates faces with less than three arcs" $
+      property prop_SquareFacesRightArcCount
     it "places faces on a square in the order the line segments were given" $
       property prop_SquareFacesInOrder
     it "insets a square halfway, finding 4 remaining faces" $
