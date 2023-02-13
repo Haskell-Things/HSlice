@@ -1024,18 +1024,14 @@ prop_SquareFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -
 prop_SquareFacesInsetWithRemainder x y tilt distanceToCorner = (length insetContours, length $ lineSegsOfContour insetContour, length remainingFaces) --> (1, 4, 4)
   where
     insetContour = head insetContours
-    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) (orderedFacesOf firstSeg $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
+    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
     square = randomSquare x y tilt distanceToCorner
-    squareAsSegs = lineSegsOfContour square
-    firstSeg = onlyOneOf squareAsSegs
 
 prop_SquareFacesInsetWithoutRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareFacesInsetWithoutRemainder x y tilt distanceToCorner = (length insetContours, length remainingFaces) --> (0, 0)
   where
-    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (orderedFacesOf firstSeg $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
+    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
     square = randomSquare x y tilt distanceToCorner
-    squareAsSegs = lineSegsOfContour square
-    firstSeg = onlyOneOf squareAsSegs
 
 prop_RectangleNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_RectangleNoDivides x y rawFirstTilt rawSecondTilt rawDistanceToCorner = findDivisions rectangle (fromMaybe (error $ show rectangle) $ crashMotorcycles rectangle []) --> []
@@ -1093,29 +1089,23 @@ prop_RectangleFacesRightArcCount x y rawFirstTilt rawSecondTilt rawDistanceToCor
                      <> show faces <> "\n"
   where
     res = all (\a -> arcCount a < 4) faces
-    faces = orderedFacesOf firstSeg skeleton
+    faces = facesOf skeleton
     skeleton = fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
     arcCount (Face _ _ midArcs _) = 2 + len midArcs
     rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-    rectangleAsSegs = lineSegsOfContour rectangle
-    firstSeg = onlyOneOf rectangleAsSegs
 
 prop_RectangleFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_RectangleFacesInsetWithRemainder x y rawFirstTilt rawSecondTilt distanceToCorner = (length insetContours, length $ lineSegsOfContour insetContour, length remainingFaces) --> (1, 4, 4)
   where
     insetContour = head insetContours
-    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) (orderedFacesOf firstSeg $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle [])
+    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) (facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle [])
     rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
-    rectangleAsSegs = lineSegsOfContour rectangle
-    firstSeg = onlyOneOf rectangleAsSegs
 
 prop_RectangleFacesInsetWithoutRemainder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_RectangleFacesInsetWithoutRemainder x y rawFirstTilt rawSecondTilt distanceToCorner = (length insetContours, length remainingFaces) --> (0, 0)
   where
-    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (orderedFacesOf firstSeg $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle [])
+    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle [])
     rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
-    rectangleAsSegs = lineSegsOfContour rectangle
-    firstSeg = onlyOneOf rectangleAsSegs
 
 prop_ConvexDualRightQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_ConvexDualRightQuadNoDivides x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = findDivisions convexDualRightQuad (fromMaybe (errorReport) $ crashMotorcycles convexDualRightQuad []) --> []
