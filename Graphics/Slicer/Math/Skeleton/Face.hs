@@ -22,9 +22,9 @@
 -- | This file contains code for creating a series of Faces, covering a straight skeleton.
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
-import Prelude ((==), otherwise, (<$>), ($), (<), length, error, (<>), show, Eq, Show, (<>), Bool(False, True), null, not, and, snd, (&&), (>), (/=), fst)
+import Prelude ((==), otherwise, (<$>), ($), length, error, (<>), show, Eq, Show, (<>), Bool(True), null, not, and, snd, (&&), (>), (/=), fst)
 
-import Data.List (foldl, uncons)
+import Data.List (uncons)
 
 import Data.List.Extra (unsnoc)
 
@@ -197,10 +197,18 @@ areaBetween _ (ENodeSet (Slist [] _)) _ _ = error "no sides?"
 areaBetween _ (ENodeSet (Slist (_:_:_) _)) _ _ = error "too many sides?"
 areaBetween iNodeSet eNodeSet@(ENodeSet (Slist [(_,_)] _)) pLine1 pLine2
   | reverseTriangle = fromMaybe errNodesNotNeighbors $
-                      makeFace (lastDescendent iNodeSet eNodeSet pLine1) (SL.reverse (pathToLastDescendent iNodeSet eNodeSet pLine2) <> pathToFirstDescendent iNodeSet eNodeSet pLine1) (firstDescendent iNodeSet eNodeSet pLine2)
+                      makeFace (lastDescendent iNodeSet eNodeSet pLine1) (mergeWithoutNonIntersecting (SL.reverse $ pathToLastDescendent iNodeSet eNodeSet pLine2) (pathToFirstDescendent iNodeSet eNodeSet pLine1)) (firstDescendent iNodeSet eNodeSet pLine2)
   | otherwise       = fromMaybe errNodesNotNeighbors $
-                      makeFace (firstDescendent iNodeSet eNodeSet pLine1) (SL.reverse (pathToFirstDescendent iNodeSet eNodeSet pLine2) <> pathToLastDescendent iNodeSet eNodeSet pLine1) (lastDescendent iNodeSet eNodeSet pLine2)
+                      makeFace (firstDescendent iNodeSet eNodeSet pLine1) (mergeWithoutNonIntersecting (SL.reverse $ pathToFirstDescendent iNodeSet eNodeSet pLine2) (pathToLastDescendent iNodeSet eNodeSet pLine1)) (lastDescendent iNodeSet eNodeSet pLine2)
   where
+    -- append two slists of arcs, checking and eliminating the case where the first slist ends with an arc that is anti-collinear with the head of the second slist.
+    mergeWithoutNonIntersecting :: Slist (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err)
+    mergeWithoutNonIntersecting arcs1 arcs2
+      | isEmpty arcs1 = arcs2
+      | isEmpty arcs2 = arcs1
+      | otherwise = if noIntersection (last arcs1) (head arcs2)
+                    then arcs1 <> tail arcs2
+                    else arcs1 <> arcs2
     -- Detect the case where we are creating a face across the open end of the contour.
     reverseTriangle = distance > ulpVal distanceErr
       where
@@ -287,13 +295,17 @@ makeFace e1 arcs e2
   | getFirstLineSeg e1 == getLastLineSeg e2 = Just $ Face (getFirstLineSeg e1) (outAndErrOf e1) filteredArcs (outAndErrOf e2)
   | otherwise = error $ "failed to match inputs:\nE1: " <> show e1 <> "\nE2: " <> show e2 <> "\n"
   where
-    filteredArcs = filterNoIntersection arcs
-    filterNoIntersection rawArcs
-      | len arcs < 2 = rawArcs
-      | otherwise = fst $ foldl dropNoIntersection (slist [head arcs], False) (tail arcs)
-        where
-          dropNoIntersection :: (Slist (ProjectiveLine, PLine2Err), Bool) -> (ProjectiveLine, PLine2Err) -> (Slist (ProjectiveLine, PLine2Err), Bool) 
-          dropNoIntersection searched target = case searched of
+    filteredArcs = arcs -- filterSingleNoIntersection arcs
+
+{-
+-- | For when you're hunting for the place where you mis-fold a set of arcs...
+filterSingleNoIntersection :: Slist (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err)
+filterSingleNoIntersection arcs
+  | len arcs < 2 = arcs
+  | otherwise = fst $ foldl dropSingleNoIntersection (slist [head arcs], False) (tail arcs)
+  where
+    dropSingleNoIntersection :: (Slist (ProjectiveLine, PLine2Err), Bool) -> (ProjectiveLine, PLine2Err) -> (Slist (ProjectiveLine, PLine2Err), Bool) 
+    dropSingleNoIntersection searched target = case searched of
                                                  (Slist [] _,_) -> error "empty searched set?"
                                                  (Slist xs _, True) -> (slist $ xs <> [target], True)
                                                  (Slist [a] _, False) -> if noIntersection a target
@@ -302,3 +314,4 @@ makeFace e1 arcs e2
                                                  (xs@(Slist rawxs _), False) -> if noIntersection (last xs) target
                                                                                 then (xs, True)
                                                                                 else (slist $ rawxs <> [target], False)
+-}
