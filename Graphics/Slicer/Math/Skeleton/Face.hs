@@ -300,7 +300,7 @@ makeFace e1 arcs e2
   where
     filteredArcs = arcs -- filterSingleNoIntersection arcs
 
--- | Throw an error if  one of the faces has two following arcs that do not have an intersection between them.
+-- | Throw an error if one of the faces has two following arcs that do not have an intersection between them.
 findDegenerates :: Slist Face -> Slist Face
 findDegenerates (Slist inFaces _) = slist $ checkFace <$> inFaces
   where
