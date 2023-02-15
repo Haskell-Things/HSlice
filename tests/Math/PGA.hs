@@ -999,7 +999,6 @@ prop_SquareStraightSkeletonHasRightGenerationCount x y tilt distanceToCorner = g
   where
     square = randomSquare x y tilt distanceToCorner
 
-
 prop_SquareMotorcyclesIntersectAtPoint :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareMotorcyclesIntersectAtPoint x y tilt distanceToCorner = generationsOf (findStraightSkeleton square []) --> 1
   where
@@ -1136,7 +1135,7 @@ prop_RectangleFacesInsetWithRemainder x y rawFirstTilt rawSecondTilt distanceToC
                      <> "inset distance: " <> show insetDistance <> "\n"
                      <> show insetContours <> "\n"
                      <> show remainingFaces <> "\n"
-                     <> dumpGanjas (toGanja rectangle : (toGanja <$> remainingFaces) <> (toGanja <$> rawFaces)) 
+                     <> dumpGanjas (toGanja rectangle : (toGanja <$> remainingFaces) <> (toGanja <$> rawFaces))
   where
     (insetContours, remainingFaces) = insetBy insetDistance faces
     insetDistance = (min a b) / 2

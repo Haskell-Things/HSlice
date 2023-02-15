@@ -136,7 +136,7 @@ filterIntersections a b c = dropCollinears $ filterAllIntersections a b c
       | isJust v = case fromJust v of
                       (lineSeg, EPoint p) -> Just (lineSeg, Left p)
                       (lineSeg, PPoint p) -> Just (lineSeg, Right p)
-                      _                   -> Nothing 
+                      _                   -> Nothing
       | otherwise = Nothing
 
 data Crossover = EPoint Point2

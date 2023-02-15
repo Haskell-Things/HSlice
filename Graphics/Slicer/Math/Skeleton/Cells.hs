@@ -50,7 +50,7 @@ import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeT
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, makeLineSeg, startPoint) 
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, makeLineSeg, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 

@@ -319,7 +319,7 @@ filterSingleNoIntersection arcs
   | len arcs < 2 = arcs
   | otherwise = fst $ foldl dropSingleNoIntersection (slist [head arcs], False) (tail arcs)
   where
-    dropSingleNoIntersection :: (Slist (ProjectiveLine, PLine2Err), Bool) -> (ProjectiveLine, PLine2Err) -> (Slist (ProjectiveLine, PLine2Err), Bool) 
+    dropSingleNoIntersection :: (Slist (ProjectiveLine, PLine2Err), Bool) -> (ProjectiveLine, PLine2Err) -> (Slist (ProjectiveLine, PLine2Err), Bool)
     dropSingleNoIntersection searched target = case searched of
                                                  (Slist [] _,_) -> error "empty searched set?"
                                                  (Slist xs _, True) -> (slist $ xs <> [target], True)
