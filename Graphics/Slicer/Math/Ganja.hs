@@ -50,7 +50,7 @@
  juri@ni:/disk4/faikvm.com/HSlice/HSlice-current$ cabal repl
  Ok, 30 modules loaded.
  *Graphics.Slicer> import Prelude (($),putStrLn)
- *Graphics.Slicer Prelude> import Graphics.Slicer.Math.Ganja(dumpGanja)
+ *Graphics.Slicer Prelude> import Graphics.Slicer.Math.Ganja(dumpGanjas, toGanja)
  *Graphics.Slicer Prelude Graphics.Slicer.Math.Ganja> putStrLn $ dumpGanjas [toGanja (Point2 (1,1)), toGanja (Point2 (2,2))]
  Algebra(2,0,1,()=>{
    var line = (a,b,c)=>a*1e1 + b*1e2 + c*1e0;
