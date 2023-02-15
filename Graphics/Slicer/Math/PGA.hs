@@ -110,7 +110,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (ErrVal, GNum(G0, GEPlus, GEZero), 
 
 import Graphics.Slicer.Math.Line (combineLineSegs, makeLineSeg)
 
-import Graphics.Slicer.Math.PGAPrimitives(ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine2(normalizeL, vecOfL), ProjectivePoint2(canonicalizeP, isIdealP, vecOfP), angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, flipL, forceBasisOfL, forceBasisOfP, fuzzinessOfL, fuzzinessOfP, idealNormOfP, interpolate2PP, intersect2PL, join2PP, pLineErrAtPPoint, pToEP, translateL, xIntercept, yIntercept)
+import Graphics.Slicer.Math.PGAPrimitives(ProjectivePoint(CPPoint2,PPoint2), ProjectiveLine(NPLine2,PLine2), PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine2(normalizeL, vecOfL), ProjectivePoint2(canonicalizeP, isIdealP, vecOfP), angleBetween2PL, angleCosBetween2PL, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, flipL, forceBasisOfL, forceBasisOfP, fuzzinessOfL, fuzzinessOfP, idealNormOfP, interpolate2PP, intersect2PL, join2PP, pLineErrAtPPoint, pLinesWithinErr, pToEP, translateL, xIntercept, yIntercept)
 
 -- Our 2D plane coresponds to a Clifford algebra of 2,0,1.
 
@@ -469,9 +469,7 @@ combineConsecutiveLineSegs lines = case lines of
     combine  []      ls      = ls
     combine (l1:ls) (l2:l2s) = case unsnoc ls of
                                   Nothing -> if canCombineLineSegs l1 l2 then fromMaybe (error "failed to combine!") (combineLineSegs l1 l2) : l2s else l1 : l2 : l2s
-                                  (Just (vs, vl)) -> (l1:vs) <> (vl:l2:l2s)
--- FIXME: how is this broken? causes our real world tests 4 and 5 to go into an infinite loop?
---                                  (Just (vs, vl)) -> if canCombineLineSegs vl l2 then l1:vs <> (fromMaybe (error "failed to combine!") (combineLineSegs vl l2) : l2s) else (l1:ls) <> (l2:l2s)
+                                  (Just (vs, vl)) -> if canCombineLineSegs vl l2 then l1:vs <> (fromMaybe (error "failed to combine!") (combineLineSegs vl l2) : l2s) else (l1:ls) <> (l2:l2s)
     combineEnds :: [LineSeg] -> [LineSeg]
     combineEnds  []      = []
     combineEnds  [l1]    = [l1]
@@ -480,7 +478,10 @@ combineConsecutiveLineSegs lines = case lines of
                                  (Just (vs, vl)) -> if canCombineLineSegs vl l1 then fromMaybe (error "failed to combine!") (combineLineSegs vl l1) : l2 : vs else vl:l1:l2:vs
     -- | determine if two euclidian line segments are on the same projective line, and if they share a middle point.
     canCombineLineSegs :: LineSeg -> LineSeg -> Bool
-    canCombineLineSegs l1 l2 = plinesIntersectIn (eToPL l1) (eToPL l2) == PCollinear
+    canCombineLineSegs l1 l2 = pLinesWithinErr line1 line2 && sameDirection pl1 pl2
+      where
+        line1@(pl1,_) = eToPL l1
+        line2@(pl2,_) = eToPL l2
 
 ------------------------------------------------
 ----- And now draw the rest of the algebra -----

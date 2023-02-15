@@ -21,7 +21,7 @@ module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastEN
 
 import Prelude (Bool(True,False), Eq, Show, (==), otherwise, snd, ($), error, (<>), notElem, show, (&&), (/=), null, (<$>), fst)
 
-import Data.Maybe( Maybe(Just, Nothing), fromMaybe, isJust)
+import Data.Maybe (Maybe(Just, Nothing), fromJust, fromMaybe, isJust)
 
 import Slist.Type (Slist(Slist))
 
@@ -33,7 +33,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), finalINodeOf, finalPLine, getFirstLineSeg, getLastLineSeg, hasNoINodes, ancestorsOf, indexPLinesTo, makeINode, sortedPLines)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, Arcable(hasArc, outOf))
+import Graphics.Slicer.Math.PGA (PLine2Err, ProjectiveLine, Arcable(hasArc, outOf), outAndErrOf)
 
 lastSegOf :: NodeTree -> LineSeg
 lastSegOf nodeTree = getLastLineSeg $ lastENodeOf nodeTree
@@ -55,36 +55,26 @@ firstENodeOf (NodeTree (ENodeSet sides) _) = fst $ SL.head sides
 data Direction = Head
                | Last
 
-pathFirst, pathLast :: NodeTree -> ([ProjectiveLine], [INode], ENode)
+pathFirst, pathLast :: NodeTree -> ([(ProjectiveLine, PLine2Err)], [INode], ENode)
 pathFirst nodeTree = pathTo nodeTree Head
 pathLast nodeTree = pathTo nodeTree Last
 
 -- | Find all of the Nodes and all of the arcs between the last item in the nodeTree and the node that is part of the original contour on the given side.
-pathTo :: NodeTree -> Direction -> ([ProjectiveLine], [INode], ENode)
+pathTo :: NodeTree -> Direction -> ([(ProjectiveLine, PLine2Err)], [INode], ENode)
 pathTo (NodeTree (ENodeSet (Slist [] _)) _) _ = error "unable to pathTo a Nodetree without ENodes."
 pathTo (NodeTree eNodeSet@(ENodeSet eNodeSides) iNodeSet@(INodeSet generations)) direction
   | isEmpty generations = case eNodeSides of
-                            (Slist [(firstENode,_)] _) -> ([outOf firstENode], [], firstENode)
+                            (Slist [(firstENode,_)] _) -> ([outAndErrOf firstENode], [], firstENode)
                             (Slist _ _) -> error "looking for a first ENode in an ENodeSet with more than one side."
   | otherwise = pathInner (ancestorsOf iNodeSet) eNodeSet (finalINodeOf iNodeSet)
   where
-    pathInner :: INodeSet -> ENodeSet -> INode -> ([ProjectiveLine], [INode], ENode)
+    pathInner :: INodeSet -> ENodeSet -> INode -> ([(ProjectiveLine, PLine2Err)], [INode], ENode)
     pathInner myINodeSet@(INodeSet myGenerations) myENodeSet target@(INode firstPLine secondPLine morePLines _)
-      | hasArc target = (outOf target : childPlines, target: endNodes, finalENode)
-      | otherwise     = (               childPlines, target: endNodes, finalENode)
+      | hasArc target = (outAndErrOf target : childPlines, target: endNodes, finalENode)
+      | otherwise     = (                     childPlines, target: endNodes, finalENode)
       where
-        pLineToFollow = case direction of
-                          Head -> firstPLine
-                          Last -> SL.last (cons secondPLine morePLines)
-        iNodeOnThisLevel = findINodeByOutput myINodeSet pLineToFollow False
-        iNodeOnLowerLevel = findINodeByOutput (ancestorsOf myINodeSet) pLineToFollow True
-        result = findENodeByOutput myENodeSet pLineToFollow
-        terminate = case result of
-                      (Just eNode) -> ([outOf eNode], [], eNode)
-                      Nothing -> error "FIXME: cannot happen."
-        myError = error $ "could not find enode for " <> show pLineToFollow <> "\n" <> show eNodeSides <> "\n" <> show myINodeSet <> "\n"
         (childPlines, endNodes, finalENode) = if isJust result
-                                              then terminate
+                                              then returnResult (fromJust result)
                                               else case iNodeOnThisLevel of
                                                      (Just res) -> pathInner myINodeSet myENodeSet (snd res)
                                                      Nothing -> case myGenerations of
@@ -94,6 +84,17 @@ pathTo (NodeTree eNodeSet@(ENodeSet eNodeSides) iNodeSet@(INodeSet generations))
                                                                   (Slist ((INode {} :_):_) _) ->  case iNodeOnLowerLevel of
                                                                                         (Just (resINodeSet,resINode)) -> pathInner (ancestorsOf resINodeSet) myENodeSet resINode
                                                                                         Nothing -> myError
+          where
+            result = findENodeByOutput myENodeSet pLineToFollow
+            returnResult eNode = ([outAndErrOf eNode], [], eNode)
+            iNodeOnThisLevel = findINodeByOutput myINodeSet pLineToFollow False
+            iNodeOnLowerLevel = findINodeByOutput (ancestorsOf myINodeSet) pLineToFollow True
+            pLineToFollow = case direction of
+                              Head -> fst $ firstPLine
+                              Last -> fst $ SL.last (cons secondPLine morePLines)
+            myError = error $ "could not find enode for " <> show pLineToFollow <> "\n"
+                           <> show eNodeSides <> "\n"
+                           <> show myINodeSet <> "\n"
 
 -- | Find an exterior Node with an output of the PLine given.
 findENodeByOutput :: ENodeSet -> ProjectiveLine -> Maybe ENode
@@ -173,14 +174,14 @@ mergeNodeTrees nodeTrees =
       where
         nodeTreesInOrder myNodeTree1@(NodeTree myENodeSet1 _) myNodeTree2@(NodeTree myENodeSet2 _)
           | isOneSide myENodeSet1 && isOneSide myENodeSet2 = case compareSides (firstSide myENodeSet1) (firstSide myENodeSet2) of
-                                                               FirstLast -> [[makeINode [fst $ finalPLine myNodeTree1, fst $ finalPLine myNodeTree2] Nothing]]
-                                                               LastFirst -> [[makeINode [fst $ finalPLine myNodeTree2, fst $ finalPLine myNodeTree1] Nothing]]
+                                                               FirstLast -> [[makeINode [finalPLine myNodeTree1, finalPLine myNodeTree2] Nothing]]
+                                                               LastFirst -> [[makeINode [finalPLine myNodeTree2, finalPLine myNodeTree1] Nothing]]
                                                                NoMatch -> error "failed to connect"
           | otherwise = error "multi-sided ENodeSets not yet supported."
         nodeTreeAndInsInOrder myNodeTree1@(NodeTree myENodeSet1 _) myNodeTree2@(NodeTree myENodeSet2 _)
           | isOneSide myENodeSet1 && isOneSide myENodeSet2 = case compareSides (firstSide myENodeSet1) (firstSide myENodeSet2) of
-                                                               FirstLast -> [[makeINode (indexPLinesTo (outOf $ firstENodeOf myNodeTree2) $ sortedPLines $ insOf (finalINodeOf iNodeSet2) <> [fst $ finalPLine myNodeTree1]) Nothing]]
-                                                               LastFirst -> [[makeINode (indexPLinesTo (outOf $ firstENodeOf myNodeTree1) $ sortedPLines $ fst (finalPLine myNodeTree1) : insOf (finalINodeOf iNodeSet2)) Nothing]]
+                                                               FirstLast -> [[makeINode (indexPLinesTo (outAndErrOf $ firstENodeOf myNodeTree2) $ sortedPLines $ insOf (finalINodeOf iNodeSet2) <> [finalPLine myNodeTree1]) Nothing]]
+                                                               LastFirst -> [[makeINode (indexPLinesTo (outAndErrOf $ firstENodeOf myNodeTree1) $ sortedPLines $ (finalPLine myNodeTree1) : insOf (finalINodeOf iNodeSet2)) Nothing]]
                                                                NoMatch -> error "failed to connect"
           | otherwise = error "multi-sided ENodeSets not yet supported."
         mergeINodeSetsInOrder (NodeTree myENodeSet1 myINodeSet1) (NodeTree myENodeSet2 myINodeSet2)

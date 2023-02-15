@@ -58,13 +58,14 @@ module Graphics.Slicer.Math.PGAPrimitives
     intersect2PL,
     join2PP,
     pLineErrAtPPoint,
+    pLinesWithinErr,
     pToEP,
     translateL,
     xIntercept,
     yIntercept
   ) where
 
-import Prelude(Bool(False), Eq((==),(/=)), Monoid(mempty), Ord(compare), Ordering(EQ), Semigroup((<>)), Show(show), (&&), ($), (+), (*), (/), (<$>), abs, error, filter, fst, negate, otherwise, realToFrac, snd, sqrt)
+import Prelude(Bool(False), Eq((==),(/=)), Monoid(mempty), Ord(compare), Ordering(EQ), Semigroup((<>)), Show(show), (&&), (>=), (<=), (||), ($), (+), (*), (/), (<$>), abs, error, filter, fst, negate, not, otherwise, realToFrac, signum, snd, sqrt)
 
 import Control.DeepSeq (NFData)
 
@@ -447,6 +448,44 @@ pLineErrAtPPoint (line, lineErr) errPoint
     (Point2 (xPos,yPos),_) = pToEP errPoint
     nPLineErr = nPLineErrRaw <> lineErr
     (nPLine, nPLineErrRaw) = normalizeL line
+
+-- | is it possible that after taking error into account, both of the two given PLines may overlap?
+pLinesWithinErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
+pLinesWithinErr (pl1, pl1Err) (pl2, pl2Err)
+  | x1InterceptExists && x2InterceptExists && signum x1InterceptDistance == signum x2InterceptDistance &&
+    y1InterceptExists && y2InterceptExists && signum y1InterceptDistance == signum y2InterceptDistance = (x1BetweenX2 || x2BetweenX1) && (y1BetweenY2 || y2BetweenY1)
+  | x1InterceptExists && x2InterceptExists && signum x1InterceptDistance == signum x2InterceptDistance &&
+    not (y1InterceptExists) && not (y2InterceptExists)                                                 = (x1BetweenX2 || x2BetweenX1)
+  | y1InterceptExists && y2InterceptExists && signum y1InterceptDistance == signum y2InterceptDistance &&
+    not (x1InterceptExists) && not (x2InterceptExists)                                                 = (y1BetweenY2 || y2BetweenY1)
+  | otherwise = False
+  where
+    x1InterceptExists = isJust (xIntercept line1)
+    y1InterceptExists = isJust (yIntercept line1)
+    x2InterceptExists = isJust (xIntercept line2)
+    y2InterceptExists = isJust (yIntercept line2)
+    x1BetweenX2 = x1InterceptDistance >= x2InterceptDistance && x1InterceptDistance <= x2Max
+    x2BetweenX1 = x2InterceptDistance >= x1InterceptDistance && x2InterceptDistance <= x1Max
+    y1BetweenY2 = y1InterceptDistance >= y2InterceptDistance && y1InterceptDistance <= y2Max
+    y2BetweenY1 = y2InterceptDistance >= y1InterceptDistance && y2InterceptDistance <= y1Max
+    x1Max = realToFrac $ realToFrac (abs x1InterceptDistance) + ulpRaw rawX1InterceptFuzz
+    x2Max = realToFrac $ realToFrac (abs x2InterceptDistance) + ulpRaw rawX2InterceptFuzz
+    y1Max = realToFrac $ realToFrac (abs y1InterceptDistance) + ulpRaw rawY1InterceptFuzz
+    y2Max = realToFrac $ realToFrac (abs y2InterceptDistance) + ulpRaw rawY2InterceptFuzz
+    rawX1InterceptFuzz = snd $ fromJust $ xIntercept line1
+    rawY1InterceptFuzz = snd $ fromJust $ yIntercept line1
+    rawX2InterceptFuzz = snd $ fromJust $ xIntercept line2
+    rawY2InterceptFuzz = snd $ fromJust $ yIntercept line2
+    x1InterceptDistance = fromRight 0 $ fst $ fromJust $ xIntercept line1
+    y1InterceptDistance = fromRight 0 $ fst $ fromJust $ yIntercept line1
+    x2InterceptDistance = fromRight 0 $ fst $ fromJust $ xIntercept line2
+    y2InterceptDistance = fromRight 0 $ fst $ fromJust $ yIntercept line2
+    line1 = (nPLine1, nPLine1Err)
+    line2 = (nPLine2, nPLine2Err)
+    nPLine1Err = nPLine1ErrRaw <> pl1Err
+    nPLine2Err = nPLine2ErrRaw <> pl2Err
+    (nPLine1, nPLine1ErrRaw) = normalizeL pl1
+    (nPLine2, nPLine2ErrRaw) = normalizeL pl2
 
 -- | Find the point that a given line crosses the X axis.
 xIntercept :: (ProjectiveLine2 a) => (a, PLine2Err) -> Maybe (Either a ℝ, UlpSum)

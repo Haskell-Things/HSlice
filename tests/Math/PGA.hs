@@ -31,7 +31,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, facetStatSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (Bool(True, False), Eq, Show, ($), (<$>), (==), (>=), error, realToFrac, (/=), (<=), otherwise, (&&), (+), show, length, (<>), fst, not, snd, length, mempty, pi, (<), (>), (-), (/), (*), (.))
+import Prelude (Bool(True, False), Eq, Show, ($), (<$>), (==), (>=), error, realToFrac, (/=), (<=), otherwise, (&&), (+), show, length, (<>), cos, fst, min, not, sin, snd, length, mempty, pi, (<), (>), (-), (/), (*), (.))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -43,7 +43,7 @@ import Data.Coerce (coerce)
 
 import Data.Either (Either(Left, Right), fromRight, isLeft, rights)
 
-import Data.List (concat, foldl', transpose)
+import Data.List (all, concat, foldl', head, sort, transpose)
 
 import Data.Maybe (fromMaybe, fromJust, isJust, isNothing, Maybe(Just, Nothing))
 
@@ -52,6 +52,8 @@ import Data.Set (singleton, fromList)
 import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf))
 
 import Slist (slist, len)
+
+import Slist.Type (Slist(Slist))
 
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
@@ -72,7 +74,7 @@ import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, intersectio
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, eToPLine2, getFirstArc, getOutsideArc, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2, PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), cPPointAndErrOf, distance2PL, distance2PP, distancePPToPL, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makeCPPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, plinesIntersectIn, pPointOnPerpWithErr, outOf, combineConsecutiveLineSegs, errOfOut, fuzzinessOfL, join2EP, onSegment, sameDirection, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2, PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), cPPointAndErrOf, distance2PL, distance2PP, distancePPToPL, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makeCPPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, plinesIntersectIn, pPointOnPerpWithErr, outOf, outAndErrOf, combineConsecutiveLineSegs, errOfOut, fuzzinessOfL, join2EP, onSegment, sameDirection, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (angleBetween2PL, xIntercept, yIntercept)
 
@@ -86,9 +88,10 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 import Graphics.Slicer.Math.Arcs (towardIntersection)
 import Graphics.Slicer.Math.Contour (mostPerpPointAndLineSeg)
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
-import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, makeENode, makeENodes, averageNodes)
+import Graphics.Slicer.Math.Skeleton.Concave (averageNodes, eNodesOfOutsideContour, makeENode, makeENodes, skeletonOfNodes)
 import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), INode(INode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), Spine(Spine), StraightSkeleton(StraightSkeleton), getFirstLineSeg, getLastLineSeg)
-import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Line (insetBy)
+import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
@@ -952,8 +955,6 @@ prop_TriangleMotorcyclesEndAtSamePoint centerX centerY rawRadians rawDists
     fuzziness = fuzzinessOfP <$> intersections
     distances = mapWithFollower distance2PP intersections
     nodeOutsAndErrs = outAndErrOf <$> eNodes
-      where
-        outAndErrOf a = (outOf a, errOfOut a)
     eNodes = eNodesOfOutsideContour triangle
     triangle = randomTriangle centerX centerY rawRadians rawDists
 
@@ -998,12 +999,10 @@ prop_SquareStraightSkeletonHasRightGenerationCount x y tilt distanceToCorner = g
   where
     square = randomSquare x y tilt distanceToCorner
 
-{-
 prop_SquareMotorcyclesIntersectAtPoint :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareMotorcyclesIntersectAtPoint x y tilt distanceToCorner = generationsOf (findStraightSkeleton square []) --> 1
   where
     square = randomSquare x y tilt distanceToCorner
--}
 
 prop_SquareCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareCanPlaceFaces x y tilt distanceToCorner = facesOf (fromMaybe (error $ show square) $ findStraightSkeleton square []) -/> slist []
@@ -1015,12 +1014,39 @@ prop_SquareHasRightFaceCount x y tilt distanceToCorner = length (facesOf $ fromM
   where
     square = randomSquare x y tilt distanceToCorner
 
+prop_SquareFacesRightArcCount :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
+prop_SquareFacesRightArcCount x y rawFirstTilt rawDistanceToCorner
+  | res == True = True
+  | otherwise = error $ "Too many arcs found:\n"
+                     <> (concat $ show . arcCount <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    res = all (\a -> arcCount a < 3) faces
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show square) $ findStraightSkeleton square []
+    arcCount (Face _ _ midArcs _) = 2 + len midArcs
+    square = randomSquare x y rawFirstTilt rawDistanceToCorner
+
 prop_SquareFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareFacesInOrder x y tilt distanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show square) $ findStraightSkeleton square []) --> squareAsSegs
   where
     square = randomSquare x y tilt distanceToCorner
     squareAsSegs = lineSegsOfContour square
     firstSeg = onlyOneOf squareAsSegs
+
+prop_SquareFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_SquareFacesInsetWithRemainder x y tilt distanceToCorner = (length insetContours, length $ lineSegsOfContour insetContour, length remainingFaces) --> (1, 4, 4)
+  where
+    insetContour = head insetContours
+    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
+    square = randomSquare x y tilt distanceToCorner
+
+prop_SquareFacesInsetWithoutRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_SquareFacesInsetWithoutRemainder x y tilt distanceToCorner = (length insetContours, length remainingFaces) --> (0, 0)
+  where
+    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
+    square = randomSquare x y tilt distanceToCorner
 
 prop_RectangleNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_RectangleNoDivides x y rawFirstTilt rawSecondTilt rawDistanceToCorner = findDivisions rectangle (fromMaybe (error $ show rectangle) $ crashMotorcycles rectangle []) --> []
@@ -1032,10 +1058,25 @@ prop_RectangleHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawDistanceToCo
   where
     rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
 
-prop_RectangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawDistanceToCorner = generationsOf (findStraightSkeleton rectangle []) --> 1
+prop_RectangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
+prop_RectangleStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+  | res == 1 = True
+  | otherwise = error $ "fail!\n"
+                     <> "generations: " <> show res <> "\n"
+                     <> "skeleton: " <> show (findStraightSkeleton rectangle []) <> "\n"
+                     <> "raw Skeleton: " <> show (skeletonOfNodes True lineSegs lineSegs []) <> "\n"
+                     <> "faces: " <> show (facesOf $ fromMaybe (error "no") $ findStraightSkeleton rectangle []) <> "\n"
   where
+    res = generationsOf (findStraightSkeleton rectangle [])
+    lineSegs = slist [lineSegsOfContour rectangle]
     rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+
+prop_RectangleMotorcyclesDoNotIntersectAtPoint :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_RectangleMotorcyclesDoNotIntersectAtPoint x y rawFirstTilt rawSecondTilt distanceToCorner = intersectionsAtSamePoint nodeOutsAndErrs --> False
+  where
+    nodeOutsAndErrs = outAndErrOf <$> eNodes
+    eNodes = eNodesOfOutsideContour rectangle
+    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
 
 prop_RectangleCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_RectangleCanPlaceFaces x y rawFirstTilt rawSecondTilt rawDistanceToCorner = facesOf (fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []) -/> slist []
@@ -1053,6 +1094,84 @@ prop_RectangleFacesInOrder x y rawFirstTilt rawSecondTilt rawDistanceToCorner = 
     rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
     rectangleAsSegs = lineSegsOfContour rectangle
     firstSeg = onlyOneOf rectangleAsSegs
+
+prop_RectangleFacesRightArcCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
+prop_RectangleFacesRightArcCount x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+  | res == True = True
+  | otherwise = error $ "Too many arcs found:\n"
+                     <> (concat $ show . arcCount <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    res = all (\a -> arcCount a < 4) faces
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
+    arcCount (Face _ _ midArcs _) = 2 + len midArcs
+    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+
+prop_RectangleFacesAllWoundLeft  :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
+prop_RectangleFacesAllWoundLeft x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+  | allIsLeft = True
+  | otherwise = error $ "miswound face found:\n"
+                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    allIsLeft = all faceAllIsLeft faces
+    faceAllIsLeft face = all (== Just True) $ faceLefts face
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
+    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+
+prop_RectangleFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
+prop_RectangleFacesInsetWithRemainder x y rawFirstTilt rawSecondTilt distanceToCorner
+  | length insetContours == 1 &&
+    length remainingFaces <= 4 &&
+    length faces == 4 = True
+  | otherwise = error $ "inset contours (1): " <> show (length insetContours) <> "\n"
+                     <> "remainingFaces (4): " <> show (length remainingFaces) <> "\n"
+                     <> "faces (4): " <> show (len faces) <> "\n"
+                     <> "inset distance: " <> show insetDistance <> "\n"
+                     <> show insetContours <> "\n"
+                     <> show remainingFaces <> "\n"
+                     <> dumpGanjas (toGanja rectangle : (toGanja <$> remainingFaces) <> (toGanja <$> rawFaces))
+  where
+    (insetContours, remainingFaces) = insetBy insetDistance faces
+    insetDistance = (min a b) / 2
+    a, b, c, theta :: ℝ
+    a = c * sin theta
+    b = c * cos theta
+    theta = coerce $ (tilt2 - tilt1) / 2
+    -- find the two closest together lines from the center point to the corners.
+    (tilt1, tilt2)
+      | r2 - r1 < r3 - r2 = (r1, r2)
+      | otherwise = (r2, r3)
+    [r1, r2, r3, _] = sort
+      [
+        firstTilt
+      , rawSecondTilt
+      , flipRadian firstTilt
+      , flipRadian rawSecondTilt
+      ]
+    firstTilt
+      | rawFirstTilt == rawSecondTilt = rawFirstTilt + rawSecondTilt
+      | otherwise = rawFirstTilt
+    flipRadian :: Radian ℝ -> Radian ℝ
+    flipRadian v
+      | v < Radian pi = v + Radian pi
+      | otherwise     = v - Radian pi
+    faces@(Slist rawFaces _) = facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
+    c = coerce distanceToCorner
+    rectangle = randomRectangle x y firstTilt rawSecondTilt distanceToCorner
+
+{-
+prop_RectangleFacesInsetWithoutRemainder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_RectangleFacesInsetWithoutRemainder x y rawFirstTilt rawSecondTilt distanceToCorner = (length insetContours, length remainingFaces) --> (0, 0)
+  where
+    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle [])
+    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
+-}
 
 prop_ConvexDualRightQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_ConvexDualRightQuadNoDivides x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = findDivisions convexDualRightQuad (fromMaybe (errorReport) $ crashMotorcycles convexDualRightQuad []) --> []
@@ -1729,24 +1848,42 @@ facetSpec = do
       property prop_SquareHasStraightSkeleton
     it "only generates one generation for a square" $
       property prop_SquareStraightSkeletonHasRightGenerationCount
+    it "sees all of the faces of a square intersecting in a point" $
+      property prop_SquareMotorcyclesIntersectAtPoint
     it "places faces on the straight skeleton of a square" $
       property prop_SquareCanPlaceFaces
     it "only finds four face squares" $
       property prop_SquareHasRightFaceCount
+    it "generates faces with less than three arcs" $
+      property prop_SquareFacesRightArcCount
     it "places faces on a square in the order the line segments were given" $
       property prop_SquareFacesInOrder
+    it "insets a square halfway, finding 4 remaining faces" $
+      property prop_SquareFacesInsetWithRemainder
+    it "insets a square completely, finding 0 remaining faces" $
+      property prop_SquareFacesInsetWithoutRemainder
     it "finds no divides in a rectangle" $
       property prop_RectangleNoDivides
     it "finds the straight skeleton of a rectangle (property)" $
       property prop_RectangleHasStraightSkeleton
-    it "only generates one generation for a rectangle" $
-      property prop_RectangleStraightSkeletonHasRightGenerationCount
     it "places faces on the straight skeleton of a rectangle" $
       property prop_RectangleCanPlaceFaces
     it "finds only four faces for any rectangle" $
       property prop_RectangleHasRightFaceCount
     it "places faces on a rectangle in the order the line segments were given" $
       property prop_RectangleFacesInOrder
+    it "places faces on a rectangle such that each face is wound to the left" $
+      property prop_RectangleFacesAllWoundLeft
+    it "does not consider a rectangle to be a square" $
+      property prop_RectangleMotorcyclesDoNotIntersectAtPoint
+    it "finds only one generation for a rectangle" $
+      property prop_RectangleStraightSkeletonHasRightGenerationCount
+    it "generates faces with less than four arcs" $
+      property prop_RectangleFacesRightArcCount
+    it "insets a rectangle halfway, finding 4 remaining faces" $
+      property prop_RectangleFacesInsetWithRemainder
+--    it "insets a rectangle completely, finding 0 remaining faces" $
+--      property prop_RectangleFacesInsetWithoutRemainder
     it "finds no divides in a convex dual right quad" $
       property prop_ConvexDualRightQuadNoDivides
     it "finds the straight skeleton of a convex dual right quad (property)" $
@@ -1808,26 +1945,35 @@ facetSpec = do
     it "successfully translates and rotates PPoint2s" $
       property prop_translateRotateMoves
     it "finds the arc resulting from a node at the intersection of the outArc of two nodes (corner3 and corner4 of c2)" $
-      averageNodes c2c3E1 c2c4E1 --> INode (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
-                                           (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 1.7071067811865475 (singleton (GEPlus 2))]))
+      averageNodes c2c3E1 c2c4E1 --> INode (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))])
+                                           , PLine2Err [] [] mempty mempty mempty ([ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2)), ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))], []))
+                                           (PLine2 (GVec [GVal 1.0 (singleton (GEZero 1)), GVal 0.7071067811865475 (singleton (GEPlus 1)), GVal 1.7071067811865475 (singleton (GEPlus 2))])
+                                           , PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [] mempty mempty mempty mempty)
                                            (slist [])
                                            (Just (PLine2 (GVec [GVal 0.541196100146197 (singleton (GEZero 1)), GVal 1.089790213551637 (singleton (GEPlus 1)), GVal 0.21677275132473928 (singleton (GEPlus 2))]),
                                                   PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1)), ErrVal (UlpSum 2.7755575615628911e-17) (singleton (GEPlus 2))] [] mempty mempty mempty mempty))
     it "finds the outside arc of two PLines intersecting at 90 degrees (c2)" $
-      averageNodes c2c2E1 c2c3E1 --> INode (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
-                                           (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
+      averageNodes c2c2E1 c2c3E1 --> INode (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))])
+                                           , PLine2Err [] [] mempty mempty mempty ([ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2)), ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))], []))
+                                           (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))])
+                                           , PLine2Err [] [] mempty mempty mempty ([ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2)), ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))],[]))
                                            (slist [])
                                            (Just (PLine2 (GVec [GVal (-1.414213562373095) (singleton (GEPlus 2))]),
                                                   PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [] mempty mempty mempty mempty))
+
     it "finds the outside arc of two PLines intersecting at 90 degrees (c2)" $
-      averageNodes c2c3E1 c2c2E1 --> INode (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
-                                           (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
+      averageNodes c2c3E1 c2c2E1 --> INode (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))])
+                                           , PLine2Err [] [] mempty mempty mempty ([ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2)), ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))], []))
+                                           (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))])
+                                           , PLine2Err [] [] mempty mempty mempty ([ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2)), ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))],[]))
                                            (slist [])
                                            (Just (PLine2 (GVec [GVal (-1.414213562373095) (singleton (GEPlus 2))]),
                                                   PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [] mempty mempty mempty mempty))
     it "finds the outside arc of two PLines intersecting at 90 degrees (c7)" $
-      averageNodes c7c1E1 c7c2E1 --> INode (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 1)), GVal 1.0 (singleton (GEPlus 2))]))
-                                           (PLine2 (GVec [GVal 1.5 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
+      averageNodes c7c1E1 c7c2E1 --> INode (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 1)), GVal 1.0 (singleton (GEPlus 2))])
+                                           , PLine2Err [] [] mempty mempty mempty ([], []))
+                                           (PLine2 (GVec [GVal 1.5 (singleton (GEZero 1)), GVal (-1.0) (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))])
+                                           , PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEZero 1))] [] mempty mempty mempty mempty)
                                            (slist [])
                                            (Just (PLine2 (GVec [GVal 1.0606601717798212 (singleton (GEZero 1)), GVal (-1.414213562373095) (singleton (GEPlus 1))]),PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] [] mempty mempty mempty mempty))
   describe "Motorcycles (Skeleton/Motorcycles)" $ do

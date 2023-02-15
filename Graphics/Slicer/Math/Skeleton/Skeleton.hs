@@ -46,8 +46,12 @@ import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
 
 -- | Find the StraightSkeleton of a given contour, with a given set of holes cut out of it.
 --   Really, this is a dispatcher, to a series of algorithms for doing the actual work.
--- FIXME: Does not know how to calculate a straight skeleton for contours with holes, or more than one motorcycle.. or a motorcycle that is not a straight divide, or two motorcycles that are collinear, or..
--- FIXME: abusing Maybe until we can cover all cases.
+-- FIXME: Does not know how to calculate a straight skeleton for :
+--        * contours with holes,
+--        * contours with more than one motorcycle,
+--        * contours with a motorcycle that is not a straight divide,
+--        * contours with two motorcycles that are collinear,
+--        * ...
 findStraightSkeleton :: Contour -> [Contour] -> Maybe StraightSkeleton
 findStraightSkeleton contour holes =
   let

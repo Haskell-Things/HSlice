@@ -21,9 +21,15 @@
 ---------------------- Infill Generation ------------------------------
 -----------------------------------------------------------------------
 
-module Graphics.Slicer.Machine.Infill (makeInfill, InfillType(Diag1, Diag2, Vert, Horiz), infillLineSegInside, coveringPLinesVertical) where
+module Graphics.Slicer.Machine.Infill (
+  InfillFamily(Concentric, Lines),
+  InfillType(ConcentricContours, Diag1, Diag2, Vert, Horiz),
+  coveringPLinesVertical,
+  infillLineSegInside,
+  makeInfill
+  ) where
 
-import Prelude (Show(show), (+), (<>), (<$>), ($), (.), (*), sqrt, (-), Ordering(EQ, GT, LT), otherwise, (==), length, not, null, (!!), fromIntegral, ceiling, (/), floor, Integer, compare, error)
+import Prelude (Eq, Show(show), (+), (<>), (<$>), ($), (.), (*), sqrt, (-), Ordering(EQ, GT, LT), otherwise, (==), length, not, null, (!!), fromIntegral, ceiling, (/), floor, Integer, compare, error)
 
 import Data.List (concatMap)
 
@@ -41,21 +47,46 @@ import Graphics.Slicer.Math.Line (makeLineSegs)
 
 import Graphics.Slicer.Math.PGA (ProjectiveLine, ProjectiveLine2, PLine2Err, join2EP)
 
--- | what direction to put down infill lines.
-data InfillType = Diag1 | Diag2 | Vert | Horiz
+import Graphics.Slicer.Math.Skeleton.Face (facesOf)
 
--- Generate infill for a layer.
+import Graphics.Slicer.Math.Skeleton.Line (infiniteInset)
+
+import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
+
+-- | Which family of infill should we use for a given layer? each InfillType belongs to one Infill family.
+data InfillFamily = Lines | Concentric
+  deriving (Eq)
+
+-- | What type of infill in specific to generate.
+data InfillType = Diag1 | Diag2 | Vert | Horiz | ConcentricContours
+  deriving (Eq)
+
+-- | Generate infill for a layer.
 -- Basically, cover the build plane in lines, then remove the portions of those lines that are not inside of the target contour.
--- The target contour should be pre-shrunk to the innermost parameter, and the target inside contours should also be the outermost parameters.
+-- The target contour should be pre-shrunk to the innermost parameter, and the target inside contours should also be expanded to their outermost parameters.
 makeInfill :: Contour -> [Contour] -> ℝ -> InfillType -> [[LineSeg]]
-makeInfill contour insideContours ls layerType = mapMaybe (infillLineSegInside contour insideContours) $ infillCover layerType
-    where
-      infillCover Vert = coveringPLinesVertical contour ls
-      infillCover Horiz = coveringPLinesHorizontal contour ls
-      infillCover Diag1 = coveringPLinesPositive contour ls
-      infillCover Diag2 = coveringPLinesNegative contour ls
+makeInfill contour insideContours ls layerType =
+  case layerType of
+    Vert -> intersectWithContours $ coveringPLinesVertical contour ls
+    Horiz -> intersectWithContours $ coveringPLinesHorizontal contour ls
+    Diag1 -> intersectWithContours $ coveringPLinesPositive contour ls
+    Diag2 -> intersectWithContours $ coveringPLinesNegative contour ls
+    ConcentricContours -> infillConcentricInside contour insideContours ls
+  where
+    -- | Accept a list of line segments, colide them against our contours, and return a list of lists for where infill should be placed.
+    intersectWithContours :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> [[LineSeg]]
+    intersectWithContours = mapMaybe (infillLineSegInside contour insideContours)
 
--- Get the segments of an infill line that are inside of a contour, skipping space occluded by any of the child contours.
+infillConcentricInside :: Contour -> [Contour] -> ℝ -> [[LineSeg]]
+infillConcentricInside contour insideContours lineSpacing
+  | null insideContours = case skeleton of
+                            (Just s) -> infiniteInset lineSpacing $ facesOf s
+                            (Nothing) -> error $ "failed to find a skeleton when infilling contour:\n" <> show contour
+  | otherwise = error "cannot have Concentric infill with holes (yet).."
+  where
+    skeleton = findStraightSkeleton contour insideContours
+
+-- | Get the segments of an infill line that are inside of a contour, skipping space occluded by any of the child contours.
 infillLineSegInside :: (ProjectiveLine2 a) => Contour -> [Contour] -> (a, PLine2Err) -> Maybe [LineSeg]
 infillLineSegInside contour childContours line
   | not (null allLines) = Just $ (allLines !!) <$> [0,2..length allLines - 1]
@@ -74,7 +105,7 @@ infillLineSegInside contour childContours line
           filterTooShort [a] = [a]
           filterTooShort (a:b:xs) = if roundToFifth (distance a b) == 0 then filterTooShort xs else a:filterTooShort (b:xs)
 
--- Generate lines covering the entire contour, where each one is aligned with a +1 slope, which is to say, lines parallel to a line where x = y.
+-- | Generate lines covering the entire contour, where each one is aligned with a +1 slope, which is to say, lines parallel to a line where x = y.
 coveringPLinesPositive :: Contour -> ℝ -> [(ProjectiveLine, PLine2Err)]
 coveringPLinesPositive contour ls = makeLine <$> [0,lss..(xMax-xMinRaw)+(yMax-yMin)+lss]
     where
@@ -94,7 +125,7 @@ coveringPLinesPositive contour ls = makeLine <$> [0,lss..(xMax-xMinRaw)+(yMax-yM
       -- line spacing, taking into account the slope.
       lss = sqrt $ ls*ls+ls*ls
 
--- Generate lines covering the entire contour, where each one is aligned with a -1 slope, which is to say, lines parallel to a line where x = -y.
+-- | Generate lines covering the entire contour, where each one is aligned with a -1 slope, which is to say, lines parallel to a line where x = -y.
 coveringPLinesNegative :: Contour -> ℝ -> [(ProjectiveLine, PLine2Err)]
 coveringPLinesNegative contour ls = makeLine <$> [0,lss..(xMax-xMin)+(yMax-yMin)+lss]
     where
@@ -114,7 +145,7 @@ coveringPLinesNegative contour ls = makeLine <$> [0,lss..(xMax-xMin)+(yMax-yMin)
       -- line spacing, taking into account the slope.
       lss = sqrt $ ls*ls+ls*ls
 
--- Generate lines covering the entire contour, where each line is aligned with the Y axis, which is to say, parallel to the Y basis vector.
+-- | Generate lines covering the entire contour, where each line is aligned with the Y axis, which is to say, parallel to the Y basis vector.
 coveringPLinesVertical :: Contour -> ℝ -> [(ProjectiveLine, PLine2Err)]
 coveringPLinesVertical contour ls = makeLine <$> [xMin,xMin+ls..xMax]
     where
@@ -129,7 +160,7 @@ coveringPLinesVertical contour ls = makeLine <$> [xMin,xMin+ls..xMax]
         EQ -> 0
       xMax = xOf maxPoint
 
--- Generate lines covering the entire contour, where each line is aligned with the X axis, which is to say, parallel to the X basis vector.
+-- | Generate lines covering the entire contour, where each line is aligned with the X axis, which is to say, parallel to the X basis vector.
 coveringPLinesHorizontal :: Contour -> ℝ -> [(ProjectiveLine, PLine2Err)]
 coveringPLinesHorizontal contour ls = makeLine <$> [yMin,yMin+ls..yMax]
     where

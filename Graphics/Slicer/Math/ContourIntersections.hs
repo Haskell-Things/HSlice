@@ -25,7 +25,7 @@ module Graphics.Slicer.Math.ContourIntersections (
   getMotorcycleSegSetIntersections
   ) where
 
-import Prelude (Either(Left, Right), Int, Show(show), (<$>), (<>), ($), (/=), (&&), (<), (*), error, fst, length, odd, otherwise, zip)
+import Prelude (Bool, Either(Left, Right), Int, Show(show), (<$>), (<>), (<=), (==), ($), (/=), (&&), error, fst, length, mempty, odd, otherwise, zip)
 
 import Data.List (filter)
 
@@ -39,13 +39,15 @@ import Slist (len, slist)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(endPoint, startPoint), Point2, distance, fudgeFactor, lineSegsOfContour, makeLineSeg, mapWithNeighbors)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(endPoint, startPoint), Point2, distance, lineSegsOfContour, makeLineSeg, mapWithNeighbors)
 
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
+import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
+
 import Graphics.Slicer.Math.Intersections (outputIntersectsLineSeg)
 
-import Graphics.Slicer.Math.PGA (Intersection(HitEndPoint, HitStartPoint, NoIntersection), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), ProjectivePoint, ProjectiveLine, ProjectiveLine2, PLine2Err, intersectsWithErr, normalizeL, pToEP, eToPP)
+import Graphics.Slicer.Math.PGA (Intersection(HitEndPoint, HitStartPoint, NoIntersection), PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), ProjectivePoint, ProjectiveLine, ProjectiveLine2, PLine2Err, distance2PP, eToPL, intersectsWithErr, normalizeL, pLineIsLeft, pToEP, eToPP)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (Motorcycle(Motorcycle))
 
@@ -58,8 +60,8 @@ contourIntersectionCount = memo2 contourIntersectionCount'
 contourIntersectionCount' :: Contour -> (Point2, Point2) -> Int
 contourIntersectionCount' contour (start, end) = len $ getIntersections contour (start, end)
   where
-    getIntersections :: Contour -> (Point2, Point2) -> Slist (LineSeg, Either Point2 ProjectivePoint)
-    getIntersections c (pt1, pt2) = slist $ catMaybes $ mapWithNeighbors filterIntersections $ openCircuit $ zip (lineSegsOfContour contour) $ intersectsWithErr targetSeg <$> segs
+    getIntersections :: Contour -> (Point2, Point2) -> Slist (LineSeg, Crossover)
+    getIntersections c (pt1, pt2) = slist $ catMaybes $ mapWithNeighbors filterAllIntersections $ openCircuit $ zip (lineSegsOfContour contour) $ intersectsWithErr targetSeg <$> segs
       where
         segs :: [Either LineSeg (ProjectiveLine, PLine2Err)]
         segs =  Left <$> lineSegsOfContour c
@@ -78,7 +80,7 @@ getLineContourIntersections (line, lineErr) c
       where
         segs :: [Either LineSeg (ProjectiveLine, PLine2Err)]
         segs =  Left <$> lineSegsOfContour c
-        -- FIXME: why do we have to use a concrete type here?
+        -- NOTE: we have to use a concrete type here.
         targetLine :: Either LineSeg (ProjectiveLine, PLine2Err)
         targetLine = Right (nLine, lineErr <> nLineErr)
         (nLine, nLineErr) = normalizeL line
@@ -126,55 +128,83 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _ _) segs = strip
         -- make sure neither of these segments are inSeg or outSeg
         fun (seg,_) = seg /= inSeg && seg /= outSeg
 
--- | filter the intersections given.
--- The purpose of this function is to ensure we only count the crossing of a line (segment) across a contour's edge more than once. so if it hits a sttartpoint, make sure we don't count the endpoint.. etc.
--- FIXME: does not take into account (anti)collinear line segments correctly.
+-- | Compatibility wrapper. To handle functions that cannot handle Segment crossover results.
 filterIntersections :: Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Point2 ProjectivePoint)
-filterIntersections  _ (Just (seg, Right (IntersectsIn p _)))   _ = Just (seg, Right p)
-filterIntersections  _ (Just (_  , Left  (NoIntersection _ _))) _ = Nothing
-filterIntersections  _ (Just (_  , Right PParallel))            _ = Nothing
-filterIntersections  _ (Just (_  , Right PAntiParallel))        _ = Nothing
--- when we hit a end -> start -> end, look at the distance to tell where we hit.
-filterIntersections (Just (seg1, Left (HitEndPoint   l1 ))) (Just (seg2, Left (HitStartPoint _ ))) (Just (seg3 , Left (HitEndPoint   l2)))
- | distance (endPoint seg1) (startPoint seg2) < fudgeFactor*15 = Just (seg2, Left $ endPoint l1)
- | distance (startPoint seg2) (endPoint seg3) < fudgeFactor*15 = Just (seg2, Left $ endPoint l2)
- | otherwise = error "wtf"
- -- only count the first start point, when going in one direction..
-filterIntersections  _                                     (Just (seg , Left (HitStartPoint _ ))) (Just (_    , Left (HitEndPoint     l1))) = Just (seg, Left $ endPoint l1)
-filterIntersections (Just (_ , Left (HitStartPoint  _  ))) (Just (_   , Left (HitEndPoint   _ )))  _                                        = Nothing
--- and only count the first start point, when going in the other direction.
-filterIntersections (Just (_ , Left (HitEndPoint    l1 ))) (Just (seg , Left (HitStartPoint _ )))  _                                        = Just (seg, Left $ endPoint l1)
-filterIntersections  _                                     (Just (_   , Left (HitEndPoint   _ ))) (Just (_    , Left (HitStartPoint _   ))) = Nothing
+filterIntersections a b c = dropCollinears $ filterAllIntersections a b c
+  where
+    dropCollinears v
+      | isJust v = case fromJust v of
+                      (lineSeg, EPoint p) -> Just (lineSeg, Left p)
+                      (lineSeg, PPoint p) -> Just (lineSeg, Right p)
+                      _                   -> Nothing
+      | otherwise = Nothing
+
+data Crossover = EPoint Point2
+               | PPoint ProjectivePoint
+               | Segment LineSeg
+
+segIsLeft :: LineSeg -> LineSeg -> Maybe Bool
+segIsLeft a b = pLineIsLeft (fst $ eToPL a) (fst $ eToPL b)
+
+-- | Filter the intersections, only returning results when it is appropriate to do so..
+-- The purpose of this function is to ensure we only count the crossing over of a contour's edge once. So if it hits a startpoint, make sure we don't count the endpoint of the next line.. etc.
+-- Note: Can not take into account (anti)collinear line segments if the first or last argument are Nothing..
+filterAllIntersections :: Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Either Intersection PIntersection) -> Maybe (LineSeg, Crossover)
+filterAllIntersections  _ (Just (seg, Right (IntersectsIn p _)))   _ = Just (seg, PPoint p)
+filterAllIntersections  _ (Just (_  , Left  (NoIntersection _ _))) _ = Nothing
+filterAllIntersections  _ (Just (_  , Right PParallel))            _ = Nothing
+filterAllIntersections  _ (Just (_  , Right PAntiParallel))        _ = Nothing
+-- When we hit a end -> start -> end, look at the distance to tell where we hit.
+filterAllIntersections (Just (seg1, Left (HitEndPoint   l1 ))) (Just (seg2, Left (HitStartPoint _ ))) (Just (seg3 , Left (HitEndPoint   l2)))
+  | distance1To2 <= ulpVal distance1To2Err = Just (seg2, EPoint $ endPoint l1)
+  | distance2To3 <= ulpVal distance2To3Err = Just (seg2, EPoint $ endPoint l2)
+  | otherwise = error "wtf"
+  where
+    (distance1To2, (_,_, distance1To2Err)) = distance2PP (eToPP $ endPoint seg1, mempty) (eToPP $ startPoint seg2, mempty)
+    (distance2To3, (_,_, distance2To3Err)) = distance2PP (eToPP $ startPoint seg2, mempty) (eToPP $ endPoint seg3, mempty)
+-- Only count the first start point, when intersecting with lines going in one direction..
+filterAllIntersections  _                                     (Just (seg , Left (HitStartPoint _ ))) (Just (_    , Left (HitEndPoint     l1))) = Just (seg, EPoint $ endPoint l1)
+filterAllIntersections (Just (_ , Left (HitStartPoint  _  ))) (Just (_   , Left (HitEndPoint   _ )))  _                                        = Nothing
+-- Only count the first start point, when intersecting with lines going in the other direction..
+filterAllIntersections (Just (_ , Left (HitEndPoint    l1 ))) (Just (seg , Left (HitStartPoint _ )))  _                                        = Just (seg, EPoint $ endPoint l1)
+filterAllIntersections  _                                     (Just (_   , Left (HitEndPoint   _ ))) (Just (_    , Left (HitStartPoint _   ))) = Nothing
 -- Ignore the end and start point that comes before / after a collinear section.
-filterIntersections (Just (_, Right PCollinear          )) (Just (_   , Left (HitStartPoint _ )))  _                                        = Nothing
-filterIntersections _                                      (Just (_   , Left (HitEndPoint   _ ))) (Just (_    , Right PCollinear         )) = Nothing
-filterIntersections (Just (_, Right PCollinear          )) (Just (_   , Left (HitEndPoint   _ )))  _                                        = Nothing
-filterIntersections _                                      (Just (_   , Left (HitStartPoint _ ))) (Just (_    , Right PCollinear         )) = Nothing
+filterAllIntersections (Just (_, Right PCollinear          )) (Just (_   , Left (HitStartPoint _ )))  _                                        = Nothing
+filterAllIntersections _                                      (Just (_   , Left (HitEndPoint   _ ))) (Just (_    , Right PCollinear         )) = Nothing
+filterAllIntersections (Just (_, Right PCollinear          )) (Just (_   , Left (HitEndPoint   _ )))  _                                        = Nothing
+filterAllIntersections _                                      (Just (_   , Left (HitStartPoint _ ))) (Just (_    , Right PCollinear         )) = Nothing
 -- Ignore the end and start point that comes before / after an anticollinear section.
-filterIntersections (Just (_, Right PAntiCollinear      )) (Just (_   , Left (HitStartPoint _ )))  _                                        = Nothing
-filterIntersections _                                      (Just (_   , Left (HitEndPoint   _ ))) (Just (_    , Right PAntiCollinear     )) = Nothing
-filterIntersections (Just (_, Right PAntiCollinear      )) (Just (_   , Left (HitEndPoint   _ )))  _                                        = Nothing
-filterIntersections _                                      (Just (_   , Left (HitStartPoint _ ))) (Just (_    , Right PAntiCollinear     )) = Nothing
--- FIXME: we should return the (anti-)collinear segments so they can be stitched out, not just ignore them.
-filterIntersections _                                      (Just (_   , Right PCollinear       ))  _                                        = Nothing
-filterIntersections _                                      (Just (_   , Right PAntiCollinear   ))  _                                        = Nothing
+filterAllIntersections (Just (_, Right PAntiCollinear      )) (Just (_   , Left (HitStartPoint _ )))  _                                        = Nothing
+filterAllIntersections _                                      (Just (_   , Left (HitEndPoint   _ ))) (Just (_    , Right PAntiCollinear     )) = Nothing
+filterAllIntersections (Just (_, Right PAntiCollinear      )) (Just (_   , Left (HitEndPoint   _ )))  _                                        = Nothing
+filterAllIntersections _                                      (Just (_   , Left (HitStartPoint _ ))) (Just (_    , Right PAntiCollinear     )) = Nothing
+-- Return the (anti-)collinear segments so they can be stitched out, not just ignore them.
+filterAllIntersections (Just (lastSeg, _))                    (Just (seg , Right PCollinear       )) (Just (nextSeg, _))                       = if segIsLeft lastSeg seg == segIsLeft seg nextSeg
+                                                                                                                                                 then Just (seg, Segment seg)
+                                                                                                                                                 else Nothing
+filterAllIntersections (Just (lastSeg, _))                    (Just (seg , Right PAntiCollinear   )) (Just (nextSeg, _))                       = if segIsLeft lastSeg seg == segIsLeft seg nextSeg
+                                                                                                                                                 then Just (seg, Segment seg)
+                                                                                                                                                 else Nothing
+-- FIXME: still undeterminable. how do we represent this usefully?
+filterAllIntersections _                                      (Just (_   , Right PCollinear       ))  _                                        = Nothing
+filterAllIntersections _                                      (Just (_   , Right PAntiCollinear   ))  _                                        = Nothing
 -- And now handle the end segments, where there is nothing on the other side.
--- FIXME: these can't all be endpoint.
-filterIntersections  _                                      Nothing                                _                                        = Nothing
-filterIntersections (Just (_ , Left (NoIntersection _ _))) (Just (seg , Left (HitEndPoint   l1)))  Nothing                                  = Just (seg, Left $ endPoint l1)
-filterIntersections  Nothing                               (Just (seg , Left (HitEndPoint   l1))) (Just (_    , Left (NoIntersection _ _))) = Just (seg, Left $ endPoint l1)
-filterIntersections  Nothing                               (Just (seg , Left (HitStartPoint l1))) (Just (_    , Left (NoIntersection _ _))) = Just (seg, Left $ startPoint l1)
-filterIntersections (Just (_ , Left (NoIntersection _ _))) (Just (seg , Left (HitStartPoint l1)))  Nothing                                  = Just (seg, Left $ startPoint l1)
--- a segment, alone.
-filterIntersections  Nothing                               (Just (seg , Left (HitEndPoint   l1)))  Nothing                                  = Just (seg, Left $ endPoint l1)
-filterIntersections  Nothing                               (Just (seg , Left (HitStartPoint l1)))  Nothing                                  = Just (seg, Left $ startPoint l1)
--- FIXME: what are these for?
-filterIntersections  Nothing                               (Just (seg , Left (HitStartPoint l1))) (Just (_    , Right _))                   = Just (seg, Left $ startPoint l1)
-filterIntersections  Nothing                               (Just (seg , Left (HitEndPoint   l1))) (Just (_    , Right _))                   = Just (seg, Left $ endPoint l1)
-filterIntersections (Just (_ , Right _))                   (Just (seg , Left (HitStartPoint l1)))  Nothing                                  = Just (seg, Left $ startPoint l1)
-filterIntersections (Just (_ , Right _))                   (Just (seg , Left (HitEndPoint   l1)))  Nothing                                  = Just (seg, Left $ endPoint l1)
-filterIntersections l1 l2 l3 = error
-                               $ "insane result of filterIntersections\n"
+filterAllIntersections  _                                      Nothing                                _                                        = Nothing
+filterAllIntersections (Just (_ , Left (NoIntersection _ _))) (Just (seg , Left (HitEndPoint   l1)))  Nothing                                  = Just (seg, EPoint $ endPoint l1)
+filterAllIntersections  Nothing                               (Just (seg , Left (HitEndPoint   l1))) (Just (_    , Left (NoIntersection _ _))) = Just (seg, EPoint $ endPoint l1)
+filterAllIntersections  Nothing                               (Just (seg , Left (HitStartPoint l1))) (Just (_    , Left (NoIntersection _ _))) = Just (seg, EPoint $ startPoint l1)
+filterAllIntersections (Just (_ , Left (NoIntersection _ _))) (Just (seg , Left (HitStartPoint l1)))  Nothing                                  = Just (seg, EPoint $ startPoint l1)
+-- Handle intersecting with a single segment, alone.
+filterAllIntersections  Nothing                               (Just (seg , Left (HitEndPoint   l1)))  Nothing                                  = Just (seg, EPoint $ endPoint l1)
+filterAllIntersections  Nothing                               (Just (seg , Left (HitStartPoint l1)))  Nothing                                  = Just (seg, EPoint $ startPoint l1)
+-- Handle PParallel and PAntiParallel. Note that PCollinear and PAntiCollinear are weeded out above.
+filterAllIntersections  Nothing                               (Just (seg , Left (HitStartPoint l1))) (Just (_    , Right _))                   = Just (seg, EPoint $ startPoint l1)
+filterAllIntersections  Nothing                               (Just (seg , Left (HitEndPoint   l1))) (Just (_    , Right _))                   = Just (seg, EPoint $ endPoint l1)
+filterAllIntersections (Just (_ , Right _))                   (Just (seg , Left (HitStartPoint l1)))  Nothing                                  = Just (seg, EPoint $ startPoint l1)
+filterAllIntersections (Just (_ , Right _))                   (Just (seg , Left (HitEndPoint   l1)))  Nothing                                  = Just (seg, EPoint $ endPoint l1)
+-- Error dumper. Should Not Happen(TM).
+filterAllIntersections l1 l2 l3 = error
+                               $ "insane result of filterAllIntersections\n"
                                <> (dumpGanjas $  (if isJust l1 then [toGanja "seg1", toGanja (lSeg $ fromJust l1)] else [])
                                               <> (if isJust l1 && isJust (segIntersection (fromJust l1)) then [toGanja "point1", toGanja (fromJust $ segIntersection $ fromJust l1)] else [])
                                               <> (if isJust l2 then [toGanja "seg2", toGanja (lSeg $ fromJust l2)] else [])

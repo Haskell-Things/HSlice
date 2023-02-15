@@ -26,7 +26,7 @@
 --    a contour into cells.
 module Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason(INodeCrossesDivide), findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell, nodeTreesDoNotOverlap, addNodeTreesAlongDivide, nodeTreesFromDivision, startOfDivide, endOfDivide, findRemainder, createCellFromStraightWalls, gatherLineSegsPreceedingDivide, startBeforeEnd) where
 
-import Prelude (Bool(False), Ordering(LT, GT, EQ), Show, (*), ($), (<$>), (==), (<>), (&&), (/=), (||), (<), (<=), compare, concat, elem, error, filter, fst, null, otherwise, show, snd)
+import Prelude (Bool(False), Ordering(LT, GT, EQ), Show, ($), (<$>), (==), (<>), (&&), (/=), (||), (<), (<=), compare, concat, elem, error, filter, fst, mempty, null, otherwise, show, snd)
 
 import Data.Either(Either(Left, Right))
 
@@ -50,7 +50,7 @@ import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeT
 
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, distance, endPoint, startPoint, fudgeFactor, makeLineSeg)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, makeLineSeg, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
@@ -109,7 +109,7 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                                                                                      -- LOWHANGINGFRUIT: what about two motorcycles that are anticolinear?
                                                                                      error "don't know what to do with these motorcycles."
                                                where
-                                                 intersectionIsBehind m = angleFound < ulpVal angleErr
+                                                 intersectionIsBehind m = angleFound <= ulpVal angleErr
                                                    where
                                                      (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf m) (eToPLine2 $ lineSegToIntersection m)
                                                  lineSegToIntersection m = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
@@ -247,16 +247,18 @@ findRemainder (Cell segSets) contourSegList divides
                    (Just (_, Left pt)) -> if pt == endPoint (segmentAfter contourSegs $ fst $ endOfDivide divide)
                                           then After
                                           else Before
-                     where
                    (Just (_, Right _)) -> At
     -- | use the found cell and the motorcycle to determine what direction the motorcycle is going.
     myStartBeforeEnd
-      | len segSets == 1 = distance (pointOfFirstMotorcycle divide) (endPoint $ fromMaybe (error "empty list. wth?") $ safeLast firstSegSet) < fudgeFactor*15 ||
+      | len segSets == 1 = distance <= ulpVal distanceErr ||
                            pointOfFirstMotorcycle divide /= startPoint (head firstSegSet) && error "could not use input cell to determine motorcycle direction."
-      | len segSets == 2 = distance (pointOfFirstMotorcycle divide) (endPoint $ fromMaybe (error "empty list. wth?") $ safeLast firstSegSet) < fudgeFactor*15 ||
+      | len segSets == 2 = distance <= ulpVal distanceErr ||
                            pointOfFirstMotorcycle divide /= startPoint (head lastSegSet) && error "could not use input cell to determine motorcycle direction."
       | otherwise = error "wtf"
+      where
+        (distance, (_,_, distanceErr)) = distance2PP (cPPointAndErrOfFirstMotorcycle divide) (eToPP $ endPoint $ fromMaybe (error "empty list. wth?") $ safeLast firstSegSet, mempty)
     remainingDivides = filter (/= divide) divides
+    cPPointAndErrOfFirstMotorcycle (CellDivide (DividingMotorcycles m _) _) = cPPointAndErrOf m
     pointOfFirstMotorcycle (CellDivide (DividingMotorcycles m _) _) = ePointOf m
     contourSegs = slist contourSegList
 
@@ -288,11 +290,14 @@ createCellFromStraightWalls segSets@(Slist [segments] _) [cellDivide@(CellDivide
     (motorcycleInSegment, eitherMotorcycleOutPoint) = fromMaybe (error "no intersections?") $ motorcycleMightIntersectWith segments motorcycle
     -- the segment that a motorcycle intersects the contour on, or if it intersected between two segments, the latter of the two segments (from the beginning of the contour).
     motorcycleOutSegment = case eitherMotorcycleOutPoint of
-                             (Left point2) -> if distance point2 (endPoint motorcycleInSegment) < fudgeFactor*15
+                             (Left point2) -> if endDistance <= ulpVal endDistanceErr
                                               then segmentAfter (slist segments) motorcycleInSegment
-                                              else if distance point2 (startPoint motorcycleInSegment) < fudgeFactor*15
+                                              else if startDistance <= ulpVal startDistanceErr
                                                    then motorcycleInSegment
                                                    else error $ show point2 <> "\n" <> show segments <> "\n" <> show motorcycleInSegment
+                               where
+                                 (endDistance, (_,_, endDistanceErr)) = distance2PP (eToPP point2, mempty) (eToPP $ endPoint motorcycleInSegment, mempty)
+                                 (startDistance, (_,_, startDistanceErr)) = distance2PP (eToPP point2, mempty) (eToPP $ startPoint motorcycleInSegment, mempty)
                              (Right _) -> motorcycleInSegment
 
 -- | find the segment immediately following a given segment.
@@ -401,7 +406,7 @@ nodeTreesDoNotOverlap nodeTree1 nodeTree2 cellDivide@(CellDivide motorcycles1 _)
     -- | Check that the outputs of the NodeTrees collide at the same point at the division between the two cells the NodeTrees correspond to.
     lastOutsIntersect :: NodeTree -> NodeTree -> CellDivide -> Bool
     lastOutsIntersect nt1 nt2 (CellDivide motorcycles _) = case motorcycles of
-                                                             (DividingMotorcycles m (Slist _ 0)) -> d < ulpVal dErr
+                                                             (DividingMotorcycles m (Slist _ 0)) -> d <= ulpVal dErr
                                                                where
                                                                  (d, (_,_, dErr)) = distance2PP point1 point2
                                                                  point1 = fromMaybe (error "no outArc?") $ outputIntersectsPLineAt m (finalPLine nt1)

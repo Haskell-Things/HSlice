@@ -189,7 +189,7 @@ instance HasTrie ErrVal where
   untrie = untrieGeneric unErrValTrie
   enumerate = enumerateGeneric unErrValTrie
 
--- Fake instance. do not try to order by ErrVal.
+-- | Fake instance. do not try to order by ErrVal.
 instance Ord ErrVal where
   compare (ErrVal _ a) (ErrVal _ b) = compare a b
 
@@ -203,7 +203,7 @@ instance Semigroup ErrVal where
 instance Monoid ErrVal where
   mempty = ErrVal mempty mempty
 
--- When sorting gvals, sort the basis, THEN sort the multiplier.
+-- | When sorting gvals, sort the basis, THEN sort the multiplier.
 instance Ord GVal where
   (GVal r1 i1) `compare` (GVal r2 i2)
     | i1 == i2  = compare r1 r2
@@ -328,14 +328,6 @@ subVal dst src = fst <$> subValWithErr ((,mempty) <$> dst) src
 subValWithErr :: [(GVal, ErrVal)] -> GVal -> [(GVal, ErrVal)]
 subValWithErr dst (GVal r i) = addValWithErr dst $ GVal (-r) i
 
--- | subtract the second vector from the first vector.
-subVecPairWithErr :: GVec -> GVec -> (GVec, [ErrVal])
-subVecPairWithErr (GVec vals1) (GVec vals2) = (resVec, resErr)
-  where
-    resVec = GVec $ fst <$> res
-    resErr = P.filter (/= mempty) $ snd <$> res
-    res = foldl' subValWithErr ((,mempty) <$> vals1) vals2
-
 -- | add an error quotent to a list of error quotents.
 addErr :: [ErrVal] -> ErrVal -> [ErrVal]
 addErr dstErrs src@(ErrVal _ i1)
@@ -370,9 +362,16 @@ addVecPairWithoutErr (GVec vals1) (GVec vals2) = GVec vals
     vals = foldl' addValWithoutErr vals1 vals2
 
 -- | Subtract one vector from the other.
--- FIXME: error component?
 subVecPair :: GVec -> GVec -> GVec
-subVecPair (GVec vals1) (GVec vals2) = GVec $ foldl' subVal vals1 vals2
+subVecPair vec1 vec2 = fst $ subVecPairWithErr vec1 vec2
+
+-- | subtract the second vector from the first vector.
+subVecPairWithErr :: GVec -> GVec -> (GVec, [ErrVal])
+subVecPairWithErr (GVec vals1) (GVec vals2) = (resVec, resErr)
+  where
+    resVec = GVec $ fst <$> res
+    resErr = P.filter (/= mempty) $ snd <$> res
+    res = foldl' subValWithErr ((,mempty) <$> vals1) vals2
 
 -- | Multiply a vector by a scalar. arguments are given in this order for maximum readability.
 mulScalarVecWithErr :: ℝ -> GVec -> (GVec,[ErrVal])

@@ -35,7 +35,6 @@ module Graphics.Slicer.Math.Definitions(
   distance,
   endPoint,
   flatten,
-  fudgeFactor,
   lineSegsOfContour,
   makeLineSeg,
   mapWithNeighbors,
@@ -54,7 +53,7 @@ module Graphics.Slicer.Math.Definitions(
   zOf
   ) where
 
-import Prelude (Eq, Show, (==), (<$>), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, (<>), error, show, (<), (&&), negate)
+import Prelude (Eq, Show, (==), (<$>), (*), sqrt, (+), ($), Bool, fromIntegral, round, (/), Ord(compare), otherwise, zipWith3, (<>), error, show, negate)
 
 import Prelude as PL (zipWith)
 
@@ -173,10 +172,7 @@ instance SpacePoint Point3 where
 
 -- | A euclidian line segment, starting at startPoint and stopping at endPoint.
 data LineSeg = LineSeg { startPoint :: !Point2, endPoint :: !Point2 }
-  deriving (Generic, NFData, Show)
-
-instance Eq LineSeg where
-  (==) (LineSeg s1 e1) (LineSeg s2 e2) = distance s1 s2 < fudgeFactor && distance e1 e2 < fudgeFactor
+  deriving (Eq, Generic, NFData, Show)
 
 instance HasTrie LineSeg where
   newtype (LineSeg :->: b) = LineSegTrie { unLineSegTrie :: Reg LineSeg :->: b }
@@ -252,11 +248,6 @@ mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` PL.zipWith f x l
                  Nothing -> error "Empty input list"
                  (Just ([],_)) -> error "too short of a list."
                  (Just vs) -> vs
-
--- Note: fudgefactor is to make up for Double being Double, and math not necessarilly being perfect.
--- FIXME: eliminate. perform typed ulp summing instead.
-fudgeFactor :: ℝ
-fudgeFactor = 0.000000000000002
 
 makeLineSeg :: Point2 -> Point2 -> LineSeg
 makeLineSeg p1 p2

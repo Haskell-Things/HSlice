@@ -29,7 +29,7 @@
 
 module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), not, otherwise, ($), (<$>), (==), (/=), error, (&&), any, fst, (||), (<>), show, (<), (*), snd, mempty)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), not, otherwise, ($), (<$>), (==), (/=), (<=), error, (&&), any, fst, (<>), show, snd, mempty)
 
 import Prelude as PL (head, last)
 
@@ -49,15 +49,15 @@ import Slist as SL (last, head, init)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, distance, endPoint, fudgeFactor, lineSegsOfContour, makeLineSeg, mapWithFollower, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, lineSegsOfContour, makeLineSeg, mapWithFollower, startPoint)
 
-import Graphics.Slicer.Math.GeometricAlgebra (addVecPair)
+import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, ulpVal)
 
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersection)
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), PPoint2Err, ProjectiveLine(PLine2), ProjectiveLine2, ProjectivePoint, eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), PPoint2Err, ProjectiveLine(PLine2), ProjectiveLine2, ProjectivePoint, distance2PP, eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -92,11 +92,11 @@ instance Pointable ENode where
 -- FIXME: input arcs should have error quotents.
 data INode = INode
   -- The first input arc. We break out the first and second input arc to expose that we need at least two arcs to the type system.
-  !ProjectiveLine
+  !(ProjectiveLine, PLine2Err)
   -- The second input arc.
-  !ProjectiveLine
+  !(ProjectiveLine, PLine2Err)
   -- More input arcs.
-  !(Slist ProjectiveLine)
+  !(Slist (ProjectiveLine, PLine2Err))
   -- An output arc.
   !(Maybe (ProjectiveLine, PLine2Err))
   deriving stock Show
@@ -148,11 +148,11 @@ cPPointAndErrOfINode iNode
 -- | Get all of the PLines that come from, or exit an iNode.
 allPLinesOfINode :: INode -> Slist (ProjectiveLine, PLine2Err)
 allPLinesOfINode iNode@(INode firstPLine secondPLine (Slist morePLines _) _)
-  | hasArc iNode = slist $ nub $ (outAndErrOf iNode) : ((,mempty) <$> (firstPLine : secondPLine : morePLines))
-  | otherwise    = slist $ nub $ (, mempty) <$> firstPLine : secondPLine : morePLines
+  | hasArc iNode = slist $ nub $ outAndErrOf iNode : firstPLine : secondPLine : morePLines
+  | otherwise    = slist $ nub $ firstPLine : secondPLine : morePLines
 
 -- | Produce a list of the inputs to a given INode.
-insOf :: INode -> [ProjectiveLine]
+insOf :: INode -> [(ProjectiveLine, PLine2Err)]
 insOf (INode firstIn secondIn (Slist moreIns _) _) = firstIn:secondIn:moreIns
 
 lastINodeOf :: INodeSet -> INode
@@ -259,8 +259,9 @@ getPairs (x:xs) = ((x,) <$> xs) <> getPairs xs
 
 -- | Determine if the given line segment set contains just one loop.
 isLoop :: Slist [LineSeg] -> Bool
-isLoop inSegSets = endPoint lastSeg == startPoint firstSeg || distance (endPoint lastSeg) (startPoint firstSeg) < (fudgeFactor*15)
+isLoop inSegSets = gapDistance <= ulpVal gapDistanceErr
   where
+    (gapDistance, (_,_, gapDistanceErr)) = distance2PP (eToPP $ endPoint lastSeg, mempty) (eToPP $ startPoint firstSeg, mempty)
     (lastSeg, firstSeg) = case inSegSets of
                             (Slist [] _) -> error "no segments!"
                             oneOrMoreSets@(Slist ((_:_:_):_) _) -> (PL.last $ SL.last oneOrMoreSets, PL.head $ SL.head oneOrMoreSets)
@@ -288,7 +289,7 @@ linePairs contour = rotateRight $ mapWithNeighbors (\a b c -> (handleLineSegErro
 -}
 
 -- | A smart constructor for INodes.
-makeINode :: [ProjectiveLine] -> Maybe (ProjectiveLine,PLine2Err) -> INode
+makeINode :: [(ProjectiveLine, PLine2Err)] -> Maybe (ProjectiveLine,PLine2Err) -> INode
 makeINode pLines maybeOut = case pLines of
                               [] -> error "tried to construct a broken INode"
                               [onePLine] -> error $ "tried to construct a broken INode from one input: " <> show onePLine <> "\n"
@@ -354,23 +355,23 @@ hasNoINodes iNodeSet = case iNodeSet of
                          (INodeSet _) -> False
 
 -- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
-sortedPLines :: [ProjectiveLine] -> [ProjectiveLine]
-sortedPLines = sortBy (\n1 n2 -> if n1 `pLineIsLeft` n2 == Just True then LT else GT)
+sortedPLines :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> [(a, PLine2Err)]
+sortedPLines = sortBy (\(n1,_) (n2,_) -> if n1 `pLineIsLeft` n2 == Just True then LT else GT)
 
 -- | Take a sorted list of PLines, and make sure the list starts with the pline closest to (but not left of) the given PLine.
-indexPLinesTo :: (ProjectiveLine2 a) => a -> [a] -> [a]
+indexPLinesTo :: (ProjectiveLine2 a) => (a, PLine2Err) -> [(a, PLine2Err)] -> [(a,PLine2Err)]
 indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesAfterIndex firstPLine pLines
   where
-    pLinesBeforeIndex myFirstPLine = filter (\a -> myFirstPLine `pLineIsLeft` a /= Just False)
-    pLinesAfterIndex myFirstPLine = filter (\a -> myFirstPLine `pLineIsLeft` a == Just False)
+    pLinesBeforeIndex myFirstPLine = filter (\a -> (fst myFirstPLine) `pLineIsLeft` (fst a) /= Just False)
+    pLinesAfterIndex myFirstPLine = filter (\a -> (fst myFirstPLine) `pLineIsLeft` (fst a) == Just False)
 
 -- | Find the last PLine of an INode.
-lastInOf :: INode -> ProjectiveLine
+lastInOf :: INode -> (ProjectiveLine, PLine2Err)
 lastInOf (INode _ secondPLine morePLines _)
   | isEmpty morePLines = secondPLine
   | otherwise          = SL.last morePLines
 
 -- | Find the first PLine of an INode.
-firstInOf :: INode -> ProjectiveLine
+firstInOf :: INode -> (ProjectiveLine, PLine2Err)
 firstInOf (INode a _ _ _) = a
 

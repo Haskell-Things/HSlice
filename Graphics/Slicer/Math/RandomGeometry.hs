@@ -91,9 +91,11 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPo
 
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
+import Graphics.Slicer.Math.Intersections (isCollinear)
+
 import Graphics.Slicer.Math.Lossy (eToPLine2, pToEPoint2, translateRotatePPoint2)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, eToPL, eToPP, flipL, join2PP, pPointOnPerpWithErr, cPPointOf)
+import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, ProjectivePoint, eToPL, eToPP, flipL, join2PP, pPointOnPerpWithErr, cPPointOf)
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode)
 
@@ -162,10 +164,30 @@ instance (Ord a, Num a, Fractional a) => Fractional (Positive a) where
   fromRational a = Positive $ fromRational a
 
 -- | Generate a random triangle.
--- FIXME: what stops this from trying to generate a triangle with all three points on the same line?
 randomTriangle :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Contour
-randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX centerY $ makePairs dists radians
+randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX centerY $ fixCollinear $ makePairs dists radians
   where
+    fixCollinear :: [(Positive ℝ,Radian ℝ)] -> [(Positive ℝ,Radian ℝ)]
+    fixCollinear xs = case xs of
+                        [] -> error "impossible, empty set."
+                        [_] -> error "impossible, single point."
+                        [_,_] -> error "impossible, two points."
+                        [a@(ad, aa),b,c] -> if isCollinear (line1, line1Err) (line2, line2Err)
+                                            then if isCollinear (line1a, line1aErr) (line2, line2Err)
+                                                 then [a2, b, c]
+                                                 else [a3, b, c]
+                                            else [a,b,c]
+                          where
+                            (line1, (_,_, line1Err)) = join2PP (pointAroundCenter a) (pointAroundCenter b)
+                            (line1a, (_,_, line1aErr)) = join2PP (pointAroundCenter a2) (pointAroundCenter b)
+                            (line2, (_,_, line2Err)) = join2PP (pointAroundCenter b) (pointAroundCenter c)
+                            a2, a3 :: (Positive ℝ, Radian ℝ)
+                            a2 = (ad+0.1, if aa == 0 then 0.1 else aa/2)
+                            a3 = (ad+0.2, if aa == 0 then 0.2 else aa/4)
+                            pointAroundCenter :: (Positive ℝ, Radian ℝ) -> ProjectivePoint
+                            pointAroundCenter (distanceFromPoint, angle) = translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)
+                            centerPPoint      = eToPP $ Point2 (centerX, centerY)
+                        _ -> error "too many points."
     radians :: [Radian ℝ]
     radians = coerce rawRadians
     dists :: [Positive ℝ]
@@ -418,7 +440,7 @@ randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
     intersectionPPoint = eToPP intersectionPoint
 
 randomINode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Bool -> INode
-randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [fst maybeFlippedpl1, fst maybeFlippedpl2] (Just bisector)
+randomINode x y d1 rawR1 d2 rawR2 flipIn1 flipIn2 = makeINode [maybeFlippedpl1, maybeFlippedpl2] (Just bisector)
   where
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)

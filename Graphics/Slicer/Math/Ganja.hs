@@ -50,7 +50,7 @@
  juri@ni:/disk4/faikvm.com/HSlice/HSlice-current$ cabal repl
  Ok, 30 modules loaded.
  *Graphics.Slicer> import Prelude (($),putStrLn)
- *Graphics.Slicer Prelude> import Graphics.Slicer.Math.Ganja(dumpGanja)
+ *Graphics.Slicer Prelude> import Graphics.Slicer.Math.Ganja(dumpGanjas, toGanja)
  *Graphics.Slicer Prelude Graphics.Slicer.Math.Ganja> putStrLn $ dumpGanjas [toGanja (Point2 (1,1)), toGanja (Point2 (2,2))]
  Algebra(2,0,1,()=>{
    var line = (a,b,c)=>a*1e1 + b*1e2 + c*1e0;
@@ -100,7 +100,7 @@ import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPo
 
 import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), getVal, valOf)
 
-import Graphics.Slicer.Math.PGA (PLine2Err, PPoint2Err, ProjectivePoint, ProjectiveLine, hasArc, normalizeL, outOf, vecOfL, vecOfP)
+import Graphics.Slicer.Math.PGA (PLine2Err, PPoint2Err, ProjectivePoint, ProjectiveLine, hasArc, normalizeL, outAndErrOf, outOf, vecOfL, vecOfP)
 
 import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg)
 
@@ -256,7 +256,7 @@ instance GanjaAble INode where
         where
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> zip allPLines allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
-          allPLines    = firstPLine:secondPLine:rawMorePLines <> (if hasArc iNode then [outOf iNode] else [])
+          allPLines    = firstPLine:secondPLine:rawMorePLines <> (if hasArc iNode then [outAndErrOf iNode] else [])
 
 instance GanjaAble StraightSkeleton where
   toGanja (StraightSkeleton (Slist [[nodetree]] _) _) = toGanja nodetree
