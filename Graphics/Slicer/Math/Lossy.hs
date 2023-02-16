@@ -54,6 +54,7 @@ distanceBetweenPPoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => a -> b -> 
 distanceBetweenPPoints point1 point2 = fst $ distance2PP (point1, mempty) (point2, mempty)
 
 -- | Find the distance between two projective points, with attached error quotents.
+{-# INLINABLE distanceBetweenPPointsWithErr #-}
 distanceBetweenPPointsWithErr :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> ℝ
 distanceBetweenPPointsWithErr point1 point2 = fst $ distance2PP point1 point2
 

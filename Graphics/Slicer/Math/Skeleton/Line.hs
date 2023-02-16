@@ -38,7 +38,7 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (makePointContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithFollower, scalePoint, addPoints, endPoint, makeLineSeg, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithFollower, endPoint, makeLineSeg, startPoint)
 
 import Graphics.Slicer.Math.Ganja (dumpGanja)
 
@@ -50,7 +50,7 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face))
 
 import Graphics.Slicer.Math.Lossy (distancePPointToPLineWithErr, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (PLine2Err, ProjectiveLine, ProjectiveLine2, distance2PP, eToPL, eToPP, fuzzinessOfL, normalizeL, pLineErrAtPPoint, plinesIntersectIn, pLineIsLeft, translateL)
+import Graphics.Slicer.Math.PGA (PLine2Err, ProjectiveLine, ProjectiveLine2, distance2PP, eToPL, eToPP, fuzzinessOfL, normalizeL, pLineErrAtPPoint, plinesIntersectIn, pLineIsLeft, pToEP, translateL)
 
 import Graphics.Slicer.Machine.Contour (cleanContour)
 
@@ -72,12 +72,12 @@ insetBy distance faces
     reconstructedContour = case cleanContour $ makePointContour fuzzyContourPoints of
                              (Just v) -> v
                              Nothing -> error "failed to reconstruct single contour."
-    fuzzyContourPoints = mapWithFollower recovery (concat $ transpose lineSegSets)
       where
+        fuzzyContourPoints = mapWithFollower recovery (concat $ transpose lineSegSets)
         recovery l1 l2
           -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
           | endPoint l2 == startPoint l1 = endPoint l2
-          | l1l2Distance <= l1l2DistanceErr = averagePoints (endPoint l2) (startPoint l1)
+          | l1l2Distance <= l1l2DistanceErr = fst $ pToEP $ fst $ intersectionOf (eToPL l2) (eToPL l1)
           | otherwise = error $ "out of order lineSegs generated from faces: " <> show faces <> "\n" <> show lineSegSets <> "\n"
           where
             --- FIXME: magic number: 64
@@ -87,7 +87,6 @@ insetBy distance faces
                            <> pLineErrAtPPoint (eToPL l2) (eToPP $ endPoint l2)
                            <> fuzzinessOfL (eToPL l2))
             (l1l2Distance, (_, _, l1l2DistanceErrRaw)) = distance2PP (eToPP $ endPoint l2, mempty) (eToPP $ startPoint l1, mempty)
-    averagePoints p1 p2 = scalePoint 0.5 $ addPoints p1 p2
     lineSegSets = fst <$> res
     remainingFaces = concat $ mapMaybe snd res
     res = addLineSegsToFace distance (Just 1) <$> (\(Slist a _) -> a) faces

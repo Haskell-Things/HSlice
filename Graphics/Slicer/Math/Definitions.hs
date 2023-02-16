@@ -215,6 +215,7 @@ roundPoint2 :: Point2 -> Point2
 roundPoint2 (Point2 (x1,y1)) = Point2 (roundToFifth x1, roundToFifth y1)
 
 -- | like map, only with previous, current, and next item, and wrapping around so the first entry gets the last entry as previous, and vica versa.
+{-# INLINABLE mapWithNeighbors #-}
 mapWithNeighbors :: (Show a) => (a -> a -> a -> b) -> [a] -> [b]
 mapWithNeighbors f l =
   case l of
@@ -229,8 +230,8 @@ mapWithNeighbors f l =
                      x = lx : xs
 
 -- | Like map, only with current, and next item, and wrapping around so the last entry gets the first entry as next.
-mapWithFollower :: (Show a) => (a -> a -> b) -> [a] -> [b]
 {-# INLINABLE mapWithFollower #-}
+mapWithFollower :: (Show a) => (a -> a -> b) -> [a] -> [b]
 mapWithFollower f l =
   case l of
     []      -> error "Empty input list."
