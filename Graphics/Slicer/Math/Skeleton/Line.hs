@@ -82,6 +82,7 @@ infiniteInset :: ℝ -> Slist Face -> [[LineSeg]]
 infiniteInset distance faces = (fst . addLineSegsToFace distance Nothing) <$> (\(Slist a _) -> a) faces
 
 -- | Place line segments on a face. Might return remainders, in the form of un-filled faces.
+-- FIXME: return a (PPoint2, PPoint2) pair, so we can operate on it during contour reclamation without precision loss.
 addLineSegsToFace :: ℝ -> Maybe Fastℕ -> Face -> ([LineSeg], Maybe [Face])
 addLineSegsToFace distance insets face
   -- we were called, but instructed to do nothing.
@@ -292,17 +293,24 @@ findClosestArc edge firstArc rawMidArcs lastArc = case sortOn fst arcIntersectio
 -- | Take the output of many calls to addLineSegsToFace, and construct contours from them.
 -- FIXME: only handles one contour.
 reclaimContours ::[[LineSeg]] -> [Contour]
-reclaimContours lineSegSets = case cleanContour $ makePointContour fuzzyContourPoints of
-                             (Just v) -> [v]
-                             Nothing -> error "failed to reconstruct single contour."
+reclaimContours lineSegSets
+  | length rings == 1 = if isJust reclaimOneContour ring
+                        then case cleanContour $ makePointContour $ reclaimOneContour (concat rings) of
+                               (Just v) -> [v]
+                               Nothing -> error "failed to reconstruct single contour."
+                        else error $ "found multiple contours in ring: " <> show ring <> "\n"
+  | otherwise = error $ "found multiple rings: " <> show (length rings) <> "\n"
       where
-        fuzzyContourPoints = mapWithFollower recovery (concat $ transpose lineSegSets)
-        -- FIXME: we should use intersection for line segments close to 90 degrees, and averag for segments closest to parallel?
+        reclaimOneContour ring
+          | all isJust reclaimedContour = Just $ catMaybes reclaimedContour
+          | otherwise = Nothing
+          where
+            reclaimedContour = mapWithFollower recovery ring
         recovery l1 l2
-          -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
-          | endPoint l2 == startPoint l1 = endPoint l2
-          | l1l2Distance <= l1l2DistanceErr = fst $ pToEP $ fst $ intersectionOf (eToPL l2) (eToPL l1)
-          | otherwise = error $ "out of order lineSegs generated from faces: " <> show lineSegSets <> "\n"
+          | endPoint l2 == startPoint l1 = Just $ endPoint l2
+        -- FIXME: we should use intersection for line segments close to 90 degrees, and average for segments closest to parallel?
+          | l1l2Distance <= l1l2DistanceErr = Just $ fst $ pToEP $ fst $ intersectionOf (eToPL l2) (eToPL l1)
+          | otherwise = Nothing
           where
             --- FIXME: magic number: 64
             l1l2DistanceErr = 64 * ulpVal (l1l2DistanceErrRaw
@@ -311,3 +319,6 @@ reclaimContours lineSegSets = case cleanContour $ makePointContour fuzzyContourP
                            <> pLineErrAtPPoint (eToPL l2) (eToPP $ endPoint l2)
                            <> fuzzinessOfL (eToPL l2))
             (l1l2Distance, (_, _, l1l2DistanceErrRaw)) = distance2PP (eToPP $ endPoint l2, mempty) (eToPP $ startPoint l1, mempty)
+        -- The input set of line segments has all of the line segments that cover a face in the same list.
+        -- by transposing them, we get lists of rings around the object, rather than covered petals.
+        rings = transpose lineSegSets
