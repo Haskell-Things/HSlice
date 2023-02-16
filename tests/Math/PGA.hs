@@ -1174,8 +1174,8 @@ prop_RectangleFacesInsetSmallerThanRectangle  x y rawFirstTilt rawSecondTilt dis
   where
     insetIsSmaller = minIX > minRX && minIY > minRY && maxRX > maxIX && maxRY > maxIY
       where
-        ((Point2 (minRX, minRY)) , (Point2 (maxRX, maxRY))) = minMaxPoints rectangle 
-        ((Point2 (minIX, minIY)) , (Point2 (maxIX, maxIY))) = minMaxPoints insetContour 
+        ((Point2 (minRX, minRY)) , (Point2 (maxRX, maxRY))) = minMaxPoints rectangle
+        ((Point2 (minIX, minIY)) , (Point2 (maxIX, maxIY))) = minMaxPoints insetContour
     insetContour = head insetContours
     (insetContours, _) = insetBy insetDistance faces
     insetDistance = (min a b) / 2
