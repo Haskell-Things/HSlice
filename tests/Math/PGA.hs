@@ -64,7 +64,7 @@ import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, numPoi
 import Graphics.Slicer.Math.ContourIntersections (getLineContourIntersections)
 
 -- A euclidian point.
-import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), Contour(LineSegContour), mapWithFollower, pointsOfContour, roundPoint2, startPoint, distance, makeLineSeg, endPoint, pointBetweenPoints)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), Contour(LineSegContour), mapWithFollower, pointsOfContour, roundPoint2, startPoint, distance, makeLineSeg, minMaxPoints, endPoint, pointBetweenPoints)
 
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpRaw, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
@@ -1165,6 +1165,45 @@ prop_RectangleFacesInsetWithRemainder x y rawFirstTilt rawSecondTilt distanceToC
     c = coerce distanceToCorner
     rectangle = randomRectangle x y firstTilt rawSecondTilt distanceToCorner
 
+prop_RectangleFacesInsetSmallerThanRectangle :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
+prop_RectangleFacesInsetSmallerThanRectangle  x y rawFirstTilt rawSecondTilt distanceToCorner
+  | length insetContours == 1 &&
+    contourContainsContour rectangle insetContour &&
+    insetIsSmaller = True
+  where
+    insetIsSmaller = minIX > minRX && minIY > minRY && maxRX > maxIX && maxRY > maxIY
+      where
+        ((Point2 (minRX, minRY)) , (Point2 (maxRX, maxRY))) = minMaxPoints rectangle 
+        ((Point2 (minIX, minIY)) , (Point2 (maxIX, maxIY))) = minMaxPoints insetContour 
+    insetContour = head insetContours
+    (insetContours, _) = insetBy insetDistance faces
+    insetDistance = (min a b) / 2
+    a, b, c, theta :: ℝ
+    a = c * sin theta
+    b = c * cos theta
+    theta = coerce $ (tilt2 - tilt1) / 2
+    -- find the two closest together lines from the center point to the corners.
+    (tilt1, tilt2)
+      | r2 - r1 < r3 - r2 = (r1, r2)
+      | otherwise = (r2, r3)
+    [r1, r2, r3, _] = sort
+      [
+        firstTilt
+      , rawSecondTilt
+      , flipRadian firstTilt
+      , flipRadian rawSecondTilt
+      ]
+    firstTilt
+      | rawFirstTilt == rawSecondTilt = rawFirstTilt + rawSecondTilt
+      | otherwise = rawFirstTilt
+    flipRadian :: Radian ℝ -> Radian ℝ
+    flipRadian v
+      | v < Radian pi = v + Radian pi
+      | otherwise     = v - Radian pi
+    faces = facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
+    c = coerce distanceToCorner
+    rectangle = randomRectangle x y firstTilt rawSecondTilt distanceToCorner
+
 {-
 prop_RectangleFacesInsetWithoutRemainder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_RectangleFacesInsetWithoutRemainder x y rawFirstTilt rawSecondTilt distanceToCorner = (length insetContours, length remainingFaces) --> (0, 0)
@@ -1884,6 +1923,8 @@ facetSpec = do
       property prop_RectangleFacesInsetWithRemainder
 --    it "insets a rectangle completely, finding 0 remaining faces" $
 --      property prop_RectangleFacesInsetWithoutRemainder
+    it "sees an inset of a rectangle as being smaller than the source rectangle" $
+      property prop_RectangleFacesInsetSmallerThanRectangle
     it "finds no divides in a convex dual right quad" $
       property prop_ConvexDualRightQuadNoDivides
     it "finds the straight skeleton of a convex dual right quad (property)" $
