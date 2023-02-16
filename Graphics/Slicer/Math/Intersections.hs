@@ -85,6 +85,7 @@ intersectionOf line1 line2 = saneIntersection $ plinesIntersectIn line1 line2
     saneIntersection (IntersectsIn p (_,_, pErr)) = (p, pErr)
 
 -- | Get the intersection point of two lines. If they are collinear, returns a line, and if they are parallel, returns Nothing.
+{-# INLINABLE intersectionBetween #-}
 intersectionBetween :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Maybe (Either (a, PLine2Err) (ProjectivePoint, PPoint2Err))
 intersectionBetween line1@(l1, _) line2@(l2, _) = saneIntersection $ plinesIntersectIn line1 line2
   where

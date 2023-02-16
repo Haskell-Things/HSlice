@@ -355,10 +355,12 @@ hasNoINodes iNodeSet = case iNodeSet of
                          (INodeSet _) -> False
 
 -- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
+{-# INLINABLE sortedPLines #-}
 sortedPLines :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> [(a, PLine2Err)]
 sortedPLines = sortBy (\(n1,_) (n2,_) -> if n1 `pLineIsLeft` n2 == Just True then LT else GT)
 
 -- | Take a sorted list of PLines, and make sure the list starts with the pline closest to (but not left of) the given PLine.
+{-# INLINABLE indexPLinesTo #-}
 indexPLinesTo :: (ProjectiveLine2 a) => (a, PLine2Err) -> [(a, PLine2Err)] -> [(a,PLine2Err)]
 indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesAfterIndex firstPLine pLines
   where

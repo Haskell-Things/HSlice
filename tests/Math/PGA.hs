@@ -1170,6 +1170,7 @@ prop_RectangleFacesInsetSmallerThanRectangle  x y rawFirstTilt rawSecondTilt dis
   | length insetContours == 1 &&
     contourContainsContour rectangle insetContour &&
     insetIsSmaller = True
+  | otherwise = error "inset failed to shrink"
   where
     insetIsSmaller = minIX > minRX && minIY > minRY && maxRX > maxIX && maxRY > maxIY
       where

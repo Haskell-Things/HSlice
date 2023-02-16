@@ -38,7 +38,7 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (makePointContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithFollower, scalePoint, addPoints, endPoint, makeLineSeg, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithFollower, endPoint, makeLineSeg, startPoint)
 
 import Graphics.Slicer.Math.Ganja (dumpGanja)
 
