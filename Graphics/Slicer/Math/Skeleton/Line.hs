@@ -67,26 +67,9 @@ insetBy :: ℝ -> Slist Face -> ([Contour], [Face])
 insetBy distance faces
   | null (concat lineSegSets) = ([], [])
   | length (concat lineSegSets) < 3 = error "less than three, but not zero?"
-  | otherwise = ([reconstructedContour], remainingFaces)
+  | otherwise = (contours, remainingFaces)
   where
-    reconstructedContour = case cleanContour $ makePointContour fuzzyContourPoints of
-                             (Just v) -> v
-                             Nothing -> error "failed to reconstruct single contour."
-      where
-        fuzzyContourPoints = mapWithFollower recovery (concat $ transpose lineSegSets)
-        recovery l1 l2
-          -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
-          | endPoint l2 == startPoint l1 = endPoint l2
-          | l1l2Distance <= l1l2DistanceErr = fst $ pToEP $ fst $ intersectionOf (eToPL l2) (eToPL l1)
-          | otherwise = error $ "out of order lineSegs generated from faces: " <> show faces <> "\n" <> show lineSegSets <> "\n"
-          where
-            --- FIXME: magic number: 64
-            l1l2DistanceErr = 64 * ulpVal (l1l2DistanceErrRaw
-                           <> pLineErrAtPPoint (eToPL l1) (eToPP $ startPoint l1)
-                           <> fuzzinessOfL (eToPL l1)
-                           <> pLineErrAtPPoint (eToPL l2) (eToPP $ endPoint l2)
-                           <> fuzzinessOfL (eToPL l2))
-            (l1l2Distance, (_, _, l1l2DistanceErrRaw)) = distance2PP (eToPP $ endPoint l2, mempty) (eToPP $ startPoint l1, mempty)
+    contours = reclaimContours lineSegSets
     lineSegSets = fst <$> res
     remainingFaces = concat $ mapMaybe snd res
     res = addLineSegsToFace distance (Just 1) <$> (\(Slist a _) -> a) faces
@@ -306,3 +289,25 @@ findClosestArc edge firstArc rawMidArcs lastArc = case sortOn fst arcIntersectio
               <> "midArcs: \n" <> show rawMidArcs <> "\n"
               <> "lastArc: \n" <> show lastArc <> "\n"
 
+-- | Take the output of many calls to addLineSegsToFace, and construct contours from them.
+-- FIXME: only handles one contour.
+reclaimContours ::[[LineSeg]] -> [Contour]
+reclaimContours lineSegSets = case cleanContour $ makePointContour fuzzyContourPoints of
+                             (Just v) -> [v]
+                             Nothing -> error "failed to reconstruct single contour."
+      where
+        fuzzyContourPoints = mapWithFollower recovery (concat $ transpose lineSegSets)
+        -- FIXME: we should use intersection for line segments close to 90 degrees, and averag for segments closest to parallel?
+        recovery l1 l2
+          -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
+          | endPoint l2 == startPoint l1 = endPoint l2
+          | l1l2Distance <= l1l2DistanceErr = fst $ pToEP $ fst $ intersectionOf (eToPL l2) (eToPL l1)
+          | otherwise = error $ "out of order lineSegs generated from faces: " <> show lineSegSets <> "\n"
+          where
+            --- FIXME: magic number: 64
+            l1l2DistanceErr = 64 * ulpVal (l1l2DistanceErrRaw
+                           <> pLineErrAtPPoint (eToPL l1) (eToPP $ startPoint l1)
+                           <> fuzzinessOfL (eToPL l1)
+                           <> pLineErrAtPPoint (eToPL l2) (eToPP $ endPoint l2)
+                           <> fuzzinessOfL (eToPL l2))
+            (l1l2Distance, (_, _, l1l2DistanceErrRaw)) = distance2PP (eToPP $ endPoint l2, mempty) (eToPP $ startPoint l1, mempty)
