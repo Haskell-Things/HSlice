@@ -38,7 +38,7 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (makePointContour, lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithFollower, endPoint, makeLineSeg, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithFollower, endPoint, makeLineSeg, startPoint)
 
 import Graphics.Slicer.Math.Ganja (dumpGanja)
 
@@ -319,7 +319,7 @@ reclaimRing ring = case filter (\(a,_) -> isNothing a) reclaimedContour of
     reclaimedContour = mapWithFollower recovery ring
       where
         -- detect if two line segments SHOULD end at the same point, and if they do, return the point.
-        recovery :: LineSeg -> LineSeg -> (Maybe ProjectivePoint, (LineSeg, LineSeg))
+        recovery :: LineSeg -> LineSeg -> (Maybe Point2, (LineSeg, LineSeg))
         recovery l1 l2
           | endPoint l2 == startPoint l1 = (Just $ endPoint l2, (l1, l2))
           -- FIXME: we should use intersection for line segments close to 90 degrees, and average for segments closest to parallel?
