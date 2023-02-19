@@ -22,7 +22,7 @@
 -- | Functions for for applying inset line segments to a series of faces, and for adding infill to a face.
 module Graphics.Slicer.Math.Skeleton.Line (insetBy, infiniteInset) where
 
-import Prelude ((==), all, concat, otherwise, (<$>), (<=), (&&), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (.), (<>), (>), (<), min, Bool(True, False), fst, maybe, mempty, null, snd)
+import Prelude ((==), all, concat, otherwise, (<$>), (<=), (&&), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (.), (<>), (>), (<), min, Bool(True, False), filter, fst, maybe, mempty, null, snd)
 
 import Data.Either (isRight)
 
@@ -30,15 +30,15 @@ import Data.List (sortOn, dropWhile, length, takeWhile, transpose, uncons)
 
 import Data.List.Extra (unsnoc)
 
-import Data.Maybe (Maybe(Just,Nothing), fromMaybe, fromJust, isJust, mapMaybe)
+import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromMaybe, fromJust, isJust, isNothing, mapMaybe)
 
 import Slist (head, isEmpty, len, slist)
 
 import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.Contour (makePointContour)
+import Graphics.Slicer.Math.Contour (makePointContour, lineSegsOfContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithFollower, endPoint, makeLineSeg, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithFollower, endPoint, makeLineSeg, startPoint)
 
 import Graphics.Slicer.Math.Ganja (dumpGanja)
 
@@ -67,26 +67,9 @@ insetBy :: ℝ -> Slist Face -> ([Contour], [Face])
 insetBy distance faces
   | null (concat lineSegSets) = ([], [])
   | length (concat lineSegSets) < 3 = error "less than three, but not zero?"
-  | otherwise = ([reconstructedContour], remainingFaces)
+  | otherwise = (contours, remainingFaces)
   where
-    reconstructedContour = case cleanContour $ makePointContour fuzzyContourPoints of
-                             (Just v) -> v
-                             Nothing -> error "failed to reconstruct single contour."
-      where
-        fuzzyContourPoints = mapWithFollower recovery (concat $ transpose lineSegSets)
-        recovery l1 l2
-          -- error recovery. since we started with a single contour, we know the end of one line should be same as the beginning of the next.
-          | endPoint l2 == startPoint l1 = endPoint l2
-          | l1l2Distance <= l1l2DistanceErr = fst $ pToEP $ fst $ intersectionOf (eToPL l2) (eToPL l1)
-          | otherwise = error $ "out of order lineSegs generated from faces: " <> show faces <> "\n" <> show lineSegSets <> "\n"
-          where
-            --- FIXME: magic number: 64
-            l1l2DistanceErr = 64 * ulpVal (l1l2DistanceErrRaw
-                           <> pLineErrAtPPoint (eToPL l1) (eToPP $ startPoint l1)
-                           <> fuzzinessOfL (eToPL l1)
-                           <> pLineErrAtPPoint (eToPL l2) (eToPP $ endPoint l2)
-                           <> fuzzinessOfL (eToPL l2))
-            (l1l2Distance, (_, _, l1l2DistanceErrRaw)) = distance2PP (eToPP $ endPoint l2, mempty) (eToPP $ startPoint l1, mempty)
+    contours = reclaimContours lineSegSets
     lineSegSets = fst <$> res
     remainingFaces = concat $ mapMaybe snd res
     res = addLineSegsToFace distance (Just 1) <$> (\(Slist a _) -> a) faces
@@ -96,9 +79,17 @@ insetBy distance faces
 -- | Cover a contour with lines, aligned to the faces of the contour.
 -- FIXME: this should be returning a ContourTree.
 infiniteInset :: ℝ -> Slist Face -> [[LineSeg]]
-infiniteInset distance faces = (fst . addLineSegsToFace distance Nothing) <$> (\(Slist a _) -> a) faces
+infiniteInset distance faces
+  | null (concat lineSegSets) = []
+  | length (concat lineSegSets) < 3 = error "less than three, but not zero?"
+  | otherwise = lineSegsOfContour <$> contours
+  where
+    contours = reclaimContours lineSegSets
+    lineSegSets = fst <$> res
+    res = addLineSegsToFace distance Nothing <$> (\(Slist a _) -> a) faces
 
 -- | Place line segments on a face. Might return remainders, in the form of un-filled faces.
+-- FIXME: return a ((ProjectivePoint, PPoint2Err), (ProjectivePoint, PPoint2Err)) pair, so we can operate on it during contour reclamation without precision loss.
 addLineSegsToFace :: ℝ -> Maybe Fastℕ -> Face -> ([LineSeg], Maybe [Face])
 addLineSegsToFace distance insets face
   -- we were called, but instructed to do nothing.
@@ -227,7 +218,6 @@ addLineSegsToFace distance insets face
     (subSides, subRemains) = if firstArcEndsFarthest edge firstArc (head midArcs) lastArc
                              then addLineSegsToFace distance subInsets (Face finalSide firstArc (slist []) midArc)
                              else addLineSegsToFace distance subInsets (Face finalSide midArc   (slist []) lastArc)
-
     ----------------------------------------------
     -- functions only used by a three-sided n-gon.
     ----------------------------------------------
@@ -306,3 +296,40 @@ findClosestArc edge firstArc rawMidArcs lastArc = case sortOn fst arcIntersectio
               <> "midArcs: \n" <> show rawMidArcs <> "\n"
               <> "lastArc: \n" <> show lastArc <> "\n"
 
+-- | Take the output of many calls to addLineSegsToFace, and construct contours from them.
+reclaimContours :: [[LineSeg]] -> [Contour]
+reclaimContours lineSegSets = if all isJust reclaimedRings && all isJust cleanedContours
+                                 then catMaybes cleanedContours
+                                 else error $ "failed to clean a contour in rings: " <> show rings <> "\n"
+  where
+    cleanedContours = cleanContour <$> concat (fromJust <$> reclaimedRings)
+    reclaimedRings = reclaimRing <$> rings
+    -- The input set of line segments has all of the line segments that cover a face in the same list.
+    -- by transposing them, we get lists of rings around the object, rather than covered petals.
+    rings = transpose lineSegSets
+
+-- | tage a ring around N contours, and generate the contours.
+-- FIXME: not handling breaks yet.
+reclaimRing :: [LineSeg] -> Maybe [Contour]
+reclaimRing ring = case filter (\(a,_) -> isNothing a) reclaimedContour of
+                     [] -> Just [makePointContour $ fromJust . fst <$> reclaimedContour]
+                     [a] -> error $ "found one break in ring: " <> show ring <> " at " <> show a <> "/n"
+                     _ -> Nothing
+  where
+    reclaimedContour = mapWithFollower recovery ring
+      where
+        -- detect if two line segments SHOULD end at the same point, and if they do, return the point.
+        recovery :: LineSeg -> LineSeg -> (Maybe Point2, (LineSeg, LineSeg))
+        recovery l1 l2
+          | endPoint l2 == startPoint l1 = (Just $ endPoint l2, (l1, l2))
+          -- FIXME: we should use intersection for line segments close to 90 degrees, and average for segments closest to parallel?
+          | l1l2Distance <= l1l2DistanceErr = (Just $ fst $ pToEP $ fst $ intersectionOf (eToPL l2) (eToPL l1), (l1,l2))
+          | otherwise = (Nothing, (l1,l2))
+          where
+            --- FIXME: magic number: 64
+            l1l2DistanceErr = 64 * ulpVal (l1l2DistanceErrRaw
+                                           <> pLineErrAtPPoint (eToPL l1) (eToPP $ startPoint l1)
+                                           <> fuzzinessOfL (eToPL l1)
+                                           <> pLineErrAtPPoint (eToPL l2) (eToPP $ endPoint l2)
+                                           <> fuzzinessOfL (eToPL l2))
+            (l1l2Distance, (_, _, l1l2DistanceErrRaw)) = distance2PP (eToPP $ endPoint l2, mempty) (eToPP $ startPoint l1, mempty)

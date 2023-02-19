@@ -379,9 +379,15 @@ sliceLayer printer print@(Print _ infillRatio _ _ _ _ _ _ ls outerWallBeforeInne
             where
               res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
           -- FIXME: handle multiple infillOutsideContours
-          infillLineSegs = mapEveryOther (\l -> reverse $ flipLineSeg <$> l) $ makeInfill infillOutsideContour infillChildContours (ls * (1/infillRatio)) $ getInfillType print layerNumber
+          infillLineSegs
+            | infillType == ConcentricContours = rawInfill
+            | otherwise = mapEveryOther (\segSet -> reverse $ flipLineSeg <$> segSet) rawInfill
             where
-              infillOutsideContour = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*2)
+              rawInfill = makeInfill infillOutsideContour infillChildContours (ls * (1/infillRatio)) infillType
+              infillType = getInfillType print layerNumber
+              infillOutsideContour
+                | infillType == ConcentricContours = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*1.5)
+                | otherwise = reduceContour outsideContourRaw insideContoursRaw outsideContourSkeleton (pathWidth*2)
               infillChildContours = mapMaybe cleanContour $ mapMaybe res insideContoursRaw
                 where
                   res c = expandContour (pathWidth*2) (outsideContourRaw:filter (/= c) insideContoursRaw) c
