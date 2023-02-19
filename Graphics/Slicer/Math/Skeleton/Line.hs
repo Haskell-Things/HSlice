@@ -333,4 +333,3 @@ reclaimRing ring = case filter (\(a,_) -> isNothing a) reclaimedContour of
                                            <> pLineErrAtPPoint (eToPL l2) (eToPP $ endPoint l2)
                                            <> fuzzinessOfL (eToPL l2))
             (l1l2Distance, (_, _, l1l2DistanceErrRaw)) = distance2PP (eToPP $ endPoint l2, mempty) (eToPP $ startPoint l1, mempty)
- 
