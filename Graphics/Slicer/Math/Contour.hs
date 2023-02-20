@@ -46,7 +46,7 @@ module Graphics.Slicer.Math.Contour (
   numPointsOfContour
   ) where
 
-import Prelude ((==), (&&), (>), (<), (*), Int, (+), abs, mempty, otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
+import Prelude ((==), (&&), (||), (>), (<), (*), Int, (+), abs, mempty, otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
 
 import Data.List (foldl', head, partition, reverse, sortBy, zip)
 
@@ -316,7 +316,7 @@ mostPerpPointAndLineSeg contour = res
     (negLineSeg, negAngle) = mostPerp contour (eToPLine2 $ makeLineSeg (Point2 (0,0)) (Point2 (-1,-1)))
     -- | Find the most perpendicular line segment of a contour, when compared to the given projective line.
     mostPerp :: (ProjectiveLine2 a) => Contour -> a -> (LineSeg, ℝ)
-    mostPerp myContour line = foldl' (\(a1, b1) (a2, b2) -> if b1 < b2 then (a1, b1) else (a2, b2)) (head lineSegs,-1) $ zip lineSegs $ abs . fst . angleBetween2PL line <$> lineSegsAsPLines
+    mostPerp myContour line = foldl' (\(a1, b1) (a2, b2) -> if b1 == 0 || b1 < b2 then (a1, b1) else (a2, b2)) (head lineSegs,1) $ zip lineSegs $ abs . fst . angleBetween2PL line <$> lineSegsAsPLines
       where
         lineSegsAsPLines = fst . eToPL <$> lineSegs
         lineSegs = lineSegsOfContour myContour
