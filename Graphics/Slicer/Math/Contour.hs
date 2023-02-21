@@ -48,7 +48,7 @@ module Graphics.Slicer.Math.Contour (
 
 import Prelude ((==), (&&), (||), (>), (<), (*), Int, (+), abs, mempty, otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
 
-import Data.List (foldl', head, partition, reverse, sortBy, zip)
+import Data.List (foldl', head, partition, reverse, sortBy, tail)
 
 import Data.List as DL (uncons)
 
@@ -77,7 +77,7 @@ import Graphics.Slicer.Math.Intersections (noIntersection, intersectionOf)
 
 import Graphics.Slicer.Math.Lossy (pToEPoint2, eToPLine2)
 
-import Graphics.Slicer.Math.PGA (ProjectiveLine2, ProjectivePoint, angleBetween2PL, distance2PP, eToPL, eToPP, fuzzinessOfL, fuzzinessOfP, join2EP, join2PP, pLineErrAtPPoint, pLineIsLeft, pPointOnPerpWithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint, angleBetween2PL, distance2PP, eToPL, eToPP, fuzzinessOfL, fuzzinessOfP, join2EP, join2PP, pLineErrAtPPoint, pLineIsLeft, pPointOnPerpWithErr)
 
 -- Unapologetically ripped from ImplicitCAD.
 -- Added the ability to look at line segments backwards.
@@ -298,28 +298,21 @@ minDistanceFromSegMidPoint outsidePoint lineSeg = 3200 * (midDistance + ulpVal (
 
 -- | Find a point that is guaranteed to be outside of the contour, along with the line segment of the contour that is most perpendicular to it.
 mostPerpPointAndLineSeg :: Contour -> (Point2, LineSeg)
-mostPerpPointAndLineSeg contour = res
+mostPerpPointAndLineSeg contour = (resPoint, resSeg)
   where
-    res = if posAngle < negAngle
-          then if posAngle < midAngle
-               then (outsidePosPoint, posLineSeg)
-               else (outsideMidPoint, midLineSeg)
-          else if midAngle < negAngle
-               then (outsideMidPoint, midLineSeg)
-               else (outsideNegPoint, negLineSeg)
-    outsideMidPoint = pointBetweenPoints outsidePosPoint outsideNegPoint
-    outsidePosPoint = Point2 (xOf minPoint - 0.1 , yOf maxPoint + 0.1)
-    outsideNegPoint = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.1)
-    (minPoint, maxPoint) = minMaxPoints contour
-    (posLineSeg, posAngle) = mostPerp contour (eToPLine2 $ makeLineSeg (Point2 (0,0)) (Point2 (-1, 1)))
-    (midLineSeg, midAngle) = mostPerp contour (eToPLine2 $ makeLineSeg (Point2 (0,0)) (Point2 (-1, 0)))
-    (negLineSeg, negAngle) = mostPerp contour (eToPLine2 $ makeLineSeg (Point2 (0,0)) (Point2 (-1,-1)))
+    (resSeg, resPoint, _) = mostPerp contour
     -- | Find the most perpendicular line segment of a contour, when compared to the given projective line.
-    mostPerp :: (ProjectiveLine2 a) => Contour -> a -> (LineSeg, ℝ)
-    mostPerp myContour line = foldl' (\(a1, b1) (a2, b2) -> if b1 == 0 || b1 < b2 then (a1, b1) else (a2, b2)) (head lineSegs,1) $ zip lineSegs $ abs . fst . angleBetween2PL line <$> lineSegsAsPLines
+    mostPerp :: Contour -> (LineSeg, Point2, ℝ)
+    mostPerp myContour = foldl' (\(a1, b1, c1) (a2, b2, c2) -> if c1 == 0 || c1 < c2 then (a1, b1, c1) else (a2, b2, c2)) (head lineSegsAndAnglesPos) (tail lineSegsAndAnglesPos <> lineSegsAndAnglesMid <> lineSegsAndAnglesNeg)
       where
-        lineSegsAsPLines = fst . eToPL <$> lineSegs
-        lineSegs = lineSegsOfContour myContour
+        lineSegsAndAnglesPos = [(lineSeg, outsidePosPoint, abs $ fst $ angleBetween2PL (fst $ join2EP outsidePosPoint $ midPoint lineSeg) (eToPLine2 lineSeg)) | lineSeg <- lineSegsOfContour myContour]
+        lineSegsAndAnglesMid = [(lineSeg, outsideMidPoint, abs $ fst $ angleBetween2PL (fst $ join2EP outsideMidPoint $ midPoint lineSeg) (eToPLine2 lineSeg)) | lineSeg <- lineSegsOfContour myContour]
+        lineSegsAndAnglesNeg = [(lineSeg, outsideNegPoint, abs $ fst $ angleBetween2PL (fst $ join2EP outsideNegPoint $ midPoint lineSeg) (eToPLine2 lineSeg)) | lineSeg <- lineSegsOfContour myContour]
+        midPoint lineSeg = pointBetweenPoints (startPoint lineSeg) (endPoint lineSeg)
+        outsideMidPoint = pointBetweenPoints outsidePosPoint outsideNegPoint
+        outsidePosPoint = Point2 (xOf minPoint - 0.1 , yOf maxPoint + 0.1)
+        outsideNegPoint = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.1)
+        (minPoint, maxPoint) = minMaxPoints contour
 
 -- | Find a point that is guaranteed to be outside of the given contour, and is not on the same line as the first line segment of the contour.
 pointFarOutsideContours :: Contour -> Contour -> Point2
