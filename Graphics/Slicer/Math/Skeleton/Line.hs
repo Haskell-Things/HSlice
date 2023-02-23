@@ -95,8 +95,8 @@ addLineSegsToFace distance insets face
   -- we were called, but instructed to do nothing.
   | isJust insets && fromJust insets < 1 = ([], Just [face])
   | len midArcs == 0 = (foundLineSegs, twoSideRemainder)
-  | len midArcs == 1 = (subSides <> foundLineSegs, threeSideRemainder)
-  | otherwise        = (sides1 <> sides2 <> foundLineSegs, nSideRemainder)
+  | len midArcs == 1 = (foundLineSegs <> twoSideSubLineSegs, threeSideRemainder)
+  | otherwise        = (foundLineSegs <> sides1 <> sides2, nSideRemainder)
   where
     -- | Run checks on our input face.
     checkedFace@(Face edge firstArc midArcs@(Slist rawMidArcs _) lastArc) = checkFace face
@@ -134,7 +134,7 @@ addLineSegsToFace distance insets face
                                                <> show (plinesIntersectIn firstArc $ eToPL edge) <> "\n"
                                                <> dumpGanja face <> "\n"
 
-    -- | How many lines we are going to place in this recursion. If inset is Nothing, cover the face.
+    -- | How many lines we are going to place in this recursion. If inset is Nothing, cover the face entirely.
     linesToRender          = maybe availableLines (min availableLines) insets
       where
         availableLines = linesUntilEnd distance checkedFace
@@ -195,8 +195,8 @@ addLineSegsToFace distance insets face
     noResult = ([],Nothing)
     result begin arcs = case uncons arcs of
                           Nothing -> error "unpossible!"
-                          Just (_,[]) -> addLineSegsToFace distance subInsets (Face finalSide begin (slist []) lastArc)
-                          Just (_,manyArcs) -> addLineSegsToFace distance subInsets (Face finalSide begin remainingArcs lastArc)
+                          Just (_,[]) -> addLineSegsToFace distance subInsets (makeFace finalSide begin (slist []) lastArc)
+                          Just (_,manyArcs) -> addLineSegsToFace distance subInsets (makeFace finalSide begin remainingArcs lastArc)
                             where
                               remainingArcs = case unsnoc manyArcs of
                                                 Nothing -> error "unpossible!"
@@ -204,26 +204,30 @@ addLineSegsToFace distance insets face
     ---------------------------------------------
     -- functions only used by a four-sided n-gon.
     ---------------------------------------------
-    midArc = case midArcs of
-               (Slist [oneArc] 1) -> oneArc
-               (Slist _ _) -> error $ "evaluated midArc with the wrong insets of items\nd: " <> show distance <> "\nn: " <> show insets <> "\nFace: " <> show face <> "\n"
-    threeSideRemainder     = if distancePPointToPLineWithErr firstIntersection edgeLine /= distancePPointToPLineWithErr lastIntersection edgeLine
-                             then subRemains
-                             else Nothing
+    threeSideRemainder    = if distancePPointToPLineWithErr firstIntersection edgeLine == distancePPointToPLineWithErr lastIntersection edgeLine
+                            then Just [makeFace finalSide firstArc (slist [midArc]) lastArc]
+                            else twoSideSubRemainder
       where
         firstIntersection = safeIntersectionOf firstArc midArc
         lastIntersection  = safeIntersectionOf midArc lastArc
         edgeLine = eToPL edge
-
-    (subSides, subRemains) = if firstArcEndsFarthest edge firstArc (head midArcs) lastArc
-                             then addLineSegsToFace distance subInsets (Face finalSide firstArc (slist []) midArc)
-                             else addLineSegsToFace distance subInsets (Face finalSide midArc   (slist []) lastArc)
+    -- Recurse, so we get the remainder and line segments of the three sided n-gon left over.
+    (twoSideSubLineSegs,
+     twoSideSubRemainder) = if firstArcEndsFarthest edge firstArc (head midArcs) lastArc
+                           then addLineSegsToFace distance subInsets (makeFace finalSide firstArc (slist []) midArc)
+                           else addLineSegsToFace distance subInsets (makeFace finalSide midArc   (slist []) lastArc)
+    midArc                = case midArcs of
+                               (Slist [oneArc] 1) -> oneArc
+                               (Slist _ _) -> error $ "evaluated midArc with the wrong insets of items.\n"
+                                                   <> "d: " <> show distance <> "\n"
+                                                   <> "n: " <> show insets <> "\n"
+                                                   <> "Face: " <> show face <> "\n"
     ----------------------------------------------
     -- functions only used by a three-sided n-gon.
     ----------------------------------------------
-    twoSideRemainder       = if distance * fromIntegral linesToRender /= distanceUntilEnd checkedFace
-                             then Just [Face finalSide firstArc (slist []) lastArc]
-                             else Nothing
+    twoSideRemainder     = if distance * fromIntegral linesToRender /= distanceUntilEnd checkedFace
+                           then Just [makeFace finalSide firstArc (slist []) lastArc]
+                           else Nothing
 
 -- | How many lines can be drawn onto a given Face, parallel to the face.
 linesUntilEnd :: ℝ -> Face -> Fastℕ
@@ -313,7 +317,7 @@ reclaimContours lineSegSets = if all isJust reclaimedRings && all isJust cleaned
 reclaimRing :: [LineSeg] -> Maybe [Contour]
 reclaimRing ring = case filter (\(a,_) -> isNothing a) reclaimedContour of
                      [] -> Just [makePointContour $ fromJust . fst <$> reclaimedContour]
-                     [a] -> error $ "found one break in ring: " <> show ring <> " at " <> show a <> "/n"
+                     [a] -> error $ "found one break in ring: " <> show ring <> " at " <> show a <> "\n"
                      _ -> Nothing
   where
     reclaimedContour = mapWithFollower recovery ring
@@ -326,10 +330,23 @@ reclaimRing ring = case filter (\(a,_) -> isNothing a) reclaimedContour of
           | l1l2Distance <= l1l2DistanceErr = (Just $ fst $ pToEP $ fst $ intersectionOf (eToPL l2) (eToPL l1), (l1,l2))
           | otherwise = (Nothing, (l1,l2))
           where
-            --- FIXME: magic number: 64
-            l1l2DistanceErr = 64 * ulpVal (l1l2DistanceErrRaw
-                                           <> pLineErrAtPPoint (eToPL l1) (eToPP $ startPoint l1)
-                                           <> fuzzinessOfL (eToPL l1)
-                                           <> pLineErrAtPPoint (eToPL l2) (eToPP $ endPoint l2)
-                                           <> fuzzinessOfL (eToPL l2))
+            --- FIXME: magic number: 128
+            l1l2DistanceErr = 128 * ulpVal (l1l2DistanceErrRaw
+                                            <> pLineErrAtPPoint (eToPL l1) (eToPP $ startPoint l1)
+                                            <> fuzzinessOfL (eToPL l1)
+                                            <> pLineErrAtPPoint (eToPL l2) (eToPP $ endPoint l2)
+                                            <> fuzzinessOfL (eToPL l2))
             (l1l2Distance, (_, _, l1l2DistanceErrRaw)) = distance2PP (eToPP $ endPoint l2, mempty) (eToPP $ startPoint l1, mempty)
+
+makeFace :: LineSeg -> (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Face
+makeFace edge firstArc arcs lastArc = res
+  where
+    res = checkFace $ Face edge firstArc arcs lastArc
+    checkFace inFace@(Face myEdge myFirstArc (Slist myMidArcs _) myLastArc)
+      | all (isRight . fromMaybe (error "wheee!")) intersections = inFace
+      | otherwise = error $ "Tried to generate a degenerate face: "
+                         <> show inFace <> "\n"
+                         <> show intersections <> "\n"
+      where
+        intersections = mapWithFollower intersectionBetween $ eToPL myEdge : myFirstArc : myMidArcs <> [myLastArc]
+
