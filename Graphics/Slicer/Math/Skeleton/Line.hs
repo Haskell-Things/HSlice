@@ -26,7 +26,7 @@ import Prelude ((==), all, concat, otherwise, (<$>), (<=), (&&), ($), (/=), erro
 
 import Data.Either (isRight)
 
-import Data.List (sortOn, dropWhile, length, takeWhile, transpose, uncons)
+import Data.List (sortOn, dropWhile, last, length, takeWhile, transpose, uncons)
 
 import Data.List.Extra (unsnoc)
 
@@ -50,7 +50,7 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face))
 
 import Graphics.Slicer.Math.Lossy (distancePPointToPLineWithErr, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (PLine2Err, ProjectiveLine, ProjectiveLine2, distance2PP, eToPL, eToPP, fuzzinessOfL, normalizeL, pLineErrAtPPoint, plinesIntersectIn, pLineIsLeft, pToEP, translateL)
+import Graphics.Slicer.Math.PGA (PIntersection (IntersectsIn, PCollinear, PParallel), PLine2Err, ProjectiveLine, ProjectiveLine2, distance2PP, eToPL, eToPP, fuzzinessOfL, normalizeL, pLineErrAtPPoint, plinesIntersectIn, pLineIsLeft, pToEP, translateL)
 
 import Graphics.Slicer.Machine.Contour (cleanContour)
 
@@ -88,7 +88,7 @@ infiniteInset distance faces
     lineSegSets = fst <$> res
     res = addLineSegsToFace distance Nothing <$> (\(Slist a _) -> a) faces
 
--- | Place line segments on a face. Might return remainders, in the form of un-filled faces.
+-- | Place line segments on a face, parallel to the edge. Might return remainders, in the form of un-filled faces.
 -- FIXME: return a ((ProjectivePoint, PPoint2Err), (ProjectivePoint, PPoint2Err)) pair, so we can operate on it during contour reclamation without precision loss.
 addLineSegsToFace :: ℝ -> Maybe Fastℕ -> Face -> ([LineSeg], Maybe [Face])
 addLineSegsToFace distance insets face
@@ -147,9 +147,9 @@ addLineSegsToFace distance insets face
     -- | The line where we are no longer able to fill this face. from the firstArc to the lastArc, along the point that the lines we place stop.
     finalSide              = makeLineSeg (pToEPoint2 $ fst firstIntersection) (pToEPoint2 $ fst lastIntersection)
       where
-        finalLine = translateL (eToPLine2 edge) $ translateDir (distance * fromIntegral linesToRender)
         firstIntersection = safeIntersectionOf finalLine firstArc
         lastIntersection = safeIntersectionOf finalLine lastArc
+        finalLine = translateL (eToPLine2 edge) $ translateDir (distance * fromIntegral linesToRender)
 
     -- | A wrapper, for generating smart errors.
     safeIntersectionOf a b
@@ -166,7 +166,6 @@ addLineSegsToFace distance insets face
               <> "firstArc: \n" <> show firstArc <> "\n"
               <> "midArcs: \n" <> show midArcs <> "\n"
               <> "lastArc: \n" <> show lastArc <> "\n"
-
     -----------------------------------------------------------
     -- functions only used by n-gons with more than four sides.
     -----------------------------------------------------------
@@ -204,24 +203,29 @@ addLineSegsToFace distance insets face
     ---------------------------------------------
     -- functions only used by a four-sided n-gon.
     ---------------------------------------------
-    threeSideRemainder    = if distancePPointToPLineWithErr firstIntersection edgeLine == distancePPointToPLineWithErr lastIntersection edgeLine
-                            then Just [makeFace finalSide firstArc (slist [midArc]) lastArc]
-                            else twoSideSubRemainder
-      where
-        firstIntersection = safeIntersectionOf firstArc midArc
-        lastIntersection  = safeIntersectionOf midArc lastArc
-        edgeLine = eToPL edge
+    threeSideRemainder
+      | null foundLineSegs = Nothing
+      | otherwise          = case plinesIntersectIn edgeLine lastPlacedLine of
+                               PCollinear -> Nothing
+                               PParallel -> Just [makeFace finalSide firstArc (slist [midArc]) lastArc]
+                               _ -> twoSideSubRemainder
     -- Recurse, so we get the remainder and line segments of the three sided n-gon left over.
     (twoSideSubLineSegs,
-     twoSideSubRemainder) = if firstArcEndsFarthest edge firstArc (head midArcs) lastArc
-                           then addLineSegsToFace distance subInsets (makeFace finalSide firstArc (slist []) midArc)
-                           else addLineSegsToFace distance subInsets (makeFace finalSide midArc   (slist []) lastArc)
-    midArc                = case midArcs of
-                               (Slist [oneArc] 1) -> oneArc
-                               (Slist _ _) -> error $ "evaluated midArc with the wrong insets of items.\n"
-                                                   <> "d: " <> show distance <> "\n"
-                                                   <> "n: " <> show insets <> "\n"
-                                                   <> "Face: " <> show face <> "\n"
+     twoSideSubRemainder)
+      | null foundLineSegs = ([],Nothing)
+      | otherwise          = case plinesIntersectIn edgeLine lastPlacedLine of
+                               PCollinear -> ([],Nothing)
+                               _ -> if firstArcEndsFarthest edge firstArc (head midArcs) lastArc
+                                    then addLineSegsToFace distance subInsets (makeFace finalSide firstArc (slist []) midArc)
+                                    else addLineSegsToFace distance subInsets (makeFace finalSide midArc   (slist []) lastArc)
+    edgeLine = eToPL edge
+    lastPlacedLine = eToPL $ last foundLineSegs
+    midArc = case midArcs of
+               (Slist [oneArc] 1) -> oneArc
+               (Slist _ _) -> error $ "evaluated midArc with the wrong insets of items.\n"
+                                   <> "d: " <> show distance <> "\n"
+                                   <> "n: " <> show insets <> "\n"
+                                   <> "Face: " <> show face <> "\n"
     ----------------------------------------------
     -- functions only used by a three-sided n-gon.
     ----------------------------------------------
@@ -343,10 +347,12 @@ makeFace edge firstArc arcs lastArc = res
   where
     res = checkFace $ Face edge firstArc arcs lastArc
     checkFace inFace@(Face myEdge myFirstArc (Slist myMidArcs _) myLastArc)
-      | all (isRight . fromMaybe (error "wheee!")) intersections = inFace
+      | all isIntersection intersections = inFace
       | otherwise = error $ "Tried to generate a degenerate face: "
                          <> show inFace <> "\n"
                          <> show intersections <> "\n"
       where
-        intersections = mapWithFollower intersectionBetween $ eToPL myEdge : myFirstArc : myMidArcs <> [myLastArc]
-
+        isIntersection intersection = case intersection of
+                                        (IntersectsIn _ _) -> True
+                                        _ -> False
+        intersections = mapWithFollower plinesIntersectIn $ eToPL myEdge : myFirstArc : myMidArcs <> [myLastArc]
