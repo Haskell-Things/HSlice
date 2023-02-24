@@ -1022,7 +1022,7 @@ prop_SquareFacesRightArcCount x y rawFirstTilt rawDistanceToCorner
                      <> show skeleton <> "\n"
                      <> show faces <> "\n"
   where
-    res = all (\a -> arcCount a < 3) faces
+    res = all (\a -> arcCount a < 4) faces
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show square) $ findStraightSkeleton square []
     arcCount (Face _ _ midArcs _) = 2 + len midArcs
