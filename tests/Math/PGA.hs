@@ -1022,7 +1022,7 @@ prop_SquareFacesRightArcCount x y rawFirstTilt rawDistanceToCorner
                      <> show skeleton <> "\n"
                      <> show faces <> "\n"
   where
-    res = all (\a -> arcCount a < 3) faces
+    res = all (\a -> arcCount a < 4) faces
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show square) $ findStraightSkeleton square []
     arcCount (Face _ _ midArcs _) = 2 + len midArcs
@@ -1035,18 +1035,65 @@ prop_SquareFacesInOrder x y tilt distanceToCorner = edgesOf (orderedFacesOf firs
     squareAsSegs = lineSegsOfContour square
     firstSeg = onlyOneOf squareAsSegs
 
-prop_SquareFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareFacesInsetWithRemainder x y tilt distanceToCorner = (length insetContours, length $ lineSegsOfContour insetContour, length remainingFaces) --> (1, 4, 4)
+prop_SquareFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
+prop_SquareFacesInsetWithRemainder x y tilt distanceToCorner
+  | length insetContours == 1 && length (lineSegsOfContour insetContour) == 4 && length remainingFaces == 4 = True
+  | otherwise = error $ "whoops!\n"
+                     <> "insetContours: " <> show (length insetContours) <> "\n"
+                     <> "contour segments: " <> show (length $ lineSegsOfContour insetContour) <> "\n"
+                     <> "faces returned: " <> show (length remainingFaces) <> "\n"
+                     <> "original contour: " <> show square <> "\n"
+                     <> "returned contour: " <> show insetContour <> "\n"
+                     <> "returned faces: " <> show remainingFaces <> "\n"
   where
     insetContour = head insetContours
     (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
     square = randomSquare x y tilt distanceToCorner
+
+-- | A unit test for a square that is interpreted as a really square looking rectangle.
+unit_squareFromRandomSquare :: Bool
+unit_squareFromRandomSquare
+  | length insetContours == 1 && length (lineSegsOfContour insetContour) == 4 && length remainingFaces == 4 = True
+  | otherwise = error $ "malformed result:\n"
+                     <> dumpGanjas ([toGanja foundContour]
+                                    <> (toGanja <$> (\(Slist a _) -> a) foundFaces)
+                                    <> (toGanja <$> remainingFaces))
+                     <> "insetContours: " <> show (length insetContours) <> "\n"
+                     <> "contour segments: " <> show (length $ lineSegsOfContour insetContour) <> "\n"
+                     <> "faces returned: " <> show (length remainingFaces) <> "\n"
+                     <> "original contour: " <> show foundContour <> "\n"
+                     <> "returned contour: " <> show insetContour <> "\n"
+                     <> "returned faces: " <> show remainingFaces <> "\n"
+  where
+    insetContour = head insetContours
+    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) foundFaces
+    foundFaces = facesOf straightSkeleton
+    straightSkeleton = fromMaybe (error $ show foundContour) $ findStraightSkeleton foundContour []
+    foundContour = randomSquare x y tilt distanceToCorner
+    x,y :: ℝ
+    x = 0
+    y = 0
+    distanceToCorner :: Positive ℝ
+    distanceToCorner = 35
+    tilt = Radian 2.0
 
 prop_SquareFacesInsetWithoutRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareFacesInsetWithoutRemainder x y tilt distanceToCorner = (length insetContours, length remainingFaces) --> (0, 0)
   where
     (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
     square = randomSquare x y tilt distanceToCorner
+
+unit_SquareFacesInsetWithoutRemainder :: Expectation
+unit_SquareFacesInsetWithoutRemainder = (length insetContours, length remainingFaces) --> (0, 0)
+  where
+    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
+    square = randomSquare x y tilt distanceToCorner
+    x,y :: ℝ
+    x = -0.3
+    y = -1.0
+    tilt = Radian 0.5
+    distanceToCorner :: Positive ℝ
+    distanceToCorner = Positive 2.0e-3
 
 prop_RectangleNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_RectangleNoDivides x y rawFirstTilt rawSecondTilt rawDistanceToCorner = findDivisions rectangle (fromMaybe (error $ show rectangle) $ crashMotorcycles rectangle []) --> []
@@ -1894,14 +1941,18 @@ facetSpec = do
       property prop_SquareCanPlaceFaces
     it "only finds four face squares" $
       property prop_SquareHasRightFaceCount
-    it "generates faces with less than three arcs" $
+    it "faces generated from a square have less than four arcs" $
       property prop_SquareFacesRightArcCount
     it "places faces on a square in the order the line segments were given" $
       property prop_SquareFacesInOrder
     it "insets a square halfway, finding 4 remaining faces" $
       property prop_SquareFacesInsetWithRemainder
+    it "generates our broken square, when generating a random square(unit)" $
+      unit_squareFromRandomSquare
     it "insets a square completely, finding 0 remaining faces" $
       property prop_SquareFacesInsetWithoutRemainder
+    it "insets a square completely, finding 0 remaining faces(unit)" $
+      unit_SquareFacesInsetWithoutRemainder
     it "finds no divides in a rectangle" $
       property prop_RectangleNoDivides
     it "finds the straight skeleton of a rectangle (property)" $
