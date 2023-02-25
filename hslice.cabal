@@ -146,6 +146,7 @@ test-suite test-hslice
     other-modules:
         Math.Util
         Math.PGA
+        Math.Geometry.Rectangle
         Math.Geometry.Square
         Math.Geometry.Triangle
         GoldenSpec.Spec
@@ -179,6 +180,7 @@ test-suite test-flakey
     other-modules:
         Math.Util
         Math.PGA
+        Math.Geometry.Rectangle
         Math.Geometry.Square
         Math.Geometry.Triangle
         GoldenSpec.Spec
@@ -212,6 +214,7 @@ test-suite test-stat
     other-modules:
         Math.Util
         Math.PGA
+        Math.Geometry.Rectangle
         Math.Geometry.Square
         Math.Geometry.Triangle
         GoldenSpec.Spec

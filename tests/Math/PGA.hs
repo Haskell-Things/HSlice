@@ -25,7 +25,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (Bool(True, False), ($), (<$>), (==), (>=), error, realToFrac, (/=), (<=), otherwise, (&&), (+), show, length, (<>), cos, fst, min, not, sin, snd, mempty, pi, (<), (>), (-), (/), (*), (.))
+import Prelude (Bool(True, False), ($), (<$>), (==), (>=), error, realToFrac, (/=), (<=), otherwise, (&&), (+), show, length, (<>), fst, not, snd, mempty, pi, (<), (>), (-), (/), (*))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -37,7 +37,7 @@ import Data.Coerce (coerce)
 -- The Either library.
 import Data.Either (Either(Left, Right), fromRight, isLeft)
 
-import Data.List (all, concat, foldl', head, sort)
+import Data.List (foldl')
 
 import Data.Maybe (fromMaybe, fromJust, isJust, isNothing, Maybe(Just, Nothing))
 
@@ -47,7 +47,6 @@ import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf))
 
 -- Slists, a form of list with a stated size in the structure.
 import Slist (slist, len)
-import Slist.Type (Slist(Slist))
 
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
@@ -57,18 +56,18 @@ import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, numPoi
 
 import Graphics.Slicer.Math.ContourIntersections (getLineContourIntersections)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), Contour(LineSegContour), mapWithFollower, pointsOfContour, roundPoint2, startPoint, distance, makeLineSeg, minMaxPoints, endPoint)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), Contour(LineSegContour), pointsOfContour, roundPoint2, startPoint, distance, makeLineSeg, endPoint)
 
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpRaw, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
 -- Basic intersection logic.
-import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, isCollinear, outputIntersectsLineSeg)
+import Graphics.Slicer.Math.Intersections (isCollinear, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, eToPLine2, getFirstArc, getOutsideArc, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2, PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), cPPointAndErrOf, distance2PL, distance2PP, distancePPToPL, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, makeCPPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pPointOnPerpWithErr, outOf, outAndErrOf, combineConsecutiveLineSegs, errOfOut, fuzzinessOfL, onSegment, sameDirection, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2, PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), cPPointAndErrOf, distance2PL, distance2PP, distancePPToPL, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, makeCPPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pPointOnPerpWithErr, outOf, combineConsecutiveLineSegs, errOfOut, fuzzinessOfL, onSegment, sameDirection, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (angleBetween2PL, xIntercept, yIntercept)
 
@@ -82,10 +81,9 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 import Graphics.Slicer.Math.Arcs (towardIntersection)
 import Graphics.Slicer.Math.Contour (mostPerpPointAndLineSeg)
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
-import Graphics.Slicer.Math.Skeleton.Concave (averageNodes, eNodesOfOutsideContour, makeENode, makeENodes, skeletonOfNodes)
+import Graphics.Slicer.Math.Skeleton.Concave (averageNodes, makeENode, makeENodes)
 import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), INode(INode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), getFirstLineSeg, getLastLineSeg)
-import Graphics.Slicer.Math.Skeleton.Line (insetBy)
-import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
@@ -95,7 +93,7 @@ import Math.Util ((-->), (-/>))
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
-import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), cellFrom, edgesOf, generationsOf, randomRectangle, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), cellFrom, edgesOf, generationsOf, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
@@ -894,171 +892,6 @@ prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitud
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
 
-prop_RectangleNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleNoDivides x y rawFirstTilt rawSecondTilt rawDistanceToCorner = findDivisions rectangle (fromMaybe (error $ show rectangle) $ crashMotorcycles rectangle []) --> []
-  where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawDistanceToCorner = findStraightSkeleton rectangle [] -/> Nothing
-  where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-  | res == 1 = True
-  | otherwise = error $ "fail!\n"
-                     <> "generations: " <> show res <> "\n"
-                     <> "skeleton: " <> show (findStraightSkeleton rectangle []) <> "\n"
-                     <> "raw Skeleton: " <> show (skeletonOfNodes True lineSegs lineSegs []) <> "\n"
-                     <> "faces: " <> show (facesOf $ fromMaybe (error "no") $ findStraightSkeleton rectangle []) <> "\n"
-  where
-    res = generationsOf (findStraightSkeleton rectangle [])
-    lineSegs = slist [lineSegsOfContour rectangle]
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleMotorcyclesDoNotIntersectAtPoint :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleMotorcyclesDoNotIntersectAtPoint x y rawFirstTilt rawSecondTilt distanceToCorner = intersectionsAtSamePoint nodeOutsAndErrs --> False
-  where
-    nodeOutsAndErrs = outAndErrOf <$> eNodes
-    eNodes = eNodesOfOutsideContour rectangle
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
-
-prop_RectangleCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleCanPlaceFaces x y rawFirstTilt rawSecondTilt rawDistanceToCorner = facesOf (fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []) -/> slist []
-  where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleHasRightFaceCount x y rawFirstTilt rawSecondTilt rawDistanceToCorner = length (facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []) --> 4
-  where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleFacesInOrder x y rawFirstTilt rawSecondTilt rawDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []) --> rectangleAsSegs
-  where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-    rectangleAsSegs = lineSegsOfContour rectangle
-    firstSeg = onlyOneOf rectangleAsSegs
-
-prop_RectangleFacesRightArcCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleFacesRightArcCount x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-  | res == True = True
-  | otherwise = error $ "Too many arcs found:\n"
-                     <> (concat $ show . arcCount <$> faces) <> "\n"
-                     <> show skeleton <> "\n"
-                     <> show faces <> "\n"
-  where
-    res = all (\a -> arcCount a < 4) faces
-    faces = facesOf skeleton
-    skeleton = fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
-    arcCount (Face _ _ midArcs _) = 2 + len midArcs
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleFacesAllWoundLeft  :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleFacesAllWoundLeft x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-  | allIsLeft = True
-  | otherwise = error $ "miswound face found:\n"
-                     <> (concat $ show . faceLefts <$> faces) <> "\n"
-                     <> show skeleton <> "\n"
-                     <> show faces <> "\n"
-  where
-    allIsLeft = all faceAllIsLeft faces
-    faceAllIsLeft face = all (== Just True) $ faceLefts face
-    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
-    faces = facesOf skeleton
-    skeleton = fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleFacesInsetWithRemainder x y rawFirstTilt rawSecondTilt distanceToCorner
-  | length insetContours == 1 &&
-    length remainingFaces <= 4 &&
-    length faces == 4 = True
-  | otherwise = error $ "inset contours (1): " <> show (length insetContours) <> "\n"
-                     <> "remainingFaces (4): " <> show (length remainingFaces) <> "\n"
-                     <> "faces (4): " <> show (len faces) <> "\n"
-                     <> "inset distance: " <> show insetDistance <> "\n"
-                     <> show insetContours <> "\n"
-                     <> show remainingFaces <> "\n"
-                     <> dumpGanjas (toGanja rectangle : (toGanja <$> remainingFaces) <> (toGanja <$> rawFaces))
-  where
-    (insetContours, remainingFaces) = insetBy insetDistance faces
-    insetDistance = (min a b) / 2
-    a, b, c, theta :: ℝ
-    a = c * sin theta
-    b = c * cos theta
-    theta = coerce $ (tilt2 - tilt1) / 2
-    -- find the two closest together lines from the center point to the corners.
-    (tilt1, tilt2)
-      | r2 - r1 < r3 - r2 = (r1, r2)
-      | otherwise = (r2, r3)
-    [r1, r2, r3, _] = sort
-      [
-        firstTilt
-      , rawSecondTilt
-      , flipRadian firstTilt
-      , flipRadian rawSecondTilt
-      ]
-    firstTilt
-      | rawFirstTilt == rawSecondTilt = rawFirstTilt + rawSecondTilt
-      | otherwise = rawFirstTilt
-    flipRadian :: Radian ℝ -> Radian ℝ
-    flipRadian v
-      | v < Radian pi = v + Radian pi
-      | otherwise     = v - Radian pi
-    faces@(Slist rawFaces _) = facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
-    c = coerce distanceToCorner
-    rectangle = randomRectangle x y firstTilt rawSecondTilt distanceToCorner
-
-prop_RectangleFacesInsetSmallerThanRectangle :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleFacesInsetSmallerThanRectangle  x y rawFirstTilt rawSecondTilt distanceToCorner
-  | length insetContours == 1 &&
-    contourContainsContour rectangle insetContour &&
-    insetIsSmaller = True
-  | otherwise = error "inset failed to shrink"
-  where
-    insetIsSmaller = minIX > minRX && minIY > minRY && maxRX > maxIX && maxRY > maxIY
-      where
-        ((Point2 (minRX, minRY)) , (Point2 (maxRX, maxRY))) = minMaxPoints rectangle
-        ((Point2 (minIX, minIY)) , (Point2 (maxIX, maxIY))) = minMaxPoints insetContour
-    insetContour = head insetContours
-    (insetContours, _) = insetBy insetDistance faces
-    insetDistance = (min a b) / 2
-    a, b, c, theta :: ℝ
-    a = c * sin theta
-    b = c * cos theta
-    theta = coerce $ (tilt2 - tilt1) / 2
-    -- find the two closest together lines from the center point to the corners.
-    (tilt1, tilt2)
-      | r2 - r1 < r3 - r2 = (r1, r2)
-      | otherwise = (r2, r3)
-    [r1, r2, r3, _] = sort
-      [
-        firstTilt
-      , rawSecondTilt
-      , flipRadian firstTilt
-      , flipRadian rawSecondTilt
-      ]
-    firstTilt
-      | rawFirstTilt == rawSecondTilt = rawFirstTilt + rawSecondTilt
-      | otherwise = rawFirstTilt
-    flipRadian :: Radian ℝ -> Radian ℝ
-    flipRadian v
-      | v < Radian pi = v + Radian pi
-      | otherwise     = v - Radian pi
-    faces = facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
-    c = coerce distanceToCorner
-    rectangle = randomRectangle x y firstTilt rawSecondTilt distanceToCorner
-
-{-
-prop_RectangleFacesInsetWithoutRemainder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleFacesInsetWithoutRemainder x y rawFirstTilt rawSecondTilt distanceToCorner = (length insetContours, length remainingFaces) --> (0, 0)
-  where
-    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle [])
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
--}
-
 prop_ConvexDualRightQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_ConvexDualRightQuadNoDivides x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = findDivisions convexDualRightQuad (fromMaybe (errorReport) $ crashMotorcycles convexDualRightQuad []) --> []
   where
@@ -1706,30 +1539,6 @@ facetSpec = do
       property prop_AxisAligned135DegreeAnglesInENode
     it "finds the inside arcs of 45 degree angles with one side parallel to an axis (enode)" $
       property prop_AxisAligned45DegreeAnglesInENode
-    it "finds no divides in a rectangle" $
-      property prop_RectangleNoDivides
-    it "finds the straight skeleton of a rectangle (property)" $
-      property prop_RectangleHasStraightSkeleton
-    it "places faces on the straight skeleton of a rectangle" $
-      property prop_RectangleCanPlaceFaces
-    it "finds only four faces for any rectangle" $
-      property prop_RectangleHasRightFaceCount
-    it "places faces on a rectangle in the order the line segments were given" $
-      property prop_RectangleFacesInOrder
-    it "places faces on a rectangle such that each face is wound to the left" $
-      property prop_RectangleFacesAllWoundLeft
-    it "does not consider a rectangle to be a square" $
-      property prop_RectangleMotorcyclesDoNotIntersectAtPoint
-    it "finds only one generation for a rectangle" $
-      property prop_RectangleStraightSkeletonHasRightGenerationCount
-    it "generates faces with less than four arcs" $
-      property prop_RectangleFacesRightArcCount
-    it "insets a rectangle halfway, finding 4 remaining faces" $
-      property prop_RectangleFacesInsetWithRemainder
---    it "insets a rectangle completely, finding 0 remaining faces" $
---      property prop_RectangleFacesInsetWithoutRemainder
-    it "sees an inset of a rectangle as being smaller than the source rectangle" $
-      property prop_RectangleFacesInsetSmallerThanRectangle
     it "finds no divides in a convex dual right quad" $
       property prop_ConvexDualRightQuadNoDivides
     it "finds the straight skeleton of a convex dual right quad (property)" $

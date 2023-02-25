@@ -16,7 +16,7 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{- tests for the properties of a triangle. -}
+{- tests for the properties of a square. -}
 
 module Math.Geometry.Square (
   squareSpec
