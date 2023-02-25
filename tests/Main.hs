@@ -30,17 +30,20 @@ import GoldenSpec.Spec (goldenSpec)
 -- the execution test for warnings.
 import Math.PGA(contourSpec, lineSpec, linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec)
 
+import Math.Geometry.Triangle (triangleSpec)
+
 main :: IO ()
 main = hspec $ parallel $ do
   -- run tests against the mixed algebra engine.
   describe "linear algebra calculations" linearAlgSpec
-  describe "contour handling" contourSpec
-  describe "more contour handling" lineSpec
   -- run tests against the Geometric Algebra engine.
   describe "geometric algebra calculations" geomAlgSpec
   -- run tests against the 2D Projective Geometric Algebra engine.
   describe "2D PGA primitives" proj2DGeomAlgSpec
   describe "2D PGA operations" pgaSpec
+  describe "Geometry" triangleSpec
+  describe "contour handling" contourSpec
+  describe "more contour handling" lineSpec
   -- run tests of the facet engine.
   describe "Contour facetization algorithms" facetSpec
   -- run the golden tests to ensure we haven't broken the serialized forms of our unit tests.

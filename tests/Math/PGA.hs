@@ -22,28 +22,22 @@
 
 {-# LANGUAGE DataKinds #-}
 
--- So we can add instances of basic typeclasses (Eq, Show, ...) here, instead of in the library.
-{-# LANGUAGE StandaloneDeriving #-}
-
--- Ignore the orphan instances we create for testing purposes.
-{-# OPTIONS_GHC -Wno-orphans #-}
-
-module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, facetStatSpec, contourSpec, lineSpec) where
+module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (Bool(True, False), Eq, Show, ($), (<$>), (==), (>=), error, realToFrac, (/=), (<=), otherwise, (&&), (+), show, length, (<>), cos, fst, min, not, sin, snd, length, mempty, pi, (<), (>), (-), (/), (*), (.))
+import Prelude (Bool(True, False), ($), (<$>), (==), (>=), error, realToFrac, (/=), (<=), otherwise, (&&), (+), show, length, (<>), cos, fst, min, not, sin, snd, mempty, pi, (<), (>), (-), (/), (*), (.))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
 
 -- QuickCheck, for writing properties.
 import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive))
-import Test.QuickCheck.Property (label, liftBool, Property)
 import Data.Coerce (coerce)
 
-import Data.Either (Either(Left, Right), fromRight, isLeft, rights)
+-- The Either library.
+import Data.Either (Either(Left, Right), fromRight, isLeft)
 
-import Data.List (all, concat, foldl', head, sort, transpose)
+import Data.List (all, concat, foldl', head, sort)
 
 import Data.Maybe (fromMaybe, fromJust, isJust, isNothing, Maybe(Just, Nothing))
 
@@ -59,22 +53,22 @@ import Slist.Type (Slist(Slist))
 import Graphics.Slicer (ℝ)
 
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, numPointsOfContour, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, maybeFlipContour)
+import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, numPointsOfContour, lineSegsOfContour, makeLineSegContour, makePointContour, maybeFlipContour)
 
 import Graphics.Slicer.Math.ContourIntersections (getLineContourIntersections)
 
--- A euclidian point.
-import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), Contour(LineSegContour), mapWithFollower, pointsOfContour, roundPoint2, startPoint, distance, makeLineSeg, minMaxPoints, endPoint, pointBetweenPoints)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), Contour(LineSegContour), mapWithFollower, pointsOfContour, roundPoint2, startPoint, distance, makeLineSeg, minMaxPoints, endPoint)
 
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpRaw, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
-import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, intersectionBetween, isCollinear, outputIntersectsLineSeg)
+-- Basic intersection logic.
+import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, isCollinear, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, eToPLine2, getFirstArc, getOutsideArc, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2, PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), cPPointAndErrOf, distance2PL, distance2PP, distancePPToPL, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makeCPPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, plinesIntersectIn, pPointOnPerpWithErr, outOf, outAndErrOf, combineConsecutiveLineSegs, errOfOut, fuzzinessOfL, join2EP, onSegment, sameDirection, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2, PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), cPPointAndErrOf, distance2PL, distance2PP, distancePPToPL, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, makeCPPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pPointOnPerpWithErr, outOf, outAndErrOf, combineConsecutiveLineSegs, errOfOut, fuzzinessOfL, onSegment, sameDirection, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (angleBetween2PL, xIntercept, yIntercept)
 
@@ -89,7 +83,7 @@ import Graphics.Slicer.Math.Arcs (towardIntersection)
 import Graphics.Slicer.Math.Contour (mostPerpPointAndLineSeg)
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
 import Graphics.Slicer.Math.Skeleton.Concave (averageNodes, eNodesOfOutsideContour, makeENode, makeENodes, skeletonOfNodes)
-import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), INode(INode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), Spine(Spine), StraightSkeleton(StraightSkeleton), getFirstLineSeg, getLastLineSeg)
+import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), INode(INode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), getFirstLineSeg, getLastLineSeg)
 import Graphics.Slicer.Math.Skeleton.Line (insetBy)
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
@@ -101,21 +95,10 @@ import Math.Util ((-->), (-/>))
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
-import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian(Radian), cellFrom, edgesOf, generationsOf, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), cellFrom, edgesOf, generationsOf, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
-
--- add some instances that are required for testing our types.
-deriving instance Eq Cell
-
-deriving instance Show RemainingContour
-
-deriving instance Eq RemainingContour
-
-deriving instance Eq StraightSkeleton
-
-deriving instance Eq Spine
 
 -- | simple tests on contours.
 contourSpec :: Spec
@@ -910,79 +893,6 @@ prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitud
     mag1,mag2 :: ℝ
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
-
-prop_TriangleNoConvexMotorcycles :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleNoConvexMotorcycles centerX centerY rawRadians rawDists = convexMotorcycles triangle --> []
-  where
-    triangle  = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleNoDivides :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions triangle (fromMaybe dumpError $ crashMotorcycles triangle []) --> []
-  where
-    dumpError = error $ "no crash tree?\n" <> errorString
-    errorString =  dumpGanjas ([toGanja triangle, toGanja (Point2 (centerX, centerY)), toGanja pLineFromInside, toGanja pLineFromMid] <> (toGanja . fst . eToPL <$> lineSegsOfContour triangle)) <> "\n"
-                <> show lineSeg <> "\n"
-                <> show firstPoints <> "\n"
-                <> show (insideIsLeft triangle) <> "\n"
-                <> show (plinesIntersectIn pLine pLineFromInside) <> "\n"
-    -- we normalize this for Ganja.js.
-    pLineFromInside = normalizeL $ fst $ join2PP innerPoint $ eToPP outsidePoint
-    pLineFromMid    = fst $ normalizeL $ fst $ join2EP midPoint outsidePoint
-    firstPoints     = firstPointPairOfContour triangle
-    innerPoint      = fromMaybe (error "cannot find inner point.") maybeInnerPoint
-    maybeInnerPoint = innerContourPoint triangle
-    midPoint        = pointBetweenPoints (startPoint lineSeg) (endPoint lineSeg)
-    pLine           = eToPL lineSeg
-    outsidePoint    = fst $ mostPerpPointAndLineSeg triangle
-    lineSeg         = snd $ mostPerpPointAndLineSeg triangle
-    triangle        = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleMotorcyclesEndAtSamePoint  :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Property
-prop_TriangleMotorcyclesEndAtSamePoint centerX centerY rawRadians rawDists
-  = label ("Triangle: " <> show triangle <> "\n"
-           <> "ENodes: " <> show eNodes <> "\n"
-           <> "Intersections: " <> show intersections <> "\n"
-           <> show nodeOutsAndErrs <> "\n"
-           <> dumpGanjas ((toGanja <$> eNodes)
-                        <> concat (transpose [(toGanja <$> intersections)
-                                             ,(toGanja . show <$> fuzziness)
-                                             ,(toGanja . show <$> distances)
-                                             , [toGanja $ show retVal]])))
-           $ liftBool True
-  where
-    retVal = intersectionsAtSamePoint nodeOutsAndErrs
-    intersections = rights $ fromJust <$> mapWithFollower intersectionBetween nodeOutsAndErrs
-    fuzziness = fuzzinessOfP <$> intersections
-    distances = mapWithFollower distance2PP intersections
-    nodeOutsAndErrs = outAndErrOf <$> eNodes
-    eNodes = eNodesOfOutsideContour triangle
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleHasStraightSkeleton :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleHasStraightSkeleton centerX centerY rawRadians rawDists = findStraightSkeleton triangle [] -/> Nothing
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleStraightSkeletonHasRightGenerationCount centerX centerY rawRadians rawDists = generationsOf (findStraightSkeleton triangle []) --> 1
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleCanPlaceFaces :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleCanPlaceFaces centerX centerY rawRadians rawDists = facesOf (fromMaybe (error "Got Nothing") $ findStraightSkeleton triangle []) -/> slist []
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleHasRightFaceCount :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleHasRightFaceCount centerX centerY rawRadians rawDists = length (facesOf $ fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []) --> 3
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleFacesInOrder :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleFacesInOrder centerX centerY rawRadians rawDists = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []) --> lineSegsOfContour triangle
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-    firstSeg = onlyOneOf $ lineSegsOfContour triangle
 
 prop_SquareNoDivides :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareNoDivides x y tilt distanceToCorner = findDivisions square (fromMaybe (error $ show square) $ crashMotorcycles square []) --> []
@@ -1860,12 +1770,6 @@ facetFlakeySpec = do
     it "finds the outside arc of two intersecting lines (makeINode)" $
       property prop_obtuseBisectorOnBiggerSide_makeINode
 
-facetStatSpec :: Spec
-facetStatSpec = do
-  describe "Triangles" $ do
-   it "finds that all motorcycles intersect at the same point in a triangle" $
-      property prop_TriangleMotorcyclesEndAtSamePoint
-
 facetSpec :: Spec
 facetSpec = do
   describe "Stability (Points)" $ do
@@ -1913,22 +1817,6 @@ facetSpec = do
       property prop_AxisAligned135DegreeAnglesInENode
     it "finds the inside arcs of 45 degree angles with one side parallel to an axis (enode)" $
       property prop_AxisAligned45DegreeAnglesInENode
-    it "finds no convex motorcycles in a triangle" $
-      property prop_TriangleNoConvexMotorcycles
-    it "finds no divides in a triangle" $
-      property prop_TriangleNoDivides
---    it "finds that all motorcycles intersect at the same point in a triangle" $
---      property prop_TriangleMotorcyclesEndAtSamePoint
-    it "finds the straight skeleton of a triangle (property)" $
-      property prop_TriangleHasStraightSkeleton
-    it "only generates one generation for a triangle" $
-      property prop_TriangleStraightSkeletonHasRightGenerationCount
-    it "places faces on the straight skeleton of a triangle" $
-      property prop_TriangleCanPlaceFaces
-    it "places faces on a triangle in the order the line segments were given" $
-      property prop_TriangleFacesInOrder
-    it "only finds three face triangles" $
-      property prop_TriangleHasRightFaceCount
     it "finds no divides in a square" $
       property prop_SquareNoDivides
     it "finds the straight skeleton of a square (property)" $

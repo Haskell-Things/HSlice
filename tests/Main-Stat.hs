@@ -26,9 +26,9 @@ import Prelude (($), IO)
 import Test.Hspec(hspec, parallel, describe)
 
 -- the execution test for properties we want to examine statistically.
-import Math.PGA(facetStatSpec)
+import Math.Geometry.Triangle (triangleStatSpec)
 
 main :: IO ()
 main = hspec $ parallel $ do
   -- run tests of the facet engine.
-  describe "Statistics" facetStatSpec
+  describe "Statistics" triangleStatSpec
