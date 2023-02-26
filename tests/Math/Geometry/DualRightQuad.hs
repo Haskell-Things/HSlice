@@ -63,7 +63,6 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
 
-
 prop_DualRightQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_DualRightQuadNoDivides x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = findDivisions dualRightQuad (fromMaybe (errorReport) $ crashMotorcycles dualRightQuad []) --> []
   where
