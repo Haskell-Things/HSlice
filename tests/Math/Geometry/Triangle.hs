@@ -63,23 +63,23 @@ import Graphics.Slicer.Math.PGA (distance2PP, eToPL, eToPP, fuzzinessOfP, join2E
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian(Radian), cellFrom, edgesOf, generationsOf, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
+import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian, edgesOf, generationsOf, randomTriangle, onlyOneOf)
 
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
-import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
+import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
 
 -- The logic for creating straight skeletons from concave contours.
-import Graphics.Slicer.Math.Skeleton.Concave (averageNodes, eNodesOfOutsideContour, makeENode, makeENodes, skeletonOfNodes)
+import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour)
 
 -- Basic contour handling. the Point and LineSeg we use to determine how to flip a contour.
 import Graphics.Slicer.Math.Contour (mostPerpPointAndLineSeg)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
+import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
