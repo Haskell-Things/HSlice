@@ -146,6 +146,7 @@ test-suite test-hslice
     other-modules:
         Math.Util
         Math.PGA
+        Math.Geometry.DualRightQuad
         Math.Geometry.Rectangle
         Math.Geometry.Square
         Math.Geometry.Triangle
@@ -180,6 +181,7 @@ test-suite test-flakey
     other-modules:
         Math.Util
         Math.PGA
+        Math.Geometry.DualRightQuad
         Math.Geometry.Rectangle
         Math.Geometry.Square
         Math.Geometry.Triangle
@@ -214,6 +216,7 @@ test-suite test-stat
     other-modules:
         Math.Util
         Math.PGA
+        Math.Geometry.DualRightQuad
         Math.Geometry.Rectangle
         Math.Geometry.Square
         Math.Geometry.Triangle

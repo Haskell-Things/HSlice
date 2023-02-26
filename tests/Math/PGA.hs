@@ -93,7 +93,7 @@ import Math.Util ((-->), (-/>))
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
-import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), cellFrom, edgesOf, generationsOf, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), cellFrom, edgesOf, generationsOf, randomConvexQuad, randomConvexSingleRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
@@ -892,40 +892,6 @@ prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitud
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
 
-prop_ConvexDualRightQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_ConvexDualRightQuadNoDivides x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = findDivisions convexDualRightQuad (fromMaybe (errorReport) $ crashMotorcycles convexDualRightQuad []) --> []
-  where
-    convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-    errorReport = error $ "failed to generate a motorcycle crash report.\n"
-                        <> dumpGanjas [toGanja convexDualRightQuad] <> "\n"
-
-prop_ConvexDualRightQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_ConvexDualRightQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = findStraightSkeleton convexDualRightQuad [] -/> Nothing
-  where
-    convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-
-prop_ConvexDualRightQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_ConvexDualRightQuadStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = generationsOf (findStraightSkeleton convexDualRightQuad []) --> 1
-  where
-    convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-
-prop_ConvexDualRightQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_ConvexDualRightQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = facesOf (fromMaybe (error $ show convexDualRightQuad) $ findStraightSkeleton convexDualRightQuad []) -/> slist []
-  where
-    convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-
-prop_ConvexDualRightQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_ConvexDualRightQuadHasRightFaceCount x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = length (facesOf $ fromMaybe (error $ show convexDualRightQuad) $ findStraightSkeleton convexDualRightQuad []) --> 4
-  where
-    convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-
-prop_ConvexDualRightQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_ConvexDualRightQuadFacesInOrder x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show convexDualRightQuad) $ findStraightSkeleton convexDualRightQuad []) --> convexDualRightQuadAsSegs
-  where
-    convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-    convexDualRightQuadAsSegs = lineSegsOfContour convexDualRightQuad
-    firstSeg = onlyOneOf convexDualRightQuadAsSegs
-
 prop_ConvexSingleRightQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexSingleRightQuadNoDivides x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = findDivisions convexSingleRightQuad (fromMaybe (error $ show convexSingleRightQuad) $ crashMotorcycles convexSingleRightQuad []) --> []
   where
@@ -1539,18 +1505,6 @@ facetSpec = do
       property prop_AxisAligned135DegreeAnglesInENode
     it "finds the inside arcs of 45 degree angles with one side parallel to an axis (enode)" $
       property prop_AxisAligned45DegreeAnglesInENode
-    it "finds no divides in a convex dual right quad" $
-      property prop_ConvexDualRightQuadNoDivides
-    it "finds the straight skeleton of a convex dual right quad (property)" $
-      property prop_ConvexDualRightQuadHasStraightSkeleton
-    it "only generates one generation for a convex dual right quad" $
-      property prop_ConvexDualRightQuadStraightSkeletonHasRightGenerationCount
-    it "places faces on the straight skeleton of a convex dual right quad" $
-      property prop_ConvexDualRightQuadCanPlaceFaces
-    it "finds only four faces for any convex dual right quad" $
-      property prop_ConvexDualRightQuadHasRightFaceCount
-    it "places faces on a convex dual right quad in the order the line segments were given" $
-      property prop_ConvexDualRightQuadFacesInOrder
     it "finds no divides in a convex single right quad" $
       property prop_ConvexSingleRightQuadNoDivides
     it "finds the straight skeleton of a convex single right quad (property)" $
