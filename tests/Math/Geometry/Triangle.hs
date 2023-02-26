@@ -65,7 +65,6 @@ import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian, edgesOf, generationsOf, randomTriangle, onlyOneOf)
 
-
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
 
