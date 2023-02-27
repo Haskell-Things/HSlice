@@ -38,9 +38,9 @@ module Graphics.Slicer.Math.RandomGeometry (
   onlyOneOf,
   randomConcaveChevronQuad,
   randomConvexBisectableQuad,
-  randomConvexDualRightQuad,
-  randomConvexQuad,
   randomConvexSingleRightQuad,
+  randomConvexQuad,
+  randomDualRightQuad,
   randomENode,
   randomINode,
   randomLineSeg,
@@ -125,20 +125,20 @@ instance Num (Radian a) where
     where
       wrapIfNeeded :: ℝ -> ℝ
       wrapIfNeeded v
-        | v <= tau   = v
-        | otherwise = v-tau
+        | v <= tau  = v
+        | otherwise = wrapIfNeeded $ v - tau
   (-) (Radian r1) (Radian r2) = Radian $ wrapIfNeeded $ r1 - r2
     where
       wrapIfNeeded :: ℝ -> ℝ
       wrapIfNeeded v
         | v > 0     = v
-        | otherwise = v+tau
-  (*) (Radian r1) (Radian r2) = Radian $ recursiveWrap $ r1 * r2
+        | otherwise = wrapIfNeeded $ v + tau
+  (*) (Radian r1) (Radian r2) = Radian $ wrapIfNeeded $ r1 * r2
     where
-      recursiveWrap :: ℝ -> ℝ
-      recursiveWrap v
-        | v <= tau   = v
-        | otherwise = recursiveWrap $ v-tau
+      wrapIfNeeded :: ℝ -> ℝ
+      wrapIfNeeded v
+        | v <= tau  = v
+        | otherwise = wrapIfNeeded $ v - tau
   abs r1 = r1
   fromInteger v = Radian $ fromInteger $ mod v 6
   signum _ = 1
@@ -202,7 +202,7 @@ randomSquare centerX centerY tilt distanceToCorner = randomStarPoly centerX cent
         tilt
       , tilt + Radian (tau/4)
       , tilt + Radian (tau/2)
-      , tilt + Radian (pi+(pi/2))
+      , tilt + Radian (tau*0.75)
       ]
     distances = replicate 4 distanceToCorner
 
@@ -229,8 +229,8 @@ randomRectangle centerX centerY rawFirstTilt secondTilt distanceToCorner = rando
       distances = replicate 4 distanceToCorner
 
 -- | Generate a random convex four sided polygon, with two right angles.
-randomConvexDualRightQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Contour
-randomConvexDualRightQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+randomDualRightQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Contour
+randomDualRightQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
       -- Workaround: since first and second may be unique, but may not be 0, multiply them!
       [firstTilt, secondTilt, thirdTilt] = sort $ ensureUnique $ clipRadian <$> sort [rawFirstTilt, rawSecondTilt, rawThirdTilt]
@@ -414,6 +414,7 @@ randomStarPoly centerX centerY radianDistPairs = fromMaybe dumpError $ maybeFlip
                                                 ] <> (toGanja . fst . eToPL <$> lineSegsOfContour contour))<> "\n"
                                <> show (getLineContourIntersections (perpPl, pErr) contour) <> "\n"
                                <> show (getLineContourIntersections (otherPl, oErr) contour) <> "\n"
+                               <> show (mostPerpPointAndLineSeg contour) <> "\n"
       where
         (perpPl,(_,_,pErr)) = join2PP perpPoint (eToPP outsidePoint)
         (otherPl,(_,_,oErr)) = join2PP otherPoint (eToPP outsidePoint)

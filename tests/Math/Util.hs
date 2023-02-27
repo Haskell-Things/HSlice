@@ -18,6 +18,12 @@
 
 -- Shamelessly stolen from ImplicitCAD.
 
+-- So we can add instances of basic typeclasses (Eq, Show, ...) here, instead of in the library.
+{-# LANGUAGE StandaloneDeriving #-}
+
+-- Ignore the orphan instances we create for testing purposes.
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 -- Utilities
 module Math.Util
          ( (-->), (-/>)
@@ -27,6 +33,8 @@ module Math.Util
 import Prelude (Eq, Show)
 
 import Test.Hspec (Expectation, shouldBe, shouldNotBe)
+
+import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), RemainingContour(RemainingContour), Spine(Spine), StraightSkeleton(StraightSkeleton))
 
 -- operators for expressions for "result of the left side should evaluate to the right side."
 
@@ -41,3 +49,15 @@ infixr 1 -/>
 (-/>) :: (Eq a,Show a) => a -> a -> Expectation
 (-/>) res exp =
   res `shouldNotBe` exp
+
+-- add some instances that are required for testing our types.
+deriving instance Eq Cell
+
+deriving instance Show RemainingContour
+
+deriving instance Eq RemainingContour
+
+deriving instance Eq StraightSkeleton
+
+deriving instance Eq Spine
+

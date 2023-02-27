@@ -146,6 +146,14 @@ test-suite test-hslice
     other-modules:
         Math.Util
         Math.PGA
+        Math.Geometry.ConcaveChevronQuad
+        Math.Geometry.ConvexBisectableQuad
+        Math.Geometry.ConvexQuad
+        Math.Geometry.ConvexSingleRightQuad
+        Math.Geometry.DualRightQuad
+        Math.Geometry.Rectangle
+        Math.Geometry.Square
+        Math.Geometry.Triangle
         GoldenSpec.Spec
         GoldenSpec.Util
 
@@ -177,6 +185,14 @@ test-suite test-flakey
     other-modules:
         Math.Util
         Math.PGA
+        Math.Geometry.ConcaveChevronQuad
+        Math.Geometry.ConvexBisectableQuad
+        Math.Geometry.ConvexQuad
+        Math.Geometry.ConvexSingleRightQuad
+        Math.Geometry.DualRightQuad
+        Math.Geometry.Rectangle
+        Math.Geometry.Square
+        Math.Geometry.Triangle
         GoldenSpec.Spec
         GoldenSpec.Util
 
@@ -208,6 +224,13 @@ test-suite test-stat
     other-modules:
         Math.Util
         Math.PGA
+        Math.Geometry.ConvexBisectableQuad
+        Math.Geometry.ConvexQuad
+        Math.Geometry.ConvexSingleRightQuad
+        Math.Geometry.DualRightQuad
+        Math.Geometry.Rectangle
+        Math.Geometry.Square
+        Math.Geometry.Triangle
         GoldenSpec.Spec
         GoldenSpec.Util
 

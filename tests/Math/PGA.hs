@@ -22,28 +22,22 @@
 
 {-# LANGUAGE DataKinds #-}
 
--- So we can add instances of basic typeclasses (Eq, Show, ...) here, instead of in the library.
-{-# LANGUAGE StandaloneDeriving #-}
-
--- Ignore the orphan instances we create for testing purposes.
-{-# OPTIONS_GHC -Wno-orphans #-}
-
-module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, facetStatSpec, contourSpec, lineSpec) where
+module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (Bool(True, False), Eq, Show, ($), (<$>), (==), (>=), error, realToFrac, (/=), (<=), otherwise, (&&), (+), show, length, (<>), cos, fst, min, not, sin, snd, length, mempty, pi, (<), (>), (-), (/), (*), (.))
+import Prelude (Bool(True, False), ($), (<$>), (==), (>=), error, realToFrac, (/=), (<=), otherwise, (&&), (+), show, (<>), fst, not, snd, mempty, pi, (<), (>), (-), (/), (*))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
 
 -- QuickCheck, for writing properties.
 import Test.QuickCheck (property, NonZero(NonZero), Positive(Positive))
-import Test.QuickCheck.Property (label, liftBool, Property)
 import Data.Coerce (coerce)
 
-import Data.Either (Either(Left, Right), fromRight, isLeft, rights)
+-- The Either library.
+import Data.Either (Either(Left, Right), fromRight, isLeft)
 
-import Data.List (all, concat, foldl', head, sort, transpose)
+import Data.List (foldl')
 
 import Data.Maybe (fromMaybe, fromJust, isJust, isNothing, Maybe(Just, Nothing))
 
@@ -51,30 +45,29 @@ import Data.Set (singleton, fromList)
 
 import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf))
 
-import Slist (slist, len)
-
-import Slist.Type (Slist(Slist))
+-- Slists, a form of list with a stated size in the structure.
+import Slist (slist)
 
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, numPointsOfContour, lineSegsOfContour, makeLineSegContour, makePointContour, insideIsLeft, innerContourPoint, firstPointPairOfContour, maybeFlipContour)
+import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, numPointsOfContour, lineSegsOfContour, makeLineSegContour, makePointContour, maybeFlipContour)
 
 import Graphics.Slicer.Math.ContourIntersections (getLineContourIntersections)
 
--- A euclidian point.
-import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), Contour(LineSegContour), mapWithFollower, pointsOfContour, roundPoint2, startPoint, distance, makeLineSeg, minMaxPoints, endPoint, pointBetweenPoints)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), Contour(LineSegContour), pointsOfContour, roundPoint2, startPoint, distance, makeLineSeg, endPoint)
 
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpRaw, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))
 
-import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, intersectionBetween, isCollinear, outputIntersectsLineSeg)
+-- Basic intersection logic.
+import Graphics.Slicer.Math.Intersections (isCollinear, outputIntersectsLineSeg)
 
 import Graphics.Slicer.Math.Lossy (canonicalizePPoint2, distanceBetweenPPoints, eToPLine2, getFirstArc, getOutsideArc, pPointOnPerp, translateRotatePPoint2)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2, PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), cPPointAndErrOf, distance2PL, distance2PP, distancePPToPL, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, fuzzinessOfP, makeCPPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, plinesIntersectIn, pPointOnPerpWithErr, outOf, outAndErrOf, combineConsecutiveLineSegs, errOfOut, fuzzinessOfL, join2EP, onSegment, sameDirection, translateRotatePPoint2WithErr)
+import Graphics.Slicer.Math.PGA (ProjectivePoint2(vecOfP), ProjectiveLine(NPLine2, PLine2), ProjectiveLine2(vecOfL), PLine2Err(PLine2Err), cPPointAndErrOf, distance2PL, distance2PP, distancePPToPL, eToPL, pLineErrAtPPoint, eToPP, join2PP, interpolate2PP, intersect2PL, translateL, flipL, makeCPPoint2, normalizeL, pLineIsLeft, pPointsOnSameSideOfPLine, Intersection(HitStartPoint, HitEndPoint, NoIntersection), PIntersection(PCollinear, PAntiCollinear, PParallel, PAntiParallel, IntersectsIn), intersectsWithErr, pPointOnPerpWithErr, outOf, combineConsecutiveLineSegs, errOfOut, fuzzinessOfL, onSegment, sameDirection, translateRotatePPoint2WithErr)
 
 import Graphics.Slicer.Math.PGAPrimitives (angleBetween2PL, xIntercept, yIntercept)
 
@@ -88,34 +81,17 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 import Graphics.Slicer.Math.Arcs (towardIntersection)
 import Graphics.Slicer.Math.Contour (mostPerpPointAndLineSeg)
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
-import Graphics.Slicer.Math.Skeleton.Concave (averageNodes, eNodesOfOutsideContour, makeENode, makeENodes, skeletonOfNodes)
-import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), INode(INode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), Spine(Spine), StraightSkeleton(StraightSkeleton), getFirstLineSeg, getLastLineSeg)
-import Graphics.Slicer.Math.Skeleton.Line (insetBy)
-import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Concave (averageNodes, makeENode, makeENodes)
+import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), INode(INode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), getFirstLineSeg, getLastLineSeg)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
-import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Our Utility library, for making these tests easier to read.
-import Math.Util ((-->), (-/>))
+import Math.Util ((-->))
 
--- Our debugging library, for making the below simpler to read, and drop into command lines.
-import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
-
-import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian(Radian), cellFrom, edgesOf, generationsOf, randomTriangle, randomRectangle, randomSquare, randomConvexQuad, randomConvexSingleRightQuad, randomConvexDualRightQuad, randomConvexBisectableQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), cellFrom, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
-
--- add some instances that are required for testing our types.
-deriving instance Eq Cell
-
-deriving instance Show RemainingContour
-
-deriving instance Eq RemainingContour
-
-deriving instance Eq StraightSkeleton
-
-deriving instance Eq Spine
 
 -- | simple tests on contours.
 contourSpec :: Spec
@@ -911,518 +887,6 @@ prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitud
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
 
-prop_TriangleNoConvexMotorcycles :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleNoConvexMotorcycles centerX centerY rawRadians rawDists = convexMotorcycles triangle --> []
-  where
-    triangle  = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleNoDivides :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions triangle (fromMaybe dumpError $ crashMotorcycles triangle []) --> []
-  where
-    dumpError = error $ "no crash tree?\n" <> errorString
-    errorString =  dumpGanjas ([toGanja triangle, toGanja (Point2 (centerX, centerY)), toGanja pLineFromInside, toGanja pLineFromMid] <> (toGanja . fst . eToPL <$> lineSegsOfContour triangle)) <> "\n"
-                <> show lineSeg <> "\n"
-                <> show firstPoints <> "\n"
-                <> show (insideIsLeft triangle) <> "\n"
-                <> show (plinesIntersectIn pLine pLineFromInside) <> "\n"
-    -- we normalize this for Ganja.js.
-    pLineFromInside = normalizeL $ fst $ join2PP innerPoint $ eToPP outsidePoint
-    pLineFromMid    = fst $ normalizeL $ fst $ join2EP midPoint outsidePoint
-    firstPoints     = firstPointPairOfContour triangle
-    innerPoint      = fromMaybe (error "cannot find inner point.") maybeInnerPoint
-    maybeInnerPoint = innerContourPoint triangle
-    midPoint        = pointBetweenPoints (startPoint lineSeg) (endPoint lineSeg)
-    pLine           = eToPL lineSeg
-    outsidePoint    = fst $ mostPerpPointAndLineSeg triangle
-    lineSeg         = snd $ mostPerpPointAndLineSeg triangle
-    triangle        = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleMotorcyclesEndAtSamePoint  :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Property
-prop_TriangleMotorcyclesEndAtSamePoint centerX centerY rawRadians rawDists
-  = label ("Triangle: " <> show triangle <> "\n"
-           <> "ENodes: " <> show eNodes <> "\n"
-           <> "Intersections: " <> show intersections <> "\n"
-           <> show nodeOutsAndErrs <> "\n"
-           <> dumpGanjas ((toGanja <$> eNodes)
-                        <> concat (transpose [(toGanja <$> intersections)
-                                             ,(toGanja . show <$> fuzziness)
-                                             ,(toGanja . show <$> distances)
-                                             , [toGanja $ show retVal]])))
-           $ liftBool True
-  where
-    retVal = intersectionsAtSamePoint nodeOutsAndErrs
-    intersections = rights $ fromJust <$> mapWithFollower intersectionBetween nodeOutsAndErrs
-    fuzziness = fuzzinessOfP <$> intersections
-    distances = mapWithFollower distance2PP intersections
-    nodeOutsAndErrs = outAndErrOf <$> eNodes
-    eNodes = eNodesOfOutsideContour triangle
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleHasStraightSkeleton :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleHasStraightSkeleton centerX centerY rawRadians rawDists = findStraightSkeleton triangle [] -/> Nothing
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleStraightSkeletonHasRightGenerationCount centerX centerY rawRadians rawDists = generationsOf (findStraightSkeleton triangle []) --> 1
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleCanPlaceFaces :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleCanPlaceFaces centerX centerY rawRadians rawDists = facesOf (fromMaybe (error "Got Nothing") $ findStraightSkeleton triangle []) -/> slist []
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleHasRightFaceCount :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleHasRightFaceCount centerX centerY rawRadians rawDists = length (facesOf $ fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []) --> 3
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleFacesInOrder :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleFacesInOrder centerX centerY rawRadians rawDists = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []) --> lineSegsOfContour triangle
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-    firstSeg = onlyOneOf $ lineSegsOfContour triangle
-
-prop_SquareNoDivides :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareNoDivides x y tilt distanceToCorner = findDivisions square (fromMaybe (error $ show square) $ crashMotorcycles square []) --> []
-  where
-    square = randomSquare x y tilt distanceToCorner
-
-prop_SquareHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareHasStraightSkeleton x y tilt distanceToCorner = findStraightSkeleton square [] -/> Nothing
-  where
-    square = randomSquare x y tilt distanceToCorner
-
-prop_SquareStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareStraightSkeletonHasRightGenerationCount x y tilt distanceToCorner = generationsOf (findStraightSkeleton square []) --> 1
-  where
-    square = randomSquare x y tilt distanceToCorner
-
-prop_SquareMotorcyclesIntersectAtPoint :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareMotorcyclesIntersectAtPoint x y tilt distanceToCorner = generationsOf (findStraightSkeleton square []) --> 1
-  where
-    square = randomSquare x y tilt distanceToCorner
-
-prop_SquareCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareCanPlaceFaces x y tilt distanceToCorner = facesOf (fromMaybe (error $ show square) $ findStraightSkeleton square []) -/> slist []
-  where
-    square = randomSquare x y tilt distanceToCorner
-
-prop_SquareHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareHasRightFaceCount x y tilt distanceToCorner = length (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square []) --> 4
-  where
-    square = randomSquare x y tilt distanceToCorner
-
-prop_SquareFacesRightArcCount :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_SquareFacesRightArcCount x y rawFirstTilt rawDistanceToCorner
-  | res == True = True
-  | otherwise = error $ "Too many arcs found:\n"
-                     <> (concat $ show . arcCount <$> faces) <> "\n"
-                     <> show skeleton <> "\n"
-                     <> show faces <> "\n"
-  where
-    res = all (\a -> arcCount a < 4) faces
-    faces = facesOf skeleton
-    skeleton = fromMaybe (error $ show square) $ findStraightSkeleton square []
-    arcCount (Face _ _ midArcs _) = 2 + len midArcs
-    square = randomSquare x y rawFirstTilt rawDistanceToCorner
-
-prop_SquareFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareFacesInOrder x y tilt distanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show square) $ findStraightSkeleton square []) --> squareAsSegs
-  where
-    square = randomSquare x y tilt distanceToCorner
-    squareAsSegs = lineSegsOfContour square
-    firstSeg = onlyOneOf squareAsSegs
-
-prop_SquareFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_SquareFacesInsetWithRemainder x y tilt distanceToCorner
-  | length insetContours == 1 && length (lineSegsOfContour insetContour) == 4 && length remainingFaces == 4 = True
-  | otherwise = error $ "whoops!\n"
-                     <> "insetContours: " <> show (length insetContours) <> "\n"
-                     <> "contour segments: " <> show (length $ lineSegsOfContour insetContour) <> "\n"
-                     <> "faces returned: " <> show (length remainingFaces) <> "\n"
-                     <> "original contour: " <> show square <> "\n"
-                     <> "returned contour: " <> show insetContour <> "\n"
-                     <> "returned faces: " <> show remainingFaces <> "\n"
-  where
-    insetContour = head insetContours
-    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
-    square = randomSquare x y tilt distanceToCorner
-
--- | A unit test for a square that is interpreted as a really square looking rectangle.
-unit_squareFromRandomSquare :: Bool
-unit_squareFromRandomSquare
-  | length insetContours == 1 && length (lineSegsOfContour insetContour) == 4 && length remainingFaces == 4 = True
-  | otherwise = error $ "malformed result:\n"
-                     <> dumpGanjas ([toGanja foundContour]
-                                    <> (toGanja <$> (\(Slist a _) -> a) foundFaces)
-                                    <> (toGanja <$> remainingFaces))
-                     <> "insetContours: " <> show (length insetContours) <> "\n"
-                     <> "contour segments: " <> show (length $ lineSegsOfContour insetContour) <> "\n"
-                     <> "faces returned: " <> show (length remainingFaces) <> "\n"
-                     <> "original contour: " <> show foundContour <> "\n"
-                     <> "returned contour: " <> show insetContour <> "\n"
-                     <> "returned faces: " <> show remainingFaces <> "\n"
-  where
-    insetContour = head insetContours
-    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) foundFaces
-    foundFaces = facesOf straightSkeleton
-    straightSkeleton = fromMaybe (error $ show foundContour) $ findStraightSkeleton foundContour []
-    foundContour = randomSquare x y tilt distanceToCorner
-    x,y :: ℝ
-    x = 0
-    y = 0
-    distanceToCorner :: Positive ℝ
-    distanceToCorner = 35
-    tilt = Radian 2.0
-
-prop_SquareFacesInsetWithoutRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareFacesInsetWithoutRemainder x y tilt distanceToCorner = (length insetContours, length remainingFaces) --> (0, 0)
-  where
-    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
-    square = randomSquare x y tilt distanceToCorner
-
-unit_SquareFacesInsetWithoutRemainder :: Expectation
-unit_SquareFacesInsetWithoutRemainder = (length insetContours, length remainingFaces) --> (0, 0)
-  where
-    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
-    square = randomSquare x y tilt distanceToCorner
-    x,y :: ℝ
-    x = -0.3
-    y = -1.0
-    tilt = Radian 0.5
-    distanceToCorner :: Positive ℝ
-    distanceToCorner = Positive 2.0e-3
-
-prop_RectangleNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleNoDivides x y rawFirstTilt rawSecondTilt rawDistanceToCorner = findDivisions rectangle (fromMaybe (error $ show rectangle) $ crashMotorcycles rectangle []) --> []
-  where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawDistanceToCorner = findStraightSkeleton rectangle [] -/> Nothing
-  where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-  | res == 1 = True
-  | otherwise = error $ "fail!\n"
-                     <> "generations: " <> show res <> "\n"
-                     <> "skeleton: " <> show (findStraightSkeleton rectangle []) <> "\n"
-                     <> "raw Skeleton: " <> show (skeletonOfNodes True lineSegs lineSegs []) <> "\n"
-                     <> "faces: " <> show (facesOf $ fromMaybe (error "no") $ findStraightSkeleton rectangle []) <> "\n"
-  where
-    res = generationsOf (findStraightSkeleton rectangle [])
-    lineSegs = slist [lineSegsOfContour rectangle]
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleMotorcyclesDoNotIntersectAtPoint :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleMotorcyclesDoNotIntersectAtPoint x y rawFirstTilt rawSecondTilt distanceToCorner = intersectionsAtSamePoint nodeOutsAndErrs --> False
-  where
-    nodeOutsAndErrs = outAndErrOf <$> eNodes
-    eNodes = eNodesOfOutsideContour rectangle
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
-
-prop_RectangleCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleCanPlaceFaces x y rawFirstTilt rawSecondTilt rawDistanceToCorner = facesOf (fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []) -/> slist []
-  where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleHasRightFaceCount x y rawFirstTilt rawSecondTilt rawDistanceToCorner = length (facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []) --> 4
-  where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleFacesInOrder x y rawFirstTilt rawSecondTilt rawDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []) --> rectangleAsSegs
-  where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-    rectangleAsSegs = lineSegsOfContour rectangle
-    firstSeg = onlyOneOf rectangleAsSegs
-
-prop_RectangleFacesRightArcCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleFacesRightArcCount x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-  | res == True = True
-  | otherwise = error $ "Too many arcs found:\n"
-                     <> (concat $ show . arcCount <$> faces) <> "\n"
-                     <> show skeleton <> "\n"
-                     <> show faces <> "\n"
-  where
-    res = all (\a -> arcCount a < 4) faces
-    faces = facesOf skeleton
-    skeleton = fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
-    arcCount (Face _ _ midArcs _) = 2 + len midArcs
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleFacesAllWoundLeft  :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleFacesAllWoundLeft x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-  | allIsLeft = True
-  | otherwise = error $ "miswound face found:\n"
-                     <> (concat $ show . faceLefts <$> faces) <> "\n"
-                     <> show skeleton <> "\n"
-                     <> show faces <> "\n"
-  where
-    allIsLeft = all faceAllIsLeft faces
-    faceAllIsLeft face = all (== Just True) $ faceLefts face
-    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
-    faces = facesOf skeleton
-    skeleton = fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleFacesInsetWithRemainder x y rawFirstTilt rawSecondTilt distanceToCorner
-  | length insetContours == 1 &&
-    length remainingFaces <= 4 &&
-    length faces == 4 = True
-  | otherwise = error $ "inset contours (1): " <> show (length insetContours) <> "\n"
-                     <> "remainingFaces (4): " <> show (length remainingFaces) <> "\n"
-                     <> "faces (4): " <> show (len faces) <> "\n"
-                     <> "inset distance: " <> show insetDistance <> "\n"
-                     <> show insetContours <> "\n"
-                     <> show remainingFaces <> "\n"
-                     <> dumpGanjas (toGanja rectangle : (toGanja <$> remainingFaces) <> (toGanja <$> rawFaces))
-  where
-    (insetContours, remainingFaces) = insetBy insetDistance faces
-    insetDistance = (min a b) / 2
-    a, b, c, theta :: ℝ
-    a = c * sin theta
-    b = c * cos theta
-    theta = coerce $ (tilt2 - tilt1) / 2
-    -- find the two closest together lines from the center point to the corners.
-    (tilt1, tilt2)
-      | r2 - r1 < r3 - r2 = (r1, r2)
-      | otherwise = (r2, r3)
-    [r1, r2, r3, _] = sort
-      [
-        firstTilt
-      , rawSecondTilt
-      , flipRadian firstTilt
-      , flipRadian rawSecondTilt
-      ]
-    firstTilt
-      | rawFirstTilt == rawSecondTilt = rawFirstTilt + rawSecondTilt
-      | otherwise = rawFirstTilt
-    flipRadian :: Radian ℝ -> Radian ℝ
-    flipRadian v
-      | v < Radian pi = v + Radian pi
-      | otherwise     = v - Radian pi
-    faces@(Slist rawFaces _) = facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
-    c = coerce distanceToCorner
-    rectangle = randomRectangle x y firstTilt rawSecondTilt distanceToCorner
-
-prop_RectangleFacesInsetSmallerThanRectangle :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleFacesInsetSmallerThanRectangle  x y rawFirstTilt rawSecondTilt distanceToCorner
-  | length insetContours == 1 &&
-    contourContainsContour rectangle insetContour &&
-    insetIsSmaller = True
-  | otherwise = error "inset failed to shrink"
-  where
-    insetIsSmaller = minIX > minRX && minIY > minRY && maxRX > maxIX && maxRY > maxIY
-      where
-        ((Point2 (minRX, minRY)) , (Point2 (maxRX, maxRY))) = minMaxPoints rectangle
-        ((Point2 (minIX, minIY)) , (Point2 (maxIX, maxIY))) = minMaxPoints insetContour
-    insetContour = head insetContours
-    (insetContours, _) = insetBy insetDistance faces
-    insetDistance = (min a b) / 2
-    a, b, c, theta :: ℝ
-    a = c * sin theta
-    b = c * cos theta
-    theta = coerce $ (tilt2 - tilt1) / 2
-    -- find the two closest together lines from the center point to the corners.
-    (tilt1, tilt2)
-      | r2 - r1 < r3 - r2 = (r1, r2)
-      | otherwise = (r2, r3)
-    [r1, r2, r3, _] = sort
-      [
-        firstTilt
-      , rawSecondTilt
-      , flipRadian firstTilt
-      , flipRadian rawSecondTilt
-      ]
-    firstTilt
-      | rawFirstTilt == rawSecondTilt = rawFirstTilt + rawSecondTilt
-      | otherwise = rawFirstTilt
-    flipRadian :: Radian ℝ -> Radian ℝ
-    flipRadian v
-      | v < Radian pi = v + Radian pi
-      | otherwise     = v - Radian pi
-    faces = facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
-    c = coerce distanceToCorner
-    rectangle = randomRectangle x y firstTilt rawSecondTilt distanceToCorner
-
-{-
-prop_RectangleFacesInsetWithoutRemainder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleFacesInsetWithoutRemainder x y rawFirstTilt rawSecondTilt distanceToCorner = (length insetContours, length remainingFaces) --> (0, 0)
-  where
-    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle [])
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
--}
-
-prop_ConvexDualRightQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_ConvexDualRightQuadNoDivides x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = findDivisions convexDualRightQuad (fromMaybe (errorReport) $ crashMotorcycles convexDualRightQuad []) --> []
-  where
-    convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-    errorReport = error $ "failed to generate a motorcycle crash report.\n"
-                        <> dumpGanjas [toGanja convexDualRightQuad] <> "\n"
-
-prop_ConvexDualRightQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_ConvexDualRightQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = findStraightSkeleton convexDualRightQuad [] -/> Nothing
-  where
-    convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-
-prop_ConvexDualRightQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_ConvexDualRightQuadStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = generationsOf (findStraightSkeleton convexDualRightQuad []) --> 1
-  where
-    convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-
-prop_ConvexDualRightQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_ConvexDualRightQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = facesOf (fromMaybe (error $ show convexDualRightQuad) $ findStraightSkeleton convexDualRightQuad []) -/> slist []
-  where
-    convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-
-prop_ConvexDualRightQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_ConvexDualRightQuadHasRightFaceCount x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = length (facesOf $ fromMaybe (error $ show convexDualRightQuad) $ findStraightSkeleton convexDualRightQuad []) --> 4
-  where
-    convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-
-prop_ConvexDualRightQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_ConvexDualRightQuadFacesInOrder x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show convexDualRightQuad) $ findStraightSkeleton convexDualRightQuad []) --> convexDualRightQuadAsSegs
-  where
-    convexDualRightQuad = randomConvexDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-    convexDualRightQuadAsSegs = lineSegsOfContour convexDualRightQuad
-    firstSeg = onlyOneOf convexDualRightQuadAsSegs
-
-prop_ConvexSingleRightQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexSingleRightQuadNoDivides x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = findDivisions convexSingleRightQuad (fromMaybe (error $ show convexSingleRightQuad) $ crashMotorcycles convexSingleRightQuad []) --> []
-  where
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-
-prop_ConvexSingleRightQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexSingleRightQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = findStraightSkeleton convexSingleRightQuad [] -/> Nothing
-  where
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-
-prop_ConvexSingleRightQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexSingleRightQuadStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = generationsOf (findStraightSkeleton convexSingleRightQuad []) --> 1
-  where
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-
-prop_ConvexSingleRightQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexSingleRightQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = facesOf (fromMaybe (error $ show convexSingleRightQuad) $ findStraightSkeleton convexSingleRightQuad []) -/> slist []
-  where
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-
-prop_ConvexSingleRightQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexSingleRightQuadHasRightFaceCount x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = length (facesOf $ fromMaybe (error $ show convexSingleRightQuad) $ findStraightSkeleton convexSingleRightQuad []) --> 4
-  where
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-
-prop_ConvexSingleRightQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexSingleRightQuadFacesInOrder x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show convexSingleRightQuad) $ findStraightSkeleton convexSingleRightQuad []) --> convexSingleRightQuadAsSegs
-  where
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-    convexSingleRightQuadAsSegs = lineSegsOfContour convexSingleRightQuad
-    firstSeg = onlyOneOf convexSingleRightQuadAsSegs
-
-prop_ConvexBisectableQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexBisectableQuadNoDivides x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = findDivisions convexBisectableQuad (fromMaybe (error $ show convexBisectableQuad) $ crashMotorcycles convexBisectableQuad []) --> []
-  where
-    convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-
-prop_ConvexBisectableQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexBisectableQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = findStraightSkeleton convexBisectableQuad [] -/> Nothing
-  where
-    convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-
-prop_ConvexBisectableQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexBisectableQuadStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = generationsOf (findStraightSkeleton convexBisectableQuad []) --> 1
-  where
-    convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-
-prop_ConvexBisectableQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexBisectableQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = facesOf (fromMaybe (error $ show convexBisectableQuad) $ findStraightSkeleton convexBisectableQuad []) -/> slist []
-  where
-    convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-
-prop_ConvexBisectableQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexBisectableQuadHasRightFaceCount x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = length (facesOf $ fromMaybe (error $ show convexBisectableQuad) $ findStraightSkeleton convexBisectableQuad []) --> 4
-  where
-    convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-
-prop_ConvexBisectableQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexBisectableQuadFacesInOrder x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show convexBisectableQuad) $ findStraightSkeleton convexBisectableQuad []) --> convexBisectableQuadAsSegs
-  where
-    convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-    convexBisectableQuadAsSegs = lineSegsOfContour convexBisectableQuad
-    firstSeg = onlyOneOf convexBisectableQuadAsSegs
-
-prop_ConvexQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadNoDivides x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = findDivisions convexQuad (fromMaybe (error $ show convexQuad) $ crashMotorcycles convexQuad []) --> []
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-
-prop_ConvexQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = findStraightSkeleton convexQuad [] -/> Nothing
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-
-prop_ConvexQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = generationsOf (findStraightSkeleton convexQuad []) --> 1
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-
-prop_ConvexQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = facesOf (fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) -/> slist []
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-
-prop_ConvexQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadHasRightFaceCount x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = length (facesOf $ fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) --> 4
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-
-prop_ConvexQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadFacesInOrder x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) --> convexQuadAsSegs
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-    convexQuadAsSegs = lineSegsOfContour convexQuad
-    firstSeg = onlyOneOf convexQuadAsSegs
-
-prop_ConcaveChevronQuadOneDivide :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadOneDivide a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
-  where
-    doTest concaveChevronQuad = len (slist $ findDivisions concaveChevronQuad (fromMaybe (error $ show concaveChevronQuad) $ crashMotorcycles concaveChevronQuad [])) --> 1
-
-prop_ConcaveChevronQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadHasStraightSkeleton a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
-  where
-    doTest concaveChevronQuad = findStraightSkeleton concaveChevronQuad [] -/> Nothing
-
-prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
-  where
-    doTest concaveChevronQuad = generationsOf (findStraightSkeleton concaveChevronQuad []) --> 1
-
-prop_ConcaveChevronQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadCanPlaceFaces a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
-  where
-    doTest concaveChevronQuad = facesOf (fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) -/> slist []
-
-prop_ConcaveChevronQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadHasRightFaceCount a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
-  where
-    doTest concaveChevronQuad = length (facesOf $ fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) --> 4
-
-prop_ConcaveChevronQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadFacesInOrder a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
-  where
-    doTest concaveChevronQuad = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) --> concaveChevronQuadAsSegs
-      where
-        concaveChevronQuadAsSegs = lineSegsOfContour concaveChevronQuad
-        firstSeg = onlyOneOf concaveChevronQuadAsSegs
-
 prop_PPointJoinID :: ℝ -> ℝ -> Expectation
 prop_PPointJoinID x y = fst (join2PP ppoint ppoint) --> PLine2 (GVec [])
   where
@@ -1847,24 +1311,11 @@ facetFlakeySpec = do
       property prop_QuadBisectorCrosses
     it "finds an endpoint and a startpoint the multiple of the discante across a quad from a bisector from the origin" $
       property prop_QuadBisectorCrossesMultiple
-  describe "Faces (Concave Chevron)" $ do
-    it "places faces on the straight skeleton of a concave chevron quad" $
-      property prop_ConcaveChevronQuadCanPlaceFaces
-    it "finds only four faces for any concave chevron quad" $
-      property prop_ConcaveChevronQuadHasRightFaceCount
-    it "places faces on a concave chevron quad in the order the line segments were given" $
-      property prop_ConcaveChevronQuadFacesInOrder
   describe "Arcs (Skeleton/Concave)" $ do
     it "finds the outside arc of two intersecting lines (inverted makeENode)" $
       property prop_obtuseBisectorOnBiggerSide_makeENode
     it "finds the outside arc of two intersecting lines (makeINode)" $
       property prop_obtuseBisectorOnBiggerSide_makeINode
-
-facetStatSpec :: Spec
-facetStatSpec = do
-  describe "Triangles" $ do
-   it "finds that all motorcycles intersect at the same point in a triangle" $
-      property prop_TriangleMotorcyclesEndAtSamePoint
 
 facetSpec :: Spec
 facetSpec = do
@@ -1913,124 +1364,6 @@ facetSpec = do
       property prop_AxisAligned135DegreeAnglesInENode
     it "finds the inside arcs of 45 degree angles with one side parallel to an axis (enode)" $
       property prop_AxisAligned45DegreeAnglesInENode
-    it "finds no convex motorcycles in a triangle" $
-      property prop_TriangleNoConvexMotorcycles
-    it "finds no divides in a triangle" $
-      property prop_TriangleNoDivides
---    it "finds that all motorcycles intersect at the same point in a triangle" $
---      property prop_TriangleMotorcyclesEndAtSamePoint
-    it "finds the straight skeleton of a triangle (property)" $
-      property prop_TriangleHasStraightSkeleton
-    it "only generates one generation for a triangle" $
-      property prop_TriangleStraightSkeletonHasRightGenerationCount
-    it "places faces on the straight skeleton of a triangle" $
-      property prop_TriangleCanPlaceFaces
-    it "places faces on a triangle in the order the line segments were given" $
-      property prop_TriangleFacesInOrder
-    it "only finds three face triangles" $
-      property prop_TriangleHasRightFaceCount
-    it "finds no divides in a square" $
-      property prop_SquareNoDivides
-    it "finds the straight skeleton of a square (property)" $
-      property prop_SquareHasStraightSkeleton
-    it "only generates one generation for a square" $
-      property prop_SquareStraightSkeletonHasRightGenerationCount
-    it "sees all of the faces of a square intersecting in a point" $
-      property prop_SquareMotorcyclesIntersectAtPoint
-    it "places faces on the straight skeleton of a square" $
-      property prop_SquareCanPlaceFaces
-    it "only finds four face squares" $
-      property prop_SquareHasRightFaceCount
-    it "faces generated from a square have less than four arcs" $
-      property prop_SquareFacesRightArcCount
-    it "places faces on a square in the order the line segments were given" $
-      property prop_SquareFacesInOrder
-    it "insets a square halfway, finding 4 remaining faces" $
-      property prop_SquareFacesInsetWithRemainder
-    it "generates our broken square, when generating a random square(unit)" $
-      unit_squareFromRandomSquare
-    it "insets a square completely, finding 0 remaining faces" $
-      property prop_SquareFacesInsetWithoutRemainder
-    it "insets a square completely, finding 0 remaining faces(unit)" $
-      unit_SquareFacesInsetWithoutRemainder
-    it "finds no divides in a rectangle" $
-      property prop_RectangleNoDivides
-    it "finds the straight skeleton of a rectangle (property)" $
-      property prop_RectangleHasStraightSkeleton
-    it "places faces on the straight skeleton of a rectangle" $
-      property prop_RectangleCanPlaceFaces
-    it "finds only four faces for any rectangle" $
-      property prop_RectangleHasRightFaceCount
-    it "places faces on a rectangle in the order the line segments were given" $
-      property prop_RectangleFacesInOrder
-    it "places faces on a rectangle such that each face is wound to the left" $
-      property prop_RectangleFacesAllWoundLeft
-    it "does not consider a rectangle to be a square" $
-      property prop_RectangleMotorcyclesDoNotIntersectAtPoint
-    it "finds only one generation for a rectangle" $
-      property prop_RectangleStraightSkeletonHasRightGenerationCount
-    it "generates faces with less than four arcs" $
-      property prop_RectangleFacesRightArcCount
-    it "insets a rectangle halfway, finding 4 remaining faces" $
-      property prop_RectangleFacesInsetWithRemainder
---    it "insets a rectangle completely, finding 0 remaining faces" $
---      property prop_RectangleFacesInsetWithoutRemainder
-    it "sees an inset of a rectangle as being smaller than the source rectangle" $
-      property prop_RectangleFacesInsetSmallerThanRectangle
-    it "finds no divides in a convex dual right quad" $
-      property prop_ConvexDualRightQuadNoDivides
-    it "finds the straight skeleton of a convex dual right quad (property)" $
-      property prop_ConvexDualRightQuadHasStraightSkeleton
-    it "only generates one generation for a convex dual right quad" $
-      property prop_ConvexDualRightQuadStraightSkeletonHasRightGenerationCount
-    it "places faces on the straight skeleton of a convex dual right quad" $
-      property prop_ConvexDualRightQuadCanPlaceFaces
-    it "finds only four faces for any convex dual right quad" $
-      property prop_ConvexDualRightQuadHasRightFaceCount
-    it "places faces on a convex dual right quad in the order the line segments were given" $
-      property prop_ConvexDualRightQuadFacesInOrder
-    it "finds no divides in a convex single right quad" $
-      property prop_ConvexSingleRightQuadNoDivides
-    it "finds the straight skeleton of a convex single right quad (property)" $
-      property prop_ConvexSingleRightQuadHasStraightSkeleton
-    it "only generates one generation for a convex single right quad" $
-      property prop_ConvexSingleRightQuadStraightSkeletonHasRightGenerationCount
-    it "places faces on the straight skeleton of a convex single right quad" $
-      property prop_ConvexSingleRightQuadCanPlaceFaces
-    it "finds only four faces for any convex single right quad" $
-      property prop_ConvexSingleRightQuadHasRightFaceCount
-    it "places faces on a convex single right quad in the order the line segments were given" $
-      property prop_ConvexSingleRightQuadFacesInOrder
-    it "finds no divides in a convex bisectable quad" $
-      property prop_ConvexBisectableQuadNoDivides
-    it "finds the straight skeleton of a convex bisectable quad (property)" $
-      property prop_ConvexBisectableQuadHasStraightSkeleton
-    it "only generates one generation for a convex bisectable quad" $
-      property prop_ConvexBisectableQuadStraightSkeletonHasRightGenerationCount
-    it "places faces on the straight skeleton of a convex bisectable quad" $
-      property prop_ConvexBisectableQuadCanPlaceFaces
-    it "finds only four faces for any convex bisectable quad" $
-      property prop_ConvexBisectableQuadHasRightFaceCount
-    it "places faces on a convex bisectable quad in the order the line segments were given" $
-      property prop_ConvexBisectableQuadFacesInOrder
-    it "finds no divides in a convex quad" $
-      property prop_ConvexQuadNoDivides
-    it "finds the straight skeleton of a convex quad (property)" $
-      property prop_ConvexQuadHasStraightSkeleton
-    it "only generates one generation for a convex quad" $
-      property prop_ConvexQuadStraightSkeletonHasRightGenerationCount
-    it "places faces on the straight skeleton of a convex quad" $
-      property prop_ConvexQuadCanPlaceFaces
-    it "finds only four faces for any convex quad" $
-      property prop_ConvexQuadHasRightFaceCount
-    it "places faces on a convex quad in the order the line segments were given" $
-      property prop_ConvexQuadFacesInOrder
-    it "finds one divide in a concave chevron quad" $
-      property prop_ConcaveChevronQuadOneDivide
-    it "finds the straight skeleton of a concave chevron quad (property)" $
-      property prop_ConcaveChevronQuadHasStraightSkeleton
-    it "only generates one generation for a concave chevron quad" $
-      property prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount
     it "sees that the first input line into an ENode is toward the point" $
       property prop_eNodeTowardIntersection1
     it "sees that the second input line into an ENode is away from the point" $
