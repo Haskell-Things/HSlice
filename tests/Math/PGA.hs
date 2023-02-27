@@ -25,7 +25,7 @@
 module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
-import Prelude (Bool(True, False), ($), (<$>), (==), (>=), error, realToFrac, (/=), (<=), otherwise, (&&), (+), show, length, (<>), fst, not, snd, mempty, pi, (<), (>), (-), (/), (*))
+import Prelude (Bool(True, False), ($), (<$>), (==), (>=), error, realToFrac, (/=), (<=), otherwise, (&&), (+), show, (<>), fst, not, snd, mempty, pi, (<), (>), (-), (/), (*))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -84,7 +84,6 @@ import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivision
 import Graphics.Slicer.Math.Skeleton.Concave (averageNodes, makeENode, makeENodes)
 import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), INode(INode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), getFirstLineSeg, getLastLineSeg)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
-import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->))
