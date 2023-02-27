@@ -46,7 +46,7 @@ import Data.Set (singleton, fromList)
 import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf))
 
 -- Slists, a form of list with a stated size in the structure.
-import Slist (slist, len)
+import Slist (slist)
 
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
@@ -83,14 +83,13 @@ import Graphics.Slicer.Math.Contour (mostPerpPointAndLineSeg)
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
 import Graphics.Slicer.Math.Skeleton.Concave (averageNodes, makeENode, makeENodes)
 import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), INode(INode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), getFirstLineSeg, getLastLineSeg)
-import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Our Utility library, for making these tests easier to read.
-import Math.Util ((-->), (-/>))
+import Math.Util ((-->))
 
-import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), cellFrom, edgesOf, generationsOf, randomConvexQuad, randomConcaveChevronQuad, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, onlyOneOf, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), cellFrom, randomENode, randomINode, randomLineSeg, randomPLine, randomPLineWithErr, remainderFrom, onlyOne, randomPLineThroughOrigin, randomX1Y1LineSegToOrigin, randomLineSegFromOriginNotX1Y1, randomX1Y1LineSegToPoint, randomLineSegFromPointNotX1Y1, randomPLineThroughPoint)
 
 -- Default all numbers in this file to being of the type ImplicitCAD uses for values.
 default (ℝ)
@@ -889,71 +888,6 @@ prop_AxisAligned45DegreeAnglesInENode xPos yPos offset rawMagnitude1 rawMagnitud
     mag1 = coerce rawMagnitude1
     mag2 = coerce rawMagnitude2
 
-prop_ConvexQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadNoDivides x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = findDivisions convexQuad (fromMaybe (error $ show convexQuad) $ crashMotorcycles convexQuad []) --> []
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-
-prop_ConvexQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = findStraightSkeleton convexQuad [] -/> Nothing
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-
-prop_ConvexQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = generationsOf (findStraightSkeleton convexQuad []) --> 1
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-
-prop_ConvexQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = facesOf (fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) -/> slist []
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-
-prop_ConvexQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadHasRightFaceCount x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = length (facesOf $ fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) --> 4
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-
-prop_ConvexQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadFacesInOrder x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) --> convexQuadAsSegs
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-    convexQuadAsSegs = lineSegsOfContour convexQuad
-    firstSeg = onlyOneOf convexQuadAsSegs
-
-prop_ConcaveChevronQuadOneDivide :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadOneDivide a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
-  where
-    doTest concaveChevronQuad = len (slist $ findDivisions concaveChevronQuad (fromMaybe (error $ show concaveChevronQuad) $ crashMotorcycles concaveChevronQuad [])) --> 1
-
-prop_ConcaveChevronQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadHasStraightSkeleton a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
-  where
-    doTest concaveChevronQuad = findStraightSkeleton concaveChevronQuad [] -/> Nothing
-
-prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
-  where
-    doTest concaveChevronQuad = generationsOf (findStraightSkeleton concaveChevronQuad []) --> 1
-
-prop_ConcaveChevronQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadCanPlaceFaces a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
-  where
-    doTest concaveChevronQuad = facesOf (fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) -/> slist []
-
-prop_ConcaveChevronQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadHasRightFaceCount a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
-  where
-    doTest concaveChevronQuad = length (facesOf $ fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) --> 4
-
-prop_ConcaveChevronQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadFacesInOrder a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
-  where
-    doTest concaveChevronQuad = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) --> concaveChevronQuadAsSegs
-      where
-        concaveChevronQuadAsSegs = lineSegsOfContour concaveChevronQuad
-        firstSeg = onlyOneOf concaveChevronQuadAsSegs
-
 prop_PPointJoinID :: ℝ -> ℝ -> Expectation
 prop_PPointJoinID x y = fst (join2PP ppoint ppoint) --> PLine2 (GVec [])
   where
@@ -1378,13 +1312,6 @@ facetFlakeySpec = do
       property prop_QuadBisectorCrosses
     it "finds an endpoint and a startpoint the multiple of the discante across a quad from a bisector from the origin" $
       property prop_QuadBisectorCrossesMultiple
-  describe "Faces (Concave Chevron)" $ do
-    it "places faces on the straight skeleton of a concave chevron quad" $
-      property prop_ConcaveChevronQuadCanPlaceFaces
-    it "finds only four faces for any concave chevron quad" $
-      property prop_ConcaveChevronQuadHasRightFaceCount
-    it "places faces on a concave chevron quad in the order the line segments were given" $
-      property prop_ConcaveChevronQuadFacesInOrder
   describe "Arcs (Skeleton/Concave)" $ do
     it "finds the outside arc of two intersecting lines (inverted makeENode)" $
       property prop_obtuseBisectorOnBiggerSide_makeENode
@@ -1438,24 +1365,6 @@ facetSpec = do
       property prop_AxisAligned135DegreeAnglesInENode
     it "finds the inside arcs of 45 degree angles with one side parallel to an axis (enode)" $
       property prop_AxisAligned45DegreeAnglesInENode
-    it "finds no divides in a convex quad" $
-      property prop_ConvexQuadNoDivides
-    it "finds the straight skeleton of a convex quad (property)" $
-      property prop_ConvexQuadHasStraightSkeleton
-    it "only generates one generation for a convex quad" $
-      property prop_ConvexQuadStraightSkeletonHasRightGenerationCount
-    it "places faces on the straight skeleton of a convex quad" $
-      property prop_ConvexQuadCanPlaceFaces
-    it "finds only four faces for any convex quad" $
-      property prop_ConvexQuadHasRightFaceCount
-    it "places faces on a convex quad in the order the line segments were given" $
-      property prop_ConvexQuadFacesInOrder
-    it "finds one divide in a concave chevron quad" $
-      property prop_ConcaveChevronQuadOneDivide
-    it "finds the straight skeleton of a concave chevron quad (property)" $
-      property prop_ConcaveChevronQuadHasStraightSkeleton
-    it "only generates one generation for a concave chevron quad" $
-      property prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount
     it "sees that the first input line into an ENode is toward the point" $
       property prop_eNodeTowardIntersection1
     it "sees that the second input line into an ENode is away from the point" $

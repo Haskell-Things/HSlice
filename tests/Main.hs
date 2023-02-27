@@ -30,6 +30,12 @@ import GoldenSpec.Spec (goldenSpec)
 -- the execution test for warnings.
 import Math.PGA(contourSpec, lineSpec, linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec)
 
+import Math.Geometry.ConcaveChevronQuad (concaveChevronQuadSpec)
+
+import Math.Geometry.ConvexBisectableQuad (convexBisectableQuadSpec)
+
+import Math.Geometry.ConvexQuad (convexQuadSpec)
+
 import Math.Geometry.ConvexSingleRightQuad (convexSingleRightQuadSpec)
 
 import Math.Geometry.DualRightQuad (dualRightQuadSpec)
@@ -53,7 +59,10 @@ main = hspec $ parallel $ do
   describe "Geometry/Squares" squareSpec
   describe "Geometry/Rectangles" rectangleSpec
   describe "Geometry/DualRightQuads" dualRightQuadSpec
-  describe "Geometry/SingleRightConvexQuads" convexSingleRightQuadSpec
+  describe "Geometry/ConvexSingleRightQuads" convexSingleRightQuadSpec
+  describe "Geometry/ConvexBisectableQuads" convexBisectableQuadSpec
+  describe "Geometry/ConvexQuads" convexQuadSpec
+  describe "Geometry/ConcaveChevronQuadSpec" concaveChevronQuadSpec
   describe "contour handling" contourSpec
   describe "more contour handling" lineSpec
   -- run tests of the facet engine.
