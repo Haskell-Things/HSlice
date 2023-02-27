@@ -93,7 +93,6 @@ prop_ConcaveChevronQuadFacesInOrder a b c d e f = doTest $ randomConcaveChevronQ
         concaveChevronQuadAsSegs = lineSegsOfContour concaveChevronQuad
         firstSeg = onlyOneOf concaveChevronQuadAsSegs
 
-
 concaveChevronQuadSpec :: Spec
 concaveChevronQuadSpec = do
   describe "Geometry (Concave Chevron Quads)" $ do
