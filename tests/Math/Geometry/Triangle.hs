@@ -23,7 +23,7 @@ module Math.Geometry.Triangle (
   triangleStatSpec
   ) where
 
-import Prelude (Bool(True), Show(show), ($), (.), (<>), (<$>), error, fst, length, snd)
+import Prelude (Bool(True), Show(show), ($), (<), (.), (+), (<>), (==), (<$>), all, error, fst, length, otherwise, snd)
 
 -- The Either library.
 import Data.Either (rights)
@@ -35,7 +35,7 @@ import Data.List (concat, transpose)
 import Data.Maybe (fromMaybe, fromJust, Maybe(Nothing))
 
 -- Slists, a form of list with a stated size in the structure.
-import Slist (slist)
+import Slist (len, slist)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -75,7 +75,7 @@ import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour)
 import Graphics.Slicer.Math.Contour (mostPerpPointAndLineSeg)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
@@ -112,8 +112,18 @@ prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions trian
     lineSeg         = snd $ mostPerpPointAndLineSeg triangle
     triangle        = randomTriangle centerX centerY rawRadians rawDists
 
-prop_TriangleMotorcyclesEndAtSamePoint  :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Property
-prop_TriangleMotorcyclesEndAtSamePoint centerX centerY rawRadians rawDists
+prop_TriangleHasStraightSkeleton :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
+prop_TriangleHasStraightSkeleton centerX centerY rawRadians rawDists = findStraightSkeleton triangle [] -/> Nothing
+  where
+    triangle = randomTriangle centerX centerY rawRadians rawDists
+
+prop_TriangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
+prop_TriangleStraightSkeletonHasRightGenerationCount centerX centerY rawRadians rawDists = generationsOf (findStraightSkeleton triangle []) --> 1
+  where
+    triangle = randomTriangle centerX centerY rawRadians rawDists
+
+prop_TriangleENodeArcsIntersectAtSamePoint :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Property
+prop_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists
   = label ("Triangle: " <> show triangle <> "\n"
            <> "ENodes: " <> show eNodes <> "\n"
            <> "Intersections: " <> show intersections <> "\n"
@@ -133,16 +143,6 @@ prop_TriangleMotorcyclesEndAtSamePoint centerX centerY rawRadians rawDists
     eNodes = eNodesOfOutsideContour triangle
     triangle = randomTriangle centerX centerY rawRadians rawDists
 
-prop_TriangleHasStraightSkeleton :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleHasStraightSkeleton centerX centerY rawRadians rawDists = findStraightSkeleton triangle [] -/> Nothing
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleStraightSkeletonHasRightGenerationCount centerX centerY rawRadians rawDists = generationsOf (findStraightSkeleton triangle []) --> 1
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
 prop_TriangleCanPlaceFaces :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
 prop_TriangleCanPlaceFaces centerX centerY rawRadians rawDists = facesOf (fromMaybe (error "Got Nothing") $ findStraightSkeleton triangle []) -/> slist []
   where
@@ -152,6 +152,20 @@ prop_TriangleHasRightFaceCount :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListTh
 prop_TriangleHasRightFaceCount centerX centerY rawRadians rawDists = length (facesOf $ fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []) --> 3
   where
     triangle = randomTriangle centerX centerY rawRadians rawDists
+
+prop_TriangleFacesRightArcCount :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Bool
+prop_TriangleFacesRightArcCount x y rawFirstTilt rawDistanceToCorner
+  | res == True = True
+  | otherwise = error $ "Too many arcs found:\n"
+                     <> (concat $ show . arcCount <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    res = all (\a -> arcCount a < 4) faces
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []
+    arcCount (Face _ _ midArcs _) = 2 + len midArcs
+    triangle = randomTriangle x y rawFirstTilt rawDistanceToCorner
 
 prop_TriangleFacesInOrder :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
 prop_TriangleFacesInOrder centerX centerY rawRadians rawDists = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []) --> lineSegsOfContour triangle
@@ -163,24 +177,24 @@ triangleStatSpec :: Spec
 triangleStatSpec = do
   describe "Triangles" $ do
    it "finds that all motorcycles intersect at the same point in a triangle" $
-      property prop_TriangleMotorcyclesEndAtSamePoint
+      property prop_TriangleENodeArcsIntersectAtSamePoint
 
 triangleSpec :: Spec
 triangleSpec = do
   describe "Geometry (Triangles)" $ do
-    it "finds no convex motorcycles in a triangle" $
+    it "finds no convex motorcycles" $
       property prop_TriangleNoConvexMotorcycles
-    it "finds no divides in a triangle" $
+    it "finds no divides" $
       property prop_TriangleNoDivides
---    it "finds that all motorcycles intersect at the same point in a triangle" $
---      property prop_TriangleMotorcyclesEndAtSamePoint
     it "finds the straight skeleton of a triangle (property)" $
       property prop_TriangleHasStraightSkeleton
-    it "only generates one generation for a triangle" $
+    it "only generates one generation of INodes" $
       property prop_TriangleStraightSkeletonHasRightGenerationCount
     it "places faces on the straight skeleton of a triangle" $
       property prop_TriangleCanPlaceFaces
+    it "only finds three faces" $
+      property prop_TriangleHasRightFaceCount
+    it "faces generated from a triangle have three sides" $
+      property prop_TriangleFacesRightArcCount
     it "places faces on a triangle in the order the line segments were given" $
       property prop_TriangleFacesInOrder
-    it "only finds three face triangles" $
-      property prop_TriangleHasRightFaceCount
