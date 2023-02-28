@@ -173,10 +173,12 @@ prop_TriangleFacesInOrder centerX centerY rawRadians rawDists = edgesOf (ordered
     triangle = randomTriangle centerX centerY rawRadians rawDists
     firstSeg = onlyOneOf $ lineSegsOfContour triangle
 
+-- FIXME: add inset tests here.
+
 triangleStatSpec :: Spec
 triangleStatSpec = do
   describe "Triangles" $ do
-   it "finds that all motorcycles intersect at the same point in a triangle" $
+   it "finds that all of the outArcs of the ENodes intersect at the same point" $
       property prop_TriangleENodeArcsIntersectAtSamePoint
 
 triangleSpec :: Spec
@@ -186,15 +188,20 @@ triangleSpec = do
       property prop_TriangleNoConvexMotorcycles
     it "finds no divides" $
       property prop_TriangleNoDivides
-    it "finds the straight skeleton of a triangle (property)" $
+    it "finds a straight skeleton" $
       property prop_TriangleHasStraightSkeleton
     it "only generates one generation of INodes" $
       property prop_TriangleStraightSkeletonHasRightGenerationCount
-    it "places faces on the straight skeleton of a triangle" $
+    it "can place faces on the straight skeleton" $
       property prop_TriangleCanPlaceFaces
     it "only finds three faces" $
       property prop_TriangleHasRightFaceCount
-    it "faces generated from a triangle have three sides" $
+    it "faces only have three sides" $
       property prop_TriangleFacesRightArcCount
-    it "places faces on a triangle in the order the line segments were given" $
+    it "places faces in the same order as the input line segments" $
       property prop_TriangleFacesInOrder
+{-    it "insets halfway, finding 3 remaining faces" $
+      property prop_TriangleFacesInsetWithRemainder
+    it "insets completely, finding 0 remaining faces" $
+      property prop_TriangleFacesInsetWithoutRemainder
+-}

@@ -194,7 +194,7 @@ squareSpec = do
       property prop_SquareNoConvexMotorcycles
     it "finds no divides" $
       property prop_SquareNoDivides
-    it "finds the straight skeleton" $
+    it "finds a straight skeleton" $
       property prop_SquareHasStraightSkeleton
     it "only generates one generation of INodes" $
       property prop_SquareStraightSkeletonHasRightGenerationCount
@@ -204,9 +204,9 @@ squareSpec = do
       property prop_SquareCanPlaceFaces
     it "only finds four faces" $
       property prop_SquareHasRightFaceCount
-    it "faces generated from a square have less than four sides" $
+    it "faces have less than four sides" $
       property prop_SquareFacesRightArcCount
-    it "places faces in the order of the input line segments" $
+    it "places faces in the same order of the input line segments" $
       property prop_SquareFacesInOrder
     it "insets halfway, finding 4 remaining faces" $
       property prop_SquareFacesInsetWithRemainder
@@ -214,5 +214,5 @@ squareSpec = do
       unit_squareFromRandomSquare
     it "insets completely, finding 0 remaining faces" $
       property prop_SquareFacesInsetWithoutRemainder
-    it "insets completely, finding 0 remaining faces(unit)" $
+    it "insets a square that is detected by the code as a rectangle completely, finding 0 remaining faces(unit)" $
       unit_SquareFacesInsetWithoutRemainder
