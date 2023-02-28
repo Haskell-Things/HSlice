@@ -63,13 +63,18 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (insetBy)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
+
+prop_SquareNoConvexMotorcycles :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_SquareNoConvexMotorcycles centerX centerY rawRadians rawDists = convexMotorcycles square --> []
+  where
+    square = randomSquare centerX centerY rawRadians rawDists
 
 prop_SquareNoDivides :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareNoDivides x y tilt distanceToCorner = findDivisions square (fromMaybe (error $ show square) $ crashMotorcycles square []) --> []
@@ -185,27 +190,29 @@ unit_SquareFacesInsetWithoutRemainder = (length insetContours, length remainingF
 squareSpec :: Spec
 squareSpec = do
   describe "Geometry (Squares)" $ do
-    it "finds no divides in a square" $
+    it "finds no convex motorcycles" $
+      property prop_SquareNoConvexMotorcycles
+    it "finds no divides" $
       property prop_SquareNoDivides
-    it "finds the straight skeleton of a square (property)" $
+    it "finds the straight skeleton" $
       property prop_SquareHasStraightSkeleton
-    it "only generates one generation for a square" $
+    it "only generates one generation of INodes" $
       property prop_SquareStraightSkeletonHasRightGenerationCount
-    it "sees all of the faces of a square intersecting in a point" $
+    it "sees all of the faces intersecting in a point" $
       property prop_SquareMotorcyclesIntersectAtPoint
-    it "places faces on the straight skeleton of a square" $
+    it "can place faces on the straight skeleton" $
       property prop_SquareCanPlaceFaces
-    it "only finds four face squares" $
+    it "only finds four faces" $
       property prop_SquareHasRightFaceCount
-    it "faces generated from a square have less than four arcs" $
+    it "faces generated from a square have less than four sides" $
       property prop_SquareFacesRightArcCount
-    it "places faces on a square in the order the line segments were given" $
+    it "places faces in the order of the input line segments" $
       property prop_SquareFacesInOrder
-    it "insets a square halfway, finding 4 remaining faces" $
+    it "insets halfway, finding 4 remaining faces" $
       property prop_SquareFacesInsetWithRemainder
-    it "generates our broken square, when generating a random square(unit)" $
+    it "insets a square that is detected by the code as a rectangle(unit)" $
       unit_squareFromRandomSquare
-    it "insets a square completely, finding 0 remaining faces" $
+    it "insets completely, finding 0 remaining faces" $
       property prop_SquareFacesInsetWithoutRemainder
-    it "insets a square completely, finding 0 remaining faces(unit)" $
+    it "insets completely, finding 0 remaining faces(unit)" $
       unit_SquareFacesInsetWithoutRemainder
