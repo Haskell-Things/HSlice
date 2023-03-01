@@ -43,7 +43,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, onlyOneOf, randomConcaveChevronQuad)
+import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConcaveChevronQuad)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
@@ -70,10 +70,15 @@ prop_ConcaveChevronQuadHasStraightSkeleton a b c d e f = doTest $ randomConcaveC
   where
     doTest concaveChevronQuad = findStraightSkeleton concaveChevronQuad [] -/> Nothing
 
-prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+prop_ConcaveChevronQuadStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConcaveChevronQuadStraightSkeletonHasOneNodeTree a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
   where
-    doTest concaveChevronQuad = generationsOf (findStraightSkeleton concaveChevronQuad []) --> 1
+    doTest concaveChevronQuad = nodeTreesOf (findStraightSkeleton concaveChevronQuad []) --> 1
+
+prop_ConcaveChevronQuadNodeTreeHasTwoGenerations :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConcaveChevronQuadNodeTreeHasTwoGenerations a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+  where
+    doTest concaveChevronQuad = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton concaveChevronQuad []) --> 2
 
 prop_ConcaveChevronQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConcaveChevronQuadCanPlaceFaces a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
@@ -96,7 +101,13 @@ prop_ConcaveChevronQuadFacesInOrder a b c d e f = doTest $ randomConcaveChevronQ
 concaveChevronQuadSpec :: Spec
 concaveChevronQuadSpec = do
   describe "Geometry (Concave Chevron Quads)" $ do
-    it "places faces on the straight skeleton of a concave chevron quad" $
+    it "finds a straight skeleton" $
+      property prop_ConcaveChevronQuadHasStraightSkeleton
+    it "finds only one nodetree in the straight skeleton" $
+      property prop_ConcaveChevronQuadStraightSkeletonHasOneNodeTree
+    it "generates generations of INodes" $
+      property prop_ConcaveChevronQuadNodeTreeHasTwoGenerations
+    it "places faces on the straight skeleton" $
       property prop_ConcaveChevronQuadCanPlaceFaces
     it "finds only four faces for any concave chevron quad" $
       property prop_ConcaveChevronQuadHasRightFaceCount
@@ -104,7 +115,3 @@ concaveChevronQuadSpec = do
       property prop_ConcaveChevronQuadFacesInOrder
     it "finds one divide in a concave chevron quad" $
       property prop_ConcaveChevronQuadOneDivide
-    it "finds the straight skeleton of a concave chevron quad (property)" $
-      property prop_ConcaveChevronQuadHasStraightSkeleton
-    it "only generates one generation for a concave chevron quad" $
-      property prop_ConcaveChevronQuadStraightSkeletonHasRightGenerationCount
