@@ -63,7 +63,7 @@ import Graphics.Slicer.Math.PGA (distance2PP, eToPL, eToPP, fuzzinessOfP, join2E
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian, edgesOf, generationsOf, randomTriangle, onlyOneOf)
+import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian, edgesOf, generationsOf, nodeTreesOf, onlyOneOf, oneNodeTreeOf, randomTriangle)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
@@ -117,8 +117,13 @@ prop_TriangleHasStraightSkeleton centerX centerY rawRadians rawDists = findStrai
   where
     triangle = randomTriangle centerX centerY rawRadians rawDists
 
+prop_TriangleStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
+prop_TriangleStraightSkeletonHasOneNodeTree centerX centerY rawRadians rawDists = nodeTreesOf (findStraightSkeleton triangle []) --> 1
+  where
+    triangle = randomTriangle centerX centerY rawRadians rawDists
+
 prop_TriangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleStraightSkeletonHasRightGenerationCount centerX centerY rawRadians rawDists = generationsOf (findStraightSkeleton triangle []) --> 1
+prop_TriangleStraightSkeletonHasRightGenerationCount centerX centerY rawRadians rawDists = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton triangle []) --> 1
   where
     triangle = randomTriangle centerX centerY rawRadians rawDists
 
@@ -190,6 +195,8 @@ triangleSpec = do
       property prop_TriangleNoDivides
     it "finds a straight skeleton" $
       property prop_TriangleHasStraightSkeleton
+    it "finds one NodeTree" $
+      property prop_TriangleStraightSkeletonHasOneNodeTree
     it "only generates one generation of INodes" $
       property prop_TriangleStraightSkeletonHasRightGenerationCount
     it "can place faces on the straight skeleton" $
