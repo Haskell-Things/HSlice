@@ -207,14 +207,14 @@ addLineSegsToFace distance insets face
       | null foundLineSegs = Nothing
       | otherwise          = case plinesIntersectIn edgeLine lastPlacedLine of
                                PCollinear -> Nothing
-                               PParallel -> Just [makeFace finalSide firstArc (slist [midArc]) lastArc]
+                               PParallel -> Just [makeFaceNoCheck finalSide firstArc (slist [midArc]) lastArc]
                                _ -> twoSideSubRemainder
     -- Recurse, so we get the remainder and line segments of the three sided n-gon left over.
     (twoSideSubLineSegs,
      twoSideSubRemainder)
       | null foundLineSegs = ([],Nothing)
       | otherwise          = case plinesIntersectIn edgeLine lastPlacedLine of
-                               PCollinear -> ([],Nothing)
+                               PCollinear -> ([], Nothing)
                                _ -> if firstArcEndsFarthest edge firstArc (head midArcs) lastArc
                                     then addLineSegsToFace distance subInsets (makeFace finalSide firstArc (slist []) midArc)
                                     else addLineSegsToFace distance subInsets (makeFace finalSide midArc   (slist []) lastArc)
@@ -230,7 +230,7 @@ addLineSegsToFace distance insets face
     -- functions only used by a three-sided n-gon.
     ----------------------------------------------
     twoSideRemainder     = if distance * fromIntegral linesToRender /= distanceUntilEnd checkedFace
-                           then Just [makeFace finalSide firstArc (slist []) lastArc]
+                           then Just [makeFaceNoCheck finalSide firstArc (slist []) lastArc]
                            else Nothing
 
 -- | How many lines can be drawn onto a given Face, parallel to the face.
@@ -334,14 +334,15 @@ reclaimRing ring = case filter (\(a,_) -> isNothing a) reclaimedContour of
           | l1l2Distance <= l1l2DistanceErr = (Just $ fst $ pToEP $ fst $ intersectionOf (eToPL l2) (eToPL l1), (l1,l2))
           | otherwise = (Nothing, (l1,l2))
           where
-            --- FIXME: magic number: 128
-            l1l2DistanceErr = 128 * ulpVal (l1l2DistanceErrRaw
+            --- FIXME: magic number: 512
+            l1l2DistanceErr = 512 * ulpVal (l1l2DistanceErrRaw
                                             <> pLineErrAtPPoint (eToPL l1) (eToPP $ startPoint l1)
                                             <> fuzzinessOfL (eToPL l1)
                                             <> pLineErrAtPPoint (eToPL l2) (eToPP $ endPoint l2)
                                             <> fuzzinessOfL (eToPL l2))
             (l1l2Distance, (_, _, l1l2DistanceErrRaw)) = distance2PP (eToPP $ endPoint l2, mempty) (eToPP $ startPoint l1, mempty)
 
+-- | A face constructor that checks that a face is valid during construction.
 makeFace :: LineSeg -> (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Face
 makeFace edge firstArc arcs lastArc = res
   where
@@ -356,3 +357,9 @@ makeFace edge firstArc arcs lastArc = res
                                         (IntersectsIn _ _) -> True
                                         _ -> False
         intersections = mapWithFollower plinesIntersectIn $ eToPL myEdge : myFirstArc : myMidArcs <> [myLastArc]
+
+-- | a Face constructor with no checking.
+makeFaceNoCheck :: LineSeg -> (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Face
+makeFaceNoCheck edge firstArc arcs lastArc = res
+  where
+    res = Face edge firstArc arcs lastArc
