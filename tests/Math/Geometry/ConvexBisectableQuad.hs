@@ -22,7 +22,7 @@ module Math.Geometry.ConvexBisectableQuad (
   convexBisectableQuadSpec
   ) where
 
-import Prelude (Show(show), ($), error, length)
+import Prelude (Bool, Show(show), ($), (<), error, length)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe, Maybe(Nothing))
@@ -43,7 +43,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, randomConvexBisectableQuad, onlyOneOf)
+import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConvexBisectableQuad)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
@@ -70,8 +70,13 @@ prop_ConvexBisectableQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawF
   where
     convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
 
-prop_ConvexBisectableQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexBisectableQuadStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = generationsOf (findStraightSkeleton convexBisectableQuad []) --> 1
+prop_ConvexBisectableQuadStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConvexBisectableQuadStraightSkeletonHasOneNodeTree x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = nodeTreesOf (findStraightSkeleton convexBisectableQuad []) --> 1
+  where
+    convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+
+prop_ConvexBisectableQuadNodeTreeHasLessThanThreeGenerations :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Bool
+prop_ConvexBisectableQuadNodeTreeHasLessThanThreeGenerations x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = generationsOf (oneNodeTreeOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton convexBisectableQuad []) < 3
   where
     convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
 
@@ -95,12 +100,14 @@ prop_ConvexBisectableQuadFacesInOrder x y rawFirstTilt rawSecondTilt rawFirstDis
 convexBisectableQuadSpec :: Spec
 convexBisectableQuadSpec = do
   describe "Geometry (Convex Bisectable Quads)" $ do
-    it "finds no divides in a convex bisectable quad" $
+    it "finds no divides" $
       property prop_ConvexBisectableQuadNoDivides
-    it "finds the straight skeleton of a convex bisectable quad (property)" $
+    it "finds a straight skeleton" $
       property prop_ConvexBisectableQuadHasStraightSkeleton
-    it "only generates one generation for a convex bisectable quad" $
-      property prop_ConvexBisectableQuadStraightSkeletonHasRightGenerationCount
+    it "only finds one nodetree in the straight skeleton" $
+      property prop_ConvexBisectableQuadStraightSkeletonHasOneNodeTree
+    it "finds fewer than three generations in the found nodeTree" $
+      property prop_ConvexBisectableQuadNodeTreeHasLessThanThreeGenerations
     it "places faces on the straight skeleton of a convex bisectable quad" $
       property prop_ConvexBisectableQuadCanPlaceFaces
     it "finds only four faces for any convex bisectable quad" $
