@@ -19,6 +19,7 @@
 {- tests for the properties of a quadralaterial that is convex, and has at least one right angle. -}
 
 module Math.Geometry.ConvexBisectableQuad (
+  convexBisectableQuadBrokenSpec,
   convexBisectableQuadSpec
   ) where
 
@@ -43,7 +44,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConvexBisectableQuad)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConvexBisectableQuad)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
@@ -64,6 +65,20 @@ prop_ConvexBisectableQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> 
 prop_ConvexBisectableQuadNoDivides x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = findDivisions convexBisectableQuad (fromMaybe (error $ show convexBisectableQuad) $ crashMotorcycles convexBisectableQuad []) --> []
   where
     convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+
+-- Fails to flip the contour.
+unit_ConvexBisectableQuadNoDivides :: Expectation
+unit_ConvexBisectableQuadNoDivides = findDivisions convexBisectableQuad (fromMaybe (error $ show convexBisectableQuad) $ crashMotorcycles convexBisectableQuad []) --> []
+  where
+    convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+    x,y :: ℝ
+    x = -37.7
+    y = 5.67
+    rawFirstTilt = Radian 0.852
+    rawSecondTilt = Radian 2.218
+    rawFirstDistanceToCorner,rawSecondDistanceToCorner :: Positive ℝ
+    rawFirstDistanceToCorner = 25.08
+    rawSecondDistanceToCorner = 4.595
 
 prop_ConvexBisectableQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexBisectableQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = findStraightSkeleton convexBisectableQuad [] -/> Nothing
@@ -96,6 +111,11 @@ prop_ConvexBisectableQuadFacesInOrder x y rawFirstTilt rawSecondTilt rawFirstDis
     convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
     convexBisectableQuadAsSegs = lineSegsOfContour convexBisectableQuad
     firstSeg = onlyOneOf convexBisectableQuadAsSegs
+
+convexBisectableQuadBrokenSpec :: Spec
+convexBisectableQuadBrokenSpec = do
+    it "finds no divides" $
+      unit_ConvexBisectableQuadNoDivides
 
 convexBisectableQuadSpec :: Spec
 convexBisectableQuadSpec = do

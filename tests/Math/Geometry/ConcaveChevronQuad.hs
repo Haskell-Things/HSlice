@@ -19,6 +19,7 @@
 {- tests for the properties of a DualRightQuad, or a four sided figgure with two right angles. -}
 
 module Math.Geometry.ConcaveChevronQuad (
+  concaveChevronQuadBrokenSpec,
   concaveChevronQuadSpec
   ) where
 
@@ -43,7 +44,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConcaveChevronQuad)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConcaveChevronQuad)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
@@ -61,42 +62,61 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Math.Util ((-->), (-/>))
 
 prop_ConcaveChevronQuadOneDivide :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadOneDivide a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+prop_ConcaveChevronQuadOneDivide x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
   where
     doTest concaveChevronQuad = len (slist $ findDivisions concaveChevronQuad (fromMaybe (error $ show concaveChevronQuad) $ crashMotorcycles concaveChevronQuad [])) --> 1
 
 prop_ConcaveChevronQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadHasStraightSkeleton a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+prop_ConcaveChevronQuadHasStraightSkeleton x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
   where
     doTest concaveChevronQuad = findStraightSkeleton concaveChevronQuad [] -/> Nothing
 
 prop_ConcaveChevronQuadStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadStraightSkeletonHasOneNodeTree a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+prop_ConcaveChevronQuadStraightSkeletonHasOneNodeTree x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
   where
     doTest concaveChevronQuad = nodeTreesOf (findStraightSkeleton concaveChevronQuad []) --> 1
 
 prop_ConcaveChevronQuadNodeTreeHasTwoGenerations :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadNodeTreeHasTwoGenerations a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+prop_ConcaveChevronQuadNodeTreeHasTwoGenerations x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
   where
     doTest concaveChevronQuad = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton concaveChevronQuad []) --> 2
 
+unit_ConcaveChevronQuadNodeTreeHasTwoGenerations :: Expectation
+unit_ConcaveChevronQuadNodeTreeHasTwoGenerations = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
+  where
+    doTest concaveChevronQuad = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton concaveChevronQuad []) --> 2
+    x,y :: ℝ
+    x = 0
+    y = 0
+    tilt1 = Radian 2.0
+    tilt2 = Radian 1.0
+    distance1,distance2 :: Positive ℝ
+    distance1 = 1.0e-4
+    distance2 = 1.0
+
 prop_ConcaveChevronQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadCanPlaceFaces a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+prop_ConcaveChevronQuadCanPlaceFaces x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
   where
     doTest concaveChevronQuad = facesOf (fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) -/> slist []
 
 prop_ConcaveChevronQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadHasRightFaceCount a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+prop_ConcaveChevronQuadHasRightFaceCount x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
   where
     doTest concaveChevronQuad = length (facesOf $ fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) --> 4
 
 prop_ConcaveChevronQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadFacesInOrder a b c d e f = doTest $ randomConcaveChevronQuad a b c d e f
+prop_ConcaveChevronQuadFacesInOrder x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
   where
     doTest concaveChevronQuad = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) --> concaveChevronQuadAsSegs
       where
         concaveChevronQuadAsSegs = lineSegsOfContour concaveChevronQuad
         firstSeg = onlyOneOf concaveChevronQuadAsSegs
+
+concaveChevronQuadBrokenSpec :: Spec
+concaveChevronQuadBrokenSpec = do
+  describe "Geometry (Concave Chevron Quads)" $
+    it "generates two generations of INodes(unit)" $
+      unit_ConcaveChevronQuadNodeTreeHasTwoGenerations
 
 concaveChevronQuadSpec :: Spec
 concaveChevronQuadSpec = do
@@ -105,7 +125,7 @@ concaveChevronQuadSpec = do
       property prop_ConcaveChevronQuadHasStraightSkeleton
     it "finds only one nodetree in the straight skeleton" $
       property prop_ConcaveChevronQuadStraightSkeletonHasOneNodeTree
-    it "generates generations of INodes" $
+    it "generates two generations of INodes" $
       property prop_ConcaveChevronQuadNodeTreeHasTwoGenerations
     it "places faces on the straight skeleton" $
       property prop_ConcaveChevronQuadCanPlaceFaces
