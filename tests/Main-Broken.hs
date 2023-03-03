@@ -36,4 +36,3 @@ main = hspec $ parallel $ do
   describe "Broken Convex Single Right Quads" convexSingleRightQuadBrokenSpec
   describe "Broken Convex Bisectable Quads" convexBisectableQuadBrokenSpec
   describe "Other broken geometry" facetBrokenSpec
-    
