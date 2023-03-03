@@ -30,8 +30,6 @@ import Math.Geometry.ConvexSingleRightQuad (convexSingleRightQuadBrokenSpec)
 import Math.Geometry.ConcaveChevronQuad (concaveChevronQuadBrokenSpec)
 import Math.PGA (facetBrokenSpec)
 
-
-
 main :: IO ()
 main = hspec $ parallel $ do
   describe "Broken Concave Chevron Quads" concaveChevronQuadBrokenSpec
