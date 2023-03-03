@@ -22,7 +22,7 @@ module Math.Geometry.DualRightQuad (
   dualRightQuadSpec
   ) where
 
-import Prelude (Show(show), ($), (<>), error, length)
+import Prelude (Bool, Show(show), ($), (<), (<>), error, length)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe, Maybe(Nothing))
@@ -46,7 +46,7 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, randomDualRightQuad, onlyOneOf)
+import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomDualRightQuad, onlyOneOf)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
@@ -75,8 +75,13 @@ prop_DualRightQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawThirdTil
   where
     dualRightQuad = randomDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
 
-prop_DualRightQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_DualRightQuadStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = generationsOf (findStraightSkeleton dualRightQuad []) --> 1
+prop_DualRightQuadStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_DualRightQuadStraightSkeletonHasOneNodeTree x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = nodeTreesOf (findStraightSkeleton dualRightQuad []) --> 1
+  where
+    dualRightQuad = randomDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
+
+prop_DualRightQuadNodeTreeHasLessThanFourGenerations :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
+prop_DualRightQuadNodeTreeHasLessThanFourGenerations x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = generationsOf (oneNodeTreeOf $ fromMaybe (error "No straight skeleton?") $ findStraightSkeleton dualRightQuad []) < 4
   where
     dualRightQuad = randomDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
 
@@ -100,13 +105,15 @@ prop_DualRightQuadFacesInOrder x y rawFirstTilt rawSecondTilt rawThirdTilt rawDi
 dualRightQuadSpec :: Spec
 dualRightQuadSpec = do
   describe "Geometry (Dual Right Quads)" $ do
-    it "finds no divides in a  dual right quad" $
+    it "finds no divides" $
       property prop_DualRightQuadNoDivides
-    it "finds the straight skeleton of a  dual right quad (property)" $
+    it "finds a straight skeleton" $
       property prop_DualRightQuadHasStraightSkeleton
-    it "only generates one generation for a  dual right quad" $
-      property prop_DualRightQuadStraightSkeletonHasRightGenerationCount
-    it "places faces on the straight skeleton of a  dual right quad" $
+    it "only finds one nodeTree in the straight skeleton" $
+      property prop_DualRightQuadStraightSkeletonHasOneNodeTree
+    it "finds fewer than four generations in the nodeTree" $
+      property prop_DualRightQuadNodeTreeHasLessThanFourGenerations
+    it "can place faces on the straight skeleton" $
       property prop_DualRightQuadCanPlaceFaces
     it "finds only four faces for any  dual right quad" $
       property prop_DualRightQuadHasRightFaceCount

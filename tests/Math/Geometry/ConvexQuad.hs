@@ -22,7 +22,7 @@ module Math.Geometry.ConvexQuad (
   convexQuadSpec
   ) where
 
-import Prelude (Show(show), ($), error, length)
+import Prelude (Bool, Show(show), ($), (<), error, length)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe, Maybe(Nothing))
@@ -43,7 +43,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, randomConvexQuad, onlyOneOf)
+import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConvexQuad)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
@@ -70,8 +70,13 @@ prop_ConvexQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt thirdTilt rawF
   where
     convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
 
-prop_ConvexQuadStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = generationsOf (findStraightSkeleton convexQuad []) --> 1
+prop_ConvexQuadStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConvexQuadStraightSkeletonHasOneNodeTree x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = nodeTreesOf (findStraightSkeleton convexQuad []) --> 1
+  where
+    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
+
+prop_ConvexQuadNodeTreeHasLessThanFourGenerations :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
+prop_ConvexQuadNodeTreeHasLessThanFourGenerations x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = generationsOf (oneNodeTreeOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton convexQuad []) < 4
   where
     convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
 
@@ -95,12 +100,14 @@ prop_ConvexQuadFacesInOrder x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDis
 convexQuadSpec :: Spec
 convexQuadSpec = do
   describe "Geometry (Convex Quads)" $ do
-    it "finds no divides in a convex quad" $
+    it "finds no divide" $
       property prop_ConvexQuadNoDivides
-    it "finds the straight skeleton of a convex quad (property)" $
+    it "finds a straight skeleton" $
       property prop_ConvexQuadHasStraightSkeleton
-    it "only generates one generation for a convex quad" $
-      property prop_ConvexQuadStraightSkeletonHasRightGenerationCount
+    it "only finds one nodetree in the straight skeleton" $
+      property prop_ConvexQuadStraightSkeletonHasOneNodeTree
+    it "generates one, two, or three generations of INodes" $
+      property prop_ConvexQuadNodeTreeHasLessThanFourGenerations
     it "places faces on the straight skeleton of a convex quad" $
       property prop_ConvexQuadCanPlaceFaces
     it "finds only four faces for any convex quad" $

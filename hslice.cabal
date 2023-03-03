@@ -178,9 +178,9 @@ test-suite test-hslice
         rounded-hw -any,
         slist -any
 
-test-suite test-flakey
+test-suite test-broken
     type:               exitcode-stdio-1.0
-    main-is:            Main-Flakey.hs
+    main-is:            Main-Broken.hs
     hs-source-dirs:     tests
     other-modules:
         Math.Util

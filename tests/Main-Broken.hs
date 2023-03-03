@@ -25,10 +25,14 @@ import Prelude (($), IO)
 -- our testing engine.
 import Test.Hspec(hspec, describe, parallel)
 
--- the execution test for warnings.
-import Math.PGA(facetFlakeySpec)
+import Math.Geometry.ConvexBisectableQuad (convexBisectableQuadBrokenSpec)
+import Math.Geometry.ConvexSingleRightQuad (convexSingleRightQuadBrokenSpec)
+import Math.Geometry.ConcaveChevronQuad (concaveChevronQuadBrokenSpec)
+import Math.PGA (facetBrokenSpec)
 
 main :: IO ()
 main = hspec $ parallel $ do
-  -- run tests of the facet engine.
-  describe "Contour facetization algorithms" facetFlakeySpec
+  describe "Broken Concave Chevron Quads" concaveChevronQuadBrokenSpec
+  describe "Broken Convex Single Right Quads" convexSingleRightQuadBrokenSpec
+  describe "Broken Convex Bisectable Quads" convexBisectableQuadBrokenSpec
+  describe "Other broken geometry" facetBrokenSpec

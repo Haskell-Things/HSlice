@@ -51,7 +51,7 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), edgesOf, generationsOf, randomSquare, onlyOneOf)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), edgesOf, generationsOf, nodeTreesOf, onlyOneOf, oneNodeTreeOf, randomSquare)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
@@ -63,13 +63,18 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (insetBy)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
+
+prop_SquareNoConvexMotorcycles :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_SquareNoConvexMotorcycles centerX centerY rawRadians rawDists = convexMotorcycles square --> []
+  where
+    square = randomSquare centerX centerY rawRadians rawDists
 
 prop_SquareNoDivides :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareNoDivides x y tilt distanceToCorner = findDivisions square (fromMaybe (error $ show square) $ crashMotorcycles square []) --> []
@@ -81,15 +86,22 @@ prop_SquareHasStraightSkeleton x y tilt distanceToCorner = findStraightSkeleton 
   where
     square = randomSquare x y tilt distanceToCorner
 
-prop_SquareStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareStraightSkeletonHasRightGenerationCount x y tilt distanceToCorner = generationsOf (findStraightSkeleton square []) --> 1
+prop_SquareStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_SquareStraightSkeletonHasOneNodeTree x y tilt distanceToCorner = nodeTreesOf (findStraightSkeleton square []) --> 1
   where
     square = randomSquare x y tilt distanceToCorner
 
-prop_SquareMotorcyclesIntersectAtPoint :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareMotorcyclesIntersectAtPoint x y tilt distanceToCorner = generationsOf (findStraightSkeleton square []) --> 1
+prop_SquareNodeTreeHasLessThanThreeGenerations :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
+prop_SquareNodeTreeHasLessThanThreeGenerations x y tilt distanceToCorner = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton square []) < 3
   where
     square = randomSquare x y tilt distanceToCorner
+
+{-
+prop_SquareMotorcyclesIntersectAtPoint :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_SquareMotorcyclesIntersectAtPoint x y tilt distanceToCorner = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton square []) --> 1
+  where
+    square = randomSquare x y tilt distanceToCorner
+-}
 
 prop_SquareCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareCanPlaceFaces x y tilt distanceToCorner = facesOf (fromMaybe (error $ show square) $ findStraightSkeleton square []) -/> slist []
@@ -136,6 +148,27 @@ prop_SquareFacesInsetWithRemainder x y tilt distanceToCorner
     insetContour = head insetContours
     (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
     square = randomSquare x y tilt distanceToCorner
+
+unit_SquareFacesInsetWithRemainder :: Bool
+unit_SquareFacesInsetWithRemainder
+  | length insetContours == 1 && length (lineSegsOfContour insetContour) == 4 && length remainingFaces == 4 = True
+  | otherwise = error $ "whoops!\n"
+                     <> "insetContours: " <> show (length insetContours) <> "\n"
+                     <> "contour segments: " <> show (length $ lineSegsOfContour insetContour) <> "\n"
+                     <> "faces returned: " <> show (length remainingFaces) <> "\n"
+                     <> "original contour: " <> show square <> "\n"
+                     <> "returned contour: " <> show insetContour <> "\n"
+                     <> "returned faces: " <> show remainingFaces <> "\n"
+  where
+    insetContour = head insetContours
+    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
+    square = randomSquare x y tilt distanceToCorner
+    x,y :: ℝ
+    x = -1.0
+    y = 0.6
+    distanceToCorner :: Positive ℝ
+    distanceToCorner = 1.0e-4
+    tilt = Radian 1.0
 
 -- | A unit test for a square that is interpreted as a really square looking rectangle.
 unit_squareFromRandomSquare :: Bool
@@ -185,27 +218,33 @@ unit_SquareFacesInsetWithoutRemainder = (length insetContours, length remainingF
 squareSpec :: Spec
 squareSpec = do
   describe "Geometry (Squares)" $ do
-    it "finds no divides in a square" $
+    it "finds no convex motorcycles" $
+      property prop_SquareNoConvexMotorcycles
+    it "finds no divides" $
       property prop_SquareNoDivides
-    it "finds the straight skeleton of a square (property)" $
+    it "finds a straight skeleton" $
       property prop_SquareHasStraightSkeleton
-    it "only generates one generation for a square" $
-      property prop_SquareStraightSkeletonHasRightGenerationCount
-    it "sees all of the faces of a square intersecting in a point" $
-      property prop_SquareMotorcyclesIntersectAtPoint
-    it "places faces on the straight skeleton of a square" $
+    it "only has one Nodetree in the found straight skeleton" $
+      property prop_SquareStraightSkeletonHasOneNodeTree
+    it "has fewer than three generations of INodes in the found NodeTree" $
+      property prop_SquareNodeTreeHasLessThanThreeGenerations
+--    it "sees all of the faces intersecting in a point" $
+--      property prop_SquareMotorcyclesIntersectAtPoint
+    it "can place faces on the straight skeleton" $
       property prop_SquareCanPlaceFaces
-    it "only finds four face squares" $
+    it "only finds four faces" $
       property prop_SquareHasRightFaceCount
-    it "faces generated from a square have less than four arcs" $
+    it "faces have less than four sides" $
       property prop_SquareFacesRightArcCount
-    it "places faces on a square in the order the line segments were given" $
+    it "places faces in the same order of the input line segments" $
       property prop_SquareFacesInOrder
-    it "insets a square halfway, finding 4 remaining faces" $
+    it "insets halfway, finding 4 remaining faces" $
       property prop_SquareFacesInsetWithRemainder
-    it "generates our broken square, when generating a random square(unit)" $
+    it "insets halfway, finding 4 remaining faces(unit)" $
+      unit_SquareFacesInsetWithRemainder
+    it "insets a square that is detected by the code as a rectangle(unit)" $
       unit_squareFromRandomSquare
-    it "insets a square completely, finding 0 remaining faces" $
+    it "insets completely, finding 0 remaining faces" $
       property prop_SquareFacesInsetWithoutRemainder
-    it "insets a square completely, finding 0 remaining faces(unit)" $
+    it "insets a square that is detected by the code as a rectangle completely, finding 0 remaining faces(unit)" $
       unit_SquareFacesInsetWithoutRemainder

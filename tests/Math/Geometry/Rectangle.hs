@@ -35,7 +35,7 @@ import Slist (len, slist)
 import Slist.Type (Slist(Slist))
 
 -- Hspec, for writing specs.
-import Test.Hspec (Spec, it, Expectation)
+import Test.Hspec (Expectation, Spec, describe, it)
 
 -- QuickCheck, for writing properties.
 import Test.QuickCheck (property, Positive(Positive))
@@ -60,7 +60,7 @@ import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint)
 import Graphics.Slicer.Math.PGA (eToPL, outAndErrOf, pLineIsLeft)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), edgesOf, generationsOf, randomRectangle, onlyOneOf)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), edgesOf, generationsOf, nodeTreesOf, onlyOneOf, oneNodeTreeOf, randomRectangle)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
@@ -75,13 +75,18 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Line (insetBy)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
+
+prop_RectangleNoConvexMotorcycles :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+prop_RectangleNoConvexMotorcycles centerX centerY rawFirstTilt rawSecondTilt rawDistanceToCorner = convexMotorcycles rectangle --> []
+  where
+    rectangle = randomRectangle centerX centerY rawFirstTilt rawSecondTilt rawDistanceToCorner
 
 prop_RectangleNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_RectangleNoDivides x y rawFirstTilt rawSecondTilt rawDistanceToCorner = findDivisions rectangle (fromMaybe (error $ show rectangle) $ crashMotorcycles rectangle []) --> []
@@ -93,8 +98,8 @@ prop_RectangleHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawDistanceToCo
   where
     rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
 
-prop_RectangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+prop_RectangleStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
+prop_RectangleStraightSkeletonHasOneNodeTree x y rawFirstTilt rawSecondTilt rawDistanceToCorner
   | res == 1 = True
   | otherwise = error $ "fail!\n"
                      <> "generations: " <> show res <> "\n"
@@ -102,7 +107,20 @@ prop_RectangleStraightSkeletonHasRightGenerationCount x y rawFirstTilt rawSecond
                      <> "raw Skeleton: " <> show (skeletonOfNodes True lineSegs lineSegs []) <> "\n"
                      <> "faces: " <> show (facesOf $ fromMaybe (error "no") $ findStraightSkeleton rectangle []) <> "\n"
   where
-    res = generationsOf (findStraightSkeleton rectangle [])
+    res = nodeTreesOf (findStraightSkeleton rectangle [])
+    lineSegs = slist [lineSegsOfContour rectangle]
+    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+
+prop_RectangleNodeTreeHasLessThanThreeGenerations :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
+prop_RectangleNodeTreeHasLessThanThreeGenerations x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+  | res < 3 = True
+  | otherwise = error $ "fail!\n"
+                     <> "generations: " <> show res <> "\n"
+                     <> "skeleton: " <> show (findStraightSkeleton rectangle []) <> "\n"
+                     <> "raw Skeleton: " <> show (skeletonOfNodes True lineSegs lineSegs []) <> "\n"
+                     <> "faces: " <> show (facesOf $ fromMaybe (error "no") $ findStraightSkeleton rectangle []) <> "\n"
+  where
+    res = generationsOf (oneNodeTreeOf $ fromMaybe (error "No straight skeleton?") $ findStraightSkeleton rectangle [])
     lineSegs = slist [lineSegsOfContour rectangle]
     rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
 
@@ -248,10 +266,17 @@ prop_RectangleFacesInsetWithoutRemainder x y rawFirstTilt rawSecondTilt distance
 
 rectangleSpec :: Spec
 rectangleSpec = do
-    it "finds no divides in a rectangle" $
+  describe "Geometry (Rectangles)" $ do
+    it "finds no convex motorcycles" $
+      property prop_RectangleNoConvexMotorcycles
+    it "finds no divides" $
       property prop_RectangleNoDivides
-    it "finds the straight skeleton of a rectangle (property)" $
+    it "finds a straight skeleton" $
       property prop_RectangleHasStraightSkeleton
+    it "only has one Nodetree in the found straight skeleton" $
+      property prop_RectangleStraightSkeletonHasOneNodeTree
+    it "only generates one, or two generations of INodes" $
+      property prop_RectangleNodeTreeHasLessThanThreeGenerations
     it "places faces on the straight skeleton of a rectangle" $
       property prop_RectangleCanPlaceFaces
     it "finds only four faces for any rectangle" $
@@ -262,8 +287,6 @@ rectangleSpec = do
       property prop_RectangleFacesAllWoundLeft
     it "does not consider a rectangle to be a square" $
       property prop_RectangleMotorcyclesDoNotIntersectAtPoint
-    it "finds only one generation for a rectangle" $
-      property prop_RectangleStraightSkeletonHasRightGenerationCount
     it "generates faces with less than four arcs" $
       property prop_RectangleFacesRightArcCount
     it "insets a rectangle halfway, finding 4 remaining faces" $

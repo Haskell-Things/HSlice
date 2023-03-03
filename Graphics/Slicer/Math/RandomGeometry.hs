@@ -34,6 +34,8 @@ module Graphics.Slicer.Math.RandomGeometry (
   cellFrom,
   edgesOf,
   generationsOf,
+  nodeTreesOf,
+  oneNodeTreeOf,
   onlyOne,
   onlyOneOf,
   randomConcaveChevronQuad,
@@ -99,7 +101,7 @@ import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, ProjectivePoint, eTo
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode)
 
-import Graphics.Slicer.Math.Skeleton.Definitions(ENode, INode, StraightSkeleton(StraightSkeleton), getFirstLineSeg, getLastLineSeg, makeINode)
+import Graphics.Slicer.Math.Skeleton.Definitions(ENode, INode, INodeSet(INodeSet), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), getFirstLineSeg, getLastLineSeg, makeINode)
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
@@ -543,8 +545,15 @@ edgesOf faces = unwrap <$> (\(Slist a _) -> a) faces
     unwrap :: Face -> LineSeg
     unwrap (Face edge _ _ _) = edge
 
-generationsOf :: Maybe StraightSkeleton -> Int
-generationsOf Nothing = 0
-generationsOf (Just (StraightSkeleton (Slist [] _) _)) = 0
-generationsOf (Just (StraightSkeleton a@(Slist [_] _) _)) = len a
-generationsOf a = error $ "what is this?" <> show a <> "\n"
+nodeTreesOf :: Maybe StraightSkeleton -> Int
+nodeTreesOf Nothing = 0
+nodeTreesOf (Just (StraightSkeleton a@(Slist [_] _) _)) = len a
+nodeTreesOf a = error $ "what is this?" <> show a <> "\n"
+
+oneNodeTreeOf :: StraightSkeleton -> NodeTree
+oneNodeTreeOf (StraightSkeleton (Slist [] _) _) = error "straight skeleton had no nodeTree?"
+oneNodeTreeOf (StraightSkeleton (Slist [[x]] _) _) = x
+oneNodeTreeOf (StraightSkeleton (Slist (_) _) _) = error "too many NodeTrees."
+
+generationsOf :: NodeTree -> Int
+generationsOf (NodeTree _ (INodeSet iNodeGenerations)) = len iNodeGenerations
