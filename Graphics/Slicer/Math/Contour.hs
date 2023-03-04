@@ -46,7 +46,7 @@ module Graphics.Slicer.Math.Contour (
   numPointsOfContour
   ) where
 
-import Prelude ((==), (&&), (||), (>), (<), (*), Int, (+), abs, mempty, otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
+import Prelude ((==), (&&), (||), (>), (<), (*), (/), Int, (+), abs, mempty, otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
 
 import Data.List (foldl', head, partition, reverse, sortBy, tail)
 
@@ -73,7 +73,7 @@ import Graphics.Slicer.Math.Definitions (Contour(PointContour, LineSegContour), 
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.Intersections (noIntersection, intersectionOf)
+import Graphics.Slicer.Math.Intersections (lineSegsIntersect, noIntersection, intersectionOf)
 
 import Graphics.Slicer.Math.Lossy (pToEPoint2, eToPLine2)
 
@@ -191,8 +191,9 @@ maybeFlipContour = memo maybeFlipContour'
 -- | Ensure a contour is wound the right way, so that the inside of the contour is on the left side of each line segment.
 maybeFlipContour' :: Contour -> Maybe Contour
 maybeFlipContour' contour
-  | isJust maybeIsLeft && maybeIsLeft == Just True = Just contour
-  | isJust maybeIsLeft = Just $ makePointContour $ reverse $ pointsOfContour contour
+  | isJust maybeIsLeft = Just $ if maybeIsLeft == Just True
+                                then contour
+                                else makePointContour $ reverse $ pointsOfContour contour
   | otherwise = Nothing
   where
     maybeIsLeft = insideIsLeft contour
@@ -264,28 +265,42 @@ insideIsLeft contour
     lineSeg    = firstLineSegOfContour contour
 
 -- | Find a point on the interior of a given contour, on the perpendicular bisector of the first line segment, a given distance away from the line segment.
+-- FIXME: magic number.
 innerContourPoint :: Contour -> Maybe ProjectivePoint
-innerContourPoint contour
-  | odd numIntersections && minDistanceFromSeg > ulpVal perpErr = Just perpPoint
-  | odd numIntersections = error "cannot ensure perp point is on the correct side of contour."
-  | odd otherIntersections && minDistanceFromSeg > ulpVal otherErr = Just otherPoint
-  | odd otherIntersections = error "cannot ensure other point is on the correct side of the contour."
-  | otherwise = Nothing
+innerContourPoint contour = Just $ innerContourPoint' contour 3200 1
+
+innerContourPoint' :: Contour -> ℝ -> ℝ -> ProjectivePoint
+innerContourPoint' contour minDistanceMul recurses
+  | recurses > 30 = error "fail, too many recurses"
+  | lineSegsIntersect lineSeg (makeLineSeg (pToEPoint2 perpPoint) outsidePoint) &&
+    lineSegsIntersect lineSeg (makeLineSeg (pToEPoint2 otherPoint) outsidePoint) =
+    innerContourPoint' contour (minDistanceMul * 3) (recurses+1)
+  | not (lineSegsIntersect lineSeg $ makeLineSeg (pToEPoint2 perpPoint) outsidePoint) &&
+    not (lineSegsIntersect lineSeg $ makeLineSeg (pToEPoint2 otherPoint) outsidePoint) =
+    innerContourPoint' contour (minDistanceMul / 2) (recurses+1)
+  | odd numIntersections && not (odd otherIntersections) =
+    if minDistanceFromSeg > ulpVal perpErr
+    then perpPoint
+    else error "cannot ensure perp point is on the correct side of contour."
+  | odd otherIntersections && not (odd numIntersections) =
+      if minDistanceFromSeg > ulpVal otherErr
+      then otherPoint
+      else error "cannot ensure other point is on the correct side of the contour."
+  | otherwise = error "fail"
   where
     numIntersections   = contourIntersectionCount contour (pToEPoint2 perpPoint, outsidePoint)
     otherIntersections = contourIntersectionCount contour (pToEPoint2 otherPoint, outsidePoint)
-    (perpPoint,  (_,_,_, perpErr))  = pPointOnPerpWithErr pLine midPoint minDistanceFromSeg
-    (otherPoint, (_,_,_, otherErr)) = pPointOnPerpWithErr pLine midPoint (-minDistanceFromSeg)
+    (perpPoint,  (_,_,_, perpErr))  = pPointOnPerpWithErr pLine midPoint (minDistanceMul * minDistanceFromSeg)
+    (otherPoint, (_,_,_, otherErr)) = pPointOnPerpWithErr pLine midPoint (-minDistanceMul * minDistanceFromSeg)
     minDistanceFromSeg  = minDistanceFromSegMidPoint outsidePoint lineSeg
     midPoint = eToPP $ pointBetweenPoints (startPoint lineSeg) (endPoint lineSeg)
     pLine = eToPLine2 lineSeg
     (outsidePoint, lineSeg) = mostPerpPointAndLineSeg contour
 
 -- | The minimum measurable distance of a point from the midpoint of a line segment
--- FIXME: magic number.
 -- Note: this should be the opposite of PGA.hs' onSegment. after all, we're trying to come up with a distance where onSegment won't trigger.
 minDistanceFromSegMidPoint :: Point2 -> LineSeg -> ℝ
-minDistanceFromSegMidPoint outsidePoint lineSeg = 3200 * (midDistance + ulpVal (midDistanceErr <> perpErr))
+minDistanceFromSegMidPoint outsidePoint lineSeg = midDistance + ulpVal (midDistanceErr <> perpErr)
   where
     (midDistance, (_,_, midDistanceErr)) = distance2PP (eToPP midPoint, mempty) (perpPoint, mempty)
     (perpPoint,  (_,_,_, perpErr)) = pPointOnPerpWithErr (fst pLine) (eToPP midPoint) (lineFuzz + midPointFuzz)
