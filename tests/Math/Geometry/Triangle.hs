@@ -122,13 +122,24 @@ prop_TriangleStraightSkeletonHasOneNodeTree centerX centerY rawRadians rawDists 
   where
     triangle = randomTriangle centerX centerY rawRadians rawDists
 
-prop_TriangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleStraightSkeletonHasRightGenerationCount centerX centerY rawRadians rawDists = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton triangle []) --> 1
+prop_TriangleStraightSkeletonHasOneGeneration :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
+prop_TriangleStraightSkeletonHasOneGeneration centerX centerY rawRadians rawDists = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton triangle []) --> 1
   where
     triangle = randomTriangle centerX centerY rawRadians rawDists
 
-prop_TriangleENodeArcsIntersectAtSamePoint :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Property
-prop_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists
+prop_TriangleENodeArcsIntersectAtSamePoint :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Bool
+prop_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists = retVal
+  where
+    retVal = intersectionsAtSamePoint nodeOutsAndErrs
+    intersections = rights $ fromJust <$> mapWithFollower intersectionBetween nodeOutsAndErrs
+    fuzziness = fuzzinessOfP <$> intersections
+    distances = mapWithFollower distance2PP intersections
+    nodeOutsAndErrs = outAndErrOf <$> eNodes
+    eNodes = eNodesOfOutsideContour triangle
+    triangle = randomTriangle centerX centerY rawRadians rawDists
+
+stat_TriangleENodeArcsIntersectAtSamePoint :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Property
+stat_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists
   = label ("Triangle: " <> show triangle <> "\n"
            <> "ENodes: " <> show eNodes <> "\n"
            <> "Intersections: " <> show intersections <> "\n"
@@ -184,11 +195,11 @@ triangleStatSpec :: Spec
 triangleStatSpec = do
   describe "Triangles" $ do
    it "finds that all of the outArcs of the ENodes intersect at the same point" $
-      property prop_TriangleENodeArcsIntersectAtSamePoint
+      property stat_TriangleENodeArcsIntersectAtSamePoint
 
 triangleSpec :: Spec
 triangleSpec = do
-  describe "Geometry (Triangles)" $ do
+  describe "Triangles" $ do
     it "finds no convex motorcycles" $
       property prop_TriangleNoConvexMotorcycles
     it "finds no divides" $
@@ -198,7 +209,9 @@ triangleSpec = do
     it "finds one NodeTree" $
       property prop_TriangleStraightSkeletonHasOneNodeTree
     it "only generates one generation of INodes" $
-      property prop_TriangleStraightSkeletonHasRightGenerationCount
+      property prop_TriangleStraightSkeletonHasOneGeneration
+    it "finds that all of the outArcs of the ENodes intersect at the same point" $
+      property prop_TriangleENodeArcsIntersectAtSamePoint
     it "can place faces on the straight skeleton" $
       property prop_TriangleCanPlaceFaces
     it "only finds three faces" $
