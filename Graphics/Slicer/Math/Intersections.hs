@@ -29,12 +29,13 @@ module Graphics.Slicer.Math.Intersections (
   isAntiParallel,
   isCollinear,
   isParallel,
+  lineSegsIntersect,
   noIntersection,
   outputIntersectsLineSeg,
   outputIntersectsPLineAt
   ) where
 
-import Prelude (Bool(True), (<>), ($), (<), (||), (==), (&&), (<$>), (<=), and, error, otherwise, show)
+import Prelude (Bool(False, True), (<>), ($), (<), (||), (==), (&&), (<$>), (<=), and, error, otherwise, show)
 
 import Data.Either (Either(Left, Right), lefts, rights)
 
@@ -44,7 +45,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.PGA (Arcable(hasArc), Intersection, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine2, ProjectivePoint, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, distancePPToPL, eToPL, fuzzinessOfL, fuzzinessOfP, outAndErrOf, pLineIntersectsLineSeg, pLineErrAtPPoint, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc), Intersection, PIntersection(IntersectsIn, PParallel, PAntiParallel, PCollinear, PAntiCollinear), PLine2Err, PPoint2Err, ProjectiveLine, ProjectiveLine2, ProjectivePoint, canonicalizedIntersectionOf2PL, distance2PL, distance2PP, distancePPToPL, eToPL, fuzzinessOfL, fuzzinessOfP, intersectsWithErr, outAndErrOf, pLineIntersectsLineSeg, pLineErrAtPPoint, plinesIntersectIn)
 
 -- | Check if two lines cannot intersect.
 {-# INLINABLE noIntersection #-}
@@ -133,6 +134,13 @@ outputIntersectsPLineAt n line
   | otherwise = error $ "Tried to check if the output of node intersects PLine on a node with no output:\n" <> show n <> "\n" <> show line <> "\n"
   where
     res = plinesIntersectIn (outAndErrOf n) line
+
+lineSegsIntersect :: LineSeg -> LineSeg -> Bool
+lineSegsIntersect l1 l2 = isIntersection $ intersectsWithErr (Left l1 :: Either LineSeg (ProjectiveLine, PLine2Err)) (Left l2 :: Either LineSeg (ProjectiveLine, PLine2Err))
+      where
+        isIntersection i = case i of
+                             (Right (IntersectsIn _ _)) -> True
+                             _                          -> False
 
 -- | Find out if all of the possible intersections between all of the given nodes are close enough to be considered intersecting at the same point.
 intersectionsAtSamePoint :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> Bool
