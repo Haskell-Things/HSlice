@@ -19,6 +19,7 @@
 {- tests for the properties of a rectangle. -}
 
 module Math.Geometry.Rectangle (
+  rectangleBrokenSpec,
   rectangleSpec
   ) where
 
@@ -123,6 +124,26 @@ prop_RectangleNodeTreeHasLessThanThreeGenerations x y rawFirstTilt rawSecondTilt
     res = generationsOf (oneNodeTreeOf $ fromMaybe (error "No straight skeleton?") $ findStraightSkeleton rectangle [])
     lineSegs = slist [lineSegsOfContour rectangle]
     rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+
+unit_RectangleNodeTreeHasLessThanThreeGenerations :: Bool
+unit_RectangleNodeTreeHasLessThanThreeGenerations
+  | res < 3 = True
+  | otherwise = error $ "fail!\n"
+                     <> "generations: " <> show res <> "\n"
+                     <> "skeleton: " <> show (findStraightSkeleton rectangle []) <> "\n"
+                     <> "raw Skeleton: " <> show (skeletonOfNodes True lineSegs lineSegs []) <> "\n"
+                     <> "faces: " <> show (facesOf $ fromMaybe (error "no") $ findStraightSkeleton rectangle []) <> "\n"
+  where
+    res = generationsOf (oneNodeTreeOf $ fromMaybe (error "No straight skeleton?") $ findStraightSkeleton rectangle [])
+    lineSegs = slist [lineSegsOfContour rectangle]
+    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+    x,y :: ℝ
+    x = 0
+    y = -1.0
+    rawFirstTilt = Radian 4.802
+    rawSecondTilt = Radian 1.65993
+    rawDistanceToCorner :: Positive ℝ
+    rawDistanceToCorner = 28.0
 
 prop_RectangleMotorcyclesDoNotIntersectAtPoint :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_RectangleMotorcyclesDoNotIntersectAtPoint x y rawFirstTilt rawSecondTilt distanceToCorner = intersectionsAtSamePoint nodeOutsAndErrs --> False
@@ -264,9 +285,15 @@ prop_RectangleFacesInsetWithoutRemainder x y rawFirstTilt rawSecondTilt distance
     (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle [])
     rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
 
+rectangleBrokenSpec :: Spec
+rectangleBrokenSpec = do
+  describe "Rectangles" $ do
+    it "only generates one, or two generations of INodes" $
+      unit_RectangleNodeTreeHasLessThanThreeGenerations
+
 rectangleSpec :: Spec
 rectangleSpec = do
-  describe "Geometry (Rectangles)" $ do
+  describe "Rectangles" $ do
     it "finds no convex motorcycles" $
       property prop_RectangleNoConvexMotorcycles
     it "finds no divides" $
