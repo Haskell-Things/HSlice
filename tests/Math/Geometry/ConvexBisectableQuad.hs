@@ -23,7 +23,7 @@ module Math.Geometry.ConvexBisectableQuad (
   convexBisectableQuadSpec
   ) where
 
-import Prelude (Bool, Show(show), ($), (<), error, length)
+import Prelude (Bool, Show(show), ($), (<), error, length, pure)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe, Maybe(Nothing))
@@ -66,7 +66,7 @@ prop_ConvexBisectableQuadNoDivides x y rawFirstTilt rawSecondTilt rawFirstDistan
   where
     convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
 
--- Fails to flip the contour.
+-- | can fail to flip the contour.
 unit_ConvexBisectableQuadNoDivides :: Expectation
 unit_ConvexBisectableQuadNoDivides = findDivisions convexBisectableQuad (fromMaybe (error $ show convexBisectableQuad) $ crashMotorcycles convexBisectableQuad []) --> []
   where
@@ -113,15 +113,15 @@ prop_ConvexBisectableQuadFacesInOrder x y rawFirstTilt rawSecondTilt rawFirstDis
     firstSeg = onlyOneOf convexBisectableQuadAsSegs
 
 convexBisectableQuadBrokenSpec :: Spec
-convexBisectableQuadBrokenSpec = do
-    it "finds no divides" $
-      unit_ConvexBisectableQuadNoDivides
+convexBisectableQuadBrokenSpec = pure ()
 
 convexBisectableQuadSpec :: Spec
 convexBisectableQuadSpec = do
   describe "Geometry (Convex Bisectable Quads)" $ do
     it "finds no divides" $
       property prop_ConvexBisectableQuadNoDivides
+    it "finds no divides (unit)" $
+      unit_ConvexBisectableQuadNoDivides
     it "finds a straight skeleton" $
       property prop_ConvexBisectableQuadHasStraightSkeleton
     it "only finds one nodetree in the straight skeleton" $
