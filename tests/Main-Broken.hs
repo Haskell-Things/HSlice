@@ -28,11 +28,17 @@ import Test.Hspec(hspec, describe, parallel)
 import Math.Geometry.ConvexBisectableQuad (convexBisectableQuadBrokenSpec)
 import Math.Geometry.ConvexSingleRightQuad (convexSingleRightQuadBrokenSpec)
 import Math.Geometry.ConcaveChevronQuad (concaveChevronQuadBrokenSpec)
+import Math.Geometry.Rectangle (rectangleBrokenSpec)
+import Math.Geometry.Square (squareBrokenSpec)
+import Math.Geometry.Triangle (triangleBrokenSpec)
 import Math.PGA (facetBrokenSpec)
 
 main :: IO ()
 main = hspec $ parallel $ do
-  describe "Broken Concave Chevron Quads" concaveChevronQuadBrokenSpec
-  describe "Broken Convex Single Right Quads" convexSingleRightQuadBrokenSpec
-  describe "Broken Convex Bisectable Quads" convexBisectableQuadBrokenSpec
-  describe "Other broken geometry" facetBrokenSpec
+  describe "Geometry/Concave Chevron Quads" concaveChevronQuadBrokenSpec
+  describe "Geometry/Convex Single Right Quads" convexSingleRightQuadBrokenSpec
+  describe "Geometry/Convex Bisectable Quads" convexBisectableQuadBrokenSpec
+  describe "Geometry/Rectangles" rectangleBrokenSpec
+  describe "Geometry/Squares" squareBrokenSpec
+  describe "Geometry/Triangles" triangleBrokenSpec
+  describe "PGA" facetBrokenSpec

@@ -19,6 +19,7 @@
 {- tests for the properties of a triangle. -}
 
 module Math.Geometry.Triangle (
+  triangleBrokenSpec,
   triangleSpec,
   triangleStatSpec
   ) where
@@ -63,7 +64,7 @@ import Graphics.Slicer.Math.PGA (distance2PP, eToPL, eToPP, fuzzinessOfP, join2E
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian, edgesOf, generationsOf, nodeTreesOf, onlyOneOf, oneNodeTreeOf, randomTriangle)
+import Graphics.Slicer.Math.RandomGeometry (ListThree(ListThree), Radian(Radian), edgesOf, generationsOf, nodeTreesOf, onlyOneOf, oneNodeTreeOf, randomTriangle)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
@@ -122,13 +123,21 @@ prop_TriangleStraightSkeletonHasOneNodeTree centerX centerY rawRadians rawDists 
   where
     triangle = randomTriangle centerX centerY rawRadians rawDists
 
-prop_TriangleStraightSkeletonHasRightGenerationCount :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleStraightSkeletonHasRightGenerationCount centerX centerY rawRadians rawDists = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton triangle []) --> 1
+prop_TriangleStraightSkeletonHasOneGeneration :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
+prop_TriangleStraightSkeletonHasOneGeneration centerX centerY rawRadians rawDists = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton triangle []) --> 1
   where
     triangle = randomTriangle centerX centerY rawRadians rawDists
 
-prop_TriangleENodeArcsIntersectAtSamePoint :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Property
-prop_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists
+prop_TriangleENodeArcsIntersectAtSamePoint :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Bool
+prop_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists = retVal
+  where
+    retVal = intersectionsAtSamePoint nodeOutsAndErrs
+    nodeOutsAndErrs = outAndErrOf <$> eNodes
+    eNodes = eNodesOfOutsideContour triangle
+    triangle = randomTriangle centerX centerY rawRadians rawDists
+
+stat_TriangleENodeArcsIntersectAtSamePoint :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Property
+stat_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists
   = label ("Triangle: " <> show triangle <> "\n"
            <> "ENodes: " <> show eNodes <> "\n"
            <> "Intersections: " <> show intersections <> "\n"
@@ -147,6 +156,20 @@ prop_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists
     nodeOutsAndErrs = outAndErrOf <$> eNodes
     eNodes = eNodesOfOutsideContour triangle
     triangle = randomTriangle centerX centerY rawRadians rawDists
+
+unit_TriangleENodeArcsIntersectAtSamePoint :: Bool
+unit_TriangleENodeArcsIntersectAtSamePoint = retVal
+  where
+    retVal = intersectionsAtSamePoint nodeOutsAndErrs
+    nodeOutsAndErrs = outAndErrOf <$> eNodes
+    eNodes = eNodesOfOutsideContour triangle
+    triangle = randomTriangle centerX centerY rawRadians rawDists
+    centerX,centerY :: ℝ
+    centerX = 0
+    centerY = 0
+    rawRadians = ListThree [Radian 2.985457801469671, Radian 2.626880074405778, Radian 5.132144721027657]
+    rawDists :: ListThree (Positive ℝ)
+    rawDists = ListThree [15.806453706102848, 50.6285286757685, 16.68828123028247]
 
 prop_TriangleCanPlaceFaces :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
 prop_TriangleCanPlaceFaces centerX centerY rawRadians rawDists = facesOf (fromMaybe (error "Got Nothing") $ findStraightSkeleton triangle []) -/> slist []
@@ -180,15 +203,21 @@ prop_TriangleFacesInOrder centerX centerY rawRadians rawDists = edgesOf (ordered
 
 -- FIXME: add inset tests here.
 
+triangleBrokenSpec :: Spec
+triangleBrokenSpec = do
+  describe "Triangles" $ do
+   it "finds that all of the outArcs of the ENodes intersect at the same point" $
+      property unit_TriangleENodeArcsIntersectAtSamePoint
+
 triangleStatSpec :: Spec
 triangleStatSpec = do
   describe "Triangles" $ do
    it "finds that all of the outArcs of the ENodes intersect at the same point" $
-      property prop_TriangleENodeArcsIntersectAtSamePoint
+      property stat_TriangleENodeArcsIntersectAtSamePoint
 
 triangleSpec :: Spec
 triangleSpec = do
-  describe "Geometry (Triangles)" $ do
+  describe "Triangles" $ do
     it "finds no convex motorcycles" $
       property prop_TriangleNoConvexMotorcycles
     it "finds no divides" $
@@ -198,7 +227,9 @@ triangleSpec = do
     it "finds one NodeTree" $
       property prop_TriangleStraightSkeletonHasOneNodeTree
     it "only generates one generation of INodes" $
-      property prop_TriangleStraightSkeletonHasRightGenerationCount
+      property prop_TriangleStraightSkeletonHasOneGeneration
+    it "finds that all of the outArcs of the ENodes intersect at the same point" $
+      property prop_TriangleENodeArcsIntersectAtSamePoint
     it "can place faces on the straight skeleton" $
       property prop_TriangleCanPlaceFaces
     it "only finds three faces" $

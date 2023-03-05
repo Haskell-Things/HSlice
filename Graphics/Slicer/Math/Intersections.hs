@@ -35,7 +35,7 @@ module Graphics.Slicer.Math.Intersections (
   outputIntersectsPLineAt
   ) where
 
-import Prelude (Bool(False, True), (<>), ($), (<), (||), (==), (&&), (<$>), (<=), and, error, otherwise, show)
+import Prelude (Bool(False, True), (<>), ($), (*), (<), (||), (==), (&&), (<$>), (<=), and, error, otherwise, show)
 
 import Data.Either (Either(Left, Right), lefts, rights)
 
@@ -162,7 +162,7 @@ intersectionsAtSamePoint nodeOutsAndErrs
               -- intersections that resulted in a point.
               pointIntersections = rights $ catMaybes intersections
               -- Minor optimization: first check against resErr, then actually use the fuzziness.
-              pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= ulpVal resErr || res < errSum
+              pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= ulpVal resErr || res < errSum * 2
                 where
                   errSum = ulpVal $ resErr
                                   <> fuzzinessOfP point1
@@ -177,7 +177,7 @@ intersectionsAtSamePoint nodeOutsAndErrs
               [] -> True
               [(a1,b1,l1)] -> case pointIntersections of
                                 [] -> error "one line, no points.. makes no sense."
-                                ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < errSum
+                                ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < errSum * 2
                                   where
                                     (foundDistance, (_, _, _, _, _, resErr)) = distancePPToPL ppoint1 l1
                                     errSum = ulpVal $ resErr

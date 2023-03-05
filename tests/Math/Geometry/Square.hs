@@ -19,6 +19,7 @@
 {- tests for the properties of a square. -}
 
 module Math.Geometry.Square (
+  squareBrokenSpec,
   squareSpec
   ) where
 
@@ -28,7 +29,7 @@ import Prelude (Bool(True), Show(show), ($), (<), (.), (/), (+), (&&), (<>), (==
 import Data.List (concat, head)
 
 -- The Maybe library.
-import Data.Maybe (fromMaybe, Maybe(Nothing))
+import Data.Maybe (Maybe(Nothing), fromMaybe)
 
 -- Slists, a form of list with a stated size in the structure.
 import Slist (len, slist)
@@ -50,11 +51,20 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
+-- Basic intersection logic.
+import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint)
+
+-- Our 2D Projective Geometric Algebra library.
+import Graphics.Slicer.Math.PGA (outAndErrOf)
+
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), edgesOf, generationsOf, nodeTreesOf, onlyOneOf, oneNodeTreeOf, randomSquare)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
+
+-- The logic for creating straight skeletons from concave contours.
+import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
@@ -96,12 +106,28 @@ prop_SquareNodeTreeHasLessThanThreeGenerations x y tilt distanceToCorner = gener
   where
     square = randomSquare x y tilt distanceToCorner
 
-{-
-prop_SquareMotorcyclesIntersectAtPoint :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareMotorcyclesIntersectAtPoint x y tilt distanceToCorner = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton square []) --> 1
+prop_SquareENodeArcsIntersectAtSamePoint :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
+prop_SquareENodeArcsIntersectAtSamePoint centerX centerY tilt distanceToCorner = retVal
   where
-    square = randomSquare x y tilt distanceToCorner
--}
+    retVal = intersectionsAtSamePoint nodeOutsAndErrs
+    nodeOutsAndErrs = outAndErrOf <$> eNodes
+    eNodes = eNodesOfOutsideContour square
+    square = randomSquare centerX centerY tilt distanceToCorner
+
+-- | Fails to see a square as having a center point.
+unit_SquareENodeArcsIntersectAtSamePoint :: Bool
+unit_SquareENodeArcsIntersectAtSamePoint = retVal
+  where
+    retVal = intersectionsAtSamePoint nodeOutsAndErrs
+    nodeOutsAndErrs = outAndErrOf <$> eNodes
+    eNodes = eNodesOfOutsideContour square
+    square = randomSquare centerX centerY tilt distanceToCorner
+    centerX,centerY :: ℝ
+    centerX = -2.0
+    centerY = 13.0
+    tilt = Radian 0.1
+    distanceToCorner :: Positive ℝ
+    distanceToCorner = 3.0e-2
 
 prop_SquareCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareCanPlaceFaces x y tilt distanceToCorner = facesOf (fromMaybe (error $ show square) $ findStraightSkeleton square []) -/> slist []
@@ -215,6 +241,12 @@ unit_SquareFacesInsetWithoutRemainder = (length insetContours, length remainingF
     distanceToCorner :: Positive ℝ
     distanceToCorner = Positive 2.0e-3
 
+squareBrokenSpec :: Spec
+squareBrokenSpec = do
+  describe "Squares" $ do
+    it "finds that all of the outArcs of the ENodes intersect at the same point" $
+      unit_SquareENodeArcsIntersectAtSamePoint
+
 squareSpec :: Spec
 squareSpec = do
   describe "Geometry (Squares)" $ do
@@ -228,8 +260,8 @@ squareSpec = do
       property prop_SquareStraightSkeletonHasOneNodeTree
     it "has fewer than three generations of INodes in the found NodeTree" $
       property prop_SquareNodeTreeHasLessThanThreeGenerations
---    it "sees all of the faces intersecting in a point" $
---      property prop_SquareMotorcyclesIntersectAtPoint
+    it "finds that all of the outArcs of the ENodes intersect at the same point" $
+      property prop_SquareENodeArcsIntersectAtSamePoint
     it "can place faces on the straight skeleton" $
       property prop_SquareCanPlaceFaces
     it "only finds four faces" $
