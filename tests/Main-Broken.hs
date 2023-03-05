@@ -29,6 +29,7 @@ import Math.Geometry.ConvexBisectableQuad (convexBisectableQuadBrokenSpec)
 import Math.Geometry.ConvexSingleRightQuad (convexSingleRightQuadBrokenSpec)
 import Math.Geometry.ConcaveChevronQuad (concaveChevronQuadBrokenSpec)
 import Math.Geometry.Rectangle (rectangleBrokenSpec)
+import Math.Geometry.Square (squareBrokenSpec)
 import Math.PGA (facetBrokenSpec)
 
 main :: IO ()
@@ -37,4 +38,5 @@ main = hspec $ parallel $ do
   describe "Broken Convex Single Right Quads" convexSingleRightQuadBrokenSpec
   describe "Broken Convex Bisectable Quads" convexBisectableQuadBrokenSpec
   describe "Broken Rectangles" rectangleBrokenSpec
+  describe "Broken Squares" squareBrokenSpec
   describe "Other broken geometry" facetBrokenSpec

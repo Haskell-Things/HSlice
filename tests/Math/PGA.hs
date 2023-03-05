@@ -489,7 +489,7 @@ pgaSpec = do
     it "two projective points on different sides of a line show as being on different sides of a line" $
       property prop_OtherSideOfAxis
 
--- ensure that the bisector of a quad crosses the point across the quad from the bisector.
+-- | ensure that the bisector of a quad crosses the point across the quad from the bisector.
 prop_QuadBisectorCrosses :: Positive ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_QuadBisectorCrosses rawX1 rawY1 rawX2 rawY2
   | isEndPoint intersect1 && isStartPoint intersect2 && isEndPoint intersect3 && isEndPoint intersect4 = True
@@ -1615,14 +1615,18 @@ unit_ContourStraightSkeleton
 
 facetBrokenSpec :: Spec
 facetBrokenSpec = do
-  describe "Stability (Points)" $ do
+  describe "Geometry (Contour)" $ do
+    it "creates a straight skeleton from a contour (unit)" $
+      unit_ContourStraightSkeleton
+  -- FIXME: re-establish the sanity of these, and their implementations.
+  describe "PGA (Point Stability)" $ do
     it "a line constructed with the midpoint of a segment and a point on the perpendicular bisector is at 90 degrees to the initial segment" $
       property prop_perpAt90Degrees
     it "successfully translates PPoint2s along X" $
       property prop_translateRotateMovesX
     it "successfully translates PPoint2s along Y" $
       property prop_translateRotateMovesY
-  describe "Stability (Intersections)" $ do
+  describe "PGA (Intersection Stability)" $ do
     it "finds that the intersection of two PLines at an arbitrary point are within the returned UlpSum" $
       property prop_PLinesIntersectAtPoint
     it "finds endpoints and startpoints in equal quantities along the X1Y1 line" $
@@ -1631,14 +1635,11 @@ facetBrokenSpec = do
       property prop_QuadBisectorCrosses
     it "finds an endpoint and a startpoint the multiple of the discante across a quad from a bisector from the origin" $
       property prop_QuadBisectorCrossesMultiple
-  describe "Arcs (Skeleton/Concave)" $ do
+  describe "PGA (Output Arcs)" $ do
     it "finds the outside arc of two intersecting lines (inverted makeENode)" $
       property prop_obtuseBisectorOnBiggerSide_makeENode
     it "finds the outside arc of two intersecting lines (makeINode)" $
       property prop_obtuseBisectorOnBiggerSide_makeINode
-  describe "Geometry (contour)" $ do
-    it "creates a straight skeleton from a contour (unit)" $
-      unit_ContourStraightSkeleton
 
 facetSpec :: Spec
 facetSpec = do
