@@ -41,6 +41,9 @@ import Data.Either (Either(Left, Right), lefts, rights)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, isJust, isNothing)
 
+-- The numeric type in HSlice.
+import Graphics.Slicer.Definitions (ℝ)
+
 import Graphics.Slicer.Math.Definitions (LineSeg, mapWithFollower)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
@@ -151,6 +154,9 @@ intersectionsAtSamePoint nodeOutsAndErrs
       [a,b] -> isJust $ intersectionBetween a b
       _ -> and (isJust <$> intersections) && pointsCloseEnough && linesCloseEnough
         where
+          -- FIXME: magic number
+          fuzzinessFactor :: ℝ
+          fuzzinessFactor = 512
           intersections = mapWithFollower myIntersectionBetween nodeOutsAndErrs
             where
               myIntersectionBetween a b = case intersectionBetween a b of
@@ -162,7 +168,7 @@ intersectionsAtSamePoint nodeOutsAndErrs
               -- intersections that resulted in a point.
               pointIntersections = rights $ catMaybes intersections
               -- Minor optimization: first check against resErr, then actually use the fuzziness.
-              pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= ulpVal resErr || res < errSum * 2
+              pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= (ulpVal resErr) * fuzzinessFactor || res < errSum * fuzzinessFactor
                 where
                   errSum = ulpVal $ resErr
                                   <> fuzzinessOfP point1
@@ -177,7 +183,7 @@ intersectionsAtSamePoint nodeOutsAndErrs
               [] -> True
               [(a1,b1,l1)] -> case pointIntersections of
                                 [] -> error "one line, no points.. makes no sense."
-                                ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < errSum * 2
+                                ((a2,b2,ppoint1@(p1,_)):_) -> pointsCloseEnough && foundDistance < errSum * fuzzinessFactor
                                   where
                                     (foundDistance, (_, _, _, _, _, resErr)) = distancePPToPL ppoint1 l1
                                     errSum = ulpVal $ resErr
