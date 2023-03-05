@@ -19,6 +19,7 @@
 {- tests for the properties of a triangle. -}
 
 module Math.Geometry.Triangle (
+  triangleBrokenSpec,
   triangleSpec,
   triangleStatSpec
   ) where
@@ -63,7 +64,7 @@ import Graphics.Slicer.Math.PGA (distance2PP, eToPL, eToPP, fuzzinessOfP, join2E
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (ListThree, Radian, edgesOf, generationsOf, nodeTreesOf, onlyOneOf, oneNodeTreeOf, randomTriangle)
+import Graphics.Slicer.Math.RandomGeometry (ListThree(ListThree), Radian(Radian), edgesOf, generationsOf, nodeTreesOf, onlyOneOf, oneNodeTreeOf, randomTriangle)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
@@ -131,9 +132,6 @@ prop_TriangleENodeArcsIntersectAtSamePoint :: ℝ -> ℝ -> ListThree (Radian �
 prop_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists = retVal
   where
     retVal = intersectionsAtSamePoint nodeOutsAndErrs
-    intersections = rights $ fromJust <$> mapWithFollower intersectionBetween nodeOutsAndErrs
-    fuzziness = fuzzinessOfP <$> intersections
-    distances = mapWithFollower distance2PP intersections
     nodeOutsAndErrs = outAndErrOf <$> eNodes
     eNodes = eNodesOfOutsideContour triangle
     triangle = randomTriangle centerX centerY rawRadians rawDists
@@ -158,6 +156,20 @@ stat_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists
     nodeOutsAndErrs = outAndErrOf <$> eNodes
     eNodes = eNodesOfOutsideContour triangle
     triangle = randomTriangle centerX centerY rawRadians rawDists
+
+unit_TriangleENodeArcsIntersectAtSamePoint :: Bool
+unit_TriangleENodeArcsIntersectAtSamePoint = retVal
+  where
+    retVal = intersectionsAtSamePoint nodeOutsAndErrs
+    nodeOutsAndErrs = outAndErrOf <$> eNodes
+    eNodes = eNodesOfOutsideContour triangle
+    triangle = randomTriangle centerX centerY rawRadians rawDists
+    centerX,centerY :: ℝ
+    centerX = 0
+    centerY = 0
+    rawRadians = ListThree [Radian 2.985457801469671, Radian 2.626880074405778, Radian 5.132144721027657]
+    rawDists :: ListThree (Positive ℝ)
+    rawDists = ListThree [15.806453706102848, 50.6285286757685, 16.68828123028247]
 
 prop_TriangleCanPlaceFaces :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
 prop_TriangleCanPlaceFaces centerX centerY rawRadians rawDists = facesOf (fromMaybe (error "Got Nothing") $ findStraightSkeleton triangle []) -/> slist []
@@ -190,6 +202,12 @@ prop_TriangleFacesInOrder centerX centerY rawRadians rawDists = edgesOf (ordered
     firstSeg = onlyOneOf $ lineSegsOfContour triangle
 
 -- FIXME: add inset tests here.
+
+triangleBrokenSpec :: Spec
+triangleBrokenSpec = do
+  describe "Triangles" $ do
+   it "finds that all of the outArcs of the ENodes intersect at the same point" $
+      property unit_TriangleENodeArcsIntersectAtSamePoint
 
 triangleStatSpec :: Spec
 triangleStatSpec = do

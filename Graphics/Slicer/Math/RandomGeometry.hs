@@ -29,7 +29,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Graphics.Slicer.Math.RandomGeometry (
-  ListThree,
+  ListThree(ListThree),
   Radian(Radian),
   cellFrom,
   edgesOf,
