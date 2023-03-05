@@ -34,9 +34,9 @@ import Math.PGA (facetBrokenSpec)
 
 main :: IO ()
 main = hspec $ parallel $ do
-  describe "Broken Concave Chevron Quads" concaveChevronQuadBrokenSpec
-  describe "Broken Convex Single Right Quads" convexSingleRightQuadBrokenSpec
-  describe "Broken Convex Bisectable Quads" convexBisectableQuadBrokenSpec
-  describe "Broken Rectangles" rectangleBrokenSpec
-  describe "Broken Squares" squareBrokenSpec
-  describe "Other broken geometry" facetBrokenSpec
+  describe "Geometry/Concave Chevron Quads" concaveChevronQuadBrokenSpec
+  describe "Geometry/Convex Single Right Quads" convexSingleRightQuadBrokenSpec
+  describe "Geometry/Convex Bisectable Quads" convexBisectableQuadBrokenSpec
+  describe "Geometry/Rectangles" rectangleBrokenSpec
+  describe "Geometry/Squares" squareBrokenSpec
+  describe "PGA" facetBrokenSpec
