@@ -24,7 +24,7 @@ module Math.Geometry.Triangle (
   triangleStatSpec
   ) where
 
-import Prelude (Bool(True), Show(show), ($), (<), (.), (+), (<>), (==), (<$>), all, error, fst, length, otherwise, snd)
+import Prelude (Bool(True), Show(show), ($), (<), (.), (+), (<>), (==), (<$>), all, error, fst, length, otherwise, pure, snd)
 
 -- The Either library.
 import Data.Either (rights)
@@ -157,6 +157,7 @@ stat_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists
     eNodes = eNodesOfOutsideContour triangle
     triangle = randomTriangle centerX centerY rawRadians rawDists
 
+-- | failed, until the fuzziness factor in Intersections.HS was lifted to 512.
 unit_TriangleENodeArcsIntersectAtSamePoint :: Bool
 unit_TriangleENodeArcsIntersectAtSamePoint = retVal
   where
@@ -204,10 +205,7 @@ prop_TriangleFacesInOrder centerX centerY rawRadians rawDists = edgesOf (ordered
 -- FIXME: add inset tests here.
 
 triangleBrokenSpec :: Spec
-triangleBrokenSpec = do
-  describe "Triangles" $ do
-   it "finds that all of the outArcs of the ENodes intersect at the same point" $
-      property unit_TriangleENodeArcsIntersectAtSamePoint
+triangleBrokenSpec = pure ()
 
 triangleStatSpec :: Spec
 triangleStatSpec = do
@@ -230,6 +228,8 @@ triangleSpec = do
       property prop_TriangleStraightSkeletonHasOneGeneration
     it "finds that all of the outArcs of the ENodes intersect at the same point" $
       property prop_TriangleENodeArcsIntersectAtSamePoint
+    it "finds that all of the outArcs of the ENodes intersect at the same point (unit)" $
+      unit_TriangleENodeArcsIntersectAtSamePoint
     it "can place faces on the straight skeleton" $
       property prop_TriangleCanPlaceFaces
     it "only finds three faces" $
