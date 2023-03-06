@@ -249,22 +249,22 @@ squareBrokenSpec = do
 
 squareSpec :: Spec
 squareSpec = do
-  describe "Geometry (Squares)" $ do
+  describe "Squares" $ do
     it "finds no convex motorcycles" $
       property prop_SquareNoConvexMotorcycles
     it "finds no divides" $
       property prop_SquareNoDivides
     it "finds a straight skeleton" $
       property prop_SquareHasStraightSkeleton
-    it "only has one Nodetree in the found straight skeleton" $
+    it "finds one Nodetree in the straight skeleton" $
       property prop_SquareStraightSkeletonHasOneNodeTree
-    it "has fewer than three generations of INodes in the found NodeTree" $
+    it "has fewer than three generations of INodes in the NodeTree" $
       property prop_SquareNodeTreeHasLessThanThreeGenerations
     it "finds that all of the outArcs of the ENodes intersect at the same point" $
       property prop_SquareENodeArcsIntersectAtSamePoint
     it "can place faces on the straight skeleton" $
       property prop_SquareCanPlaceFaces
-    it "only finds four faces" $
+    it "only places four faces" $
       property prop_SquareHasRightFaceCount
     it "faces have less than four sides" $
       property prop_SquareFacesRightArcCount

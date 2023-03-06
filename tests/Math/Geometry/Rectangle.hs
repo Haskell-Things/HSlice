@@ -300,22 +300,22 @@ rectangleSpec = do
       property prop_RectangleNoDivides
     it "finds a straight skeleton" $
       property prop_RectangleHasStraightSkeleton
-    it "only has one Nodetree in the found straight skeleton" $
+    it "only has one Nodetree in the straight skeleton" $
       property prop_RectangleStraightSkeletonHasOneNodeTree
     it "only generates one, or two generations of INodes" $
       property prop_RectangleNodeTreeHasLessThanThreeGenerations
-    it "places faces on the straight skeleton of a rectangle" $
+    it "does not consider a rectangle to be square (outArcs do not intersect)" $
+      property prop_RectangleMotorcyclesDoNotIntersectAtPoint
+    it "can place faces on the straight skeleton" $
       property prop_RectangleCanPlaceFaces
     it "finds only four faces for any rectangle" $
       property prop_RectangleHasRightFaceCount
-    it "places faces on a rectangle in the order the line segments were given" $
-      property prop_RectangleFacesInOrder
-    it "places faces on a rectangle such that each face is wound to the left" $
-      property prop_RectangleFacesAllWoundLeft
-    it "does not consider a rectangle to be a square" $
-      property prop_RectangleMotorcyclesDoNotIntersectAtPoint
     it "generates faces with less than four arcs" $
       property prop_RectangleFacesRightArcCount
+    it "face edges are in the same order the input line segments" $
+      property prop_RectangleFacesInOrder
+    it "each face is wound to the left" $
+      property prop_RectangleFacesAllWoundLeft
     it "insets a rectangle halfway, finding 4 remaining faces" $
       property prop_RectangleFacesInsetWithRemainder
     it "insets a rectangle completely, finding 0 remaining faces" $

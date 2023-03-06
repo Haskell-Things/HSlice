@@ -222,7 +222,7 @@ triangleSpec = do
       property prop_TriangleNoDivides
     it "finds a straight skeleton" $
       property prop_TriangleHasStraightSkeleton
-    it "finds one NodeTree" $
+    it "finds one NodeTree in the straight skeleton" $
       property prop_TriangleStraightSkeletonHasOneNodeTree
     it "only generates one generation of INodes" $
       property prop_TriangleStraightSkeletonHasOneGeneration
@@ -232,7 +232,7 @@ triangleSpec = do
       unit_TriangleENodeArcsIntersectAtSamePoint
     it "can place faces on the straight skeleton" $
       property prop_TriangleCanPlaceFaces
-    it "only finds three faces" $
+    it "only places three faces" $
       property prop_TriangleHasRightFaceCount
     it "faces only have three sides" $
       property prop_TriangleFacesRightArcCount
