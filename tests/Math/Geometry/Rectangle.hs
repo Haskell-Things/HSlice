@@ -45,7 +45,7 @@ import Data.Coerce (coerce)
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
---
+-- Basic math functions.
 import Graphics.Slicer.Math.Definitions(Point2(Point2), mapWithFollower, minMaxPoints)
 
 -- Our Contour library.

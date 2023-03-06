@@ -29,7 +29,7 @@ import Prelude (Bool(True), Show(show), ($), (<), (.), (/), (+), (&&), (<>), (==
 import Data.List (concat, head)
 
 -- The Maybe library.
-import Data.Maybe (Maybe(Nothing), fromMaybe)
+import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
 
 -- Slists, a form of list with a stated size in the structure.
 import Slist (len, slist)
@@ -48,6 +48,9 @@ import Graphics.Slicer (ℝ)
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
+-- Assorted basic math functions
+import Graphics.Slicer.Math.Definitions(mapWithFollower)
+
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
@@ -55,7 +58,7 @@ import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (outAndErrOf)
+import Graphics.Slicer.Math.PGA (eToPL, outAndErrOf, pLineIsLeft)
 
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), edgesOf, generationsOf, nodeTreesOf, onlyOneOf, oneNodeTreeOf, randomSquare)
@@ -223,6 +226,21 @@ unit_squareFromRandomSquare
     distanceToCorner = 35
     tilt = Radian 2.0
 
+prop_SquareFacesAllWoundLeft  :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
+prop_SquareFacesAllWoundLeft x y rawTilt rawDistanceToCorner
+  | allIsLeft = True
+  | otherwise = error $ "miswound face found:\n"
+                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    allIsLeft = all faceAllIsLeft faces
+    faceAllIsLeft face = all (== Just True) $ faceLefts face
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show square) $ findStraightSkeleton square []
+    square = randomSquare x y rawTilt rawDistanceToCorner
+
 prop_SquareFacesInsetWithoutRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
 prop_SquareFacesInsetWithoutRemainder x y tilt distanceToCorner = (length insetContours, length remainingFaces) --> (0, 0)
   where
@@ -270,6 +288,8 @@ squareSpec = do
       property prop_SquareFacesRightArcCount
     it "places faces in the same order of the input line segments" $
       property prop_SquareFacesInOrder
+    it "each face is wound to the left" $
+      property prop_SquareFacesAllWoundLeft
     it "insets halfway, finding 4 remaining faces" $
       property prop_SquareFacesInsetWithRemainder
     it "insets halfway, finding 4 remaining faces(unit)" $
