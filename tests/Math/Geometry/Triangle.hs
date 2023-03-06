@@ -33,10 +33,11 @@ import Data.Either (rights)
 import Data.List (concat, transpose)
 
 -- The Maybe library.
-import Data.Maybe (fromMaybe, fromJust, Maybe(Nothing))
+import Data.Maybe (Maybe(Just, Nothing), fromMaybe, fromJust)
 
 -- Slists, a form of list with a stated size in the structure.
 import Slist (len, slist)
+import Slist.Type (Slist(Slist))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -58,7 +59,7 @@ import Graphics.Slicer.Math.Definitions (Point2(Point2), mapWithFollower, startP
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, intersectionBetween)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (distance2PP, eToPL, eToPP, fuzzinessOfP, join2EP, join2PP, normalizeL, outAndErrOf, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (distance2PP, eToPL, eToPP, fuzzinessOfP, join2EP, join2PP, normalizeL, outAndErrOf, plinesIntersectIn, pLineIsLeft)
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
@@ -202,6 +203,21 @@ prop_TriangleFacesInOrder centerX centerY rawRadians rawDists = edgesOf (ordered
     triangle = randomTriangle centerX centerY rawRadians rawDists
     firstSeg = onlyOneOf $ lineSegsOfContour triangle
 
+prop_TriangleFacesAllWoundLeft  :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Bool
+prop_TriangleFacesAllWoundLeft x y rawRadians rawDists
+  | allIsLeft = True
+  | otherwise = error $ "miswound face found:\n"
+                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    allIsLeft = all faceAllIsLeft faces
+    faceAllIsLeft face = all (== Just True) $ faceLefts face
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []
+    triangle = randomTriangle x y rawRadians rawDists
+
 -- FIXME: add inset tests here.
 
 triangleBrokenSpec :: Spec
@@ -236,6 +252,8 @@ triangleSpec = do
       property prop_TriangleHasRightFaceCount
     it "faces only have three sides" $
       property prop_TriangleFacesRightArcCount
+    it "each face is wound to the left" $
+      property prop_TriangleFacesAllWoundLeft
     it "places faces in the same order as the input line segments" $
       property prop_TriangleFacesInOrder
 {-    it "insets halfway, finding 3 remaining faces" $
