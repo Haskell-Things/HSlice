@@ -23,13 +23,14 @@ module Math.Geometry.ConvexBisectableQuad (
   convexBisectableQuadSpec
   ) where
 
-import Prelude (Bool, Show(show), ($), (<), (<$>), error, length, pure)
+import Prelude (Bool(True), Show(show), ($), (<), (.), (+), (<>), (==), (<$>), all, concat, error, length, otherwise, pure)
 
 -- The Maybe library.
-import Data.Maybe (fromMaybe, Maybe(Nothing))
+import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
 
 -- Slists, a form of list with a stated size in the structure.
-import Slist (slist)
+import Slist (len, slist)
+import Slist.Type (Slist(Slist))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -43,11 +44,14 @@ import Graphics.Slicer (ℝ)
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
+-- Assorted basic math functions
+import Graphics.Slicer.Math.Definitions (mapWithFollower)
+
 -- Basic intersection logic.
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (outAndErrOf)
+import Graphics.Slicer.Math.PGA (eToPL, outAndErrOf, pLineIsLeft)
 
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConvexBisectableQuad)
@@ -59,7 +63,7 @@ import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
@@ -127,12 +131,41 @@ prop_ConvexBisectableQuadHasRightFaceCount x y rawFirstTilt rawSecondTilt rawFir
   where
     convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
 
+prop_ConvexBisectableQuadFacesRightArcCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Bool
+prop_ConvexBisectableQuadFacesRightArcCount x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+  | res == True = True
+  | otherwise = error $ "Too many arcs found:\n"
+                     <> (concat $ show . arcCount <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    res = all (\a -> arcCount a == 2) faces
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show convexBisectableQuad) $ findStraightSkeleton convexBisectableQuad []
+    arcCount (Face _ _ midArcs _) = 2 + len midArcs
+    convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+
 prop_ConvexBisectableQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexBisectableQuadFacesInOrder x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show convexBisectableQuad) $ findStraightSkeleton convexBisectableQuad []) --> convexBisectableQuadAsSegs
   where
     convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
     convexBisectableQuadAsSegs = lineSegsOfContour convexBisectableQuad
     firstSeg = onlyOneOf convexBisectableQuadAsSegs
+
+prop_ConvexBisectableQuadFacesAllWoundLeft  :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Bool
+prop_ConvexBisectableQuadFacesAllWoundLeft x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+  | allIsLeft = True
+  | otherwise = error $ "miswound face found:\n"
+                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    allIsLeft = all faceAllIsLeft faces
+    faceAllIsLeft face = all (== Just True) $ faceLefts face
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show convexBisectableQuad) $ findStraightSkeleton convexBisectableQuad []
+    convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
 
 convexBisectableQuadBrokenSpec :: Spec
 convexBisectableQuadBrokenSpec = pure ()
@@ -154,9 +187,13 @@ convexBisectableQuadSpec = do
       property prop_ConvexBisectableQuadNodeTreeHasLessThanThreeGenerations
     it "finds that all of the outArcs of the ENodes intersect at the same point" $
       property prop_ConvexBisectableQuadENodeArcsIntersectAtSamePoint
-    it "places faces on the straight skeleton of a convex bisectable quad" $
+    it "can place faces on the straight skeleton" $
       property prop_ConvexBisectableQuadCanPlaceFaces
-    it "finds only four faces for any convex bisectable quad" $
+    it "only places four faces" $
       property prop_ConvexBisectableQuadHasRightFaceCount
-    it "places faces on a convex bisectable quad in the order the line segments were given" $
+    it "faces have less than four sides" $
+      property prop_ConvexBisectableQuadFacesRightArcCount
+    it "places faces in the order the line segments were given" $
       property prop_ConvexBisectableQuadFacesInOrder
+    it "each face is wound to the left" $
+      property prop_ConvexBisectableQuadFacesAllWoundLeft
