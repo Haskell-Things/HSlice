@@ -23,7 +23,7 @@ module Math.Geometry.ConvexBisectableQuad (
   convexBisectableQuadSpec
   ) where
 
-import Prelude (Bool, Show(show), ($), (<), error, length, pure)
+import Prelude (Bool, Show(show), ($), (<), (<$>), error, length, pure)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe, Maybe(Nothing))
@@ -43,11 +43,20 @@ import Graphics.Slicer (ℝ)
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
+-- Basic intersection logic.
+import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint)
+
+-- Our 2D Projective Geometric Algebra library.
+import Graphics.Slicer.Math.PGA (outAndErrOf)
+
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConvexBisectableQuad)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
+
+-- The logic for creating straight skeletons from concave contours.
+import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
 import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
@@ -100,6 +109,14 @@ prop_ConvexBisectableQuadNodeTreeHasLessThanThreeGenerations x y rawFirstTilt ra
   where
     convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
 
+prop_ConvexBisectableQuadENodeArcsIntersectAtSamePoint :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Bool
+prop_ConvexBisectableQuadENodeArcsIntersectAtSamePoint centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = retVal
+  where
+    retVal = intersectionsAtSamePoint nodeOutsAndErrs
+    nodeOutsAndErrs = outAndErrOf <$> eNodes
+    eNodes = eNodesOfOutsideContour convexBisectableQuad
+    convexBisectableQuad = randomConvexBisectableQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+
 prop_ConvexBisectableQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexBisectableQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = facesOf (fromMaybe (error $ show convexBisectableQuad) $ findStraightSkeleton convexBisectableQuad []) -/> slist []
   where
@@ -131,10 +148,12 @@ convexBisectableQuadSpec = do
       unit_ConvexBisectableQuadNoDivides
     it "finds a straight skeleton" $
       property prop_ConvexBisectableQuadHasStraightSkeleton
-    it "only finds one nodetree in the straight skeleton" $
+    it "finds only one nodetree in the straight skeleton" $
       property prop_ConvexBisectableQuadStraightSkeletonHasOneNodeTree
-    it "finds fewer than three generations in the found nodeTree" $
+    it "generates fewer than three generations of INodes" $
       property prop_ConvexBisectableQuadNodeTreeHasLessThanThreeGenerations
+    it "finds that all of the outArcs of the ENodes intersect at the same point" $
+      property prop_ConvexBisectableQuadENodeArcsIntersectAtSamePoint
     it "places faces on the straight skeleton of a convex bisectable quad" $
       property prop_ConvexBisectableQuadCanPlaceFaces
     it "finds only four faces for any convex bisectable quad" $
