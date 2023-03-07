@@ -53,13 +53,18 @@ import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
 import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
+
+prop_ConvexBisectableQuadNoConvexMotorcycles :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+prop_ConvexBisectableQuadNoConvexMotorcycles centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = convexMotorcycles convexBisectableQuad --> []
+  where
+    convexBisectableQuad = randomConvexBisectableQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
 
 prop_ConvexBisectableQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexBisectableQuadNoDivides x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = findDivisions convexBisectableQuad (fromMaybe (error $ show convexBisectableQuad) $ crashMotorcycles convexBisectableQuad []) --> []
@@ -117,7 +122,9 @@ convexBisectableQuadBrokenSpec = pure ()
 
 convexBisectableQuadSpec :: Spec
 convexBisectableQuadSpec = do
-  describe "Geometry (Convex Bisectable Quads)" $ do
+  describe "Convex Bisectable Quads" $ do
+    it "finds no convex motorcycles" $
+      property prop_ConvexBisectableQuadNoConvexMotorcycles
     it "finds no divides" $
       property prop_ConvexBisectableQuadNoDivides
     it "finds no divides (unit)" $

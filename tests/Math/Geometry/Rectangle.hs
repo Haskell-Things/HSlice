@@ -46,7 +46,7 @@ import Data.Coerce (coerce)
 import Graphics.Slicer (ℝ)
 
 -- Basic math functions.
-import Graphics.Slicer.Math.Definitions(Point2(Point2), mapWithFollower, minMaxPoints)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), mapWithFollower, minMaxPoints)
 
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (contourContainsContour, lineSegsOfContour)

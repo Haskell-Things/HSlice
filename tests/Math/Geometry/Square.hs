@@ -49,7 +49,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
 -- Assorted basic math functions
-import Graphics.Slicer.Math.Definitions(mapWithFollower)
+import Graphics.Slicer.Math.Definitions (mapWithFollower)
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
