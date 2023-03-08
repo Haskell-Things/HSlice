@@ -21,6 +21,7 @@
 module Math.Geometry.CommonTests (
   prop_CanPlaceFaces,
   prop_FacesHaveThreeToFiveSides,
+  prop_FacesInOrder,
   prop_HasFourFaces,
   prop_HasAStraightSkeleton,
   prop_NodeTreeHasFewerThanFourGenerations,
@@ -44,13 +45,13 @@ import Test.Hspec (Expectation)
 import Graphics.Slicer.Math.Definitions (Contour, lineSegsOfContour)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (generationsOf, nodeTreesOf, oneNodeTreeOf)
+import Graphics.Slicer.Math.RandomGeometry (edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf)
+import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
 import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles, convexMotorcycles)
@@ -78,6 +79,12 @@ prop_FacesHaveThreeToFiveSides contour
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
     arcCount (Face _ _ midArcs _) = 2 + len midArcs
+
+prop_FacesInOrder :: Contour -> Expectation
+prop_FacesInOrder contour = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []) --> contourAsSegs
+  where
+    firstSeg = onlyOneOf contourAsSegs
+    contourAsSegs = lineSegsOfContour contour
 
 -- | Ensure that we only place four races on the given contour.
 prop_HasFourFaces :: Contour -> Expectation

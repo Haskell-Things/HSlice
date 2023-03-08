@@ -91,7 +91,7 @@ import Math.Util ((-->), (-/>))
 prop_TriangleNoConvexMotorcycles :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
 prop_TriangleNoConvexMotorcycles centerX centerY rawRadians rawDists = convexMotorcycles triangle --> []
   where
-    triangle  = randomTriangle centerX centerY rawRadians rawDists
+    triangle = randomTriangle centerX centerY rawRadians rawDists
 
 prop_TriangleNoDivides :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
 prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions triangle (fromMaybe dumpError $ crashMotorcycles triangle []) --> []
@@ -238,7 +238,7 @@ triangleSpec = do
       property prop_TriangleNoDivides
     it "finds a straight skeleton" $
       property prop_TriangleHasStraightSkeleton
-    it "finds one NodeTree in the straight skeleton" $
+    it "finds only one NodeTree in the straight skeleton" $
       property prop_TriangleStraightSkeletonHasOneNodeTree
     it "only generates one generation of INodes" $
       property prop_TriangleStraightSkeletonHasOneGeneration

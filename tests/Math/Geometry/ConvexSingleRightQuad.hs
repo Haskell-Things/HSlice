@@ -23,7 +23,7 @@ module Math.Geometry.ConvexSingleRightQuad (
   convexSingleRightQuadSpec
   ) where
 
-import Prelude (Bool(False, True), Show(show), ($), (&&), (==), error, length, otherwise)
+import Prelude (Bool(False, True), ($), (&&), (==), error, length, otherwise)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe, isJust)
@@ -41,19 +41,16 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Definitions (Contour)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, onlyOneOf, randomConvexSingleRightQuad)
+import Graphics.Slicer.Math.RandomGeometry (Radian, randomConvexSingleRightQuad)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Face (facesOf)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesHaveThreeToFiveSides, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
-
--- Our Utility library, for making these tests easier to read.
-import Math.Util ((-->))
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesHaveThreeToFiveSides, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 unit_SingleRightQuadConvexHasNoStraightSkeleton :: Bool
 unit_SingleRightQuadConvexHasNoStraightSkeleton
@@ -90,12 +87,6 @@ unit_SingleRightQuadConvexStraightSkeletonBreaks
     rawFirstDistanceToCorner, rawSecondDistanceToCorner :: Positive ℝ
     rawFirstDistanceToCorner = 1.0
     rawSecondDistanceToCorner = 1.0
-
-prop_FacesInOrder :: Contour -> Expectation
-prop_FacesInOrder contour = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []) --> contourAsSegs
-  where
-    firstSeg = onlyOneOf contourAsSegs
-    contourAsSegs = lineSegsOfContour contour
 
 convexSingleRightQuadBrokenSpec :: Spec
 convexSingleRightQuadBrokenSpec = do

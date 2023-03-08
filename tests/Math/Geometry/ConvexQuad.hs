@@ -22,10 +22,7 @@ module Math.Geometry.ConvexQuad (
   convexQuadSpec
   ) where
 
-import Prelude (Bool, Show(show), ($), error)
-
--- The Maybe library.
-import Data.Maybe (fromMaybe)
+import Prelude (Bool, ($))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -36,33 +33,13 @@ import Test.QuickCheck (property, Positive)
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
--- Our Contour library.
-import Graphics.Slicer.Math.Contour (lineSegsOfContour)
-
 -- Basic definitions, used in multiple places in the math library.
 import Graphics.Slicer.Math.Definitions (Contour)
 
--- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, onlyOneOf, randomConvexQuad)
-
--- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (orderedFacesOf)
-
--- The entry point for getting the straight skeleton of a contour.
-import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
+import Graphics.Slicer.Math.RandomGeometry (Radian, randomConvexQuad)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
-
--- Our Utility library, for making these tests easier to read.
-import Math.Util ((-->))
-
-prop_ConvexQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadFacesInOrder x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) --> convexQuadAsSegs
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-    convexQuadAsSegs = lineSegsOfContour convexQuad
-    firstSeg = onlyOneOf convexQuadAsSegs
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesHaveThreeToFiveSides, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 convexQuadSpec :: Spec
 convexQuadSpec = do
@@ -81,8 +58,10 @@ convexQuadSpec = do
       property (expectationFromConvexQuad prop_CanPlaceFaces)
     it "only places four faces" $
       property (expectationFromConvexQuad prop_HasFourFaces)
+    it "faces have between three and five sides" $
+      property (boolFromConvexQuad prop_FacesHaveThreeToFiveSides)
     it "places faces on a convex quad in the order the line segments were given" $
-      property prop_ConvexQuadFacesInOrder
+      property (expectationFromConvexQuad prop_FacesInOrder)
   where
     boolFromConvexQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
     boolFromConvexQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = f convexQuad
