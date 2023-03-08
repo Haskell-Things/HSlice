@@ -23,13 +23,10 @@ module Math.Geometry.ConvexSingleRightQuad (
   convexSingleRightQuadSpec
   ) where
 
-import Prelude (Bool(False, True), Show(show), ($), (.), (+), (&&), (<>), (==), (||), (<$>), all, concat, error, length, otherwise)
+import Prelude (Bool(False, True), Show(show), ($), (&&), (==), error, length, otherwise)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe, isJust)
-
--- Slists, a form of list with a stated size in the structure.
-import Slist (len)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -50,13 +47,13 @@ import Graphics.Slicer.Math.Definitions (Contour)
 import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, onlyOneOf, randomConvexSingleRightQuad)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesHaveThreeToFiveSides, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->))
@@ -97,23 +94,6 @@ unit_SingleRightQuadConvexStraightSkeletonBreaks
     rawFirstDistanceToCorner = 1.0
     rawSecondDistanceToCorner = 1.0
 
-prop_HasFourFaces :: Contour -> Expectation
-prop_HasFourFaces contour = length (facesOf $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []) --> 4
-
--- FIXME: why do some faces have four arcs?
-prop_FacesHaveThreeToFiveSides :: Contour -> Bool
-prop_FacesHaveThreeToFiveSides contour
-  | res == True = True
-  | otherwise = error $ "Too many arcs found:\n"
-                     <> (concat $ show . arcCount <$> faces) <> "\n"
-                     <> show skeleton <> "\n"
-                     <> show faces <> "\n"
-  where
-    res = all (\a -> arcCount a == 2 || arcCount a == 3 || arcCount a == 4) faces
-    faces = facesOf skeleton
-    skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
-    arcCount (Face _ _ midArcs _) = 2 + len midArcs
-
 prop_FacesInOrder :: Contour -> Expectation
 prop_FacesInOrder contour = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []) --> contourAsSegs
   where
@@ -139,13 +119,14 @@ convexSingleRightQuadSpec = do
       property (expectationFromConvexSingleRightQuad prop_HasAStraightSkeleton)
     it "only finds one nodeTree in the straight skeleton" $
       property (expectationFromConvexSingleRightQuad prop_StraightSkeletonHasOneNodeTree)
-    it "generates fewer than four generations" $
+    it "generates fewer than four generations of INodes" $
       property (boolFromConvexSingleRightQuad prop_NodeTreeHasFewerThanFourGenerations)
-    it "places faces on the straight skeleton" $
+    it "can places face on the straight skeleton" $
       property (expectationFromConvexSingleRightQuad prop_CanPlaceFaces)
     it "only places four faces" $
       property (expectationFromConvexSingleRightQuad prop_HasFourFaces)
-    it "faces have less than four sides" $
+    -- FIXME: why do some faces have four arcs?
+    it "faces have between three and five sides" $
       property (boolFromConvexSingleRightQuad prop_FacesHaveThreeToFiveSides)
     it "places faces on a convex single right quad in the order the line segments were given" $
       property (expectationFromConvexSingleRightQuad prop_FacesInOrder)

@@ -22,7 +22,7 @@ module Math.Geometry.ConvexQuad (
   convexQuadSpec
   ) where
 
-import Prelude (Bool, Show(show), ($), error, length)
+import Prelude (Bool, Show(show), ($), error)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe)
@@ -46,21 +46,16 @@ import Graphics.Slicer.Math.Definitions (Contour)
 import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, onlyOneOf, randomConvexQuad)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Face (orderedFacesOf)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->))
-
-prop_ConvexQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadHasRightFaceCount x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = length (facesOf $ fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) --> 4
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
 
 prop_ConvexQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexQuadFacesInOrder x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) --> convexQuadAsSegs
@@ -82,10 +77,10 @@ convexQuadSpec = do
       property (expectationFromConvexQuad prop_StraightSkeletonHasOneNodeTree)
     it "generates one, two, or three generations of INodes" $
       property (boolFromConvexQuad prop_NodeTreeHasFewerThanFourGenerations)
-    it "places faces on the straight skeleton of a convex quad" $
+    it "can place faces on the straight skeleton" $
       property (expectationFromConvexQuad prop_CanPlaceFaces)
-    it "finds only four faces for any convex quad" $
-      property prop_ConvexQuadHasRightFaceCount
+    it "only places four faces" $
+      property (expectationFromConvexQuad prop_HasFourFaces)
     it "places faces on a convex quad in the order the line segments were given" $
       property prop_ConvexQuadFacesInOrder
   where

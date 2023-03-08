@@ -20,6 +20,8 @@
 
 module Math.Geometry.CommonTests (
   prop_CanPlaceFaces,
+  prop_FacesHaveThreeToFiveSides,
+  prop_HasFourFaces,
   prop_HasAStraightSkeleton,
   prop_NodeTreeHasFewerThanFourGenerations,
   prop_NoDivides,
@@ -27,13 +29,13 @@ module Math.Geometry.CommonTests (
   prop_StraightSkeletonHasOneNodeTree
   ) where
 
-import Prelude (Bool, ($), (<), error, show)
+import Prelude (Bool(True), ($), (<), (.), (+), (<>), (==), (||), (<$>), all, concat, error, length, otherwise, show)
 
 -- The Maybe library.
 import Data.Maybe (Maybe(Nothing), fromMaybe)
 
 -- Slists, a form of list with a stated size in the structure.
-import Slist (slist)
+import Slist (len, slist)
 
 -- Hspec, for writing specs.
 import Test.Hspec (Expectation)
@@ -48,7 +50,7 @@ import Graphics.Slicer.Math.RandomGeometry (generationsOf, nodeTreesOf, oneNodeT
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (facesOf)
+import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
 import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles, convexMotorcycles)
@@ -62,6 +64,24 @@ import Math.Util ((-->), (-/>))
 -- | Ensure that faces can be placed on the given contour.
 prop_CanPlaceFaces :: Contour -> Expectation
 prop_CanPlaceFaces contour = facesOf (fromMaybe (error $ show contour) $ findStraightSkeleton contour []) -/> slist []
+
+-- | Ensure all of the faces placed on a contour have between three and five sides.
+prop_FacesHaveThreeToFiveSides :: Contour -> Bool
+prop_FacesHaveThreeToFiveSides contour
+  | res == True = True
+  | otherwise = error $ "Too many arcs found:\n"
+                     <> (concat $ show . arcCount <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    res = all (\a -> arcCount a == 2 || arcCount a == 3 || arcCount a == 4) faces
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
+    arcCount (Face _ _ midArcs _) = 2 + len midArcs
+
+-- | Ensure that we only place four races on the given contour.
+prop_HasFourFaces :: Contour -> Expectation
+prop_HasFourFaces contour = length (facesOf $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []) --> 4
 
 -- | Ensure we can actually draw a straight skeleton for the given contour.
 prop_HasAStraightSkeleton :: Contour -> Expectation
