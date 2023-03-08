@@ -48,28 +48,17 @@ import Graphics.Slicer.Math.Definitions (Contour)
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConvexQuad)
 
--- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
-import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
-
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
 import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
-
--- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_NoMotorcycles)
+import Math.Geometry.CommonTests (prop_NoDivides, prop_NoMotorcycles)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
-
-prop_ConvexQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadNoDivides x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = findDivisions convexQuad (fromMaybe (error $ show convexQuad) $ crashMotorcycles convexQuad []) --> []
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
 
 prop_ConvexQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = findStraightSkeleton convexQuad [] -/> Nothing
@@ -108,8 +97,8 @@ convexQuadSpec = do
   describe "Geometry (Convex Quads)" $ do
     it "finds no convex motorcycles" $
       property (expectationFromConvexQuad prop_NoMotorcycles)
-    it "finds no divide" $
-      property prop_ConvexQuadNoDivides
+    it "finds no divides" $
+      property (expectationFromConvexQuad prop_NoDivides)
     it "finds a straight skeleton" $
       property prop_ConvexQuadHasStraightSkeleton
     it "only finds one nodetree in the straight skeleton" $

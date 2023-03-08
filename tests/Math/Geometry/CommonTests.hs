@@ -19,10 +19,14 @@
 {- property tests that are reusable with many types of geometric figgures. -}
 
 module Math.Geometry.CommonTests (
+  prop_NoDivides,
   prop_NoMotorcycles
   ) where
 
-import Prelude ()
+import Prelude (($), error, show)
+
+-- The Maybe library.
+import Data.Maybe (fromMaybe)
 
 -- Hspec, for writing specs.
 import Test.Hspec (Expectation)
@@ -30,12 +34,18 @@ import Test.Hspec (Expectation)
 -- Basic definitions, used in multiple places in the math library.
 import Graphics.Slicer.Math.Definitions (Contour)
 
+-- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
+import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
+
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles, convexMotorcycles)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->))
 
+-- | Ensure the given contour has no divides in it.
+prop_NoDivides :: Contour -> Expectation
+prop_NoDivides contour = findDivisions contour (fromMaybe (error $ show contour) $ crashMotorcycles contour []) --> []
+
 prop_NoMotorcycles :: Contour -> Expectation
 prop_NoMotorcycles contour = convexMotorcycles contour --> []
-

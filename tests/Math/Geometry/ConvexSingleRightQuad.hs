@@ -49,26 +49,17 @@ import Graphics.Slicer.Math.Definitions (Contour)
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConvexSingleRightQuad)
 
--- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
-import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
-
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
-
--- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
+-- Shared tests, between different geometry.
+import Math.Geometry.CommonTests (prop_NoDivides, prop_NoMotorcycles)
+
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
-
-prop_NoMotorcycles :: Contour -> Expectation
-prop_NoMotorcycles contour = convexMotorcycles contour --> []
-
-prop_NoDivides :: Contour -> Expectation
-prop_NoDivides contour = findDivisions contour (fromMaybe (error $ show contour) $ crashMotorcycles contour []) --> []
 
 prop_HasStraightSkeleton :: Contour -> Expectation
 prop_HasStraightSkeleton contour = findStraightSkeleton contour [] -/> Nothing
