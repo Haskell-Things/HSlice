@@ -146,6 +146,7 @@ test-suite test-hslice
     other-modules:
         Math.Util
         Math.PGA
+        Math.Geometry.CommonTests
         Math.Geometry.ConcaveChevronQuad
         Math.Geometry.ConvexBisectableQuad
         Math.Geometry.ConvexQuad
@@ -185,6 +186,7 @@ test-suite test-broken
     other-modules:
         Math.Util
         Math.PGA
+        Math.Geometry.CommonTests
         Math.Geometry.ConcaveChevronQuad
         Math.Geometry.ConvexBisectableQuad
         Math.Geometry.ConvexQuad
@@ -224,6 +226,7 @@ test-suite test-stat
     other-modules:
         Math.Util
         Math.PGA
+        Math.Geometry.CommonTests
         Math.Geometry.ConvexBisectableQuad
         Math.Geometry.ConvexQuad
         Math.Geometry.ConvexSingleRightQuad

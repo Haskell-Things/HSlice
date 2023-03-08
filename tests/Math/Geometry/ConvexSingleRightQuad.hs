@@ -121,6 +121,7 @@ prop_CanPlaceFaces contour = facesOf (fromMaybe (error $ show contour) $ findStr
 prop_HasFourFaces :: Contour -> Expectation
 prop_HasFourFaces contour = length (facesOf $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []) --> 4
 
+-- FIXME: why do some faces have four arcs?
 prop_FacesHaveThreeToFiveSides :: Contour -> Bool
 prop_FacesHaveThreeToFiveSides contour
   | res == True = True

@@ -42,6 +42,9 @@ import Graphics.Slicer (ℝ)
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
+-- Basic definitions, used in multiple places in the math library.
+import Graphics.Slicer.Math.Definitions (Contour)
+
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConvexQuad)
 
@@ -56,6 +59,9 @@ import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
+
+-- Shared tests, between different geometry.
+import Math.Geometry.CommonTests (prop_NoMotorcycles)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
@@ -100,6 +106,8 @@ prop_ConvexQuadFacesInOrder x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDis
 convexQuadSpec :: Spec
 convexQuadSpec = do
   describe "Geometry (Convex Quads)" $ do
+    it "finds no convex motorcycles" $
+      property (expectationFromConvexQuad prop_NoMotorcycles)
     it "finds no divide" $
       property prop_ConvexQuadNoDivides
     it "finds a straight skeleton" $
@@ -114,3 +122,8 @@ convexQuadSpec = do
       property prop_ConvexQuadHasRightFaceCount
     it "places faces on a convex quad in the order the line segments were given" $
       property prop_ConvexQuadFacesInOrder
+  where
+    expectationFromConvexQuad :: (Contour -> Expectation) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ-> Expectation
+    expectationFromConvexQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner= f convexQuad
+      where
+        convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
