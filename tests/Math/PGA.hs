@@ -52,11 +52,11 @@ import Slist (slist)
 import Graphics.Slicer (ℝ)
 
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, numPointsOfContour, lineSegsOfContour, makeLineSegContour, makePointContour, maybeFlipContour)
+import Graphics.Slicer.Math.Contour (contourContainsContour, getContours, numPointsOfContour, makeLineSegContour, makePointContour, maybeFlipContour)
 
 import Graphics.Slicer.Math.ContourIntersections (getLineContourIntersections)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), Contour(LineSegContour), pointsOfContour, roundPoint2, startPoint, distance, makeLineSeg, endPoint)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg), Contour(LineSegContour), pointsOfContour, roundPoint2, startPoint, distance, lineSegsOfContour, makeLineSeg, endPoint)
 
 -- Our Geometric Algebra library.
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEZero, GEPlus, G0), GVal(GVal), GVec(GVec), UlpSum(UlpSum), addValPairWithErr, subValPairWithErr, addValWithErr, subVal, addVecPair, subVecPair, mulScalarVecWithErr, divVecScalarWithErr, scalarPart, ulpRaw, ulpVal, vectorPart, (•), (∧), (⋅), (⎣), (⎤))

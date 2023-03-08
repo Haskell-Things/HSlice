@@ -40,8 +40,8 @@ import Test.QuickCheck (property, Positive)
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
--- Our Contour library.
-import Graphics.Slicer.Math.Contour (lineSegsOfContour)
+-- Our basic math library.
+import Graphics.Slicer.Math.Definitions (lineSegsOfContour)
 
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConcaveChevronQuad)

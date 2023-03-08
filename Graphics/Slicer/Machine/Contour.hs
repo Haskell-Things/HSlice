@@ -27,9 +27,9 @@ import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, maybeToList)
 
-import Graphics.Slicer.Math.Contour (lineSegsOfContour, makeLineSegContour)
+import Graphics.Slicer.Math.Contour (makeLineSegContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, mapWithNeighbors, makeLineSeg)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, lineSegsOfContour, mapWithNeighbors, makeLineSeg)
 
 import Graphics.Slicer.Math.Intersections (noIntersection, intersectionOf)
 

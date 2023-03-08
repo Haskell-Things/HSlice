@@ -45,11 +45,11 @@ import Data.Coerce (coerce)
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
--- Basic math functions.
-import Graphics.Slicer.Math.Definitions (Point2(Point2), mapWithFollower, minMaxPoints)
-
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (contourContainsContour, lineSegsOfContour)
+import Graphics.Slicer.Math.Contour (contourContainsContour)
+
+-- Basic math functions.
+import Graphics.Slicer.Math.Definitions (Point2(Point2), lineSegsOfContour, mapWithFollower, minMaxPoints)
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)

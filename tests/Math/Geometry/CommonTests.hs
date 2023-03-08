@@ -41,7 +41,7 @@ import Slist (len, slist)
 import Test.Hspec (Expectation)
 
 -- Basic definitions, used in multiple places in the math library.
-import Graphics.Slicer.Math.Definitions (Contour)
+import Graphics.Slicer.Math.Definitions (Contour, lineSegsOfContour)
 
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (generationsOf, nodeTreesOf, oneNodeTreeOf)

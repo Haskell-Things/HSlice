@@ -37,9 +37,6 @@ import Test.QuickCheck (property, Positive)
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
--- Our Contour library.
-import Graphics.Slicer.Math.Contour (lineSegsOfContour)
-
 -- Basic definitions, used in multiple places in the math library.
 import Graphics.Slicer.Math.Definitions (Contour)
 

@@ -50,10 +50,10 @@ import Test.QuickCheck.Property (label, liftBool, Property)
 import Graphics.Slicer (ℝ)
 
 -- Our Contour library.
-import Graphics.Slicer.Math.Contour (lineSegsOfContour, insideIsLeft, innerContourPoint, firstPointPairOfContour)
+import Graphics.Slicer.Math.Contour (insideIsLeft, innerContourPoint, firstPointPairOfContour)
 
 -- Basic functions for mapping, rounding, and introspecting points.
-import Graphics.Slicer.Math.Definitions (Point2(Point2), mapWithFollower, startPoint, endPoint, pointBetweenPoints)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), mapWithFollower, startPoint, endPoint, lineSegsOfContour, pointBetweenPoints)
 
 -- Basic intersection logic.
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, intersectionBetween)

@@ -48,9 +48,7 @@ import Graphics.Implicit.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Arcs (getFirstArc, getInsideArc, getOutsideArc)
 
-import Graphics.Slicer.Math.Contour (lineSegsOfContour)
-
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, mapWithFollower, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, lineSegsOfContour, mapWithFollower, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 

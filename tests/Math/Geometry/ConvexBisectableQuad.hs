@@ -41,11 +41,8 @@ import Test.QuickCheck (property, Positive)
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
--- Our Contour library.
-import Graphics.Slicer.Math.Contour (lineSegsOfContour)
-
--- Assorted basic math functions
-import Graphics.Slicer.Math.Definitions (mapWithFollower)
+-- Assorted basic math functions.
+import Graphics.Slicer.Math.Definitions (lineSegsOfContour, mapWithFollower)
 
 -- Basic intersection logic.
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint)

@@ -48,9 +48,7 @@ import Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTr
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeTree, mergeNodeTrees)
 
-import Graphics.Slicer.Math.Contour (lineSegsOfContour)
-
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, makeLineSeg, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, lineSegsOfContour, makeLineSeg, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 

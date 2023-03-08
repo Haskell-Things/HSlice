@@ -36,7 +36,6 @@ module Graphics.Slicer.Math.Contour (
   insideIsLeft,
   justOneContourFrom,
   lastPointOfContour,
-  lineSegsOfContour,
   makeContourTreeSet,
   makeLineSegContour,
   makePointContour,
