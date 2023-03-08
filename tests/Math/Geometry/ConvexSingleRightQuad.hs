@@ -26,7 +26,7 @@ module Math.Geometry.ConvexSingleRightQuad (
 import Prelude (Bool(False, True), Show(show), ($), (<), (.), (+), (&&), (<>), (==), (||), (<$>), all, concat, error, length, otherwise)
 
 -- The Maybe library.
-import Data.Maybe (Maybe(Nothing), fromMaybe, isJust)
+import Data.Maybe (fromMaybe, isJust)
 
 -- Slists, a form of list with a stated size in the structure.
 import Slist (len, slist)
@@ -56,13 +56,10 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_NoDivides, prop_NoMotorcycles)
+import Math.Geometry.CommonTests (prop_HasAStraightSkeleton, prop_NoDivides, prop_NoMotorcycles)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
-
-prop_HasStraightSkeleton :: Contour -> Expectation
-prop_HasStraightSkeleton contour = findStraightSkeleton contour [] -/> Nothing
 
 unit_SingleRightQuadConvexHasNoStraightSkeleton :: Bool
 unit_SingleRightQuadConvexHasNoStraightSkeleton
@@ -148,7 +145,7 @@ convexSingleRightQuadSpec = do
     it "finds no divides" $
       property (expectationFromConvexSingleRightQuad prop_NoDivides)
     it "finds a straight skeleton" $
-      property (expectationFromConvexSingleRightQuad prop_HasStraightSkeleton)
+      property (expectationFromConvexSingleRightQuad prop_HasAStraightSkeleton)
     it "only finds one nodeTree in the straight skeleton" $
       property (expectationFromConvexSingleRightQuad prop_StraightSkeletonHasOneNodeTree)
     it "generates fewer than four generations" $

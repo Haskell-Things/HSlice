@@ -25,7 +25,7 @@ module Math.Geometry.ConvexQuad (
 import Prelude (Bool, Show(show), ($), (<), error, length)
 
 -- The Maybe library.
-import Data.Maybe (fromMaybe, Maybe(Nothing))
+import Data.Maybe (fromMaybe)
 
 -- Slists, a form of list with a stated size in the structure.
 import Slist (slist)
@@ -55,15 +55,10 @@ import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_NoDivides, prop_NoMotorcycles)
+import Math.Geometry.CommonTests (prop_HasAStraightSkeleton, prop_NoDivides, prop_NoMotorcycles)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
-
-prop_ConvexQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = findStraightSkeleton convexQuad [] -/> Nothing
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
 
 prop_ConvexQuadStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexQuadStraightSkeletonHasOneNodeTree x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = nodeTreesOf (findStraightSkeleton convexQuad []) --> 1
@@ -100,7 +95,7 @@ convexQuadSpec = do
     it "finds no divides" $
       property (expectationFromConvexQuad prop_NoDivides)
     it "finds a straight skeleton" $
-      property prop_ConvexQuadHasStraightSkeleton
+      property (expectationFromConvexQuad prop_HasAStraightSkeleton)
     it "only finds one nodetree in the straight skeleton" $
       property prop_ConvexQuadStraightSkeletonHasOneNodeTree
     it "generates one, two, or three generations of INodes" $

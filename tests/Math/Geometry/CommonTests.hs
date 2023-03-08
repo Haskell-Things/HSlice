@@ -19,6 +19,7 @@
 {- property tests that are reusable with many types of geometric figgures. -}
 
 module Math.Geometry.CommonTests (
+  prop_HasAStraightSkeleton,
   prop_NoDivides,
   prop_NoMotorcycles
   ) where
@@ -26,7 +27,7 @@ module Math.Geometry.CommonTests (
 import Prelude (($), error, show)
 
 -- The Maybe library.
-import Data.Maybe (fromMaybe)
+import Data.Maybe (Maybe(Nothing), fromMaybe)
 
 -- Hspec, for writing specs.
 import Test.Hspec (Expectation)
@@ -40,12 +41,20 @@ import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
 import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles, convexMotorcycles)
 
+-- The entry point for getting the straight skeleton of a contour.
+import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
+
 -- Our Utility library, for making these tests easier to read.
-import Math.Util ((-->))
+import Math.Util ((-->), (-/>))
+
+-- | Ensure we can actually draw a straight skeleton for the given contour.
+prop_HasAStraightSkeleton :: Contour -> Expectation
+prop_HasAStraightSkeleton contour = findStraightSkeleton contour [] -/> Nothing
 
 -- | Ensure the given contour has no divides in it.
 prop_NoDivides :: Contour -> Expectation
 prop_NoDivides contour = findDivisions contour (fromMaybe (error $ show contour) $ crashMotorcycles contour []) --> []
 
+-- | Ensure no motorcycles are found in the given contour.
 prop_NoMotorcycles :: Contour -> Expectation
 prop_NoMotorcycles contour = convexMotorcycles contour --> []
