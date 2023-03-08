@@ -23,13 +23,13 @@ module Math.Geometry.ConvexSingleRightQuad (
   convexSingleRightQuadSpec
   ) where
 
-import Prelude (Bool(False, True), Show(show), ($), (<), (&&), (==), error, length, otherwise)
+import Prelude (Bool(False, True), Show(show), ($), (<), (.), (+), (&&), (<>), (==), (||), (<$>), all, concat, error, length, otherwise)
 
 -- The Maybe library.
 import Data.Maybe (Maybe(Nothing), fromMaybe, isJust)
 
 -- Slists, a form of list with a stated size in the structure.
-import Slist (slist)
+import Slist (len, slist)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -53,7 +53,7 @@ import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, node
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
@@ -121,6 +121,19 @@ prop_CanPlaceFaces contour = facesOf (fromMaybe (error $ show contour) $ findStr
 prop_HasFourFaces :: Contour -> Expectation
 prop_HasFourFaces contour = length (facesOf $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []) --> 4
 
+prop_FacesHaveThreeToFiveSides :: Contour -> Bool
+prop_FacesHaveThreeToFiveSides contour
+  | res == True = True
+  | otherwise = error $ "Too many arcs found:\n"
+                     <> (concat $ show . arcCount <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    res = all (\a -> arcCount a == 2 || arcCount a == 3 || arcCount a == 4) faces
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
+    arcCount (Face _ _ midArcs _) = 2 + len midArcs
+
 prop_FacesInOrder :: Contour -> Expectation
 prop_FacesInOrder contour = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []) --> contourAsSegs
   where
@@ -146,12 +159,14 @@ convexSingleRightQuadSpec = do
       property (expectationFromConvexSingleRightQuad prop_HasStraightSkeleton)
     it "only finds one nodeTree in the straight skeleton" $
       property (expectationFromConvexSingleRightQuad prop_StraightSkeletonHasOneNodeTree)
-    it "generates less than four generations" $
+    it "generates fewer than four generations" $
       property (boolFromConvexSingleRightQuad prop_NodeTreeHasLessThanFourGenerations)
-    it "places faces on the straight skeleton of a convex single right quad" $
+    it "places faces on the straight skeleton" $
       property (expectationFromConvexSingleRightQuad prop_CanPlaceFaces)
-    it "finds only four faces for any convex single right quad" $
+    it "only places four faces" $
       property (expectationFromConvexSingleRightQuad prop_HasFourFaces)
+    it "faces have less than four sides" $
+      property (boolFromConvexSingleRightQuad prop_FacesHaveThreeToFiveSides)
     it "places faces on a convex single right quad in the order the line segments were given" $
       property (expectationFromConvexSingleRightQuad prop_FacesInOrder)
   where

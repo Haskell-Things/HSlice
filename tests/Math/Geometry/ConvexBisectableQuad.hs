@@ -181,7 +181,7 @@ convexBisectableQuadSpec = do
       unit_ConvexBisectableQuadNoDivides
     it "finds a straight skeleton" $
       property prop_ConvexBisectableQuadHasStraightSkeleton
-    it "finds only one nodetree in the straight skeleton" $
+    it "only finds one nodetree in the straight skeleton" $
       property prop_ConvexBisectableQuadStraightSkeletonHasOneNodeTree
     it "generates fewer than three generations of INodes" $
       property prop_ConvexBisectableQuadNodeTreeHasLessThanThreeGenerations
