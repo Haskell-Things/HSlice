@@ -20,12 +20,13 @@
 
 module Math.Geometry.CommonTests (
   prop_HasAStraightSkeleton,
+  prop_NodeTreeHasFewerThanFourGenerations,
   prop_NoDivides,
   prop_NoMotorcycles,
   prop_StraightSkeletonHasOneNodeTree
   ) where
 
-import Prelude (($), error, show)
+import Prelude (Bool, ($), (<), error, show)
 
 -- The Maybe library.
 import Data.Maybe (Maybe(Nothing), fromMaybe)
@@ -37,7 +38,7 @@ import Test.Hspec (Expectation)
 import Graphics.Slicer.Math.Definitions (Contour)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (nodeTreesOf)
+import Graphics.Slicer.Math.RandomGeometry (generationsOf, nodeTreesOf, oneNodeTreeOf)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
@@ -54,6 +55,9 @@ import Math.Util ((-->), (-/>))
 -- | Ensure we can actually draw a straight skeleton for the given contour.
 prop_HasAStraightSkeleton :: Contour -> Expectation
 prop_HasAStraightSkeleton contour = findStraightSkeleton contour [] -/> Nothing
+
+prop_NodeTreeHasFewerThanFourGenerations :: Contour -> Bool
+prop_NodeTreeHasFewerThanFourGenerations contour = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []) < 4
 
 -- | Ensure the given contour has no divides in it.
 prop_NoDivides :: Contour -> Expectation

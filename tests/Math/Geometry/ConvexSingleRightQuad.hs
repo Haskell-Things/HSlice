@@ -23,7 +23,7 @@ module Math.Geometry.ConvexSingleRightQuad (
   convexSingleRightQuadSpec
   ) where
 
-import Prelude (Bool(False, True), Show(show), ($), (<), (.), (+), (&&), (<>), (==), (||), (<$>), all, concat, error, length, otherwise)
+import Prelude (Bool(False, True), Show(show), ($), (.), (+), (&&), (<>), (==), (||), (<$>), all, concat, error, length, otherwise)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe, isJust)
@@ -47,7 +47,7 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 import Graphics.Slicer.Math.Definitions (Contour)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, oneNodeTreeOf, onlyOneOf, randomConvexSingleRightQuad)
+import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, onlyOneOf, randomConvexSingleRightQuad)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
@@ -56,7 +56,7 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_HasAStraightSkeleton, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+import Math.Geometry.CommonTests (prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
@@ -96,9 +96,6 @@ unit_SingleRightQuadConvexStraightSkeletonBreaks
     rawFirstDistanceToCorner, rawSecondDistanceToCorner :: Positive ℝ
     rawFirstDistanceToCorner = 1.0
     rawSecondDistanceToCorner = 1.0
-
-prop_NodeTreeHasLessThanFourGenerations :: Contour -> Bool
-prop_NodeTreeHasLessThanFourGenerations contour = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []) < 4
 
 prop_CanPlaceFaces :: Contour -> Expectation
 prop_CanPlaceFaces contour = facesOf (fromMaybe (error $ show contour) $ findStraightSkeleton contour []) -/> slist []
@@ -146,7 +143,7 @@ convexSingleRightQuadSpec = do
     it "only finds one nodeTree in the straight skeleton" $
       property (expectationFromConvexSingleRightQuad prop_StraightSkeletonHasOneNodeTree)
     it "generates fewer than four generations" $
-      property (boolFromConvexSingleRightQuad prop_NodeTreeHasLessThanFourGenerations)
+      property (boolFromConvexSingleRightQuad prop_NodeTreeHasFewerThanFourGenerations)
     it "places faces on the straight skeleton" $
       property (expectationFromConvexSingleRightQuad prop_CanPlaceFaces)
     it "only places four faces" $

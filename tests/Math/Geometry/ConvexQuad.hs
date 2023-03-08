@@ -22,7 +22,7 @@ module Math.Geometry.ConvexQuad (
   convexQuadSpec
   ) where
 
-import Prelude (Bool, Show(show), ($), (<), error, length)
+import Prelude (Bool, Show(show), ($), error, length)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe)
@@ -46,7 +46,7 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 import Graphics.Slicer.Math.Definitions (Contour)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, oneNodeTreeOf, onlyOneOf, randomConvexQuad)
+import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, onlyOneOf, randomConvexQuad)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
 import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
@@ -55,15 +55,10 @@ import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_HasAStraightSkeleton, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+import Math.Geometry.CommonTests (prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
-
-prop_ConvexQuadNodeTreeHasLessThanFourGenerations :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
-prop_ConvexQuadNodeTreeHasLessThanFourGenerations x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = generationsOf (oneNodeTreeOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton convexQuad []) < 4
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
 
 prop_ConvexQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = facesOf (fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) -/> slist []
@@ -94,7 +89,7 @@ convexQuadSpec = do
     it "only finds one nodetree in the straight skeleton" $
       property (expectationFromConvexQuad prop_StraightSkeletonHasOneNodeTree)
     it "generates one, two, or three generations of INodes" $
-      property prop_ConvexQuadNodeTreeHasLessThanFourGenerations
+      property (boolFromConvexQuad prop_NodeTreeHasFewerThanFourGenerations)
     it "places faces on the straight skeleton of a convex quad" $
       property prop_ConvexQuadCanPlaceFaces
     it "finds only four faces for any convex quad" $
@@ -102,6 +97,10 @@ convexQuadSpec = do
     it "places faces on a convex quad in the order the line segments were given" $
       property prop_ConvexQuadFacesInOrder
   where
+    boolFromConvexQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
+    boolFromConvexQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = f convexQuad
+      where
+        convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
     expectationFromConvexQuad :: (Contour -> Expectation) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ-> Expectation
     expectationFromConvexQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner= f convexQuad
       where
