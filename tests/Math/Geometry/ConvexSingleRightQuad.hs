@@ -43,6 +43,9 @@ import Graphics.Slicer (ℝ)
 -- Our Contour library.
 import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 
+-- Basic definitions, used in multiple places in the math library.
+import Graphics.Slicer.Math.Definitions (Contour)
+
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConvexSingleRightQuad)
 
@@ -53,7 +56,7 @@ import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
 import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
@@ -61,15 +64,14 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
 
-prop_SingleRightQuadConvexNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_SingleRightQuadConvexNoDivides x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = findDivisions convexSingleRightQuad (fromMaybe (error $ show convexSingleRightQuad) $ crashMotorcycles convexSingleRightQuad []) --> []
-  where
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+prop_NoMotorcycles :: Contour -> Expectation
+prop_NoMotorcycles contour = convexMotorcycles contour --> []
 
-prop_SingleRightQuadConvexHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_SingleRightQuadConvexHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = findStraightSkeleton convexSingleRightQuad [] -/> Nothing
-  where
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+prop_NoDivides :: Contour -> Expectation
+prop_NoDivides contour = findDivisions contour (fromMaybe (error $ show contour) $ crashMotorcycles contour []) --> []
+
+prop_HasStraightSkeleton :: Contour -> Expectation
+prop_HasStraightSkeleton contour = findStraightSkeleton contour [] -/> Nothing
 
 unit_SingleRightQuadConvexHasNoStraightSkeleton :: Bool
 unit_SingleRightQuadConvexHasNoStraightSkeleton
@@ -107,32 +109,23 @@ unit_SingleRightQuadConvexStraightSkeletonBreaks
     rawFirstDistanceToCorner = 1.0
     rawSecondDistanceToCorner = 1.0
 
-prop_SingleRightQuadConvexStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_SingleRightQuadConvexStraightSkeletonHasOneNodeTree x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = nodeTreesOf (findStraightSkeleton convexSingleRightQuad []) --> 1
-  where
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+prop_StraightSkeletonHasOneNodeTree :: Contour -> Expectation
+prop_StraightSkeletonHasOneNodeTree contour = nodeTreesOf (findStraightSkeleton contour []) --> 1
 
-prop_SingleRightQuadConvexNodeTreeHasLessThanFourGenerations :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Bool
-prop_SingleRightQuadConvexNodeTreeHasLessThanFourGenerations x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton convexSingleRightQuad []) < 4
-  where
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+prop_NodeTreeHasLessThanFourGenerations :: Contour -> Bool
+prop_NodeTreeHasLessThanFourGenerations contour = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []) < 4
 
-prop_SingleRightQuadConvexCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_SingleRightQuadConvexCanPlaceFaces x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = facesOf (fromMaybe (error $ show convexSingleRightQuad) $ findStraightSkeleton convexSingleRightQuad []) -/> slist []
-  where
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+prop_CanPlaceFaces :: Contour -> Expectation
+prop_CanPlaceFaces contour = facesOf (fromMaybe (error $ show contour) $ findStraightSkeleton contour []) -/> slist []
 
-prop_SingleRightQuadConvexHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_SingleRightQuadConvexHasRightFaceCount x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = length (facesOf $ fromMaybe (error $ show convexSingleRightQuad) $ findStraightSkeleton convexSingleRightQuad []) --> 4
-  where
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+prop_HasFourFaces :: Contour -> Expectation
+prop_HasFourFaces contour = length (facesOf $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []) --> 4
 
-prop_SingleRightQuadConvexFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_SingleRightQuadConvexFacesInOrder x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show convexSingleRightQuad) $ findStraightSkeleton convexSingleRightQuad []) --> convexSingleRightQuadAsSegs
+prop_FacesInOrder :: Contour -> Expectation
+prop_FacesInOrder contour = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []) --> contourAsSegs
   where
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-    convexSingleRightQuadAsSegs = lineSegsOfContour convexSingleRightQuad
-    firstSeg = onlyOneOf convexSingleRightQuadAsSegs
+    firstSeg = onlyOneOf contourAsSegs
+    contourAsSegs = lineSegsOfContour contour
 
 convexSingleRightQuadBrokenSpec :: Spec
 convexSingleRightQuadBrokenSpec = do
@@ -145,17 +138,28 @@ convexSingleRightQuadBrokenSpec = do
 convexSingleRightQuadSpec :: Spec
 convexSingleRightQuadSpec = do
   describe "Geometry (Single Right Quads, Convex)" $ do
+    it "finds no convex motorcycles" $
+      property (expectationFromConvexSingleRightQuad prop_NoMotorcycles)
     it "finds no divides" $
-      property prop_SingleRightQuadConvexNoDivides
+      property (expectationFromConvexSingleRightQuad prop_NoDivides)
     it "finds a straight skeleton" $
-      property prop_SingleRightQuadConvexHasStraightSkeleton
+      property (expectationFromConvexSingleRightQuad prop_HasStraightSkeleton)
     it "only finds one nodeTree in the straight skeleton" $
-      property prop_SingleRightQuadConvexStraightSkeletonHasOneNodeTree
+      property (expectationFromConvexSingleRightQuad prop_StraightSkeletonHasOneNodeTree)
     it "generates less than four generations" $
-      property prop_SingleRightQuadConvexNodeTreeHasLessThanFourGenerations
+      property (boolFromConvexSingleRightQuad prop_NodeTreeHasLessThanFourGenerations)
     it "places faces on the straight skeleton of a convex single right quad" $
-      property prop_SingleRightQuadConvexCanPlaceFaces
+      property (expectationFromConvexSingleRightQuad prop_CanPlaceFaces)
     it "finds only four faces for any convex single right quad" $
-      property prop_SingleRightQuadConvexHasRightFaceCount
+      property (expectationFromConvexSingleRightQuad prop_HasFourFaces)
     it "places faces on a convex single right quad in the order the line segments were given" $
-      property prop_SingleRightQuadConvexFacesInOrder
+      property (expectationFromConvexSingleRightQuad prop_FacesInOrder)
+  where
+    boolFromConvexSingleRightQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Bool
+    boolFromConvexSingleRightQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = f convexSingleRightQuad
+      where
+        convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+    expectationFromConvexSingleRightQuad :: (Contour -> Expectation) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+    expectationFromConvexSingleRightQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = f convexSingleRightQuad
+      where
+        convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
