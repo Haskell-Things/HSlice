@@ -46,7 +46,7 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 import Graphics.Slicer.Math.Definitions (Contour)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConvexQuad)
+import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, oneNodeTreeOf, onlyOneOf, randomConvexQuad)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
 import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
@@ -55,15 +55,10 @@ import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_HasAStraightSkeleton, prop_NoDivides, prop_NoMotorcycles)
+import Math.Geometry.CommonTests (prop_HasAStraightSkeleton, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
-
-prop_ConvexQuadStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadStraightSkeletonHasOneNodeTree x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = nodeTreesOf (findStraightSkeleton convexQuad []) --> 1
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
 
 prop_ConvexQuadNodeTreeHasLessThanFourGenerations :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
 prop_ConvexQuadNodeTreeHasLessThanFourGenerations x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = generationsOf (oneNodeTreeOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton convexQuad []) < 4
@@ -97,7 +92,7 @@ convexQuadSpec = do
     it "finds a straight skeleton" $
       property (expectationFromConvexQuad prop_HasAStraightSkeleton)
     it "only finds one nodetree in the straight skeleton" $
-      property prop_ConvexQuadStraightSkeletonHasOneNodeTree
+      property (expectationFromConvexQuad prop_StraightSkeletonHasOneNodeTree)
     it "generates one, two, or three generations of INodes" $
       property prop_ConvexQuadNodeTreeHasLessThanFourGenerations
     it "places faces on the straight skeleton of a convex quad" $

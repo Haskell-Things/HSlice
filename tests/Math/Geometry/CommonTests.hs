@@ -21,7 +21,8 @@
 module Math.Geometry.CommonTests (
   prop_HasAStraightSkeleton,
   prop_NoDivides,
-  prop_NoMotorcycles
+  prop_NoMotorcycles,
+  prop_StraightSkeletonHasOneNodeTree
   ) where
 
 import Prelude (($), error, show)
@@ -34,6 +35,9 @@ import Test.Hspec (Expectation)
 
 -- Basic definitions, used in multiple places in the math library.
 import Graphics.Slicer.Math.Definitions (Contour)
+
+-- The functions for generating random geometry, for testing purposes.
+import Graphics.Slicer.Math.RandomGeometry (nodeTreesOf)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
@@ -58,3 +62,7 @@ prop_NoDivides contour = findDivisions contour (fromMaybe (error $ show contour)
 -- | Ensure no motorcycles are found in the given contour.
 prop_NoMotorcycles :: Contour -> Expectation
 prop_NoMotorcycles contour = convexMotorcycles contour --> []
+
+-- | Ensure that for a given contour, only one nodetree is constructed.
+prop_StraightSkeletonHasOneNodeTree :: Contour -> Expectation
+prop_StraightSkeletonHasOneNodeTree contour = nodeTreesOf (findStraightSkeleton contour []) --> 1

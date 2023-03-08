@@ -47,7 +47,7 @@ import Graphics.Slicer.Math.Contour (lineSegsOfContour)
 import Graphics.Slicer.Math.Definitions (Contour)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConvexSingleRightQuad)
+import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, oneNodeTreeOf, onlyOneOf, randomConvexSingleRightQuad)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
@@ -56,7 +56,7 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_HasAStraightSkeleton, prop_NoDivides, prop_NoMotorcycles)
+import Math.Geometry.CommonTests (prop_HasAStraightSkeleton, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
@@ -96,9 +96,6 @@ unit_SingleRightQuadConvexStraightSkeletonBreaks
     rawFirstDistanceToCorner, rawSecondDistanceToCorner :: Positive ℝ
     rawFirstDistanceToCorner = 1.0
     rawSecondDistanceToCorner = 1.0
-
-prop_StraightSkeletonHasOneNodeTree :: Contour -> Expectation
-prop_StraightSkeletonHasOneNodeTree contour = nodeTreesOf (findStraightSkeleton contour []) --> 1
 
 prop_NodeTreeHasLessThanFourGenerations :: Contour -> Bool
 prop_NodeTreeHasLessThanFourGenerations contour = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []) < 4
