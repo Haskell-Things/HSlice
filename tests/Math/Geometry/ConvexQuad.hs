@@ -27,9 +27,6 @@ import Prelude (Bool, Show(show), ($), error, length)
 -- The Maybe library.
 import Data.Maybe (fromMaybe)
 
--- Slists, a form of list with a stated size in the structure.
-import Slist (slist)
-
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
 
@@ -55,15 +52,10 @@ import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 -- Our Utility library, for making these tests easier to read.
-import Math.Util ((-->), (-/>))
-
-prop_ConvexQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConvexQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = facesOf (fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) -/> slist []
-  where
-    convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
+import Math.Util ((-->))
 
 prop_ConvexQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConvexQuadHasRightFaceCount x y rawFirstTilt rawSecondTilt thirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = length (facesOf $ fromMaybe (error $ show convexQuad) $ findStraightSkeleton convexQuad []) --> 4
@@ -91,7 +83,7 @@ convexQuadSpec = do
     it "generates one, two, or three generations of INodes" $
       property (boolFromConvexQuad prop_NodeTreeHasFewerThanFourGenerations)
     it "places faces on the straight skeleton of a convex quad" $
-      property prop_ConvexQuadCanPlaceFaces
+      property (expectationFromConvexQuad prop_CanPlaceFaces)
     it "finds only four faces for any convex quad" $
       property prop_ConvexQuadHasRightFaceCount
     it "places faces on a convex quad in the order the line segments were given" $

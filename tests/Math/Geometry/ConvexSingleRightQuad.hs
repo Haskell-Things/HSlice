@@ -29,7 +29,7 @@ import Prelude (Bool(False, True), Show(show), ($), (.), (+), (&&), (<>), (==), 
 import Data.Maybe (fromMaybe, isJust)
 
 -- Slists, a form of list with a stated size in the structure.
-import Slist (len, slist)
+import Slist (len)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -56,10 +56,10 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 -- Our Utility library, for making these tests easier to read.
-import Math.Util ((-->), (-/>))
+import Math.Util ((-->))
 
 unit_SingleRightQuadConvexHasNoStraightSkeleton :: Bool
 unit_SingleRightQuadConvexHasNoStraightSkeleton
@@ -96,9 +96,6 @@ unit_SingleRightQuadConvexStraightSkeletonBreaks
     rawFirstDistanceToCorner, rawSecondDistanceToCorner :: Positive ℝ
     rawFirstDistanceToCorner = 1.0
     rawSecondDistanceToCorner = 1.0
-
-prop_CanPlaceFaces :: Contour -> Expectation
-prop_CanPlaceFaces contour = facesOf (fromMaybe (error $ show contour) $ findStraightSkeleton contour []) -/> slist []
 
 prop_HasFourFaces :: Contour -> Expectation
 prop_HasFourFaces contour = length (facesOf $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []) --> 4

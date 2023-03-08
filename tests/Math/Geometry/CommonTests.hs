@@ -19,6 +19,7 @@
 {- property tests that are reusable with many types of geometric figgures. -}
 
 module Math.Geometry.CommonTests (
+  prop_CanPlaceFaces,
   prop_HasAStraightSkeleton,
   prop_NodeTreeHasFewerThanFourGenerations,
   prop_NoDivides,
@@ -30,6 +31,9 @@ import Prelude (Bool, ($), (<), error, show)
 
 -- The Maybe library.
 import Data.Maybe (Maybe(Nothing), fromMaybe)
+
+-- Slists, a form of list with a stated size in the structure.
+import Slist (slist)
 
 -- Hspec, for writing specs.
 import Test.Hspec (Expectation)
@@ -43,6 +47,9 @@ import Graphics.Slicer.Math.RandomGeometry (generationsOf, nodeTreesOf, oneNodeT
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
 
+-- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
+import Graphics.Slicer.Math.Skeleton.Face (facesOf)
+
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
 import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles, convexMotorcycles)
 
@@ -51,6 +58,10 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->), (-/>))
+
+-- | Ensure that faces can be placed on the given contour.
+prop_CanPlaceFaces :: Contour -> Expectation
+prop_CanPlaceFaces contour = facesOf (fromMaybe (error $ show contour) $ findStraightSkeleton contour []) -/> slist []
 
 -- | Ensure we can actually draw a straight skeleton for the given contour.
 prop_HasAStraightSkeleton :: Contour -> Expectation
