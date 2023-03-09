@@ -142,8 +142,8 @@ prop_FacesHaveThreeSides contour
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
 
-prop_TriangleFacesAllWoundLeft  :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Bool
-prop_TriangleFacesAllWoundLeft x y rawRadians rawDists
+prop_FacesAllWoundLeft  :: Contour -> Bool
+prop_FacesAllWoundLeft contour
   | allIsLeft = True
   | otherwise = error $ "miswound face found:\n"
                      <> (concat $ show . faceLefts <$> faces) <> "\n"
@@ -154,8 +154,7 @@ prop_TriangleFacesAllWoundLeft x y rawRadians rawDists
     faceAllIsLeft face = all (== Just True) $ faceLefts face
     faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
     faces = facesOf skeleton
-    skeleton = fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []
-    triangle = randomTriangle x y rawRadians rawDists
+    skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
 
 -- FIXME: add inset tests here.
 
@@ -192,7 +191,7 @@ triangleSpec = do
     it "faces only have three sides" $
       property (boolFromTriangle prop_FacesHaveThreeSides)
     it "each face is wound to the left" $
-      property prop_TriangleFacesAllWoundLeft
+      property (boolFromTriangle prop_FacesAllWoundLeft)
     it "places faces in the same order as the input line segments" $
       property (expectationFromTriangle prop_FacesInOrder)
 {-    it "insets halfway, finding 3 remaining faces" $
