@@ -24,7 +24,7 @@ module Math.Geometry.Triangle (
   triangleStatSpec
   ) where
 
-import Prelude (Bool(True), Show(show), ($), (<), (.), (+), (<>), (==), (<$>), all, error, length, otherwise, pure)
+import Prelude (Bool(True), Show(show), ($), (.), (+), (<>), (==), (<$>), all, error, length, otherwise, pure)
 
 -- The Either library.
 import Data.Either (rights)
@@ -129,19 +129,18 @@ unit_TriangleENodeArcsIntersectAtSamePoint = retVal
 prop_HasThreeFaces :: Contour -> Expectation
 prop_HasThreeFaces contour = length (facesOf $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []) --> 3
 
-prop_TriangleFacesRightArcCount :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Bool
-prop_TriangleFacesRightArcCount x y rawFirstTilt rawDistanceToCorner
+prop_FacesHaveThreeSides :: Contour -> Bool
+prop_FacesHaveThreeSides contour
   | res == True = True
   | otherwise = error $ "Too many arcs found:\n"
                      <> (concat $ show . arcCount <$> faces) <> "\n"
                      <> show skeleton <> "\n"
                      <> show faces <> "\n"
   where
-    res = all (\a -> arcCount a < 4) faces
-    faces = facesOf skeleton
-    skeleton = fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []
+    res = all (\a -> arcCount a == 2) faces
     arcCount (Face _ _ midArcs _) = 2 + len midArcs
-    triangle = randomTriangle x y rawFirstTilt rawDistanceToCorner
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
 
 prop_TriangleFacesAllWoundLeft  :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Bool
 prop_TriangleFacesAllWoundLeft x y rawRadians rawDists
@@ -191,7 +190,7 @@ triangleSpec = do
     it "only places three faces" $
       property (expectationFromTriangle prop_HasThreeFaces)
     it "faces only have three sides" $
-      property prop_TriangleFacesRightArcCount
+      property (boolFromTriangle prop_FacesHaveThreeSides)
     it "each face is wound to the left" $
       property prop_TriangleFacesAllWoundLeft
     it "places faces in the same order as the input line segments" $
