@@ -81,6 +81,16 @@ prop_ConcaveChevronQuadNodeTreeHasTwoGenerations x y tilt1 tilt2 distance1 dista
   where
     doTest concaveChevronQuad = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton concaveChevronQuad []) --> 2
 
+-- | Insane result of filterAllIntersections
+{-
+also happens with:
+         0.0
+         0.0
+         Radian {getRadian = 1.0}
+         Radian {getRadian = 0.1}
+         Positive {getPositive = 1.0e-2}
+         Positive {getPositive = 29.0}
+-}
 unit_ConcaveChevronQuadNodeTreeHasTwoGenerations :: Expectation
 unit_ConcaveChevronQuadNodeTreeHasTwoGenerations = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
   where
@@ -93,6 +103,7 @@ unit_ConcaveChevronQuadNodeTreeHasTwoGenerations = doTest $ randomConcaveChevron
     distance1,distance2 :: Positive ℝ
     distance1 = 1.0e-4
     distance2 = 1.0
+
 
 prop_ConcaveChevronQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
 prop_ConcaveChevronQuadCanPlaceFaces x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
