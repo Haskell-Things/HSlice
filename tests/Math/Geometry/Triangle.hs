@@ -73,20 +73,13 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesAllWoundLeft, prop_FacesInOrder, prop_HasAStraightSkeleton, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_ENodeArcsIntersectAtSamePoint, prop_FacesAllWoundLeft, prop_FacesInOrder, prop_HasAStraightSkeleton, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->))
 
 prop_StraightSkeletonHasOneGeneration :: Contour -> Expectation
 prop_StraightSkeletonHasOneGeneration contour = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []) --> 1
-
-prop_ENodeArcsIntersectAtSamePoint :: Contour -> Bool
-prop_ENodeArcsIntersectAtSamePoint contour = retVal
-  where
-    retVal = intersectionsAtSamePoint nodeOutsAndErrs
-    nodeOutsAndErrs = outAndErrOf <$> eNodes
-    eNodes = eNodesOfOutsideContour contour
 
 stat_TriangleENodeArcsIntersectAtSamePoint :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Property
 stat_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists

@@ -20,6 +20,7 @@
 
 module Math.Geometry.CommonTests (
   prop_CanPlaceFaces,
+  prop_ENodeArcsIntersectAtSamePoint,
   prop_FacesAllWoundLeft,
   prop_FacesHaveThreeToFiveSides,
   prop_FacesInOrder,
@@ -49,8 +50,11 @@ import Graphics.Slicer.Math.Contour (firstPointPairOfContour, innerContourPoint,
 -- Basic definitions, used in multiple places in the math library.
 import Graphics.Slicer.Math.Definitions (Contour, endPoint, lineSegsOfContour, mapWithFollower, pointBetweenPoints, startPoint)
 
+-- Basic intersection logic.
+import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint)
+
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (eToPL, eToPP, join2EP, join2PP, normalizeL, pLineIsLeft, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (eToPL, eToPP, join2EP, join2PP, normalizeL, outAndErrOf, pLineIsLeft, plinesIntersectIn)
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
@@ -60,6 +64,9 @@ import Graphics.Slicer.Math.RandomGeometry (edgesOf, generationsOf, nodeTreesOf,
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
+
+-- The logic for creating straight skeletons from concave contours.
+import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
@@ -76,6 +83,13 @@ import Math.Util ((-->), (-/>))
 -- | Ensure that faces can be placed on the given contour.
 prop_CanPlaceFaces :: Contour -> Expectation
 prop_CanPlaceFaces contour = facesOf (fromMaybe (error $ show contour) $ findStraightSkeleton contour []) -/> slist []
+
+prop_ENodeArcsIntersectAtSamePoint :: Contour -> Bool
+prop_ENodeArcsIntersectAtSamePoint contour = retVal
+  where
+    retVal = intersectionsAtSamePoint nodeOutsAndErrs
+    nodeOutsAndErrs = outAndErrOf <$> eNodes
+    eNodes = eNodesOfOutsideContour contour
 
 prop_FacesAllWoundLeft  :: Contour -> Bool
 prop_FacesAllWoundLeft contour
