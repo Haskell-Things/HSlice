@@ -30,7 +30,7 @@ module Math.Geometry.CommonTests (
   prop_StraightSkeletonHasOneNodeTree
   ) where
 
-import Prelude (Bool(True), ($), (<), (.), (+), (<>), (==), (||), (<$>), all, concat, error, length, otherwise, show)
+import Prelude (Bool(True), ($), (<), (.), (+), (<>), (==), (||), (<$>), all, concat, error, fst, length, otherwise, show, snd)
 
 -- The Maybe library.
 import Data.Maybe (Maybe(Nothing), fromMaybe)
@@ -41,8 +41,17 @@ import Slist (len, slist)
 -- Hspec, for writing specs.
 import Test.Hspec (Expectation)
 
+-- Basic contour handling. the Point and LineSeg we use to determine how to flip a contour.
+import Graphics.Slicer.Math.Contour (firstPointPairOfContour, innerContourPoint, insideIsLeft, mostPerpPointAndLineSeg)
+
 -- Basic definitions, used in multiple places in the math library.
-import Graphics.Slicer.Math.Definitions (Contour, lineSegsOfContour)
+import Graphics.Slicer.Math.Definitions (Contour, endPoint, lineSegsOfContour, pointBetweenPoints, startPoint)
+
+-- Our 2D Projective Geometric Algebra library.
+import Graphics.Slicer.Math.PGA (eToPL, eToPP, join2EP, join2PP, normalizeL, plinesIntersectIn)
+
+-- Our debugging library, for making the below simpler to read, and drop into command lines.
+import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf)
@@ -99,7 +108,24 @@ prop_NodeTreeHasFewerThanFourGenerations contour = generationsOf (oneNodeTreeOf 
 
 -- | Ensure the given contour has no divides in it.
 prop_NoDivides :: Contour -> Expectation
-prop_NoDivides contour = findDivisions contour (fromMaybe (error $ show contour) $ crashMotorcycles contour []) --> []
+prop_NoDivides contour = findDivisions contour (fromMaybe dumpError $ crashMotorcycles contour []) --> []
+  where
+    dumpError = error $ "no crash tree?\n" <> errorString
+    errorString =  dumpGanjas ([toGanja contour, toGanja pLineFromInside, toGanja pLineFromMid] <> (toGanja . fst . eToPL <$> lineSegsOfContour contour)) <> "\n"
+                <> show lineSeg <> "\n"
+                <> show firstPoints <> "\n"
+                <> show (insideIsLeft contour) <> "\n"
+                <> show (plinesIntersectIn pLine pLineFromInside) <> "\n"
+    -- we normalize this for Ganja.js.
+    pLineFromInside = normalizeL $ fst $ join2PP innerPoint $ eToPP outsidePoint
+    pLineFromMid    = fst $ normalizeL $ fst $ join2EP midPoint outsidePoint
+    firstPoints     = firstPointPairOfContour contour
+    innerPoint      = fromMaybe (error "cannot find inner point.") maybeInnerPoint
+    maybeInnerPoint = innerContourPoint contour
+    midPoint        = pointBetweenPoints (startPoint lineSeg) (endPoint lineSeg)
+    pLine           = eToPL lineSeg
+    outsidePoint    = fst $ mostPerpPointAndLineSeg contour
+    lineSeg         = snd $ mostPerpPointAndLineSeg contour
 
 -- | Ensure no motorcycles are found in the given contour.
 prop_NoMotorcycles :: Contour -> Expectation
