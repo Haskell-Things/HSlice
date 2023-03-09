@@ -24,7 +24,7 @@ module Math.Geometry.Triangle (
   triangleStatSpec
   ) where
 
-import Prelude (Bool(True), Show(show), ($), (<), (.), (+), (<>), (==), (<$>), all, error, fst, length, otherwise, pure, snd)
+import Prelude (Bool(True), Show(show), ($), (<), (.), (+), (<>), (==), (<$>), all, error, length, otherwise, pure)
 
 -- The Either library.
 import Data.Either (rights)
@@ -33,10 +33,10 @@ import Data.Either (rights)
 import Data.List (concat, transpose)
 
 -- The Maybe library.
-import Data.Maybe (Maybe(Just, Nothing), fromMaybe, fromJust)
+import Data.Maybe (Maybe(Just), fromMaybe, fromJust)
 
 -- Slists, a form of list with a stated size in the structure.
-import Slist (len, slist)
+import Slist (len)
 import Slist.Type (Slist(Slist))
 
 -- Hspec, for writing specs.
@@ -49,93 +49,45 @@ import Test.QuickCheck.Property (label, liftBool, Property)
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
--- Our Contour library.
-import Graphics.Slicer.Math.Contour (insideIsLeft, innerContourPoint, firstPointPairOfContour)
-
 -- Basic functions for mapping, rounding, and introspecting points.
-import Graphics.Slicer.Math.Definitions (Point2(Point2), mapWithFollower, startPoint, endPoint, lineSegsOfContour, pointBetweenPoints)
+import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
 -- Basic intersection logic.
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, intersectionBetween)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (distance2PP, eToPL, eToPP, fuzzinessOfP, join2EP, join2PP, normalizeL, outAndErrOf, plinesIntersectIn, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (distance2PP, eToPL, fuzzinessOfP, outAndErrOf, pLineIsLeft)
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (ListThree(ListThree), Radian(Radian), edgesOf, generationsOf, nodeTreesOf, onlyOneOf, oneNodeTreeOf, randomTriangle)
-
--- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
-import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
+import Graphics.Slicer.Math.RandomGeometry (ListThree(ListThree), Radian(Radian), generationsOf, oneNodeTreeOf, randomTriangle)
 
 -- The logic for creating straight skeletons from concave contours.
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour)
 
--- Basic contour handling. the Point and LineSeg we use to determine how to flip a contour.
-import Graphics.Slicer.Math.Contour (mostPerpPointAndLineSeg)
-
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
-
--- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
+import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
+-- Shared tests, between different geometry.
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesInOrder, prop_HasAStraightSkeleton,  prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+
 -- Our Utility library, for making these tests easier to read.
-import Math.Util ((-->), (-/>))
+import Math.Util ((-->))
 
-prop_TriangleNoConvexMotorcycles :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleNoConvexMotorcycles centerX centerY rawRadians rawDists = convexMotorcycles triangle --> []
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
+prop_StraightSkeletonHasOneGeneration :: Contour -> Expectation
+prop_StraightSkeletonHasOneGeneration contour = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []) --> 1
 
-prop_TriangleNoDivides :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleNoDivides centerX centerY rawRadians rawDists = findDivisions triangle (fromMaybe dumpError $ crashMotorcycles triangle []) --> []
-  where
-    dumpError = error $ "no crash tree?\n" <> errorString
-    errorString =  dumpGanjas ([toGanja triangle, toGanja (Point2 (centerX, centerY)), toGanja pLineFromInside, toGanja pLineFromMid] <> (toGanja . fst . eToPL <$> lineSegsOfContour triangle)) <> "\n"
-                <> show lineSeg <> "\n"
-                <> show firstPoints <> "\n"
-                <> show (insideIsLeft triangle) <> "\n"
-                <> show (plinesIntersectIn pLine pLineFromInside) <> "\n"
-    -- we normalize this for Ganja.js.
-    pLineFromInside = normalizeL $ fst $ join2PP innerPoint $ eToPP outsidePoint
-    pLineFromMid    = fst $ normalizeL $ fst $ join2EP midPoint outsidePoint
-    firstPoints     = firstPointPairOfContour triangle
-    innerPoint      = fromMaybe (error "cannot find inner point.") maybeInnerPoint
-    maybeInnerPoint = innerContourPoint triangle
-    midPoint        = pointBetweenPoints (startPoint lineSeg) (endPoint lineSeg)
-    pLine           = eToPL lineSeg
-    outsidePoint    = fst $ mostPerpPointAndLineSeg triangle
-    lineSeg         = snd $ mostPerpPointAndLineSeg triangle
-    triangle        = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleHasStraightSkeleton :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleHasStraightSkeleton centerX centerY rawRadians rawDists = findStraightSkeleton triangle [] -/> Nothing
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleStraightSkeletonHasOneNodeTree centerX centerY rawRadians rawDists = nodeTreesOf (findStraightSkeleton triangle []) --> 1
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleStraightSkeletonHasOneGeneration :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleStraightSkeletonHasOneGeneration centerX centerY rawRadians rawDists = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton triangle []) --> 1
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleENodeArcsIntersectAtSamePoint :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Bool
-prop_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists = retVal
+prop_ENodeArcsIntersectAtSamePoint :: Contour -> Bool
+prop_ENodeArcsIntersectAtSamePoint contour = retVal
   where
     retVal = intersectionsAtSamePoint nodeOutsAndErrs
     nodeOutsAndErrs = outAndErrOf <$> eNodes
-    eNodes = eNodesOfOutsideContour triangle
-    triangle = randomTriangle centerX centerY rawRadians rawDists
+    eNodes = eNodesOfOutsideContour contour
 
 stat_TriangleENodeArcsIntersectAtSamePoint :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Property
 stat_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists
@@ -173,15 +125,9 @@ unit_TriangleENodeArcsIntersectAtSamePoint = retVal
     rawDists :: ListThree (Positive ℝ)
     rawDists = ListThree [15.806453706102848, 50.6285286757685, 16.68828123028247]
 
-prop_TriangleCanPlaceFaces :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleCanPlaceFaces centerX centerY rawRadians rawDists = facesOf (fromMaybe (error "Got Nothing") $ findStraightSkeleton triangle []) -/> slist []
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-
-prop_TriangleHasRightFaceCount :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleHasRightFaceCount centerX centerY rawRadians rawDists = length (facesOf $ fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []) --> 3
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
+-- | Ensure we find three faces for the given contour (a triangle).
+prop_HasThreeFaces :: Contour -> Expectation
+prop_HasThreeFaces contour = length (facesOf $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []) --> 3
 
 prop_TriangleFacesRightArcCount :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Bool
 prop_TriangleFacesRightArcCount x y rawFirstTilt rawDistanceToCorner
@@ -196,12 +142,6 @@ prop_TriangleFacesRightArcCount x y rawFirstTilt rawDistanceToCorner
     skeleton = fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []
     arcCount (Face _ _ midArcs _) = 2 + len midArcs
     triangle = randomTriangle x y rawFirstTilt rawDistanceToCorner
-
-prop_TriangleFacesInOrder :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
-prop_TriangleFacesInOrder centerX centerY rawRadians rawDists = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show triangle) $ findStraightSkeleton triangle []) --> lineSegsOfContour triangle
-  where
-    triangle = randomTriangle centerX centerY rawRadians rawDists
-    firstSeg = onlyOneOf $ lineSegsOfContour triangle
 
 prop_TriangleFacesAllWoundLeft  :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Bool
 prop_TriangleFacesAllWoundLeft x y rawRadians rawDists
@@ -233,31 +173,40 @@ triangleSpec :: Spec
 triangleSpec = do
   describe "Triangles" $ do
     it "finds no convex motorcycles" $
-      property prop_TriangleNoConvexMotorcycles
+      property (expectationFromTriangle prop_NoMotorcycles)
     it "finds no divides" $
-      property prop_TriangleNoDivides
+      property (expectationFromTriangle prop_NoDivides)
     it "finds a straight skeleton" $
-      property prop_TriangleHasStraightSkeleton
+      property (expectationFromTriangle prop_HasAStraightSkeleton)
     it "finds only one NodeTree in the straight skeleton" $
-      property prop_TriangleStraightSkeletonHasOneNodeTree
+      property (expectationFromTriangle prop_StraightSkeletonHasOneNodeTree)
     it "only generates one generation of INodes" $
-      property prop_TriangleStraightSkeletonHasOneGeneration
+      property (expectationFromTriangle prop_StraightSkeletonHasOneGeneration)
     it "finds that all of the outArcs of the ENodes intersect at the same point" $
-      property prop_TriangleENodeArcsIntersectAtSamePoint
+      property (boolFromTriangle prop_ENodeArcsIntersectAtSamePoint)
     it "finds that all of the outArcs of the ENodes intersect at the same point (unit)" $
       unit_TriangleENodeArcsIntersectAtSamePoint
     it "can place faces on the straight skeleton" $
-      property prop_TriangleCanPlaceFaces
+      property (expectationFromTriangle prop_CanPlaceFaces)
     it "only places three faces" $
-      property prop_TriangleHasRightFaceCount
+      property (expectationFromTriangle prop_HasThreeFaces)
     it "faces only have three sides" $
       property prop_TriangleFacesRightArcCount
     it "each face is wound to the left" $
       property prop_TriangleFacesAllWoundLeft
     it "places faces in the same order as the input line segments" $
-      property prop_TriangleFacesInOrder
+      property (expectationFromTriangle prop_FacesInOrder)
 {-    it "insets halfway, finding 3 remaining faces" $
       property prop_TriangleFacesInsetWithRemainder
     it "insets completely, finding 0 remaining faces" $
       property prop_TriangleFacesInsetWithoutRemainder
 -}
+  where
+    boolFromTriangle :: (Contour -> Bool) -> ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Bool
+    boolFromTriangle f x y rawRadians rawDists = f triangle
+      where
+        triangle = randomTriangle x y rawRadians rawDists
+    expectationFromTriangle :: (Contour -> Expectation) -> ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Expectation
+    expectationFromTriangle f x y rawRadians rawDists = f triangle
+      where
+        triangle = randomTriangle x y rawRadians rawDists
