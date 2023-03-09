@@ -20,6 +20,7 @@
 
 module Math.Geometry.CommonTests (
   prop_CanPlaceFaces,
+  prop_FacesAllWoundLeft,
   prop_FacesHaveThreeToFiveSides,
   prop_FacesInOrder,
   prop_HasFourFaces,
@@ -33,10 +34,11 @@ module Math.Geometry.CommonTests (
 import Prelude (Bool(True), ($), (<), (.), (+), (<>), (==), (||), (<$>), all, concat, error, fst, length, otherwise, show, snd)
 
 -- The Maybe library.
-import Data.Maybe (Maybe(Nothing), fromMaybe)
+import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
 
 -- Slists, a form of list with a stated size in the structure.
 import Slist (len, slist)
+import Slist.Type(Slist(Slist))
 
 -- Hspec, for writing specs.
 import Test.Hspec (Expectation)
@@ -45,10 +47,10 @@ import Test.Hspec (Expectation)
 import Graphics.Slicer.Math.Contour (firstPointPairOfContour, innerContourPoint, insideIsLeft, mostPerpPointAndLineSeg)
 
 -- Basic definitions, used in multiple places in the math library.
-import Graphics.Slicer.Math.Definitions (Contour, endPoint, lineSegsOfContour, pointBetweenPoints, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, endPoint, lineSegsOfContour, mapWithFollower, pointBetweenPoints, startPoint)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (eToPL, eToPP, join2EP, join2PP, normalizeL, plinesIntersectIn)
+import Graphics.Slicer.Math.PGA (eToPL, eToPP, join2EP, join2PP, normalizeL, pLineIsLeft, plinesIntersectIn)
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
@@ -74,6 +76,20 @@ import Math.Util ((-->), (-/>))
 -- | Ensure that faces can be placed on the given contour.
 prop_CanPlaceFaces :: Contour -> Expectation
 prop_CanPlaceFaces contour = facesOf (fromMaybe (error $ show contour) $ findStraightSkeleton contour []) -/> slist []
+
+prop_FacesAllWoundLeft  :: Contour -> Bool
+prop_FacesAllWoundLeft contour
+  | allIsLeft = True
+  | otherwise = error $ "miswound face found:\n"
+                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    allIsLeft = all faceAllIsLeft faces
+    faceAllIsLeft face = all (== Just True) $ faceLefts face
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
 
 -- | Ensure all of the faces placed on a contour have between three and five sides.
 prop_FacesHaveThreeToFiveSides :: Contour -> Bool
@@ -103,6 +119,7 @@ prop_HasFourFaces contour = length (facesOf $ fromMaybe (error $ show contour) $
 prop_HasAStraightSkeleton :: Contour -> Expectation
 prop_HasAStraightSkeleton contour = findStraightSkeleton contour [] -/> Nothing
 
+-- | ensure that we only find less than four generations of INodes.
 prop_NodeTreeHasFewerThanFourGenerations :: Contour -> Bool
 prop_NodeTreeHasFewerThanFourGenerations contour = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []) < 4
 

@@ -33,11 +33,10 @@ import Data.Either (rights)
 import Data.List (concat, transpose)
 
 -- The Maybe library.
-import Data.Maybe (Maybe(Just), fromMaybe, fromJust)
+import Data.Maybe (fromMaybe, fromJust)
 
 -- Slists, a form of list with a stated size in the structure.
 import Slist (len)
-import Slist.Type (Slist(Slist))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -56,7 +55,7 @@ import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, intersectionBetween)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (distance2PP, eToPL, fuzzinessOfP, outAndErrOf, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (distance2PP, fuzzinessOfP, outAndErrOf)
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
@@ -74,7 +73,7 @@ import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesInOrder, prop_HasAStraightSkeleton,  prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesAllWoundLeft, prop_FacesInOrder, prop_HasAStraightSkeleton, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->))
@@ -139,20 +138,6 @@ prop_FacesHaveThreeSides contour
   where
     res = all (\a -> arcCount a == 2) faces
     arcCount (Face _ _ midArcs _) = 2 + len midArcs
-    faces = facesOf skeleton
-    skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
-
-prop_FacesAllWoundLeft  :: Contour -> Bool
-prop_FacesAllWoundLeft contour
-  | allIsLeft = True
-  | otherwise = error $ "miswound face found:\n"
-                     <> (concat $ show . faceLefts <$> faces) <> "\n"
-                     <> show skeleton <> "\n"
-                     <> show faces <> "\n"
-  where
-    allIsLeft = all faceAllIsLeft faces
-    faceAllIsLeft face = all (== Just True) $ faceLefts face
-    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
 
