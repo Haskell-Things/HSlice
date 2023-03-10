@@ -78,10 +78,8 @@ import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_ENodeArcsIntersectAtS
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->))
 
-prop_SquareNodeTreeHasLessThanThreeGenerations :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_SquareNodeTreeHasLessThanThreeGenerations x y tilt distanceToCorner = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton square []) < 3
-  where
-    square = randomSquare x y tilt distanceToCorner
+prop_NodeTreeHasLessThanThreeGenerations :: Contour -> Bool
+prop_NodeTreeHasLessThanThreeGenerations contour = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []) < 3
 
 -- | Fails to see a square as having a center point.
 unit_SquareENodeArcsIntersectAtSamePoint :: Bool
@@ -98,8 +96,8 @@ unit_SquareENodeArcsIntersectAtSamePoint = retVal
     distanceToCorner :: Positive ℝ
     distanceToCorner = 3.0e-2
 
-prop_SquareFacesHaveThreeSides :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_SquareFacesHaveThreeSides x y rawFirstTilt rawDistanceToCorner
+prop_SquareFacesHaveThreeSides :: Contour -> Bool
+prop_SquareFacesHaveThreeSides contour
   | res == True = True
   | otherwise = error $ "Too many arcs found:\n"
                      <> (concat $ show . arcCount <$> faces) <> "\n"
@@ -108,9 +106,8 @@ prop_SquareFacesHaveThreeSides x y rawFirstTilt rawDistanceToCorner
   where
     res = all (\a -> arcCount a == 2) faces
     faces = facesOf skeleton
-    skeleton = fromMaybe (error $ show square) $ findStraightSkeleton square []
+    skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
     arcCount (Face _ _ midArcs _) = 2 + len midArcs
-    square = randomSquare x y rawFirstTilt rawDistanceToCorner
 
 prop_SquareFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
 prop_SquareFacesInsetWithRemainder x y tilt distanceToCorner
@@ -211,7 +208,7 @@ squareSpec = do
     it "finds one Nodetree in the straight skeleton" $
       property (expectationFromSquare prop_StraightSkeletonHasOneNodeTree)
     it "has fewer than three generations of INodes in the NodeTree" $
-      property prop_SquareNodeTreeHasLessThanThreeGenerations
+      property (boolFromSquare prop_NodeTreeHasLessThanThreeGenerations)
     it "finds that all of the outArcs of the ENodes intersect at the same point" $
       property (boolFromSquare prop_ENodeArcsIntersectAtSamePoint)
     it "can place faces on the straight skeleton" $
@@ -219,7 +216,7 @@ squareSpec = do
     it "only places four faces" $
       property (expectationFromSquare prop_HasFourFaces)
     it "faces have three sides" $
-      property prop_SquareFacesHaveThreeSides
+      property (boolFromSquare prop_SquareFacesHaveThreeSides)
     it "places faces in the same order of the input line segments" $
       property (expectationFromSquare prop_FacesInOrder)
     it "each face is wound to the left" $
