@@ -22,11 +22,13 @@ module Math.Geometry.CommonTests (
   prop_CanPlaceFaces,
   prop_ENodeArcsIntersectAtSamePoint,
   prop_FacesAllWoundLeft,
+  prop_FacesHaveThreeSides,
   prop_FacesHaveThreeToFiveSides,
   prop_FacesInOrder,
   prop_HasFourFaces,
   prop_HasAStraightSkeleton,
   prop_NodeTreeHasFewerThanFourGenerations,
+  prop_NodeTreeHasFewerThanThreeGenerations,
   prop_NoDivides,
   prop_NoMotorcycles,
   prop_StraightSkeletonHasOneNodeTree
@@ -105,6 +107,19 @@ prop_FacesAllWoundLeft contour
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
 
+prop_FacesHaveThreeSides :: Contour -> Bool
+prop_FacesHaveThreeSides contour
+  | res == True = True
+  | otherwise = error $ "Too many arcs found:\n"
+                     <> (concat $ show . arcCount <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    res = all (\a -> arcCount a == 2) faces
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
+    arcCount (Face _ _ midArcs _) = 2 + len midArcs
+
 -- | Ensure all of the faces placed on a contour have between three and five sides.
 prop_FacesHaveThreeToFiveSides :: Contour -> Bool
 prop_FacesHaveThreeToFiveSides contour
@@ -136,6 +151,9 @@ prop_HasAStraightSkeleton contour = findStraightSkeleton contour [] -/> Nothing
 -- | ensure that we only find less than four generations of INodes.
 prop_NodeTreeHasFewerThanFourGenerations :: Contour -> Bool
 prop_NodeTreeHasFewerThanFourGenerations contour = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []) < 4
+
+prop_NodeTreeHasFewerThanThreeGenerations :: Contour -> Bool
+prop_NodeTreeHasFewerThanThreeGenerations contour = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []) < 3
 
 -- | Ensure the given contour has no divides in it.
 prop_NoDivides :: Contour -> Expectation
