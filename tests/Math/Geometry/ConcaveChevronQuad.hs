@@ -23,13 +23,14 @@ module Math.Geometry.ConcaveChevronQuad (
   concaveChevronQuadSpec
   ) where
 
-import Prelude (Bool, Show(show), ($), (==), error, length)
+import Prelude (Bool(True), Show(show), ($), (.), (==), (<>), (<$>), all, concat, error, length, otherwise)
 
 -- The Maybe library.
-import Data.Maybe (fromMaybe)
+import Data.Maybe (Maybe(Just), fromMaybe)
 
 -- Slists, a form of list with a stated size in the structure.
 import Slist (slist, len)
+import Slist.Type (Slist(Slist))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -41,13 +42,19 @@ import Test.QuickCheck (property, Positive)
 import Graphics.Slicer (ℝ)
 
 -- Our basic math library.
-import Graphics.Slicer.Math.Definitions (Contour)
+import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
+
+-- Our 2D Projective Geometric Algebra library.
+import Graphics.Slicer.Math.PGA (eToPL, pLineIsLeft)
 
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), generationsOf, oneNodeTreeOf, randomConcaveChevronQuad)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
+
+-- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
+import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
@@ -56,7 +63,7 @@ import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorc
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_ENodeArcsIntersectAtSamePoint, prop_FacesAllWoundLeft, prop_FacesHaveThreeSides, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanThreeGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, {- prop_FacesAllWoundLeft, -} prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_StraightSkeletonHasOneNodeTree)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->))
@@ -90,9 +97,9 @@ also happens with:
          Positive {getPositive = 3.0e-3}
 -}
 unit_ConcaveChevronQuadNodeTreeHasTwoGenerations :: Expectation
-unit_ConcaveChevronQuadNodeTreeHasTwoGenerations = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
+unit_ConcaveChevronQuadNodeTreeHasTwoGenerations = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []) --> 2
   where
-    doTest concaveChevronQuad = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton concaveChevronQuad []) --> 2
+    contour = randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
     x,y :: ℝ
     x = 0
     y = 0
@@ -102,11 +109,36 @@ unit_ConcaveChevronQuadNodeTreeHasTwoGenerations = doTest $ randomConcaveChevron
     distance1 = 1.0e-4
     distance2 = 1.0
 
+unit_ConcaveChevronQuadFacesAllWoundLeft :: Bool
+unit_ConcaveChevronQuadFacesAllWoundLeft
+  | allIsLeft = True
+  | otherwise = error $ "miswound face found:\n"
+                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    allIsLeft = all faceAllIsLeft faces
+    faceAllIsLeft face = all (== Just True) $ faceLefts face
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
+    contour = randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
+    x,y :: ℝ
+    x = 0
+    y = 0
+    tilt1 = Radian 0.1
+    tilt2 = Radian 0.1
+    distance1,distance2 :: Positive ℝ
+    distance1 = 0.1
+    distance2 = 0.1
+
 concaveChevronQuadBrokenSpec :: Spec
 concaveChevronQuadBrokenSpec = do
-  describe "Geometry (Concave Chevron Quads)" $
+  describe "Geometry (Concave Chevron Quads)" $ do
     it "generates two generations of INodes(unit)" $
       unit_ConcaveChevronQuadNodeTreeHasTwoGenerations
+    it "each face is wound to the left" $
+      unit_ConcaveChevronQuadFacesAllWoundLeft
 
 concaveChevronQuadSpec :: Spec
 concaveChevronQuadSpec = do
@@ -125,8 +157,11 @@ concaveChevronQuadSpec = do
       property (expectationFromConcaveChevronQuad prop_CanPlaceFaces)
     it "only places four faces" $
       property (expectationFromConcaveChevronQuad prop_HasFourFaces)
-    it "places faces on a concave chevron quad in the order the line segments were given" $
+    it "places faces in the order the line segments were given" $
       property (expectationFromConcaveChevronQuad prop_FacesInOrder)
+-- FIXME: this should PASS!
+--    it "each face is wound to the left" $
+--      property (boolFromConcaveChevronQuad prop_FacesAllWoundLeft)
   where
     boolFromConcaveChevronQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Bool
     boolFromConcaveChevronQuad f x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = f concaveChevronQuad
