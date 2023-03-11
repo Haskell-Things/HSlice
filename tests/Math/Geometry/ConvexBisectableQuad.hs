@@ -55,9 +55,6 @@ import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
 -- The logic for creating straight skeletons from concave contours.
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour)
 
--- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (facesOf)
-
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
 import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
 
