@@ -83,7 +83,6 @@ unit_ConvexQuadFacesAllWoundLeft
     distance2 = 1.0
     distance3 = 1.0
 
-
 convexQuadBrokenSpec :: Spec
 convexQuadBrokenSpec = do
   describe "Geometry (Convex Quads)" $ do
