@@ -87,9 +87,8 @@ prop_CanPlaceFaces :: Contour -> Expectation
 prop_CanPlaceFaces contour = facesOf (fromMaybe (error $ show contour) $ findStraightSkeleton contour []) -/> slist []
 
 prop_ENodeArcsIntersectAtSamePoint :: Contour -> Bool
-prop_ENodeArcsIntersectAtSamePoint contour = retVal
+prop_ENodeArcsIntersectAtSamePoint contour = intersectionsAtSamePoint nodeOutsAndErrs
   where
-    retVal = intersectionsAtSamePoint nodeOutsAndErrs
     nodeOutsAndErrs = outAndErrOf <$> eNodes
     eNodes = eNodesOfOutsideContour contour
 
