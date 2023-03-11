@@ -39,7 +39,7 @@ import Graphics.Slicer.Math.Definitions (Contour)
 import Graphics.Slicer.Math.RandomGeometry (Radian, randomConvexQuad)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesHaveThreeToFiveSides, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesHaveThreeToFiveSides, prop_FacesAllWoundLeft, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 convexQuadSpec :: Spec
 convexQuadSpec = do
@@ -60,8 +60,10 @@ convexQuadSpec = do
       property (expectationFromConvexQuad prop_HasFourFaces)
     it "faces have between three and five sides" $
       property (boolFromConvexQuad prop_FacesHaveThreeToFiveSides)
-    it "places faces on a convex quad in the order the line segments were given" $
+    it "places faces in the order the line segments were given" $
       property (expectationFromConvexQuad prop_FacesInOrder)
+    it "each face is wound to the left" $
+      property (boolFromConvexQuad prop_FacesAllWoundLeft)
   where
     boolFromConvexQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
     boolFromConvexQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = f convexQuad
