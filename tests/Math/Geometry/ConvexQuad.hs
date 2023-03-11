@@ -19,10 +19,17 @@
 {- tests for the properties of a DualRightQuad, or a four sided figgure with two right angles. -}
 
 module Math.Geometry.ConvexQuad (
+  convexQuadBrokenSpec,
   convexQuadSpec
   ) where
 
-import Prelude (Bool, ($))
+import Prelude (Bool(True), ($), (.), (<>), (==), (<$>), all, concat, error, otherwise, show)
+
+-- The Maybe library.
+import Data.Maybe (Maybe(Just), fromMaybe)
+
+-- Slists, a form of list with a stated size in the structure.
+import Slist.Type (Slist(Slist))
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -34,12 +41,54 @@ import Test.QuickCheck (property, Positive)
 import Graphics.Slicer (ℝ)
 
 -- Basic definitions, used in multiple places in the math library.
-import Graphics.Slicer.Math.Definitions (Contour)
+import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
-import Graphics.Slicer.Math.RandomGeometry (Radian, randomConvexQuad)
+-- Our 2D Projective Geometric Algebra library.
+import Graphics.Slicer.Math.PGA (eToPL, pLineIsLeft)
+
+-- The functions for generating random geometry, for testing purposes.
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), randomConvexQuad)
+
+-- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
+import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf)
+
+-- The entry point for getting the straight skeleton of a contour.
+import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
 import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesHaveThreeToFiveSides, prop_FacesAllWoundLeft, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+
+unit_ConvexQuadFacesAllWoundLeft :: Bool
+unit_ConvexQuadFacesAllWoundLeft
+  | allIsLeft = True
+  | otherwise = error $ "miswound face found:\n"
+                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+  where
+    allIsLeft = all faceAllIsLeft faces
+    faceAllIsLeft face = all (== Just True) $ faceLefts face
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
+    contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1 distance2 distance3
+    x,y :: ℝ
+    x = 0
+    y = 0
+    tilt1 = Radian 2.0
+    tilt2 = Radian 2.0
+    tilt3 = Radian 3.2
+    distance1,distance2,distance3 :: Positive ℝ
+    distance1 = 1.0
+    distance2 = 1.0
+    distance3 = 1.0
+
+
+convexQuadBrokenSpec :: Spec
+convexQuadBrokenSpec = do
+  describe "Geometry (Convex Quads)" $ do
+    it "each face is wound to the left" $
+      unit_ConvexQuadFacesAllWoundLeft
 
 convexQuadSpec :: Spec
 convexQuadSpec = do
