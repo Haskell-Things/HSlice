@@ -325,7 +325,8 @@ finalINodeOf (INodeSet generations)
   | otherwise = case finalGeneration of
                   [] -> error "empty INode list?"
                   [a] -> a
-                  (_:_) -> error "final generation has too many members."
+                  (_:_) -> error $ "final generation has too many members:\n"
+                                <> show finalGeneration <> "\n"
   where
     finalGeneration = case safeLast generations of
                         Nothing -> error "either infinite, or empty list"
