@@ -43,6 +43,9 @@ import Graphics.Slicer (ℝ)
 -- Basic definitions, used in multiple places in the math library.
 import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
 
+-- Our debugging library, for making the below simpler to read, and drop into command lines.
+import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
+
 -- Our 2D Projective Geometric Algebra library.
 import Graphics.Slicer.Math.PGA (eToPL, pLineIsLeft)
 
@@ -65,6 +68,9 @@ unit_ConvexQuadFacesAllWoundLeft
                      <> (concat $ show . faceLefts <$> faces) <> "\n"
                      <> show skeleton <> "\n"
                      <> show faces <> "\n"
+                     <> dumpGanjas ([toGanja contour]
+                                    <> (toGanja <$> (\(Slist a _) -> a) faces))
+
   where
     allIsLeft = all faceAllIsLeft faces
     faceAllIsLeft face = all (== Just True) $ faceLefts face
