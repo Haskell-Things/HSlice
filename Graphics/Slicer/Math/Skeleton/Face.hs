@@ -22,17 +22,17 @@
 -- | This file contains code for creating a series of Faces, covering a straight skeleton.
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
-import Prelude (Bool(False, True), Eq, Show, (<), (==), all, concat, otherwise, (<$>), ($), length, error, (<>), show, (<>), null, not, and, snd, (&&), (.), (/=), fst)
+import Prelude (Bool(False, True), Eq, Show, (<), (==), all, otherwise, (<$>), ($), length, error, (<>), show, (<>), null, not, and, snd, (&&), (.), (/=), fst)
 
 import Data.Either (isRight)
 
-import Data.List (filter, foldl', intersperse, uncons)
+import Data.List (filter, foldl', uncons)
 
 import qualified Data.List as DL (head)
 
 import Data.List.Extra (unsnoc)
 
-import Data.Maybe (catMaybes, isNothing, fromJust, fromMaybe, Maybe(Just, Nothing), isJust)
+import Data.Maybe (isNothing, fromJust, fromMaybe, Maybe(Just, Nothing), isJust)
 
 import Slist.Type (Slist(Slist))
 
@@ -187,10 +187,10 @@ getFaces' origINodeSet eNodes iNodeSet iNode = findFacesRecurse iNode mySortedPL
          | ancestorsOf (fromJust iNodeSet) /= [] = myGetFaces $ onlyOne $ filter (\a -> outAndErrOf (finalINodeOf a) == onePLine) $ ancestorsOf (fromJust iNodeSet)
          | otherwise = error "no between to plant?"
           where
-            onlyOne :: [a] -> a
+            onlyOne :: (Show a) => [a] -> a
             onlyOne [] = error "no item"
             onlyOne [a] = a
-            onlyOne xs = error "too many items"
+            onlyOne xs = error $ "too many items." <> show xs <> "\n"
             myGetFaces newINodeSet
               | isJust firstINode = getFaces' origINodeSet eNodes (Just newINodeSet) $ fromJust firstINode
               | otherwise = error "fail!"
@@ -353,8 +353,8 @@ makeFace e1 arcs e2
     filteredArcs = filterSingleNoIntersection arcs
     makeFace' :: LineSeg -> (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Maybe Face
     makeFace' seg firstArc midArcs lastArc
-    -- uncomment me when debugging miswound faces
---      | not $ all (== True) $ catMaybes $ arcsAreLeft $ [eToPL seg] <> [firstArc] <> (\(Slist a _) -> a) midArcs <> [lastArc] = Nothing
+   -- uncomment me when debugging miswound faces that should be convex.
+   -- | not $ all (== True) $ catMaybes $ arcsAreLeft $ [eToPL seg] <> [firstArc] <> (\(Slist a _) -> a) midArcs <> [lastArc] = Nothing
       | otherwise = res
       where
         res = Just $ Face seg firstArc midArcs lastArc
