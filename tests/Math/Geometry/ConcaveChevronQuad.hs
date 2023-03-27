@@ -23,7 +23,7 @@ module Math.Geometry.ConcaveChevronQuad (
   concaveChevronQuadSpec
   ) where
 
-import Prelude (Bool, Show(show), ($), (==), error, length)
+import Prelude (Bool(True), Show(show), ($), (<>), (==), error, length, otherwise)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe)
@@ -42,6 +42,9 @@ import Graphics.Slicer (ℝ)
 
 -- Our basic math library.
 import Graphics.Slicer.Math.Definitions (Contour)
+
+-- Our serialization library, for debugging,
+import Graphics.Slicer.Math.Ganja(dumpGanja, toGanja)
 
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), generationsOf, oneNodeTreeOf, randomConcaveChevronQuad)
@@ -102,6 +105,25 @@ unit_ConcaveChevronQuadNodeTreeHasTwoGenerations = generationsOf (oneNodeTreeOf 
     distance1 = 1.0e-4
     distance2 = 1.0
 
+-- was falsifiable. returns 1.
+unit_ConcaveChevronQuadNodeTreeHasTwoGenerations_2 :: Bool
+unit_ConcaveChevronQuadNodeTreeHasTwoGenerations_2
+  | res == 2 = True
+  | otherwise = error $ "returned 1.\n"
+                      <> dumpGanja nodeTree <> "\n"
+  where
+    res = generationsOf nodeTree
+    nodeTree = oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []
+    contour = randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
+    x,y :: ℝ
+    x = 0
+    y = 0
+    tilt1 = Radian 2.0
+    tilt2 = Radian 2.0
+    distance1,distance2 :: Positive ℝ
+    distance1 = 1.0
+    distance2 = 1.0
+
 concaveChevronQuadBrokenSpec :: Spec
 concaveChevronQuadBrokenSpec = do
   describe "Geometry (Concave Chevron Quads)" $ do
@@ -121,6 +143,8 @@ concaveChevronQuadSpec = do
       property (expectationFromConcaveChevronQuad prop_StraightSkeletonHasOneNodeTree)
     it "generates two generations of INodes" $
       property (expectationFromConcaveChevronQuad prop_NodeTreeHasTwoGenerations)
+    it "generates two generations of INodes(unit) (2)" $
+      unit_ConcaveChevronQuadNodeTreeHasTwoGenerations_2
     it "can place faces on the straight skeleton" $
       property (expectationFromConcaveChevronQuad prop_CanPlaceFaces)
     it "only places four faces" $
