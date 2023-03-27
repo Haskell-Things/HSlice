@@ -68,7 +68,7 @@ import Data.List (sort)
 
 import Data.List.Unique (allUnique)
 
-import Data.Maybe (Maybe(Nothing, Just), fromMaybe)
+import Data.Maybe (Maybe(Nothing, Just), fromJust, fromMaybe, isJust)
 
 import Math.Tau (tau)
 
@@ -556,4 +556,6 @@ oneNodeTreeOf (StraightSkeleton (Slist [[x]] _) _) = x
 oneNodeTreeOf (StraightSkeleton (Slist (_) _) _) = error "too many NodeTrees."
 
 generationsOf :: NodeTree -> Int
-generationsOf (NodeTree _ (INodeSet iNodeGenerations)) = len iNodeGenerations
+generationsOf (NodeTree _ maybeINodeSet)
+  | isJust maybeINodeSet = (\(INodeSet childGenerations _) -> len childGenerations + 1) $ fromJust maybeINodeSet
+  | otherwise = 0

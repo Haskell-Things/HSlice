@@ -84,17 +84,16 @@ module Graphics.Slicer.Math.Ganja (
   toGanja
   ) where
 
-import Prelude (String, (<>), (<>), (<$>), ($), (>=), (==), (.), (/=), concat, error, fst, otherwise, show, snd, zip)
+import Prelude (String, (<>), (<>), (<$>), ($), (>=), (.), (/=), concat, error, fst, otherwise, show, snd, zip)
 
 import Data.List (concatMap)
 
-import Data.Maybe (Maybe(Nothing), catMaybes)
+import Data.Maybe (Maybe(Nothing), catMaybes, fromJust, isJust)
 
 import Numeric (showFFloat)
 
+import Slist (isEmpty, last)
 import Slist.Type (Slist(Slist))
-
-import Slist (last, len)
 
 import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), LineSeg, endPoint, mapWithFollower, pointsOfContour, startPoint)
 
@@ -102,7 +101,7 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), 
 
 import Graphics.Slicer.Math.PGA (PLine2Err, PPoint2Err, ProjectivePoint, ProjectiveLine, hasArc, normalizeL, outAndErrOf, outOf, vecOfL, vecOfP)
 
-import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg)
+import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), Side(Side), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
@@ -263,7 +262,7 @@ instance GanjaAble StraightSkeleton where
   toGanja a = error $ "no a, only b: " <> show a <> "\n"
 
 instance GanjaAble NodeTree where
-  toGanja (NodeTree (ENodeSet eNodeSides) iNodeSet) varname = (invars, inrefs)
+  toGanja (NodeTree (ENodeSet sides) iNodeSet) varname = (invars, inrefs)
     where
       (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
@@ -271,23 +270,21 @@ instance GanjaAble NodeTree where
           pairs        = zip (allEdges <> allINodes) allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
           allEdges     = toGanja <$> (firstLine <> remainingLines)
-          allINodes    = toGanja <$> iNodesOf iNodeSet
-          firstLine    = case eNodeSides of
+          allINodes
+            | isJust iNodeSet = toGanja <$> iNodesOf (fromJust iNodeSet)
+            | otherwise = []
+          firstLine    = case sides of
                            (Slist [] _) -> []
-                           (Slist [(firstNode,Slist [] _)] _) -> [getFirstLineSeg firstNode]
-                           (Slist [(firstNode,otherNodes)] _) -> if getFirstLineSeg firstNode /= getLastLineSeg (last otherNodes)
-                                                                 then [getFirstLineSeg firstNode]
-                                                                 else []
+                           (Slist [Side (firstNode,Slist [] _)] _) -> [getFirstLineSeg firstNode]
+                           (Slist [Side (firstNode,otherNodes)] _) -> if getFirstLineSeg firstNode /= getLastLineSeg (last otherNodes)
+                                                                      then [getFirstLineSeg firstNode]
+                                                                      else []
                            (Slist _ _) -> error "too many sides."
           remainingLines
-            | len eNodeSides == 0 = []
-            | otherwise = getLastLineSeg <$> eNodesOf eNodeSides
-            where
-              eNodesOf (Slist [] _) = error "no enodes?"
-              eNodesOf (Slist [(first,Slist more _)] _) = first : more
-              eNodesOf (Slist _ _) = error "too many sides?"
+            | isEmpty sides = []
+            | otherwise = concat $ (\(Side (eNode, (Slist moreENodes _))) -> getLastLineSeg <$> eNode : moreENodes) <$>  sides
           iNodesOf :: INodeSet -> [INode]
-          iNodesOf (INodeSet (Slist inodes _)) = concat inodes
+          iNodesOf (INodeSet (Slist inodes _) lastINode) = concat inodes <> [lastINode]
 
 instance GanjaAble Face where
   toGanja (Face edge firstArc (Slist arcs _) lastArc) varname = (invars, inrefs)
