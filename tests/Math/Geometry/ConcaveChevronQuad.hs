@@ -44,7 +44,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Definitions (Contour)
 
 -- Our serialization library, for debugging,
-import Graphics.Slicer.Math.Ganja(dumpGanja, toGanja)
+import Graphics.Slicer.Math.Ganja (dumpGanja)
 
 -- The functions for generating random geometry, for testing purposes.
 import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), generationsOf, oneNodeTreeOf, randomConcaveChevronQuad)
