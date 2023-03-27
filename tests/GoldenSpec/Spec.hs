@@ -54,7 +54,16 @@ goldenSpec :: Spec
 goldenSpec = describe "golden tests" $ do
   golden "C0-Cell1" $ cellFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []
   golden "C0-Cell1-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []
+  golden "C0-Cell1_And_Divide-NodeTree" $
+    mergeNodeTrees $
+    [ justSupported $ getNodeTreeOfCell $ cellFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [] ]
+    <> nodeTreesFromDivision (onlyOne $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [])
+  golden "C0-Cell2" $ cellFrom $ findNextCell $ onlyOne $ fromMaybe (error "Got Nothing") $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []
   golden "C0-Cell2-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []
+  golden "C0-Cell2_And_Divide-NodeTree" $
+    mergeNodeTrees $
+    [ justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [] ]
+    <> nodeTreesFromDivision (onlyOne $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [])
   golden "C0-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []
   golden "C0-NodeTree" $ mergeNodeTrees $
     [
@@ -69,16 +78,7 @@ goldenSpec = describe "golden tests" $ do
                        justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []
                      ] <> nodeTreesFromDivision (onlyOne $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [])
                    ]
-  golden "C0-Cell1_And_Divide-NodeTree" $
-    mergeNodeTrees $
-    [ justSupported $ getNodeTreeOfCell $ cellFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [] ]
-    <> nodeTreesFromDivision (onlyOne $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [])
   golden "C0-Divide-NodeTree" $ mergeNodeTrees $ nodeTreesFromDivision $ onlyOne $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []
-  golden "C0-Cell2" $ cellFrom $ findNextCell $ onlyOne $ fromMaybe (error "Got Nothing") $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []
-  golden "C0-Cell2_And_Divide-NodeTree" $
-    mergeNodeTrees $
-    [ justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [] ]
-    <> nodeTreesFromDivision (onlyOne $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [])
   golden "C0-Faces-Default" $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c0 []
   golden "C0-Faces-Ordered" $ orderedFacesOf c0l0 (fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])
   golden "C1-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c1 []
