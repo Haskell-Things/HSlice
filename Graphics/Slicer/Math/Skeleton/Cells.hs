@@ -32,15 +32,17 @@ import Data.Either(Either(Left, Right))
 
 import Data.List (elemIndex, sortBy, dropWhile, takeWhile, nub)
 
-import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
+import qualified Data.List as DL (head)
 
-import Slist (head, len, slist, safeLast, last, init)
+import Data.Maybe (Maybe(Just, Nothing), fromJust, fromMaybe, isJust)
+
+import Slist (head, isEmpty, len, slist, safeLast, last, init)
 
 import Slist.Type (Slist(Slist), one)
 
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), finalPLine, getFirstLineSeg, makeINode, insOf, lastINodeOf, isLoop)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), allINodesOf, ancestorsOf, finalPLine, getFirstLineSeg, makeINode, insOf, finalINodeOf, isLoop)
 
 import Graphics.Slicer.Math.Ganja (dumpGanja)
 
@@ -48,9 +50,7 @@ import Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTr
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeTree, mergeNodeTrees)
 
-import Graphics.Slicer.Math.Contour (lineSegsOfContour)
-
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, makeLineSeg, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, lineSegsOfContour, makeLineSeg, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
@@ -272,7 +272,7 @@ createCellFromStraightWalls (Slist (_:_:_) _) _ = error "too many segsets."
 createCellFromStraightWalls _ [] = error "no celldivide."
 createCellFromStraightWalls _ (_:_:_) = error "too many celldivides."
 createCellFromStraightWalls segSets@(Slist [segments] _) [cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _ _) _) _)]
-  | len segSets == 0 = error "recieved no line segments. unpossible."
+  | isEmpty segSets = error "recieved no line segments. unpossible."
   | isLoop segSets && len segSets == len afterRes = error "passing back full segment list, which should not be possible."
   | isLoop segSets = Cell (slist [(afterRes, Just cellDivide)])
   | len segSets /= len preceedingRes = error "passing back incomplete segment list, which should not be possible."
@@ -341,10 +341,10 @@ endOfDivide divide = fromMaybe (error "missed!") $ maybeEndOfDivide divide
 -- FIXME: yes, this is woefully incomplete.
 maybeEndOfDivide :: CellDivide -> Maybe (LineSeg, Either Point2 ProjectivePoint)
 maybeEndOfDivide (CellDivide (DividingMotorcycles m ms) lastIntersection)
-  | len ms == 0 = case lastIntersection of
-                    (WithENode eNode) -> Just (getFirstLineSeg eNode, Left $ ePointOf eNode)
-                    (WithMotorcycle m1) -> Just (startSegOfMotorcycle m1, Left $ ePointOf m1)
-                    (WithLineSeg lineSeg) -> motorcycleMightIntersectWith [lineSeg] m
+  | isEmpty ms = case lastIntersection of
+                   (WithENode eNode) -> Just (getFirstLineSeg eNode, Left $ ePointOf eNode)
+                   (WithMotorcycle m1) -> Just (startSegOfMotorcycle m1, Left $ ePointOf m1)
+                   (WithLineSeg lineSeg) -> motorcycleMightIntersectWith [lineSeg] m
   | len ms == 1 = case lastIntersection of
                     (WithENode eNode) -> Just (getFirstLineSeg eNode, Left $ ePointOf eNode)
                     (WithMotorcycle m2) -> Just (startSegOfMotorcycle m2, Left $ ePointOf m2)
@@ -362,16 +362,36 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
   where
     adjustedNodeTree1 = redirectLastOut nodeTree1 crossoverPoint
     adjustedNodeTree2 = redirectLastOut nodeTree2 crossoverPoint
-    -- adjust the last output of the nodetree so that it goes through the point it's supposed to.
-    redirectLastOut nodeTree@(NodeTree eNodes iNodeGens@(INodeSet gens)) myCrossover =
-      -- Drop INodes with two identical inputs at this stage.
-      case nub $ insOf $ lastINodeOf iNodeGens of
-        [] -> error "unpossible."
-        [_] -> NodeTree eNodes $ INodeSet $ init gens
-        (_:_) -> NodeTree eNodes $ INodeSet $ init gens <> one [makeINode (nub $ insOf $ lastINodeOf iNodeGens) (Just $ (\(res, (_,_,resErr)) -> (res, resErr)) $ join2PP (finalPointOfNodeTree nodeTree) myCrossover)]
+    -- adjust the last output of the NodeTree so that it goes through the point it's supposed to.
+    redirectLastOut :: NodeTree -> ProjectivePoint -> NodeTree
+    redirectLastOut nodeTree@(NodeTree eNodes maybeINodeSet) myCrossover
+      | isJust maybeINodeSet =
+        -- Drop INodes with two identical inputs and no output at this stage.
+        case nub $ insOf $ finalINodeOf $ fromJust maybeINodeSet of
+          [] -> error "unpossible."
+          [_] -> NodeTree eNodes $ if ancestorsOf (fromJust maybeINodeSet) == []
+                                   then Nothing
+                                   else Just $ pruneParent (fromJust maybeINodeSet)
+          (_:_) -> NodeTree eNodes $ Just $ INodeSet childGens $ makeINode (nub $ insOf $ finalINodeOf $ fromJust maybeINodeSet) $ (Just $ (\(res, (_,_,resErr)) -> (res, resErr)) $ join2PP (finalPointOfNodeTree nodeTree) myCrossover)
+      | otherwise = error "cannot redirect output, no INodes in INodeSet?"
+      where
+        childGens
+          | isJust maybeINodeSet = (\(INodeSet foundChildGens _) -> foundChildGens) $ fromJust maybeINodeSet
+          | otherwise = error "no inode set to get child gens of."
+    pruneParent :: INodeSet -> INodeSet
+    pruneParent (INodeSet childGens parent)
+      | isEmpty childGens = error "tried to prune the last INode from an INodeSet."
+      | otherwise = case lastGen of
+                      [] -> error "encountered an empty generation."
+                      [oneINode] -> INodeSet (init childGens) oneINode
+                      (manyINodes) -> INodeSet (init childGens <> manyINodes `withoutINode` newParent) newParent
+      where
+        lastGen = last childGens
+        withoutINode iNodes iNode = slist [filter (\a -> a /= iNode) iNodes]
+        newParent = DL.head $ filter (\a -> outAndErrOf a == DL.head (insOf parent)) lastGen
     -- | find the last resolvable point in a NodeTree
     finalPointOfNodeTree (NodeTree _ iNodeGens)
-      | canPoint (lastINodeOf iNodeGens) = cPPointOf $ lastINodeOf iNodeGens
+      | isJust iNodeGens && canPoint (finalINodeOf $ fromJust iNodeGens) = cPPointOf $ finalINodeOf $ fromJust iNodeGens
       | otherwise = error "last INode not pointable?"
     crossoverPoint = case division of
                        (CellDivide (DividingMotorcycles motorcycle1 (Slist [] _)) target) -> -- no eNode, and no opposing motorcycle.
@@ -388,9 +408,9 @@ nodeTreesFromDivision cellDivision@(CellDivide motorcycles target) = case motorc
                                                                        (DividingMotorcycles _ (Slist _ _)) -> errorOut
   where
     res = case target of
-            (WithENode eNode) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist []), makeNodeTree [eNode] (INodeSet $ slist [])]
-            (WithLineSeg _) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist [])]
-            (WithMotorcycle _) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (INodeSet $ slist [])]
+            (WithENode eNode) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) Nothing, makeNodeTree [eNode] Nothing]
+            (WithLineSeg _) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) Nothing]
+            (WithMotorcycle _) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) Nothing]
     errorOut = error "tried to generate NodeTrees from a non-bilateral cellDivide"
 
 -- | Check whether the NodeTrees of two cells have an effect on each other.
@@ -413,10 +433,12 @@ nodeTreesDoNotOverlap nodeTree1 nodeTree2 cellDivide@(CellDivide motorcycles1 _)
                                                                  point2 = fromMaybe (error "no outArc?") $ outputIntersectsPLineAt m (finalPLine nt2)
                                                              (DividingMotorcycles _ (Slist _ _)) -> error "cannot yet check outpoint intersections of more than one motorcycle."
 
--- | Given a nodeTree and it's closing division, return all of the ENodes where the point of the node is on the opposite side of the division.
+-- | Given a nodeTree and a closing division, return all of the INodes where the point of the INode is on the opposite side of the division.
 -- NOTE: this skips checking nodes that cannot be resolved to a point.
 crossoverINodes :: NodeTree -> CellDivide -> [INode]
-crossoverINodes nodeTree@(NodeTree _ (INodeSet (Slist iNodes _))) cellDivision = filter nodeCrosses (filter canPoint $ concat iNodes)
+crossoverINodes nodeTree@(NodeTree _ maybeINodeSet) cellDivision
+  | isJust maybeINodeSet = filter nodeCrosses (filter canPoint $ concat $ (\(Slist a _) -> a) $ allINodesOf $ fromJust maybeINodeSet)
+  | otherwise = []
   where
     nodeCrosses :: INode -> Bool
     nodeCrosses a = Just False `elem` (intersectionSameSide pointOnSide a <$> motorcyclesInDivision cellDivision)

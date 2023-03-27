@@ -19,9 +19,9 @@
 -- | utility functions for working with NodeTrees.
 module Graphics.Slicer.Math.Skeleton.NodeTrees (firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, findINodeByOutput, makeNodeTree, mergeNodeTrees) where
 
-import Prelude (Bool(True,False), Eq, Show, (==), otherwise, snd, ($), error, (<>), notElem, show, (&&), (/=), null, (<$>), fst)
+import Prelude (Bool(True,False), Eq, Show, (==), concat, mempty, not, otherwise, snd, ($), error, (<>), notElem, show, (&&), (/=), null, (<$>), fst)
 
-import Data.Maybe (Maybe(Just, Nothing), fromJust, fromMaybe, isJust)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromJust, fromMaybe, isJust)
 
 import Slist.Type (Slist(Slist))
 
@@ -31,7 +31,7 @@ import Slist as SL (filter, last, head, init, isEmpty)
 
 import Graphics.Slicer.Math.Definitions (LineSeg)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), finalINodeOf, finalPLine, getFirstLineSeg, getLastLineSeg, hasNoINodes, ancestorsOf, indexPLinesTo, makeINode, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Side(Side), allINodesOf, eNodesOfSide, finalINodeOf, finalOutAndErrOf, finalOutOf, getFirstLineSeg, getLastLineSeg, isOneSide, ancestorsOf, indexPLinesTo, makeINode, makeSide, oneSideOf, sortedPLines)
 
 import Graphics.Slicer.Math.PGA (PLine2Err, ProjectiveLine, Arcable(hasArc, outOf), outAndErrOf)
 
@@ -42,14 +42,10 @@ firstSegOf :: NodeTree -> LineSeg
 firstSegOf nodeTree = getFirstLineSeg $ firstENodeOf nodeTree
 
 lastENodeOf :: NodeTree -> ENode
-lastENodeOf (NodeTree (ENodeSet sides) _) = if null $ snd res
-                                            then fst res
-                                            else SL.last $ snd res
-  where
-    res = SL.last sides
+lastENodeOf (NodeTree (ENodeSet sides) _) = lastOfSide $ last sides
 
 firstENodeOf :: NodeTree -> ENode
-firstENodeOf (NodeTree (ENodeSet sides) _) = fst $ SL.head sides
+firstENodeOf (NodeTree (ENodeSet sides) _) = firstOfSide $ head sides
 
 -- | whether to follow the first or the last node in a branch, when branching in pathTo.
 data Direction = Head
@@ -62,38 +58,37 @@ pathLast nodeTree = pathTo nodeTree Last
 -- | Find all of the Nodes and all of the arcs between the last item in the nodeTree and the node that is part of the original contour on the given side.
 pathTo :: NodeTree -> Direction -> ([(ProjectiveLine, PLine2Err)], [INode], ENode)
 pathTo (NodeTree (ENodeSet (Slist [] _)) _) _ = error "unable to pathTo a Nodetree without ENodes."
-pathTo (NodeTree eNodeSet@(ENodeSet eNodeSides) iNodeSet@(INodeSet generations)) direction
-  | isEmpty generations = case eNodeSides of
-                            (Slist [(firstENode,_)] _) -> ([outAndErrOf firstENode], [], firstENode)
-                            (Slist _ _) -> error "looking for a first ENode in an ENodeSet with more than one side."
-  | otherwise = pathInner (ancestorsOf iNodeSet) eNodeSet (finalINodeOf iNodeSet)
+pathTo (NodeTree eNodeSet iNodeSet) direction
+  | isJust iNodeSet = fromMaybe (error "whoops!") $ maybeOnlyOneJust $ (\a -> pathInner a eNodeSet (finalINodeOf $ fromJust iNodeSet)) <$> ancestorsOf (fromJust iNodeSet)
+  | otherwise = error "asked for pathTo for a NodeTree that has no INodes."
   where
-    pathInner :: INodeSet -> ENodeSet -> INode -> ([(ProjectiveLine, PLine2Err)], [INode], ENode)
-    pathInner myINodeSet@(INodeSet myGenerations) myENodeSet target@(INode firstPLine secondPLine morePLines _)
-      | hasArc target = (outAndErrOf target : childPlines, target: endNodes, finalENode)
-      | otherwise     = (                     childPlines, target: endNodes, finalENode)
+    pathInner :: INodeSet -> ENodeSet -> INode -> Maybe ([(ProjectiveLine, PLine2Err)], [INode], ENode)
+    pathInner myINodeSet myENodeSet target@(INode firstPLine secondPLine morePLines _)
+      | hasArc target = Just (outAndErrOf target : childPlines, target: endNodes, finalENode)
+      | otherwise     = Just (                     childPlines, target: endNodes, finalENode)
       where
         (childPlines, endNodes, finalENode) = if isJust result
                                               then returnResult (fromJust result)
                                               else case iNodeOnThisLevel of
-                                                     (Just res) -> pathInner myINodeSet myENodeSet (snd res)
-                                                     Nothing -> case myGenerations of
-                                                                  (Slist [] _) -> myError
-                                                                  (Slist ([]:_) _) -> myError
-                                                                  (Slist [INode {} :_] _) -> myError
-                                                                  (Slist ((INode {} :_):_) _) ->  case iNodeOnLowerLevel of
-                                                                                        (Just (resINodeSet,resINode)) -> pathInner (ancestorsOf resINodeSet) myENodeSet resINode
-                                                                                        Nothing -> myError
+                                                     (Just res) -> fromMaybe (error "no!") $ pathInner myINodeSet myENodeSet (snd res)
+                                                     Nothing -> case ancestorsOf myINodeSet of
+                                                                  [] -> myError
+                                                                  _  ->  case iNodeOnLowerLevel of
+                                                                           (Just (resINodeSet, resINode)) -> case ancestorsOf resINodeSet of
+                                                                                                               [] -> myError
+                                                                                                               [x] -> fromMaybe (error "nope!") $ pathInner x myENodeSet resINode
+                                                                                                               _ -> error "got nowhere."
+                                                                           Nothing -> myError
           where
             result = findENodeByOutput myENodeSet pLineToFollow
             returnResult eNode = ([outAndErrOf eNode], [], eNode)
             iNodeOnThisLevel = findINodeByOutput myINodeSet pLineToFollow False
-            iNodeOnLowerLevel = findINodeByOutput (ancestorsOf myINodeSet) pLineToFollow True
+            iNodeOnLowerLevel = maybeOnlyOneJust $ (\a -> findINodeByOutput a pLineToFollow True) <$> ancestorsOf (fromJust iNodeSet)
             pLineToFollow = case direction of
                               Head -> fst $ firstPLine
                               Last -> fst $ SL.last (cons secondPLine morePLines)
             myError = error $ "could not find enode for " <> show pLineToFollow <> "\n"
-                           <> show eNodeSides <> "\n"
+                           <> show myENodeSet <> "\n"
                            <> show myINodeSet <> "\n"
 
 -- | Find an exterior Node with an output of the PLine given.
@@ -108,8 +103,8 @@ findENodeByOutput (ENodeSet eNodeSides) plineOut =
                          (_:_) -> error "more than one eNode found?"
       where res = (`findENodeOnSideByOutput` plineOut) <$> sides
   where
-  findENodeOnSideByOutput :: (ENode,Slist ENode) -> ProjectiveLine -> Maybe ENode
-  findENodeOnSideByOutput (firstENode,moreENodes) myPlineOut = case nodesMatching of
+  findENodeOnSideByOutput :: Side -> ProjectiveLine -> Maybe ENode
+  findENodeOnSideByOutput (Side (firstENode,moreENodes)) myPlineOut = case nodesMatching of
                                                                  (Slist [] _) -> Nothing
                                                                  (Slist [oneNode] _) -> Just oneNode
                                                                  (Slist (_:_) _)->  error "more than one exterior node with the same PLine out!"
@@ -119,28 +114,34 @@ findENodeByOutput (ENodeSet eNodeSides) plineOut =
 -- | Find an INode that has an output of the PLine given. Check the most recent generation, and if recurse is set, check previous generations.
 --   Also returns the generation the INode was found in, it's generation, and it's prior generations.
 findINodeByOutput :: INodeSet -> ProjectiveLine -> Bool -> Maybe (INodeSet, INode)
-findINodeByOutput iNodeSet@(INodeSet generations) plineOut recurse
-  | isEmpty generations = Nothing
-  | otherwise = case nodesMatching of
-                  (Slist [] _) -> if recurse
-                                  then case generations of
-                                         (Slist [] _) -> Nothing
-                                         (Slist [INode {} :_] _) -> Nothing
-                                         (Slist (_:_) _) -> findINodeByOutput (ancestorsOf iNodeSet) plineOut recurse
-                                  else Nothing
-                  (Slist [iNode] _) -> Just (iNodeSet, iNode)
-                  (Slist (_:_) _) -> error "more than one node in a the same generation with the same PLine out!"
+findINodeByOutput iNodeSet@(INodeSet _ parent) pLineOut recurse =
+  case nodeMatching of
+    Just iNode -> Just (iNodeSet, iNode)
+    Nothing -> if recurse
+                    then case ancestorsOf iNodeSet of
+                           [] -> Nothing
+                           [a] -> findINodeByOutput a pLineOut recurse
+                           (xs) -> maybeOnlyOneJust $ (\a -> findINodeByOutput a pLineOut recurse) <$> xs
+                    else Nothing
   where
-    nodesMatching = SL.filter (\a -> hasArc a && outOf a == plineOut) $ slist (SL.last generations)
+    nodeMatching = if hasArc parent && outOf parent == pLineOut
+                   then Just parent
+                   else Nothing
 
--- | a smart constructor for a NodeTree
-makeNodeTree :: [ENode] -> INodeSet -> NodeTree
-makeNodeTree eNodes iNodeSet = case eNodes of
-                                  [] -> NodeTree (ENodeSet (slist [])) iNodeSet
-                                  [eNode] -> NodeTree (ENodeSet (slist [(eNode,slist [])])) iNodeSet
-                                  (eNode:moreENodes) -> NodeTree (ENodeSet (slist [(eNode,slist moreENodes)])) iNodeSet
+maybeOnlyOneJust :: [Maybe a] -> Maybe a
+maybeOnlyOneJust xs = case catMaybes xs of
+                        [] -> Nothing
+                        [a] -> Just a
+                        _ -> error "too many!"
 
--- | Merge a set of nodetrees together.
+-- | a smart constructor for a NodeTree.
+makeNodeTree :: [ENode] -> Maybe INodeSet -> NodeTree
+makeNodeTree eNodes maybeINodeSet = case eNodes of
+                                  [] -> NodeTree (ENodeSet (slist [])) maybeINodeSet
+                                  [eNode] -> NodeTree (ENodeSet (slist [Side (eNode,slist [])])) maybeINodeSet
+                                  (eNode:moreENodes) -> NodeTree (ENodeSet (slist [Side (eNode,slist moreENodes)])) maybeINodeSet
+
+-- | Merge a set of NodeTrees together.
 mergeNodeTrees :: [NodeTree] -> NodeTree
 mergeNodeTrees nodeTrees =
   case nodeTrees of
@@ -156,113 +157,111 @@ mergeNodeTrees nodeTrees =
       where
         mergedENodeSets = mergeENodeSets eNodeSet1 eNodeSet2
         mergedINodeSets = mergeINodeSets nodeTree1 nodeTree2
-    mergeINodeSets :: NodeTree -> NodeTree -> INodeSet
+    mergeINodeSets :: NodeTree -> NodeTree -> Maybe INodeSet
     mergeINodeSets myNodeTree1@(NodeTree eNodeSet1 _) myNodeTree2@(NodeTree eNodeSet2 _)
       | isOneSide eNodeSet1 && isOneSide eNodeSet2 = addOneSidedINodeSets myNodeTree1 myNodeTree2
       | otherwise = error "make me."
-    addOneSidedINodeSets :: NodeTree -> NodeTree -> INodeSet
-    addOneSidedINodeSets nt1@(NodeTree _ iNodeSet1@(INodeSet rawINodeSet1)) nt2@(NodeTree _ iNodeSet2@(INodeSet rawINodeSet2))
-      | hasNoINodes iNodeSet1 && hasNoINodes iNodeSet2 = INodeSet $ slist $ nodeTreesInOrder nt1 nt2
-      | hasNoINodes iNodeSet1 && hasArc (finalINodeOf iNodeSet2) = INodeSet $ rawINodeSet2 <> slist (nodeTreesInOrder nt1 nt2)
-      | hasNoINodes iNodeSet1 = INodeSet $ SL.init rawINodeSet2 <> slist (nodeTreeAndInsInOrder nt1 nt2)
-      | hasNoINodes iNodeSet2 && hasArc (finalINodeOf iNodeSet1) = INodeSet $ rawINodeSet1 <> slist (nodeTreesInOrder nt2 nt1)
-      | hasNoINodes iNodeSet2 = INodeSet $ SL.init rawINodeSet1 <> slist (nodeTreeAndInsInOrder nt2 nt1)
-      | hasArc (finalINodeOf iNodeSet1) && hasArc (finalINodeOf iNodeSet2) = error $ show (mergeINodeSetsInOrder nt1 nt2) <> "\n" <> show (nodeTreesInOrder nt1 nt2) <> "\n"
-      | hasArc (finalINodeOf iNodeSet1) = INodeSet $ slist $ mergeAncestorAndINodeSetInOrder nt1 nt2 <> nodeTreeAndInsInOrder nt1 nt2
-      | hasArc (finalINodeOf iNodeSet2) = error $ show (nodeTreeAndInsInOrder nt2 nt1) <> "\n" <> show (insOf $ finalINodeOf iNodeSet1) <> "\n"
+    addOneSidedINodeSets :: NodeTree -> NodeTree -> Maybe INodeSet
+    addOneSidedINodeSets nt1@(NodeTree _ iNodeSet1) nt2@(NodeTree _ iNodeSet2)
+      | isJust (finalOutOf nt1) &&
+        isJust (finalOutOf nt2) = if isJust iNodeSet1
+                                  then Just $ INodeSet (mergeAncestorsInOrder nt1 nt2) $ createNewParent nt1 nt2
+                                  else if isJust iNodeSet2
+                                       then Just $ INodeSet (mergeAncestorsInOrder nt2 nt1) $ createNewParent nt2 nt1
+                                       else Just $ INodeSet mempty $ createNewParent nt1 nt2
+      | isJust (finalOutOf nt1) = Just $ INodeSet (mergeAncestorsInOrder nt1 nt2) $ createNewParent nt1 nt2
+      | isJust (finalOutOf nt2) = Just $ INodeSet (mergeAncestorsInOrder nt2 nt1) $ createNewParent nt2 nt1
       | otherwise = error $ "cannot merge two NodeTrees without outputs.\n" <> show nt1 <> "\n" <> show nt2 <> "\n"
       where
-        nodeTreesInOrder myNodeTree1@(NodeTree myENodeSet1 _) myNodeTree2@(NodeTree myENodeSet2 _)
-          | isOneSide myENodeSet1 && isOneSide myENodeSet2 = case compareSides (firstSide myENodeSet1) (firstSide myENodeSet2) of
-                                                               FirstLast -> [[makeINode [finalPLine myNodeTree1, finalPLine myNodeTree2] Nothing]]
-                                                               LastFirst -> [[makeINode [finalPLine myNodeTree2, finalPLine myNodeTree1] Nothing]]
-                                                               NoMatch -> error "failed to connect"
+        -- Create a merged set of ancestors.
+        -- skips the inode that is going to be used as the last inode of the new merged INodeSet.
+        mergeAncestorsInOrder (NodeTree myENodeSet1 myINodeSet1) (NodeTree myENodeSet2 myINodeSet2)
+          | isOneSide myENodeSet1 && isOneSide myENodeSet2 =
+              case compareSides (oneSideOf myENodeSet1) (oneSideOf myENodeSet2) of
+                FirstLast -> slist $ mergeChildren
+                                       (if isJust myINodeSet2 then init $ allINodesOf $ fromJust myINodeSet2 else mempty)
+                                       (if isJust myINodeSet1 then allINodesOf $ fromJust myINodeSet1 else mempty)
+                LastFirst -> slist $ mergeChildren
+                                       (if isJust myINodeSet1 then allINodesOf $ fromJust myINodeSet1 else mempty)
+                                       (if isJust myINodeSet2 then init $ allINodesOf $ fromJust myINodeSet2 else mempty)
+                NoMatch -> error "failed to connect"
           | otherwise = error "multi-sided ENodeSets not yet supported."
-        nodeTreeAndInsInOrder myNodeTree1@(NodeTree myENodeSet1 _) myNodeTree2@(NodeTree myENodeSet2 _)
-          | isOneSide myENodeSet1 && isOneSide myENodeSet2 = case compareSides (firstSide myENodeSet1) (firstSide myENodeSet2) of
-                                                               FirstLast -> [[makeINode (indexPLinesTo (outAndErrOf $ firstENodeOf myNodeTree2) $ sortedPLines $ insOf (finalINodeOf iNodeSet2) <> [finalPLine myNodeTree1]) Nothing]]
-                                                               LastFirst -> [[makeINode (indexPLinesTo (outAndErrOf $ firstENodeOf myNodeTree1) $ sortedPLines $ (finalPLine myNodeTree1) : insOf (finalINodeOf iNodeSet2)) Nothing]]
-                                                               NoMatch -> error "failed to connect"
+        -- create a new parent.
+        createNewParent myNodeTree1@(NodeTree myENodeSet1 _) myNodeTree2@(NodeTree myENodeSet2 myINodeSet2)
+          | isOneSide myENodeSet1 && isOneSide myENodeSet2 =
+              case compareSides (oneSideOf myENodeSet1) (oneSideOf myENodeSet2) of
+                FirstLast -> makeINode (indexPLinesTo (outAndErrOf $ firstENodeOf myNodeTree1) inputPLines) Nothing
+                LastFirst -> makeINode (indexPLinesTo (outAndErrOf $ firstENodeOf myNodeTree2) inputPLines) Nothing
+                NoMatch -> error "failed to connect"
           | otherwise = error "multi-sided ENodeSets not yet supported."
-        mergeINodeSetsInOrder (NodeTree myENodeSet1 myINodeSet1) (NodeTree myENodeSet2 myINodeSet2)
-          | isOneSide myENodeSet1 && isOneSide myENodeSet2 = case compareSides (firstSide myENodeSet1) (firstSide myENodeSet2) of
-                                                               FirstLast -> rawMergeINodeSets myINodeSet1 myINodeSet2
-                                                               LastFirst -> rawMergeINodeSets myINodeSet2 myINodeSet1
-                                                               NoMatch -> error "failed to connect"
-          | otherwise = error "multi-sided ENodeSets not yet supported."
-        mergeAncestorAndINodeSetInOrder (NodeTree myENodeSet1 myINodeSet1) (NodeTree myENodeSet2 myINodeSet2)
-          | isOneSide myENodeSet1 && isOneSide myENodeSet2 = case compareSides (firstSide myENodeSet1) (firstSide myENodeSet2) of
-                                                               FirstLast -> rawMergeINodeSets (ancestorsOf myINodeSet2) myINodeSet1
-                                                               LastFirst -> rawMergeINodeSets (ancestorsOf myINodeSet1) myINodeSet2
-                                                               NoMatch -> error "failed to connect"
-          | otherwise = error "multi-sided ENodeSets not yet supported."
-        insOf (INode a b (Slist cs _) _) = a:b:cs
-        rawMergeINodeSets (INodeSet myINodeSet1) (INodeSet myINodeSet2) = mergeINodeSetsInner myINodeSet1 myINodeSet2
           where
-            mergeINodeSetsInner :: Slist [INode] -> Slist [INode] -> [[INode]]
-            mergeINodeSetsInner set1@(Slist rawSet1 _) set2@(Slist rawSet2 _)
-              | null rawSet1 && null rawSet2 = []
-              | null rawSet1 = rawSet2
-              | null rawSet2 = rawSet1
-              | null (SL.init set1) && null (SL.init set2) = [SL.last set1 <> SL.last set2]
-              | otherwise = mergeINodeSetsInner (SL.init set1) (SL.init set2) <> [SL.last set1 <> SL.last set2]
+            inputPLines = sortedPLines $
+                          (if isJust myINodeSet2
+                           then (insOf (finalINodeOf $ fromJust myINodeSet2))
+                           else if isJust (finalOutAndErrOf myNodeTree2)
+                                then [fromJust $ finalOutAndErrOf myNodeTree2]
+                                else [])
+                          <>
+                          (if isJust (finalOutAndErrOf myNodeTree1)
+                           then [fromJust $ finalOutAndErrOf myNodeTree1]
+                           else [])
+            insOf (INode a b (Slist cs _) _) = a:b:cs
+        mergeChildren :: Slist [INode] -> Slist [INode] -> [[INode]]
+        mergeChildren set1 set2
+          | null set1 = (\(Slist a _) -> a) set2
+          | null set2 = (\(Slist a _) -> a) set1
+          | null (SL.init set1) && null (SL.init set2) = [SL.last set1 <> SL.last set2]
+          | otherwise = mergeChildren (SL.init set1) (SL.init set2) <> [SL.last set1 <> SL.last set2]
     mergeENodeSets :: ENodeSet -> ENodeSet -> ENodeSet
     mergeENodeSets myENodeSet1@(ENodeSet sides1) myENodeSet2@(ENodeSet sides2)
-      | len sides1 == 0 && len sides2 == 0 = myENodeSet1
-      | len sides1 /= 0 && len sides2 == 0 = myENodeSet1
+      | isEmpty sides1 && isEmpty sides2 = myENodeSet1
+      | not (isEmpty sides1) && isEmpty sides2 = myENodeSet1
       | len sides1 == 0 && len sides2 /= 0 = myENodeSet2
-      | isOneSide myENodeSet1 = addENodeSetToOneSide myENodeSet2 myENodeSet1
-      | isOneSide myENodeSet2 = addENodeSetToOneSide myENodeSet1 myENodeSet2
+      | isOneSide myENodeSet1 = addENodeSetToOneSide myENodeSet2 (oneSideOf myENodeSet1)
+      | isOneSide myENodeSet2 = addENodeSetToOneSide myENodeSet1 (oneSideOf myENodeSet2)
       | otherwise = error "unsure how to merge."
       where
-        addENodeSetToOneSide :: ENodeSet -> ENodeSet -> ENodeSet
-        addENodeSetToOneSide _ (ENodeSet (Slist [] _)) = error "empty set?"
-        addENodeSetToOneSide _ (ENodeSet (Slist (_:_:_) _)) = error "too many sides?"
-        addENodeSetToOneSide myENodeSet@(ENodeSet sides) (ENodeSet (Slist [oneSide] _)) = ENodeSet resultSides
+        addENodeSetToOneSide :: ENodeSet -> Side -> ENodeSet
+        addENodeSetToOneSide eNodeSet@(ENodeSet rawSides) oneSide = ENodeSet resultSides
           where
-            resultSides = cons newSide $ SL.filter (`notElem` matchSides) sides
-            -- can match 1 or 2 times.
-            matchSides :: [(ENode, Slist ENode)]
+            resultSides = cons newSide $ SL.filter (`notElem` matchSides) rawSides
+            -- return the sides that have a match (forward or backwards) with the given side.
+            matchSides :: [Side]
             matchSides
-              | isEmpty matchHead && isEmpty matchTail = error $ "no way to connect:\n" <> show oneSide <> "\n" <> show sides <> "\n" <> show (compareSides oneSide (lastSide myENodeSet)) <> "\n" <> show nodeTrees <> "\n"
-              | isEmpty matchHead = [SL.head matchTail]
-              | isEmpty matchTail = [SL.head matchHead]
-              | matchHead == matchTail = [SL.head matchHead]
-              | otherwise = SL.head matchHead : [SL.head matchTail]
+              | null matchFirst && null matchLast = error $ "no way to connect:\n" <> show oneSide <> "\n" <> show eNodeSet <> "\n" <> show nodeTrees <> "\n"
+              | otherwise = matchFirst <> matchLast
+            -- find a side that connects to our side's first ENode.
+            matchFirst = zeroOrOne $ filter (\a -> compareSides a oneSide == FirstLast) $ sidesOfENodeSet eNodeSet
+            -- find a side that connects to our side's last ENode.
+            matchLast = zeroOrOne $ filter (\a -> compareSides a oneSide == LastFirst) $ sidesOfENodeSet eNodeSet
             -- construct a new side, including matchSides and the oneSide given.
-            newSide :: (ENode, Slist ENode)
+            newSide :: Side
             newSide
-              | isEmpty matchHead && isEmpty matchTail = error $ "no way to connect\n" <> show oneSide <> "\n" <> show sides <> "\n" <> show (compareSides oneSide (lastSide myENodeSet)) <> "\n"
-              | isEmpty matchHead = makeSide $ eNodesOfSide oneSide <> eNodesOfSide (SL.head matchTail)
-              | isEmpty matchTail = makeSide $ eNodesOfSide (SL.head matchHead) <> eNodesOfSide oneSide
-              | matchHead == matchTail = makeSide $ eNodesOfSide (SL.head matchHead) <> eNodesOfSide oneSide
-              | otherwise = makeSide $ eNodesOfSide (SL.head matchHead) <> eNodesOfSide oneSide <> eNodesOfSide (SL.head matchTail)
-            -- find a side that ends where our oneSide begins
-            matchHead = SL.filter (\given -> compareSides given oneSide == FirstLast) sides
-            -- find a side that begins where our oneSide ends
-            matchTail = SL.filter (\given -> compareSides given oneSide == LastFirst) sides
-            eNodesOfSide :: (ENode, Slist ENode) -> [ENode]
-            eNodesOfSide (first,Slist more _) = first : more
-            makeSide :: [ENode] -> (ENode, Slist ENode)
-            makeSide [] = error "cannot make an empty side."
-            makeSide (a:bs) = (a, slist bs)
-    isOneSide :: ENodeSet -> Bool
-    isOneSide (ENodeSet sides) = len sides == 1
-    compareSides :: (ENode, Slist ENode) -> (ENode, Slist ENode) -> MaybeMatch
+              | matchFirst == [] && matchLast == [] = error $ "no way to connect\n" <> show eNodeSet <> "\n" <> show oneSide <> "\n"
+              | otherwise = makeSide $ (concat $ eNodesOfSide <$> matchFirst) <> eNodesOfSide oneSide <> (concat $ eNodesOfSide <$> matchLast)
+    compareSides :: Side -> Side -> MaybeMatch
     compareSides side1 side2
       | checkForFollower (lastOfSide side1) (firstOfSide side2) = FirstLast
       | checkForFollower (lastOfSide side2) (firstOfSide side1) = LastFirst
       | otherwise = NoMatch
-    checkForFollower eNode1 eNode2 = getLastLineSeg eNode1 == getFirstLineSeg eNode2
-    firstSide (ENodeSet sides)
-      | len sides == 1 = head sides
-      | otherwise = error "unexplored territory"
-    lastSide (ENodeSet sides)
-      | len sides /= 0 = SL.last sides
-      | otherwise = error "unexplored territory"
-    firstOfSide (firstSeg, _) = firstSeg
-    lastOfSide (first,Slist [] _) = first
-    lastOfSide (_, moreENodes) = SL.last moreENodes
+      where
+        checkForFollower eNode1 eNode2 = getLastLineSeg eNode1 == getFirstLineSeg eNode2
+
+zeroOrOne :: Slist a -> [a]
+zeroOrOne (Slist vals _) = case vals of
+                             [] -> []
+                             [a] -> [a]
+                             _ -> error "found too many candidates."
+
+sidesOfENodeSet :: ENodeSet -> (Slist Side)
+sidesOfENodeSet (ENodeSet sides) = sides
+
+firstOfSide :: Side -> ENode
+firstOfSide (Side (firstSeg, _)) = firstSeg
+
+lastOfSide :: Side -> ENode
+lastOfSide (Side (first, Slist [] _)) = first
+lastOfSide (Side (_, moreENodes)) = SL.last moreENodes
 
 -- the result of comparing two sides, and seeing if they follow each other.
 data MaybeMatch = FirstLast

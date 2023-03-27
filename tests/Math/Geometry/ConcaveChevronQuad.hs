@@ -23,10 +23,10 @@ module Math.Geometry.ConcaveChevronQuad (
   concaveChevronQuadSpec
   ) where
 
-import Prelude (Show(show), ($), error, length)
+import Prelude (Bool(True), Show(show), ($), (<>), (==), error, length, otherwise)
 
 -- The Maybe library.
-import Data.Maybe (fromMaybe, Maybe(Nothing))
+import Data.Maybe (fromMaybe)
 
 -- Slists, a form of list with a stated size in the structure.
 import Slist (slist, len)
@@ -40,51 +40,62 @@ import Test.QuickCheck (property, Positive)
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
--- Our Contour library.
-import Graphics.Slicer.Math.Contour (lineSegsOfContour)
+-- Our basic math library.
+import Graphics.Slicer.Math.Definitions (Contour)
+
+-- Our serialization library, for debugging,
+import Graphics.Slicer.Math.Ganja (dumpGanja)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomConcaveChevronQuad)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), generationsOf, oneNodeTreeOf, randomConcaveChevronQuad)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
 
--- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
-
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
+-- Shared tests, between different geometry.
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_StraightSkeletonHasOneNodeTree)
+
 -- Our Utility library, for making these tests easier to read.
-import Math.Util ((-->), (-/>))
+import Math.Util ((-->))
 
-prop_ConcaveChevronQuadOneDivide :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadOneDivide x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
-  where
-    doTest concaveChevronQuad = len (slist $ findDivisions concaveChevronQuad (fromMaybe (error $ show concaveChevronQuad) $ crashMotorcycles concaveChevronQuad [])) --> 1
+prop_OneMotorcycle :: Contour -> Bool
+prop_OneMotorcycle contour = length (convexMotorcycles contour) == 1
 
-prop_ConcaveChevronQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadHasStraightSkeleton x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
-  where
-    doTest concaveChevronQuad = findStraightSkeleton concaveChevronQuad [] -/> Nothing
+prop_OneDivide :: Contour -> Expectation
+prop_OneDivide contour = len (slist $ findDivisions contour (fromMaybe (error $ show contour) $ crashMotorcycles contour [])) --> 1
 
-prop_ConcaveChevronQuadStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadStraightSkeletonHasOneNodeTree x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
-  where
-    doTest concaveChevronQuad = nodeTreesOf (findStraightSkeleton concaveChevronQuad []) --> 1
+prop_NodeTreeHasTwoGenerations :: Contour -> Expectation
+prop_NodeTreeHasTwoGenerations contour = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []) --> 2
 
-prop_ConcaveChevronQuadNodeTreeHasTwoGenerations :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadNodeTreeHasTwoGenerations x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
-  where
-    doTest concaveChevronQuad = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton concaveChevronQuad []) --> 2
-
+-- | insane result of filterAllIntersections
+{-
+also happens with:
+         0.0
+         0.0
+         Radian {getRadian = 1.0}
+         Radian {getRadian = 0.1}
+         Positive {getPositive = 1.0e-2}
+         Positive {getPositive = 29.0}
+-}
+{-
+also happens with:
+         0.0
+         0.0
+         Radian {getRadian = 1.0}
+         Radian {getRadian = 1.0}
+         Positive {getPositive = 16.0}
+         Positive {getPositive = 3.0e-3}
+-}
 unit_ConcaveChevronQuadNodeTreeHasTwoGenerations :: Expectation
-unit_ConcaveChevronQuadNodeTreeHasTwoGenerations = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
+unit_ConcaveChevronQuadNodeTreeHasTwoGenerations = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []) --> 2
   where
-    doTest concaveChevronQuad = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton concaveChevronQuad []) --> 2
+    contour = randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
     x,y :: ℝ
     x = 0
     y = 0
@@ -94,44 +105,59 @@ unit_ConcaveChevronQuadNodeTreeHasTwoGenerations = doTest $ randomConcaveChevron
     distance1 = 1.0e-4
     distance2 = 1.0
 
-prop_ConcaveChevronQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadCanPlaceFaces x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
+-- was falsifiable. returns 1.
+unit_ConcaveChevronQuadNodeTreeHasTwoGenerations_2 :: Bool
+unit_ConcaveChevronQuadNodeTreeHasTwoGenerations_2
+  | res == 2 = True
+  | otherwise = error $ "returned 1.\n"
+                      <> dumpGanja nodeTree <> "\n"
   where
-    doTest concaveChevronQuad = facesOf (fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) -/> slist []
-
-prop_ConcaveChevronQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadHasRightFaceCount x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
-  where
-    doTest concaveChevronQuad = length (facesOf $ fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) --> 4
-
-prop_ConcaveChevronQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-prop_ConcaveChevronQuadFacesInOrder x y tilt1 tilt2 distance1 distance2 = doTest $ randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
-  where
-    doTest concaveChevronQuad = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show concaveChevronQuad) $ findStraightSkeleton concaveChevronQuad []) --> concaveChevronQuadAsSegs
-      where
-        concaveChevronQuadAsSegs = lineSegsOfContour concaveChevronQuad
-        firstSeg = onlyOneOf concaveChevronQuadAsSegs
+    res = generationsOf nodeTree
+    nodeTree = oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []
+    contour = randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
+    x,y :: ℝ
+    x = 0
+    y = 0
+    tilt1 = Radian 2.0
+    tilt2 = Radian 2.0
+    distance1,distance2 :: Positive ℝ
+    distance1 = 1.0
+    distance2 = 1.0
 
 concaveChevronQuadBrokenSpec :: Spec
 concaveChevronQuadBrokenSpec = do
-  describe "Geometry (Concave Chevron Quads)" $
+  describe "Geometry (Concave Chevron Quads)" $ do
     it "generates two generations of INodes(unit)" $
       unit_ConcaveChevronQuadNodeTreeHasTwoGenerations
 
 concaveChevronQuadSpec :: Spec
 concaveChevronQuadSpec = do
   describe "Geometry (Concave Chevron Quads)" $ do
+    it "finds one motorcycle" $
+      property (boolFromConcaveChevronQuad prop_OneMotorcycle)
+    it "finds one divide" $
+      property (expectationFromConcaveChevronQuad prop_OneDivide)
     it "finds a straight skeleton" $
-      property prop_ConcaveChevronQuadHasStraightSkeleton
-    it "finds only one nodetree in the straight skeleton" $
-      property prop_ConcaveChevronQuadStraightSkeletonHasOneNodeTree
+      property (expectationFromConcaveChevronQuad prop_HasAStraightSkeleton)
+    it "only finds one nodetree in the straight skeleton" $
+      property (expectationFromConcaveChevronQuad prop_StraightSkeletonHasOneNodeTree)
     it "generates two generations of INodes" $
-      property prop_ConcaveChevronQuadNodeTreeHasTwoGenerations
-    it "places faces on the straight skeleton" $
-      property prop_ConcaveChevronQuadCanPlaceFaces
-    it "finds only four faces for any concave chevron quad" $
-      property prop_ConcaveChevronQuadHasRightFaceCount
-    it "places faces on a concave chevron quad in the order the line segments were given" $
-      property prop_ConcaveChevronQuadFacesInOrder
-    it "finds one divide in a concave chevron quad" $
-      property prop_ConcaveChevronQuadOneDivide
+      property (expectationFromConcaveChevronQuad prop_NodeTreeHasTwoGenerations)
+    it "generates two generations of INodes(unit) (2)" $
+      unit_ConcaveChevronQuadNodeTreeHasTwoGenerations_2
+    it "can place faces on the straight skeleton" $
+      property (expectationFromConcaveChevronQuad prop_CanPlaceFaces)
+    it "only places four faces" $
+      property (expectationFromConcaveChevronQuad prop_HasFourFaces)
+    it "places faces in the order the line segments were given" $
+      property (expectationFromConcaveChevronQuad prop_FacesInOrder)
+    -- NOTE: faces on a concave figgure can end up not all wound left.
+  where
+    boolFromConcaveChevronQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Bool
+    boolFromConcaveChevronQuad f x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = f concaveChevronQuad
+      where
+        concaveChevronQuad = randomConcaveChevronQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+    expectationFromConcaveChevronQuad :: (Contour -> Expectation) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+    expectationFromConcaveChevronQuad f x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = f concaveChevronQuad
+      where
+        concaveChevronQuad = randomConcaveChevronQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner

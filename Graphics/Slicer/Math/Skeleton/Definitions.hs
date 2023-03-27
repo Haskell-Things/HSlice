@@ -27,25 +27,61 @@
 -- So we can section tuples.
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Definitions (RemainingContour(RemainingContour), StraightSkeleton(StraightSkeleton), Spine(Spine), ENode(ENode), INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), ancestorsOf, Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg), concavePLines, getFirstLineSeg, getLastLineSeg, hasNoINodes, getPairs, linePairs, finalPLine, finalINodeOf, finalOutOf, makeINode, sortedPLines, indexPLinesTo, insOf, lastINodeOf, firstInOf, isLoop, lastInOf) where
+module Graphics.Slicer.Math.Skeleton.Definitions (
+  Cell(Cell),
+  CellDivide(CellDivide),
+  DividingMotorcycles(DividingMotorcycles),
+  ENode(ENode),
+  ENodeSet(ENodeSet),
+  INode(INode),
+  INodeSet(INodeSet),
+  Motorcycle(Motorcycle),
+  MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg),
+  NodeTree(NodeTree),
+  RemainingContour(RemainingContour),
+  StraightSkeleton(StraightSkeleton),
+  Side(Side),
+  Spine(Spine),
+  ancestorsOf,
+  allINodesOf,
+  allPLinesOfINode,
+  concavePLines,
+  eNodesOfSide,
+  firstInOf,
+  finalINodeOf,
+  finalOutOf,
+  finalOutAndErrOf,
+  finalPLine,
+  getFirstLineSeg,
+  getLastLineSeg,
+  getPairs,
+  indexPLinesTo,
+  insOf,
+  isLoop,
+  isOneSide,
+  lastInOf,
+  linePairs,
+  makeINode,
+  makeSide,
+  oneSideOf,
+  sortedPLines
+  ) where
 
 import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), not, otherwise, ($), (<$>), (==), (/=), (<=), error, (&&), any, fst, (<>), show, snd, mempty)
 
-import Prelude as PL (head, last)
+import qualified Prelude as PL (head, last)
 
 import Data.List (filter, sortBy, nub)
-
-import Data.List.Extra (unsnoc)
 
 import Data.List.NonEmpty (NonEmpty)
 
 import Data.List.Unique (count_)
 
-import Data.Maybe (Maybe(Just,Nothing), isJust, mapMaybe)
+import Data.Maybe (Maybe(Just,Nothing), fromJust, isJust, mapMaybe)
 
-import Slist (isEmpty, safeLast, slist)
+import Slist (isEmpty, len, safeLast, slist)
 
-import Slist as SL (last, head, init)
+import qualified Slist as SL (last, head, init)
 
 import Slist.Type (Slist(Slist))
 
@@ -155,11 +191,6 @@ allPLinesOfINode iNode@(INode firstPLine secondPLine (Slist morePLines _) _)
 insOf :: INode -> [(ProjectiveLine, PLine2Err)]
 insOf (INode firstIn secondIn (Slist moreIns _) _) = firstIn:secondIn:moreIns
 
-lastINodeOf :: INodeSet -> INode
-lastINodeOf (INodeSet gens) = case unsnoc (SL.last gens) of
-                                Nothing -> error "no first of the last generation?"
-                                Just (_,lastItem) -> lastItem
-
 -- | A Motorcycle. a PLine eminating from an intersection between two line segments toward the interior or the exterior of a contour.
 --   Motorcycles are emitted from convex (reflex) virtexes of the encircling contour, and concave virtexes of any holes.
 --   FIXME: Note that a new motorcycle may be created in the case of degenerate polygons... with it's inSegs being two other motorcycles.
@@ -216,22 +247,40 @@ data MotorcycleIntersection =
 -- | The part of a contour that remains once we trim a concave section from it.
 newtype RemainingContour = RemainingContour (Slist (Slist LineSeg, [CellDivide]))
 
--- | The exterior nodes of a whole contour or just a cell of a contour.
-newtype ENodeSet = ENodeSet { _eNodeSides :: Slist (ENode, Slist ENode) }
+-- | A side, or a sequence of ENodes, in order.
+newtype Side = Side (ENode, Slist ENode)
   deriving Eq
   deriving stock Show
+
+isOneSide :: ENodeSet -> Bool
+isOneSide (ENodeSet sides) = len sides == 1
+
+makeSide :: [ENode] -> Side
+makeSide [] = error "cannot make an empty side."
+makeSide (a:bs) = Side (a, slist bs)
+
+oneSideOf :: ENodeSet -> Side
+oneSideOf (ENodeSet sides) = SL.head sides
+
+-- | The exterior nodes of a whole contour or just a cell of a contour.
+newtype ENodeSet = ENodeSet { _eNodeSides :: Slist Side }
+  deriving Eq
+  deriving stock Show
+
+-- | get the ENodes that a side is composed of.
+eNodesOfSide :: Side -> [ENode]
+eNodesOfSide (Side (first,Slist more _)) = first : more
 
 -- | A set of Interior nodes that are intersections of ENodes or other INodes.
 -- nodes are divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation always contains just one node.
 -- Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.
 -- The last generation may not have an outArc in the case of a complete contour.
--- FIXME: move last generation into structure type?
-newtype INodeSet = INodeSet (Slist [INode])
+data INodeSet = INodeSet { _children :: (Slist [INode]), finalINodeOf :: INode}
   deriving Eq
   deriving stock Show
 
 -- | The complete graph of exterior nodes, and their interior intersection. note this may be for a cell, a contour, or the border between two cells.
-data NodeTree = NodeTree { _eNodes :: !ENodeSet, _iNodes :: !INodeSet }
+data NodeTree = NodeTree { _eNodes :: !ENodeSet, _iNodes :: !(Maybe INodeSet) }
   deriving stock Show
 
 -- | All nodetrees with identical eNodes have identical iNodes.
@@ -291,53 +340,57 @@ linePairs contour = rotateRight $ mapWithNeighbors (\a b c -> (handleLineSegErro
 -- | A smart constructor for INodes.
 makeINode :: [(ProjectiveLine, PLine2Err)] -> Maybe (ProjectiveLine,PLine2Err) -> INode
 makeINode pLines maybeOut = case pLines of
-                              [] -> error "tried to construct a broken INode"
-                              [onePLine] -> error $ "tried to construct a broken INode from one input: " <> show onePLine <> "\n"
+                              [] -> error "tried to construct an INode with no inputs"
+                              [onePLine] -> error $ "tried to construct an INode from one input: " <> show onePLine <> "\n"
                               [first,second] -> INode first second (slist []) maybeOut
                               (first:second:more) -> INode first second (slist more) maybeOut
 
 -- | Get the output of the given nodetree. fails if the nodetree has no output.
 finalPLine :: NodeTree -> (ProjectiveLine, PLine2Err)
-finalPLine (NodeTree (ENodeSet (Slist [(firstENode,moreENodes)] _)) iNodeSet)
-  | hasNoINodes iNodeSet = if isEmpty moreENodes
-                           then outAndErrOf firstENode
-                           else error "cannot have final PLine of NodeTree with more than one ENode, and no generations!\n"
-  | hasArc (finalINodeOf iNodeSet) = outAndErrOf $ finalINodeOf iNodeSet
-  | otherwise = error "has inodes, has no out, has enodes?"
-finalPLine (NodeTree _ iNodeSet)
-  | hasNoINodes iNodeSet = error "cannot have final PLine of a NodeTree that is completely empty!"
-  | hasArc (finalINodeOf iNodeSet) = outAndErrOf $ finalINodeOf iNodeSet
-  | otherwise = error "has inodes, has no out, has no enodes?"
+finalPLine (NodeTree eNodeSet iNodeSet)
+  | isJust iNodeSet = outAndErrOf $ finalINodeOf $ fromJust iNodeSet
+  | isOneSide eNodeSet = case eNodesOfSide $ oneSideOf eNodeSet of
+                           [] -> error "impossible"
+                           [a] -> outAndErrOf a
+                           _ -> ourError
+  | otherwise = ourError
+    where
+      ourError = error "tried to get finalPLine from a nodetree with no INode, and too many ENodes"
 
 -- | Get the last output PLine of a NodeTree, if there is one. otherwise, Nothing.
 finalOutOf :: NodeTree -> Maybe ProjectiveLine
 finalOutOf (NodeTree eNodeSet iNodeSet)
-  | hasNoINodes iNodeSet = case eNodeSet of
-                             (ENodeSet (Slist [(firstNode,Slist [] _)] _)) -> Just $ outOf firstNode
-                             (ENodeSet _) -> Nothing
-  | hasArc (finalINodeOf iNodeSet) = Just $ outOf $ finalINodeOf iNodeSet
+  | isJust iNodeSet && hasArc (finalINodeOf $ fromJust iNodeSet) = Just $ outOf $ finalINodeOf $ fromJust iNodeSet
+  | isOneSide eNodeSet = case eNodesOfSide $ oneSideOf eNodeSet of
+                           [] -> error "impossible"
+                           [a] -> Just $ outOf a
+                           _ -> Nothing
   | otherwise = Nothing
 
--- | In a NodeTree, the last generation is always a single item. retrieve this item.
-finalINodeOf :: INodeSet -> INode
-finalINodeOf (INodeSet generations)
-  | isEmpty generations = error "cannot get final INode if there are no INodes."
-  | otherwise = case finalGeneration of
-                  [] -> error "empty INode list?"
-                  [a] -> a
-                  (_:_) -> error "final generation has too many members."
-  where
-    finalGeneration = case safeLast generations of
-                        Nothing -> error "either infinite, or empty list"
-                        (Just val) -> val
+-- | Get the last output PLine of a NodeTree, if there is one. otherwise, Nothing.
+finalOutAndErrOf :: NodeTree -> Maybe (ProjectiveLine, PLine2Err)
+finalOutAndErrOf (NodeTree eNodeSet iNodeSet)
+  | isJust iNodeSet && hasArc (finalINodeOf $ fromJust iNodeSet) = Just $ outAndErrOf $ finalINodeOf $ fromJust iNodeSet
+  | isOneSide eNodeSet = case eNodesOfSide $ oneSideOf eNodeSet of
+                           [] -> error "impossible"
+                           [a] -> Just $ outAndErrOf a
+                           _ -> Nothing
+  | otherwise = Nothing
 
 -- | Strip off the latest generation of the given INodeSet.
-ancestorsOf :: INodeSet -> INodeSet
-ancestorsOf (INodeSet generations)
-  | isEmpty generations = error "cannot get all but the last generation of INodes if there are no INodes."
-  | otherwise = INodeSet ancestors
-  where
-    ancestors = SL.init generations
+-- FIXME: this may require completely disentangleing two trees.
+ancestorsOf :: INodeSet -> [INodeSet]
+ancestorsOf (INodeSet children _)
+  | isEmpty children = []
+  | otherwise = case SL.last children of
+                  [] -> error "encountered an empty generation."
+                  [a] -> [INodeSet (SL.init children) a]
+                  newParents -> if SL.init children == (Slist [] 0)
+                                then (INodeSet mempty) <$> newParents
+                                else error "this is complicated."
+
+allINodesOf :: INodeSet -> Slist [INode]
+allINodesOf (INodeSet (Slist children _) parent) = slist $ children <> [[parent]]
 
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a ProjectiveLine bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe ProjectiveLine
@@ -347,12 +400,6 @@ concavePLines seg1 seg2
   where
     (PLine2 pv1) = eToPLine2 seg1
     (PLine2 pv2) = flipL $ eToPLine2 seg2
-
--- | Check if an INodeSet is empty.
-hasNoINodes :: INodeSet -> Bool
-hasNoINodes iNodeSet = case iNodeSet of
-                         (INodeSet (Slist _ 0)) -> True
-                         (INodeSet _) -> False
 
 -- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
 {-# INLINABLE sortedPLines #-}

@@ -23,16 +23,15 @@ module Math.Geometry.Square (
   squareSpec
   ) where
 
-import Prelude (Bool(True), Show(show), ($), (<), (.), (/), (+), (&&), (<>), (==), (<$>), all, error, length, otherwise)
+import Prelude (Bool(True), Show(show), ($), (/), (&&), (<>), (==), (<$>), error, length, otherwise)
 
 -- The List library.
-import Data.List (concat, head)
+import Data.List (head)
 
 -- The Maybe library.
-import Data.Maybe (Maybe(Nothing), fromMaybe)
+import Data.Maybe (fromMaybe)
 
 -- Slists, a form of list with a stated size in the structure.
-import Slist (len, slist)
 import Slist.Type (Slist(Slist))
 
 -- Hspec, for writing specs.
@@ -45,8 +44,8 @@ import Data.Coerce (coerce)
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
--- Our Contour library.
-import Graphics.Slicer.Math.Contour (lineSegsOfContour)
+-- Assorted basic math functions
+import Graphics.Slicer.Math.Definitions (Contour, lineSegsOfContour)
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
@@ -58,61 +57,25 @@ import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint)
 import Graphics.Slicer.Math.PGA (outAndErrOf)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), edgesOf, generationsOf, nodeTreesOf, onlyOneOf, oneNodeTreeOf, randomSquare)
-
--- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
-import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), randomSquare)
 
 -- The logic for creating straight skeletons from concave contours.
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Face (facesOf)
 
 -- functions for placing lines segments onto faces.
 import Graphics.Slicer.Math.Skeleton.Line (insetBy)
 
--- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
-
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
+-- Shared tests, between different geometry.
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_ENodeArcsIntersectAtSamePoint, prop_FacesAllWoundLeft, prop_FacesHaveThreeSides, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanThreeGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+
 -- Our Utility library, for making these tests easier to read.
-import Math.Util ((-->), (-/>))
-
-prop_SquareNoConvexMotorcycles :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareNoConvexMotorcycles centerX centerY rawRadians rawDists = convexMotorcycles square --> []
-  where
-    square = randomSquare centerX centerY rawRadians rawDists
-
-prop_SquareNoDivides :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareNoDivides x y tilt distanceToCorner = findDivisions square (fromMaybe (error $ show square) $ crashMotorcycles square []) --> []
-  where
-    square = randomSquare x y tilt distanceToCorner
-
-prop_SquareHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareHasStraightSkeleton x y tilt distanceToCorner = findStraightSkeleton square [] -/> Nothing
-  where
-    square = randomSquare x y tilt distanceToCorner
-
-prop_SquareStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareStraightSkeletonHasOneNodeTree x y tilt distanceToCorner = nodeTreesOf (findStraightSkeleton square []) --> 1
-  where
-    square = randomSquare x y tilt distanceToCorner
-
-prop_SquareNodeTreeHasLessThanThreeGenerations :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_SquareNodeTreeHasLessThanThreeGenerations x y tilt distanceToCorner = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton square []) < 3
-  where
-    square = randomSquare x y tilt distanceToCorner
-
-prop_SquareENodeArcsIntersectAtSamePoint :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_SquareENodeArcsIntersectAtSamePoint centerX centerY tilt distanceToCorner = retVal
-  where
-    retVal = intersectionsAtSamePoint nodeOutsAndErrs
-    nodeOutsAndErrs = outAndErrOf <$> eNodes
-    eNodes = eNodesOfOutsideContour square
-    square = randomSquare centerX centerY tilt distanceToCorner
+import Math.Util ((-->))
 
 -- | Fails to see a square as having a center point.
 unit_SquareENodeArcsIntersectAtSamePoint :: Bool
@@ -128,37 +91,6 @@ unit_SquareENodeArcsIntersectAtSamePoint = retVal
     tilt = Radian 0.1
     distanceToCorner :: Positive ℝ
     distanceToCorner = 3.0e-2
-
-prop_SquareCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareCanPlaceFaces x y tilt distanceToCorner = facesOf (fromMaybe (error $ show square) $ findStraightSkeleton square []) -/> slist []
-  where
-    square = randomSquare x y tilt distanceToCorner
-
-prop_SquareHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareHasRightFaceCount x y tilt distanceToCorner = length (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square []) --> 4
-  where
-    square = randomSquare x y tilt distanceToCorner
-
-prop_SquareFacesRightArcCount :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_SquareFacesRightArcCount x y rawFirstTilt rawDistanceToCorner
-  | res == True = True
-  | otherwise = error $ "Too many arcs found:\n"
-                     <> (concat $ show . arcCount <$> faces) <> "\n"
-                     <> show skeleton <> "\n"
-                     <> show faces <> "\n"
-  where
-    res = all (\a -> arcCount a < 4) faces
-    faces = facesOf skeleton
-    skeleton = fromMaybe (error $ show square) $ findStraightSkeleton square []
-    arcCount (Face _ _ midArcs _) = 2 + len midArcs
-    square = randomSquare x y rawFirstTilt rawDistanceToCorner
-
-prop_SquareFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_SquareFacesInOrder x y tilt distanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show square) $ findStraightSkeleton square []) --> squareAsSegs
-  where
-    square = randomSquare x y tilt distanceToCorner
-    squareAsSegs = lineSegsOfContour square
-    firstSeg = onlyOneOf squareAsSegs
 
 prop_SquareFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
 prop_SquareFacesInsetWithRemainder x y tilt distanceToCorner
@@ -249,27 +181,29 @@ squareBrokenSpec = do
 
 squareSpec :: Spec
 squareSpec = do
-  describe "Geometry (Squares)" $ do
+  describe "Squares" $ do
     it "finds no convex motorcycles" $
-      property prop_SquareNoConvexMotorcycles
+      property (expectationFromSquare prop_NoMotorcycles)
     it "finds no divides" $
-      property prop_SquareNoDivides
+      property (expectationFromSquare prop_NoDivides)
     it "finds a straight skeleton" $
-      property prop_SquareHasStraightSkeleton
-    it "only has one Nodetree in the found straight skeleton" $
-      property prop_SquareStraightSkeletonHasOneNodeTree
-    it "has fewer than three generations of INodes in the found NodeTree" $
-      property prop_SquareNodeTreeHasLessThanThreeGenerations
+      property (expectationFromSquare prop_HasAStraightSkeleton)
+    it "finds one Nodetree in the straight skeleton" $
+      property (expectationFromSquare prop_StraightSkeletonHasOneNodeTree)
+    it "has fewer than three generations of INodes in the NodeTree" $
+      property (boolFromSquare prop_NodeTreeHasFewerThanThreeGenerations)
     it "finds that all of the outArcs of the ENodes intersect at the same point" $
-      property prop_SquareENodeArcsIntersectAtSamePoint
+      property (boolFromSquare prop_ENodeArcsIntersectAtSamePoint)
     it "can place faces on the straight skeleton" $
-      property prop_SquareCanPlaceFaces
-    it "only finds four faces" $
-      property prop_SquareHasRightFaceCount
-    it "faces have less than four sides" $
-      property prop_SquareFacesRightArcCount
+      property (expectationFromSquare prop_CanPlaceFaces)
+    it "only places four faces" $
+      property (expectationFromSquare prop_HasFourFaces)
+    it "faces have three sides" $
+      property (boolFromSquare prop_FacesHaveThreeSides)
     it "places faces in the same order of the input line segments" $
-      property prop_SquareFacesInOrder
+      property (expectationFromSquare prop_FacesInOrder)
+    it "each face is wound to the left" $
+      property (boolFromSquare prop_FacesAllWoundLeft)
     it "insets halfway, finding 4 remaining faces" $
       property prop_SquareFacesInsetWithRemainder
     it "insets halfway, finding 4 remaining faces(unit)" $
@@ -280,3 +214,13 @@ squareSpec = do
       property prop_SquareFacesInsetWithoutRemainder
     it "insets a square that is detected by the code as a rectangle completely, finding 0 remaining faces(unit)" $
       unit_SquareFacesInsetWithoutRemainder
+  where
+    boolFromSquare :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
+    boolFromSquare f x y tilt distanceToCorner = f square
+      where
+        square = randomSquare x y tilt distanceToCorner
+    expectationFromSquare :: (Contour -> Expectation) -> ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+    expectationFromSquare f x y tilt distanceToCorner = f square
+      where
+        square = randomSquare x y tilt distanceToCorner
+
