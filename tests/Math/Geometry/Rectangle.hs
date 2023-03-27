@@ -23,13 +23,13 @@ module Math.Geometry.Rectangle (
   rectangleSpec
   ) where
 
-import Prelude (Bool(False, True), Show(show), ($), (*), (<), (>), (.), (/), (-), (+), (&&), (<>), (<=), (==), (<$>), all, cos, error, length, min, otherwise, pi, sin)
+import Prelude (Bool(False, True), Show(show), ($), (*), (<), (>), (/), (-), (+), (&&), (<>), (<=), (==), (<$>), cos, error, length, min, otherwise, pi, sin)
 
 -- The List library.
-import Data.List (concat, head, sort)
+import Data.List (concat, head, intersperse, sort)
 
 -- The Maybe library.
-import Data.Maybe (fromMaybe, Maybe(Just, Nothing))
+import Data.Maybe (fromMaybe)
 
 -- Slists, a form of list with a stated size in the structure.
 import Slist (len, slist)
@@ -49,7 +49,7 @@ import Graphics.Slicer (ℝ)
 import Graphics.Slicer.Math.Contour (contourContainsContour)
 
 -- Basic math functions.
-import Graphics.Slicer.Math.Definitions (Point2(Point2), lineSegsOfContour, mapWithFollower, minMaxPoints)
+import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), lineSegsOfContour, minMaxPoints)
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
@@ -58,72 +58,47 @@ import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint)
 
 -- The Projective Geometry library.
-import Graphics.Slicer.Math.PGA (eToPL, outAndErrOf, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (outAndErrOf)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), edgesOf, generationsOf, nodeTreesOf, onlyOneOf, oneNodeTreeOf, randomRectangle)
-
--- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
-import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), generationsOf, oneNodeTreeOf, randomRectangle)
 
 -- The logic for creating straight skeletons from concave contours.
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, skeletonOfNodes)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.Skeleton.Face (facesOf)
 
 -- functions for placing lines segments onto faces.
 import Graphics.Slicer.Math.Skeleton.Line (insetBy)
-
--- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Our Utility library, for making these tests easier to read.
-import Math.Util ((-->), (-/>))
+import Math.Util ((-->))
 
-prop_RectangleNoConvexMotorcycles :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleNoConvexMotorcycles centerX centerY rawFirstTilt rawSecondTilt rawDistanceToCorner = convexMotorcycles rectangle --> []
-  where
-    rectangle = randomRectangle centerX centerY rawFirstTilt rawSecondTilt rawDistanceToCorner
+-- Shared tests, between different geometry.
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesHaveThreeToFiveSides, prop_FacesAllWoundLeft, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanThreeGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
-prop_RectangleNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleNoDivides x y rawFirstTilt rawSecondTilt rawDistanceToCorner = findDivisions rectangle (fromMaybe (error $ show rectangle) $ crashMotorcycles rectangle []) --> []
+-- | Ensure that we only place four races on the given contour.
+unit_HasFourFaces :: Bool
+unit_HasFourFaces
+ | length res == 4 = True
+ | otherwise = error $ "wrong number of faces: " <> show (length res) <> "\n"
+                    <> concat (intersperse "\n" ((\(Slist a _) -> a) $ show <$> res)) <> "\n"
+                    <> show straightSkeleton <> "\n"
   where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawDistanceToCorner = findStraightSkeleton rectangle [] -/> Nothing
-  where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleStraightSkeletonHasOneNodeTree x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-  | res == 1 = True
-  | otherwise = error $ "fail!\n"
-                     <> "generations: " <> show res <> "\n"
-                     <> "skeleton: " <> show (findStraightSkeleton rectangle []) <> "\n"
-                     <> "raw Skeleton: " <> show (skeletonOfNodes True lineSegs lineSegs []) <> "\n"
-                     <> "faces: " <> show (facesOf $ fromMaybe (error "no") $ findStraightSkeleton rectangle []) <> "\n"
-  where
-    res = nodeTreesOf (findStraightSkeleton rectangle [])
-    lineSegs = slist [lineSegsOfContour rectangle]
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleNodeTreeHasLessThanThreeGenerations :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleNodeTreeHasLessThanThreeGenerations x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-  | res < 3 = True
-  | otherwise = error $ "fail!\n"
-                     <> "generations: " <> show res <> "\n"
-                     <> "skeleton: " <> show (findStraightSkeleton rectangle []) <> "\n"
-                     <> "raw Skeleton: " <> show (skeletonOfNodes True lineSegs lineSegs []) <> "\n"
-                     <> "faces: " <> show (facesOf $ fromMaybe (error "no") $ findStraightSkeleton rectangle []) <> "\n"
-  where
-    res = generationsOf (oneNodeTreeOf $ fromMaybe (error "No straight skeleton?") $ findStraightSkeleton rectangle [])
-    lineSegs = slist [lineSegsOfContour rectangle]
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+    res = facesOf straightSkeleton
+    straightSkeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
+    contour = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+    x,y :: ℝ
+    x = 0
+    y = 0
+    rawFirstTilt = Radian 0.5
+    rawSecondTilt = Radian 3.4
+    rawDistanceToCorner :: Positive ℝ
+    rawDistanceToCorner = 5.67
 
 unit_RectangleNodeTreeHasLessThanThreeGenerations :: Bool
 unit_RectangleNodeTreeHasLessThanThreeGenerations
@@ -151,52 +126,6 @@ prop_RectangleMotorcyclesDoNotIntersectAtPoint x y rawFirstTilt rawSecondTilt di
     nodeOutsAndErrs = outAndErrOf <$> eNodes
     eNodes = eNodesOfOutsideContour rectangle
     rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
-
-prop_RectangleCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleCanPlaceFaces x y rawFirstTilt rawSecondTilt rawDistanceToCorner = facesOf (fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []) -/> slist []
-  where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleHasRightFaceCount x y rawFirstTilt rawSecondTilt rawDistanceToCorner = length (facesOf $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []) --> 4
-  where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_RectangleFacesInOrder x y rawFirstTilt rawSecondTilt rawDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []) --> rectangleAsSegs
-  where
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-    rectangleAsSegs = lineSegsOfContour rectangle
-    firstSeg = onlyOneOf rectangleAsSegs
-
-prop_RectangleFacesRightArcCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleFacesRightArcCount x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-  | res == True = True
-  | otherwise = error $ "Too many arcs found:\n"
-                     <> (concat $ show . arcCount <$> faces) <> "\n"
-                     <> show skeleton <> "\n"
-                     <> show faces <> "\n"
-  where
-    res = all (\a -> arcCount a < 4) faces
-    faces = facesOf skeleton
-    skeleton = fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
-    arcCount (Face _ _ midArcs _) = 2 + len midArcs
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-
-prop_RectangleFacesAllWoundLeft  :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_RectangleFacesAllWoundLeft x y rawFirstTilt rawSecondTilt rawDistanceToCorner
-  | allIsLeft = True
-  | otherwise = error $ "miswound face found:\n"
-                     <> (concat $ show . faceLefts <$> faces) <> "\n"
-                     <> show skeleton <> "\n"
-                     <> show faces <> "\n"
-  where
-    allIsLeft = all faceAllIsLeft faces
-    faceAllIsLeft face = all (== Just True) $ faceLefts face
-    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
-    faces = facesOf skeleton
-    skeleton = fromMaybe (error $ show rectangle) $ findStraightSkeleton rectangle []
-    rectangle = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
 
 prop_RectangleFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
 prop_RectangleFacesInsetWithRemainder x y rawFirstTilt rawSecondTilt distanceToCorner
@@ -295,30 +224,41 @@ rectangleSpec :: Spec
 rectangleSpec = do
   describe "Rectangles" $ do
     it "finds no convex motorcycles" $
-      property prop_RectangleNoConvexMotorcycles
+      property (expectationFromRectangle prop_NoMotorcycles)
     it "finds no divides" $
-      property prop_RectangleNoDivides
+      property (expectationFromRectangle prop_NoDivides)
     it "finds a straight skeleton" $
-      property prop_RectangleHasStraightSkeleton
+      property (expectationFromRectangle prop_HasAStraightSkeleton)
     it "only has one Nodetree in the straight skeleton" $
-      property prop_RectangleStraightSkeletonHasOneNodeTree
+      property (expectationFromRectangle prop_StraightSkeletonHasOneNodeTree)
     it "only generates one, or two generations of INodes" $
-      property prop_RectangleNodeTreeHasLessThanThreeGenerations
+      property (boolFromRectangle prop_NodeTreeHasFewerThanThreeGenerations)
     it "does not consider a rectangle to be square (outArcs do not intersect)" $
       property prop_RectangleMotorcyclesDoNotIntersectAtPoint
     it "can place faces on the straight skeleton" $
-      property prop_RectangleCanPlaceFaces
-    it "finds only four faces for any rectangle" $
-      property prop_RectangleHasRightFaceCount
-    it "generates faces with less than four arcs" $
-      property prop_RectangleFacesRightArcCount
-    it "face edges are in the same order the input line segments" $
-      property prop_RectangleFacesInOrder
+      property (expectationFromRectangle prop_CanPlaceFaces)
+    it "only places four faces" $
+      property (expectationFromRectangle prop_HasFourFaces)
+    it "only places four faces (unit)" $
+      property unit_HasFourFaces
+    it "faces have between three and five sides" $
+      property (boolFromRectangle prop_FacesHaveThreeToFiveSides)
+    it "places faces in the same order the line segments were given in" $
+      property (expectationFromRectangle prop_FacesInOrder)
     it "each face is wound to the left" $
-      property prop_RectangleFacesAllWoundLeft
+      property (boolFromRectangle prop_FacesAllWoundLeft)
     it "insets a rectangle halfway, finding 4 remaining faces" $
       property prop_RectangleFacesInsetWithRemainder
     it "insets a rectangle completely, finding 0 remaining faces" $
       property prop_RectangleFacesInsetWithoutRemainder
     it "sees an inset of a rectangle as being smaller than the source rectangle" $
       property prop_RectangleFacesInsetSmallerThanRectangle
+    where
+      boolFromRectangle :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
+      boolFromRectangle f x y rawFirstTilt rawSecondTilt distanceToCorner = f rectangle
+        where
+          rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
+      expectationFromRectangle :: (Contour -> Expectation) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+      expectationFromRectangle f x y rawFirstTilt rawSecondTilt distanceToCorner = f rectangle
+        where
+          rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
