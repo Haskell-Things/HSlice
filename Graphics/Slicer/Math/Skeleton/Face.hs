@@ -353,8 +353,8 @@ makeFace e1 arcs e2
     filteredArcs = filterSingleNoIntersection arcs
     makeFace' :: LineSeg -> (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Maybe Face
     makeFace' seg firstArc midArcs lastArc
-   -- uncomment me when debugging miswound faces that should be convex.
-   -- | not $ all (== True) $ catMaybes $ arcsAreLeft $ [eToPL seg] <> [firstArc] <> (\(Slist a _) -> a) midArcs <> [lastArc] = Nothing
+  --  uncomment me when debugging miswound faces that should be convex.
+  --  | not $ all (== True) $ catMaybes $ arcsAreLeft $ [eToPL seg] <> [firstArc] <> (\(Slist a _) -> a) midArcs <> [lastArc] = Nothing
       | otherwise = res
       where
         res = Just $ Face seg firstArc midArcs lastArc
