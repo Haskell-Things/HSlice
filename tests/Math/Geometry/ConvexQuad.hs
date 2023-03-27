@@ -89,15 +89,124 @@ unit_ConvexQuadFacesAllWoundLeft
     distance2 = 1.0
     distance3 = 1.0
 
+-- | was a misfolded skeleton. fixed, but now generating a miswound face.
+{-
+       miswound face found:
+       [Just True,Just True,Just True][Just True,Just False,Just False,Just True][Just True,Just True,Just True][Just True,Just False,Just False,Just True]
+-}
+unit_ConvexQuadFacesAllWoundLeft_2 :: Bool
+unit_ConvexQuadFacesAllWoundLeft_2
+  | allIsLeft = True
+  | otherwise = error $ "miswound face found:\n"
+                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+                     <> dumpGanjas ([toGanja contour]
+                                    <> (toGanja <$> (\(Slist a _) -> a) faces))
+
+  where
+    allIsLeft = all faceAllIsLeft faces
+    faceAllIsLeft face = all (== Just True) $ faceLefts face
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
+    contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1 distance2 distance3
+    x,y :: ℝ
+    x = 0
+    y = 0
+    tilt1 = Radian 1.0e-2
+    tilt2 = Radian 1.0
+    tilt3 = Radian 0.1
+    distance1,distance2,distance3 :: Positive ℝ
+    distance1 = 0.1
+    distance2 = 0.1
+    distance3 = 0.1
+
+-- | mis-folded skeleton. fixed.
+{-
+      ENodes outs should be: [PLine2 (GVec [GVal 0.7321551936758581 (fromList [GEZero (Fastℕ 1)]),GVal 0.9917735953323468 (fromList [GEPlus (Fastℕ 1)]),GVal (-0.18549674514320513) (fromList [GEPlus (Fastℕ 2)])]),PLine2 (GVec [GVal 2.1285450743080947 (fromList [GEZero (Fastℕ 1)]),GVal (-0.2335910588939532) (fromList [GEPlus (Fastℕ 1)]),GVal 1.9360745608276422 (fromList [GEPlus (Fastℕ 2)])]),PLine2 (GVec [GVal 1.4344853529650106e-3 (fromList [GEZero (Fastℕ 1)]),GVal (-7.165585212050712e-3) (fromList [GEPlus (Fastℕ 1)]),GVal 7.19994904783583e-4 (fromList [GEPlus (Fastℕ 2)])]),PLine2 (GVec [GVal (-2.862134753336918) (fromList [GEZero (Fastℕ 1)]),GVal (-0.7510169512263428) (fromList [GEPlus (Fastℕ 1)]),GVal (-1.7512978105892207) (fromList [GEPlus (Fastℕ 2)])])]
+       ENode outs are:       [PLine2 (GVec [GVal 0.7321551936758581 (fromList [GEZero (Fastℕ 1)]),GVal 0.9917735953323468 (fromList [GEPlus (Fastℕ 1)]),GVal (-0.18549674514320513) (fromList [GEPlus (Fastℕ 2)])]),PLine2 (GVec [GVal 2.1285450743080947 (fromList [GEZero (Fastℕ 1)]),GVal (-0.2335910588939532) (fromList [GEPlus (Fastℕ 1)]),GVal 1.9360745608276422 (fromList [GEPlus (Fastℕ 2)])]),PLine2 (GVec [GVal (-2.862134753336918) (fromList [GEZero (Fastℕ 1)]),GVal (-0.7510169512263428) (fromList [GEPlus (Fastℕ 1)]),GVal (-1.7512978105892207) (fromList [GEPlus (Fastℕ 2)])])]
+-}
+unit_ConvexQuadFacesAllWoundLeft_3 :: Bool
+unit_ConvexQuadFacesAllWoundLeft_3
+  | allIsLeft = True
+  | otherwise = error $ "miswound face found:\n"
+                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+                     <> dumpGanjas ([toGanja contour]
+                                    <> (toGanja <$> (\(Slist a _) -> a) faces))
+
+  where
+    allIsLeft = all faceAllIsLeft faces
+    faceAllIsLeft face = all (== Just True) $ faceLefts face
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
+    contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1 distance2 distance3
+    x,y :: ℝ
+    x = 0
+    y = 0
+    tilt1 = Radian 1.0e-2
+    tilt2 = Radian 0.1
+    tilt3 = Radian 2.0
+    distance1,distance2,distance3 :: Positive ℝ
+    distance1 = 1.0
+    distance2 = 0.1
+    distance3 = 1.0
+
+-- | miswound face found.
+unit_ConvexQuadFacesAllWoundLeft_4 :: Bool
+unit_ConvexQuadFacesAllWoundLeft_4
+  | allIsLeft = True
+  | otherwise = error $ "miswound face found:\n"
+                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> show skeleton <> "\n"
+                     <> show faces <> "\n"
+                     <> dumpGanjas ([toGanja contour]
+                                    <> (toGanja <$> (\(Slist a _) -> a) faces))
+                     <> dumpGanjas ([toGanja contour, toGanja skeleton])
+
+  where
+    allIsLeft = all faceAllIsLeft faces
+    faceAllIsLeft face = all (== Just True) $ faceLefts face
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faces = facesOf skeleton
+    skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
+    contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1 distance2 distance3
+    x,y :: ℝ
+    x = 0
+    y = 0
+    tilt1 = Radian 0.1
+    tilt2 = Radian 2.0
+    tilt3 = Radian 5.0
+    distance1,distance2,distance3 :: Positive ℝ
+    distance1 = 1.0
+    distance2 = 2.0
+    distance3 = 3.0
+
 convexQuadBrokenSpec :: Spec
 convexQuadBrokenSpec = do
-  describe "Geometry (Convex Quads)" $ do
-    it "each face is wound to the left" $
+  describe "Convex Quads" $ do
+    it "each face is wound to the left (unit)" $
       unit_ConvexQuadFacesAllWoundLeft
+    it "each face is wound to the left (unit) (2)" $
+      unit_ConvexQuadFacesAllWoundLeft_2
+    it "each face is wound to the left (unit) (3)" $
+      unit_ConvexQuadFacesAllWoundLeft_3
+    it "each face is wound to the left (unit) (4)" $
+      unit_ConvexQuadFacesAllWoundLeft_4
+    it "each face is wound to the left" $
+      property (boolFromConvexQuad prop_FacesAllWoundLeft)
+    where
+      boolFromConvexQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
+      boolFromConvexQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = f convexQuad
+        where
+          convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
 
 convexQuadSpec :: Spec
 convexQuadSpec = do
-  describe "Geometry (Convex Quads)" $ do
+  describe "Convex Quads" $ do
     it "finds no convex motorcycles" $
       property (expectationFromConvexQuad prop_NoMotorcycles)
     it "finds no divides" $
@@ -114,10 +223,8 @@ convexQuadSpec = do
       property (expectationFromConvexQuad prop_HasFourFaces)
     it "faces have between three and five sides" $
       property (boolFromConvexQuad prop_FacesHaveThreeToFiveSides)
-    it "places faces in the order the line segments were given" $
+    it "places faces in the order the line segments were given in" $
       property (expectationFromConvexQuad prop_FacesInOrder)
-    it "each face is wound to the left" $
-      property (boolFromConvexQuad prop_FacesAllWoundLeft)
   where
     boolFromConvexQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
     boolFromConvexQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = f convexQuad
