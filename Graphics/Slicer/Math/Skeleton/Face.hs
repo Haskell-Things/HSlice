@@ -195,7 +195,7 @@ getFaces' origINodeSet eNodes iNodeSet iNode = findFacesRecurse iNode mySortedPL
               | isJust firstINode = getFaces' origINodeSet eNodes (Just newINodeSet) $ fromJust firstINode
               | otherwise = error "fail!"
               where
-                -- FIXME: repair ffirstINodeOfPLine so it does not need the whole INodeSet.
+                -- FIXME: repair firstINodeOfPLine so it does not need the whole INodeSet.
                 firstINode = firstINodeOfPLine eNodes (fromJust iNodeSet) onePLine
 
 -- | Create a face covering the space between two PLines with a single Face. Both PLines must be a part of the same INode.
