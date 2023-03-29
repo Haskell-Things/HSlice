@@ -294,7 +294,7 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
                    -- There is no next generation? ok, merge with the last INode, and terminate.
                    [] -> INodeSet mempty (iNodeWithFlips rawLastINode)
                    -- ok, the second generation is a single iNode. see if we can flip with it.
-                   [secondINode] -> 
+                   [secondINode] ->
                      if canFlipINodes flippedINode secondINode
                      then res' hasPruned $ addNewParent (flipINodePair flippedINode secondINode) rawLastINode
                      else -- ok, we can't flip. maybe we can merge the flipped INode with the parent INode?
