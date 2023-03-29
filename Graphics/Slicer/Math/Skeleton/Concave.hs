@@ -259,7 +259,7 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [_] _)) (INodeSet childGenerations p
 findENodesInOrder a b = error $ "cannot find ENodes for :" <> show a <> "\n" <> show b <> "\n"
 
 -- | Restructure an INodeSet such that the eNodes that the INodes point to are in the order of the given enode list.
--- also performs 'safe' node tree transforms.
+-- This ordering is required, so we can draw Faces using the INodeSet.
 sortINodesByENodes :: Bool -> [ENode] -> Slist [LineSeg] -> INodeSet -> INodeSet
 sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations inParent)
  | generationsIn res == 1 && inCountOf (onlyINodeOf res) > len (slist eNodes) + (len inSegSets*2-2) = errorTooManyIns
@@ -271,79 +271,65 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
   where
     -- call our recursive handler.
     res :: INodeSet
-    res = res' inINodeSet
+    res = res' False inINodeSet
     -- our recursive handler.
-    res' :: INodeSet -> INodeSet
-    res' iNodeSet@(INodeSet childGenerations parent)
+    res' :: Bool -> INodeSet -> INodeSet
+    res' hasPruned iNodeSet@(INodeSet childGenerations parent)
      | isEmpty childGenerations =
          -- nothing to do for a single INode.
-         INodeSet mempty parent
+         INodeSet mempty (orderInsByENodes parent)
      -- Transform #1: If the last INode is a ENode -> INode bridge, merge it into the INode its pointing to.
-     | canPruneTail rawLastINode =
+     | not hasPruned && canPruneTail rawLastINode =
+       -- FIXME: actually look up what INode to merge with, and change it in place.
        case oldestChildGeneration of
          [] -> errorEmpty
-         [oneINode] -> res' $ INodeSet (SL.init childGenerations) $ pruneTail oneINode rawLastINode
-         iNodes -> res' $ INodeSet (SL.init childGenerations <> one (generationWithout iNodes (prunableINodeFrom iNodes rawLastINode))) $ pruneTail (prunableINodeFrom iNodes rawLastINode) rawLastINode
-     | len childGenerations == 1 =
-         case flippedINodeOf youngestGeneration of
-           Nothing ->
-             case youngestGeneration of
-               [] -> -- Not possible?
-                 errorEmpty
-               [oneINode] ->
-                 if canFlipINodes oneINode rawLastINode
-                 then flipINodePair oneINode rawLastINode
-                 else INodeSet (one [orderInsByENodes oneINode]) (orderInsByENodes rawLastINode)
-               v ->
-                 INodeSet (one $ indexTo $ sortGeneration v) (iNodeWithFlips rawLastINode)
-           (Just flippedINode) ->
-             case generationWithout youngestGeneration flippedINode of
-               [] -> -- without the flipped INode, there is no first generation left. add the flipped inode to the parent, and return.
-                 INodeSet mempty (iNodeWithFlips rawLastINode)
-               [oneINode] -> -- after removing a flipped INode, there is just one INode left.
-                 if inCountOf rawLastINode == 2 && canMergeWith flippedINode rawLastINode
-                 then INodeSet (one [orderInsByENodes oneINode]) $ mergeWith flippedINode rawLastINode
-                 else if canFlipINodes oneINode rawLastINode
-                      then flipINodePair oneINode rawLastINode
-                      else INodeSet (one [orderInsByENodes oneINode]) $ orderInsByENodes rawLastINode
-               v ->
-                 INodeSet (one $ indexTo $ sortGeneration v) $ iNodeWithFlips rawLastINode
-     -- FIXME: replace this with a truely recursive function.
-     | len childGenerations == 2 =
-         case flippedINodeOf youngestGeneration of
-           Nothing ->
-             addYoungerGen (indexTo $ sortGeneration youngestGeneration) $ res' remainingINodeSet
-           (Just flippedINode) ->
-             case generationWithout youngestGeneration flippedINode of
-               [] -> -- without the flipped INode, there is no first generation left. Let's find something to do with the flipped inode.
-                 case nextGeneration of
-                   [] -> error "impossible!"
-                   [secondINode] -> -- ok, the second generation is a single iNode. see if we can flip with it.
+         [oneINode] -> res' True $ INodeSet (SL.init childGenerations) $ pruneTail oneINode rawLastINode
+         iNodes -> res' True $ INodeSet (SL.init childGenerations <> one (generationWithout iNodes (prunableINodeFrom iNodes rawLastINode))) $ pruneTail (prunableINodeFrom iNodes rawLastINode) rawLastINode
+     -- transform #2: move inodes that have ENodes that are both before and after our sort index from the left side to the right side.
+     -- FIXME: this could warp the whole tree. handle this better!
+     | isJust (flippedINodeOf youngestGeneration) =
+         case (generationWithout youngestGeneration flippedINode) of
+           -- without the flipped INode, there is no first generation left. Let's find something to do with the flipped inode.
+           [] -> case nextGeneration of
+                   -- There is no next generation? ok, merge with the last INode, and terminate.
+                   [] -> INodeSet mempty (iNodeWithFlips rawLastINode)
+                   -- ok, the second generation is a single iNode. see if we can flip with it.
+                   [secondINode] ->
                      if canFlipINodes flippedINode secondINode
-                     then res' $ addNewParent (flipINodePair flippedINode secondINode) rawLastINode
+                     then res' hasPruned $ addNewParent (flipINodePair flippedINode secondINode) rawLastINode
                      else -- ok, we can't flip. maybe we can merge the flipped INode with the parent INode?
-                       if inCountOf rawLastINode == 2 && canMergeWith flippedINode rawLastINode
-                       then res' $ INodeSet (one nextGeneration) $ mergeWith flippedINode rawLastINode
-                       else -- .. alright, maybe try to merge the second and last INode?
-                         if inCountOf rawLastINode == 2 && canMergeWith secondINode rawLastINode
-                         then error $ "3\n"
-                                   <> show ({- res' $ INodeSet (one [flippedINode]) $ -}mergeWith secondINode rawLastINode)
-                         else error $ "ran out of options\n"
-                                   <> show (inCountOf rawLastINode) <> "\n"
-                   x@(_:_) -> errorTooManyNodes x
-               [oneINode] ->
-                 error
-                 $ show oneINode <> "\n"
-                 <> show (one [orderInsByENodes oneINode]) <> "\n"
-                 <> show (res' $ INodeSet (slist $ [flippedINode:nextGeneration]) rawLastINode) <> "\n"
-                 <> show eNodes <> "\n"
-               x@(_:_) -> error $ "way too many nodes:" <> show x <> "\n"
-      | otherwise = error $ "too many generations: " <> show (len childGenerations) <> "\n" <> show childGenerations <> "\n"
+                       if inCountOf rawLastINode == 2 && flippedINode `isChildOf` rawLastINode
+                       then res' hasPruned $ INodeSet (one nextGeneration) $ mergeWith flippedINode rawLastINode
+                       else error $ "ran out of options?"
+                            <> show (inCountOf rawLastINode) <> "\n"
+                   xs -> errorTooManyNodes xs
+           [oneINode] -> if inCountOf rawLastINode == 2 && flippedINode `isChildOf` rawLastINode
+                         then res' hasPruned $ INodeSet (one [orderInsByENodes oneINode]) $ mergeWith flippedINode rawLastINode
+                         else if canFlipINodes oneINode rawLastINode
+                              then res' hasPruned $ flipINodePair oneINode rawLastINode
+                              else res' hasPruned $ INodeSet (one [orderInsByENodes oneINode]) $ orderInsByENodes rawLastINode
+           remainingINodes -> res' hasPruned $ INodeSet (one $ indexTo $ sortGeneration $ orderInsByENodes <$> remainingINodes) $ iNodeWithFlips rawLastINode
+     -- FIXME: replace this with a truely recursive function.
+     | len childGenerations == 1 =
+         case youngestGeneration of
+           [] -> -- Not possible?
+             errorEmpty
+           [oneINode] ->
+             case nextGeneration of
+               -- check if, in order to present our ENodes in order, we need to re-order our parent, and the single item in the child generation.
+               [] -> if canFlipINodes oneINode rawLastINode
+                     then flipINodePair oneINode rawLastINode
+                     else addYoungerGen ([orderInsByENodes oneINode]) $ res' hasPruned remainingINodeSet
+               _ ->
+                 res' hasPruned remainingINodeSet
+           v ->
+             addYoungerGen (indexTo $ sortGeneration $ orderInsByENodes <$> v) $ res' hasPruned remainingINodeSet
+     | otherwise = addYoungerGen (indexTo $ sortGeneration $ orderInsByENodes <$> youngestGeneration) $ res' hasPruned remainingINodeSet
       where
         -- The first generation of INodes, as given to the recursive resolver.
         youngestGeneration = fromMaybe (error "no first generation!") $ safeHead childGenerations
 
-        nextGeneration = fromMaybe (error $ "no next generation:\n" <> show inINodeSet) $ safeHead $ SL.tail childGenerations
+        nextGeneration = fromMaybe ([]) $ safeHead $ SL.tail childGenerations
 
         oldestChildGeneration
           | len childGenerations > 0 = SL.last childGenerations
@@ -363,14 +349,16 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
         addNewParent :: INodeSet -> INode -> INodeSet
         addNewParent (INodeSet myChildGens myNewLastChildGen) myNewParent = INodeSet (myChildGens <> one [myNewLastChildGen]) myNewParent
 
+        flippedINode = fromMaybe (error "tried to inspect flippedINode when no flippedINode exists") $ flippedINodeOf youngestGeneration
+
         -- construct an INode including the inputs of the crossover node from the first generation merged, if it exists.
         iNodeWithFlips :: INode -> INode
         iNodeWithFlips = lastGen (sortGeneration youngestGeneration)
           where
             lastGen :: [INode] -> INode -> INode
-            lastGen firstGen oneINode = orderInsByENodes $ case flippedINodeOf firstGen of
+            lastGen generation oneINode = orderInsByENodes $ case flippedINodeOf generation of
                                                              Nothing -> oneINode
-                                                             (Just flippedINode) -> addINodeToParent flippedINode oneINode
+                                                             (Just iNode) -> addINodeToParent iNode oneINode
 
     -- Force a list of INodes to start with the INode closest to the firstPLine, but not before the firstPLine.
     indexTo :: [INode] -> [INode]
@@ -436,8 +424,8 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
     pruneTail iNode1 iNode2 = addINodeToParent iNode1 iNode2
 
     -- check to see if an INode can be merged with another INode.
-    canMergeWith :: INode -> INode -> Bool
-    canMergeWith inode1 inode2 = hasArc inode1 && hasIn inode2 (outAndErrOf inode1)
+    isChildOf :: INode -> INode -> Bool
+    isChildOf inode1 inode2 = hasArc inode1 && hasIn inode2 (outAndErrOf inode1)
 
     -- Merge two INodes.
     mergeWith :: INode -> INode -> INode
@@ -460,7 +448,7 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
     -- in situations where an INode contains pointers to ENodes that are and the object is closed, we may be able to move the node up the tree of INodes.
     -- The idea is that these should get to the last generation.
     canFlipINodes :: INode -> INode -> Bool
-    canFlipINodes firstGen secondGen = loop && inCountOf secondGen > 2 && isJust (flippedINodeOf [firstGen])
+    canFlipINodes firstINode secondINode = loop && inCountOf secondINode > 2 && isJust (flippedINodeOf [firstINode])
 
     -- Transform the two INodes.
     -- make the first inode into the final inode, keeping the old final inode's output, and
@@ -559,8 +547,9 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
 addYoungerGen :: [INode] -> INodeSet -> INodeSet
 addYoungerGen newGen (INodeSet myChildGens myLastINode) = INodeSet (one newGen <> myChildGens) myLastINode
 
--- | Apply a recursive algorithm to obtain a raw INode set.
---   FIXME: does not handle more than two point intersections of arcs properly.
+-- | Apply a recursive algorithm to obtain a raw INodeSet.
+-- This generates an INodeSet where each generation is composed of the closest together intersection of arcs, and thus does not discover in ENode order.
+-- FIXME: does not handle more than two point intersections of arcs properly.
 -- NOTE: the first two arguments are passed through to later recursive calls.
 skeletonOfNodes :: Bool -> Slist [LineSeg] -> Slist [LineSeg] -> [INode] -> Either PartialNodes INodeSet
 skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
