@@ -374,7 +374,7 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
             (firstArc,(_,_,firstArcErr)) = join2PP (cPPointOf firstChild) (cPPointOf secondChild)
             (secondArc,(_,_,secondArcErr)) = join2PP (cPPointOf secondChild) (cPPointOf firstChild)
             (firstChild, secondChild) = (PL.head children, PL.last children)
-            children = (\(a,_) -> snd $ fromMaybe (error $ "could not find " <> show a)  $ findINodeByOutput iNodeSet a True) <$> insOf parent 
+            children = (\(a,_) -> snd $ fromMaybe (error $ "could not find " <> show a)  $ findINodeByOutput iNodeSet a True) <$> insOf parent
 
         -- an INode that contains inputs both on one side, and on the other side of the first ENode's arc.
         flippedINode = fromMaybe (error "tried to inspect flippedINode when no flippedINode exists") $ flippedINodeOf youngestGeneration
