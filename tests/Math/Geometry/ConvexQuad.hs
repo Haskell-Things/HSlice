@@ -190,19 +190,6 @@ convexQuadBrokenSpec = do
   describe "Convex Quads" $ do
     it "each face is wound to the left (unit)" $
       unit_ConvexQuadFacesAllWoundLeft
-    it "each face is wound to the left (unit) (2)" $
-      unit_ConvexQuadFacesAllWoundLeft_2
-    it "each face is wound to the left (unit) (3)" $
-      unit_ConvexQuadFacesAllWoundLeft_3
-    it "each face is wound to the left (unit) (4)" $
-      unit_ConvexQuadFacesAllWoundLeft_4
-    it "each face is wound to the left" $
-      property (boolFromConvexQuad prop_FacesAllWoundLeft)
-    where
-      boolFromConvexQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
-      boolFromConvexQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = f convexQuad
-        where
-          convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
 
 convexQuadSpec :: Spec
 convexQuadSpec = do
@@ -225,6 +212,14 @@ convexQuadSpec = do
       property (boolFromConvexQuad prop_FacesHaveThreeToFiveSides)
     it "places faces in the order the line segments were given in" $
       property (expectationFromConvexQuad prop_FacesInOrder)
+    it "each face is wound to the left" $
+      property (boolFromConvexQuad prop_FacesAllWoundLeft)
+    it "each face is wound to the left (unit) (2)" $
+      unit_ConvexQuadFacesAllWoundLeft_2
+    it "each face is wound to the left (unit) (3)" $
+      unit_ConvexQuadFacesAllWoundLeft_3
+    it "each face is wound to the left (unit) (4)" $
+      unit_ConvexQuadFacesAllWoundLeft_4
   where
     boolFromConvexQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
     boolFromConvexQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = f convexQuad
