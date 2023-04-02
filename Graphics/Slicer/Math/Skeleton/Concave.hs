@@ -280,7 +280,6 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
          INodeSet mempty (orderInsByENodes parent)
      -- Tail Transform #1: If the last INode is a ENode -> INode bridge, merge it into the INode its pointing to.
      | not hasPruned && canPruneTail rawLastINode =
-       -- FIXME: actually look up what INode to merge with, and change it in place.
        case oldestChildGeneration of
          [] -> errorEmpty
          [oneINode] -> res' True hasAdjusted $ INodeSet (SL.init childGenerations) $ pruneTail oneINode rawLastINode
