@@ -24,7 +24,7 @@ module Math.Geometry.Triangle (
   triangleStatSpec
   ) where
 
-import Prelude (Bool(True), Show(show), ($), (.), (+), (<>), (==), (<$>), all, error, length, otherwise, pure)
+import Prelude (Bool(True), Show(show), ($), (.), (+), (<>), (==), (<$>), all, error, length, otherwise, mempty, pure, sqrt)
 
 -- The Either library.
 import Data.Either (rights)
@@ -32,11 +32,13 @@ import Data.Either (rights)
 -- The List library.
 import Data.List (concat, transpose)
 
+import Data.Set (singleton)
+
 -- The Maybe library.
 import Data.Maybe (fromMaybe, fromJust)
 
 -- Slists, a form of list with a stated size in the structure.
-import Slist (len)
+import Slist (len, slist)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -48,14 +50,19 @@ import Test.QuickCheck.Property (label, liftBool, Property)
 -- The numeric type in HSlice.
 import Graphics.Slicer (ℝ)
 
+import Graphics.Slicer.Math.Contour (makePointContour)
+
 -- Basic functions for mapping, rounding, and introspecting points.
-import Graphics.Slicer.Math.Definitions (Contour, mapWithFollower)
+import Graphics.Slicer.Math.Definitions (Contour(LineSegContour), LineSeg(LineSeg), Point2(Point2), mapWithFollower)
+
+-- Geometric Algebra functions. non-dimentional in nature.
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum))
 
 -- Basic intersection logic.
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, intersectionBetween)
 
 -- Our 2D Projective Geometric Algebra library.
-import Graphics.Slicer.Math.PGA (distance2PP, fuzzinessOfP, outAndErrOf)
+import Graphics.Slicer.Math.PGA (ProjectiveLine(PLine2), PLine2Err(PLine2Err), distance2PP, fuzzinessOfP, outAndErrOf)
 
 -- Our debugging library, for making the below simpler to read, and drop into command lines.
 import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
@@ -68,6 +75,9 @@ import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf)
+
+-- functions for placing lines segments onto faces.
+import Graphics.Slicer.Math.Skeleton.Line (insetBy)
 
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
@@ -116,6 +126,31 @@ unit_TriangleENodeArcsIntersectAtSamePoint = retVal
     rawRadians = ListThree [Radian 2.985457801469671, Radian 2.626880074405778, Radian 5.132144721027657]
     rawDists :: ListThree (Positive ℝ)
     rawDists = ListThree [15.806453706102848, 50.6285286757685, 16.68828123028247]
+
+-- | A unit test, proving insetting works on our very-rigged triangle.
+unit_TriangleInset :: Expectation
+unit_TriangleInset =
+  insetBy 0.25 (facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton triangle [])
+  --> ([LineSegContour (Point2 (0.43301270189221924,0.25))
+                       (Point2 (1.5669872981077808,1.2320508075688772))
+                       (LineSeg (Point2 (1.5669872981077808,0.25)) (Point2 (1.0,1.2320508075688771)))
+                       (LineSeg (Point2 (1.0,1.2320508075688771)) (Point2 (0.43301270189221924,0.25)))
+                       (slist [LineSeg (Point2 (0.43301270189221924,0.25)) (Point2 (1.5669872981077808,0.25))])]
+      ,[Face (LineSeg (Point2 (2.433012701892219,-0.25)) (Point2 (-0.43301270189221924,-0.25)))
+             (PLine2 (GVec [GVal (-1.7320508075688774) (singleton (GEZero 1)), GVal 0.8660254037844387 (singleton (GEPlus 1)), GVal 1.5 (singleton (GEPlus 2))]), PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] mempty mempty mempty mempty mempty)
+             (slist [])
+             (PLine2 (GVec [GVal (-0.8660254037844387) (singleton (GEPlus 1)),GVal 1.5 (singleton (GEPlus 2))]), PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] mempty mempty mempty mempty mempty)
+       ,Face (LineSeg (Point2 (1.0,2.232050807568877)) (Point2 (2.4330127018922192,-0.25)))
+             (PLine2 (GVec [GVal 1.7320508075688772 (singleton (GEZero 1)), GVal (-1.7320508075688772) (singleton (GEPlus 1))]), PLine2Err mempty mempty mempty mempty mempty ([ErrVal (UlpSum 4.440892098500626e-16) (singleton (GEPlus 2)),ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1)),ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEZero 1))],[]))
+             (slist [])
+             (PLine2 (GVec [GVal 1.7320508075688774 (singleton (GEZero 1)), GVal (-0.8660254037844387) (singleton (GEPlus 1)), GVal (-1.5) (singleton (GEPlus 2))]), PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] mempty mempty mempty mempty mempty)
+       ,Face (LineSeg (Point2 (-0.43301270189221935,-0.25000000000000006)) (Point2 (1.0,2.232050807568877)))
+             (PLine2 (GVec [GVal 0.8660254037844387 (singleton (GEPlus 1)), GVal (-1.5) (singleton (GEPlus 2))]), PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] mempty mempty mempty mempty mempty )
+             (slist [])
+             (PLine2 (GVec [GVal (-1.7320508075688772) (singleton (GEZero 1)), GVal 1.7320508075688772 (singleton (GEPlus 1))]), PLine2Err mempty mempty mempty mempty mempty ([ErrVal (UlpSum 4.440892098500626e-16) (singleton (GEPlus 2)),ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1)),ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEZero 1))],[]))
+       ])
+  where
+    triangle = makePointContour [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
 
 -- | Ensure we find three faces for the given contour (a triangle).
 prop_HasThreeFaces :: Contour -> Expectation
@@ -172,6 +207,8 @@ triangleSpec = do
       property (boolFromTriangle prop_FacesAllWoundLeft)
     it "places faces in the same order as the input line segments" $
       property (expectationFromTriangle prop_FacesInOrder)
+    it "insets a triangle (unit)" $
+      unit_TriangleInset
 {-    it "insets halfway, finding 3 remaining faces" $
       property prop_TriangleFacesInsetWithRemainder
     it "insets completely, finding 0 remaining faces" $
