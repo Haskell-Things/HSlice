@@ -20,11 +20,11 @@
 --    a Straight Skeleton of a contour, with a set of sub-contours cut out of it.
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (($), (<>), (<$>), error, null, not, show, otherwise)
+import Prelude (($), (<>), (<$>), concat, error, fst, null, not, show, snd, otherwise)
 
 import Data.Either (lefts, rights)
 
-import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
+import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromJust, isNothing)
 
 import Slist (slist)
 
@@ -67,9 +67,9 @@ findStraightSkeleton contour holes =
           intersperseDivides :: [NodeTree] -> [CellDivide] -> [(NodeTree, Maybe CellDivide)]
           intersperseDivides nodeTrees divides = case (nodeTrees, divides) of
                                                    ([], _) -> error "impossible"
-                                                   ([a], []) -> [(a,Nothing)]
+                                                   ([a], []) -> [(a, Nothing)]
                                                    (a:as, b:bs) -> [(a, Just b)] <> intersperseDivides as bs
-                                                   (_:_, _) -> error "what?"
+                                                   (_:_, _) -> error "uneven matching of NodeTrees and CellDivides"
           -- recursively merge our nodeTrees until we have just one.
           sumNodeTrees :: [(NodeTree, Maybe CellDivide)] -> NodeTree
           sumNodeTrees ins
@@ -82,16 +82,17 @@ findStraightSkeleton contour holes =
                                             ((a, Just div1):(b, div2):xs) -> addNodeTreesAlongDivide a (sumNodeTrees ((b, div2):xs)) div1
             | otherwise = error $ "inode crossed divide:\n" <> show rawNodeTrees <> "\n" <> show divisions <> "\n"
           allNodeTrees = rights rawNodeTrees
-          rawNodeTrees = getNodeTreeOfCell <$> allCellsOfContour
+          rawNodeTrees = getNodeTreeOfCell <$> allCellsOfContour contour
           -- recursively find a list of all of the cells in a given contour.
-          allCellsOfContour = remainingCells (firstCell, maybeFirstRemainder)
+          allCellsOfContour :: Contour -> [Cell]
+          allCellsOfContour myContour = firstCell : allCellsOfContour' maybeFirstRemainder
             where
-              (Just (firstCell,maybeFirstRemainder)) = findFirstCellOfContour contour divisions
-              remainingCells :: (Cell, Maybe [RemainingContour]) -> [Cell]
-              remainingCells (priorCell, priorRemainder) =
-                case priorRemainder of
-                  Nothing -> [priorCell]
-                  (Just []) -> error "impossible?"
-                  (Just [oneRemainder]) -> [priorCell] <> remainingCells (fromMaybe (error "could not find next cell?") $ findNextCell oneRemainder)
-                  (Just (_:_)) -> error "incomplete!"
+              (Just (firstCell,maybeFirstRemainder)) = findFirstCellOfContour myContour divisions
+              allCellsOfContour' :: Maybe [RemainingContour] -> [Cell]
+              allCellsOfContour' maybeRemainders
+                | isNothing maybeRemainders = []
+                | null $ fromJust maybeRemainders = error "was given an empty list of remainders."
+                | otherwise = (fst <$> nextCells) <> concat (allCellsOfContour' <$> (snd <$> nextCells))
+                where
+                  nextCells = catMaybes $ findNextCell <$> fromJust maybeRemainders
           divisions = findDivisions contour crashTree
