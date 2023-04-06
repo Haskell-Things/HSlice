@@ -27,6 +27,7 @@ module Math.Geometry.CommonTests (
   prop_FacesInOrder,
   prop_HasFourFaces,
   prop_HasAStraightSkeleton,
+  prop_InsetIsSmaller,
   prop_NodeTreeHasFewerThanFourGenerations,
   prop_NodeTreeHasFewerThanThreeGenerations,
   prop_NoDivides,
@@ -34,7 +35,7 @@ module Math.Geometry.CommonTests (
   prop_StraightSkeletonHasOneNodeTree
   ) where
 
-import Prelude (Bool(True), ($), (<), (.), (+), (<>), (==), (||), (<$>), all, concat, error, fst, length, otherwise, show, snd)
+import Prelude (Bool(True), ($), (<), (>), (.), (+), (&&), (<>), (==), (||), (<$>), all, concat, error, fst, head, length, otherwise, show, snd)
 
 -- The Maybe library.
 import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
@@ -46,11 +47,14 @@ import Slist.Type(Slist(Slist))
 -- Hspec, for writing specs.
 import Test.Hspec (Expectation)
 
+-- The numeric type in HSlice.
+import Graphics.Slicer (ℝ)
+
 -- Basic contour handling. the Point and LineSeg we use to determine how to flip a contour.
-import Graphics.Slicer.Math.Contour (firstPointPairOfContour, innerContourPoint, insideIsLeft, mostPerpPointAndLineSeg)
+import Graphics.Slicer.Math.Contour (contourContainsContour, firstPointPairOfContour, innerContourPoint, insideIsLeft, mostPerpPointAndLineSeg)
 
 -- Basic definitions, used in multiple places in the math library.
-import Graphics.Slicer.Math.Definitions (Contour, endPoint, lineSegsOfContour, mapWithFollower, pointBetweenPoints, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, Point2(Point2), endPoint, lineSegsOfContour, mapWithFollower, minMaxPoints, pointBetweenPoints, startPoint)
 
 -- Basic intersection logic.
 import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint)
@@ -72,6 +76,9 @@ import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour)
 
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf, orderedFacesOf)
+
+-- functions for placing lines segments onto faces.
+import Graphics.Slicer.Math.Skeleton.Line (insetBy)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
 import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles, convexMotorcycles)
@@ -146,6 +153,20 @@ prop_HasFourFaces contour = length (facesOf $ fromMaybe (error $ show contour) $
 -- | Ensure we can actually draw a straight skeleton for the given contour.
 prop_HasAStraightSkeleton :: Contour -> Expectation
 prop_HasAStraightSkeleton contour = findStraightSkeleton contour [] -/> Nothing
+
+-- | ensure that when shrinking a contour, the result is smaller.
+prop_InsetIsSmaller :: ℝ -> Contour -> Bool
+prop_InsetIsSmaller distance contour
+  | length foundContours == 1 && contourContainsContour contour insetContour = insetIsSmaller
+  | otherwise = error $ "wrong number of contours found when shrinking contour: " <> show contour <> "\n"
+    where
+      insetIsSmaller = minIX > minRX && minIY > minRY && maxRX > maxIX && maxRY > maxIY
+        where
+          ((Point2 (minRX, minRY)) , (Point2 (maxRX, maxRY))) = minMaxPoints contour
+          ((Point2 (minIX, minIY)) , (Point2 (maxIX, maxIY))) = minMaxPoints insetContour
+      insetContour = head foundContours
+      (foundContours, _) = insetBy distance faces
+      faces = facesOf $ fromMaybe (error $ "could not get a straight skeleton for: " <> show contour) $ findStraightSkeleton contour []
 
 -- | ensure that we only find less than four generations of INodes.
 prop_NodeTreeHasFewerThanFourGenerations :: Contour -> Bool

@@ -72,7 +72,7 @@ import Graphics.Slicer.Math.Skeleton.Line (insetBy)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_ENodeArcsIntersectAtSamePoint, prop_FacesAllWoundLeft, prop_FacesHaveThreeSides, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanThreeGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_ENodeArcsIntersectAtSamePoint, prop_FacesAllWoundLeft, prop_FacesHaveThreeSides, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_InsetIsSmaller, prop_NodeTreeHasFewerThanThreeGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->))
@@ -92,20 +92,10 @@ unit_SquareENodeArcsIntersectAtSamePoint = retVal
     distanceToCorner :: Positive ℝ
     distanceToCorner = 3.0e-2
 
-prop_SquareFacesInsetWithRemainder :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_SquareFacesInsetWithRemainder x y tilt distanceToCorner
-  | length insetContours == 1 && length (lineSegsOfContour insetContour) == 4 && length remainingFaces == 4 = True
-  | otherwise = error $ "whoops!\n"
-                     <> "insetContours: " <> show (length insetContours) <> "\n"
-                     <> "contour segments: " <> show (length $ lineSegsOfContour insetContour) <> "\n"
-                     <> "faces returned: " <> show (length remainingFaces) <> "\n"
-                     <> "original contour: " <> show square <> "\n"
-                     <> "returned contour: " <> show insetContour <> "\n"
-                     <> "returned faces: " <> show remainingFaces <> "\n"
+prop_SquareFacesInsetWithRemainder :: Contour -> Positive ℝ -> Bool
+prop_SquareFacesInsetWithRemainder contour distanceToCorner = prop_InsetIsSmaller (coerce insetDistance) contour
   where
-    insetContour = head insetContours
-    (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) (facesOf $ fromMaybe (error $ show square) $ findStraightSkeleton square [])
-    square = randomSquare x y tilt distanceToCorner
+    insetDistance = distanceToCorner / 2
 
 unit_SquareFacesInsetWithRemainder :: Bool
 unit_SquareFacesInsetWithRemainder
@@ -205,7 +195,7 @@ squareSpec = do
     it "each face is wound to the left" $
       property (boolFromSquare prop_FacesAllWoundLeft)
     it "insets halfway, finding 4 remaining faces" $
-      property prop_SquareFacesInsetWithRemainder
+      property (boolFromSquareWithDistance prop_SquareFacesInsetWithRemainder)
     it "insets halfway, finding 4 remaining faces(unit)" $
       unit_SquareFacesInsetWithRemainder
     it "insets a square that is detected by the code as a rectangle(unit)" $
@@ -217,6 +207,10 @@ squareSpec = do
   where
     boolFromSquare :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
     boolFromSquare f x y tilt distanceToCorner = f square
+      where
+        square = randomSquare x y tilt distanceToCorner
+    boolFromSquareWithDistance :: (Contour -> Positive ℝ -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool
+    boolFromSquareWithDistance f x y tilt distanceToCorner = f square distanceToCorner
       where
         square = randomSquare x y tilt distanceToCorner
     expectationFromSquare :: (Contour -> Expectation) -> ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Expectation

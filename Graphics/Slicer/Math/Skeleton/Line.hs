@@ -26,7 +26,7 @@ import Prelude ((==), all, concat, otherwise, (<$>), (<=), (&&), ($), (/=), erro
 
 import Data.Either (isRight)
 
-import Data.List (sortOn, dropWhile, last, length, takeWhile, transpose, uncons)
+import Data.List (dropWhile, intersperse, last, length, nub, sortOn, takeWhile, transpose, uncons)
 
 import Data.List.Extra (unsnoc)
 
@@ -44,7 +44,7 @@ import Graphics.Slicer.Math.Ganja (dumpGanja)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.Intersections (intersectionBetween, intersectionOf, noIntersection)
+import Graphics.Slicer.Math.Intersections (intersectionBetween, intersectionOf, isCollinear, noIntersection)
 
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face))
 
@@ -65,8 +65,13 @@ import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 -- FIXME: handle inset requests that result in multiple contours.
 insetBy :: ℝ -> Slist Face -> ([Contour], [Face])
 insetBy distance faces
+  -- no result? no resulting faces.
   | null (concat lineSegSets) = ([], [])
-  | length (concat lineSegSets) < 3 = error "less than three, but not zero?"
+  -- if the input contour has so few line segments, that it's impossible to drop a segment,
+  -- assume we passed the endpoints of all faces.
+  | len faces < 6 && len faces /= length remainingFaces = (contours, [])
+  -- there is no such thing as 2 faces remaining. assume we passed the endpoints of all faces.
+  | length remainingFaces < 3 = (contours, [])
   | otherwise = (contours, remainingFaces)
   where
     contours = reclaimContours lineSegSets
@@ -74,14 +79,14 @@ insetBy distance faces
     remainingFaces = concat $ mapMaybe snd res
     res = addLineSegsToFace distance (Just 1) <$> (\(Slist a _) -> a) faces
 
--- FUTUREWORK: Add a function that takes the contour formed by the remainders of the faces, and squeezes in a line segment, if possible.
+-- FUTUREWORK: Add a function that takes the contour formed by the remainders of the faces, and squeezes in some line segments, if possible.
 
 -- | Cover a contour with lines, aligned to the faces of the contour.
 -- FIXME: this should be returning a ContourTree.
 infiniteInset :: ℝ -> Slist Face -> [[LineSeg]]
 infiniteInset distance faces
   | null (concat lineSegSets) = []
-  | length (concat lineSegSets) < 3 = error "less than three, but not zero?"
+  | length (concat lineSegSets) < 3 = error $ "less than three, but not zero?\n" <> show lineSegSets <> "\n"
   | otherwise = lineSegsOfContour <$> contours
   where
     contours = reclaimContours lineSegSets
@@ -140,9 +145,13 @@ addLineSegsToFace distance insets face
         availableLines = linesUntilEnd distance checkedFace
 
     -- | The line segments we are placing.
-    foundLineSegs          = [ makeLineSeg (pToEPoint2 $ fst $ safeIntersectionOf newSide firstArc) (pToEPoint2 $ fst $ safeIntersectionOf newSide lastArc) | newSide <- newSides ]
+    foundLineSegs          = catMaybes [ maybeMakeLineSeg (pToEPoint2 $ fst $ safeIntersectionOf newSide firstArc) (pToEPoint2 $ fst $ safeIntersectionOf newSide lastArc) | newSide <- newSides ]
       where
         newSides = [ translateL (eToPLine2 edge) $ translateDir (-(distance+(distance * fromIntegral segmentNum))) | segmentNum <- [0..linesToRender-1] ]
+        -- Filter out the case where we try to construct an empty segment, EG: we have inset to the point we have only a point, not a line segment.
+        maybeMakeLineSeg a b
+          | a == b = Nothing
+          | otherwise = Just $ makeLineSeg a b
 
     -- | The line where we are no longer able to fill this face. from the firstArc to the lastArc, along the point that the lines we place stop.
     finalSide              = makeLineSeg (pToEPoint2 $ fst firstIntersection) (pToEPoint2 $ fst lastIntersection)
@@ -169,7 +178,9 @@ addLineSegsToFace distance insets face
     -----------------------------------------------------------
     -- functions only used by n-gons with more than four sides.
     -----------------------------------------------------------
-    nSideRemainder = case fromMaybe [] remains1 <> fromMaybe [] remains2 of
+    nSideRemainder
+      | null foundLineSegs = Nothing
+      | otherwise = case fromMaybe [] remains1 <> fromMaybe [] remains2 of
                        res@(_:_) -> Just res
                        [] -> error "no remains for an nSideRemainder?"
 
@@ -212,12 +223,18 @@ addLineSegsToFace distance insets face
     -- Recurse, so we get the remainder and line segments of the three sided n-gon left over.
     (twoSideSubLineSegs,
      twoSideSubRemainder)
-      | null foundLineSegs = ([],Nothing)
+      | null foundLineSegs = ([], Nothing)
       | otherwise          = case plinesIntersectIn edgeLine lastPlacedLine of
                                PCollinear -> ([], Nothing)
                                _ -> if firstArcEndsFarthest edge firstArc (head midArcs) lastArc
-                                    then addLineSegsToFace distance subInsets (makeFace finalSide firstArc (slist []) midArc)
-                                    else addLineSegsToFace distance subInsets (makeFace finalSide midArc   (slist []) lastArc)
+                                    then if isCollinear midArc (eToPL finalSide)
+                                         -- our triangle is so small, two sides are considered colinear. abort.
+                                         then ([], Nothing)
+                                         else addLineSegsToFace distance subInsets (makeFace finalSide firstArc (slist []) midArc)
+                                    else if isCollinear midArc (eToPL finalSide)
+                                         -- our triangle is so small, two sides are considered colinear. abort.
+                                         then ([], Nothing)
+                                         else addLineSegsToFace distance subInsets (makeFace finalSide midArc (slist []) lastArc)
     edgeLine = eToPL edge
     lastPlacedLine = eToPL $ last foundLineSegs
     midArc = case midArcs of
@@ -308,7 +325,8 @@ findClosestArc edge firstArc rawMidArcs lastArc = case sortOn fst arcIntersectio
 reclaimContours :: [[LineSeg]] -> [Contour]
 reclaimContours lineSegSets = if all isJust reclaimedRings && all isJust cleanedContours
                                  then catMaybes cleanedContours
-                                 else error $ "failed to clean a contour in rings: " <> show rings <> "\n"
+                                      -- FIXME: separate errors, from situations that should normally return nothing.
+                                 else [] -- error $ "failed to clean a contour in rings: " <> show rings <> "\n"
   where
     cleanedContours = cleanContour <$> concat (fromJust <$> reclaimedRings)
     reclaimedRings = reclaimRing <$> rings
@@ -319,17 +337,32 @@ reclaimContours lineSegSets = if all isJust reclaimedRings && all isJust cleaned
 -- | tage a ring around N contours, and generate the contours.
 -- FIXME: not handling breaks yet.
 reclaimRing :: [LineSeg] -> Maybe [Contour]
-reclaimRing ring = case filter (\(a,_) -> isNothing a) reclaimedContour of
-                     [] -> Just [makePointContour $ fromJust . fst <$> reclaimedContour]
-                     [a] -> error $ "found one break in ring: " <> show ring <> " at " <> show a <> "\n"
-                     _ -> Nothing
+reclaimRing ring
+  -- don't try to reclaim something that can not qualify as a 2d contour.
+  | length ring < 3 = Nothing
+  | otherwise = case filter (\(a,_) -> isNothing a) reclaimedContour of
+                  [] -> if null reconstructedContours
+                        then Nothing
+                        else Just reconstructedContours
+                  -- An odd number of breaks is either a floating point induced error, or an attempt to completely inset a contour.
+                  [a] -> if length ring < 6
+                         then Nothing
+                         else error $ "found one break in ring: " <> show ring <> " at " <> show a <> "\n"
+                  -- FIXME: this should actually be a split operation, or a segment removal operation.
+                  _ -> Nothing
   where
+    reconstructedContours = catMaybes [maybeMakePointContour $ nub $ fromJust . fst <$> reclaimedContour]
+      where
+        maybeMakePointContour points
+          | length points < 3 = Nothing
+          | otherwise = Just $ makePointContour points
     reclaimedContour = mapWithFollower recovery ring
       where
         -- detect if two line segments SHOULD end at the same point, and if they do, return the point.
         recovery :: LineSeg -> LineSeg -> (Maybe Point2, (LineSeg, LineSeg))
         recovery l1 l2
           | endPoint l2 == startPoint l1 = (Just $ endPoint l2, (l1, l2))
+          | noIntersection (eToPL l2) (eToPL l1) = (Nothing, (l1, l2))
           -- FIXME: we should use intersection for line segments close to 90 degrees, and average for segments closest to parallel?
           | l1l2Distance <= l1l2DistanceErr = (Just $ fst $ pToEP $ fst $ intersectionOf (eToPL l2) (eToPL l1), (l1,l2))
           | otherwise = (Nothing, (l1,l2))
@@ -351,7 +384,7 @@ makeFace edge firstArc arcs lastArc = res
       | all isIntersection intersections = inFace
       | otherwise = error $ "Tried to generate a degenerate face: "
                          <> show inFace <> "\n"
-                         <> show intersections <> "\n"
+                         <> concat (intersperse "\n" $ show <$> intersections) <> "\n"
       where
         isIntersection intersection = case intersection of
                                         (IntersectsIn _ _) -> True

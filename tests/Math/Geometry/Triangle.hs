@@ -128,9 +128,9 @@ unit_TriangleENodeArcsIntersectAtSamePoint = retVal
     rawDists = ListThree [15.806453706102848, 50.6285286757685, 16.68828123028247]
 
 -- | A unit test, proving insetting works on our very-rigged triangle.
-unit_TriangleInset :: Expectation
-unit_TriangleInset =
-  insetBy 0.25 (facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton triangle [])
+unit_TriangleInset :: Contour -> Expectation
+unit_TriangleInset contour =
+  insetBy 0.25 (facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton contour [])
   --> ([LineSegContour (Point2 (0.43301270189221924,0.25))
                        (Point2 (1.5669872981077808,1.2320508075688772))
                        (LineSeg (Point2 (1.5669872981077808,0.25)) (Point2 (1.0,1.2320508075688771)))
@@ -149,8 +149,6 @@ unit_TriangleInset =
              (slist [])
              (PLine2 (GVec [GVal (-1.7320508075688772) (singleton (GEZero 1)), GVal 1.7320508075688772 (singleton (GEPlus 1))]), PLine2Err mempty mempty mempty mempty mempty ([ErrVal (UlpSum 4.440892098500626e-16) (singleton (GEPlus 2)),ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1)),ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEZero 1))],[]))
        ])
-  where
-    triangle = makePointContour [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
 
 -- | Ensure we find three faces for the given contour (a triangle).
 prop_HasThreeFaces :: Contour -> Expectation
@@ -208,7 +206,7 @@ triangleSpec = do
     it "places faces in the same order as the input line segments" $
       property (expectationFromTriangle prop_FacesInOrder)
     it "insets a triangle (unit)" $
-      unit_TriangleInset
+      unit_TriangleInset unitTriangle
 {-    it "insets halfway, finding 3 remaining faces" $
       property prop_TriangleFacesInsetWithRemainder
     it "insets completely, finding 0 remaining faces" $
@@ -223,3 +221,4 @@ triangleSpec = do
     expectationFromTriangle f x y rawRadians rawDists = f triangle
       where
         triangle = randomTriangle x y rawRadians rawDists
+    unitTriangle = makePointContour [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
