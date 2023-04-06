@@ -213,7 +213,6 @@ rectangleSpec = do
             | otherwise     = v - Radian pi
           c = coerce distanceToCorner
           rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
-          
       expectationFromRectangle :: (Contour -> Expectation) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
       expectationFromRectangle f x y rawFirstTilt rawSecondTilt distanceToCorner = f rectangle
         where
