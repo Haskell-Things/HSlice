@@ -132,8 +132,11 @@ prop_RectangleFacesInsetSmallerThanRectangle contour maxInsetDistance = prop_Ins
 
 prop_RectangleFacesInsetWithoutRemainder :: Contour -> Positive ℝ -> Bool
 prop_RectangleFacesInsetWithoutRemainder contour distanceToCorner
-  | (length insetContours == 0 || length insetContours == 1) &&
-    (length remainingFaces == 0 || length remainingFaces == 4) = True
+  | (length insetContours == 0 && length remainingFaces == 0) ||
+    (length insetContours == 0 && length remainingFaces == 4) = True
+    -- FIXME: these inset contours are so small, they can cause contour containing contour functions to fail.
+  | (length insetContours == 1 && length remainingFaces == 0) ||
+    (length insetContours == 1 && length remainingFaces == 4) = True -- prop_InsetIsSmaller (coerce distanceToCorner) contour
   | otherwise = error $ "fail!\n" <> "numInsetContours: " <> show (length insetContours) <> "\nnumRemainingFaces: " <> show (length remainingFaces) <> "\n" <> show insetContours <> "\n" <> show remainingFaces <> "\n"
   where
     (insetContours, remainingFaces) = insetBy (coerce distanceToCorner) (facesOf $ fromMaybe (error $ show contour) $ findStraightSkeleton contour [])
@@ -173,7 +176,7 @@ rectangleSpec = do
       property (boolFromRectangle prop_FacesAllWoundLeft)
     it "insets halfway, finding 4 remaining faces" $
       property (boolFromRectangleWithDistance prop_RectangleFacesInsetWithRemainder)
-    it "insets completely, finding 0 remaining faces" $
+    it "insets completely, does not crash" $
       property (boolFromRectangleWithDistance prop_RectangleFacesInsetWithoutRemainder)
     it "sees an inset of a rectangle as being smaller than the source rectangle" $
       property (boolFromRectangleWithDistance prop_RectangleFacesInsetSmallerThanRectangle)
