@@ -61,6 +61,7 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 -- Shared tests, between different geometry.
 import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesHaveThreeToFiveSides, prop_FacesAllWoundLeft, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
+-- | generates a malformed (concave!) contour.
 unit_ConvexQuadFacesAllWoundLeft :: Bool
 unit_ConvexQuadFacesAllWoundLeft
   | allIsLeft = True
