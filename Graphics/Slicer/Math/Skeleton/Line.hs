@@ -22,7 +22,7 @@
 -- | Functions for for applying inset line segments to a series of faces, and for adding infill to a face.
 module Graphics.Slicer.Math.Skeleton.Line (insetBy, infiniteInset) where
 
-import Prelude ((==), all, concat, otherwise, (<$>), (<=), (&&), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (+), (*), (-), (.), (<>), (>), (<), min, Bool(True, False), filter, fst, maybe, mempty, null, snd)
+import Prelude ((==), all, concat, otherwise, (<$>), (<=), (&&), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (*), (-), (.), (<>), (>), (<), min, Bool(True, False), filter, fst, maybe, mempty, null, snd)
 
 import Data.Either (isRight)
 
