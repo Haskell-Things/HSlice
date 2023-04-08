@@ -147,7 +147,7 @@ addLineSegsToFace distance insets face
     -- | The line segments we are placing.
     foundLineSegs          = catMaybes [ maybeMakeLineSeg (pToEPoint2 $ fst $ safeIntersectionOf newSide firstArc) (pToEPoint2 $ fst $ safeIntersectionOf newSide lastArc) | newSide <- newSides ]
       where
-        newSides = [ translateL (eToPLine2 edge) $ translateDir (-(distance+(distance * fromIntegral segmentNum))) | segmentNum <- [0..linesToRender-1] ]
+        newSides = [ translateL (eToPLine2 edge) $ translateDir (-distance * fromIntegral segmentNum) | segmentNum <- [1..linesToRender] ]
         -- Filter out the case where we try to construct an empty segment, EG: we have inset to the point we have only a point, not a line segment.
         maybeMakeLineSeg a b
           | a == b = Nothing
@@ -158,7 +158,7 @@ addLineSegsToFace distance insets face
       where
         firstIntersection = safeIntersectionOf finalLine firstArc
         lastIntersection = safeIntersectionOf finalLine lastArc
-        finalLine = translateL (eToPLine2 edge) $ translateDir (distance * fromIntegral linesToRender)
+        finalLine = translateL (eToPLine2 edge) $ translateDir (-distance * fromIntegral linesToRender)
 
     -- | A wrapper, for generating smart errors.
     safeIntersectionOf a b
