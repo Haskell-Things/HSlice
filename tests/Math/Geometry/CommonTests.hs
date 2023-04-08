@@ -28,6 +28,7 @@ module Math.Geometry.CommonTests (
   prop_HasFourFaces,
   prop_HasAStraightSkeleton,
   prop_InsetIsSmaller,
+  prop_InsetOfInsetIsSmaller,
   prop_NodeTreeHasFewerThanFourGenerations,
   prop_NodeTreeHasFewerThanThreeGenerations,
   prop_NoDivides,
@@ -166,6 +167,25 @@ prop_InsetIsSmaller distance contour
           ((Point2 (minIX, minIY)) , (Point2 (maxIX, maxIY))) = minMaxPoints insetContour
       insetContour = head foundContours
       (foundContours, _) = insetBy distance faces
+      faces = facesOf $ fromMaybe (error $ "could not get a straight skeleton for: " <> show contour) $ findStraightSkeleton contour []
+
+-- | ensure that when shrinking a contour twice, the result is smaller.
+prop_InsetOfInsetIsSmaller :: ℝ -> ℝ -> Contour -> Bool
+prop_InsetOfInsetIsSmaller distance1 distance2 contour
+  | length foundContours == 1 && contourContainsContour contour foundContour = insetIsSmaller
+  | length foundContours > 0 && contourContainsContour contour foundContour = error $ "wrong number of contours found when shrinking contour: " <> show (length foundContours) <> "\n" <> errorMessage
+  | length foundContours == 1 = error $ "smaller contour was not inside of provided contour.\n" <> errorMessage
+  | length foundContours == 0 = error $ "no contour returned!\n" <> errorMessage
+  | otherwise = error $ "wtf\n" <> errorMessage
+    where
+      errorMessage = "Provided contour: " <> show contour <> "\n" <> "first inset generation:\n" <> show insetContours <> "\n" <> "final inset generation:\n" <> show foundContours <> "\n"
+      insetIsSmaller = minIX > minRX && minIY > minRY && maxRX > maxIX && maxRY > maxIY
+        where
+          ((Point2 (minRX, minRY)) , (Point2 (maxRX, maxRY))) = minMaxPoints contour
+          ((Point2 (minIX, minIY)) , (Point2 (maxIX, maxIY))) = minMaxPoints foundContour
+      foundContour = head foundContours
+      (foundContours, _) = insetBy distance2 (slist insetFaces)
+      (insetContours , insetFaces) = insetBy distance1 faces
       faces = facesOf $ fromMaybe (error $ "could not get a straight skeleton for: " <> show contour) $ findStraightSkeleton contour []
 
 -- | ensure that we only find less than four generations of INodes.
