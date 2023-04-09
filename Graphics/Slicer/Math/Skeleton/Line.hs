@@ -149,12 +149,15 @@ addLineSegsToFace distance insets face
       where
         newSides = [ translateL (eToPLine2 edge) $ translateDir (-distance * fromIntegral segmentNum) | segmentNum <- [1..linesToRender] ]
         -- Filter out the case where we try to construct an empty segment, EG: we have inset to the point we have only a point, not a line segment.
-        maybeMakeLineSeg a b
-          | a == b = Nothing
-          | otherwise = Just $ makeLineSeg a b
+
+    -- | Maybe make a line segment. Maybe not.
+    maybeMakeLineSeg a b
+      | a == b = Nothing
+      | otherwise = Just $ makeLineSeg a b
 
     -- | The line where we are no longer able to fill this face. from the firstArc to the lastArc, along the point that the lines we place stop.
-    finalSide              = makeLineSeg (pToEPoint2 $ fst firstIntersection) (pToEPoint2 $ fst lastIntersection)
+    finalSide              = fromMaybe (error "tried to get the final sidew and it's a point!") maybeFinalSide
+    maybeFinalSide         = maybeMakeLineSeg (pToEPoint2 $ fst firstIntersection) (pToEPoint2 $ fst lastIntersection)
       where
         firstIntersection = safeIntersectionOf finalLine firstArc
         lastIntersection = safeIntersectionOf finalLine lastArc
@@ -168,6 +171,9 @@ addLineSegsToFace distance insets face
                                 <> show (plinesIntersectIn a b) <> "\n"
                                 <> showInputs
       | otherwise = intersectionOf a b
+
+    -- | what to return when no result is necessary (we have run into the end of the face).
+    noResult = ([],Nothing)
 
     -- | dump our inputs, in case of failure.
     showInputs = "edge: " <> show edge <> "\n"
@@ -196,21 +202,24 @@ addLineSegsToFace distance insets face
     afterArc               = dropWhile (/= closestArcFollower) $ rawMidArcs <> [lastArc]
     (sides1, remains1)     = if closestArc == firstArc
                              then noResult
-                             else result firstArc untilArc
+                             else nSideSubResult firstArc untilArc
     (sides2, remains2)     = case unsnoc rawMidArcs of
                                Nothing -> noResult
                                Just (_,a) -> if closestArc == a
                                              then noResult
-                                             else result closestArcFollower afterArc
-    noResult = ([],Nothing)
-    result begin arcs = case uncons arcs of
-                          Nothing -> error "unpossible!"
-                          Just (_,[]) -> addLineSegsToFace distance subInsets (makeFace finalSide begin (slist []) lastArc)
-                          Just (_,manyArcs) -> addLineSegsToFace distance subInsets (makeFace finalSide begin remainingArcs lastArc)
-                            where
-                              remainingArcs = case unsnoc manyArcs of
-                                                Nothing -> error "unpossible!"
-                                                Just (as,_) -> slist as
+                                             else nSideSubResult closestArcFollower afterArc
+
+    -- | recurse, so we get the remainder and line segments of the remaining parts of the Face.
+    nSideSubResult begin arcs
+      | isNothing maybeFinalSide = noResult
+      | otherwise = case uncons arcs of
+                      Nothing -> error "unpossible!"
+                      Just (_,[]) -> addLineSegsToFace distance subInsets (makeFace finalSide begin (slist []) lastArc)
+                      Just (_,manyArcs) -> addLineSegsToFace distance subInsets (makeFace finalSide begin remainingArcs lastArc)
+                        where
+                          remainingArcs = case unsnoc manyArcs of
+                                            Nothing -> error "unpossible!"
+                                            Just (as,_) -> slist as
     ---------------------------------------------
     -- functions only used by a four-sided n-gon.
     ---------------------------------------------
@@ -220,20 +229,22 @@ addLineSegsToFace distance insets face
                                PCollinear -> Nothing
                                PParallel -> Just [makeFaceNoCheck finalSide firstArc (slist [midArc]) lastArc]
                                _ -> twoSideSubRemainder
+
     -- Recurse, so we get the remainder and line segments of the three sided n-gon left over.
     (twoSideSubLineSegs,
      twoSideSubRemainder)
-      | null foundLineSegs = ([], Nothing)
+      | null foundLineSegs = noResult
+      | isNothing maybeFinalSide = noResult
       | otherwise          = case plinesIntersectIn edgeLine lastPlacedLine of
-                               PCollinear -> ([], Nothing)
+                               PCollinear -> noResult
                                _ -> if firstArcEndsFarthest edge firstArc (head midArcs) lastArc
                                     then if isCollinear midArc (eToPL finalSide)
                                          -- our triangle is so small, two sides are considered colinear. abort.
-                                         then ([], Nothing)
+                                         then noResult
                                          else addLineSegsToFace distance subInsets (makeFace finalSide firstArc (slist []) midArc)
                                     else if isCollinear midArc (eToPL finalSide)
                                          -- our triangle is so small, two sides are considered colinear. abort.
-                                         then ([], Nothing)
+                                         then noResult
                                          else addLineSegsToFace distance subInsets (makeFace finalSide midArc (slist []) lastArc)
     edgeLine = eToPL edge
     lastPlacedLine = eToPL $ last foundLineSegs
@@ -246,7 +257,7 @@ addLineSegsToFace distance insets face
     ----------------------------------------------
     -- functions only used by a three-sided n-gon.
     ----------------------------------------------
-    twoSideRemainder     = if distance * fromIntegral linesToRender /= distanceUntilEnd checkedFace
+    twoSideRemainder     = if isJust maybeFinalSide && distance * fromIntegral linesToRender /= distanceUntilEnd checkedFace
                            then Just [makeFaceNoCheck finalSide firstArc (slist []) lastArc]
                            else Nothing
 
