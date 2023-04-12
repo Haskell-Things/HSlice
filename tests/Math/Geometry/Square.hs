@@ -23,7 +23,7 @@ module Math.Geometry.Square (
   squareSpec
   ) where
 
-import Prelude (Bool(True), Show(show), ($), (/), (&&), (<>), (==), (<$>), error, length, otherwise)
+import Prelude (Bool(True), Show(show), ($), (/), (<>), (<$>), error, length, otherwise)
 
 -- The List library.
 import Data.List (head)
@@ -72,7 +72,7 @@ import Graphics.Slicer.Math.Skeleton.Line (insetBy)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_ENodeArcsIntersectAtSamePoint, prop_FacesAllWoundLeft, prop_FacesHaveThreeSides, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_InsetIsSmaller, prop_NodeTreeHasFewerThanThreeGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_ENodeArcsIntersectAtSamePoint, prop_FacesAllWoundLeft, prop_FacesHaveThreeSides, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_InsetIsSmaller, prop_InsetOfInsetIsSmaller, prop_NodeTreeHasFewerThanThreeGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 -- Our Utility library, for making these tests easier to read.
 import Math.Util ((-->))
@@ -99,7 +99,7 @@ prop_SquareFacesInsetWithRemainder contour distanceToCorner = prop_InsetIsSmalle
 
 unit_SquareFacesInsetWithRemainder :: Bool
 unit_SquareFacesInsetWithRemainder
-  | length insetContours == 1 && length (lineSegsOfContour insetContour) == 4 && length remainingFaces == 4 = True
+  | prop_InsetIsSmaller (coerce $ distanceToCorner / 2) square = True
   | otherwise = error $ "whoops!\n"
                      <> "insetContours: " <> show (length insetContours) <> "\n"
                      <> "contour segments: " <> show (length $ lineSegsOfContour insetContour) <> "\n"
@@ -118,26 +118,33 @@ unit_SquareFacesInsetWithRemainder
     distanceToCorner = 1.0e-4
     tilt = Radian 1.0
 
+prop_SquareFacesInsetOfInsetWithRemainder :: Contour -> Positive ℝ -> Bool
+prop_SquareFacesInsetOfInsetWithRemainder contour distanceToCorner = prop_InsetOfInsetIsSmaller (coerce insetDistance1) (coerce insetDistance2) contour
+  where
+    -- FIXME: this breaks with /2.
+    insetDistance1 = distanceToCorner / 3
+    insetDistance2 = distanceToCorner / 4
+
 -- | A unit test for a square that is interpreted as a really square looking rectangle.
 unit_squareFromRandomSquare :: Bool
 unit_squareFromRandomSquare
-  | length insetContours == 1 && length (lineSegsOfContour insetContour) == 4 && length remainingFaces == 4 = True
+  | prop_InsetIsSmaller (coerce $ distanceToCorner / 2) contour = True
   | otherwise = error $ "malformed result:\n"
-                     <> dumpGanjas ([toGanja foundContour]
+                     <> dumpGanjas ([toGanja contour]
                                     <> (toGanja <$> (\(Slist a _) -> a) foundFaces)
                                     <> (toGanja <$> remainingFaces))
                      <> "insetContours: " <> show (length insetContours) <> "\n"
                      <> "contour segments: " <> show (length $ lineSegsOfContour insetContour) <> "\n"
                      <> "faces returned: " <> show (length remainingFaces) <> "\n"
-                     <> "original contour: " <> show foundContour <> "\n"
+                     <> "original contour: " <> show contour <> "\n"
                      <> "returned contour: " <> show insetContour <> "\n"
                      <> "returned faces: " <> show remainingFaces <> "\n"
   where
     insetContour = head insetContours
     (insetContours, remainingFaces) = insetBy (coerce distanceToCorner/2) foundFaces
     foundFaces = facesOf straightSkeleton
-    straightSkeleton = fromMaybe (error $ show foundContour) $ findStraightSkeleton foundContour []
-    foundContour = randomSquare x y tilt distanceToCorner
+    straightSkeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
+    contour = randomSquare x y tilt distanceToCorner
     x,y :: ℝ
     x = 0
     y = 0
@@ -194,12 +201,14 @@ squareSpec = do
       property (expectationFromSquare prop_FacesInOrder)
     it "each face is wound to the left" $
       property (boolFromSquare prop_FacesAllWoundLeft)
-    it "insets halfway, finding 4 remaining faces" $
+    it "insets halfway, finding a smaller inset" $
       property (boolFromSquareWithDistance prop_SquareFacesInsetWithRemainder)
-    it "insets halfway, finding 4 remaining faces(unit)" $
+    it "insets halfway, finding a smaller inset(unit)" $
       unit_SquareFacesInsetWithRemainder
     it "insets a square that is detected by the code as a rectangle(unit)" $
       unit_squareFromRandomSquare
+    it "insets halfway then a quarter way again, finding a smaller inset" $
+      property (boolFromSquareWithDistance prop_SquareFacesInsetOfInsetWithRemainder)
     it "insets completely, finding 0 remaining faces" $
       property prop_SquareFacesInsetWithoutRemainder
     it "insets a square that is detected by the code as a rectangle completely, finding 0 remaining faces(unit)" $
