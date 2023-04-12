@@ -73,7 +73,7 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Math.Util ((-->))
 
 -- Shared tests, between different geometry.
-import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesHaveThreeToFiveSides, prop_FacesAllWoundLeft, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_InsetIsSmaller, prop_NodeTreeHasFewerThanThreeGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesHaveThreeToFiveSides, prop_FacesAllWoundLeft, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_InsetIsSmaller, prop_InsetOfInsetIsSmaller, prop_NodeTreeHasFewerThanThreeGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
 -- | Ensure that we only place four races on the given contour.
 unit_HasFourFaces :: Bool
@@ -130,6 +130,35 @@ prop_RectangleFacesInsetWithRemainder contour maxInsetDistance = length faces ==
 prop_RectangleFacesInsetSmallerThanRectangle :: Contour -> Positive ℝ -> Bool
 prop_RectangleFacesInsetSmallerThanRectangle contour maxInsetDistance = prop_InsetIsSmaller (coerce $ maxInsetDistance/2) contour
 
+prop_RectangleFacesInsetOfInsetIsSmallerThanRectangle :: Contour -> Positive ℝ -> Bool
+prop_RectangleFacesInsetOfInsetIsSmallerThanRectangle contour maxInsetDistance = prop_InsetOfInsetIsSmaller (coerce $ maxInsetDistance/2) (coerce $ maxInsetDistance/4) contour
+
+unit_RectangleFacesInsetOfInsetIsSmallerThanRectangle :: Bool
+unit_RectangleFacesInsetOfInsetIsSmallerThanRectangle = prop_InsetOfInsetIsSmaller (coerce $ maxInsetDistance/2) (coerce $ maxInsetDistance/4) contour
+  where
+    maxInsetDistance = maxInsetDistanceOfRectangle rawFirstTilt rawSecondTilt rawDistanceToCorner
+    contour = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+    x,y :: ℝ
+    x = 0
+    y = 0.0
+    rawFirstTilt = Radian 0.1
+    rawSecondTilt = Radian 1.0
+    rawDistanceToCorner :: Positive ℝ
+    rawDistanceToCorner = 0.1
+
+unit_RectangleFacesInsetOfInsetIsSmallerThanRectangle2 :: Bool
+unit_RectangleFacesInsetOfInsetIsSmallerThanRectangle2 = prop_InsetOfInsetIsSmaller (coerce $ maxInsetDistance/2) (coerce $ maxInsetDistance/4) contour
+  where
+    maxInsetDistance = maxInsetDistanceOfRectangle rawFirstTilt rawSecondTilt rawDistanceToCorner
+    contour = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+    x,y :: ℝ
+    x = 0
+    y = 0.0
+    rawFirstTilt = Radian 1.0
+    rawSecondTilt = Radian 0.2
+    rawDistanceToCorner :: Positive ℝ
+    rawDistanceToCorner = 0.1
+
 prop_RectangleFacesInsetWithoutRemainder :: Contour -> Positive ℝ -> Bool
 prop_RectangleFacesInsetWithoutRemainder contour distanceToCorner
   | (length insetContours == 0 && length remainingFaces == 0) ||
@@ -167,7 +196,7 @@ rectangleSpec = do
     it "only places four faces" $
       property (expectationFromRectangle prop_HasFourFaces)
     it "only places four faces (unit)" $
-      property unit_HasFourFaces
+      unit_HasFourFaces
     it "faces have between three and five sides" $
       property (boolFromRectangle prop_FacesHaveThreeToFiveSides)
     it "places faces in the same order the line segments were given in" $
@@ -180,6 +209,12 @@ rectangleSpec = do
       property (boolFromRectangleWithDistance prop_RectangleFacesInsetWithoutRemainder)
     it "sees an inset of a rectangle as being smaller than the source rectangle" $
       property (boolFromRectangleWithDistance prop_RectangleFacesInsetSmallerThanRectangle)
+    it "insets twice, resulting in a smaller rectangle than the generated one" $
+      property (boolFromRectangleWithDistance prop_RectangleFacesInsetOfInsetIsSmallerThanRectangle)
+    it "insets twice, resulting in a smaller rectangle than the generated one (unit)" $
+      unit_RectangleFacesInsetOfInsetIsSmallerThanRectangle
+    it "insets twice, resulting in a smaller rectangle than the generated one (unit 2)" $
+      unit_RectangleFacesInsetOfInsetIsSmallerThanRectangle2
     where
       boolFromRectangle :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
       boolFromRectangle f x y rawFirstTilt rawSecondTilt distanceToCorner = f rectangle
@@ -188,32 +223,36 @@ rectangleSpec = do
       boolFromRectangleWithDistance :: (Contour -> Positive ℝ -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
       boolFromRectangleWithDistance f x y rawFirstTilt rawSecondTilt distanceToCorner = f rectangle maxInsetDistance
         where
-          maxInsetDistance = Positive $ min a b
-          a, b, c, theta :: ℝ
-          a = c * sin theta
-          b = c * cos theta
-          theta = coerce $ (tilt2 - tilt1) / 2
-          -- find the two closest together lines from the center point to the corners.
-          (tilt1, tilt2)
-            | r2 - r1 < r3 - r2 = (r1, r2)
-            | otherwise = (r2, r3)
-          [r1, r2, r3, _] = sort
-            [
-              firstTilt
-            , rawSecondTilt
-            , flipRadian firstTilt
-            , flipRadian rawSecondTilt
-            ]
-          firstTilt
-            | rawFirstTilt == rawSecondTilt = rawFirstTilt + rawSecondTilt
-            | otherwise = rawFirstTilt
-          flipRadian :: Radian ℝ -> Radian ℝ
-          flipRadian v
-            | v < Radian pi = v + Radian pi
-            | otherwise     = v - Radian pi
-          c = coerce distanceToCorner
+          maxInsetDistance = maxInsetDistanceOfRectangle rawFirstTilt rawSecondTilt distanceToCorner
           rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
       expectationFromRectangle :: (Contour -> Expectation) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
       expectationFromRectangle f x y rawFirstTilt rawSecondTilt distanceToCorner = f rectangle
         where
           rectangle = randomRectangle x y rawFirstTilt rawSecondTilt distanceToCorner
+
+maxInsetDistanceOfRectangle :: Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ
+maxInsetDistanceOfRectangle rawFirstTilt rawSecondTilt distanceToCorner = Positive $ min a b
+  where
+    a, b, c, theta :: ℝ
+    a = c * sin theta
+    b = c * cos theta
+    theta = coerce $ (tilt2 - tilt1) / 2
+    -- find the two closest together lines from the center point to the corners.
+    (tilt1, tilt2)
+      | r2 - r1 < r3 - r2 = (r1, r2)
+      | otherwise = (r2, r3)
+    [r1, r2, r3, _] = sort
+                        [
+                          firstTilt
+                        , rawSecondTilt
+                        , flipRadian firstTilt
+                        , flipRadian rawSecondTilt
+                        ]
+    firstTilt
+      | rawFirstTilt == rawSecondTilt = rawFirstTilt + rawSecondTilt
+      | otherwise = rawFirstTilt
+    flipRadian :: Radian ℝ -> Radian ℝ
+    flipRadian v
+      | v < Radian pi = v + Radian pi
+      | otherwise     = v - Radian pi
+    c = coerce distanceToCorner

@@ -145,6 +145,7 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
   | otherwise                        = IntersectsIn res (pl1Err <> npl1Err, pl2Err <> npl2Err, resErr)
   where
     -- | The distance within which we consider (anti)parallel lines to be (anti)colinear.
+    -- FIXME: pLineErrAtPPoint may give too much for parallel lines.
     parallelFuzziness = ulpVal $ dErr <> pLineErrAtPPoint (pl1, pl1Err) res <> pLineErrAtPPoint (pl2, pl2Err) res
     -- | When two lines are really close to parallel or antiparallel, we use the distance between the lines to decide whether to promote them to being (anti)colinear.
     (d, (_, _, dErr)) = distance2PL pl1 pl2
