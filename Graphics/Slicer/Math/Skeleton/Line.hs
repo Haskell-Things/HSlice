@@ -22,7 +22,7 @@
 -- | Functions for for applying inset line segments to a series of faces, and for adding infill to a face.
 module Graphics.Slicer.Math.Skeleton.Line (insetBy, infiniteInset) where
 
-import Prelude ((==), all, concat, otherwise, (<$>), (<=), (&&), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (*), (-), (.), (<>), (>), (<), min, Bool(True, False), filter, fst, maybe, mempty, null, snd)
+import Prelude (Integer, (==), all, concat, max, otherwise, (<$>), (<=), (&&), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (*), (-), (.), (<>), (>), (<), min, Bool(True, False), filter, fst, maybe, mempty, null, snd)
 
 import Data.Either (isRight)
 
@@ -38,19 +38,19 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (makePointContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, mapWithFollower, endPoint, lineSegsOfContour, makeLineSeg, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, distance, mapWithFollower, endPoint, lineSegsOfContour, makeLineSeg, startPoint)
 
 import Graphics.Slicer.Math.Ganja (dumpGanja)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.Intersections (intersectionBetween, intersectionOf, isCollinear, noIntersection)
+import Graphics.Slicer.Math.Intersections (intersectionBetween, intersectionOf, isAntiParallel, noIntersection)
 
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face))
 
 import Graphics.Slicer.Math.Lossy (distancePPointToPLineWithErr, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (PIntersection (IntersectsIn, PCollinear, PParallel), PLine2Err, ProjectiveLine, ProjectiveLine2, distance2PP, eToPL, eToPP, fuzzinessOfL, normalizeL, pLineErrAtPPoint, plinesIntersectIn, pLineIsLeft, pToEP, translateL)
+import Graphics.Slicer.Math.PGA (PIntersection (IntersectsIn, PAntiCollinear, PAntiParallel, PCollinear, PParallel), PLine2Err, ProjectiveLine, ProjectiveLine2, distance2PP, eToPL, eToPP, fuzzinessOfL, normalizeL, pLineErrAtPPoint, plinesIntersectIn, pLineIsLeft, pToEP, translateL)
 
 import Graphics.Slicer.Machine.Contour (cleanContour)
 
@@ -64,7 +64,7 @@ import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 -- Requires the faces are a closed set, AKA, a set of faces created from a contour.
 -- FIXME: handle inset requests that result in multiple contours.
 insetBy :: ℝ -> Slist Face -> ([Contour], [Face])
-insetBy distance faces
+insetBy distanceBetweenSegs faces
   -- no result? no resulting faces.
   | null (concat lineSegSets) = ([], [])
   -- if the input contour has so few line segments, that it's impossible to drop a segment,
@@ -77,26 +77,26 @@ insetBy distance faces
     contours = reclaimContours lineSegSets
     lineSegSets = fst <$> res
     remainingFaces = concat $ mapMaybe snd res
-    res = addLineSegsToFace distance (Just 1) <$> (\(Slist a _) -> a) faces
+    res = addLineSegsToFace distanceBetweenSegs (Just 1) <$> (\(Slist a _) -> a) faces
 
 -- FUTUREWORK: Add a function that takes the contour formed by the remainders of the faces, and squeezes in some line segments, if possible.
 
 -- | Cover a contour with lines, aligned to the faces of the contour.
 -- FIXME: this should be returning a ContourTree.
 infiniteInset :: ℝ -> Slist Face -> [[LineSeg]]
-infiniteInset distance faces
+infiniteInset distanceBetweenSegs faces
   | null (concat lineSegSets) = []
   | length (concat lineSegSets) < 3 = error $ "less than three, but not zero?\n" <> show lineSegSets <> "\n"
   | otherwise = lineSegsOfContour <$> contours
   where
     contours = reclaimContours lineSegSets
     lineSegSets = fst <$> res
-    res = addLineSegsToFace distance Nothing <$> (\(Slist a _) -> a) faces
+    res = addLineSegsToFace distanceBetweenSegs Nothing <$> (\(Slist a _) -> a) faces
 
 -- | Place line segments on a face, parallel to the edge. Might return remainders, in the form of un-filled faces.
 -- FIXME: return a ((ProjectivePoint, PPoint2Err), (ProjectivePoint, PPoint2Err)) pair, so we can operate on it during contour reclamation without precision loss.
 addLineSegsToFace :: ℝ -> Maybe Fastℕ -> Face -> ([LineSeg], Maybe [Face])
-addLineSegsToFace distance insets face
+addLineSegsToFace distanceBetweenSegs insets face
   -- we were called, but instructed to do nothing.
   | isJust insets && fromJust insets < 1 = ([], Just [face])
   | len midArcs == 0 = (foundLineSegs, twoSideRemainder)
@@ -120,7 +120,7 @@ addLineSegsToFace distance insets face
     -- Just 0 or less == terminate, do not recurse.
     -- Nothing = recurse until we run out of space in the Face.
     subInsets = if isJust insets
-                then Just $ fromJust insets - linesToRender
+                then Just $ fromJust insets - linesToPlace
                 else Nothing
 
     -----------------------------------------------------------------------------------------
@@ -131,7 +131,7 @@ addLineSegsToFace distance insets face
                                (Just True) -> (-v)
                                (Just False) -> v
                                Nothing -> error $ "cannot happen: edge and firstArc do not intersect?\n"
-                                               <> show distance <> "\n"
+                                               <> show distanceBetweenSegs <> "\n"
                                                <> show insets <> "\n"
                                                <> show face <> "\n"
                                                <> show (normalizeL $ fst $ eToPL edge) <> "\n"
@@ -140,14 +140,14 @@ addLineSegsToFace distance insets face
                                                <> dumpGanja face <> "\n"
 
     -- | How many lines we are going to place in this recursion. If inset is Nothing, cover the face entirely.
-    linesToRender          = maybe availableLines (min availableLines) insets
+    linesToPlace           = maybe availableLines (min availableLines) insets
       where
-        availableLines = linesUntilEnd distance checkedFace
+        availableLines = linesUntilEnd distanceBetweenSegs checkedFace
 
-    -- | The line segments we are placing.
-    foundLineSegs          = catMaybes [ maybeMakeLineSeg (pToEPoint2 $ fst $ safeIntersectionOf newSide firstArc) (pToEPoint2 $ fst $ safeIntersectionOf newSide lastArc) | newSide <- newSides ]
+    -- | The line segments we are placing in this round.
+    foundLineSegs          = catMaybes [ maybeMakeLineSeg (pToEPoint2 $ fst $ safeIntersectionOf newSide lastArc) (pToEPoint2 $ fst $ safeIntersectionOf newSide firstArc) | newSide <- newSides ]
       where
-        newSides = [ translateL (eToPLine2 edge) $ translateDir (-distance * fromIntegral segmentNum) | segmentNum <- [1..linesToRender] ]
+        newSides = [ translateL (eToPLine2 edge) $ translateDir (-distanceBetweenSegs * fromIntegral segmentNum) | segmentNum <- [1..linesToPlace] ]
         -- Filter out the case where we try to construct an empty segment, EG: we have inset to the point we have only a point, not a line segment.
 
     -- | Maybe make a line segment. Maybe not.
@@ -156,12 +156,12 @@ addLineSegsToFace distance insets face
       | otherwise = Just $ makeLineSeg a b
 
     -- | The line where we are no longer able to fill this face. from the firstArc to the lastArc, along the point that the lines we place stop.
-    finalSide              = fromMaybe (error "tried to get the final sidew and it's a point!") maybeFinalSide
-    maybeFinalSide         = maybeMakeLineSeg (pToEPoint2 $ fst firstIntersection) (pToEPoint2 $ fst lastIntersection)
+    finalSide              = fromMaybe (error "tried to get the final side and it's a point!") maybeFinalSide
+    maybeFinalSide         = maybeMakeLineSeg (pToEPoint2 $ fst lastIntersection) (pToEPoint2 $ fst firstIntersection)
       where
         firstIntersection = safeIntersectionOf finalLine firstArc
         lastIntersection = safeIntersectionOf finalLine lastArc
-        finalLine = translateL (eToPLine2 edge) $ translateDir (-distance * fromIntegral linesToRender)
+        finalLine = translateL (eToPLine2 edge) $ translateDir (-distanceBetweenSegs * fromIntegral linesToPlace)
 
     -- | A wrapper, for generating smart errors.
     safeIntersectionOf a b
@@ -177,7 +177,6 @@ addLineSegsToFace distance insets face
 
     -- | dump our inputs, in case of failure.
     showInputs = "edge: " <> show edge <> "\n"
-              <> "edgeLine: \n" <> show (normalizeL $ fst $ eToPL edge) <> "\n"
               <> "firstArc: \n" <> show firstArc <> "\n"
               <> "midArcs: \n" <> show midArcs <> "\n"
               <> "lastArc: \n" <> show lastArc <> "\n"
@@ -214,8 +213,8 @@ addLineSegsToFace distance insets face
       | isNothing maybeFinalSide = noResult
       | otherwise = case uncons arcs of
                       Nothing -> error "unpossible!"
-                      Just (_,[]) -> addLineSegsToFace distance subInsets (makeFace finalSide begin (slist []) lastArc)
-                      Just (_,manyArcs) -> addLineSegsToFace distance subInsets (makeFace finalSide begin remainingArcs lastArc)
+                      Just (_,[]) -> addLineSegsToFace distanceBetweenSegs subInsets (makeFace 1 finalSide begin (slist []) lastArc)
+                      Just (_,manyArcs) -> addLineSegsToFace distanceBetweenSegs subInsets (makeFace 2 finalSide begin remainingArcs lastArc)
                         where
                           remainingArcs = case unsnoc manyArcs of
                                             Nothing -> error "unpossible!"
@@ -223,47 +222,71 @@ addLineSegsToFace distance insets face
     ---------------------------------------------
     -- functions only used by a four-sided n-gon.
     ---------------------------------------------
+    -- Determine if this face has a remainder, if that remainder has three sides, or if the remainder has two sides.
+    threeSideRemainder :: Maybe [Face]
     threeSideRemainder
+      -- If we weren't anle to place a line segment, we're done.
       | null foundLineSegs = Nothing
-      | otherwise          = case plinesIntersectIn edgeLine lastPlacedLine of
-                               PCollinear -> Nothing
-                               PParallel -> Just [makeFaceNoCheck finalSide firstArc (slist [midArc]) lastArc]
-                               _ -> twoSideSubRemainder
+      | otherwise = case plinesIntersectIn midArc lastPlacedLine of
+                      -- always an error. our line segments are placed in the opposite direction as our midarc.
+                      PCollinear -> error "a constructed line segment cannot be colinear with the midArc"
+                      PParallel -> error "a constructed line segment cannot be parallel with the midArc"
+                      -- FIXME: this should happen only when we have inset completely, and the edge and midArc are anti-parallel.
+                      PAntiCollinear -> if isAntiParallel (eToPL edge) midArc
+                                        then Just [makeFaceNoCheck finalSide firstArc midArcs lastArc]
+                                        else -- This code lies for really close together stuff.
+                                          if edgeDistanceToLastPlacedLineSeg < distanceUntilEnd checkedFace
+                                          then Just [makeFaceNoCheck finalSide firstArc midArcs lastArc]
+                                          else Nothing
+{-
+                                          error $ "anticollinear should not have happened.\n"<> "edge: " <> show edge <> "\n"
+                                                     <> "distanceBetweenSegs: " <> show distanceBetweenSegs <> "\n"
+                                                     <> "foundLineSegs: " <> show foundLineSegs <> "\n"
+                                                     <> "midArc: " <> show midArc <> "\n"
+                                                     <> "intersection of midArc and lastPlacedLine: " <> show (plinesIntersectIn midArc lastPlacedLine) <> "\n"
+                                                     <> "maybeFinalLine: " <> show maybeFinalSide <> "\n"
+                                                     <> showInputs
+-}
+                      -- these are natural, when edge and midArc are parallel..
+                      PAntiParallel -> Just [makeFaceNoCheck finalSide firstArc midArcs lastArc]
+                      _ -> Just [makeFaceNoCheck finalSide firstArc midArcs lastArc]
 
     -- Recurse, so we get the remainder and line segments of the three sided n-gon left over.
-    (twoSideSubLineSegs,
-     twoSideSubRemainder)
+    (twoSideSubLineSegs, _)
       | null foundLineSegs = noResult
       | isNothing maybeFinalSide = noResult
-      | otherwise          = case plinesIntersectIn edgeLine lastPlacedLine of
+      | otherwise          = case plinesIntersectIn midArc lastPlacedLine of
                                PCollinear -> noResult
+                               PAntiCollinear -> noResult
                                _ -> if firstArcEndsFarthest edge firstArc (head midArcs) lastArc
-                                    then if isCollinear midArc (eToPL finalSide)
+                                    then if noIntersection midArc (eToPL finalSide)
                                          -- our triangle is so small, two sides are considered colinear. abort.
                                          then noResult
-                                         else addLineSegsToFace distance subInsets (makeFace finalSide firstArc (slist []) midArc)
-                                    else if isCollinear midArc (eToPL finalSide)
+                                         else addLineSegsToFace distanceBetweenSegs subInsets (makeFace 3 finalSide firstArc (slist []) midArc)
+                                    else if noIntersection midArc (eToPL finalSide)
                                          -- our triangle is so small, two sides are considered colinear. abort.
                                          then noResult
-                                         else addLineSegsToFace distance subInsets (makeFace finalSide midArc (slist []) lastArc)
-    edgeLine = eToPL edge
-    lastPlacedLine = eToPL $ last foundLineSegs
+                                         else addLineSegsToFace distanceBetweenSegs subInsets (makeFace 4 finalSide midArc (slist []) lastArc)
+    lastPlacedLineSeg = last foundLineSegs
+    lastPlacedLine = eToPL $ lastPlacedLineSeg
+    edgeDistanceToLastPlacedLineSeg = max (distance (startPoint edge) (startPoint lastPlacedLineSeg))
+                                          (distance (endPoint edge) (endPoint lastPlacedLineSeg))
     midArc = case midArcs of
                (Slist [oneArc] 1) -> oneArc
                (Slist _ _) -> error $ "evaluated midArc with the wrong insets of items.\n"
-                                   <> "d: " <> show distance <> "\n"
+                                   <> "d: " <> show distanceBetweenSegs <> "\n"
                                    <> "n: " <> show insets <> "\n"
                                    <> "Face: " <> show face <> "\n"
     ----------------------------------------------
     -- functions only used by a three-sided n-gon.
     ----------------------------------------------
-    twoSideRemainder     = if isJust maybeFinalSide && distance * fromIntegral linesToRender /= distanceUntilEnd checkedFace
+    twoSideRemainder     = if isJust maybeFinalSide && distanceBetweenSegs * fromIntegral linesToPlace /= distanceUntilEnd checkedFace
                            then Just [makeFaceNoCheck finalSide firstArc (slist []) lastArc]
                            else Nothing
 
 -- | How many lines can be drawn onto a given Face, parallel to the face.
 linesUntilEnd :: ℝ -> Face -> Fastℕ
-linesUntilEnd distance face = floor (distanceUntilEnd face / distance)
+linesUntilEnd distanceBetweenSegs face = floor (distanceUntilEnd face / distanceBetweenSegs)
 
 -- | What is the distance from the edge of a face to the place where we can no longer place lines.
 distanceUntilEnd :: Face -> ℝ
@@ -337,7 +360,7 @@ reclaimContours :: [[LineSeg]] -> [Contour]
 reclaimContours lineSegSets = if all isJust reclaimedRings && all isJust cleanedContours
                                  then catMaybes cleanedContours
                                       -- FIXME: separate errors, from situations that should normally return nothing.
-                                 else [] -- error $ "failed to clean a contour in rings: " <> show rings <> "\n"
+                                 else [] -- error $ "failed to clean a contour in rings: " <> show rings <> "\n" <> "input linsSegSets:\n" <> show lineSegSets <> "\n"
   where
     cleanedContours = cleanContour <$> concat (fromJust <$> reclaimedRings)
     reclaimedRings = reclaimRing <$> rings
@@ -372,28 +395,29 @@ reclaimRing ring
         -- detect if two line segments SHOULD end at the same point, and if they do, return the point.
         recovery :: LineSeg -> LineSeg -> (Maybe Point2, (LineSeg, LineSeg))
         recovery l1 l2
-          | endPoint l2 == startPoint l1 = (Just $ endPoint l2, (l1, l2))
-          | noIntersection (eToPL l2) (eToPL l1) = (Nothing, (l1, l2))
+          | endPoint l1 == startPoint l2 = (Just $ endPoint l1, (l1, l2))
+          | noIntersection (eToPL l1) (eToPL l2) = (Nothing, (l1, l2))
           -- FIXME: we should use intersection for line segments close to 90 degrees, and average for segments closest to parallel?
-          | l1l2Distance <= l1l2DistanceErr = (Just $ fst $ pToEP $ fst $ intersectionOf (eToPL l2) (eToPL l1), (l1,l2))
+          | l1l2Distance <= l1l2DistanceErr = (Just $ fst $ pToEP $ fst $ intersectionOf (eToPL l1) (eToPL l2), (l1,l2))
           | otherwise = (Nothing, (l1,l2))
           where
             --- FIXME: magic number: 512
             l1l2DistanceErr = 512 * ulpVal (l1l2DistanceErrRaw
-                                            <> pLineErrAtPPoint (eToPL l1) (eToPP $ startPoint l1)
+                                            <> pLineErrAtPPoint (eToPL l1) (eToPP $ endPoint l1)
                                             <> fuzzinessOfL (eToPL l1)
-                                            <> pLineErrAtPPoint (eToPL l2) (eToPP $ endPoint l2)
+                                            <> pLineErrAtPPoint (eToPL l2) (eToPP $ startPoint l2)
                                             <> fuzzinessOfL (eToPL l2))
-            (l1l2Distance, (_, _, l1l2DistanceErrRaw)) = distance2PP (eToPP $ endPoint l2, mempty) (eToPP $ startPoint l1, mempty)
+            (l1l2Distance, (_, _, l1l2DistanceErrRaw)) = distance2PP (eToPP $ endPoint l1, mempty) (eToPP $ startPoint l2, mempty)
 
 -- | A face constructor that checks that a face is valid during construction.
-makeFace :: LineSeg -> (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Face
-makeFace edge firstArc arcs lastArc = res
+makeFace :: Integer -> LineSeg -> (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Face
+makeFace breadCrumb edge firstArc arcs lastArc = res
   where
     res = checkFace $ Face edge firstArc arcs lastArc
     checkFace inFace@(Face myEdge myFirstArc (Slist myMidArcs _) myLastArc)
       | all isIntersection intersections = inFace
       | otherwise = error $ "Tried to generate a degenerate face: "
+                         <> show breadCrumb <> "\n"
                          <> show inFace <> "\n"
                          <> concat (intersperse "\n" $ show <$> intersections) <> "\n"
       where
