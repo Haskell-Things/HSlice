@@ -22,7 +22,7 @@
 
 {-# LANGUAGE DataKinds #-}
 
-module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetBrokenSpec, contourSpec, lineSpec) where
+module Math.PGA (linearAlgSpec, geomAlgSpec, pgaSpec, proj2DGeomAlgSpec, facetSpec, facetFlakeySpec, facetBrokenSpec, contourSpec, lineSpec) where
 
 -- Be explicit about what we import.
 import Prelude (Bool(True, False), ($), (<$>), (==), (>=), error, realToFrac, (/=), (<=), otherwise, (&&), (+), show, length, (<>), fst, not, snd, mempty, pi, (<), (>), (-), (/), (*))
@@ -938,10 +938,41 @@ prop_LineSegDistanceAway x1 y1 rawX2 rawY2 d1 rawD2 side
     pLine@(pl,_) = eToPL lineSeg
     lineSeg = randomLineSeg x1 y1 x2 y2
     (x2,y2)
-     | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
-                                    then (1,1)
-                                    else (0,0)
-     | otherwise = (rawX2, rawY2)
+      | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
+                                     then (1,1)
+                                     else (0,0)
+      | otherwise = (rawX2, rawY2)
+
+-- | A unit test for a failure of the above property test.
+unit_LineSegDistanceAway :: Bool
+unit_LineSegDistanceAway
+  | onSegment lineSeg (projectedPoint, mempty) = error $  "found point on segment:\n"
+                                                       <> "Segment: " <> show lineSeg <> "\n"
+                                                       <> "Point: " <> show projectedPoint <> "\n"
+                                                       <> "Distance Given: " <> show distanceAway <> "\n"
+                                                       <> "Distance found: " <> show (distancePPToPL (projectedPoint, mempty) pLine) <> "\n"
+  | otherwise = True
+  where
+    (projectedPoint, _) = pPointOnPerpWithErr pl measuringPoint distanceAway
+    distanceAway = (if side then 2 else (-2)) * if errAtMeasuringPoint == 0 then coerce rawD2 else errAtMeasuringPoint
+    errAtMeasuringPoint = ulpVal $ fuzzinessOfL pLine <> pLineErrAtPPoint pLine measuringPoint
+    (measuringPoint, _) = interpolate2PP (eToPP $ startPoint lineSeg) (eToPP $ endPoint lineSeg) d1 (coerce rawD2)
+    pLine@(pl,_) = eToPL lineSeg
+    lineSeg = randomLineSeg x1 y1 x2 y2
+    (x2,y2)
+      | x1 == rawX2 && y1 == rawY2 = if x1 == 0 && y1 == 0
+                                     then (1,1)
+                                     else (0,0)
+      | otherwise = (rawX2, rawY2)
+    x1,y1,rawX2,rawY2,d1 :: ℝ
+    x1 = 0.8
+    y1 = 0.64
+    rawX2 = 0.763
+    rawY2 = 0.64
+    d1 = 0.0
+    rawD2 :: NonZero ℝ
+    rawD2 = NonZero (-0.1)
+    side = True
 
 prop_obtuseBisectorOnBiggerSide_makeENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Expectation
 prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
@@ -1618,6 +1649,9 @@ facetBrokenSpec = do
   describe "Geometry (Contour)" $ do
     it "creates a straight skeleton from a contour (unit)" $
       unit_ContourStraightSkeleton
+  describe "Stability (Lines)" $ do
+    it "points that are further than the accumulated error away from a line segment are not onSegment" $
+      property unit_LineSegDistanceAway
   -- FIXME: re-establish the sanity of these, and their implementations.
   describe "PGA (Point Stability)" $ do
     it "a line constructed with the midpoint of a segment and a point on the perpendicular bisector is at 90 degrees to the initial segment" $
@@ -1641,6 +1675,12 @@ facetBrokenSpec = do
     it "finds the outside arc of two intersecting lines (makeINode)" $
       property prop_obtuseBisectorOnBiggerSide_makeINode
 
+facetFlakeySpec :: Spec
+facetFlakeySpec = do
+  describe "Stability (Lines)" $ do
+    it "points that are further than the accumulated error away from a line segment are not onSegment" $
+      property prop_LineSegDistanceAway
+
 facetSpec :: Spec
 facetSpec = do
   describe "Stability (Points)" $ do
@@ -1651,8 +1691,6 @@ facetSpec = do
       property prop_LineSegWithinErrRange
     it "a normalized line normalized again is approximately itsself" $
       property prop_NormPLineIsPLine
-    it "points that are further than the accumulated error away from a line segment are not onSegment" $
-      property prop_LineSegDistanceAway
     it "a projective line is colinear with itsself" $
       property prop_PLineSameDirectionID
   describe "Stability (Intersections)" $ do
