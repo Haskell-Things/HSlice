@@ -178,13 +178,20 @@ prop_InsetOfInsetIsSmaller distance1 distance2 contour
   | length foundContours == 0 = error $ "no contour returned!\n" <> errorMessage
   | otherwise = error $ "wtf\n" <> errorMessage
     where
-      errorMessage = "Provided contour: " <> show contour <> "\n" <> "first inset generation:\n" <> show insetContours <> "\n" <> "final inset generation:\n" <> show foundContours <> "\n"
+      errorMessage = "Provided contour: " <> show contour <> "\n"
+                  <> "first inset generation:\n" <> show insetContours <> "\n"
+                  <> "number first inset faces: " <> show (length insetFaces) <> "\n"
+                  <> "first inset faces:\n" <> show insetFaces <> "\n"
+                  <> "final inset generation:\n" <> show foundContours <> "\n"
+                  <> "final inset faces:\n" <> show foundFaces <> "\n"
+                  <> dumpGanjas ([toGanja contour] <> if length insetContours > 0 then [toGanja insetContour] else [])
       insetIsSmaller = minIX > minRX && minIY > minRY && maxRX > maxIX && maxRY > maxIY
         where
           ((Point2 (minRX, minRY)) , (Point2 (maxRX, maxRY))) = minMaxPoints contour
           ((Point2 (minIX, minIY)) , (Point2 (maxIX, maxIY))) = minMaxPoints foundContour
       foundContour = head foundContours
-      (foundContours, _) = insetBy distance2 (slist insetFaces)
+      (foundContours, foundFaces) = insetBy distance2 (slist insetFaces)
+      insetContour = head insetContours
       (insetContours , insetFaces) = insetBy distance1 faces
       faces = facesOf $ fromMaybe (error $ "could not get a straight skeleton for: " <> show contour) $ findStraightSkeleton contour []
 
