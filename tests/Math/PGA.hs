@@ -1881,16 +1881,6 @@ facetSpec = do
               (slist []))
             (WithENode $ ENode (Point2 (1.0,-1.0), Point2 (2.0,0.0), Point2 (1.0,1.0)) (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 2))])) (UlpSum 5.773159728050815e-15) 1.4142135623730951)
           ]
-    it "finds the motorcycles of our eigth simple shape." $
-      convexMotorcycles c7 --> [Motorcycle (LineSeg (Point2 (0.5,1.0)) (Point2 (0.0,-1.0)), LineSeg (Point2 (0.5,0.0)) (Point2 (-0.5,1.0)))
-                                           (PLine2 (GVec [GVal 0.9472135954999579 (singleton (GEZero 1)), GVal (-1.8944271909999157) (singleton (GEPlus 1)), GVal (-0.4472135954999579) (singleton (GEPlus 2))]))
-                                           (UlpSum 3.885780586188048e-16)
-                                           2.118033988749895
-                               ,Motorcycle (LineSeg (Point2 (-1.0,0.0)) (Point2 (1.0,0.0)), LineSeg (Point2 (0.0,0.0)) (Point2 (0.0,-1.0)))
-                                           (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))]))
-                                           (UlpSum 4.440892098500626e-16)
-                                           2.0
-                               ]
 -}
     it "finds a CrashTree of our eigth simple shape." $
       crashMotorcycles c7 [] -->
