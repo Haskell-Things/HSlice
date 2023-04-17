@@ -130,6 +130,19 @@ prop_RectangleFacesInsetWithRemainder contour maxInsetDistance = length faces ==
 prop_RectangleFacesInsetSmallerThanRectangle :: Contour -> Positive ℝ -> Bool
 prop_RectangleFacesInsetSmallerThanRectangle contour maxInsetDistance = prop_InsetIsSmaller (coerce $ maxInsetDistance/2) contour
 
+unit_RectangleFacesInsetSmallerThanRectangle :: Bool
+unit_RectangleFacesInsetSmallerThanRectangle = prop_InsetIsSmaller (coerce $ maxInsetDistance/2) contour
+  where
+    maxInsetDistance = maxInsetDistanceOfRectangle rawFirstTilt rawSecondTilt rawDistanceToCorner
+    contour = randomRectangle x y rawFirstTilt rawSecondTilt rawDistanceToCorner
+    x,y :: ℝ
+    x = 29
+    y = 0.0
+    rawFirstTilt = Radian 2.42842
+    rawSecondTilt = Radian 2.4287
+    rawDistanceToCorner :: Positive ℝ
+    rawDistanceToCorner = 36.45
+
 prop_RectangleFacesInsetOfInsetIsSmallerThanRectangle :: Contour -> Positive ℝ -> Bool
 prop_RectangleFacesInsetOfInsetIsSmallerThanRectangle contour maxInsetDistance = prop_InsetOfInsetIsSmaller (coerce $ maxInsetDistance/2) (coerce $ maxInsetDistance/4) contour
 
@@ -175,6 +188,8 @@ rectangleBrokenSpec = do
   describe "Rectangles" $ do
     it "only generates one, or two generations of INodes" $
       unit_RectangleNodeTreeHasLessThanThreeGenerations
+    it "sees an inset of a rectangle as being smaller than the source rectangle (unit)" $
+      unit_RectangleFacesInsetSmallerThanRectangle
 
 rectangleSpec :: Spec
 rectangleSpec = do
