@@ -227,7 +227,8 @@ areaBetween eNodeSet@(ENodeSet (Slist [_] _)) iNodeSet pLine1 pLine2
       | otherwise = error "no INodes in this NodeTree."
     -- Generate a face, or dump a useful error.
     faceOrError firstENode firstMidArcs lastMidArcs lastENode
-      | isNothing segment = error "segments do not line up."
+      | isNothing segment = error $ "segments do not line up.\n"
+                                 <> dumpEverything
 --      | len midArcs > 1 = error $ "boo!\n"
 --                               <> show midArcs <> "\n"
       | otherwise = fromMaybe errMakingFace $ makeFace firstENode midArcs lastENode
@@ -240,7 +241,9 @@ areaBetween eNodeSet@(ENodeSet (Slist [_] _)) iNodeSet pLine1 pLine2
                        else Nothing
         -- our new error condition
         errMakingFace = error $ "miswound:\n"
-                        <> show iNodeSet <> "\n"
+                        <> dumpEverything
+        dumpEverything =
+                        show iNodeSet <> "\n"
                         <> show eNodeSet <> "\n"
                         <> show reverseTriangle <> "\n"
                         <> show pLine1 <> "\n"
