@@ -221,9 +221,9 @@ instance GanjaAble Cell where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip allSides allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
           allSegs      = concatMap (listFromSlist . fst) segsDivides
           allDivides   = catMaybes $ listFromSlist $ snd <$> segsDivides
-          allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
           listFromSlist (Slist a _) = a
 
 instance GanjaAble CellDivide where
@@ -243,9 +243,9 @@ instance GanjaAble RemainingContour where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip allSides allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
           allSegs      = concatMap (listFromSlist . fst) segsDivides
           allDivides   = concatMap snd segsDivides
-          allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
           listFromSlist (Slist a _) = a
 
 instance GanjaAble INode where
@@ -346,4 +346,3 @@ ganjaFooterEnd = "  ],{\n"
                  <> "    scale: 1,\n"
                  <> "}));\n"
                  <> "});\n"
-
