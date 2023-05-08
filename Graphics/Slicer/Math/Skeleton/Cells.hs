@@ -35,7 +35,6 @@ module Graphics.Slicer.Math.Skeleton.Cells (
   gatherLineSegsPreceedingDivide,
   getNodeTreeOfCell,
   nodeTreesDoNotOverlap,
-  nodeTreesFromDivision,
   startBeforeEnd,
   startOfDivide
   ) where
@@ -378,7 +377,7 @@ data INodeDirection =
 -- The intersection point for the nodeTrees along the CellDivide is calculated, and then the out of final INode of the two sides is adjusted to pass through that point.
 -- NOTE: since a division can generate two non-neighboring nodetrees, make sure to add them to a side first before adding them together..
 addNodeTreesAlongDivide :: NodeTree -> NodeTree -> CellDivide -> NodeTree
-addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedNodeTree1:nodeTreesFromDivision division <> [adjustedNodeTree2])
+addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedNodeTree1 : nodeTreesFromDivision division iNodeOutDirection matchDirection <> [adjustedNodeTree2])
   where
     adjustedNodeTree1 = redirectLastOut nodeTree1 crossoverPoint
     adjustedNodeTree2 = redirectLastOut nodeTree2 crossoverPoint
@@ -418,13 +417,14 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
                        (CellDivide _ _) -> error "cannot generate crossoverPoint."
 
 -- | Create the NodeTrees corresponding to the CellDivide given.
-nodeTreesFromDivision :: CellDivide -> [NodeTree]
-nodeTreesFromDivision cellDivision@(CellDivide motorcycles target) = case motorcycles of
-                                                                       (DividingMotorcycles _ (Slist [] 0)) -> res
-                                                                       (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreAntiCollinear firstMotorcycle secondMotorcycle
-                                                                                                                                             then res
-                                                                                                                                             else errorOut
-                                                                       (DividingMotorcycles _ (Slist _ _)) -> errorOut
+nodeTreesFromDivision :: CellDivide -> INodeDirection -> MaybeMatch -> [NodeTree]
+nodeTreesFromDivision cellDivision@(CellDivide motorcycles target) iNodeDirection matchDirection =
+  case motorcycles of
+    (DividingMotorcycles _ (Slist [] 0)) -> res
+    (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) -> if motorcyclesAreAntiCollinear firstMotorcycle secondMotorcycle
+                                                                          then res
+                                                                          else errorOut
+    (DividingMotorcycles _ (Slist _ _)) -> errorOut
   where
     res = case target of
             (WithENode eNode) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) Nothing, makeNodeTree [eNode] Nothing]
