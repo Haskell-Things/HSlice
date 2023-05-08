@@ -169,7 +169,9 @@ averageNodes n1 n2 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (cPPoin
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [(ProjectiveLine, PLine2Err)]
 sortedPair n1 n2
   | hasArc n1 && hasArc n2 = sortedPLines [outAndErrOf n1, outAndErrOf n2]
-  | otherwise = error "Cannot get the average of nodes if one of the nodes does not have an out!\n"
+  | otherwise = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n"
+                      <> show n1 <> "\n"
+                      <> show n2 <> "\n"
 
 -- | Make a first generation node.
 makeENode :: Point2 -> Point2 -> Point2 -> ENode
@@ -547,16 +549,6 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
                                 where
                                   allInsAreENodes iNode = not $ hasINode iNode
 
-    -- the output PLine of the first ENode in the input ENode set.
-    firstPLine = outAndErrOf firstENode
-      where
-        -- the first ENode given to us. for sorting uses.
-        firstENode = first eNodes
-          where
-            first :: [a] -> a
-            first [] = error "no first enode?"
-            first (a:_) = a
-
     -- | add together a child and it's parent.
     addINodeToParent :: INode -> INode -> INode
     addINodeToParent iNode1 iNode2@(INode _ _ _ out2)
@@ -569,6 +561,13 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
     -- Order the input nodes of an INode.
     orderInsByENodes :: INode -> INode
     orderInsByENodes inode@(INode _ _ _ out) = makeINode (indexPLinesTo firstPLine $ sortedPLines $ indexPLinesTo firstPLine $ insOf inode) out
+
+    -- The output PLine of the first ENode in the input ENode set. We use this when sorting INodes.
+    firstPLine :: (ProjectiveLine, PLine2Err)
+    firstPLine = outAndErrOf firstENode
+      where
+        -- the first ENode given to us. for sorting uses.
+        firstENode = fromMaybe (error "no ENodes?") $ safeHead $ slist eNodes
 
 -- | Add a new generation to an existing INodeSet.
 addYoungerGen :: [INode] -> INodeSet -> INodeSet
