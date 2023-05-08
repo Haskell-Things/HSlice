@@ -47,6 +47,13 @@ import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INode(INode), ENodeSet(
 
 import Graphics.Slicer.Math.PGA (PLine2Err, ProjectiveLine, Arcable(hasArc, outOf), outAndErrOf)
 
+-- | The result of comparing two objects containing line segments, and seeing if they follow each other.
+data MaybeMatch = FirstLast
+                | LastFirst
+                | NoMatch
+  deriving (Eq, Show)
+
+-- FIXME: does not have sides to handle. may miss regions with a side that only has one segment.
 lastSegOf :: NodeTree -> LineSeg
 lastSegOf nodeTree = getLastLineSeg $ lastENodeOf nodeTree
 
@@ -171,6 +178,7 @@ mergeNodeTrees nodeTrees =
         mergedINodeSets = mergeINodeSets nodeTree1 nodeTree2
     mergeINodeSets :: NodeTree -> NodeTree -> Maybe INodeSet
     mergeINodeSets myNodeTree1@(NodeTree eNodeSet1 _) myNodeTree2@(NodeTree eNodeSet2 _)
+      -- FIXME: technically, one a cell can have a one sided ENodeSet, but have more than one side.
       | isOneSide eNodeSet1 && isOneSide eNodeSet2 = addOneSidedINodeSets myNodeTree1 myNodeTree2
       | otherwise = error "make me."
     addOneSidedINodeSets :: NodeTree -> NodeTree -> Maybe INodeSet
@@ -224,14 +232,15 @@ mergeNodeTrees nodeTrees =
           | null set2 = (\(Slist a _) -> a) set1
           | null (SL.init set1) && null (SL.init set2) = [SL.last set1 <> SL.last set2]
           | otherwise = mergeChildren (SL.init set1) (SL.init set2) <> [SL.last set1 <> SL.last set2]
-    mergeENodeSets :: ENodeSet -> ENodeSet -> ENodeSet
-    mergeENodeSets myENodeSet1@(ENodeSet sides1) myENodeSet2@(ENodeSet sides2)
-      | isEmpty sides1 && isEmpty sides2 = myENodeSet1
-      | not (isEmpty sides1) && isEmpty sides2 = myENodeSet1
-      | len sides1 == 0 && len sides2 /= 0 = myENodeSet2
-      | isOneSide myENodeSet1 = addENodeSetToOneSide myENodeSet2 (oneSideOf myENodeSet1)
-      | isOneSide myENodeSet2 = addENodeSetToOneSide myENodeSet1 (oneSideOf myENodeSet2)
-      | otherwise = error "unsure how to merge."
+
+mergeENodeSets :: ENodeSet -> ENodeSet -> ENodeSet
+mergeENodeSets myENodeSet1@(ENodeSet sides1) myENodeSet2@(ENodeSet sides2)
+  | isEmpty sides1 && isEmpty sides2 = myENodeSet1
+  | not (isEmpty sides1) && isEmpty sides2 = myENodeSet1
+  | len sides1 == 0 && len sides2 /= 0 = myENodeSet2
+  | isOneSide myENodeSet1 = addENodeSetToOneSide myENodeSet2 (oneSideOf myENodeSet1)
+  | isOneSide myENodeSet2 = addENodeSetToOneSide myENodeSet1 (oneSideOf myENodeSet2)
+  | otherwise = error "unsure how to merge."
       where
         addENodeSetToOneSide :: ENodeSet -> Side -> ENodeSet
         addENodeSetToOneSide eNodeSet@(ENodeSet rawSides) oneSide = ENodeSet resultSides
@@ -240,7 +249,7 @@ mergeNodeTrees nodeTrees =
             -- return the sides that have a match (forward or backwards) with the given side.
             matchSides :: [Side]
             matchSides
-              | null matchFirst && null matchLast = error $ "no way to connect:\n" <> show oneSide <> "\n" <> show eNodeSet <> "\n" <> show nodeTrees <> "\n"
+              | null matchFirst && null matchLast = error $ "no way to connect:\n" <> show oneSide <> "\n" <> show eNodeSet <> "\n"
               | otherwise = matchFirst <> matchLast
             -- find a side that connects to our side's first ENode.
             matchFirst = zeroOrOne $ filter (\a -> compareSides a oneSide == FirstLast) $ sidesOfENodeSet eNodeSet
@@ -251,13 +260,14 @@ mergeNodeTrees nodeTrees =
             newSide
               | matchFirst == [] && matchLast == [] = error $ "no way to connect\n" <> show eNodeSet <> "\n" <> show oneSide <> "\n"
               | otherwise = makeSide $ (concat $ eNodesOfSide <$> matchFirst) <> eNodesOfSide oneSide <> (concat $ eNodesOfSide <$> matchLast)
-    compareSides :: Side -> Side -> MaybeMatch
-    compareSides side1 side2
-      | checkForFollower (lastOfSide side1) (firstOfSide side2) = FirstLast
-      | checkForFollower (lastOfSide side2) (firstOfSide side1) = LastFirst
-      | otherwise = NoMatch
-      where
-        checkForFollower eNode1 eNode2 = getLastLineSeg eNode1 == getFirstLineSeg eNode2
+
+compareSides :: Side -> Side -> MaybeMatch
+compareSides side1 side2
+  | checkForFollower (lastOfSide side1) (firstOfSide side2) = FirstLast
+  | checkForFollower (lastOfSide side2) (firstOfSide side1) = LastFirst
+  | otherwise = NoMatch
+  where
+    checkForFollower eNode1 eNode2 = getLastLineSeg eNode1 == getFirstLineSeg eNode2
 
 zeroOrOne :: Slist a -> [a]
 zeroOrOne (Slist vals _) = case vals of
@@ -275,8 +285,3 @@ lastOfSide :: Side -> ENode
 lastOfSide (Side (first, Slist [] _)) = first
 lastOfSide (Side (_, moreENodes)) = SL.last moreENodes
 
--- the result of comparing two sides, and seeing if they follow each other.
-data MaybeMatch = FirstLast
-                | LastFirst
-                | NoMatch
-  deriving (Eq, Show)
