@@ -27,6 +27,8 @@
 module Graphics.Slicer.Math.Skeleton.Cells (
   UnsupportedReason(INodeCrossesDivide),
   addNodeTreesAlongDivide,
+  crossoverLinesOfDivision,
+  crossoverPointOfDivision,
   endOfDivide,
   findDivisions,
   findFirstCellOfContour,
@@ -39,7 +41,7 @@ module Graphics.Slicer.Math.Skeleton.Cells (
   startOfDivide
   ) where
 
-import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, ($), (<$>), (==), (<>), (&&), (/=), (||), (<), (<=), compare, concat, elem, error, filter, fst, mempty, null, otherwise, show, snd)
+import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, ($), (<$>), (==), (-), (<>), (&&), (/=), (||), (<), (<=), compare, concat, elem, error, filter, fst, mempty, null, otherwise, show, snd)
 
 import Data.Either (Either(Left, Right))
 
@@ -55,9 +57,9 @@ import qualified Slist as SL (head)
 
 import Slist.Type (Slist(Slist), one)
 
-import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, skeletonOfConcaveRegion)
+import Graphics.Slicer.Math.Skeleton.Concave (averageNodes, eNodesOfOutsideContour, skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), allINodesOf, ancestorsOf, finalOutOf, finalPLine, getFirstLineSeg, makeINode, insOf, finalINodeOf, isLoop)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Side(Side), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), allINodesOf, ancestorsOf, finalOutOf, finalPLine, getFirstLineSeg, makeINode, insOf, finalINodeOf, isLoop)
 
 import Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcyclesInDivision, intersectionSameSide, lastCrashType, motorcyclesAreAntiCollinear, motorcycleToENode, motorcycleMightIntersectWith, motorcycleDivisor, motorcycleIntersectsAt)
 
@@ -67,11 +69,11 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endP
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf, isAntiCollinear, outputIntersectsPLineAt)
+import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf, intersectionOf, isAntiCollinear, noIntersection, outputIntersectsPLineAt)
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPoints, distanceBetweenPPointsWithErr, eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.PGA (Arcable(outOf), Pointable(canPoint, ePointOf, cPPointOf), ProjectivePoint, angleBetween2PL, cPPointAndErrOf, distance2PP, eToPL, eToPP, join2PP, outAndErrOf)
+import Graphics.Slicer.Math.PGA (Arcable(outOf), PLine2Err, Pointable(canPoint, ePointOf), ProjectiveLine, ProjectivePoint, angleBetween2PL, cPPointAndErrOf, distance2PP, eToPL, eToPP, flipL, join2PP, outAndErrOf, interpolate2PL)
 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving Show
@@ -379,8 +381,12 @@ data INodeDirection =
 addNodeTreesAlongDivide :: NodeTree -> NodeTree -> CellDivide -> NodeTree
 addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedNodeTree1 : nodeTreesFromDivision division iNodeOutDirection matchDirection <> [adjustedNodeTree2])
   where
-    adjustedNodeTree1 = redirectLastOut nodeTree1 crossoverPoint
-    adjustedNodeTree2 = redirectLastOut nodeTree2 crossoverPoint
+    (adjustedNodeTree1, adjustedNodeTree2)
+      | matchDirection == FirstLast = (redirectLastOut nodeTree1 crossoverLine1,
+                                       redirectLastOut nodeTree2 crossoverLine2)
+      | matchDirection == LastFirst = (redirectLastOut nodeTree1 crossoverLine2,
+                                       redirectLastOut nodeTree2 crossoverLine1)
+      | otherwise = error "wtf!"
     matchDirection =
       case division of
         -- one motorcycle, hits one target.
@@ -398,16 +404,19 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
               | otherwise = NoMatch
         _ -> error "oh no"
     -- adjust the last output of the NodeTree so that it goes through the point it's supposed to.
-    redirectLastOut :: NodeTree -> ProjectivePoint -> NodeTree
-    redirectLastOut nodeTree@(NodeTree eNodes maybeINodeSet) myCrossover
+    redirectLastOut :: NodeTree -> (ProjectiveLine, PLine2Err) -> NodeTree
+    redirectLastOut (NodeTree eNodes maybeINodeSet) myCrossoverLine
       | isJust maybeINodeSet =
         case insOf $ finalINodeOf $ fromJust maybeINodeSet of
           [] -> error "unpossible."
           [_] -> NodeTree eNodes $ if ancestorsOf (fromJust maybeINodeSet) == []
                                    then Nothing
                                    else Just $ pruneParent (fromJust maybeINodeSet)
-          (_:_) -> NodeTree eNodes $ Just $ INodeSet childGens $ makeINode (insOf $ finalINodeOf $ fromJust maybeINodeSet) $ (Just $ (\(res, (_,_,resErr)) -> (res, resErr)) $ join2PP (finalPointOfNodeTree nodeTree) myCrossover)
-      | otherwise = error "cannot redirect output, no INodes in INodeSet?"
+          (_:_) -> NodeTree eNodes $ Just $ INodeSet childGens $ makeINode (insOf $ finalINodeOf $ fromJust maybeINodeSet) (Just myCrossoverLine)
+      -- No INodes? check for ENodes.
+      | otherwise = case eNodes of
+                      (ENodeSet (Slist [Side (a,_)] _)) -> NodeTree eNodes $ Just $ INodeSet mempty $ makeINode [outAndErrOf a, myCrossoverLine] (Just $ outAndErrOf $ averageNodes a $ iNodeOfDivision division iNodeOutDirection matchDirection)
+                      _ -> error "NodeTree with no INodes or ENodes!"
       where
         childGens
           | isJust maybeINodeSet = (\(INodeSet foundChildGens _) -> foundChildGens) $ fromJust maybeINodeSet
@@ -429,14 +438,39 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
         isJust (finalOutOf nodeTree2) = TowardMotorcycle
       | matchDirection == FirstLast = TowardOut
       | otherwise = TowardIn
-    -- | find the last resolvable point in a NodeTree
-    finalPointOfNodeTree (NodeTree _ iNodeGens)
-      | isJust iNodeGens && canPoint (finalINodeOf $ fromJust iNodeGens) = cPPointOf $ finalINodeOf $ fromJust iNodeGens
-      | otherwise = error "last INode not pointable?"
-    crossoverPoint = case division of
-                       (CellDivide (DividingMotorcycles motorcycle1 (Slist [] _)) target) -> -- no eNode, and no opposing motorcycle.
-                         motorcycleDivisor motorcycle1 target
-                       (CellDivide _ _) -> error "cannot generate crossoverPoint."
+    (crossoverLine1, crossoverLine2) = crossoverLinesOfDivision division
+
+-- | Find the single point that a straight skeleton passes through a cell division, assuming that there are no crossoverINodes in the cells on either side of the divide.
+crossoverPointOfDivision :: CellDivide -> ProjectivePoint
+crossoverPointOfDivision division = case division of
+                                      (CellDivide (DividingMotorcycles firstMotorcycle (Slist [] _)) target) -> -- no intersecting ENode, or intersecting Motorcycle.
+                                        motorcycleDivisor firstMotorcycle target
+                                      (CellDivide _ _) -> error "cannot generate crossoverPoint."
+
+-- | Construct the lines through the crossover point on each side of a CellDivide.
+crossoverLinesOfDivision :: CellDivide -> ((ProjectiveLine, PLine2Err), (ProjectiveLine, PLine2Err))
+crossoverLinesOfDivision division@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (motInSeg, motOutSeg) motPL motPLErr) moreMotorcycles) target)
+  | isEmpty moreMotorcycles = (firstLine, secondLine)
+  | otherwise = error "cannot generate crossoverPoint."
+  where
+    firstLine
+     -- handle antiParallel separately.
+     | noIntersection (eToPL motInSeg) (eToPL targetOutSeg) = (\(a, (_,_,b)) -> (a,b)) $ interpolate2PL (flipL $ fst $ eToPL motInSeg) (fst $ eToPL targetOutSeg) motorcycleToCrossoverDistance (motorcycleTravelDistance - motorcycleToCrossoverDistance)
+     | otherwise = (\(a,(_,_,b)) -> (flipL a,b)) $ join2PP inIntersect crossoverPoint
+    secondLine
+     -- handle antiParallel separately.
+     | noIntersection (eToPL motOutSeg) (eToPL targetInSeg) = (\(a, (_,_,b)) -> (a,b)) $ interpolate2PL (flipL $ fst $ eToPL motOutSeg) (fst $ eToPL targetInSeg) motorcycleToCrossoverDistance (motorcycleTravelDistance - motorcycleToCrossoverDistance)
+     | otherwise = (\(a,(_,_,b)) -> (flipL a,b)) $ join2PP outIntersect crossoverPoint
+    crossoverPoint = crossoverPointOfDivision division
+    -- FIXME: if noIntersection then translate
+    inIntersect = fst $ intersectionOf (eToPL motInSeg) (eToPL targetOutSeg)
+    outIntersect = fst $ intersectionOf (eToPL motOutSeg) (eToPL targetInSeg)
+    motorcycleTravelDistance = fst $ distance2PP (cPPointAndErrOf motorcycle) (intersectionOf (motPL, motPLErr) (eToPL targetInSeg))
+    motorcycleToCrossoverDistance = fst $ distance2PP (cPPointAndErrOf motorcycle) (crossoverPointOfDivision division, mempty)
+    (targetInSeg, targetOutSeg) = case target of
+                                    (WithLineSeg lineSeg) -> (lineSeg, lineSeg)
+                                    (WithENode (ENode (point1, point2, point3) _ _)) -> (makeLineSeg point1 point2, makeLineSeg point2 point3)
+                                    (WithMotorcycle (Motorcycle (myMotInSeg, myMotOutSeg) _ _)) -> (myMotInSeg, myMotOutSeg)
 
 -- | Create the NodeTrees corresponding to the CellDivide given.
 nodeTreesFromDivision :: CellDivide -> INodeDirection -> MaybeMatch -> [NodeTree]
@@ -450,11 +484,9 @@ nodeTreesFromDivision cellDivision@(CellDivide motorcycles target) iNodeDirectio
   where
     res = case target of
             (WithENode eNode) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) Nothing, makeNodeTree [eNode] Nothing]
-            (WithLineSeg _) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) Nothing]
+            (WithLineSeg _) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (Just $ INodeSet mempty $ iNodeOfDivision cellDivision iNodeDirection matchDirection)]
             (WithMotorcycle _) -> [makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) Nothing]
     errorOut = error "tried to generate NodeTrees from a non-bilateral cellDivide"
-
-{-
 
 -- | make an INode coresponding to the given division.
 -- Note: If we are using the motorcycle as an out, we use nothing as an out, and use the motorcycle as an in.
@@ -471,8 +503,6 @@ iNodeOfDivision cellDivision iNodeDirection matchDirection
   where
     motorcycle = DL.head $ outAndErrOf <$> motorcyclesInDivision cellDivision
     (crossoverIn, crossoverOut) = crossoverLinesOfDivision cellDivision
-
--}
 
 -- | Check whether the NodeTrees of two cells have an effect on each other.
 nodeTreesDoNotOverlap :: NodeTree -> NodeTree -> CellDivide -> Bool

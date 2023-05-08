@@ -46,7 +46,7 @@ import qualified Slist as SL (head, init, last, tail)
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Arcs (getFirstArc, getInsideArc, getOutsideArc)
+import Graphics.Slicer.Math.Arcs (getFirstArc, getOutsideArc)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, lineSegsOfContour, mapWithFollower, startPoint)
 
@@ -56,7 +56,7 @@ import Graphics.Slicer.Math.Intersections (noIntersection, intersectionBetweenAr
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPointsWithErr)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint), ProjectiveLine, PLine2Err, cPPointAndErrOf, cPPointOf, distance2PP, eToPL, flipL, join2PP, outAndErrOf, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint), ProjectiveLine, PLine2Err, cPPointAndErrOf, cPPointOf, distance2PP, flipL, join2PP, outAndErrOf, pLineIsLeft)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, finalINodeOf, linePairs, makeINode, makeSide, sortedPLines, isLoop)
 
@@ -90,32 +90,24 @@ skeletonOfConcaveRegion inSegSets
   | isLoop inSegSets && isNothing (finalOutOf result) = result
   | otherwise = error $ "generated illegal nodeTree:" <> show inSegSets <> "\n" <> show (isLoop inSegSets) <> "\n" <> show result <> "\n"
   where
-    result = makeNodeTree initialENodes $ Just $ sortINodesByENodes (isLoop inSegSets) initialENodes inSegSets $ findINodes inSegSets
+    result = makeNodeTree initialENodes $ if isJust foundINodes
+                                          then Just $ sortINodesByENodes (isLoop inSegSets) initialENodes inSegSets $ fromJust foundINodes
+                                          else Nothing
+    foundINodes =findINodes inSegSets
     initialENodes = makeInitialGeneration (isLoop inSegSets) inSegSets
 
 -- | Find a raw set of INodes representing the INodes of the solved NodeTree for this part of a contour.
-findINodes :: Slist [LineSeg] -> INodeSet
+findINodes :: Slist [LineSeg] -> Maybe INodeSet
 findINodes inSegSets
   | len inSegSets == 1 =
       -- One continuous wall without gaps. may gap between the beginning and end of the contour, if this is not a loop.
       -- Just return the output of skeletonOfNodes.
-      errorIfLeft $ skeletonOfNodes (isLoop inSegSets) inSegSets inSegSets []
+      Just $ errorIfLeft $ skeletonOfNodes (isLoop inSegSets) inSegSets inSegSets []
   | len inSegSets == 2 =
     -- Two walls, no closed ends. solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
     case initialENodes of
-      [] -> INodeSet mempty $ makeINode [getInsideArc firstLineFlipped lastLine, getInsideArc firstLine lastLineFlipped] Nothing
-        where
-          firstLine@(fs, fsErr) = eToPL $ SL.head $ slist $ SL.head inSegSets
-          firstLineFlipped = (flipL fs, fsErr)
-          lastLine@(ls, lsErr) = eToPL $ SL.head $ slist $ SL.last inSegSets
-          lastLineFlipped = (flipL ls, lsErr)
-      [a] -> INodeSet mempty $ makeINode [getInsideArc lastLine shortSide, getInsideArc firstLine shortSide] (Just (flipL $ outOf a, errOfOut a))
-        where
-          firstLine = eToPL $ fromMaybe (error "no first segment?") $ safeHead $ slist longSide
-          lastLine = eToPL $ SL.last $ slist longSide
-          (shortSide, longSide)
-            | null (SL.head inSegSets) = (eToPL $ SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
-            | otherwise = (eToPL $ SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
+      [] -> Nothing
+      [_] -> Nothing
       (_:_) -> error
                $ "too many items in makeInitialGeneration.\n"
                <> show initialENodes <> "\n"

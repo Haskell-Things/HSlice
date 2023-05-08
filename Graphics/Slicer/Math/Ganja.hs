@@ -101,7 +101,9 @@ import Graphics.Slicer.Math.GeometricAlgebra (GNum(GEPlus, GEZero), GVec(GVec), 
 
 import Graphics.Slicer.Math.PGA (PLine2Err, PPoint2Err, ProjectivePoint, ProjectiveLine, hasArc, normalizeL, outAndErrOf, outOf, vecOfL, vecOfP)
 
-import Graphics.Slicer.Math.Skeleton.Definitions(Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), Side(Side), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg)
+import Graphics.Slicer.Math.Skeleton.Cells (crossoverPointOfDivision, crossoverLinesOfDivision)
+
+import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), Side(Side), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
@@ -226,14 +228,20 @@ instance GanjaAble Cell where
           allDivides   = catMaybes $ listFromSlist $ snd <$> segsDivides
           listFromSlist (Slist a _) = a
 
+-- | render a CellDivide.
+--   Note that the ordering of the crossoverlines may be backwards, because we do not have a cell with which to orient ourselves.
 instance GanjaAble CellDivide where
-  toGanja (CellDivide (DividingMotorcycles firstMotorcycle (Slist moreMotorcycles _)) _) varname = (invars, inrefs)
+  toGanja divide@(CellDivide (DividingMotorcycles firstMotorcycle (Slist moreMotorcycles _)) _) varname = (invars, inrefs)
     where
       (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
-          res            = (\(a,b) -> toGanja a (varname <> b)) <$> zip allMotorcycles allStrings
+          res            = (\(a,b) -> a (varname <> b)) <$> pairs
+          pairs          = zip allObjects allStrings
           allStrings     = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allObjects     = (toGanja <$> allMotorcycles) <> [toGanja crossoverPoint] <> (toGanja <$> crossoverLines)
           allMotorcycles = firstMotorcycle:moreMotorcycles
+          crossoverPoint = crossoverPointOfDivision divide
+          crossoverLines = (\(a,b) -> [a,b]) $ crossoverLinesOfDivision divide
 
 instance GanjaAble RemainingContour where
   toGanja (RemainingContour (Slist segsDivides _)) varname = (invars, inrefs)

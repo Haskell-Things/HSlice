@@ -5,9 +5,6 @@ Algebra(2,0,1,()=>{
   var aab = point(0.0,-1.0);
   var aba = point(0.0,-1.0);
   var abb = point(1.0,-1.0);
-  var aca = 0.9732489894677302e1+0.22975292054736118e2-0.22975292054736118e0;
-  var acb = 0.5257311121191336e1+0.85065080835204e2+0.3249196962329064e0;
-  var acc = -0.7071067811865475e1+0.7071067811865475e2+0.7071067811865475e0;
   document.body.appendChild(this.graph([
     0x882288,
     [aaa,aab],
@@ -19,9 +16,6 @@ Algebra(2,0,1,()=>{
     0x00AA88,
     aba, "aba",
     abb, "abb",
-    aca, "aca",
-    acb, "acb",
-    acc, "acc",
   ],{
     grid: true,
     labels: true,

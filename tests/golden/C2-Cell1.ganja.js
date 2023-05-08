@@ -12,6 +12,9 @@ Algebra(2,0,1,()=>{
   var adaba = point(0.0,0.0);
   var adabb = point(1.0,1.0);
   var adac = 0.0e1+1.0e2+0.0e0;
+  var adb = 2.414213562373095e12+1.4142135623730951e02+0.0e01;
+  var adc = 0.9238795325112868e1+0.3826834323650897e2+0.5411961001461972e0;
+  var add = -0.9238795325112868e1+0.3826834323650897e2-0.5411961001461972e0;
   document.body.appendChild(this.graph([
     0x882288,
     [aaa,aab],
@@ -39,6 +42,9 @@ Algebra(2,0,1,()=>{
     adaba, "adaba",
     adabb, "adabb",
     adac, "adac",
+    adb, "adb",
+    adc, "adc",
+    add, "add",
   ],{
     grid: true,
     labels: true,
