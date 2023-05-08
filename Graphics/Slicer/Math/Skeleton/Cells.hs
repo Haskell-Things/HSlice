@@ -45,7 +45,7 @@ import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, ($), (<$>), (==), (
 
 import Data.Either (Either(Left, Right))
 
-import Data.List (elemIndex, sortBy, dropWhile, takeWhile, nub)
+import Data.List (elemIndex, sortBy, dropWhile, takeWhile)
 
 import qualified Data.List as DL (head)
 
@@ -387,8 +387,7 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
     redirectLastOut :: NodeTree -> ProjectivePoint -> NodeTree
     redirectLastOut nodeTree@(NodeTree eNodes maybeINodeSet) myCrossover
       | isJust maybeINodeSet =
-        -- Drop INodes with two identical inputs and no output at this stage.
-        case nub $ insOf $ finalINodeOf $ fromJust maybeINodeSet of
+        case insOf $ finalINodeOf $ fromJust maybeINodeSet of
           [] -> error "unpossible."
           [_] -> NodeTree eNodes $ if ancestorsOf (fromJust maybeINodeSet) == []
                                    then Nothing
