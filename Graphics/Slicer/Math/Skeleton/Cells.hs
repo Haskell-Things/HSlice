@@ -27,7 +27,6 @@
 module Graphics.Slicer.Math.Skeleton.Cells (
   UnsupportedReason(INodeCrossesDivide),
   addNodeTreesAlongDivide,
-  createCellFromStraightWalls,
   endOfDivide,
   findDivisions,
   findFirstCellOfContour,
