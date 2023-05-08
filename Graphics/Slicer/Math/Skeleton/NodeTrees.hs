@@ -17,7 +17,19 @@
  -}
 
 -- | utility functions for working with NodeTrees.
-module Graphics.Slicer.Math.Skeleton.NodeTrees (MaybeMatch(FirstLast, LastFirst, NoMatch), firstENodeOf, firstSegOf, lastENodeOf, lastSegOf, pathFirst, pathLast, findENodeByOutput, findINodeByOutput, makeNodeTree, mergeNodeTrees) where
+module Graphics.Slicer.Math.Skeleton.NodeTrees (
+  MaybeMatch(FirstLast, LastFirst, NoMatch),
+  findENodeByOutput,
+  findINodeByOutput,
+  firstENodeOf,
+  firstSegOf,
+  lastENodeOf,
+  lastSegOf,
+  makeNodeTree,
+  mergeNodeTrees,
+  pathFirst,
+  pathLast
+  ) where
 
 import Prelude (Bool(True,False), Eq, Show, (==), concat, mempty, not, otherwise, snd, ($), error, (<>), notElem, show, (&&), (/=), null, (<$>), fst)
 

@@ -24,7 +24,22 @@
 
 -- |  This file contains the entry point for the logic and routines required for dividing
 --    a contour into cells.
-module Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason(INodeCrossesDivide), findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell, nodeTreesDoNotOverlap, addNodeTreesAlongDivide, nodeTreesFromDivision, startOfDivide, endOfDivide, findRemainder, createCellFromStraightWalls, gatherLineSegsPreceedingDivide, startBeforeEnd) where
+module Graphics.Slicer.Math.Skeleton.Cells (
+  UnsupportedReason(INodeCrossesDivide),
+  addNodeTreesAlongDivide,
+  createCellFromStraightWalls,
+  endOfDivide,
+  findDivisions,
+  findFirstCellOfContour,
+  findNextCell,
+  findRemainder,
+  gatherLineSegsPreceedingDivide,
+  getNodeTreeOfCell,
+  nodeTreesDoNotOverlap,
+  nodeTreesFromDivision,
+  startBeforeEnd,
+  startOfDivide
+  ) where
 
 import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, ($), (<$>), (==), (<>), (&&), (/=), (||), (<), (<=), compare, concat, elem, error, filter, fst, mempty, null, otherwise, show, snd)
 
