@@ -392,7 +392,7 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
           [_] -> NodeTree eNodes $ if ancestorsOf (fromJust maybeINodeSet) == []
                                    then Nothing
                                    else Just $ pruneParent (fromJust maybeINodeSet)
-          (_:_) -> NodeTree eNodes $ Just $ INodeSet childGens $ makeINode (nub $ insOf $ finalINodeOf $ fromJust maybeINodeSet) $ (Just $ (\(res, (_,_,resErr)) -> (res, resErr)) $ join2PP (finalPointOfNodeTree nodeTree) myCrossover)
+          (_:_) -> NodeTree eNodes $ Just $ INodeSet childGens $ makeINode (insOf $ finalINodeOf $ fromJust maybeINodeSet) $ (Just $ (\(res, (_,_,resErr)) -> (res, resErr)) $ join2PP (finalPointOfNodeTree nodeTree) myCrossover)
       | otherwise = error "cannot redirect output, no INodes in INodeSet?"
       where
         childGens
