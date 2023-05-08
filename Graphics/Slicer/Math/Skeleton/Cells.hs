@@ -43,7 +43,7 @@ module Graphics.Slicer.Math.Skeleton.Cells (
 
 import Prelude (Bool(False), Eq, Ordering(LT, GT, EQ), Show, ($), (<$>), (==), (<>), (&&), (/=), (||), (<), (<=), compare, concat, elem, error, filter, fst, mempty, null, otherwise, show, snd)
 
-import Data.Either(Either(Left, Right))
+import Data.Either (Either(Left, Right))
 
 import Data.List (elemIndex, sortBy, dropWhile, takeWhile, nub)
 
@@ -175,7 +175,7 @@ findNextCell (RemainingContour (Slist [(Slist lineSegs _, divides)] _) ) =
       then Just (cell, Just [remainder])
       else error "too many remaining segments."
       where
-        cell = createCellFromStraightWalls (slist [lineSegs]) [closestDivide]
+        cell = createCellFromStraightWall (slist [lineSegs]) closestDivide
         remainder = findRemainder cell lineSegs divides
         remainingSegmentsOf (RemainingContour l) = l
         closestDivide = if fst (fst $ SL.head divideClosestSorted) == fst (fst $ SL.head divideFurthestSorted)
@@ -279,14 +279,11 @@ findRemainder (Cell segSets) contourSegList divides
 -- | use a single straight division to cut a section of a contour out, converting it to a cell.
 -- Always creates cells from the open side of the list of segments.
 -- Always assumes the open side does not create a loop in the contour.
--- FIXME: only handles one divide, not two intersecting divides.
-createCellFromStraightWalls :: Slist [LineSeg] -> [CellDivide] -> Cell
-createCellFromStraightWalls (Slist [] _) _ = error "empty slist."
-createCellFromStraightWalls (Slist (_:_:_) _) _ = error "too many segsets."
-createCellFromStraightWalls _ [] = error "no celldivide."
-createCellFromStraightWalls _ (_:_:_) = error "too many celldivides."
-createCellFromStraightWalls segSets@(Slist [segments] _) [cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _ _) _) _)]
-  | isEmpty segSets = error "recieved no line segments. unpossible."
+-- NOTE: only handles one divide, not two intersecting divides.
+createCellFromStraightWall :: Slist [LineSeg] -> CellDivide -> Cell
+createCellFromStraightWall (Slist [] _) _ = error "empty slist."
+createCellFromStraightWall (Slist (_:_:_) _) _ = error "too many segsets."
+createCellFromStraightWall segSets@(Slist [segments] _) cellDivide@(CellDivide (DividingMotorcycles motorcycle@(Motorcycle (_,outSeg) _ _) _) _)
   | isLoop segSets && len segSets == len afterRes = error "passing back full segment list, which should not be possible."
   | isLoop segSets = Cell $ slist [(afterRes, Just cellDivide)]
   | len segSets /= len preceedingRes = error "passing back incomplete segment list, which should not be possible."
