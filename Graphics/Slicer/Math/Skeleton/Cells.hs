@@ -412,17 +412,18 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
         childGens
           | isJust maybeINodeSet = (\(INodeSet foundChildGens _) -> foundChildGens) $ fromJust maybeINodeSet
           | otherwise = error "no inode set to get child gens of."
-    pruneParent :: INodeSet -> INodeSet
-    pruneParent (INodeSet childGens parent)
-      | isEmpty childGens = error "tried to prune the last INode from an INodeSet."
-      | otherwise = case lastGen of
-                      [] -> error "encountered an empty generation."
-                      [oneINode] -> INodeSet (init childGens) oneINode
-                      (manyINodes) -> INodeSet (init childGens <> manyINodes `withoutINode` newParent) newParent
-      where
-        lastGen = last childGens
-        withoutINode iNodes iNode = slist [filter (\a -> a /= iNode) iNodes]
-        newParent = DL.head $ filter (\a -> outAndErrOf a == DL.head (insOf parent)) lastGen
+        pruneParent :: INodeSet -> INodeSet
+        pruneParent (INodeSet _ parent)
+          | isEmpty childGens = error "tried to prune the last INode from an INodeSet."
+          | otherwise = case lastGen of
+                          [] -> error "encountered an empty generation."
+                          [oneINode] -> INodeSet (init childGens) oneINode
+                          (manyINodes) -> INodeSet (init childGens <> manyINodes `withoutINode` newParent) newParent
+          where
+            lastGen = last childGens
+            withoutINode iNodes iNode = slist [filter (\a -> a /= iNode) iNodes]
+            newParent = DL.head $ filter (\a -> outAndErrOf a == DL.head (insOf parent)) lastGen
+    -- when we create an INode for the divide, what direction should the output be?
     iNodeOutDirection
       | isJust (finalOutOf nodeTree1) &&
         isJust (finalOutOf nodeTree2) = TowardMotorcycle
