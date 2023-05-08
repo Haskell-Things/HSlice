@@ -57,11 +57,11 @@ import Slist.Type (Slist(Slist), one)
 
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), allINodesOf, ancestorsOf, finalPLine, getFirstLineSeg, makeINode, insOf, finalINodeOf, isLoop)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), allINodesOf, ancestorsOf, finalOutOf, finalPLine, getFirstLineSeg, makeINode, insOf, finalINodeOf, isLoop)
 
 import Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcyclesInDivision, intersectionSameSide, lastCrashType, motorcyclesAreAntiCollinear, motorcycleToENode, motorcycleMightIntersectWith, motorcycleDivisor, motorcycleIntersectsAt)
 
-import Graphics.Slicer.Math.Skeleton.NodeTrees (firstSegOf, lastSegOf, makeNodeTree, mergeNodeTrees)
+import Graphics.Slicer.Math.Skeleton.NodeTrees (MaybeMatch(FirstLast, LastFirst, NoMatch), firstSegOf, lastSegOf, makeNodeTree, mergeNodeTrees)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, lineSegsOfContour, makeLineSeg, startPoint)
 
@@ -381,6 +381,22 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
   where
     adjustedNodeTree1 = redirectLastOut nodeTree1 crossoverPoint
     adjustedNodeTree2 = redirectLastOut nodeTree2 crossoverPoint
+    matchDirection =
+      case division of
+        -- one motorcycle, hits one target.
+        (CellDivide (DividingMotorcycles ((Motorcycle (inSeg, outSeg) _ _)) (Slist [] 0)) _) -> findMatchDirection
+          where
+            findMatchDirection
+              | firstSegOf nodeTree1 == inSeg = FirstLast
+              | firstSegOf nodeTree1 == outSeg = LastFirst
+              | lastSegOf nodeTree1 == inSeg = FirstLast
+              | lastSegOf nodeTree1 == outSeg = LastFirst
+              | firstSegOf nodeTree2 == inSeg = LastFirst
+              | firstSegOf nodeTree2 == outSeg = FirstLast
+              | lastSegOf nodeTree2 == inSeg = LastFirst
+              | lastSegOf nodeTree2 == outSeg = FirstLast
+              | otherwise = NoMatch
+        _ -> error "oh no"
     -- adjust the last output of the NodeTree so that it goes through the point it's supposed to.
     redirectLastOut :: NodeTree -> ProjectivePoint -> NodeTree
     redirectLastOut nodeTree@(NodeTree eNodes maybeINodeSet) myCrossover
@@ -407,6 +423,11 @@ addNodeTreesAlongDivide nodeTree1 nodeTree2 division = mergeNodeTrees (adjustedN
         lastGen = last childGens
         withoutINode iNodes iNode = slist [filter (\a -> a /= iNode) iNodes]
         newParent = DL.head $ filter (\a -> outAndErrOf a == DL.head (insOf parent)) lastGen
+    iNodeOutDirection
+      | isJust (finalOutOf nodeTree1) &&
+        isJust (finalOutOf nodeTree2) = TowardMotorcycle
+      | matchDirection == FirstLast = TowardOut
+      | otherwise = TowardIn
     -- | find the last resolvable point in a NodeTree
     finalPointOfNodeTree (NodeTree _ iNodeGens)
       | isJust iNodeGens && canPoint (finalINodeOf $ fromJust iNodeGens) = cPPointOf $ finalINodeOf $ fromJust iNodeGens
