@@ -401,7 +401,7 @@ allINodesOf (INodeSet (Slist children _) parent) = slist $ children <> [[parent]
 
 -- | Check if an INode has a particular input.
 iNodeHasIn :: INode -> (ProjectiveLine, PLine2Err) -> Bool
-iNodeHasIn iNode outAndErr = not $ null $ filter (== outAndErr) $ insOf iNode 
+iNodeHasIn iNode outAndErr = not $ null $ filter (== outAndErr) $ insOf iNode
 
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a ProjectiveLine bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe ProjectiveLine

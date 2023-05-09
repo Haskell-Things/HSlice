@@ -55,7 +55,7 @@ goldenSpec = describe "golden tests" $ do
   golden "C0-Cell2" $ cellFrom $ findNextCell $ onlyOne $ fromMaybe (error "Got Nothing") $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []
   golden "C0-Cell2-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []
   golden "C0-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []
-  golden "C0-NodeTree" $ addNodeTreesAlongDivide 
+  golden "C0-NodeTree" $ addNodeTreesAlongDivide
       (justSupported (getNodeTreeOfCell (cellFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [])))
       (justSupported (getNodeTreeOfCell (cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [])))
       (onlyOne $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [])
