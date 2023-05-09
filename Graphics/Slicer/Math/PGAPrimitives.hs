@@ -347,9 +347,9 @@ projectiveLineBetweenProjectiveLines startLine stopLine weight1 weight2
     res = PLine2 rawRes
     -- FIXME: where should the error quotents of this function be stored?
     resErr = (nStartLineErr, nStopLineErr, mempty)
-    (rawRes, rawResErr) = addVecPairWithErr weighedStart weighedStop
-    (weighedStart, weighedStartErr) = mulScalarVecWithErr weight1 rawStartLine
-    (weighedStop, weighedStopErr) = mulScalarVecWithErr weight2 rawStopLine
+    (rawRes, _) = addVecPairWithErr weighedStart weighedStop
+    (weighedStart, _) = mulScalarVecWithErr weight1 rawStartLine
+    (weighedStop, _) = mulScalarVecWithErr weight2 rawStopLine
     rawStartLine = vecOfL nStartLine
     rawStopLine = vecOfL nStopLine
     (nStartLine, nStartLineErr) = normalizeL startLine
