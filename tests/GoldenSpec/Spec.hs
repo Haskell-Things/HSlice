@@ -84,11 +84,11 @@ goldenSpec = describe "golden tests" $ do
   golden "C7-Cell2" $ cellFrom $ findNextCell $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
   golden "C7-Remainder2" $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findNextCell $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
 --  golden "C7-Cell2-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
----  golden "C7-Cell1_And_Divide_And_Cell2-NodeTree" $ addNodeTreesAlongDivide 
+--  golden "C7-Cell1_And_Divide_And_Cell2-NodeTree" $ addNodeTreesAlongDivide
 --    (justSupported (getNodeTreeOfCell (cellFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 [])))
 --    (justSupported (getNodeTreeOfCell (cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c0 $ fromJust $ crashMotorcycles c7 [])))
 --    (head $ findDivisions c7 $ fromJust $ crashMotorcycles c7 [])
-  golden "C7-Cell3" $ cellFrom (findNextCell $ onlyOne $ fromJust $ remainderFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 [])
+  golden "C7-Cell3" $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
   golden "C7-Cell3-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
 --  golden "C7-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c7 []
   golden "triangle-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton triangle []
