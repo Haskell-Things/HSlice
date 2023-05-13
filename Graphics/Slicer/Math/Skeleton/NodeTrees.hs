@@ -43,7 +43,7 @@ import Slist as SL (filter, last, head, init, isEmpty)
 
 import Graphics.Slicer.Math.Definitions (LineSeg)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Side(Side), allINodesOf, eNodesOfSide, finalINodeOf, finalOutAndErrOf, getFirstLineSeg, getLastLineSeg, iNodeHasIn, insOf, isOneSide, ancestorsOf, indexPLinesTo, makeINode, makeSide, oneSideOf, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Side(Side), allINodesOf, eNodesOfSide, finalINodeOf, finalOutAndErrOf, getFirstLineSeg, getLastLineSeg, iNodeHasIn, isOneSide, ancestorsOf, makeSide, oneSideOf)
 
 import Graphics.Slicer.Math.PGA (PLine2Err, ProjectiveLine, Arcable(hasArc, outOf), outAndErrOf)
 
