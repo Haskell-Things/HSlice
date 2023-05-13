@@ -43,7 +43,7 @@ import Slist as SL (filter, last, head, init, isEmpty)
 
 import Graphics.Slicer.Math.Definitions (LineSeg)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Side(Side), allINodesOf, eNodesOfSide, finalINodeOf, finalOutAndErrOf, finalOutOf, getFirstLineSeg, getLastLineSeg, iNodeHasIn, insOf, isOneSide, ancestorsOf, indexPLinesTo, makeINode, makeSide, oneSideOf, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), Side(Side), allINodesOf, eNodesOfSide, finalINodeOf, finalOutAndErrOf, getFirstLineSeg, getLastLineSeg, iNodeHasIn, insOf, isOneSide, ancestorsOf, indexPLinesTo, makeINode, makeSide, oneSideOf, sortedPLines)
 
 import Graphics.Slicer.Math.PGA (PLine2Err, ProjectiveLine, Arcable(hasArc, outOf), outAndErrOf)
 
@@ -168,14 +168,17 @@ mergeNodeTrees nodeTrees =
     [a] -> a
     [a,b] -> fromMaybe (error "could not merge") $ mergeTwoNodeTrees a b
     (a:bs) -> fromMaybe (error "could not merge") $ mergeTwoNodeTrees a $ mergeNodeTrees bs
--- mergeNodeTrees nodeTrees = foldt mergeTwoNodeTrees (NodeTree (ENodeSet (slist [])) (INodeSet (slist []))) nodeTrees
   where
     mergeTwoNodeTrees :: NodeTree -> NodeTree -> Maybe NodeTree
-    mergeTwoNodeTrees nodeTree1@(NodeTree eNodeSet1 _) nodeTree2@(NodeTree eNodeSet2 _) =
+    mergeTwoNodeTrees nodeTree1@(NodeTree eNodeSet1 iNodeSet1) nodeTree2@(NodeTree eNodeSet2 iNodeSet2) =
       Just $ NodeTree mergedENodeSets mergedINodeSets
       where
         mergedENodeSets = mergeENodeSets eNodeSet1 eNodeSet2
-        mergedINodeSets = mergeINodeSets nodeTree1 nodeTree2
+        mergedINodeSets
+         | isJust iNodeSet1 && isJust iNodeSet2 = mergeINodeSets nodeTree1 nodeTree2
+         | isJust iNodeSet1 && isJust (finalOutAndErrOf nodeTree2) && finalINodeOf (fromJust iNodeSet1) `iNodeHasIn` fromJust (finalOutAndErrOf nodeTree2) = iNodeSet1
+         | isJust iNodeSet2 && isJust (finalOutAndErrOf nodeTree1) && finalINodeOf (fromJust iNodeSet2) `iNodeHasIn` fromJust (finalOutAndErrOf nodeTree1) = iNodeSet2
+         | otherwise = Nothing -- error "nope."
     mergeINodeSets :: NodeTree -> NodeTree -> Maybe INodeSet
     mergeINodeSets myNodeTree1@(NodeTree eNodeSet1 _) myNodeTree2@(NodeTree eNodeSet2 _)
       -- FIXME: technically, one a cell can have a one sided ENodeSet, but have more than one side.
@@ -183,23 +186,15 @@ mergeNodeTrees nodeTrees =
       | otherwise = error "make me."
     addOneSidedINodeSets :: NodeTree -> NodeTree -> Maybe INodeSet
     addOneSidedINodeSets nt1@(NodeTree _ iNodeSet1) nt2@(NodeTree _ iNodeSet2)
-      | isJust iNodeSet1 && isJust iNodeSet2 && isJust (finalOutAndErrOf nt2) && finalINodeOf (fromJust iNodeSet1) `iNodeHasIn` fromJust (finalOutAndErrOf nt2) = Just $ INodeSet (mergeAncestorsInOrder nt2 nt1 <> (slist [[finalINodeOf $ fromJust iNodeSet2]]) ) (finalINodeOf $ fromJust iNodeSet1)
       | isJust iNodeSet1 && isJust iNodeSet2 && isJust (finalOutAndErrOf nt1) && finalINodeOf (fromJust iNodeSet2) `iNodeHasIn` fromJust (finalOutAndErrOf nt1) = Just $ INodeSet (mergeAncestorsInOrder nt1 nt2 <> (slist [[finalINodeOf $ fromJust iNodeSet1]]) ) (finalINodeOf $ fromJust iNodeSet2)
-      | isJust (finalOutOf nt1) &&
-        isJust (finalOutOf nt2) = if isJust iNodeSet1
-                                  then Just $ INodeSet (mergeAncestorsInOrder nt1 nt2) $ createNewParent nt1 nt2
-                                  else if isJust iNodeSet2
-                                       then Just $ INodeSet (mergeAncestorsInOrder nt2 nt1) $ createNewParent nt2 nt1
-                                       else Just $ INodeSet mempty $ createNewParent nt1 nt2
-      | isJust (finalOutOf nt1) = Just $ INodeSet (mergeAncestorsInOrder nt1 nt2) $ createNewParent nt1 nt2
-      | isJust (finalOutOf nt2) = Just $ INodeSet (mergeAncestorsInOrder nt2 nt1) $ createNewParent nt2 nt1
+      | isJust iNodeSet1 && isJust iNodeSet2 && isJust (finalOutAndErrOf nt2) && finalINodeOf (fromJust iNodeSet1) `iNodeHasIn` fromJust (finalOutAndErrOf nt2) = Just $ INodeSet (mergeAncestorsInOrder nt2 nt1 <> (slist [[finalINodeOf $ fromJust iNodeSet2]]) ) (finalINodeOf $ fromJust iNodeSet1)
+      | isJust iNodeSet1 && isJust iNodeSet2 = Nothing -- error $ "what do we do here?\n" <> show nt1 <> "\n" <> show nt2 <> "\n"
       | otherwise = error $ "cannot merge two NodeTrees without outputs.\n" <> show nt1 <> "\n" <> show nt2 <> "\n"
       where
         -- Create a merged set of ancestors.
         -- skips the final inodes.
         mergeAncestorsInOrder :: NodeTree -> NodeTree -> Slist [INode]
-        mergeAncestorsInOrder (NodeTree myENodeSet1 myINodeSet1) (NodeTree myENodeSet2 myINodeSet2)
-          | isOneSide myENodeSet1 && isOneSide myENodeSet2 =
+        mergeAncestorsInOrder (NodeTree myENodeSet1 myINodeSet1) (NodeTree myENodeSet2 myINodeSet2) =
               case compareSides (oneSideOf myENodeSet1) (oneSideOf myENodeSet2) of
                 FirstLast -> slist $ mergeChildren
                                        (if isJust myINodeSet2 then init $ allINodesOf $ fromJust myINodeSet2 else mempty)
@@ -208,26 +203,6 @@ mergeNodeTrees nodeTrees =
                                        (if isJust myINodeSet1 then init $ allINodesOf $ fromJust myINodeSet1 else mempty)
                                        (if isJust myINodeSet2 then init $ allINodesOf $ fromJust myINodeSet2 else mempty)
                 NoMatch -> error "failed to connect"
-          | otherwise = error "multi-sided ENodeSets not yet supported."
-        -- create a new parent.
-        createNewParent myNodeTree1@(NodeTree myENodeSet1 _) myNodeTree2@(NodeTree myENodeSet2 myINodeSet2)
-          | isOneSide myENodeSet1 && isOneSide myENodeSet2 =
-              case compareSides (oneSideOf myENodeSet1) (oneSideOf myENodeSet2) of
-                FirstLast -> makeINode (indexPLinesTo (outAndErrOf $ firstENodeOf myNodeTree1) inputPLines) Nothing
-                LastFirst -> makeINode (indexPLinesTo (outAndErrOf $ firstENodeOf myNodeTree2) inputPLines) Nothing
-                NoMatch -> error "failed to connect"
-          | otherwise = error "multi-sided ENodeSets not yet supported."
-          where
-            inputPLines = sortedPLines $
-                          (if isJust myINodeSet2
-                           then (insOf (finalINodeOf $ fromJust myINodeSet2))
-                           else if isJust (finalOutAndErrOf myNodeTree2)
-                                then [fromJust $ finalOutAndErrOf myNodeTree2]
-                                else [])
-                          <>
-                          (if isJust (finalOutAndErrOf myNodeTree1)
-                           then [fromJust $ finalOutAndErrOf myNodeTree1]
-                           else [])
         mergeChildren :: Slist [INode] -> Slist [INode] -> [[INode]]
         mergeChildren set1 set2
           | null set1 = (\(Slist a _) -> a) set2
