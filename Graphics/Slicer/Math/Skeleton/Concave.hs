@@ -46,7 +46,7 @@ import qualified Slist as SL (head, init, last, tail)
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Arcs (getFirstArc, getInsideArc, getOutsideArc)
+import Graphics.Slicer.Math.Arcs (getFirstArc, getOutsideArc)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, lineSegsOfContour, mapWithFollower, startPoint)
 
@@ -56,7 +56,7 @@ import Graphics.Slicer.Math.Intersections (noIntersection, intersectionBetweenAr
 
 import Graphics.Slicer.Math.Lossy (distanceBetweenPPointsWithErr)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), Pointable(canPoint), ProjectiveLine, PLine2Err, cPPointAndErrOf, cPPointOf, distance2PP, eToPL, flipL, join2PP, outAndErrOf, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint), ProjectiveLine, PLine2Err, cPPointAndErrOf, cPPointOf, distance2PP, flipL, join2PP, outAndErrOf, pLineIsLeft)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, finalINodeOf, linePairs, makeINode, makeSide, sortedPLines, isLoop)
 
@@ -90,11 +90,14 @@ skeletonOfConcaveRegion inSegSets
   | isLoop inSegSets && isNothing (finalOutOf result) = result
   | otherwise = error $ "generated illegal nodeTree:" <> show inSegSets <> "\n" <> show (isLoop inSegSets) <> "\n" <> show result <> "\n"
   where
-    result = makeNodeTree initialENodes $ Just $ sortINodesByENodes (isLoop inSegSets) initialENodes inSegSets $ findINodes inSegSets
+    result = makeNodeTree initialENodes $ if isJust foundINodes
+                                          then Just $ sortINodesByENodes (isLoop inSegSets) initialENodes inSegSets $ fromJust foundINodes
+                                          else Nothing
+    foundINodes =findINodes inSegSets
     initialENodes = makeInitialGeneration (isLoop inSegSets) inSegSets
 
 -- | Find a raw set of INodes representing the INodes of the solved NodeTree for this part of a contour.
-findINodes :: Slist [LineSeg] -> INodeSet
+findINodes :: Slist [LineSeg] -> Maybe INodeSet
 findINodes inSegSets
   | len inSegSets == 1 =
       -- One continuous wall without gaps. may gap between the beginning and end of the contour, if this is not a loop.
@@ -103,19 +106,8 @@ findINodes inSegSets
   | len inSegSets == 2 =
     -- Two walls, no closed ends. solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
     case initialENodes of
-      [] -> INodeSet mempty $ makeINode [getInsideArc firstLineFlipped lastLine, getInsideArc firstLine lastLineFlipped] Nothing
-        where
-          firstLine@(fs, fsErr) = eToPL $ SL.head $ slist $ SL.head inSegSets
-          firstLineFlipped = (flipL fs, fsErr)
-          lastLine@(ls, lsErr) = eToPL $ SL.head $ slist $ SL.last inSegSets
-          lastLineFlipped = (flipL ls, lsErr)
-      [a] -> INodeSet mempty $ makeINode [getInsideArc lastLine shortSide, getInsideArc firstLine shortSide] (Just (flipL $ outOf a, errOfOut a))
-        where
-          firstLine = eToPL $ fromMaybe (error "no first segment?") $ safeHead $ slist longSide
-          lastLine = eToPL $ SL.last $ slist longSide
-          (shortSide, longSide)
-            | null (SL.head inSegSets) = (eToPL $ SL.head $ slist $ SL.last inSegSets, SL.head inSegSets)
-            | otherwise = (eToPL $ SL.head $ slist $ SL.head inSegSets, SL.last inSegSets)
+      [] -> Nothing
+      [_] -> Nothing
       (_:_) -> error
                $ "too many items in makeInitialGeneration.\n"
                <> show initialENodes <> "\n"
@@ -156,7 +148,7 @@ loopOfSegSets inSegSets = case inSegSets of
                             (Slist _ _) -> error "yes"
 
 -- | Handle the recursive resolver failing.
-errorIfLeft :: Either PartialNodes INodeSet -> INodeSet
+errorIfLeft :: Either PartialNodes (Maybe INodeSet) -> Maybe INodeSet
 errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure
 errorIfLeft (Right val)    = val
 
@@ -169,7 +161,9 @@ averageNodes n1 n2 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (cPPoin
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [(ProjectiveLine, PLine2Err)]
 sortedPair n1 n2
   | hasArc n1 && hasArc n2 = sortedPLines [outAndErrOf n1, outAndErrOf n2]
-  | otherwise = error "Cannot get the average of nodes if one of the nodes does not have an out!\n"
+  | otherwise = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n"
+                      <> show n1 <> "\n"
+                      <> show n2 <> "\n"
 
 -- | Make a first generation node.
 makeENode :: Point2 -> Point2 -> Point2 -> ENode
@@ -325,12 +319,12 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
                -- check if, in order to present our ENodes in order, we need to re-order our parent, and the single item in the child generation.
                [] -> if canFlipINodes oneINode rawLastINode
                      then flipINodePair oneINode rawLastINode
-                     else addYoungerGen ([orderInsByENodes oneINode]) $ res' hasPruned hasAdjusted remainingINodeSet
+                     else addYoungerGen ([orderInsByENodes oneINode]) $ Just $ res' hasPruned hasAdjusted remainingINodeSet
                _ ->
                  res' hasPruned hasAdjusted remainingINodeSet
            v ->
-             addYoungerGen (indexTo $ sortGeneration $ orderInsByENodes <$> v) $ res' hasPruned hasAdjusted remainingINodeSet
-     | otherwise = addYoungerGen (indexTo $ sortGeneration $ orderInsByENodes <$> youngestGeneration) $ res' hasPruned hasAdjusted remainingINodeSet
+             addYoungerGen (indexTo $ sortGeneration $ orderInsByENodes <$> v) $ Just $ res' hasPruned hasAdjusted remainingINodeSet
+     | otherwise = addYoungerGen (indexTo $ sortGeneration $ orderInsByENodes <$> youngestGeneration) $ Just $ res' hasPruned hasAdjusted remainingINodeSet
       where
         -- The first generation of INodes, as given to the recursive resolver.
         youngestGeneration = fromMaybe (error "no first generation!") $ safeHead childGenerations
@@ -547,16 +541,6 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
                                 where
                                   allInsAreENodes iNode = not $ hasINode iNode
 
-    -- the output PLine of the first ENode in the input ENode set.
-    firstPLine = outAndErrOf firstENode
-      where
-        -- the first ENode given to us. for sorting uses.
-        firstENode = first eNodes
-          where
-            first :: [a] -> a
-            first [] = error "no first enode?"
-            first (a:_) = a
-
     -- | add together a child and it's parent.
     addINodeToParent :: INode -> INode -> INode
     addINodeToParent iNode1 iNode2@(INode _ _ _ out2)
@@ -570,15 +554,26 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
     orderInsByENodes :: INode -> INode
     orderInsByENodes inode@(INode _ _ _ out) = makeINode (indexPLinesTo firstPLine $ sortedPLines $ indexPLinesTo firstPLine $ insOf inode) out
 
+    -- The output PLine of the first ENode in the input ENode set. We use this when sorting INodes.
+    firstPLine :: (ProjectiveLine, PLine2Err)
+    firstPLine = outAndErrOf firstENode
+      where
+        -- the first ENode given to us. for sorting uses.
+        firstENode = fromMaybe (error "no ENodes?") $ safeHead $ slist eNodes
+
 -- | Add a new generation to an existing INodeSet.
-addYoungerGen :: [INode] -> INodeSet -> INodeSet
-addYoungerGen newGen (INodeSet myChildGens myLastINode) = INodeSet (one newGen <> myChildGens) myLastINode
+addYoungerGen :: [INode] -> Maybe INodeSet -> INodeSet
+addYoungerGen newGen maybeINodeSet
+  | isJust maybeINodeSet = INodeSet (one newGen <> myChildGens) myLastINode
+  | otherwise = error "cannot add a younger generation to a non-existant INodeSet. need to pick a parent?"
+    where
+      (INodeSet myChildGens myLastINode) = fromJust maybeINodeSet
 
 -- | Apply a recursive algorithm to obtain a raw INodeSet.
 -- This generates an INodeSet where each generation is composed of the closest together intersection of arcs, and thus does not discover in ENode order.
 -- FIXME: does not handle more than two point intersections of arcs properly.
 -- NOTE: the first two arguments are passed through to later recursive calls.
-skeletonOfNodes :: Bool -> Slist [LineSeg] -> Slist [LineSeg] -> [INode] -> Either PartialNodes INodeSet
+skeletonOfNodes :: Bool -> Slist [LineSeg] -> Slist [LineSeg] -> [INode] -> Either PartialNodes (Maybe INodeSet)
 skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
   case eNodes of
     [] -> case iNodes of
@@ -587,7 +582,7 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
             [iNode] ->
               if contourLooped
               then errorLen1 -- A one node loop makes no sense, reject.
-              else Right $ INodeSet mempty iNode -- just hand back single node requests.
+              else Right $ Just $ INodeSet mempty iNode -- just hand back single node requests.
             [iNode1,iNode2] -> handleTwoNodes iNode1 iNode2
             (_:_) -> handleThreeOrMoreNodes
     [eNode] -> case iNodes of
@@ -595,9 +590,8 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
                    if contourLooped
                    then errorLen1 -- A one node loop makes no sense, reject.
                    else
-                     -- Construct an INode with two identical inputs, and return it.
-                     -- FIXME: shouldn't we be able to have a Nothing instead?
-                     Right $ INodeSet mempty $ makeINode [outAndErrOf eNode,outAndErrOf eNode] Nothing
+                     -- nothing to do here.
+                     Right Nothing
                  [iNode] -> handleTwoNodes eNode iNode
                  (_:_) -> handleThreeOrMoreNodes
     [eNode1,eNode2] -> case iNodes of
@@ -611,26 +605,26 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
     errorLen0 = error "we should have not recursed."
     errorLen1 = Left $ PartialNodes iNodes ("NOMATCH - length 1?\n" <> show eNodes <> "\n" <> show iNodes <> "\n" <> show inSegSets <> "\n")
     --   Handle the the case of two nodes.
-    handleTwoNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Either PartialNodes INodeSet
+    handleTwoNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Either PartialNodes (Maybe INodeSet)
     handleTwoNodes node1 node2
       | not (hasArc node1) || not (hasArc node2) = error $ "ran across a node without an output?\n" <> show node1 <> "\n" <> show node2 <> "\n"
       | isCollinear (outAndErrOf node1) (outAndErrOf node2) = Left $ PartialNodes iNodes $ "cannot handle collinear nodes:\n" <> show node1 <> "\n" <> show node2 <> "\n"
-      | nodesAreAntiCollinear node1 node2 && contourLooped = Right $ INodeSet mempty $ makeLastPair node1 node2
+      | nodesAreAntiCollinear node1 node2 && contourLooped = Right $ Just $ INodeSet mempty $ makeLastPair node1 node2
       | contourLooped =
         -- this is a complete loop, so this last INode will be re-written in sortINodesByENodes anyways.
-        Right $ INodeSet mempty $ makeINode (sortedPLines [outAndErrOf node1,outAndErrOf node2]) Nothing
-      | intersectsInPoint node1 node2 = Right $ INodeSet mempty $ safeAverageNodes node1 node2
+        Right $ Just $ INodeSet mempty $ makeINode (sortedPLines [outAndErrOf node1,outAndErrOf node2]) Nothing
+      | intersectsInPoint node1 node2 = Right $ Just $ INodeSet mempty $ safeAverageNodes node1 node2
       | otherwise = errorLen2
       where
         errorLen2 = Left $ PartialNodes iNodes $ "NOMATCH - length 2?\n" <> show node1 <> "\n" <> show node2 <> "\n" <> show contourLooped <> "\n" <> show eNodes <> "\n" <> show iNodes <> "\n"
     --   Handle the the case of 3 or more nodes.
-    handleThreeOrMoreNodes :: Either PartialNodes INodeSet
+    handleThreeOrMoreNodes :: Either PartialNodes (Maybe INodeSet)
     handleThreeOrMoreNodes
       | not (all hasArc iNodes) = error "found an Inode without an output!"
-      | endsAtSamePoint && contourLooped = Right $ INodeSet mempty $ makeINode (sortedPLines $ (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)) Nothing
+      | endsAtSamePoint && contourLooped = Right $ Just $ INodeSet mempty $ makeINode (sortedPLines $ (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)) Nothing
       -- FIXME: this can happen for non-loops. which means this Nothing is wrong. it should be the result of the intersection tree from the first and last node in the segment.
       | endsAtSamePoint && not contourLooped = error $ show $ makeINode (sortedPLines $ (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)) Nothing
-      | hasShortestNeighboringPair = Right $ addYoungerGen averageOfShortestPairs $ errorIfLeft (skeletonOfNodes remainingLoop origSegSets remainingLineSegs (remainingINodes <> averageOfShortestPairs))
+      | hasShortestNeighboringPair = Right $ Just $ addYoungerGen averageOfShortestPairs $ errorIfLeft (skeletonOfNodes remainingLoop origSegSets remainingLineSegs (remainingINodes <> averageOfShortestPairs))
       | otherwise = error $ "len3\n" <> errorLen3
     errorLen3 =    "shortestPairDistance: " <> show shortestPairDistance <> "\n"
                 <> "ePairDistance: " <> show shortestEPairDistance <> "\n"

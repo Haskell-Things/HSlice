@@ -56,6 +56,7 @@ module Graphics.Slicer.Math.Skeleton.Definitions (
   getLastLineSeg,
   getPairs,
   indexPLinesTo,
+  iNodeHasIn,
   insOf,
   isLoop,
   isOneSide,
@@ -67,7 +68,7 @@ module Graphics.Slicer.Math.Skeleton.Definitions (
   sortedPLines
   ) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), not, otherwise, ($), (<$>), (==), (/=), (<=), error, (&&), any, fst, (<>), show, snd, mempty)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), not, null, otherwise, ($), (<$>), (==), (/=), (<=), error, (&&), any, fst, (<>), show, snd, mempty)
 
 import qualified Prelude as PL (head, last)
 
@@ -385,12 +386,22 @@ ancestorsOf (INodeSet children _)
   | otherwise = case SL.last children of
                   [] -> error "encountered an empty generation."
                   [a] -> [INodeSet (SL.init children) a]
-                  newParents -> if SL.init children == (Slist [] 0)
-                                then (INodeSet mempty) <$> newParents
-                                else error "this is complicated."
+                  newParents -> case SL.init children of
+                                  (Slist [] 0) -> (INodeSet mempty) <$> newParents
+                                  (Slist [a] 1) -> (maybeWithChildren a) <$> newParents
+                                  _ -> error "this is still complicated"
+  where
+    maybeWithChildren :: [INode] -> INode -> INodeSet
+    maybeWithChildren myChildren parent = INodeSet childrenOfParent parent
+      where
+        childrenOfParent = slist [filter (\a -> parent `iNodeHasIn` outAndErrOf a) myChildren]
 
 allINodesOf :: INodeSet -> Slist [INode]
 allINodesOf (INodeSet (Slist children _) parent) = slist $ children <> [[parent]]
+
+-- | Check if an INode has a particular input.
+iNodeHasIn :: INode -> (ProjectiveLine, PLine2Err) -> Bool
+iNodeHasIn iNode outAndErr = not $ null $ filter (== outAndErr) $ insOf iNode
 
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a ProjectiveLine bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe ProjectiveLine

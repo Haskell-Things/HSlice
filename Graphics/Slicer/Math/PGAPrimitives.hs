@@ -54,6 +54,7 @@ module Graphics.Slicer.Math.PGAPrimitives
     fuzzinessOfL,
     fuzzinessOfP,
     idealNormOfP,
+    interpolate2PL,
     interpolate2PP,
     intersect2PL,
     join2PP,
@@ -328,6 +329,34 @@ intersectionOfProjectiveLines line1 line2 = (res, (line1Err, line2Err, resErr))
 -- | Wrapper.
 {-# INLINABLE intersect2PL #-}
 intersect2PL l1 l2 = intersectionOfProjectiveLines l1 l2
+
+-- | Find a line between the two given lines.
+-- The position of the found line is determined by the ratio betwenn the two weights supplied.
+-- If the weights are equal, the distance will be right between the two lines.
+{-# INLINABLE projectiveLineBetweenProjectiveLines #-}
+projectiveLineBetweenProjectiveLines, interpolate2PL :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> ℝ -> ℝ -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
+-- | Actual implementation.
+projectiveLineBetweenProjectiveLines startLine stopLine weight1 weight2
+  -- Short circuit (returning the starting line) if the two inputs are identical, and of the same type.
+  | typeOf startLine == typeOf stopLine && startLine == fromJust (cast stopLine) = (PLine2 rawStartLine, mempty)
+  -- Short circuit (returning the starting line) if the two inputs are equivalent after canonicalization.
+  | nStartLine == nStopLine = (PLine2 rawStartLine, (nStartLineErr, nStopLineErr, mempty))
+--  | isIdealP res = error "tried to generate an ideal line?"
+  | otherwise = (res, resErr)
+  where
+    res = PLine2 rawRes
+    -- FIXME: where should the error quotents of this function be stored?
+    resErr = (nStartLineErr, nStopLineErr, mempty)
+    (rawRes, _) = addVecPairWithErr weighedStart weighedStop
+    (weighedStart, _) = mulScalarVecWithErr weight1 rawStartLine
+    (weighedStop, _) = mulScalarVecWithErr weight2 rawStopLine
+    rawStartLine = vecOfL nStartLine
+    rawStopLine = vecOfL nStopLine
+    (nStartLine, nStartLineErr) = normalizeL startLine
+    (nStopLine, nStopLineErr) = normalizeL stopLine
+-- | Wrapper.
+{-# INLINABLE interpolate2PL #-}
+interpolate2PL p1 p2 = projectiveLineBetweenProjectiveLines p1 p2
 
 -- | A typed meet function. the meeting of two lines is a point.
 -- Kept separate from intersectionOfProjectiveLines for verification reasons.
