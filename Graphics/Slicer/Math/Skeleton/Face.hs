@@ -372,7 +372,7 @@ findDegenerates (Slist inFaces _) = slist $ checkFace <$> inFaces
   where
     checkFace inFace@(Face edge firstArc (Slist midArcs _) lastArc)
       | all (isRight . fromMaybe (error "whoops!")) intersections = inFace
-      | otherwise = error "yup, busted."
+      | otherwise = error $ "yup, busted.\n" <> show inFace <> "\n" <> show intersections <> "\n"
       where
         intersections = mapWithFollower intersectionBetween $ eToPL edge : firstArc : midArcs <> [lastArc]
 
