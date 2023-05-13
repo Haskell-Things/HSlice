@@ -34,6 +34,7 @@ module Graphics.Slicer.Math.RandomGeometry (
   cellFrom,
   edgesOf,
   generationsOf,
+  justSupported,
   nodeTreesOf,
   oneNodeTreeOf,
   onlyOne,
@@ -63,6 +64,8 @@ module Graphics.Slicer.Math.RandomGeometry (
 import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, Int, (<>), (<>), (<$>), ($), (.), (==), (+), (-), (*), (<), (/), (>), (<=), (&&), abs, error, fromInteger, fromRational, fst, mempty, mod, otherwise, replicate, show, signum, snd)
 
 import Data.Coerce (coerce)
+
+import Data.Either (Either(Left, Right))
 
 import Data.List (sort)
 
@@ -98,6 +101,8 @@ import Graphics.Slicer.Math.Intersections (isCollinear)
 import Graphics.Slicer.Math.Lossy (eToPLine2, pToEPoint2, translateRotatePPoint2)
 
 import Graphics.Slicer.Math.PGA (ProjectiveLine, PLine2Err, ProjectivePoint, eToPL, eToPP, flipL, join2PP, pPointOnPerpWithErr, cPPointOf)
+
+import Graphics.Slicer.Math.Skeleton.Cells (UnsupportedReason)
 
 import Graphics.Slicer.Math.Skeleton.Concave (makeENode)
 
@@ -559,3 +564,8 @@ generationsOf :: NodeTree -> Int
 generationsOf (NodeTree _ maybeINodeSet)
   | isJust maybeINodeSet = (\(INodeSet childGenerations _) -> len childGenerations + 1) $ fromJust maybeINodeSet
   | otherwise = 0
+
+justSupported :: Either UnsupportedReason NodeTree -> NodeTree
+justSupported maybeNodeTree = case maybeNodeTree of
+                                (Left _) -> error $ "unsupported!\n" <> show maybeNodeTree <> "\n"
+                                (Right a) -> a
