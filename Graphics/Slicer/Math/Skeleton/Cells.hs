@@ -101,35 +101,25 @@ findDivisions :: Contour -> CrashTree -> [CellDivide]
 findDivisions contour crashTree = case motorcyclesIn crashTree of
                                     (Slist [] _) -> []
                                     (Slist [inMC] _) -> [CellDivide (DividingMotorcycles inMC (Slist [] 0)) $ landingPointOf contour inMC]
-                                    (Slist [firstMC,secondMC] _) -> case findDivides crashTree of
-                                                                      [] -> error "no divides, but two motorcycles?"
-                                                                      [_] -> [CellDivide (DividingMotorcycles firstMC (Slist [] 0)) $ WithMotorcycle secondMC]
-                                                                      [_,_] ->
+                                    (Slist [firstMC,secondMC] _) -> if lastCrashType crashTree == Just HeadOn
+                                                                    then
+                                                                      [CellDivide (DividingMotorcycles firstMC (Slist [] 0)) $ WithMotorcycle secondMC]
+                                                                    else if intersectionIsBehind firstMC || intersectionIsBehind secondMC
+                                                                         then -- These motorcycles cannot intersect.
                                                                            [CellDivide (DividingMotorcycles firstMC (Slist [] 0)) $ landingPointOf contour firstMC,
                                                                             CellDivide (DividingMotorcycles secondMC (Slist [] 0)) $ landingPointOf contour secondMC]
-                                                                      (_:_) -> error "don't know what to do with these line segments."
+                                                                         else
+                                                                           -- FIXME: We should be able to see if these intersect inside of the contour.
+                                                                           -- LOWHANGINGFRUIT: what about two motorcycles that are anticolinear?
+                                                                           error "don't know what to do with these motorcycles."
+                                      where
+                                        intersectionIsBehind m = angleFound <= ulpVal angleErr
+                                          where
+                                            (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf m) (eToPLine2 $ lineSegToIntersection m)
+                                        lineSegToIntersection m = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
+                                        (intersectionPPoint, _) = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf firstMC secondMC
                                     (Slist (_:_) _) -> error "too many motorcycles."
   where
-    -- | find the divides
-    findDivides :: CrashTree -> [[Motorcycle]]
-    findDivides myCrashTree = case motorcyclesIn myCrashTree of
-                                             (Slist [] _) -> []
-                                             (Slist [inMC] _) -> [[inMC]]
-                                             (Slist [firstMC, secondMC] _) -> if lastCrashType myCrashTree == Just HeadOn
-                                                                              then [[firstMC, secondMC]]
-                                                                              else if intersectionIsBehind firstMC || intersectionIsBehind secondMC
-                                                                                   then -- These motorcycles cannot intersect.
-                                                                                     [[firstMC],[secondMC]]
-                                                                                   else -- FIXME: We should be able to see if these intersect inside of the contour.
-                                                                                     -- LOWHANGINGFRUIT: what about two motorcycles that are anticolinear?
-                                                                                     error "don't know what to do with these motorcycles."
-                                               where
-                                                 intersectionIsBehind m = angleFound <= ulpVal angleErr
-                                                   where
-                                                     (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf m) (eToPLine2 $ lineSegToIntersection m)
-                                                 lineSegToIntersection m = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
-                                                 (intersectionPPoint, _) = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf firstMC secondMC
-                                             (Slist (_:_) _) -> error "too many motorcycles."
     motorcyclesIn (CrashTree motorcycles _ _) = motorcycles
     -- | find where the last motorcycle of a divide lands
     landingPointOf :: Contour -> Motorcycle -> MotorcycleIntersection
