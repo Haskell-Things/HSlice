@@ -78,7 +78,7 @@ import Graphics.Slicer.Math.PGA (Arcable(outOf), PLine2Err, Pointable(canPoint, 
 data UnsupportedReason = INodeCrossesDivide ![(INode,CellDivide)] !NodeTree
   deriving Show
 
--- | get a naieve node tree for a given cell.
+-- | get a node tree for a given cell.
 -- Warning: in the cases where the cell has nodes outside of the cell wall, you must use tscherne's algorithm to merge two cells.
 getNodeTreeOfCell :: Cell -> Either UnsupportedReason NodeTree
 getNodeTreeOfCell (Cell (Slist [(Slist extSegs _, Nothing)] _)) = Right $ skeletonOfConcaveRegion $ one extSegs
@@ -100,14 +100,14 @@ getNodeTreeOfCell input = error
 findDivisions :: Contour -> CrashTree -> [CellDivide]
 findDivisions contour crashTree = case motorcyclesIn crashTree of
                                     (Slist [] _) -> []
-                                    (Slist [inMC] _) -> [CellDivide (DividingMotorcycles inMC (Slist [] 0)) $ landingPointOf contour inMC]
+                                    (Slist [inMC] _) -> [CellDivide (DividingMotorcycles inMC mempty) $ landingPointOf contour inMC]
                                     (Slist [firstMC,secondMC] _) -> if lastCrashType crashTree == Just HeadOn
                                                                     then
-                                                                      [CellDivide (DividingMotorcycles firstMC (Slist [] 0)) $ WithMotorcycle secondMC]
+                                                                      [CellDivide (DividingMotorcycles firstMC mempty) $ WithMotorcycle secondMC]
                                                                     else if intersectionIsBehind firstMC || intersectionIsBehind secondMC
                                                                          then -- These motorcycles cannot intersect.
-                                                                           [CellDivide (DividingMotorcycles firstMC (Slist [] 0)) $ landingPointOf contour firstMC,
-                                                                            CellDivide (DividingMotorcycles secondMC (Slist [] 0)) $ landingPointOf contour secondMC]
+                                                                           [CellDivide (DividingMotorcycles firstMC mempty) $ landingPointOf contour firstMC,
+                                                                            CellDivide (DividingMotorcycles secondMC mempty) $ landingPointOf contour secondMC]
                                                                          else
                                                                            -- FIXME: We should be able to see if these intersect inside of the contour.
                                                                            -- LOWHANGINGFRUIT: what about two motorcycles that are anticolinear?
