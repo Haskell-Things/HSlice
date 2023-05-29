@@ -520,10 +520,10 @@ randomX1Y1LineSegToPoint rawD1 d2 = res
 
 -- | combine two lists. for feeding into randomStarPoly.
 makePairs :: [a] -> [b] -> [(a,b)]
-makePairs (a:as) (b:bs) = (a,b) : makePairs as bs
-makePairs (_:_) [] = error "out of inputs"
-makePairs [] (_:_) = []
 makePairs [] [] = []
+makePairs [] (_:_) = []
+makePairs (_:_) [] = error "out of inputs"
+makePairs (a:as) (b:bs) = (a,b) : makePairs as bs
 
 cellFrom :: Maybe (a,b) -> a
 cellFrom (Just (v,_)) = v
