@@ -36,6 +36,8 @@ module Graphics.Slicer.Math.Skeleton.Cells (
   findRemainder,
   gatherLineSegsPreceedingDivide,
   getNodeTreeOfCell,
+  getRawNodeTreeOfCell,
+  landingPointOf,
   nodeTreesDoNotOverlap,
   startBeforeEnd,
   startOfDivide
@@ -96,6 +98,16 @@ getNodeTreeOfCell input = error
                           $ "unsupported cell layout:\n"
                           <> show input <> "\n"
 
+-- | get a raw node tree for a given cell.
+-- Warning: in the cases where the cell has nodes outside of the cell wall, you must use tscherne's algorithm to merge two cells.
+getRawNodeTreeOfCell :: Cell -> NodeTree
+getRawNodeTreeOfCell (Cell (Slist [(Slist extSegs _, Nothing)] _)) = skeletonOfConcaveRegion $ one extSegs
+getRawNodeTreeOfCell (Cell (Slist [(Slist extSegs _, Just _)] _)) = skeletonOfConcaveRegion $ one extSegs
+getRawNodeTreeOfCell (Cell (Slist [(Slist extSegs1 _, Just _),(Slist extSegs2 _, Nothing)] _)) = skeletonOfConcaveRegion (slist [extSegs1, extSegs2])
+getRawNodeTreeOfCell input = error
+                             $ "unsupported cell layout:\n"
+                             <> show input <> "\n"
+
 -- | find the divisions of a given contour without holes. Divisions are points where motorcycles cross the contour.
 findDivisions :: Contour -> CrashTree -> [CellDivide]
 findDivisions contour crashTree = case motorcyclesIn crashTree of
@@ -121,25 +133,26 @@ findDivisions contour crashTree = case motorcyclesIn crashTree of
                                     (Slist (_:_) _) -> error "too many motorcycles."
   where
     motorcyclesIn (CrashTree motorcycles _ _) = motorcycles
-    -- | find where the last motorcycle of a divide lands
-    landingPointOf :: Contour -> Motorcycle -> MotorcycleIntersection
-    landingPointOf myContour myMotorcycle =
-      case eNodesInPath of
-        [] -> WithLineSeg $ fst $ motorcycleIntersectsAt myContour myMotorcycle
-        [oneNode] -> if motorcycleENodeDistance <= motorcycleLineSegDistance
-                     then WithENode oneNode
-                     else WithLineSeg $ fst $ motorcycleIntersectsAt myContour myMotorcycle
-          where
-            cMotorcyclePoint = cPPointAndErrOf myMotorcycle
-            cNodePoint = cPPointAndErrOf oneNode
-            motorcycleENodeDistance = distanceBetweenPPointsWithErr cMotorcyclePoint cNodePoint
-            motorcycleLineSegDistance = distanceBetweenPPointsWithErr cMotorcyclePoint $ fromMaybe (error "no outArc?") $ outputIntersectsPLineAt myMotorcycle (eToPL $ fst $ motorcycleIntersectsAt myContour myMotorcycle)
-        (_:_) -> error "more than one opposing exterior node. cannot yet handle this situation."
+
+-- | find where the last motorcycle of a divide lands
+landingPointOf :: Contour -> Motorcycle -> MotorcycleIntersection
+landingPointOf myContour myMotorcycle =
+  case eNodesInPath of
+    [] -> WithLineSeg $ fst $ motorcycleIntersectsAt myContour myMotorcycle
+    [oneNode] -> if motorcycleENodeDistance <= motorcycleLineSegDistance
+                 then WithENode oneNode
+                 else WithLineSeg $ fst $ motorcycleIntersectsAt myContour myMotorcycle
       where
-        eNodesInPath = opposingNodes myContour myMotorcycle
-          where
-            opposingNodes :: Contour -> Motorcycle -> [ENode]
-            opposingNodes c m = filter (\eNode -> isAntiCollinear (outAndErrOf eNode) (outAndErrOf m)) $ eNodesOfOutsideContour c
+        cMotorcyclePoint = cPPointAndErrOf myMotorcycle
+        cNodePoint = cPPointAndErrOf oneNode
+        motorcycleENodeDistance = distanceBetweenPPointsWithErr cMotorcyclePoint cNodePoint
+        motorcycleLineSegDistance = distanceBetweenPPointsWithErr cMotorcyclePoint $ fromMaybe (error "no outArc?") $ outputIntersectsPLineAt myMotorcycle (eToPL $ fst $ motorcycleIntersectsAt myContour myMotorcycle)
+    (_:_) -> error "more than one opposing exterior node. cannot yet handle this situation."
+  where
+    eNodesInPath = opposingNodes myContour myMotorcycle
+      where
+        opposingNodes :: Contour -> Motorcycle -> [ENode]
+        opposingNodes c m = filter (\eNode -> isAntiCollinear (outAndErrOf eNode) (outAndErrOf m)) $ eNodesOfOutsideContour c
 
 -- | Find a single Cell of the given contour. always finds the cell on the 'open end' of the contour.
 findFirstCellOfContour :: Contour -> [CellDivide] -> Maybe (Cell, Maybe [RemainingContour])
