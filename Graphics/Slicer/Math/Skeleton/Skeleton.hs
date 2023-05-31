@@ -85,5 +85,5 @@ findStraightSkeleton contour holes =
                                           (Right skeleton) -> skeleton
                                           (Left simplerCluster) -> error $ "got a simpler cluster after simplification: " <> show simplerCluster <> "\n"
                           _ -> error "more than one cluster?"
-    simplifiedCluster = simplifyCluster $ (\(Left [rawCluster]) -> rawCluster) cluster                           
+    simplifiedCluster = simplifyCluster $ (\(Left [rawCluster]) -> rawCluster) cluster
     cluster = findClusters contour $ fromJust $ crashMotorcycles contour holes
