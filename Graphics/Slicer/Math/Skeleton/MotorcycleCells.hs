@@ -136,7 +136,7 @@ motorcyclesAlongEdgeOf _ cellDivide = case cellDivide of
                                                                                                            then slist $ m1 : mxRaw
                                                                                                            else error "multiple dividing motorcycles, and not collinear."
 
--- | Find the pair of motorcycle cells that 
+-- | Find the pair of motorcycle cells that border a motorcycle.
 motorcycleCellsAlongMotorcycle :: Contour -> CrashTree -> Motorcycle -> (MotorcycleCell, MotorcycleCell)
 motorcycleCellsAlongMotorcycle contour crashTree motorcycle = (firstCell, secondCell)
   where
@@ -145,60 +145,3 @@ motorcycleCellsAlongMotorcycle contour crashTree motorcycle = (firstCell, second
       where
         hasMotorcycle :: MotorcycleCell -> Motorcycle -> Bool
         hasMotorcycle (MotorcycleCell _ _ (Slist motorcycles _) _) target = not $ null $ filter (== target) motorcycles
-{-
--- | find groups of motorcycles in a given contour without holes.
-findClumps :: Contour -> CrashTree -> Slist [Motorcycle]
-findClumps contour crashTree = case motorcyclesIn crashTree of
-                                    (Slist [] _) -> []
-                                    (Slist [inMC] _) -> [CellDivide (DividingMotorcycles inMC (Slist [] 0)) $ landingPointOf contour inMC]
-                                    (Slist [firstMC,secondMC] _) -> case findDivides crashTree of
-                                                                      [] -> error "no divides, but two motorcycles?"
-                                                                      [_] -> [CellDivide (DividingMotorcycles firstMC (Slist [] 0)) $ WithMotorcycle secondMC]
-                                                                      [_,_] ->
-                                                                           [CellDivide (DividingMotorcycles firstMC (Slist [] 0)) $ landingPointOf contour firstMC,
-                                                                            CellDivide (DividingMotorcycles secondMC (Slist [] 0)) $ landingPointOf contour secondMC]
-                                                                      (_:_) -> error "don't know what to do with these line segments."
-                                    (Slist (_:_) _) -> error "too many motorcycles."
-  where
-    -- | find the divides
-    findDivides :: CrashTree -> [[Motorcycle]]
-    findDivides myCrashTree = case motorcyclesIn myCrashTree of
-                                             (Slist [] _) -> []
-                                             (Slist [inMC] _) -> [[inMC]]
-                                             (Slist [firstMC, secondMC] _) -> if lastCrashType myCrashTree == Just HeadOn
-                                                                              then [[firstMC, secondMC]]
-                                                                              else if intersectionIsBehind firstMC || intersectionIsBehind secondMC
-                                                                                   then -- These motorcycles cannot intersect.
-                                                                                     [[firstMC],[secondMC]]
-                                                                                   else -- FIXME: We should be able to see if these intersect inside of the contour.
-                                                                                     -- LOWHANGINGFRUIT: what about two motorcycles that are anticolinear?
-                                                                                     error "don't know what to do with these motorcycles."
-                                               where
-                                                 intersectionIsBehind m = angleFound <= ulpVal angleErr
-                                                   where
-                                                     (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf m) (eToPLine2 $ lineSegToIntersection m)
-                                                 lineSegToIntersection m = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
-                                                 (intersectionPPoint, _) = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf firstMC secondMC
-                                             (Slist (_:_) _) -> error "too many motorcycles."
-    motorcyclesIn (CrashTree motorcycles _ _) = motorcycles
-    -- | find where the last motorcycle of a divide lands
-    landingPointOf :: Contour -> Motorcycle -> MotorcycleIntersection
-    landingPointOf myContour myMotorcycle =
-      case eNodesInPath of
-        [] -> WithLineSeg $ fst $ motorcycleIntersectsAt myContour myMotorcycle
-        [oneNode] -> if motorcycleENodeDistance <= motorcycleLineSegDistance
-                     then WithENode oneNode
-                     else WithLineSeg $ fst $ motorcycleIntersectsAt myContour myMotorcycle
-          where
-            cMotorcyclePoint = cPPointAndErrOf myMotorcycle
-            cNodePoint = cPPointAndErrOf oneNode
-            motorcycleENodeDistance = distanceBetweenPPointsWithErr cMotorcyclePoint cNodePoint
-            motorcycleLineSegDistance = distanceBetweenPPointsWithErr cMotorcyclePoint $ fromMaybe (error "no outArc?") $ outputIntersectsPLineAt myMotorcycle (eToPL $ fst $ motorcycleIntersectsAt myContour myMotorcycle)
-        (_:_) -> error "more than one opposing exterior node. cannot yet handle this situation."
-      where
-        eNodesInPath = opposingNodes myContour myMotorcycle
-          where
-            opposingNodes :: Contour -> Motorcycle -> [ENode]
-            opposingNodes c m = filter (\eNode -> isAntiCollinear (outAndErrOf eNode) (outAndErrOf m)) $ eNodesOfOutsideContour c
-
--}
