@@ -23,23 +23,25 @@
 -}
 
 -- | Christopher Tscherne\'s algorithm from his master\'s thesis.
-module Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne) where
+module Graphics.Slicer.Math.Skeleton.Tscherne (tscherneMerge) where
 
-import Prelude (($), error, (<>), show)
+import Prelude (Bool(True), ($), (&&), (<>), (||), (==), (<$>), all, elem, error, otherwise, show)
 
-import Data.Maybe( Maybe(Nothing))
+import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton, CellDivide)
-
-import Graphics.Slicer.Math.Definitions (Contour)
+import Graphics.Slicer.Math.Skeleton.Definitions (CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), Motorcycle, MotorcycleCell(MotorcycleCell), StraightSkeleton)
 
 -- | Implement the algorithm from christopher Tscherne's masters thesis.
-applyTscherne :: Contour -> [CellDivide] -> Maybe StraightSkeleton
-applyTscherne _ cellDivisions =
-  case cellDivisions of
-    [] -> error "you do not need to applyTscherne if there is only one cell."
-    [oneDivision] -> error $ "you do not need to applyTscherne if there is only one division.. right?.\n" <> show oneDivision <> "\n"
-    (_:_) -> Nothing
---  where
---    errorIncomplete = error $ "failing to apply Tscherne's method.\n" <> show contour  <> "\n" <> show cellDivisions <> "\n"
-
+tscherneMerge :: MotorcycleCell -> MotorcycleCell -> CellDivide -> StraightSkeleton
+tscherneMerge cell1 cell2 cellDivide
+  | cell1 `cellOnDivide` cellDivide && cell2 `cellOnDivide` cellDivide = error "incomplete."
+  | otherwise = error $ "tried to merge two cells with a divide that one of them does not have."
+                     <> "Cell1: " <> show cell1 <> "\n"
+                     <> "Cell2: " <> show cell2 <> "\n"
+                     <> "CellDivide: " <> show cellDivide <> "\n"
+  where
+    cellOnDivide :: MotorcycleCell -> CellDivide -> Bool
+    cellOnDivide (MotorcycleCell _ _ motorcycles _) divide = all (== True) $ (divide `divideHasMotorcycle`) <$> motorcycles
+      where
+        divideHasMotorcycle :: CellDivide -> Motorcycle -> Bool
+        divideHasMotorcycle (CellDivide (DividingMotorcycles m (Slist mx _)) _) motorcycle = motorcycle == m || motorcycle `elem` mx

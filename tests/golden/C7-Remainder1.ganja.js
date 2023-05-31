@@ -13,14 +13,22 @@ Algebra(2,0,1,()=>{
   var aeb = point(0.0,-1.0);
   var afa = point(0.0,-1.0);
   var afb = point(1.0,-1.0);
-  var agaaa = point(-1.0,0.0);
-  var agaab = point(0.0,0.0);
-  var agaba = point(0.0,0.0);
-  var agabb = point(0.0,-1.0);
-  var agac = 0.7071067811865475e1-0.7071067811865475e2+0.0e0;
-  var agb = 2.468306115762555e12-0.4714045207910317e02+0.4714045207910317e01;
-  var agc = -0.5257311121191335e1-0.85065080835204e2+0.26286555605956674e0;
-  var agd = 0.9732489894677302e1+0.22975292054736116e2-0.22975292054736116e0;
+  var agaaa = point(0.5,1.0);
+  var agaab = point(0.5,0.0);
+  var agaba = point(0.5,0.0);
+  var agabb = point(0.0,1.0);
+  var agac = -0.9732489894677302e1-0.22975292054736118e2+0.4866244947338651e0;
+  var agb = 5.379988095711658e12-3.7174803446018445e02-4.352501798965642e01;
+  var agc = -0.7071067811865478e1+0.7071067811865474e2+1.0606601717798212e0;
+  var agd = -0.5257311121191337e1-0.8506508083520399e2-0.3249196962329061e0;
+  var ahaaa = point(-1.0,0.0);
+  var ahaab = point(0.0,0.0);
+  var ahaba = point(0.0,0.0);
+  var ahabb = point(0.0,-1.0);
+  var ahac = 0.7071067811865475e1-0.7071067811865475e2+0.0e0;
+  var ahb = 2.468306115762555e12-0.4714045207910317e02+0.4714045207910317e01;
+  var ahc = -0.5257311121191335e1-0.85065080835204e2+0.26286555605956674e0;
+  var ahd = 0.9732489894677302e1+0.22975292054736116e2-0.22975292054736116e0;
   document.body.appendChild(this.graph([
     0x882288,
     [aaa,aab],
@@ -66,6 +74,20 @@ Algebra(2,0,1,()=>{
     agb, "agb",
     agc, "agc",
     agd, "agd",
+    0x882288,
+    [ahaaa,ahaab],
+    0x00AA88,
+    ahaaa, "ahaaa",
+    ahaab, "ahaab",
+    0x882288,
+    [ahaba,ahabb],
+    0x00AA88,
+    ahaba, "ahaba",
+    ahabb, "ahabb",
+    ahac, "ahac",
+    ahb, "ahb",
+    ahc, "ahc",
+    ahd, "ahd",
   ],{
     grid: true,
     labels: true,

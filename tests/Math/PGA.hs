@@ -82,7 +82,7 @@ import Graphics.Slicer.Math.Arcs (towardIntersection)
 import Graphics.Slicer.Math.Contour (mostPerpPointAndLineSeg)
 import Graphics.Slicer.Math.Skeleton.Cells (findFirstCellOfContour, findDivisions, findNextCell)
 import Graphics.Slicer.Math.Skeleton.Concave (averageNodes, makeENode, makeENodes)
-import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), INode(INode), Motorcycle(Motorcycle), RemainingContour(RemainingContour), getFirstLineSeg, getLastLineSeg)
+import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), ENode(ENode), INode(INode), Motorcycle(Motorcycle), MotorcycleIntersection(WithENode, WithLineSeg), RemainingContour(RemainingContour), getFirstLineSeg, getLastLineSeg)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles, CrashTree(CrashTree))
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
@@ -1764,69 +1764,63 @@ facetSpec = do
   describe "Cells (Skeleton/Cells)" $ do
     it "finds the remains from the first cell of our first simple shape." $
       remainderFrom (findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []) -->
-      Just [RemainingContour (slist [(slist [
-                                              LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))
-                                            , LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0))
-                                            , LineSeg (Point2 (1.0,-1.0)) (Point2 (1.0,1.0))
-                                            ]
-                                     ,
-                                       [])
+      Just [RemainingContour (slist [
+                                      LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))
+                                    , LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0))
+                                    , LineSeg (Point2 (1.0,-1.0)) (Point2 (1.0,1.0))
                                     ])
+                             (Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg ( Point2(-1.0,1.0)) (Point2 (0.0,0.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (singleton (GEPlus 2))])) (PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [] mempty mempty mempty mempty)) mempty) (WithLineSeg (LineSeg (Point2 (1.0,-1.0)) (Point2 (1.0,1.0))))))
+                             []
            ]
     it "finds the remains from the first cell of our second simple shape." $
       remainderFrom (findFirstCellOfContour c1 $ findDivisions c1 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c1 []) -->
-      Just [RemainingContour (slist [(slist [
-                                              LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,1.0))
-                                            , LineSeg (Point2 (-1.0,1.0)) (Point2 (-1.0,-1.0))
-                                            , LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,0.0))
-                                            ]
-                                     ,
-                                       [])
+      Just [RemainingContour (slist [
+                                      LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,1.0))
+                                    , LineSeg (Point2 (-1.0,1.0)) (Point2 (-1.0,-1.0))
+                                    , LineSeg (Point2 (-1.0,-1.0)) (Point2 (0.0,0.0))
                                     ])
+                             (Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg ( Point2(-1.0,-1.0)) (Point2 (0.0,0.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,-1.0))) (PLine2 (GVec [GVal 1.414213562373095 (singleton (GEPlus 1))])) (PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] [] mempty mempty mempty mempty)) mempty) (WithLineSeg (LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,1.0))))))
+                             []
            ]
     it "finds the remains from the first cell of our third simple shape." $
       remainderFrom (findFirstCellOfContour c2 $ findDivisions c2 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c2 []) -->
-      Just [RemainingContour (slist [(slist [
-                                              LineSeg (Point2 (-1.0,1.0)) (Point2 (-1.0,-1.0))
-                                            , LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0))
-                                            , LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,0.0))
-                                            ]
-                                     ,
-                                       [])
+      Just [RemainingContour (slist [
+                                      LineSeg (Point2 (-1.0,1.0)) (Point2 (-1.0,-1.0))
+                                    , LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0))
+                                    , LineSeg (Point2 (1.0,-1.0)) (Point2 (0.0,0.0))
                                     ])
+                             (Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg ( Point2(1.0,-1.0)) (Point2 (0.0,0.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (1.0,1.0))) (PLine2 (GVec [GVal 1.414213562373095 (singleton (GEPlus 2))])) (PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [] mempty mempty mempty mempty)) mempty) (WithLineSeg (LineSeg (Point2 (-1.0,1.0)) (Point2 (-1.0,-1.0))))))
+                             []
            ]
     it "finds the remains from the first cell of our fourth simple shape." $
       remainderFrom (findFirstCellOfContour c3 $ findDivisions c3 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c3 []) -->
-      Just [RemainingContour (slist [(slist [
-                                              LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0))
-                                            , LineSeg (Point2 (-1.0,1.0)) (Point2 (-1.0,-1.0))
-                                            , LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0))
-                                            ]
-                                     ,
-                                       [])
+      Just [RemainingContour (slist [
+                                      LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0))
+                                    , LineSeg (Point2 (-1.0,1.0)) (Point2 (-1.0,-1.0))
+                                    , LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0))
                                     ])
+                             (Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg ( Point2(1.0,1.0)) (Point2 (0.0,0.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (singleton (GEPlus 1))])) (PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))] [] mempty mempty mempty mempty)) mempty) (WithLineSeg (LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0))))))
+                             []
            ]
     it "finds the remains from the first cell of our fifth simple shape." $
       remainderFrom (findFirstCellOfContour c4 $ findDivisions c4 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c4 []) -->
-      Just [RemainingContour (slist [(slist [
-                                              LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))
-                                            , LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0))
-                                            , LineSeg (Point2 (1.0,-1.0)) (Point2 (1.0,1.0))
-                                            ]
-                                     ,
-                                       [])
+      Just [RemainingContour (slist [
+                                      LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))
+                                    , LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0))
+                                    , LineSeg (Point2 (1.0,-1.0)) (Point2 (1.0,1.0))
                                     ])
+                             (Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg ( Point2(-1.0,1.0)) (Point2 (0.0,0.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (singleton (GEPlus 2))])) (PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [] mempty mempty mempty mempty)) mempty) (WithLineSeg (LineSeg (Point2 (1.0,-1.0)) (Point2 (1.0,1.0))))))
+                             []
            ]
     it "finds the remains from the first cell of our sixth simple shape." $
       remainderFrom (findFirstCellOfContour c5 $ findDivisions c5 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c5 []) -->
-      Just [RemainingContour (slist [(slist [
-                                              LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))
-                                            , LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0))
-                                            , LineSeg (Point2 (1.0,-1.0)) (Point2 (2.0,0.0))
-                                            ]
-                                     ,
-                                       [])
+      Just [RemainingContour (slist [
+                                      LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))
+                                    , LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0))
+                                    , LineSeg (Point2 (1.0,-1.0)) (Point2 (2.0,0.0))
                                     ])
+                             (Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg ( Point2(-1.0,1.0)) (Point2 (0.0,0.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (singleton (GEPlus 2))])) (PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [] mempty mempty mempty mempty)) mempty) (WithENode (ENode (Point2 (1.0,-1.0),Point2 (2.0,0.0),Point2 (1.0,1.0)) (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 2))])) (PLine2Err [] [] mempty mempty mempty ([ErrVal (UlpSum 6.661338147750939e-16) (singleton (GEPlus 2))],[ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))]))))))
+                             []
            ]
     it "finds the second cell of our second simple shape." $
       cellFrom (findNextCell $ onlyOne $ fromMaybe (error "Got Nothing") $ remainderFrom $ findFirstCellOfContour c1 $ findDivisions c1 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c1 []) -->

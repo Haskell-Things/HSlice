@@ -525,13 +525,12 @@ makePairs [] (_:_) = []
 makePairs (_:_) [] = error "out of inputs"
 makePairs (a:as) (b:bs) = (a,b) : makePairs as bs
 
-cellFrom :: Maybe (a,b) -> a
-cellFrom (Just (v,_)) = v
-cellFrom Nothing = error "whoops"
+-- | Collect just the cell part of ((Cell, Maybe [CellDivide]), Maybe [RemainingContour]), which is the result of findFirstCellOfContour and findNextCell.
+cellFrom :: ((a, Maybe b), c) -> a
+cellFrom = fst . fst
 
-remainderFrom :: Maybe (a,b) -> b
-remainderFrom (Just (_,v)) = v
-remainderFrom Nothing = error "whoops"
+remainderFrom :: (a,b) -> b
+remainderFrom = snd
 
 onlyOne :: [a] -> a
 onlyOne as = case as of
