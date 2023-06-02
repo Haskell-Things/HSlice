@@ -61,7 +61,7 @@ module Graphics.Slicer.Math.RandomGeometry (
   remainderFrom
   ) where
 
-import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, Int, (<>), (<>), (<$>), ($), (.), (==), (+), (-), (*), (<), (/), (>), (<=), (&&), abs, error, fromInteger, fromRational, fst, mempty, mod, otherwise, replicate, show, signum, snd)
+import Prelude (Bool, Enum, Eq, Fractional, Num, Ord, Show, Int, (<>), (<>), (<$>), ($), (.), (==), (+), (-), (*), (<), (/), (>), (<=), (&&), abs, error, fromInteger, fromRational, fst, mempty, mod, not, otherwise, replicate, show, signum, snd)
 
 import Data.Coerce (coerce)
 
@@ -179,18 +179,18 @@ randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX cent
                         [] -> error "impossible, empty set."
                         [_] -> error "impossible, single point."
                         [_,_] -> error "impossible, two points."
-                        [a@(ad, aa),b,c] -> if isCollinear (line1, line1Err) (line2, line2Err)
-                                            then if isCollinear (line1a, line1aErr) (line2, line2Err)
+                        [a@(ad, aa),b,c] -> if not $ isCollinear (line1, line1Err) (line2, line2Err)
+                                            then [a,b,c]
+                                            else if not $ isCollinear (line1a, line1aErr) (line2, line2Err)
                                                  then [a2, b, c]
                                                  else [a3, b, c]
-                                            else [a,b,c]
                           where
                             (line1, (_,_, line1Err)) = join2PP (pointAroundCenter a) (pointAroundCenter b)
                             (line1a, (_,_, line1aErr)) = join2PP (pointAroundCenter a2) (pointAroundCenter b)
                             (line2, (_,_, line2Err)) = join2PP (pointAroundCenter b) (pointAroundCenter c)
                             a2, a3 :: (Positive ℝ, Radian ℝ)
                             a2 = (ad+0.1, if aa == 0 then 0.1 else aa/2)
-                            a3 = (ad+0.2, if aa == 0 then 0.2 else aa/4)
+                            a3 = (ad+0.2, if aa == 0 then 0.2 else aa/3)
                             pointAroundCenter :: (Positive ℝ, Radian ℝ) -> ProjectivePoint
                             pointAroundCenter (distanceFromPoint, angle) = translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)
                             centerPPoint      = eToPP $ Point2 (centerX, centerY)
@@ -470,7 +470,8 @@ randomPLine x y dx dy = fst $ randomPLineWithErr x y dx dy
 
 -- | A helper function. constructs a random PLine.
 randomPLineWithErr :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (ProjectiveLine, PLine2Err)
-randomPLineWithErr x y dx dy = eToPL $ makeLineSeg (Point2 (x, y)) (Point2 (coerce dx, coerce dy))
+randomPLineWithErr x y dx dy = eToPL $ makeLineSeg (Point2 (x, y)) (Point2 (x + coerce dx, y + coerce dy))
+
 
 -- | A helper function. constructs a random LineSeg.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
