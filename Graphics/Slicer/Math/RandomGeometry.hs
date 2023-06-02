@@ -477,7 +477,6 @@ randomPLine x y dx dy = fst $ randomPLineWithErr x y dx dy
 randomPLineWithErr :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (ProjectiveLine, PLine2Err)
 randomPLineWithErr x y dx dy = eToPL $ makeLineSeg (Point2 (x, y)) (Point2 (x + coerce dx, y + coerce dy))
 
-
 -- | A helper function. constructs a random LineSeg.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
 randomLineSeg x y dx dy = makeLineSeg (Point2 (x,y)) (Point2 (dx, dy))
