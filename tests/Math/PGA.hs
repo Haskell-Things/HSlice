@@ -338,9 +338,9 @@ prop_ScalarDotScalar v1 v2 v3 v4 = scalarPart (rawPPoint2 (v1,v2) ⋅ rawPPoint2
   where
     rawPPoint2 (x,y) = vecOfP $ eToPP (Point2 (x,y))
 
--- | A property test making sure that the wedge product of two PLines along two different axises is always in e1e2.
+-- | A test making sure that the wedge product of two PLines along two different axises is always in e1e2.
 prop_TwoAxisAlignedLines :: NonZero ℝ -> NonZero ℝ -> NonZero ℝ -> NonZero ℝ -> Expectation
-prop_TwoAxisAlignedLines d1 d2 r1 r2 = (\(GVec gVals) -> bases gVals) (vecOfL (eToPLine2 (makeLineSeg (Point2 (coerce d1,0)) (Point2 (coerce r1 - coerce d1,0)))) ∧ vecOfL (eToPLine2 (makeLineSeg (Point2 (0,coerce d2)) (Point2 (0,coerce d2 - coerce r2))))) --> [fromList [GEPlus 1, GEPlus 2]]
+prop_TwoAxisAlignedLines d1 d2 r1 r2 = (\(GVec gVals) -> bases gVals) (vecOfL (eToPLine2 (makeLineSeg (Point2 (coerce d1,0)) (Point2 (coerce d1 - coerce r1,0)))) ∧ vecOfL (eToPLine2 (makeLineSeg (Point2 (0,coerce d2)) (Point2 (0,coerce d2 - coerce r2))))) --> [fromList [GEPlus 1, GEPlus 2]]
   where
     bases gvals = (\(GVal _ base) -> base) <$> gvals
 
@@ -1103,8 +1103,8 @@ prop_PLinesIntersectAtPoint rawX y rawX2 rawY2 targetX targetY
       | rawY2 == y = if y == 1 then 2 else 1
       | otherwise = rawY2
 
-prop_PLineIntersectsAtXAxis :: ℝ -> ℝ -> NonZero ℝ -> ℝ -> NonZero ℝ -> Bool
-prop_PLineIntersectsAtXAxis x y rawX2 y2 m
+prop_PLineIntersectsAtXAxis :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
+prop_PLineIntersectsAtXAxis x y dx dy m
   -- ignore the case where the random PLine is parallel to the X axis.
   | isNothing axisIntersection = True
   -- Ignore the case where the random PLine is colinear to the X axis.
@@ -1125,7 +1125,7 @@ prop_PLineIntersectsAtXAxis x y rawX2 y2 m
     axisIntersectionPoint = eToPP $ Point2 ((fromRight (error "not right?") $ fst $ fromJust axisIntersection), 0)
     axisIntersection = xIntercept (randomPLine1, pline1Err)
     (intersectionPPoint2, (_,_,intersectionErr)) = intersect2PL randomPLine1 axisPLine
-    (randomPLine1, pline1Err) = randomPLineWithErr x y rawX2 (coerce y2)
+    (randomPLine1, pline1Err) = randomPLineWithErr x y dx dy
     (axisPLine, _) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (coerce m,0))
 
 prop_PLineIntersectsAtYAxis :: NonZero ℝ -> ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
@@ -1680,6 +1680,9 @@ facetFlakeySpec = do
   describe "Stability (Lines)" $ do
     it "points that are further than the accumulated error away from a line segment are not onSegment" $
       property prop_LineSegDistanceAway
+  describe "Stability (Intersections)" $ do
+    it "finds that the intersection of two PLines at the origin are within the returned UlpSum" $
+      property prop_PLinesIntersectAtOrigin
 
 facetSpec :: Spec
 facetSpec = do
@@ -1694,8 +1697,6 @@ facetSpec = do
     it "a projective line is colinear with itsself" $
       property prop_PLineSameDirectionID
   describe "Stability (Intersections)" $ do
-    it "finds that the intersection of two PLines at the origin are within the returned UlpSum" $
-      property prop_PLinesIntersectAtOrigin
     it "finds endpoints and startpoints in equal quantities at the origin" $
       property prop_LineSegIntersectionStableAtOrigin
   describe "Stability (Error)" $ do
