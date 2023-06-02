@@ -372,6 +372,7 @@ randomConvexQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt rawFirs
 randomConcaveChevronQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
 randomConcaveChevronQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
+      distances = [firstDistanceToCorner, secondDistanceToCorner, firstDistanceToCorner, thirdDistanceToCorner]
       -- Workaround: since first and second may be unique, but may not be 0, multiply them!
       [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance $ sort [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
       ensureUniqueDistance :: [Positive ℝ] -> [Positive ℝ]
@@ -379,12 +380,6 @@ randomConcaveChevronQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDist
         | allUnique vals = vals
         | otherwise = ensureUniqueDistance $ sort [v*m | m <- [2,3] | v <- vals]
       thirdDistanceToCorner = secondDistanceToCorner / 2
-      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
-      [firstTilt, secondTilt] = sort $ ensureUnique $ clipRadian <$> sort [rawFirstTilt, rawSecondTilt]
-      ensureUnique :: [Radian ℝ] -> [Radian ℝ]
-      ensureUnique vals
-        | allUnique vals = vals
-        | otherwise = ensureUnique $ sort [v*m | m <- [2,3] | v <- vals]
       radians :: [Radian ℝ]
       radians =
         [
@@ -393,6 +388,12 @@ randomConcaveChevronQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDist
         , flipRadian firstTilt
         , secondTilt
         ]
+      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
+      [firstTilt, secondTilt] = sort $ ensureUnique $ clipRadian <$> sort [rawFirstTilt, rawSecondTilt]
+      ensureUnique :: [Radian ℝ] -> [Radian ℝ]
+      ensureUnique vals
+        | allUnique vals = vals
+        | otherwise = ensureUnique $ sort [v*m | m <- [2,3] | v <- vals]
       flipRadian :: Radian ℝ -> Radian ℝ
       flipRadian v
         | v < Radian pi = v + Radian pi
@@ -400,7 +401,6 @@ randomConcaveChevronQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDist
       clipRadian v
         | v > Radian pi = v - Radian pi
         | otherwise = v
-      distances = [firstDistanceToCorner, secondDistanceToCorner, firstDistanceToCorner, thirdDistanceToCorner]
 
 -- | generate a random polygon.
 -- Idea stolen from: https://stackoverflow.com/questions/8997099/algorithm-to-generate-random-2d-polygon
