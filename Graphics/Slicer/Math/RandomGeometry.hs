@@ -277,18 +277,19 @@ randomConvexSingleRightQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdT
         | allUnique vals = vals
         | otherwise = ensureUniqueDistance $ sort [v*m | m <- [2,3] | v <- vals]
       -- Workaround: since first and second may be unique, but may not be 0, multiply them!
-      [firstTilt, secondTilt, thirdTilt] = sort $ ensureUnique $ clipRadian <$> sort [rawFirstTilt, rawSecondTilt, rawThirdTilt]
       ensureUnique :: [Radian ℝ] -> [Radian ℝ]
       ensureUnique vals
         | allUnique vals = vals
         | otherwise = ensureUnique $ sort [v*m | m <- [2,3,5] | v <- vals]
-      radians :: [Radian ℝ]
-      radians =
+      radians = [firstTilt, secondTilt, thirdTilt, fourthTilt]
+      [firstTilt, secondTilt, thirdTilt] = sort $ ensureUnique $ clipRadian <$> rawRadians
+      fourthTilt = flipRadian secondTilt
+      rawRadians :: [Radian ℝ]
+      rawRadians = sort
         [
-          firstTilt
-        , secondTilt
-        , thirdTilt
-        , flipRadian secondTilt
+          rawFirstTilt
+        , rawSecondTilt
+        , rawThirdTilt
         ]
       flipRadian :: Radian ℝ -> Radian ℝ
       flipRadian v
