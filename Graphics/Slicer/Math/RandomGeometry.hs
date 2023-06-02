@@ -174,6 +174,10 @@ instance (Ord a, Num a, Fractional a) => Fractional (Positive a) where
 randomTriangle :: ℝ -> ℝ -> ListThree (Radian ℝ) -> ListThree (Positive ℝ) -> Contour
 randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX centerY $ fixCollinear $ makePairs dists radians
   where
+    ensureUnique :: [Radian ℝ] -> [Radian ℝ]
+    ensureUnique vals
+      | allUnique vals = vals
+      | otherwise = ensureUnique $ sort [v*m | m <- [2,3,5] | v <- vals]
     fixCollinear :: [(Positive ℝ,Radian ℝ)] -> [(Positive ℝ,Radian ℝ)]
     fixCollinear xs = case xs of
                         [] -> error "impossible, empty set."
@@ -196,7 +200,7 @@ randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX cent
                             centerPPoint      = eToPP $ Point2 (centerX, centerY)
                         _ -> error "too many points."
     radians :: [Radian ℝ]
-    radians = coerce rawRadians
+    radians = ensureUnique $ coerce rawRadians
     dists :: [Positive ℝ]
     dists = coerce rawDists
 
