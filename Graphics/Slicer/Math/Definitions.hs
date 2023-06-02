@@ -252,7 +252,7 @@ mapWithPredecessor f l = withStrategy (parList rpar) $ x `pseq` PL.zipWith f x l
 
 makeLineSeg :: Point2 -> Point2 -> LineSeg
 makeLineSeg p1 p2
-  | p1 == p2 = error $ "tried to make a zero length line segment." <> show p1 <> "\n"
+  | p1 == p2 = error $ "tried to make a zero length line segment at: " <> show p1 <> "\n"
   | otherwise = LineSeg p1 p2
 
 -- | return the contour as a list of LineSegs.
