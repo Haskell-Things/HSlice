@@ -212,7 +212,7 @@ randomSquare centerX centerY tilt distanceToCorner = randomStarPoly centerX cent
       [
         tilt
       , tilt + Radian (tau/4)
-      , tilt + Radian (tau/2)
+      , flipRadian tilt
       , tilt + Radian (tau*0.75)
       ]
     distances = replicate 4 distanceToCorner
@@ -225,7 +225,7 @@ randomRectangle centerX centerY rawFirstTilt secondTilt distanceToCorner = rando
       firstTilt
         | rawFirstTilt == secondTilt = rawFirstTilt + secondTilt
         | otherwise = rawFirstTilt
-      radians = [firstTilt, secondTilt, flipRadian firstTilt, flipRadian secondTilt]
+      radians = sort [firstTilt, secondTilt, flipRadian firstTilt, flipRadian secondTilt]
 
 -- | Generate a random convex four sided polygon, with two right angles.
 randomDualRightQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Contour
@@ -237,15 +237,14 @@ randomDualRightQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt dist
       rawRadians = [ rawFirstTilt, rawSecondTilt, rawThirdTilt]
 
 -- | Generate a random convex four sided polygon, with one right angle.
-randomConvexSingleRightQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
-randomConvexSingleRightQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+randomConvexSingleRightQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
+randomConvexSingleRightQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
-      distances = firstDistanceToCorner : replicate 3 secondDistanceToCorner
+      distances = replicate 3 secondDistanceToCorner <> [firstDistanceToCorner]
       [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
-      radians = [firstTilt, secondTilt, thirdTilt, fourthTilt]
-      [firstTilt, secondTilt, thirdTilt] = sort $ ensureUniqueRadian $ clipRadian <$> rawRadians
-      fourthTilt = flipRadian secondTilt
-      rawRadians = [rawFirstTilt, rawSecondTilt, rawThirdTilt]
+      radians = sort [firstTilt, firstTilt+(Radian pi/2), flipRadian firstTilt, flipRadian secondTilt]
+      [firstTilt, secondTilt] = sort $ ensureUniqueRadian $ clipRadian <$> rawRadians
+      rawRadians = [rawFirstTilt, rawSecondTilt]
 
 -- | Generate a random convex four sided polygon, with the property that it can be folded down an axis.
 randomConvexBisectableQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
@@ -278,7 +277,7 @@ randomConcaveChevronQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDist
       [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
       thirdDistanceToCorner = secondDistanceToCorner / 2
       radians = [firstTilt, secondTilt, flipRadian firstTilt, secondTilt]
-      [firstTilt, secondTilt] = sort $ ensureUniqueRadian $ clipRadian <$> rawRadians
+      [firstTilt, secondTilt] =  ensureUniqueRadian $ clipRadian <$> rawRadians
       rawRadians = [rawFirstTilt, rawSecondTilt]
 
 -- Workaround: since first and second may be unique, but may not be 0, multiply them!
