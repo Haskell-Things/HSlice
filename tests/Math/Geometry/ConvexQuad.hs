@@ -55,6 +55,9 @@ import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), randomConvexQuad)
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf)
 
+-- Motorcycle generation.
+import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles)
+
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
@@ -78,17 +81,15 @@ unit_ConvexQuadFacesAllWoundLeft
     faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
-    contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1 distance2 distance3
+    contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1
     x,y :: ℝ
     x = 0
     y = 0
     tilt1 = Radian 2.0
     tilt2 = Radian 2.0
     tilt3 = Radian 3.2
-    distance1,distance2,distance3 :: Positive ℝ
+    distance1 :: Positive ℝ
     distance1 = 1.0
-    distance2 = 1.0
-    distance3 = 1.0
 
 -- | was a misfolded skeleton. fixed, but now generating a miswound face.
 {-
@@ -111,17 +112,15 @@ unit_ConvexQuadFacesAllWoundLeft_2
     faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
-    contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1 distance2 distance3
+    contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1
     x,y :: ℝ
     x = 0
     y = 0
     tilt1 = Radian 1.0e-2
     tilt2 = Radian 1.0
     tilt3 = Radian 0.1
-    distance1,distance2,distance3 :: Positive ℝ
+    distance1 :: Positive ℝ
     distance1 = 0.1
-    distance2 = 0.1
-    distance3 = 0.1
 
 -- | mis-folded skeleton. fixed.
 {-
@@ -144,17 +143,15 @@ unit_ConvexQuadFacesAllWoundLeft_3
     faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
-    contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1 distance2 distance3
+    contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1
     x,y :: ℝ
     x = 0
     y = 0
     tilt1 = Radian 1.0e-2
     tilt2 = Radian 0.1
     tilt3 = Radian 2.0
-    distance1,distance2,distance3 :: Positive ℝ
+    distance1 :: Positive ℝ
     distance1 = 1.0
-    distance2 = 0.1
-    distance3 = 1.0
 
 -- | miswound face found.
 unit_ConvexQuadFacesAllWoundLeft_4 :: Bool
@@ -174,17 +171,15 @@ unit_ConvexQuadFacesAllWoundLeft_4
     faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
-    contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1 distance2 distance3
+    contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1
     x,y :: ℝ
     x = 0
     y = 0
     tilt1 = Radian 0.1
     tilt2 = Radian 2.0
     tilt3 = Radian 5.0
-    distance1,distance2,distance3 :: Positive ℝ
+    distance1 :: Positive ℝ
     distance1 = 1.0
-    distance2 = 2.0
-    distance3 = 3.0
 
 convexQuadBrokenSpec :: Spec
 convexQuadBrokenSpec = do
@@ -222,11 +217,11 @@ convexQuadSpec = do
     it "each face is wound to the left (unit) (4)" $
       unit_ConvexQuadFacesAllWoundLeft_4
   where
-    boolFromConvexQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Bool
-    boolFromConvexQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = f convexQuad
+    boolFromConvexQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
+    boolFromConvexQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner = f convexQuad
       where
-        convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
-    expectationFromConvexQuad :: (Contour -> Expectation) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ-> Expectation
-    expectationFromConvexQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner= f convexQuad
+        convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner
+    expectationFromConvexQuad :: (Contour -> Expectation) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
+    expectationFromConvexQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner = f convexQuad
       where
-        convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner
+        convexQuad = randomConvexQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner

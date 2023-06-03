@@ -221,151 +221,53 @@ randomSquare centerX centerY tilt distanceToCorner = randomStarPoly centerX cent
 randomRectangle :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Contour
 randomRectangle centerX centerY rawFirstTilt secondTilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
-      -- Workaround: since first and second may be unique, but may not be 0, add them!
+      distances = replicate 4 distanceToCorner
       firstTilt
         | rawFirstTilt == secondTilt = rawFirstTilt + secondTilt
         | otherwise = rawFirstTilt
-      radians :: [Radian ℝ]
-      radians =
-        [
-          firstTilt
-        , secondTilt
-        , flipRadian firstTilt
-        , flipRadian secondTilt
-        ]
-      flipRadian :: Radian ℝ -> Radian ℝ
-      flipRadian v
-        | v < Radian pi = v + Radian pi
-        | otherwise     = v - Radian pi
-      distances = replicate 4 distanceToCorner
+      radians = [firstTilt, secondTilt, flipRadian firstTilt, flipRadian secondTilt]
 
 -- | Generate a random convex four sided polygon, with two right angles.
 randomDualRightQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Contour
 randomDualRightQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
-      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
-      [firstTilt, secondTilt, thirdTilt] = sort $ ensureUnique $ clipRadian <$> sort [rawFirstTilt, rawSecondTilt, rawThirdTilt]
-      ensureUnique :: [Radian ℝ] -> [Radian ℝ]
-      ensureUnique vals
-        | allUnique vals = vals
-        | otherwise = ensureUnique $ sort [v*m | m <- [2,3,5] | v <- vals]
-      radians :: [Radian ℝ]
-      radians =
-        [
-          firstTilt
-        , secondTilt
-        , thirdTilt
-        , flipRadian secondTilt
-        ]
-      flipRadian :: Radian ℝ -> Radian ℝ
-      flipRadian v
-        | v < Radian pi = v + Radian pi
-        | otherwise     = v - Radian pi
-      clipRadian v
-        | v > Radian pi = v - Radian pi
-        | otherwise = v
       distances = replicate 4 distanceToCorner
+      radians = [firstTilt, secondTilt, thirdTilt, flipRadian secondTilt]
+      [firstTilt, secondTilt, thirdTilt] = sort $ ensureUniqueRadian $ clipRadian <$> rawRadians
+      rawRadians = [ rawFirstTilt, rawSecondTilt, rawThirdTilt]
 
 -- | Generate a random convex four sided polygon, with one right angle.
 randomConvexSingleRightQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
 randomConvexSingleRightQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
-      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
-      [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance $ sort [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
-      ensureUniqueDistance :: [Positive ℝ] -> [Positive ℝ]
-      ensureUniqueDistance vals
-        | allUnique vals = vals
-        | otherwise = ensureUniqueDistance $ sort [v*m | m <- [2,3] | v <- vals]
-      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
-      ensureUnique :: [Radian ℝ] -> [Radian ℝ]
-      ensureUnique vals
-        | allUnique vals = vals
-        | otherwise = ensureUnique $ sort [v*m | m <- [2,3,5] | v <- vals]
-      radians = [firstTilt, secondTilt, thirdTilt, fourthTilt]
-      [firstTilt, secondTilt, thirdTilt] = sort $ ensureUnique $ clipRadian <$> rawRadians
-      fourthTilt = flipRadian secondTilt
-      rawRadians :: [Radian ℝ]
-      rawRadians = sort
-        [
-          rawFirstTilt
-        , rawSecondTilt
-        , rawThirdTilt
-        ]
-      flipRadian :: Radian ℝ -> Radian ℝ
-      flipRadian v
-        | v < Radian pi = v + Radian pi
-        | otherwise     = v - Radian pi
-      clipRadian v
-        | v > Radian pi = v - Radian pi
-        | otherwise = v
       distances = firstDistanceToCorner : replicate 3 secondDistanceToCorner
+      [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
+      radians = [firstTilt, secondTilt, thirdTilt, fourthTilt]
+      [firstTilt, secondTilt, thirdTilt] = sort $ ensureUniqueRadian $ clipRadian <$> rawRadians
+      fourthTilt = flipRadian secondTilt
+      rawRadians = [rawFirstTilt, rawSecondTilt, rawThirdTilt]
 
 -- | Generate a random convex four sided polygon, with the property that it can be folded down an axis.
 randomConvexBisectableQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
 randomConvexBisectableQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
-      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
-      [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance $ sort [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
-      ensureUniqueDistance :: [Positive ℝ] -> [Positive ℝ]
-      ensureUniqueDistance vals
-        | allUnique vals = vals
-        | otherwise = ensureUniqueDistance $ sort [v*m | m <- [2,3] | v <- vals]
-      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
-      [firstTilt, secondTilt] = sort $ ensureUnique $ clipRadian <$> sort [rawFirstTilt, rawSecondTilt]
-      ensureUnique :: [Radian ℝ] -> [Radian ℝ]
-      ensureUnique vals
-        | allUnique vals = vals
-        | otherwise = ensureUnique $ sort [v*m | m <- [2,3] | v <- vals]
-      thirdTilt = secondTilt + (secondTilt - firstTilt)
-      radians :: [Radian ℝ]
-      radians =
-        [
-          firstTilt
-        , secondTilt
-        , thirdTilt
-        , flipRadian secondTilt
-        ]
-      flipRadian :: Radian ℝ -> Radian ℝ
-      flipRadian v
-        | v < Radian pi = v + Radian pi
-        | otherwise     = v - Radian pi
-      clipRadian v
-        | v > Radian pi = v - Radian pi
-        | otherwise = v
       distances = [firstDistanceToCorner, secondDistanceToCorner, firstDistanceToCorner, secondDistanceToCorner]
+      radians = [firstTilt, secondTilt, thirdTilt, fourthTilt]
+      [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
+      [firstTilt, secondTilt] = sort $ ensureUniqueRadian $ clipRadian <$> rawRadians
+      thirdTilt = secondTilt + (secondTilt - firstTilt)
+      fourthTilt = flipRadian secondTilt
+      rawRadians = [rawFirstTilt, rawSecondTilt]
 
 -- | Generate a random convex four sided polygon.
-randomConvexQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Positive ℝ -> Contour
-randomConvexQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner rawThirdDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+randomConvexQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Contour
+randomConvexQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt firstDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
-      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
-      [firstDistanceToCorner, secondDistanceToCorner, thirdDistanceToCorner] = sort $ ensureUniqueDistance $ sort [rawFirstDistanceToCorner, rawSecondDistanceToCorner, rawThirdDistanceToCorner]
-      ensureUniqueDistance :: [Positive ℝ] -> [Positive ℝ]
-      ensureUniqueDistance vals
-        | allUnique vals = vals
-        | otherwise = ensureUniqueDistance $ sort [v*m | m <- [2,3,5] | v <- vals]
-      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
-      [firstTilt, secondTilt, thirdTilt] = sort $ ensureUnique $ clipRadian <$> sort [rawFirstTilt, rawSecondTilt, rawThirdTilt]
-      ensureUnique :: [Radian ℝ] -> [Radian ℝ]
-      ensureUnique vals
-        | allUnique vals = vals
-        | otherwise = ensureUnique $ sort [v*m | m <- [2,3,5] | v <- vals]
-      radians :: [Radian ℝ]
-      radians =
-        [
-          firstTilt
-        , secondTilt
-        , thirdTilt
-        , flipRadian secondTilt
-        ]
-      flipRadian :: Radian ℝ -> Radian ℝ
-      flipRadian v
-        | v < Radian pi = v + Radian pi
-        | otherwise     = v - Radian pi
-      clipRadian v
-        | v > Radian pi = v - Radian pi
-        | otherwise = v
-      distances = [firstDistanceToCorner, thirdDistanceToCorner, secondDistanceToCorner, thirdDistanceToCorner]
+      distances = replicate 4 firstDistanceToCorner
+      radians = sort $ [firstTilt, secondTilt, thirdTilt, fourthTilt]
+      [firstTilt, secondTilt, thirdTilt] = ensureUniqueRadian $ clipRadian <$> rawRadians
+      fourthTilt = flipRadian secondTilt
+      rawRadians = [rawFirstTilt, rawSecondTilt, rawThirdTilt]
 
 -- | Generate a concave four sided polygon, with the convex motorcycle impacting the opposing bend (a 'dart' per wikipedia. a chevron, or a ^.)
 -- Note: the center point is always outside of this polygon.
@@ -373,34 +275,33 @@ randomConcaveChevronQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive �
 randomConcaveChevronQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
       distances = [firstDistanceToCorner, secondDistanceToCorner, firstDistanceToCorner, thirdDistanceToCorner]
-      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
-      [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance $ sort [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
-      ensureUniqueDistance :: [Positive ℝ] -> [Positive ℝ]
-      ensureUniqueDistance vals
-        | allUnique vals = vals
-        | otherwise = ensureUniqueDistance $ sort [v*m | m <- [2,3] | v <- vals]
+      [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
       thirdDistanceToCorner = secondDistanceToCorner / 2
-      radians :: [Radian ℝ]
-      radians =
-        [
-          firstTilt
-        , secondTilt
-        , flipRadian firstTilt
-        , secondTilt
-        ]
-      -- Workaround: since first and second may be unique, but may not be 0, multiply them!
-      [firstTilt, secondTilt] = sort $ ensureUnique $ clipRadian <$> sort [rawFirstTilt, rawSecondTilt]
-      ensureUnique :: [Radian ℝ] -> [Radian ℝ]
-      ensureUnique vals
-        | allUnique vals = vals
-        | otherwise = ensureUnique $ sort [v*m | m <- [2,3] | v <- vals]
-      flipRadian :: Radian ℝ -> Radian ℝ
-      flipRadian v
-        | v < Radian pi = v + Radian pi
-        | otherwise     = v - Radian pi
-      clipRadian v
-        | v > Radian pi = v - Radian pi
-        | otherwise = v
+      radians = [firstTilt, secondTilt, flipRadian firstTilt, secondTilt]
+      [firstTilt, secondTilt] = sort $ ensureUniqueRadian $ clipRadian <$> rawRadians
+      rawRadians = [rawFirstTilt, rawSecondTilt]
+
+-- Workaround: since first and second may be unique, but may not be 0, multiply them!
+ensureUniqueDistance :: [Positive ℝ] -> [Positive ℝ]
+ensureUniqueDistance vals
+  | allUnique vals = vals
+  | otherwise = ensureUniqueDistance $ sort [v*m | m <- [2,3,5,8] | v <- vals]
+
+-- Workaround: since first and second may be unique, but may not be 0, multiply them!
+ensureUniqueRadian :: [Radian ℝ] -> [Radian ℝ]
+ensureUniqueRadian vals
+  | allUnique vals = vals
+  | otherwise = ensureUniqueRadian $ sort [v*m | m <- [2,3,5,8] | v <- vals]
+
+flipRadian :: Radian ℝ -> Radian ℝ
+flipRadian v
+  | v < Radian pi = v + Radian pi
+  | otherwise     = v - Radian pi
+
+clipRadian :: Radian ℝ -> Radian ℝ
+clipRadian v
+  | v > Radian pi = v - Radian pi
+  | otherwise = v
 
 -- | generate a random polygon.
 -- Idea stolen from: https://stackoverflow.com/questions/8997099/algorithm-to-generate-random-2d-polygon
