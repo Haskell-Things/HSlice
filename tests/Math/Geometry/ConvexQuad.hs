@@ -55,9 +55,6 @@ import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), randomConvexQuad)
 -- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
 import Graphics.Slicer.Math.Skeleton.Face (Face(Face), facesOf)
 
--- Motorcycle generation.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles)
-
 -- The entry point for getting the straight skeleton of a contour.
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
