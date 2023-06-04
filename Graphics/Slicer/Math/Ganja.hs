@@ -103,7 +103,7 @@ import Graphics.Slicer.Math.PGA (PLine2Err, PPoint2Err, ProjectivePoint, Project
 
 import Graphics.Slicer.Math.Skeleton.Cells (crossoverPointOfDivision, crossoverLinesOfDivision)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), NodeTree(NodeTree), Side(Side), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg)
+import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), MotorcycleCell(MotorcycleCell), NodeTree(NodeTree), Side(Side), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
@@ -244,7 +244,7 @@ instance GanjaAble CellDivide where
           crossoverLines = (\(a,b) -> [a,b]) $ crossoverLinesOfDivision divide
 
 instance GanjaAble RemainingContour where
-  toGanja (RemainingContour (Slist segsDivides _)) varname = (invars, inrefs)
+  toGanja (RemainingContour (Slist allSegs _) inDivide outDivides) varname = (invars, inrefs)
     where
       (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
@@ -252,8 +252,32 @@ instance GanjaAble RemainingContour where
           pairs        = zip allSides allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
           allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
-          allSegs      = concatMap (listFromSlist . fst) segsDivides
-          allDivides   = concatMap snd segsDivides
+          allDivides
+            | isJust inDivide = fromJust inDivide : outDivides
+            | otherwise = outDivides
+
+instance GanjaAble MotorcycleCell where
+  toGanja (MotorcycleCell sides segs motorcycles nodetree) varname = (invars, inrefs)
+    where
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
+        where
+          res          = (\(a,b) -> a (varname <> b)) <$> pairs
+          pairs        = zip (allEdges <> allSegs <> allMotorcycles <> allNodeTrees) allStrings
+          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
+          allEdges     = toGanja <$> (firstLine <> remainingLines)
+          firstLine    = case sides of
+                           (Slist [] _) -> []
+                           (Slist [Side (firstNode,Slist [] _)] _) -> [getFirstLineSeg firstNode]
+                           (Slist [Side (firstNode,otherNodes)] _) -> if getFirstLineSeg firstNode /= getLastLineSeg (last otherNodes)
+                                                                      then [getFirstLineSeg firstNode]
+                                                                      else []
+                           (Slist _ _) -> error "too many sides."
+          remainingLines
+            | isEmpty sides = []
+            | otherwise = concat $ (\(Side (eNode, (Slist moreENodes _))) -> getLastLineSeg <$> eNode : moreENodes) <$>  sides
+          allSegs      = toGanja <$> listFromSlist segs
+          allMotorcycles = toGanja <$> listFromSlist motorcycles
+          allNodeTrees = [toGanja nodetree]
           listFromSlist (Slist a _) = a
 
 instance GanjaAble INode where

@@ -36,6 +36,8 @@ module Graphics.Slicer.Math.Skeleton.Definitions (
   INode(INode),
   INodeSet(INodeSet),
   Motorcycle(Motorcycle),
+  MotorcycleCell(MotorcycleCell),
+  MotorcycleCluster(MotorcycleCluster),
   MotorcycleIntersection(WithENode, WithMotorcycle, WithLineSeg),
   NodeTree(NodeTree),
   RemainingContour(RemainingContour),
@@ -228,11 +230,24 @@ data DividingMotorcycles = DividingMotorcycles { firstMotorcycle :: !Motorcycle,
   deriving stock Show
 
 -- | A concave region of a contour.
-newtype Cell = Cell { _sides :: Slist (Slist LineSeg, Maybe CellDivide)}
+newtype Cell = Cell { _walls :: Slist (Slist LineSeg, Maybe CellDivide)}
   deriving stock Show
 
 -- | The border dividing two cells of a contour.
 data CellDivide = CellDivide { _divMotorcycles :: !DividingMotorcycles, _intersects :: !MotorcycleIntersection }
+  deriving Eq
+  deriving stock Show
+
+-- | A region of a contour. starts out concave.
+-- Note: it is possible for a MotorcycleCell to belong to multiple motorcycle clusters.
+-- FIXME: move floating segments into cellSides.
+data MotorcycleCell = MotorcycleCell { _cellSides :: Slist Side, _floatingSegments :: Slist LineSeg, _cellMotorcycles :: Slist Motorcycle, cellNodeTree :: NodeTree }
+  deriving Eq
+  deriving stock Show
+
+-- | A portion of a contour, containing a set of motorcycles that collide with each other, and every motorcycleCell that touches one of those motorcycles.
+-- Note: it is possible for a MotorcycleCell to belong to multiple motorcycle clusters.
+data MotorcycleCluster = MotorcycleCluster { _cells :: Slist MotorcycleCell, _clusterDivide :: CellDivide }
   deriving Eq
   deriving stock Show
 
@@ -246,9 +261,11 @@ data MotorcycleIntersection =
   deriving stock Show
 
 -- | The part of a contour that remains once we trim a concave section from it.
-newtype RemainingContour = RemainingContour (Slist (Slist LineSeg, [CellDivide]))
+data RemainingContour = RemainingContour { _remainingSegments :: Slist LineSeg, _entryDivide :: Maybe CellDivide, _remainingDivides :: [CellDivide]}
+  deriving Eq
 
 -- | A side, or a sequence of ENodes, in order.
+-- FIXME: the first item in this tuple should be an Either LineSeg ENode, so we can represent a side with no breaks in it.
 newtype Side = Side (ENode, Slist ENode)
   deriving Eq
   deriving stock Show
@@ -263,7 +280,7 @@ makeSide (a:bs) = Side (a, slist bs)
 oneSideOf :: ENodeSet -> Side
 oneSideOf (ENodeSet sides) = SL.head sides
 
--- | The exterior nodes of a whole contour or just a cell of a contour.
+-- | The exterior nodes of a region of a contour.
 newtype ENodeSet = ENodeSet { _eNodeSides :: Slist Side }
   deriving Eq
   deriving stock Show

@@ -55,8 +55,6 @@ deriving instance Eq Cell
 
 deriving instance Show RemainingContour
 
-deriving instance Eq RemainingContour
-
 deriving instance Eq StraightSkeleton
 
 deriving instance Eq Spine

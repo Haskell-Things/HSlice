@@ -83,6 +83,7 @@ justToSomething val = case val of
 
 -- | find a complete NodeTree for the given collection of line segments.
 --   Only works on a sequnce of concave line segments, when there are no holes in the effected area.
+-- FIXME: returns a NodeTree, not a skeleton.
 skeletonOfConcaveRegion :: Slist [LineSeg] -> NodeTree
 skeletonOfConcaveRegion inSegSets
   | not (isLoop inSegSets) && isJust (finalOutOf result) = result

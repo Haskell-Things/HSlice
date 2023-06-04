@@ -18,7 +18,7 @@
 
 module GoldenSpec.Spec (goldenSpec) where
 
-import Prelude (($), error, head, sqrt)
+import Prelude (($), error, head, last, sqrt)
 
 import Data.Maybe (fromMaybe, fromJust)
 
@@ -38,6 +38,8 @@ import Graphics.Slicer.Math.RandomGeometry (cellFrom, justSupported, remainderFr
 
 import Graphics.Slicer.Math.Skeleton.Cells (addNodeTreesAlongDivide, findFirstCellOfContour, findNextCell, findDivisions, getNodeTreeOfCell)
 
+import Graphics.Slicer.Math.Skeleton.MotorcycleCells (allMotorcycleCells)
+
 import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
 
 import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
@@ -48,6 +50,8 @@ goldenSpec = describe "golden tests" $ do
   golden "C0-Cell1-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []
   golden "C0-Cell2" $ cellFrom $ findNextCell $ onlyOne $ fromMaybe (error "Got Nothing") $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []
   golden "C0-Cell2-NodeTree" $ justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []
+  golden "C0-MotorcycleCell1" $ head $ allMotorcycleCells c0 $ fromJust $ crashMotorcycles c0 []
+  golden "C0-MotorcycleCell2" $ last $ allMotorcycleCells c0 $ fromJust $ crashMotorcycles c0 []
   golden "C0-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []
   golden "C0-NodeTree" $ addNodeTreesAlongDivide
       (justSupported (getNodeTreeOfCell (cellFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 [])))

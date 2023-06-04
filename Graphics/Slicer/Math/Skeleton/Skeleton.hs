@@ -20,23 +20,30 @@
 --    a Straight Skeleton of a contour, with a set of sub-contours cut out of it.
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (($), (<>), (<$>), concat, error, fst, null, not, show, snd, otherwise)
+import Prelude (($), (<>), (<=), (||), (==), error, show)
 
-import Data.Either (lefts, rights)
+import Data.Either (Either (Left, Right))
 
-import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromJust, isNothing)
+import Data.Maybe (Maybe(Just, Nothing), fromJust, fromMaybe)
 
-import Slist (slist)
+import Slist.Type (Slist(Slist))
 
-import Graphics.Slicer.Math.Definitions (Contour)
+import Graphics.Slicer.Math.Definitions (Contour, makeLineSeg)
 
---import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
+import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
-import Graphics.Slicer.Math.Skeleton.Cells (addNodeTreesAlongDivide, getNodeTreeOfCell, findFirstCellOfContour, findNextCell, findDivisions)
+import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Cell, RemainingContour, StraightSkeleton(StraightSkeleton), NodeTree, CellDivide)
+import Graphics.Slicer.Math.Lossy (eToPLine2, pToEPoint2)
 
-import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
+import Graphics.Slicer.Math.PGA (Pointable(ePointOf), angleBetween2PL, outOf)
+
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton)
+
+-- Divide a contour into groups of motorcycle cells, based on the motorcycle tree...
+import Graphics.Slicer.Math.Skeleton.MotorcycleCells (findClusters, simplifyCluster)
+
+import Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), crashMotorcycles, lastCrashType)
 
 -- import Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne)
 
@@ -54,45 +61,29 @@ import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
 --        * ...
 findStraightSkeleton :: Contour -> [Contour] -> Maybe StraightSkeleton
 findStraightSkeleton contour holes =
-  let
-    foundCrashTree = crashMotorcycles contour holes
-  in
-    case foundCrashTree of
-      Nothing -> Nothing
-      (Just crashTree) -> if not $ null holes
-                          then Nothing
-                          else Just $ StraightSkeleton (slist [[sumNodeTrees $ intersperseDivides allNodeTrees divisions]]) (slist [])
-        where
-          -- Pair up divides with the nodetree of the cell that has the corresponding opening.
-          intersperseDivides :: [NodeTree] -> [CellDivide] -> [(NodeTree, Maybe CellDivide)]
-          intersperseDivides nodeTrees divides = case (nodeTrees, divides) of
-                                                   ([], _) -> error "impossible"
-                                                   ([a], []) -> [(a, Nothing)]
-                                                   (a:as, b:bs) -> [(a, Just b)] <> intersperseDivides as bs
-                                                   (_:_, _) -> error "uneven matching of NodeTrees and CellDivides"
-          -- recursively merge our nodeTrees until we have just one.
-          sumNodeTrees :: [(NodeTree, Maybe CellDivide)] -> NodeTree
-          sumNodeTrees ins
-            | null $ lefts rawNodeTrees = case ins of
-                                            [] -> error "empty nodeTree"
-                                            [(a, Nothing)] -> a
-                                            ((_, Nothing):_) -> error "impossible?"
-                                            [(_, Just _)] -> error $ show rawNodeTrees <> "\n" <> show divisions <> "\n"
-                                            [(a, Just div1) ,(b, Nothing)] -> addNodeTreesAlongDivide a b div1
-                                            ((a, Just div1):(b, div2):xs) -> addNodeTreesAlongDivide a (sumNodeTrees ((b, div2):xs)) div1
-            | otherwise = error $ "inode crossed divide:\n" <> show rawNodeTrees <> "\n" <> show divisions <> "\n"
-          allNodeTrees = rights rawNodeTrees
-          rawNodeTrees = getNodeTreeOfCell <$> allCellsOfContour contour
-          -- recursively find a list of all of the cells in a given contour.
-          allCellsOfContour :: Contour -> [Cell]
-          allCellsOfContour myContour = firstCell : allCellsOfContour' maybeFirstRemainder
-            where
-              (Just (firstCell,maybeFirstRemainder)) = findFirstCellOfContour myContour divisions
-              allCellsOfContour' :: Maybe [RemainingContour] -> [Cell]
-              allCellsOfContour' maybeRemainders
-                | isNothing maybeRemainders = []
-                | null $ fromJust maybeRemainders = error "was given an empty list of remainders."
-                | otherwise = (fst <$> nextCells) <> concat (allCellsOfContour' <$> (snd <$> nextCells))
-                where
-                  nextCells = catMaybes $ findNextCell <$> fromJust maybeRemainders
-          divisions = findDivisions contour crashTree
+  case crashMotorcycles contour holes of
+    Nothing -> Nothing
+    (Just (CrashTree (Slist [] _) _ _)) -> Just motorcycleCellRes
+    (Just (CrashTree (Slist [_] _) _ _)) -> Just motorcycleCellRes
+    (Just crashTree@(CrashTree (Slist [mcA, mcB] _) _ _)) -> if lastCrashType crashTree == Just HeadOn || intersectionIsBehind mcA || intersectionIsBehind mcB
+                                                             then Just motorcycleCellRes
+                                                             else Nothing
+      where
+        intersectionIsBehind m = angleFound <= ulpVal angleErr
+          where
+            (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf m) (eToPLine2 $ lineSegToIntersection)
+            lineSegToIntersection = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
+            (intersectionPPoint, _) = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf mcA mcB
+    (Just _) -> Nothing
+  where
+    ------------------------------------
+    ----- New Motorcycle Cell Code -----
+    ------------------------------------
+    motorcycleCellRes = case cluster of
+                          (Right skeleton) -> skeleton
+                          (Left [_]) -> case simplifiedCluster of
+                                          (Right skeleton) -> skeleton
+                                          (Left simplerCluster) -> error $ "got a simpler cluster after simplification: " <> show simplerCluster <> "\n"
+                          _ -> error "more than one cluster?"
+    simplifiedCluster = simplifyCluster $ (\(Left [rawCluster]) -> rawCluster) cluster
+    cluster = findClusters contour $ fromJust $ crashMotorcycles contour holes
