@@ -228,34 +228,37 @@ randomRectangle centerX centerY rawFirstTilt secondTilt distanceToCorner = rando
       radians = sort [firstTilt, secondTilt, flipRadian firstTilt, flipRadian secondTilt]
 
 -- | Generate a random convex four sided polygon, with two right angles.
-randomDualRightQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Contour
-randomDualRightQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt distanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+-- FIXME: only supports non-sequential right angles.
+-- FIXME: also only supports bisectable angles, where the line between the non-right angled sides intersects the origin.
+randomDualRightQuad :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
+randomDualRightQuad centerX centerY firstTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
-      distances = replicate 4 distanceToCorner
-      radians = [firstTilt, secondTilt, thirdTilt, flipRadian secondTilt]
-      [firstTilt, secondTilt, thirdTilt] = sort $ ensureUniqueRadian $ clipRadian <$> rawRadians
-      rawRadians = [ rawFirstTilt, rawSecondTilt, rawThirdTilt]
+      distances = [firstDistanceToCorner, secondDistanceToCorner, firstDistanceToCorner, fourthDistanceToCorner]
+      fourthDistanceToCorner = (firstDistanceToCorner * firstDistanceToCorner) / secondDistanceToCorner
+      [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
+      radians = [firstTilt, secondTilt, flipRadian firstTilt, flipRadian secondTilt]
+      secondTilt = firstTilt + (Radian pi/2)
 
 -- | Generate a random convex four sided polygon, with one right angle.
-randomConvexSingleRightQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
-randomConvexSingleRightQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+randomConvexSingleRightQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
+randomConvexSingleRightQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
       distances = replicate 3 secondDistanceToCorner <> [firstDistanceToCorner]
       [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
-      radians = sort [firstTilt, firstTilt+(Radian pi/2), flipRadian firstTilt, flipRadian secondTilt]
-      [firstTilt, secondTilt] = sort $ ensureUniqueRadian $ clipRadian <$> rawRadians
-      rawRadians = [rawFirstTilt, rawSecondTilt]
+      radians = sort [firstTilt, secondTilt, flipRadian firstTilt, flipRadian thirdTilt]
+      [firstTilt, secondTilt, thirdTilt] = sort $ ensureUniqueClippedRadian rawRadians
+      rawRadians = [rawFirstTilt, rawSecondTilt, rawThirdTilt]
 
 -- | Generate a random convex four sided polygon, with the property that it can be folded down an axis.
 randomConvexBisectableQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
 randomConvexBisectableQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
       distances = [firstDistanceToCorner, secondDistanceToCorner, firstDistanceToCorner, secondDistanceToCorner]
-      radians = [firstTilt, secondTilt, thirdTilt, fourthTilt]
       [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
-      [firstTilt, secondTilt] = sort $ ensureUniqueRadian $ clipRadian <$> rawRadians
+      radians = [firstTilt, secondTilt, thirdTilt, fourthTilt]
       thirdTilt = secondTilt + (secondTilt - firstTilt)
       fourthTilt = flipRadian secondTilt
+      [firstTilt, secondTilt] = sort $ ensureUniqueClippedRadian rawRadians
       rawRadians = [rawFirstTilt, rawSecondTilt]
 
 -- | Generate a random convex four sided polygon.
@@ -264,8 +267,8 @@ randomConvexQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt firstDi
     where
       distances = replicate 4 firstDistanceToCorner
       radians = sort $ [firstTilt, secondTilt, thirdTilt, fourthTilt]
-      [firstTilt, secondTilt, thirdTilt] = ensureUniqueRadian $ clipRadian <$> rawRadians
       fourthTilt = flipRadian secondTilt
+      [firstTilt, secondTilt, thirdTilt] = ensureUniqueClippedRadian rawRadians
       rawRadians = [rawFirstTilt, rawSecondTilt, rawThirdTilt]
 
 -- | Generate a concave four sided polygon, with the convex motorcycle impacting the opposing bend (a 'dart' per wikipedia. a chevron, or a ^.)
@@ -277,7 +280,7 @@ randomConcaveChevronQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDist
       [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
       thirdDistanceToCorner = secondDistanceToCorner / 2
       radians = [firstTilt, secondTilt, flipRadian firstTilt, secondTilt]
-      [firstTilt, secondTilt] =  ensureUniqueRadian $ clipRadian <$> rawRadians
+      [firstTilt, secondTilt] = sort $ ensureUniqueClippedRadian rawRadians
       rawRadians = [rawFirstTilt, rawSecondTilt]
 
 -- Workaround: since first and second may be unique, but may not be 0, multiply them!
@@ -291,6 +294,14 @@ ensureUniqueRadian :: [Radian ℝ] -> [Radian ℝ]
 ensureUniqueRadian vals
   | allUnique vals = vals
   | otherwise = ensureUniqueRadian $ sort [v*m | m <- [2,3,5,8] | v <- vals]
+
+-- Workaround: since first and second may be unique, but may not be 0, multiply them!
+ensureUniqueClippedRadian :: [Radian ℝ] -> [Radian ℝ]
+ensureUniqueClippedRadian vals
+  | allUnique res = res
+  | otherwise = ensureUniqueRadian $ sort [v*m | m <- [2,3,5,8] | v <- res]
+  where
+    res = (clipRadian <$> vals)
 
 flipRadian :: Radian ℝ -> Radian ℝ
 flipRadian v

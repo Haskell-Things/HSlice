@@ -64,16 +64,17 @@ unit_SingleRightQuadConvexNoMotorcycles
   | otherwise = error $ "motorcycle found:\n"
                      <> dumpGanjas ([toGanja convexSingleRightQuad] <> (toGanja <$> convexMotorcycles convexSingleRightQuad))
   where
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
     x,y :: ℝ
     x = 0
     y = 0
-    rawFirstTilt, rawSecondTilt :: Radian ℝ
+    rawFirstTilt, rawSecondTilt, rawThirdTilt :: Radian ℝ
     rawFirstTilt = 1.0
     rawSecondTilt = 0.1
+    rawThirdTilt = 2.0
     rawFirstDistanceToCorner, rawSecondDistanceToCorner :: Positive ℝ
-    rawFirstDistanceToCorner = 1.0e-2
-    rawSecondDistanceToCorner = 1.0
+    rawFirstDistanceToCorner = 2.0
+    rawSecondDistanceToCorner = 4.0
 
 unit_SingleRightQuadConvexHasNoStraightSkeleton :: Bool
 unit_SingleRightQuadConvexHasNoStraightSkeleton
@@ -81,13 +82,14 @@ unit_SingleRightQuadConvexHasNoStraightSkeleton
   | otherwise = False
   where
     skeleton = findStraightSkeleton convexSingleRightQuad []
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
     x,y :: ℝ
     x = 0
     y = 0
-    rawFirstTilt, rawSecondTilt :: Radian ℝ
+    rawFirstTilt, rawSecondTilt, rawThirdTilt :: Radian ℝ
     rawFirstTilt = 2.0
     rawSecondTilt = 2.0
+    rawThirdTilt = 3.2
     rawFirstDistanceToCorner, rawSecondDistanceToCorner :: Positive ℝ
     rawFirstDistanceToCorner = 2.0
     rawSecondDistanceToCorner = 4.0
@@ -98,13 +100,14 @@ unit_SingleRightQuadConvexStraightSkeletonBreaks
   | otherwise = False
   where
     skeleton = findStraightSkeleton convexSingleRightQuad []
-    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+    convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
     x,y :: ℝ
     x = 0
     y = 0
-    rawFirstTilt, rawSecondTilt :: Radian ℝ
+    rawFirstTilt, rawSecondTilt, rawThirdTilt :: Radian ℝ
     rawFirstTilt = 3.0
     rawSecondTilt = 3.0
+    rawThirdTilt = 3.0
     rawFirstDistanceToCorner, rawSecondDistanceToCorner :: Positive ℝ
     rawFirstDistanceToCorner = 1.0
     rawSecondDistanceToCorner = 1.0
@@ -142,11 +145,11 @@ convexSingleRightQuadSpec = do
     it "places faces on a convex single right quad in the order the line segments were given" $
       property (expectationFromConvexSingleRightQuad prop_FacesInOrder)
   where
-    boolFromConvexSingleRightQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Bool
-    boolFromConvexSingleRightQuad f x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = f convexSingleRightQuad
+    boolFromConvexSingleRightQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Bool
+    boolFromConvexSingleRightQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = f convexSingleRightQuad
       where
-        convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-    expectationFromConvexSingleRightQuad :: (Contour -> Expectation) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
-    expectationFromConvexSingleRightQuad f x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = f convexSingleRightQuad
+        convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+    expectationFromConvexSingleRightQuad :: (Contour -> Expectation) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+    expectationFromConvexSingleRightQuad f x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = f convexSingleRightQuad
       where
-        convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+        convexSingleRightQuad = randomConvexSingleRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
