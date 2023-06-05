@@ -1,6 +1,6 @@
 {- ORMOLU_DISABLE -}
 {- HSlice.
- - Copyright 2020-2022 Julia Longtin
+ - Copyright 2020-2023 Julia Longtin
  -
  - This program is free software: you can redistribute it and/or modify
  - it under the terms of the GNU Affero General Public License as published by
@@ -19,16 +19,11 @@
 {- tests for the properties of a DualRightQuad, or a four sided figgure with two right angles. -}
 
 module Math.Geometry.DualRightQuad (
-  dualRightQuadSpec
+    dualRightQuadFlakeySpec
+  , dualRightQuadSpec
   ) where
 
-import Prelude (Bool, Show(show), ($), (<), (<>), error, length)
-
--- The Maybe library.
-import Data.Maybe (fromMaybe, Maybe(Nothing))
-
--- Slists, a form of list with a stated size in the structure.
-import Slist (slist)
+import Prelude (Bool, ($), pure)
 
 -- Hspec, for writing specs.
 import Test.Hspec (describe, Spec, it, Expectation)
@@ -40,82 +35,65 @@ import Test.QuickCheck (property, Positive)
 import Graphics.Slicer (ℝ)
 
 -- Our common math functions.
-import Graphics.Slicer.Math.Definitions (lineSegsOfContour)
-
--- Our debugging library, for making the below simpler to read, and drop into command lines.
-import Graphics.Slicer.Math.Ganja (dumpGanjas, toGanja)
+import Graphics.Slicer.Math.Definitions (Contour)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian, edgesOf, generationsOf, nodeTreesOf, oneNodeTreeOf, onlyOneOf, randomDualRightQuad, onlyOneOf)
-
--- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
-import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
-
--- The part of our library that puts faces onto a contour. faces have one exterior side, and a number of internal sides (defined by Arcs).
-import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
+import Graphics.Slicer.Math.RandomGeometry (Radian, randomDualRightQuad)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
-import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
-
--- The entry point for getting the straight skeleton of a contour.
-import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles)
 
 -- Our Utility library, for making these tests easier to read.
-import Math.Util ((-->), (-/>))
+import Math.Util ((-->))
 
-prop_DualRightQuadNoDivides :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_DualRightQuadNoDivides x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = findDivisions dualRightQuad (fromMaybe (errorReport) $ crashMotorcycles dualRightQuad []) --> []
-  where
-    dualRightQuad = randomDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-    errorReport = error $ "failed to generate a motorcycle crash report.\n"
-                        <> dumpGanjas [toGanja dualRightQuad] <> "\n"
+-- Shared tests, between different geometry.
+import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesHaveThreeToFiveSides, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanFourGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
 
-prop_DualRightQuadHasStraightSkeleton :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_DualRightQuadHasStraightSkeleton x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = findStraightSkeleton dualRightQuad [] -/> Nothing
+unit_DualRightQuadNoMotorcycles :: Expectation
+unit_DualRightQuadNoMotorcycles = convexMotorcycles dualRightQuad --> []
   where
-    dualRightQuad = randomDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
+    dualRightQuad = randomDualRightQuad x y rawFirstTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+    x,y :: ℝ
+    x = 0
+    y = 0
+    rawFirstTilt :: Radian ℝ
+    rawFirstTilt = 2.0
+    rawFirstDistanceToCorner, rawSecondDistanceToCorner :: Positive ℝ
+    rawFirstDistanceToCorner = 1.0
+    rawSecondDistanceToCorner = 0.5
 
-prop_DualRightQuadStraightSkeletonHasOneNodeTree :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_DualRightQuadStraightSkeletonHasOneNodeTree x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = nodeTreesOf (findStraightSkeleton dualRightQuad []) --> 1
-  where
-    dualRightQuad = randomDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-
-prop_DualRightQuadNodeTreeHasLessThanFourGenerations :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool
-prop_DualRightQuadNodeTreeHasLessThanFourGenerations x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = generationsOf (oneNodeTreeOf $ fromMaybe (error "No straight skeleton?") $ findStraightSkeleton dualRightQuad []) < 4
-  where
-    dualRightQuad = randomDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-
-prop_DualRightQuadCanPlaceFaces :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_DualRightQuadCanPlaceFaces x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = facesOf (fromMaybe (error $ show dualRightQuad) $ findStraightSkeleton dualRightQuad []) -/> slist []
-  where
-    dualRightQuad = randomDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-
-prop_DualRightQuadHasRightFaceCount :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_DualRightQuadHasRightFaceCount x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = length (facesOf $ fromMaybe (error $ show dualRightQuad) $ findStraightSkeleton dualRightQuad []) --> 4
-  where
-    dualRightQuad = randomDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-
-prop_DualRightQuadFacesInOrder :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Expectation
-prop_DualRightQuadFacesInOrder x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner = edgesOf (orderedFacesOf firstSeg $ fromMaybe (error $ show dualRightQuad) $ findStraightSkeleton dualRightQuad []) --> dualRightQuadAsSegs
-  where
-    dualRightQuad = randomDualRightQuad x y rawFirstTilt rawSecondTilt rawThirdTilt rawDistanceToCorner
-    dualRightQuadAsSegs = lineSegsOfContour dualRightQuad
-    firstSeg = onlyOneOf dualRightQuadAsSegs
+dualRightQuadFlakeySpec :: Spec
+dualRightQuadFlakeySpec = pure ()
 
 dualRightQuadSpec :: Spec
 dualRightQuadSpec = do
   describe "Geometry (Dual Right Quads)" $ do
+    it "finds no convex motorcycles (unit)" $
+      unit_DualRightQuadNoMotorcycles
+    it "finds no convex motorcycles" $
+      property (expectationFromDualRightQuad prop_NoMotorcycles)
     it "finds no divides" $
-      property prop_DualRightQuadNoDivides
+      property (expectationFromDualRightQuad prop_NoDivides)
     it "finds a straight skeleton" $
-      property prop_DualRightQuadHasStraightSkeleton
+      property (expectationFromDualRightQuad prop_HasAStraightSkeleton)
     it "only finds one nodeTree in the straight skeleton" $
-      property prop_DualRightQuadStraightSkeletonHasOneNodeTree
+      property (expectationFromDualRightQuad prop_StraightSkeletonHasOneNodeTree)
     it "finds fewer than four generations in the nodeTree" $
-      property prop_DualRightQuadNodeTreeHasLessThanFourGenerations
+      property (boolFromDualRightQuad prop_NodeTreeHasFewerThanFourGenerations)
     it "can place faces on the straight skeleton" $
-      property prop_DualRightQuadCanPlaceFaces
-    it "finds only four faces for any  dual right quad" $
-      property prop_DualRightQuadHasRightFaceCount
-    it "places faces on a dual right quad in the order the line segments were given" $
-      property prop_DualRightQuadFacesInOrder
+      property (expectationFromDualRightQuad prop_CanPlaceFaces)
+    it "finds only four faces" $
+      property (expectationFromDualRightQuad prop_HasFourFaces)
+    it "faces have between three and five sides" $
+      property (boolFromDualRightQuad prop_FacesHaveThreeToFiveSides)
+    it "places faces in the order the line segments were given" $
+      property (expectationFromDualRightQuad prop_FacesInOrder)
+  where
+    boolFromDualRightQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Bool
+    boolFromDualRightQuad f x y rawFirstTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = f dualRightQuad
+      where
+        dualRightQuad = randomDualRightQuad x y rawFirstTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+    expectationFromDualRightQuad :: (Contour -> Expectation) -> ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Expectation
+    expectationFromDualRightQuad f x y rawFirstTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = f dualRightQuad
+      where
+        dualRightQuad = randomDualRightQuad x y rawFirstTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
