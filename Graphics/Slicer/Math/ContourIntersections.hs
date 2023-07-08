@@ -107,21 +107,15 @@ getMotorcycleContourIntersections m@(Motorcycle (inSeg, outSeg) _ _) c = stripIn
 -- | Get all possible intersections between the motorcycle and the given list of segments.
 -- Filters out the input and output segment of the motorcycle.
 getMotorcycleSegSetIntersections :: Motorcycle -> [LineSeg] -> [(LineSeg, Either Point2 ProjectivePoint)]
-getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _ _) segs = stripInSegOutSeg $ catMaybes $ mapWithNeighbors filterIntersections $ shortCircuit $ zip bufferedLineSegs $ mightIntersect <$> bufferedLineSegs
+getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _ _) segs = stripInSegOutSeg $ catMaybes $ mapWithNeighbors filterIntersections $ mightIntersect <$> bufferLineSegs segs
   where
-    -- since this is a list of segments, we terminate the list with Nothings, so that the saneIntersections pattern matching logic can deal with "there is no neighbor, but i hit a start/end point"
-    bufferedLineSegs :: [Maybe LineSeg]
-    bufferedLineSegs = Nothing : (Just <$> segs) <> [Nothing]
-    mightIntersect :: Maybe LineSeg -> Maybe (Either Intersection PIntersection)
+    -- terminate the list with Nothings, and encapsulate the values with Justs, so that the saneIntersections pattern matching logic can deal with "there is no neighbor, but i hit a start/end point"
+    bufferLineSegs :: [LineSeg] -> [Maybe LineSeg]
+    bufferLineSegs mySegs = Nothing : (Just <$> mySegs) <> [Nothing]
+    mightIntersect :: Maybe LineSeg -> Maybe (LineSeg, (Either Intersection PIntersection))
     mightIntersect maybeSeg = case maybeSeg of
                                 Nothing -> Nothing
-                                (Just seg) -> Just $ outputIntersectsLineSeg m seg
-    shortCircuit :: [(Maybe LineSeg, Maybe (Either Intersection PIntersection))] -> [Maybe (LineSeg, Either Intersection PIntersection)]
-    shortCircuit items = shortCircuitItem <$> items
-      where
-        shortCircuitItem (Nothing, Nothing) = Nothing
-        shortCircuitItem (Just seg, Just intersection) = Just (seg, intersection)
-        shortCircuitItem item = error $ "cannot short circuit item: " <> show item <> "\n"
+                                (Just seg) -> Just (seg, outputIntersectsLineSeg m seg)
     stripInSegOutSeg :: [(LineSeg, Either Point2 ProjectivePoint)] -> [(LineSeg, Either Point2 ProjectivePoint)]
     stripInSegOutSeg = filter fun
       where
@@ -163,10 +157,10 @@ filterAllIntersections (Just (seg1, Left (HitEndPoint   l1 ))) (Just (seg2, Left
     (distance1To2, (_,_, distance1To2Err)) = distance2PP (eToPP $ endPoint seg1, mempty) (eToPP $ startPoint seg2, mempty)
     (distance2To3, (_,_, distance2To3Err)) = distance2PP (eToPP $ startPoint seg2, mempty) (eToPP $ endPoint seg3, mempty)
 -- Only count the first start point, when intersecting with lines going in one direction..
-filterAllIntersections  _                                     (Just (seg , Left (HitStartPoint _ ))) (Just (_    , Left (HitEndPoint     l1))) = Just (seg, EPoint $ endPoint l1)
+filterAllIntersections  _                                     (Just (seg , Left (HitStartPoint l1))) (Just (_    , Left (HitEndPoint   _   ))) = Just (seg, EPoint $ startPoint l1)
 filterAllIntersections (Just (_ , Left (HitStartPoint  _  ))) (Just (_   , Left (HitEndPoint   _ )))  _                                        = Nothing
 -- Only count the first start point, when intersecting with lines going in the other direction..
-filterAllIntersections (Just (_ , Left (HitEndPoint    l1 ))) (Just (seg , Left (HitStartPoint _ )))  _                                        = Just (seg, EPoint $ endPoint l1)
+filterAllIntersections (Just (_ , Left (HitEndPoint    _  ))) (Just (seg , Left (HitStartPoint l1)))  _                                        = Just (seg, EPoint $ startPoint l1)
 filterAllIntersections  _                                     (Just (_   , Left (HitEndPoint   _ ))) (Just (_    , Left (HitStartPoint _   ))) = Nothing
 -- Ignore the end and start point that comes before / after a collinear section.
 filterAllIntersections (Just (_, Right PCollinear          )) (Just (_   , Left (HitStartPoint _ )))  _                                        = Nothing
