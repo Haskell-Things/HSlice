@@ -74,7 +74,7 @@ import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), not, null, otherwi
 
 import qualified Prelude as PL (head, last)
 
-import Data.List (filter, sortBy, nub)
+import Data.List (filter, length, nub, sortBy)
 
 import Data.List.NonEmpty (NonEmpty)
 
@@ -326,7 +326,10 @@ getPairs (x:xs) = ((x,) <$> xs) <> getPairs xs
 
 -- | Determine if the given line segment set contains just one loop.
 isLoop :: Slist [LineSeg] -> Bool
-isLoop inSegSets = gapDistance <= ulpVal gapDistanceErr
+isLoop inSegSets@(Slist rawSegSets _)
+  | len inSegSets == 1 && length (PL.head rawSegSets) == 1 = False
+  | startPoint firstSeg == endPoint lastSeg = True
+  | otherwise = gapDistance <= ulpVal gapDistanceErr
   where
     (gapDistance, (_,_, gapDistanceErr)) = distance2PP (eToPP $ endPoint lastSeg, mempty) (eToPP $ startPoint firstSeg, mempty)
     (lastSeg, firstSeg) = case inSegSets of
