@@ -61,7 +61,7 @@ import Slist.Type (Slist(Slist), one)
 
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour, skeletonOfConcaveRegion)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), allINodesOf, ancestorsOf, eNodesOfSide, finalINodeOf, finalOutAndErrOf, getFirstLineSeg, insOf, isLoop, makeINode, oneSideOf)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), INodeSet(INodeSet), NodeTree(NodeTree), RemainingContour(RemainingContour), Motorcycle(Motorcycle), Cell(Cell), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), INode, MotorcycleIntersection(WithLineSeg, WithENode, WithMotorcycle), allINodesOf, ancestorsOf, eNodesOfSide, finalINodeOf, finalOutAndErrOf, getFirstLineSeg, insOf, isLoop, makeINode, makeSide, oneSideOf)
 
 import Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), motorcyclesInDivision, intersectionSameSide, lastCrashType, motorcyclesAreAntiCollinear, motorcycleToENode, motorcycleMightIntersectWith, motorcycleDivisor, motorcycleIntersectsAt)
 
@@ -510,8 +510,8 @@ nodeTreeFromDivision cellDivision@(CellDivide motorcycles target) crossoverIn cr
     (DividingMotorcycles _ (Slist _ _)) -> errorOut
   where
     res = case target of
-            (WithENode eNode) -> makeNodeTree (eNode : (motorcycleToENode <$> motorcyclesInDivision cellDivision)) (Just $ INodeSet mempty $ iNodeOfENodeDivision cellDivision crossoverIn crossoverOut iNodeDirection matchDirection eNode)
-            (WithLineSeg _) -> makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (Just $ INodeSet mempty $ iNodeOfPlainDivision cellDivision crossoverIn crossoverOut iNodeDirection matchDirection)
+            (WithENode eNode) -> makeNodeTree ((\a -> makeSide [a]) <$> (eNode : (motorcycleToENode <$> motorcyclesInDivision cellDivision))) (Just $ INodeSet mempty $ iNodeOfENodeDivision cellDivision crossoverIn crossoverOut iNodeDirection matchDirection eNode)
+            (WithLineSeg _) -> makeNodeTree ((\a -> makeSide [a]) <$> (motorcycleToENode <$> motorcyclesInDivision cellDivision)) (Just $ INodeSet mempty $ iNodeOfPlainDivision cellDivision crossoverIn crossoverOut iNodeDirection matchDirection)
             (WithMotorcycle _) -> error "intersected a motorcycle?"
     errorOut = error "tried to generate NodeTrees from a non-bilateral cellDivide"
 
