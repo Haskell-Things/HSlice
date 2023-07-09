@@ -626,8 +626,8 @@ nodeTreeFromDivision cellDivision@(CellDivide motorcycles target) crossoverIn cr
     (DividingMotorcycles _ (Slist _ _)) -> errorOut
   where
     res = case target of
-            (WithENode eNode) -> makeNodeTree (eNode : (motorcycleToENode <$> motorcyclesInDivision cellDivision)) (Just $ INodeSet mempty $ iNodeOfENodeDivision cellDivision crossoverIn crossoverOut iNodeDirection matchDirection eNode)
-            (WithLineSeg _) -> makeNodeTree (motorcycleToENode <$> motorcyclesInDivision cellDivision) (Just $ INodeSet mempty $ iNodeOfPlainDivision cellDivision crossoverIn crossoverOut iNodeDirection matchDirection)
+            (WithENode eNode) -> makeNodeTree ((\a -> makeSide [a]) <$> (eNode : (motorcycleToENode <$> motorcyclesInDivision cellDivision))) (Just $ INodeSet mempty $ iNodeOfENodeDivision cellDivision crossoverIn crossoverOut iNodeDirection matchDirection eNode)
+            (WithLineSeg _) -> makeNodeTree ((\a -> makeSide [a]) <$> (motorcycleToENode <$> motorcyclesInDivision cellDivision)) (Just $ INodeSet mempty $ iNodeOfPlainDivision cellDivision crossoverIn crossoverOut iNodeDirection matchDirection)
             (WithMotorcycle _) -> error "intersected a motorcycle?"
     errorOut = error "tried to generate NodeTrees from a non-bilateral cellDivide"
 
