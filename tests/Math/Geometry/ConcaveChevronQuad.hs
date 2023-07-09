@@ -95,7 +95,7 @@ unit_ConcaveChevronQuadHasAStraightSkeleton
                 <> show divides <> "\n"
   where
     eNode = (\(WithENode a) -> a) $ landingPointOf contour motorcycle
-    divides = findDivisions contour (fromMaybe (error "no") $ crashMotorcycles contour []) 
+    divides = findDivisions contour (fromMaybe (error "no") $ crashMotorcycles contour [])
     motorcycle = head $ convexMotorcycles contour
     contour = randomConcaveChevronQuad x y tilt1 distance1 distance2
     x,y :: ℝ
@@ -142,7 +142,7 @@ unit_ConcaveChevronQuadNodeTreeHasOneGeneration_2
   where
     res = generationsOf finalNodeTree
     finalNodeTree = oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []
-    firstCell = findFirstCellOfContour contour divisions 
+    firstCell = findFirstCellOfContour contour divisions
     divisions = findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
     motorcycle = head $ convexMotorcycles contour
     contour = randomConcaveChevronQuad x y tilt1 distance1 distance2
@@ -153,7 +153,6 @@ unit_ConcaveChevronQuadNodeTreeHasOneGeneration_2
     distance1,distance2 :: Positive ℝ
     distance1 = 6.0
     distance2 = 1.0e-3
-
 
 unit_ConcaveChevronQuadSample :: Bool
 unit_ConcaveChevronQuadSample = error $ "dumping: \n"
@@ -180,7 +179,7 @@ unit_ConcaveChevronQuadNodeTreeHasOneGeneration_3
   where
     res = generationsOf finalNodeTree
     finalNodeTree = oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []
-    firstCell = findFirstCellOfContour contour divisions 
+    firstCell = findFirstCellOfContour contour divisions
     divisions = findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
     contour = randomConcaveChevronQuad x y tilt1 distance1 distance2
     x,y :: ℝ
@@ -204,7 +203,7 @@ unit_ConcaveChevronQuadCanPlaceFaces
     faces = facesOf skeleton
     skeleton = fromJust $ findStraightSkeleton contour []
     eNode = (\(WithENode a) -> a) $ landingPointOf contour motorcycle
-    divides = findDivisions contour (fromMaybe (error "no") $ crashMotorcycles contour []) 
+    divides = findDivisions contour (fromMaybe (error "no") $ crashMotorcycles contour [])
     motorcycle = head $ convexMotorcycles contour
     contour = randomConcaveChevronQuad x y tilt1 distance1 distance2
     x,y :: ℝ
