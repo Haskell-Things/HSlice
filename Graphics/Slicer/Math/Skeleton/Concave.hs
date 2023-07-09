@@ -91,10 +91,10 @@ skeletonOfConcaveRegion inSegSets
   | isLoop inSegSets && isNothing (finalOutOf result) = result
   | otherwise = error $ "generated illegal nodeTree:" <> show inSegSets <> "\n" <> show (isLoop inSegSets) <> "\n" <> show result <> "\n"
   where
-    result = makeNodeTree initialENodes $ if isJust foundINodes
-                                          then Just $ sortINodesByENodes (isLoop inSegSets) initialENodes inSegSets $ fromJust foundINodes
-                                          else Nothing
-    foundINodes =findINodes inSegSets
+    result = makeNodeTree [makeSide initialENodes] $ if isJust foundINodes
+                                                     then Just $ sortINodesByENodes (isLoop inSegSets) initialENodes inSegSets $ fromJust foundINodes
+                                                     else Nothing
+    foundINodes = findINodes inSegSets
     initialENodes = makeInitialGeneration (isLoop inSegSets) inSegSets
 
 -- | Find a raw set of INodes representing the INodes of the solved NodeTree for this part of a contour.
