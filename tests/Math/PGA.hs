@@ -1748,7 +1748,7 @@ facetSpec = do
       averageNodes c2c3E1 c2c2E1 --> INode (PLine2 (GVec [GVal (-1.0) (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))])
                                            , PLine2Err [] [] mempty mempty mempty ([ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2)), ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))], []))
                                            (PLine2 (GVec [GVal 1.0 (singleton (GEPlus 1)), GVal (-1.0) (singleton (GEPlus 2))])
-                                           , PLine2Err [] [] mempty mempty mempty ([ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2)), ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))],[]))
+                                           , PLine2Err [] [] mempty mempty mempty ([ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2)), ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 1))], []))
                                            (slist [])
                                            (Just (PLine2 (GVec [GVal (-1.414213562373095) (singleton (GEPlus 2))]),
                                                   PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [] mempty mempty mempty mempty))
@@ -1766,9 +1766,9 @@ facetSpec = do
     it "finds the remains from the first cell of our first simple shape." $
       remainderFrom (findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []) -->
       Just [RemainingContour (slist [
-                                      LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))
-                                    , LineSeg (Point2 (-1.0,-1.0)) (Point2 (1.0,-1.0))
-                                    , LineSeg (Point2 (1.0,-1.0)) (Point2 (1.0,1.0))
+                                      LineSeg (Point2 (1.0,-1.0)) (Point2 (1.0,1.0))
+                                    , LineSeg (Point2 (1.0,1.0)) (Point2 (-1.0,1.0))
+                                    , LineSeg (Point2 (-1.0,1.0)) (Point2 (0.0,0.0))
                                     ])
                              (Just (CellDivide (DividingMotorcycles (Motorcycle (LineSeg ( Point2(-1.0,1.0)) (Point2 (0.0,0.0)),LineSeg (Point2 (0.0,0.0)) (Point2 (-1.0,-1.0))) (PLine2 (GVec [GVal (-1.414213562373095) (singleton (GEPlus 2))])) (PLine2Err [ErrVal (UlpSum 2.220446049250313e-16) (singleton (GEPlus 2))] [] mempty mempty mempty mempty)) mempty) (WithLineSeg (LineSeg (Point2 (1.0,-1.0)) (Point2 (1.0,1.0))))))
                              []
