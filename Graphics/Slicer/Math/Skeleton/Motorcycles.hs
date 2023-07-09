@@ -225,7 +225,7 @@ motorcycleMightIntersectWith lineSegs motorcycle
                                                                           then Nothing
                                                                           else Just intersection
                                         a@(_, Left intersectionPoint) -> if intersectionPoint == ePointOf motorcycle
-                                                                         then error $ "caught it here:\n" <> show a <> "\n" <> show intersections <> "\n" 
+                                                                         then error $ "caught it here:\n" <> show a <> "\n" <> show intersections <> "\n"
                                                                          else if intersectionPointIsBehind intersectionPoint
                                                                               then Nothing
                                                                               else Just intersection
