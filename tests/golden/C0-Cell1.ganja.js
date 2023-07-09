@@ -1,12 +1,12 @@
 Algebra(2,0,1,()=>{
   var line = (a,b,c)=>a*1e1 + b*1e2 + c*1e0;
   var point = (x,y)=>!(1e0 + x*1e1 + y*1e2);
-  var aaa = point(1.0,-1.0);
-  var aab = point(1.0,1.0);
-  var aba = point(1.0,1.0);
-  var abb = point(-1.0,1.0);
-  var aca = point(-1.0,1.0);
-  var acb = point(0.0,0.0);
+  var aaa = point(0.0,0.0);
+  var aab = point(-1.0,-1.0);
+  var aba = point(-1.0,-1.0);
+  var abb = point(1.0,-1.0);
+  var aca = point(1.0,-1.0);
+  var acb = point(1.0,1.0);
   var adaaa = point(-1.0,1.0);
   var adaab = point(0.0,0.0);
   var adaba = point(0.0,0.0);

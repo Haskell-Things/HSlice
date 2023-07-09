@@ -34,7 +34,7 @@ import Prelude (Eq, Show)
 
 import Test.Hspec (Expectation, shouldBe, shouldNotBe)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), RemainingContour(RemainingContour), Spine(Spine), StraightSkeleton(StraightSkeleton))
+import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), Spine(Spine), StraightSkeleton(StraightSkeleton))
 
 -- operators for expressions for "result of the left side should evaluate to the right side."
 
@@ -52,8 +52,6 @@ infixr 1 -/>
 
 -- add some instances that are required for testing our types.
 deriving instance Eq Cell
-
-deriving instance Show RemainingContour
 
 deriving instance Eq StraightSkeleton
 

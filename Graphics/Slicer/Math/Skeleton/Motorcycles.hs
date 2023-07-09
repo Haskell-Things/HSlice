@@ -224,11 +224,15 @@ motorcycleMightIntersectWith lineSegs motorcycle
                                         (_, Right intersectionPPoint) -> if intersectionPPointIsBehind intersectionPPoint
                                                                           then Nothing
                                                                           else Just intersection
-                                        (_, Left intersectionPoint) -> if intersectionPointIsBehind intersectionPoint
-                                                                       then Nothing
-                                                                       else Just intersection
+                                        a@(_, Left intersectionPoint) -> if intersectionPoint == ePointOf motorcycle
+                                                                         then error $ "caught it here:\n" <> show a <> "\n" <> show intersections <> "\n" 
+                                                                         else if intersectionPointIsBehind intersectionPoint
+                                                                              then Nothing
+                                                                              else Just intersection
       where
-        intersectionPointIsBehind point = oppositeDirection (outOf motorcycle) (eToPLine2 $ makeLineSeg (ePointOf motorcycle) point)
+        intersectionPointIsBehind point
+          | ePointOf motorcycle == point = error "motorcycle and given point are identical!"
+          | otherwise = oppositeDirection (outOf motorcycle) (eToPLine2 $ makeLineSeg (ePointOf motorcycle) point)
         intersectionPPointIsBehind pPoint = oppositeDirection (outOf motorcycle) (fst $ join2PP (cPPointOf motorcycle) pPoint)
 
 -- | Find the closest place where a motorcycle intersects a contour that is not the point where it ejects from.

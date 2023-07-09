@@ -263,6 +263,7 @@ data MotorcycleIntersection =
 -- | The part of a contour that remains once we trim a concave section from it.
 data RemainingContour = RemainingContour { _remainingSegments :: Slist LineSeg, _entryDivide :: Maybe CellDivide, _remainingDivides :: [CellDivide]}
   deriving Eq
+  deriving stock Show
 
 -- | A side, or a sequence of ENodes, in order.
 -- FIXME: the first item in this tuple should be an Either LineSeg ENode, so we can represent a side with no breaks in it.
