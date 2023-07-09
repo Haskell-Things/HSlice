@@ -268,15 +268,15 @@ randomConvexQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt firstDi
 
 -- | Generate a concave four sided polygon, with the convex motorcycle impacting the opposing bend (a 'dart' per wikipedia. a chevron, or a ^.)
 -- Note: the center point is always outside of this polygon.
-randomConcaveChevronQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
-randomConcaveChevronQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
+randomConcaveChevronQuad :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Positive ℝ -> Contour
+randomConcaveChevronQuad centerX centerY rawFirstTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
       distances = [firstDistanceToCorner, secondDistanceToCorner, firstDistanceToCorner, thirdDistanceToCorner]
       [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
       thirdDistanceToCorner = secondDistanceToCorner / 2
       radians = [firstTilt, secondTilt, flipRadian firstTilt, secondTilt]
-      [firstTilt, secondTilt] = sort $ ensureUniqueClippedRadian rawRadians
-      rawRadians = [rawFirstTilt, rawSecondTilt]
+      secondTilt = clipRadian $ firstTilt + (Radian pi/2)
+      firstTilt = clipRadian rawFirstTilt
 
 -- Workaround: since first and second may be unique, but may not be 0, multiply them!
 ensureUniqueDistance :: [Positive ℝ] -> [Positive ℝ]
