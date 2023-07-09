@@ -47,10 +47,10 @@ import Graphics.Slicer.Math.Definitions (Contour)
 import Graphics.Slicer.Math.Ganja (dumpGanja)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), cellFrom, generationsOf, justSupported, oneNodeTreeOf, onlyOne, randomConcaveChevronQuad, remainderFrom)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), cellFrom, generationsOf, oneNodeTreeOf, onlyOne, randomConcaveChevronQuad, remainderFrom)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
-import Graphics.Slicer.Math.Skeleton.Cells (findDivisions, findFirstCellOfContour, findNextCell, getNodeTreeOfCell)
+import Graphics.Slicer.Math.Skeleton.Cells (findDivisions, findFirstCellOfContour, findNextCell, getRawNodeTreeOfCell)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
@@ -101,8 +101,8 @@ unit_ConcaveChevronQuadNodeTreeHasTwoGenerations
                       <> dumpGanja nodeTreeOfSecondCell <> "\n"
   where
     res = generationsOf $ oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []
-    nodeTreeOfFirstCell = justSupported $ getNodeTreeOfCell $ cellFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
-    nodeTreeOfSecondCell = justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
+    nodeTreeOfFirstCell = getRawNodeTreeOfCell $ cellFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
+    nodeTreeOfSecondCell = getRawNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
     contour = randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
     x,y :: ℝ
     x = 0
@@ -125,7 +125,7 @@ unit_ConcaveChevronQuadNodeTreeHasTwoGenerations_2
     res = generationsOf nodeTree
     nodeTree = oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []
     firstCell = cellFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
-    nodeTreeOfSecondCell = justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
+    nodeTreeOfSecondCell = getRawNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
     contour = randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
     x,y :: ℝ
     x = 0
@@ -149,8 +149,8 @@ unit_ConcaveChevronQuadNodeTreeHasTwoGenerations_3
     res = generationsOf nodeTree
     nodeTree = oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []
     firstCell = cellFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
-    nodeTreeOfFirstCell = justSupported $ getNodeTreeOfCell $ cellFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
-    nodeTreeOfSecondCell = justSupported $ getNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
+    nodeTreeOfFirstCell = getRawNodeTreeOfCell $ cellFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
+    nodeTreeOfSecondCell = getRawNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
     contour = randomConcaveChevronQuad x y tilt1 tilt2 distance1 distance2
     x,y :: ℝ
     x = 0
