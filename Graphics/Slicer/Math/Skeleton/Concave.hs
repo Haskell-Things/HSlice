@@ -34,7 +34,7 @@ import qualified Prelude as PL (head, last, tail, init)
 
 import Data.Maybe( Maybe(Just,Nothing), fromJust, isJust, isNothing, fromMaybe, mapMaybe)
 
-import Data.List (takeWhile, dropWhile, sortBy, nub)
+import Data.List (takeWhile, dropWhile, length, nub, sortBy)
 
 import Data.List.Extra (unsnoc)
 
@@ -85,7 +85,8 @@ justToSomething val = case val of
 --   Only works on a sequnce of concave line segments, when there are no holes in the effected area.
 -- FIXME: returns a NodeTree, not a skeleton.
 skeletonOfConcaveRegion :: Slist [LineSeg] -> NodeTree
-skeletonOfConcaveRegion inSegSets
+skeletonOfConcaveRegion inSegSets@(Slist rawInSegSets _)
+  | len inSegSets == 1 && length (PL.head rawInSegSets) == 1 = error "tried to find INodes in a segment set with only one segment!"
   | not (isLoop inSegSets) && isJust (finalOutOf result) = result
   | not (isLoop inSegSets) && isNothing (finalOutOf result) && isHallway result = result
   | isLoop inSegSets && isNothing (finalOutOf result) = result
@@ -99,7 +100,8 @@ skeletonOfConcaveRegion inSegSets
 
 -- | Find a raw set of INodes representing the INodes of the solved NodeTree for this part of a contour.
 findINodes :: Slist [LineSeg] -> Maybe INodeSet
-findINodes inSegSets
+findINodes inSegSets@(Slist rawInSegSets _)
+  | len inSegSets == 1 && length (PL.head rawInSegSets) == 1 = error "tried to find INodes in a segment set with only one segment!"
   | len inSegSets == 1 =
       -- One continuous wall without gaps. may gap between the beginning and end of the contour, if this is not a loop.
       -- Just return the output of skeletonOfNodes.
@@ -603,7 +605,11 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
     -- Did this contour start out as a loop?
     contourLooped = isLoop inSegSets
     eNodes = makeInitialGeneration connectedLoop inSegSets
-    errorLen0 = error "we should have not recursed."
+    errorLen0 = error $ "we should have not recursed."
+                     <> show connectedLoop <> "\n"
+                     <> show origSegSets <> "\n"
+                     <> show inSegSets <> "\n"
+                     <> show iNodes <> "\n"
     errorLen1 = Left $ PartialNodes iNodes ("NOMATCH - length 1?\n" <> show eNodes <> "\n" <> show iNodes <> "\n" <> show inSegSets <> "\n")
     --   Handle the the case of two nodes.
     handleTwoNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Either PartialNodes (Maybe INodeSet)
