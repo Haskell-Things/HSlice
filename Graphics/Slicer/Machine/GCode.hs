@@ -28,7 +28,7 @@ module Graphics.Slicer.Machine.GCode (GCode(GCMarkOuterWallStart, GCMarkInnerWal
 
 import GHC.Generics (Generic)
 
-import Prelude (Eq, Int, Rational, Show, ($), zipWith, concat, (<>), show, error, otherwise, (==), length, fst, pi, (/), (*), pure, toRational, fromRational, (+), div, Bool, head, snd, tail)
+import Prelude (Eq, Int, Rational, Show, ($), mempty, null, zipWith, concat, (<>), show, error, otherwise, (==), length, fst, pi, (/), (*), pure, toRational, fromRational, (+), div, Bool, head, snd, tail)
 
 import Data.ByteString (ByteString)
 
@@ -204,10 +204,10 @@ gcodeForContour lh pathWidth feedRate contour = addFeedRate feedRate headRes : t
 
 -- | For each group of lines, generate gcode for the segments, with move commands between them.
 gcodeForInfill :: ℝ -> ℝ -> ℝ -> ℝ -> [[LineSeg]] -> [GCode]
-gcodeForInfill _ _ _ _ [] = []
+gcodeForInfill _ _ _ _ [] = mempty
 gcodeForInfill lh pathWidth infillFeedRate travelFeedRate lineGroups
-  | lineGroups == [] = []
-  | lineGroups == [[]] = []
+  | null lineGroups = mempty
+  | lineGroups == [[]] = mempty
   | otherwise = concat $ renderLineSegGroup headGroup : zipWith (\group1 group2 -> moveBetweenLineSegGroups group1 group2 <> renderLineSegGroup group2) lineGroups tailGroups
   where
     (headGroup, tailGroups) = (head lineGroups, tail lineGroups)
