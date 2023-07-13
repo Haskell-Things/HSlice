@@ -220,7 +220,7 @@ mapWithNeighbors :: (Show a) => (a -> a -> a -> b) -> [a] -> [b]
 mapWithNeighbors f l =
   case l of
     []      -> error "Empty input list"
-    (_:[])  -> error $ "Too short of a list.\n" <> show l <> "\n"
+    [_]     -> error $ "Too short of a list.\n" <> show l <> "\n"
     (fz:zs) -> case unsnoc l of
                  Nothing -> error "Empty input list"
                  (Just ([],_)) -> error $ "too short of a list.\n" <> show l <> "\n"
@@ -235,7 +235,7 @@ mapWithFollower :: (Show a) => (a -> a -> b) -> [a] -> [b]
 mapWithFollower f l =
   case l of
     []      -> error "Empty input list."
-    (_:[])  -> error $ "too short of a list.\n" <> show l <> "\n"
+    [_]     -> error $ "too short of a list.\n" <> show l <> "\n"
     (fz:zs) -> withStrategy (parList rpar) $ z `pseq` PL.zipWith f l z
       where
         z = zs <> [fz]

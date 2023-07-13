@@ -803,7 +803,7 @@ infixl 9 ⋅+
 (⋅+) v1 v2 = (vec
               , (likeMulErrs, reduceMulErrs, likeAddErrs, reduceAddErrs, vecAddErrs))
   where
-    vecAddErrs = P.filter (/= mempty) $ vecAddErrsRaw
+    vecAddErrs = P.filter (/= mempty) vecAddErrsRaw
     (vec, vecAddErrsRaw) = addVecPairWithErr (GVec reduceVals) (GVec likeVals)
     likeVals = fst <$> likeRes'
     likeAddErrs = P.filter (/= mempty) $ snd <$> likeRes'
