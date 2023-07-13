@@ -45,7 +45,7 @@ module Graphics.Slicer.Math.Contour (
   numPointsOfContour
   ) where
 
-import Prelude ((==), (&&), (||), (>), (<), (*), (/), Int, (+), abs, mempty, otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
+import Prelude ((==), (&&), (||), (>), (<), (*), (/), Int, (+), abs, even, mempty, otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
 
 import Data.List (foldl', head, partition, reverse, sortBy, tail)
 
@@ -277,11 +277,11 @@ innerContourPoint' contour minDistanceMul recurses
   | not (lineSegsIntersect lineSeg $ makeLineSeg (pToEPoint2 perpPoint) outsidePoint) &&
     not (lineSegsIntersect lineSeg $ makeLineSeg (pToEPoint2 otherPoint) outsidePoint) =
     innerContourPoint' contour (minDistanceMul / 2) (recurses+1)
-  | odd numIntersections && not (odd otherIntersections) =
+  | odd numIntersections && even otherIntersections =
     if minDistanceFromSeg > ulpVal perpErr
     then perpPoint
     else error "cannot ensure perp point is on the correct side of contour."
-  | odd otherIntersections && not (odd numIntersections) =
+  | odd otherIntersections && even numIntersections =
       if minDistanceFromSeg > ulpVal otherErr
       then otherPoint
       else error "cannot ensure other point is on the correct side of the contour."
