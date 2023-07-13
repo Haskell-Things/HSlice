@@ -88,18 +88,18 @@ pathTo (NodeTree eNodeSet iNodeSet) direction
       | hasArc target = Just (outAndErrOf target : childPlines, target: endNodes, finalENode)
       | otherwise     = Just (                     childPlines, target: endNodes, finalENode)
       where
-        (childPlines, endNodes, finalENode) = if isJust result
-                                              then returnResult (fromJust result)
-                                              else case iNodeOnThisLevel of
-                                                     (Just res) -> fromMaybe (error "no!") $ pathInner myINodeSet myENodeSet (snd res)
-                                                     Nothing -> case ancestorsOf myINodeSet of
-                                                                  [] -> myError
-                                                                  _  ->  case iNodeOnLowerLevel of
-                                                                           (Just (resINodeSet, resINode)) -> case ancestorsOf resINodeSet of
-                                                                                                               [] -> myError
-                                                                                                               [x] -> fromMaybe (error "nope!") $ pathInner x myENodeSet resINode
-                                                                                                               _ -> error "got nowhere."
-                                                                           Nothing -> myError
+        (childPlines, endNodes, finalENode)
+         | isJust result = returnResult (fromJust result)
+         | otherwise = case iNodeOnThisLevel of
+                         (Just res) -> fromMaybe (error "no!") $ pathInner myINodeSet myENodeSet (snd res)
+                         Nothing -> case ancestorsOf myINodeSet of
+                                      [] -> myError
+                                      _  ->  case iNodeOnLowerLevel of
+                                               (Just (resINodeSet, resINode)) -> case ancestorsOf resINodeSet of
+                                                                                   [] -> myError
+                                                                                   [x] -> fromMaybe (error "nope!") $ pathInner x myENodeSet resINode
+                                                                                   _ -> error "got nowhere."
+                                               Nothing -> myError
           where
             result = findENodeByOutput myENodeSet pLineToFollow
             returnResult eNode = ([outAndErrOf eNode], [], eNode)

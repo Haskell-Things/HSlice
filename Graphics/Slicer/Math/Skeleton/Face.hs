@@ -151,7 +151,7 @@ rotateFaces nodeTree iNode = rTail <> [rHead]
 -- | Get the faces for all of the NodeTree under the given INode.
 -- uses a recursive resolver, and sometimes calls itsself, making it a co-recursive algorithm..
 getFaces :: NodeTree -> INode -> [Face]
-getFaces (NodeTree eNodes iNodeSet) iNode = getFaces' iNodeSet eNodes iNodeSet iNode
+getFaces (NodeTree eNodes iNodeSet) = getFaces' iNodeSet eNodes iNodeSet
 
 -- | Get the faces for all of the NodeTree under the given INode.
 -- May fail, as this is a recursive resolver, which might fail.

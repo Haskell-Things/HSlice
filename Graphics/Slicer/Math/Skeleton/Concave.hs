@@ -242,11 +242,7 @@ findENodesInOrder eNodeSet@(ENodeSet (Slist [_] _)) (INodeSet childGenerations p
                       lastGenWithOnlyMyINode :: [[INode]]
                       lastGenWithOnlyMyINode = case filter (\a -> hasArc a && isCollinear (outAndErrOf a) (myPLine, mempty)) newLastGen of
                                                  [] -> []
-                                                 a -> [[first a]]
-                                                   where
-                                                     first :: [v] -> v
-                                                     first [] = error "found no INode?"
-                                                     first (v:_) = v
+                                                 a -> [[PL.head a]]
               where
                 myENode = fromMaybe (error "could not find ENode?") $ findENodeByOutput eNodeSet myPLine
                 -- Determine if a PLine matches the output of an ENode.
@@ -843,8 +839,8 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
     intersectsInPoint :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> Bool
     intersectsInPoint node1 node2
       | hasArc node1 && hasArc node2 = not (noIntersection (outAndErrOf node1) (outAndErrOf node2))
-                                       && not (dist1 <= ulpVal dist1Err)
-                                       && not (dist2 <= ulpVal dist2Err)
+                                       && (dist1 > ulpVal dist1Err)
+                                       && (dist2 > ulpVal dist2Err)
       | otherwise                    = error $ "cannot intersect a node with no output:\nNode1: " <> show node1 <> "\nNode2: " <> show node2 <> "\nnodes: " <> show iNodes <> "\n"
       where
         (dist1, (_,_, dist1Err)) = distance2PP (intersectionOf (outAndErrOf node1) (outAndErrOf node2)) (cPPointAndErrOf node1)

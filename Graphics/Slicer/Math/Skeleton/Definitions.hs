@@ -21,7 +21,6 @@
 -}
 
 -- Inherit instances when deriving.
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DerivingStrategies #-}
 
 -- So we can section tuples.
@@ -294,7 +293,7 @@ eNodesOfSide (Side (first,Slist more _)) = first : more
 -- nodes are divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation always contains just one node.
 -- Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.
 -- The last generation may not have an outArc in the case of a complete contour.
-data INodeSet = INodeSet { _children :: (Slist [INode]), finalINodeOf :: INode}
+data INodeSet = INodeSet { _children :: Slist [INode], finalINodeOf :: INode}
   deriving Eq
   deriving stock Show
 
@@ -408,8 +407,8 @@ ancestorsOf (INodeSet children _)
                   [] -> error "encountered an empty generation."
                   [a] -> [INodeSet (SL.init children) a]
                   newParents -> case SL.init children of
-                                  (Slist [] 0) -> (INodeSet mempty) <$> newParents
-                                  (Slist [a] 1) -> (maybeWithChildren a) <$> newParents
+                                  (Slist [] 0) -> INodeSet mempty <$> newParents
+                                  (Slist [a] 1) -> maybeWithChildren a <$> newParents
                                   _ -> error "this is still complicated"
   where
     maybeWithChildren :: [INode] -> INode -> INodeSet

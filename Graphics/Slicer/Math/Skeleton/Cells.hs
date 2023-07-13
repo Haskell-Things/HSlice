@@ -19,9 +19,6 @@
 -- for deriving stock.
 {-# LANGUAGE DerivingStrategies #-}
 
--- for making (,thing) a function
-{-# LANGUAGE TupleSections #-}
-
 -- |  This file contains the entry point for the logic and routines required for dividing
 --    a contour into cells.
 module Graphics.Slicer.Math.Skeleton.Cells (
@@ -120,11 +117,11 @@ landingPointOf myContour myMotorcycle =
   case eNodesInPath of
     [] -> WithLineSeg $ fst $ motorcycleIntersectsAt myContour myMotorcycle
     -- Yes, we want the ENodes to be slightly smaller than the line segments. this is to pre
-    [oneNode] -> if intersectionSegment == getFirstLineSeg oneNode || intersectionSegment == getLastLineSeg oneNode
+    [oneNode] -> if intersectionSegment == getFirstLineSeg oneNode ||
+                    intersectionSegment == getLastLineSeg oneNode ||
+                    motorcycleENodeDistance <= motorcycleLineSegDistance
                  then WithENode oneNode
-                 else if motorcycleENodeDistance <= motorcycleLineSegDistance
-                      then WithENode oneNode
-                      else WithLineSeg intersectionSegment
+                 else WithLineSeg intersectionSegment
       where
         intersectionSegment = fst (motorcycleIntersectsAt myContour myMotorcycle)
         motorcycleENodeDistance = rawMotorcycleENodeDistance - ulpVal motENodeDistanceErr
@@ -265,9 +262,9 @@ findRemainder (Cell (Slist [] _)) _ _ = error "not enough"
 findRemainder (Cell (Slist (_:_:_:_) _)) _ _ = error "too much"
 findRemainder (Cell (Slist [(_, Nothing)] _)) _ _ = error "nonsensical"
 findRemainder (Cell segSets) allSegs divides
-  | len allSegs <= length res = dump
+  | null res = error "empty result."
+  | len allSegs <= len res = dump
   | len res /= expectedLength = dump
-  | length res == 0 = error "empty result."
   | len segSets == 1 || len segSets == 2 = RemainingContour res (Just divide) remainingDivides
   | otherwise = error "wtf"
   where
@@ -300,11 +297,9 @@ findRemainder (Cell segSets) allSegs divides
     -- determine whether the motorcycle points toward the beginning of the list of segments, or the end.
     myStartBeforeEnd
       | len segSets == 1 = startBeforeEnd ((\(Slist a _) -> a) firstSegSet) divide
-      | len segSets == 2 = if pointOfFirstMotorcycle divide == startPoint (SL.last firstSegSet)
-                           then True
-                           else if pointOfFirstMotorcycle divide == startPoint (SL.head lastSegSet)
-                                then False
-                                else error "eep!" -- dump
+      | len segSets == 2 && pointOfFirstMotorcycle divide == startPoint (SL.last firstSegSet) = True
+      | len segSets == 2 && pointOfFirstMotorcycle divide == startPoint (SL.head lastSegSet)  = False
+      | len segSets == 2 = error "eep!"
       | otherwise = error "WTF"
     divide
       | len segSets < 3 = divideOfSegSet $ SL.head segSets
@@ -554,7 +549,7 @@ addNodeTreesAlongDivide nodeTree1@(NodeTree _ maybeINodeSet1) nodeTree2@(NodeTre
       | isJust maybeINodeSet =
         case insOf $ finalINodeOf $ fromJust maybeINodeSet of
           [] -> error "unpossible."
-          [_] -> NodeTree eNodes $ if ancestorsOf (fromJust maybeINodeSet) == []
+          [_] -> NodeTree eNodes $ if null $ ancestorsOf (fromJust maybeINodeSet)
                                    then Nothing
                                    else Just $ pruneParent (fromJust maybeINodeSet)
           (_:_) -> NodeTree eNodes $ Just $ INodeSet childGens $ makeINode (insOf $ finalINodeOf $ fromJust maybeINodeSet) (Just myCrossoverLine)
@@ -570,10 +565,10 @@ addNodeTreesAlongDivide nodeTree1@(NodeTree _ maybeINodeSet1) nodeTree2@(NodeTre
           | otherwise = case lastGen of
                           [] -> error "encountered an empty generation."
                           [oneINode] -> INodeSet (init childGens) oneINode
-                          (manyINodes) -> INodeSet (init childGens <> manyINodes `withoutINode` newParent) newParent
+                          manyINodes -> INodeSet (init childGens <> manyINodes `withoutINode` newParent) newParent
           where
             lastGen = SL.last childGens
-            withoutINode iNodes iNode = slist [filter (\a -> a /= iNode) iNodes]
+            withoutINode iNodes iNode = slist [filter (/= iNode) iNodes]
             newParent = DL.head $ filter (\a -> outAndErrOf a == DL.head (insOf parent)) lastGen
     -- when we create an INode for the divide, what direction should the output be?
     iNodeOutDirection
