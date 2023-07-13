@@ -30,7 +30,7 @@ import Prelude (Bool(True), Show(show), ($), (.), (+), (<>), (==), (<$>), all, e
 import Data.Either (rights)
 
 -- The List library.
-import Data.List (concat, transpose)
+import Data.List (concat, concatMap, transpose)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe, fromJust)
@@ -93,10 +93,10 @@ stat_TriangleENodeArcsIntersectAtSamePoint centerX centerY rawRadians rawDists
            <> "Intersections: " <> show intersections <> "\n"
            <> show nodeOutsAndErrs <> "\n"
            <> dumpGanjas ((toGanja <$> eNodes)
-                        <> concat (transpose [(toGanja <$> intersections)
-                                             ,(toGanja . show <$> fuzziness)
-                                             ,(toGanja . show <$> distances)
-                                             , [toGanja $ show retVal]])))
+                        <> concat (transpose [toGanja <$> intersections
+                                             ,toGanja . show <$> fuzziness
+                                             ,toGanja . show <$> distances
+                                             ,[toGanja $ show retVal]])))
            $ liftBool True
   where
     retVal = intersectionsAtSamePoint nodeOutsAndErrs
@@ -135,9 +135,9 @@ prop_HasThreeFaces contour = length (facesOf $ fromMaybe (error $ show contour) 
 
 prop_FacesHaveThreeSides :: Contour -> Bool
 prop_FacesHaveThreeSides contour
-  | res == True = True
+  | res = True
   | otherwise = error $ "Too many arcs found:\n"
-                     <> (concat $ show . arcCount <$> faces) <> "\n"
+                     <> concatMap (show . arcCount) faces <> "\n"
                      <> show skeleton <> "\n"
                      <> show faces <> "\n"
   where
@@ -172,7 +172,7 @@ triangleSpec = do
       property (expectationFromTriangle prop_StraightSkeletonHasOneGeneration)
     it "finds that all of the outArcs of the ENodes intersect at the same point" $
       property (boolFromTriangle prop_ENodeArcsIntersectAtSamePoint)
-    it "finds that all of the outArcs of the ENodes intersect at the same point (unit)" $
+    it "finds that all of the outArcs of the ENodes intersect at the same point (unit)"
       unit_TriangleENodeArcsIntersectAtSamePoint
     it "can place faces on the straight skeleton" $
       property (expectationFromTriangle prop_CanPlaceFaces)

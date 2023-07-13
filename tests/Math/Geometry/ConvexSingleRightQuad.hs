@@ -23,7 +23,7 @@ module Math.Geometry.ConvexSingleRightQuad (
   convexSingleRightQuadSpec
   ) where
 
-import Prelude (Bool(False, True), ($), (<>), (&&), (==), (<$>), error, length, otherwise)
+import Prelude (Bool(False, True), ($), (<>), (&&), (==), (<$>), error, length, null, otherwise)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe, isJust)
@@ -60,7 +60,7 @@ import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_FacesHaveThreeToFiveS
 
 unit_SingleRightQuadConvexNoMotorcycles :: Bool
 unit_SingleRightQuadConvexNoMotorcycles
-  | convexMotorcycles convexSingleRightQuad == [] = True
+  | null (convexMotorcycles convexSingleRightQuad) = True
   | otherwise = error $ "motorcycle found:\n"
                      <> dumpGanjas ([toGanja convexSingleRightQuad] <> (toGanja <$> convexMotorcycles convexSingleRightQuad))
   where
@@ -96,7 +96,7 @@ unit_SingleRightQuadConvexHasNoStraightSkeleton
 
 unit_SingleRightQuadConvexStraightSkeletonBreaks :: Bool
 unit_SingleRightQuadConvexStraightSkeletonBreaks
-  | isJust skeleton && length (facesOf $ fromMaybe (error "whoops!") $ skeleton) == 4  = True
+  | isJust skeleton && length (facesOf $ fromMaybe (error "whoops!") skeleton) == 4  = True
   | otherwise = False
   where
     skeleton = findStraightSkeleton convexSingleRightQuad []
@@ -115,15 +115,15 @@ unit_SingleRightQuadConvexStraightSkeletonBreaks
 convexSingleRightQuadBrokenSpec :: Spec
 convexSingleRightQuadBrokenSpec = do
   describe "geometry (Convex Single Right Quads)" $ do
-    it "finds a straight skeleton(unit)" $
+    it "finds a straight skeleton(unit)"
       unit_SingleRightQuadConvexHasNoStraightSkeleton
-    it "finds a straight skeleton(unit 2)" $
+    it "finds a straight skeleton(unit 2)"
       unit_SingleRightQuadConvexStraightSkeletonBreaks
 
 convexSingleRightQuadSpec :: Spec
 convexSingleRightQuadSpec = do
   describe "Geometry (Single Right Quads, Convex)" $ do
-    it "finds no convex motorcycles (unit)" $
+    it "finds no convex motorcycles (unit)"
       unit_SingleRightQuadConvexNoMotorcycles
     it "finds no convex motorcycles" $
       property (expectationFromConvexSingleRightQuad prop_NoMotorcycles)

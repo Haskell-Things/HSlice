@@ -24,11 +24,11 @@ module Graphics.Slicer.Math.Skeleton.MotorcycleCells (
   simplifyCluster
   ) where
 
-import Prelude (Bool(False, True), ($), (&&), (||), (==), (<=), (<$>), all, error, mempty, not, null, otherwise)
+import Prelude (Bool(False, True), ($), (&&), (||), (==), (<=), all, error, mempty, otherwise, uncurry)
 
 import Data.Either (Either(Left, Right))
 
-import Data.List (concatMap, filter)
+import Data.List (concatMap, elem, filter)
 
 import qualified Data.List as DL (head)
 
@@ -93,7 +93,7 @@ simplifyCluster motorcycleCluster@(MotorcycleCluster cells cellDivide)
     where
       cellDivideIsSimple (CellDivide (DividingMotorcycles _ (Slist _ 0)) _) = True
       cellDivideIsSimple _ = False
-      allCellsCanSimplify = all (== True) $ hasOneMotorcycle <$> cells
+      allCellsCanSimplify = all hasOneMotorcycle cells
       hasOneMotorcycle (MotorcycleCell _ _ cellMotorcycles _) = len cellMotorcycles == 1
       simplifyCellPair :: MotorcycleCell -> MotorcycleCell -> Either MotorcycleCluster StraightSkeleton
       simplifyCellPair cell1@(MotorcycleCell _ _ _ nodeTreeA) cell2@(MotorcycleCell _ _ _ nodeTreeB)
@@ -118,7 +118,7 @@ allMotorcycleCells contour crashTree = firstMotorcycleCell : allMotorcycleCells'
                      Nothing -> []
                      (Just []) -> error "was given an empty list of remainders."
                      (Just [oneRemainder]) -> [oneMotorcycleCellFrom oneRemainder]
-                     (Just (oneRemainder:others)) -> (oneMotorcycleCellFrom oneRemainder) :  concatMap (\a -> allMotorcycleCells' $ Just [a]) others
+                     (Just (oneRemainder:others)) -> oneMotorcycleCellFrom oneRemainder :  concatMap (\a -> allMotorcycleCells' $ Just [a]) others
       where
         oneMotorcycleCellFrom remainder@(RemainingContour _ inDivide _) = MotorcycleCell sidesOfCell mempty motorcyclesOfCell rawNodeTreeOfCell
           where
@@ -140,8 +140,8 @@ motorcyclesAlongEdgeOf _ cellDivide = case cellDivide of
 motorcycleCellsAlongMotorcycle :: Contour -> CrashTree -> Motorcycle -> (MotorcycleCell, MotorcycleCell)
 motorcycleCellsAlongMotorcycle contour crashTree motorcycle = (firstCell, secondCell)
   where
-    (firstCell, secondCell) = DL.head $ filter (\(a,b) -> testCells a b) $ mapWithFollower (\a b -> (a,b)) $ allMotorcycleCells contour crashTree
+    (firstCell, secondCell) = DL.head $ filter (uncurry testCells) $ mapWithFollower (,) $ allMotorcycleCells contour crashTree
     testCells a b = a `hasMotorcycle` motorcycle && b `hasMotorcycle` motorcycle
       where
         hasMotorcycle :: MotorcycleCell -> Motorcycle -> Bool
-        hasMotorcycle (MotorcycleCell _ _ (Slist motorcycles _) _) target = not $ null $ filter (== target) motorcycles
+        hasMotorcycle (MotorcycleCell _ _ (Slist motorcycles _) _) target = target `elem` motorcycles

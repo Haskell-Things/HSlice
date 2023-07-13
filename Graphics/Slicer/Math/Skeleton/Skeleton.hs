@@ -71,7 +71,7 @@ findStraightSkeleton contour holes =
       where
         intersectionIsBehind m = angleFound <= ulpVal angleErr
           where
-            (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf m) (eToPLine2 $ lineSegToIntersection)
+            (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf m) (eToPLine2 lineSegToIntersection)
             lineSegToIntersection = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
             (intersectionPPoint, _) = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf mcA mcB
     (Just _) -> Nothing

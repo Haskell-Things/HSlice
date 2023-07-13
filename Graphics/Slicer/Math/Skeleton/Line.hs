@@ -22,11 +22,11 @@
 -- | Functions for for applying inset line segments to a series of faces, and for adding infill to a face.
 module Graphics.Slicer.Math.Skeleton.Line (insetBy, infiniteInset) where
 
-import Prelude (Integer, (==), all, concat, max, otherwise, (<$>), (<=), (&&), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (*), (-), (.), (<>), (>), (<), min, Bool(True, False), filter, fst, maybe, mempty, null, snd)
+import Prelude (Integer, (==), all, concat, max, otherwise, (<$>), (<=), (&&), (||), ($), (/=), error, (<>), show, (<>), (/), floor, fromIntegral, (*), (-), (.), (<>), (>), (<), min, Bool(True, False), filter, fst, maybe, mempty, null, snd)
 
 import Data.Either (isRight)
 
-import Data.List (dropWhile, intersperse, last, length, nub, sortOn, takeWhile, transpose, uncons)
+import Data.List (concatMap, dropWhile, intercalate, last, length, nub, sortOn, takeWhile, transpose, uncons)
 
 import Data.List.Extra (unsnoc)
 
@@ -66,7 +66,7 @@ import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 insetBy :: ℝ -> Slist Face -> ([Contour], [Face])
 insetBy distanceBetweenSegs faces
   -- no result? no resulting faces.
-  | null (concat lineSegSets) = ([], [])
+  | all null lineSegSets = mempty
   -- if the input contour has so few line segments, that it's impossible to drop a segment,
   -- assume we passed the endpoints of all faces.
   | len faces < 6 && len faces /= length remainingFaces = (contours, [])
@@ -85,7 +85,7 @@ insetBy distanceBetweenSegs faces
 -- FIXME: this should be returning a ContourTree.
 infiniteInset :: ℝ -> Slist Face -> [[LineSeg]]
 infiniteInset distanceBetweenSegs faces
-  | null (concat lineSegSets) = []
+  | all null lineSegSets = mempty
   | length (concat lineSegSets) < 3 = error $ "less than three, but not zero?\n" <> show lineSegSets <> "\n"
   | otherwise = lineSegsOfContour <$> contours
   where
@@ -127,7 +127,7 @@ addLineSegsToFace distanceBetweenSegs insets face
     -- functions that are the same, regardless of number of sides of the ngon we are filling.
     -----------------------------------------------------------------------------------------
     -- | The direction we need to translate our edge in order for it to be going inward.
-    translateDir v         = case eToPLine2 edge `pLineIsLeft` (fst firstArc) of
+    translateDir v         = case eToPLine2 edge `pLineIsLeft` fst firstArc of
                                (Just True) -> (-v)
                                (Just False) -> v
                                Nothing -> error $ "cannot happen: edge and firstArc do not intersect?\n"
@@ -232,12 +232,9 @@ addLineSegsToFace distanceBetweenSegs insets face
                       PCollinear -> error "a constructed line segment cannot be colinear with the midArc"
                       PParallel -> error "a constructed line segment cannot be parallel with the midArc"
                       -- FIXME: this should happen only when we have inset completely, and the edge and midArc are anti-parallel.
-                      PAntiCollinear -> if isAntiParallel (eToPL edge) midArc
+                      PAntiCollinear -> if isAntiParallel (eToPL edge) midArc || edgeDistanceToLastPlacedLineSeg < distanceUntilEnd checkedFace
                                         then Just [makeFaceNoCheck finalSide firstArc midArcs lastArc]
-                                        else -- This code lies for really close together stuff.
-                                          if edgeDistanceToLastPlacedLineSeg < distanceUntilEnd checkedFace
-                                          then Just [makeFaceNoCheck finalSide firstArc midArcs lastArc]
-                                          else Nothing
+                                        else Nothing
 {-
                                           error $ "anticollinear should not have happened.\n"<> "edge: " <> show edge <> "\n"
                                                      <> "distanceBetweenSegs: " <> show distanceBetweenSegs <> "\n"
@@ -268,7 +265,7 @@ addLineSegsToFace distanceBetweenSegs insets face
                                          then noResult
                                          else addLineSegsToFace distanceBetweenSegs subInsets (makeFace 4 finalSide midArc (slist []) lastArc)
     lastPlacedLineSeg = last foundLineSegs
-    lastPlacedLine = eToPL $ lastPlacedLineSeg
+    lastPlacedLine = eToPL lastPlacedLineSeg
     edgeDistanceToLastPlacedLineSeg = max (distance (startPoint edge) (startPoint lastPlacedLineSeg))
                                           (distance (endPoint edge) (endPoint lastPlacedLineSeg))
     midArc = case midArcs of
@@ -362,7 +359,7 @@ reclaimContours lineSegSets = if all isJust reclaimedRings && all isJust cleaned
                                       -- FIXME: separate errors, from situations that should normally return nothing.
                                  else [] -- error $ "failed to clean a contour in rings: " <> show rings <> "\n" <> "input linsSegSets:\n" <> show lineSegSets <> "\n"
   where
-    cleanedContours = cleanContour <$> concat (fromJust <$> reclaimedRings)
+    cleanedContours = cleanContour <$> concatMap fromJust reclaimedRings
     reclaimedRings = reclaimRing <$> rings
     -- The input set of line segments has all of the line segments that cover a face in the same list.
     -- by transposing them, we get lists of rings around the object, rather than covered petals.
@@ -419,7 +416,7 @@ makeFace breadCrumb edge firstArc arcs lastArc = res
       | otherwise = error $ "Tried to generate a degenerate face: "
                          <> show breadCrumb <> "\n"
                          <> show inFace <> "\n"
-                         <> concat (intersperse "\n" $ show <$> intersections) <> "\n"
+                         <> intercalate "\n" (show <$> intersections) <> "\n"
       where
         isIntersection intersection = case intersection of
                                         (IntersectsIn _ _) -> True

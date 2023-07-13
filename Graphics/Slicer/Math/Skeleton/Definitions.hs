@@ -70,7 +70,7 @@ module Graphics.Slicer.Math.Skeleton.Definitions (
   sortedPLines
   ) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), not, null, otherwise, ($), (<$>), (==), (/=), (<=), error, (&&), any, fst, (<>), show, snd, mempty)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), any, elem, not, otherwise, ($), (<$>), (==), (/=), (<=), error, (&&), fst, (<>), show, snd, mempty)
 
 import qualified Prelude as PL (head, last)
 
@@ -422,7 +422,7 @@ allINodesOf (INodeSet (Slist children _) parent) = slist $ children <> [[parent]
 
 -- | Check if an INode has a particular input.
 iNodeHasIn :: INode -> (ProjectiveLine, PLine2Err) -> Bool
-iNodeHasIn iNode outAndErr = not $ null $ filter (== outAndErr) $ insOf iNode
+iNodeHasIn iNode outAndErr = elem outAndErr $ insOf iNode
 
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a ProjectiveLine bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe ProjectiveLine
@@ -443,8 +443,8 @@ sortedPLines = sortBy (\(n1,_) (n2,_) -> if n1 `pLineIsLeft` n2 == Just True the
 indexPLinesTo :: (ProjectiveLine2 a) => (a, PLine2Err) -> [(a, PLine2Err)] -> [(a,PLine2Err)]
 indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesAfterIndex firstPLine pLines
   where
-    pLinesBeforeIndex myFirstPLine = filter (\a -> (fst myFirstPLine) `pLineIsLeft` (fst a) /= Just False)
-    pLinesAfterIndex myFirstPLine = filter (\a -> (fst myFirstPLine) `pLineIsLeft` (fst a) == Just False)
+    pLinesBeforeIndex myFirstPLine = filter (\a -> fst myFirstPLine `pLineIsLeft` fst a /= Just False)
+    pLinesAfterIndex myFirstPLine = filter (\a -> fst myFirstPLine `pLineIsLeft` fst a == Just False)
 
 -- | Find the last PLine of an INode.
 lastInOf :: INode -> (ProjectiveLine, PLine2Err)

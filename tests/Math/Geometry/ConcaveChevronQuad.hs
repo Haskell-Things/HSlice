@@ -244,33 +244,34 @@ unit_ConcaveChevronQuadCanPlaceFaces_2
 
 concaveChevronQuadBrokenSpec :: Spec
 concaveChevronQuadBrokenSpec =
-    it "always fails, dumping a sample" $
+  describe "Concave Chevron Quads" $
+    it "always fails, dumping a sample"
       unit_ConcaveChevronQuadSample
 
 concaveChevronQuadSpec :: Spec
-concaveChevronQuadSpec = do
-  describe "Geometry (Concave Chevron Quads)" $ do
+concaveChevronQuadSpec =
+  describe "Concave Chevron Quads" $ do
     it "finds one motorcycle" $
       property (boolFromConcaveChevronQuad prop_OneMotorcycle)
     it "finds one divide" $
       property (expectationFromConcaveChevronQuad prop_OneDivide)
-    it "finds a straight skeleton (unit)" $
+    it "finds a straight skeleton (unit)"
       unit_ConcaveChevronQuadHasAStraightSkeleton
     it "finds a straight skeleton" $
       property (expectationFromConcaveChevronQuad prop_HasAStraightSkeleton)
     it "only finds one nodetree in the straight skeleton" $
       property (expectationFromConcaveChevronQuad prop_StraightSkeletonHasOneNodeTree)
-    it "generates one generation of INodes (unit)" $
+    it "generates one generation of INodes (unit)"
       unit_ConcaveChevronQuadNodeTreeHasOneGeneration
-    it "generates one generation of INodes (unit 2)" $
+    it "generates one generation of INodes (unit 2)"
       unit_ConcaveChevronQuadNodeTreeHasOneGeneration_2
-    it "generates one generation of INodes (unit 3)" $
+    it "generates one generation of INodes (unit 3)"
       unit_ConcaveChevronQuadNodeTreeHasOneGeneration_3
     it "generates one or two generations of INodes" $
       property (boolFromConcaveChevronQuad prop_NodeTreeHasFewerThanThreeGenerations)
-    it "can place faces on the straight skeleton (unit)" $
+    it "can place faces on the straight skeleton (unit)"
       unit_ConcaveChevronQuadCanPlaceFaces
-    it "can place faces on the straight skeleton (unit 2)" $
+    it "can place faces on the straight skeleton (unit 2)"
       unit_ConcaveChevronQuadCanPlaceFaces_2
     it "can place faces on the straight skeleton" $
       property (expectationFromConcaveChevronQuad prop_CanPlaceFaces)
