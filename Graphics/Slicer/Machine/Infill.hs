@@ -81,7 +81,7 @@ infillConcentricInside :: Contour -> [Contour] -> ℝ -> [[LineSeg]]
 infillConcentricInside contour insideContours lineSpacing
   | null insideContours = case skeleton of
                             (Just s) -> infiniteInset lineSpacing $ facesOf s
-                            (Nothing) -> error $ "failed to find a skeleton when infilling contour:\n" <> show contour
+                            Nothing -> error $ "failed to find a skeleton when infilling contour:\n" <> show contour
   | otherwise = error "cannot have Concentric infill with holes (yet).."
   where
     skeleton = findStraightSkeleton contour insideContours
