@@ -168,7 +168,7 @@ intersectionsAtSamePoint nodeOutsAndErrs
               -- intersections that resulted in a point.
               pointIntersections = rights $ catMaybes intersections
               -- Minor optimization: first check against resErr, then actually use the fuzziness.
-              pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= (ulpVal resErr) * fuzzinessFactor || res < errSum * fuzzinessFactor
+              pairCloseEnough (a1, b1, point1@(c1,_)) (a2, b2, point2@(c2,_)) = res <= ulpVal resErr * fuzzinessFactor || res < errSum * fuzzinessFactor
                 where
                   errSum = ulpVal $ resErr
                                   <> fuzzinessOfP point1
