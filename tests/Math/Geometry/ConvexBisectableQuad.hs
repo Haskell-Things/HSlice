@@ -98,8 +98,8 @@ unit_ConvexBisectableQuadENodeArcsIntersectAtSamePoint = retVal
 -- | Tests that are expected to fail.
 convexBisectableQuadBrokenSpec :: Spec
 convexBisectableQuadBrokenSpec =
-  describe "Convex Bisectable Quads" $ do
-    it "does not find all ENodes intersect at a central point (rectangle-like quad?)" $
+  describe "Convex Bisectable Quads" $
+    it "does not find all ENodes intersect at a central point (rectangle-like quad?)"
       unit_ConvexBisectableQuadENodeArcsIntersectAtSamePoint
 
 -- | Tests that are expected to succeed.
@@ -110,7 +110,7 @@ convexBisectableQuadSpec = do
       property (expectationFromConvexBisectableQuad prop_NoMotorcycles)
     it "finds no divides" $
       property (expectationFromConvexBisectableQuad prop_NoDivides)
-    it "finds no divides (unit)" $
+    it "finds no divides (unit)"
       unit_ConvexBisectableQuadNoDivides
     it "finds a straight skeleton" $
       property (expectationFromConvexBisectableQuad prop_HasAStraightSkeleton)

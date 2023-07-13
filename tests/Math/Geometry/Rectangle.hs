@@ -23,10 +23,10 @@ module Math.Geometry.Rectangle (
   rectangleSpec
   ) where
 
-import Prelude (Bool(False, True), Show(show), ($), (*), (<), (/), (-), (+), (&&), (<>), (==), (||),  (<$>), cos, error, length, min, otherwise, pi, sin)
+import Prelude (Bool(False, True), Show(show), ($), (*), (<), (/), (-), (+), (&&), (<>), (==), (||),  (<$>), cos, error, length, min, null, otherwise, pi, sin)
 
 -- The List library.
-import Data.List (concat, intersperse, sort)
+import Data.List (intercalate, sort)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe)
@@ -80,7 +80,7 @@ unit_HasFourFaces :: Bool
 unit_HasFourFaces
  | length res == 4 = True
  | otherwise = error $ "wrong number of faces: " <> show (length res) <> "\n"
-                    <> concat (intersperse "\n" ((\(Slist a _) -> a) $ show <$> res)) <> "\n"
+                    <> intercalate "\n" ((\(Slist a _) -> a) $ show <$> res) <> "\n"
                     <> show straightSkeleton <> "\n"
   where
     res = facesOf straightSkeleton
@@ -174,10 +174,10 @@ unit_RectangleFacesInsetOfInsetIsSmallerThanRectangle2 = prop_InsetOfInsetIsSmal
 
 prop_RectangleFacesInsetWithoutRemainder :: Contour -> Positive ℝ -> Bool
 prop_RectangleFacesInsetWithoutRemainder contour distanceToCorner
-  | (length insetContours == 0 && length remainingFaces == 0) ||
-    (length insetContours == 0 && length remainingFaces == 4) = True
+  | (null insetContours && null remainingFaces) ||
+    (null insetContours && length remainingFaces == 4) = True
     -- FIXME: these inset contours are so small, they can cause contour containing contour functions to fail.
-  | (length insetContours == 1 && length remainingFaces == 0) ||
+  | (length insetContours == 1 && null remainingFaces) ||
     (length insetContours == 1 && length remainingFaces == 4) = True -- prop_InsetIsSmaller (coerce distanceToCorner) contour
   | otherwise = error $ "fail!\n" <> "numInsetContours: " <> show (length insetContours) <> "\nnumRemainingFaces: " <> show (length remainingFaces) <> "\n" <> show insetContours <> "\n" <> show remainingFaces <> "\n"
   where
@@ -186,9 +186,9 @@ prop_RectangleFacesInsetWithoutRemainder contour distanceToCorner
 rectangleBrokenSpec :: Spec
 rectangleBrokenSpec = do
   describe "Rectangles" $ do
-    it "only generates one, or two generations of INodes" $
+    it "only generates one, or two generations of INodes"
       unit_RectangleNodeTreeHasLessThanThreeGenerations
-    it "sees an inset of a rectangle as being smaller than the source rectangle (unit)" $
+    it "sees an inset of a rectangle as being smaller than the source rectangle (unit)"
       unit_RectangleFacesInsetSmallerThanRectangle
 
 rectangleSpec :: Spec
@@ -210,7 +210,7 @@ rectangleSpec = do
       property (expectationFromRectangle prop_CanPlaceFaces)
     it "only places four faces" $
       property (expectationFromRectangle prop_HasFourFaces)
-    it "only places four faces (unit)" $
+    it "only places four faces (unit)"
       unit_HasFourFaces
     it "faces have between three and five sides" $
       property (boolFromRectangle prop_FacesHaveThreeToFiveSides)
@@ -226,9 +226,9 @@ rectangleSpec = do
       property (boolFromRectangleWithDistance prop_RectangleFacesInsetSmallerThanRectangle)
     it "insets twice, resulting in a smaller rectangle than the generated one" $
       property (boolFromRectangleWithDistance prop_RectangleFacesInsetOfInsetIsSmallerThanRectangle)
-    it "insets twice, resulting in a smaller rectangle than the generated one (unit)" $
+    it "insets twice, resulting in a smaller rectangle than the generated one (unit)"
       unit_RectangleFacesInsetOfInsetIsSmallerThanRectangle
-    it "insets twice, resulting in a smaller rectangle than the generated one (unit 2)" $
+    it "insets twice, resulting in a smaller rectangle than the generated one (unit 2)"
       unit_RectangleFacesInsetOfInsetIsSmallerThanRectangle2
     where
       boolFromRectangle :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool

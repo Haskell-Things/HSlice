@@ -112,7 +112,7 @@ getMotorcycleSegSetIntersections m@(Motorcycle (inSeg, outSeg) _ _) segs = strip
     -- terminate the list with Nothings, and encapsulate the values with Justs, so that the saneIntersections pattern matching logic can deal with "there is no neighbor, but i hit a start/end point"
     bufferLineSegs :: [LineSeg] -> [Maybe LineSeg]
     bufferLineSegs mySegs = Nothing : (Just <$> mySegs) <> [Nothing]
-    mightIntersect :: Maybe LineSeg -> Maybe (LineSeg, (Either Intersection PIntersection))
+    mightIntersect :: Maybe LineSeg -> Maybe (LineSeg, Either Intersection PIntersection)
     mightIntersect maybeSeg = case maybeSeg of
                                 Nothing -> Nothing
                                 (Just seg) -> Just (seg, outputIntersectsLineSeg m seg)

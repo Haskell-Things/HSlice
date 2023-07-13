@@ -68,7 +68,7 @@ dualRightQuadFlakeySpec = pure ()
 dualRightQuadSpec :: Spec
 dualRightQuadSpec = do
   describe "Geometry (Dual Right Quads)" $ do
-    it "finds no convex motorcycles (unit)" $
+    it "finds no convex motorcycles (unit)"
       unit_DualRightQuadNoMotorcycles
     it "finds no convex motorcycles" $
       property (expectationFromDualRightQuad prop_NoMotorcycles)

@@ -270,7 +270,7 @@ distance2PL l1 l2 = crushErr $ distanceBetweenProjectiveLines l1 l2
 -- | Reverse a line. same line, but pointed in the other direction.
 flipProjectiveLine, flipL :: (ProjectiveLine2 a) => a -> a
 -- | Actual implementation.
-flipProjectiveLine line = (consLikeL line) rawRes
+flipProjectiveLine line = consLikeL line rawRes
   where
     rawRes = GVec $ foldl' addValWithoutErr []
              [
@@ -280,7 +280,7 @@ flipProjectiveLine line = (consLikeL line) rawRes
              ]
     (GVec vals) = vecOfL line
 -- | Wrapper.
-flipL l = flipProjectiveLine l
+flipL = flipProjectiveLine
 
 -- | Ensure all of the '0' components exist on a Projective Line.
 forceProjectiveLineBasis, forceBasisOfL :: (ProjectiveLine2 a) => a -> a
@@ -289,7 +289,7 @@ forceProjectiveLineBasis line
   | gnums == Just [singleton (GEZero 1),
                    singleton (GEPlus 1),
                    singleton (GEPlus 2)] = line
-  | otherwise = (consLikeL line) res
+  | otherwise = consLikeL line res
   where
     res = forceBasis [singleton (GEZero 1), singleton (GEPlus 1), singleton (GEPlus 2)] vec
     gnums = case vals of
@@ -297,7 +297,7 @@ forceProjectiveLineBasis line
               _                                 -> Nothing
     vec@(GVec vals) = vecOfL line
 -- | Wrapper.
-forceBasisOfL l = forceProjectiveLineBasis l
+forceBasisOfL = forceProjectiveLineBasis
 
 -- | Determine the amount of translation error when trying to resolve a projective line.
 -- NOTE: A projective line's error varies depending where on that line you are trying to resolve it.
@@ -313,7 +313,7 @@ fuzzinessOfProjectiveLine (line, lineErr) = tUlp <> joinAddTErr <> joinMulTErr <
     joinAddTErr = eValOf mempty (getVal [GEZero 1] joinAddErr)
     (_,normalizeErrRaw) = normalizeL line
 -- | Wrapper.
-fuzzinessOfL l = fuzzinessOfProjectiveLine l
+fuzzinessOfL = fuzzinessOfProjectiveLine
 
 -- | Find out where two lines intersect, returning a projective point, and the error quotents.
 -- Note: This should only be used when you can guarantee the input lines are not collinear, or parallel.
@@ -328,7 +328,7 @@ intersectionOfProjectiveLines line1 line2 = (res, (line1Err, line2Err, resErr))
     (iAngleErr,(_,_,iAngleUnlikeErr,_)) = angleBetweenProjectiveLines line1 line2
 -- | Wrapper.
 {-# INLINABLE intersect2PL #-}
-intersect2PL l1 l2 = intersectionOfProjectiveLines l1 l2
+intersect2PL = intersectionOfProjectiveLines
 
 -- | Find a line between the two given lines.
 -- The position of the found line is determined by the ratio betwenn the two weights supplied.
@@ -356,7 +356,7 @@ projectiveLineBetweenProjectiveLines startLine stopLine weight1 weight2
     (nStopLine, nStopLineErr) = normalizeL stopLine
 -- | Wrapper.
 {-# INLINABLE interpolate2PL #-}
-interpolate2PL p1 p2 = projectiveLineBetweenProjectiveLines p1 p2
+interpolate2PL = projectiveLineBetweenProjectiveLines
 
 -- | A typed meet function. the meeting of two lines is a point.
 -- Kept separate from intersectionOfProjectiveLines for verification reasons.
@@ -403,7 +403,7 @@ normOfProjectiveLine line = (res, resErr)
     rawResUlp = UlpSum (abs $ realToFrac $ doubleUlp rawRes)
     (sqNormOfPLine2, sqNormUlp) = sqNormOfL line
 -- | Wrapper.
-normOfL l = normOfProjectiveLine l
+normOfL = normOfProjectiveLine
 
 -- | Find the squared norm of a given Projective Line.
 squaredNormOfProjectiveLine, sqNormOfL :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
@@ -419,7 +419,7 @@ squaredNormOfProjectiveLine line = (res, ulpTotal)
                + abs (realToFrac $ doubleUlp res)
     (GVec vals) = vecOfL line
 -- | Wrapper.
-sqNormOfL l = squaredNormOfProjectiveLine l
+sqNormOfL = squaredNormOfProjectiveLine
 
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Uses the property that translation of a line is expressed on the GEZero component.
@@ -434,7 +434,7 @@ translateProjectiveLine line d = (PLine2 res, normErr <> PLine2Err resErrs mempt
     tUlp = UlpSum $ abs $ realToFrac $ doubleUlp tAdd
     (norm, normErr) = normOfL line
 -- | Wrapper.
-translateL l d = translateProjectiveLine l d
+translateL = translateProjectiveLine
 
 -----------------------------------------
 --- Projective Line Error Calculation ---
@@ -453,10 +453,10 @@ pLineErrAtPPoint (line, lineErr) errPoint
   | yInterceptExists && yInterceptIsNonZero = yInterceptFuzz
   -- This line passes through the origin (0,0).
   | xInterceptExists && yInterceptExists = if xPos /= 0 && yPos /= 0
-                                           then UlpSum $ (realToFrac $ 1 + sqrt (abs xPos + abs yPos)) * (ulpRaw $ rawXInterceptFuzz <> rawYInterceptFuzz)
+                                           then UlpSum $ realToFrac (1 + sqrt (abs xPos + abs yPos)) * ulpRaw (rawXInterceptFuzz <> rawYInterceptFuzz)
                                            else rawXInterceptFuzz <> rawYInterceptFuzz
-  | xInterceptExists = UlpSum $ (realToFrac $ 1 + abs xPos) * ulpRaw rawXInterceptFuzz
-  | yInterceptExists = UlpSum $ (realToFrac $ 1 + abs yPos) * ulpRaw rawYInterceptFuzz
+  | xInterceptExists = UlpSum $ realToFrac (1 + abs xPos) * ulpRaw rawXInterceptFuzz
+  | yInterceptExists = UlpSum $ realToFrac (1 + abs yPos) * ulpRaw rawYInterceptFuzz
   | otherwise = error "whoops!"
   where
     xInterceptIsNonZero = xInterceptExists
@@ -484,9 +484,9 @@ pLinesWithinErr (pl1, pl1Err) (pl2, pl2Err)
   | x1InterceptExists && x2InterceptExists && signum x1InterceptDistance == signum x2InterceptDistance &&
     y1InterceptExists && y2InterceptExists && signum y1InterceptDistance == signum y2InterceptDistance = (x1BetweenX2 || x2BetweenX1) && (y1BetweenY2 || y2BetweenY1)
   | x1InterceptExists && x2InterceptExists && signum x1InterceptDistance == signum x2InterceptDistance &&
-    not (y1InterceptExists) && not (y2InterceptExists)                                                 = (x1BetweenX2 || x2BetweenX1)
+    not y1InterceptExists && not y2InterceptExists                                                     = x1BetweenX2 || x2BetweenX1
   | y1InterceptExists && y2InterceptExists && signum y1InterceptDistance == signum y2InterceptDistance &&
-    not (x1InterceptExists) && not (x2InterceptExists)                                                 = (y1BetweenY2 || y2BetweenY1)
+    not x1InterceptExists && not x2InterceptExists                                                     = y1BetweenY2 || y2BetweenY1
   | otherwise = False
   where
     x1InterceptExists = isJust (xIntercept line1)
@@ -552,7 +552,7 @@ yIntercept (line, lineErr)
   -- Handle a line that is parallel to the Y axis.
   | isNothing rawY = Nothing
   -- Use Y and T to calculate our answer.
-  | isJust rawT = Just $ (Right yDivRes, yDivErr)
+  | isJust rawT = Just (Right yDivRes, yDivErr)
   -- This line is parallel with the X axis.
   | isNothing rawX = Just (Left line, rawYErr)
   -- We have an X and a Y, but no T component? This line passes directly through the origin.
@@ -604,7 +604,7 @@ angleCosBetweenProjectiveLines line1 line2
     lvec2 = vecOfL $ forceBasisOfL line2
 -- | Wrapper.
 {-# INLINABLE angleCosBetween2PL #-}
-angleCosBetween2PL l1 l2 = angleCosBetweenProjectiveLines l1 l2
+angleCosBetween2PL = angleCosBetweenProjectiveLines
 
 -- | Get the canonicalized intersection of two lines.
 -- NOTE: Returns Nothing when the lines are (anti)parallel.
@@ -620,7 +620,7 @@ canonicalizedIntersectionOfProjectiveLines line1 line2
     (pp1, (l1Err, l2Err, pp1Err)) = intersect2PL line1 line2
 -- | Wrapper.
 {-# INLINABLE canonicalizedIntersectionOf2PL #-}
-canonicalizedIntersectionOf2PL l1 l2 = canonicalizedIntersectionOfProjectiveLines l1 l2
+canonicalizedIntersectionOf2PL = canonicalizedIntersectionOfProjectiveLines
 
 --------------------------------
 --- Projective Point Support ---
@@ -739,7 +739,7 @@ forceProjectivePointBasis point
   | gnums == Just [fromList [GEZero 1, GEPlus 1],
                    fromList [GEZero 1, GEPlus 2],
                    fromList [GEPlus 1, GEPlus 2]] = point
-  | otherwise = (consLikeP point) res
+  | otherwise = consLikeP point res
   where
     res = forceBasis [fromList [GEZero 1, GEPlus 1], fromList [GEZero 1, GEPlus 2], fromList [GEPlus 1, GEPlus 2]] vec
     gnums = case vals of
@@ -747,7 +747,7 @@ forceProjectivePointBasis point
               _                                 -> Nothing
     vec@(GVec vals) = vecOfP point
 -- | Wrapper.
-forceBasisOfP p = forceProjectivePointBasis p
+forceBasisOfP = forceProjectivePointBasis
 
 -- | Find the idealized norm of a projective point (ideal or not).
 idealNormOfProjectivePoint, idealNormOfP :: (ProjectivePoint2 a) => a -> (ℝ, UlpSum)
@@ -770,7 +770,7 @@ idealNormOfProjectivePoint point
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
     (GVec rawVals) = vecOfP point
 -- | Wrapper.
-idealNormOfP p = idealNormOfProjectivePoint p
+idealNormOfP = idealNormOfProjectivePoint
 
 -- | Join two points, returning the line that connects them.
 {-# INLINABLE joinOfProjectivePoints #-}
@@ -793,7 +793,7 @@ joinOfProjectivePoints point1 point2
     (cPoint2, cPoint2Err) = canonicalizeP point2
 -- | Wrapper.
 {-# INLINABLE join2PP #-}
-join2PP p1 p2 = joinOfProjectivePoints p1 p2
+join2PP = joinOfProjectivePoints
 
 -- | Find a point along the line between the two given points.
 -- The position of the found point is determined by the ratio betwenn the two weights supplied.
@@ -820,7 +820,7 @@ projectivePointBetweenProjectivePoints startPoint stopPoint weight1 weight2
     (cStopPoint, cStopPointErr) = canonicalizeP stopPoint
 -- | Wrapper.
 {-# INLINABLE interpolate2PP #-}
-interpolate2PP p1 p2 = projectivePointBetweenProjectivePoints p1 p2
+interpolate2PP = projectivePointBetweenProjectivePoints
 
 -- | Determine if a point is an ideal point.
 projectivePointIsIdeal :: (ProjectivePoint2 a) => a -> Bool
@@ -838,7 +838,7 @@ projectivePointToEuclidianPoint point
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
     (CPPoint2 (GVec vals), resErr) = canonicalizeP point
 -- | Wrapper.
-pToEP p = projectivePointToEuclidianPoint p
+pToEP = projectivePointToEuclidianPoint
 
 ------------------------------------------
 --- Projective Point Error Calculation ---
@@ -864,4 +864,4 @@ fuzzinessOfProjectivePoint (point, pointErr) = UlpSum $ sumTotal * realToFrac (1
     (PPoint2Err (pJoinAddErr, pJoinMulErr) pCanonicalizeErr pAddErr pIn1MulErr pIn2MulErr angleIn (angleUnlikeAddErr,angleUnlikeMulErr)) = cPointErr <> pointErr
     (_, cPointErr) = canonicalizeP point
 -- | Wrapper.
-fuzzinessOfP p = fuzzinessOfProjectivePoint p
+fuzzinessOfP = fuzzinessOfProjectivePoint

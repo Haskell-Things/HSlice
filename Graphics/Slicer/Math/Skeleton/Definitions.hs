@@ -21,7 +21,6 @@
 -}
 
 -- Inherit instances when deriving.
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DerivingStrategies #-}
 
 -- So we can section tuples.
@@ -70,7 +69,7 @@ module Graphics.Slicer.Math.Skeleton.Definitions (
   sortedPLines
   ) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), not, null, otherwise, ($), (<$>), (==), (/=), (<=), error, (&&), any, fst, (<>), show, snd, mempty)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), any, elem, not, otherwise, ($), (<$>), (==), (/=), (<=), error, (&&), fst, (<>), show, snd, mempty)
 
 import qualified Prelude as PL (head, last)
 
@@ -294,7 +293,7 @@ eNodesOfSide (Side (first,Slist more _)) = first : more
 -- nodes are divided into 'generations', where each generation is a set of nodes that (may) result in the next set of nodes. the last generation always contains just one node.
 -- Note that not all of the outArcs in a given generation necessarilly are used in the next generation, but they must all be used by following generations in order for a nodetree to be complete.
 -- The last generation may not have an outArc in the case of a complete contour.
-data INodeSet = INodeSet { _children :: (Slist [INode]), finalINodeOf :: INode}
+data INodeSet = INodeSet { _children :: Slist [INode], finalINodeOf :: INode}
   deriving Eq
   deriving stock Show
 
@@ -408,8 +407,8 @@ ancestorsOf (INodeSet children _)
                   [] -> error "encountered an empty generation."
                   [a] -> [INodeSet (SL.init children) a]
                   newParents -> case SL.init children of
-                                  (Slist [] 0) -> (INodeSet mempty) <$> newParents
-                                  (Slist [a] 1) -> (maybeWithChildren a) <$> newParents
+                                  (Slist [] 0) -> INodeSet mempty <$> newParents
+                                  (Slist [a] 1) -> maybeWithChildren a <$> newParents
                                   _ -> error "this is still complicated"
   where
     maybeWithChildren :: [INode] -> INode -> INodeSet
@@ -422,7 +421,7 @@ allINodesOf (INodeSet (Slist children _) parent) = slist $ children <> [[parent]
 
 -- | Check if an INode has a particular input.
 iNodeHasIn :: INode -> (ProjectiveLine, PLine2Err) -> Bool
-iNodeHasIn iNode outAndErr = not $ null $ filter (== outAndErr) $ insOf iNode
+iNodeHasIn iNode outAndErr = elem outAndErr $ insOf iNode
 
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a ProjectiveLine bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe ProjectiveLine
@@ -443,8 +442,8 @@ sortedPLines = sortBy (\(n1,_) (n2,_) -> if n1 `pLineIsLeft` n2 == Just True the
 indexPLinesTo :: (ProjectiveLine2 a) => (a, PLine2Err) -> [(a, PLine2Err)] -> [(a,PLine2Err)]
 indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesAfterIndex firstPLine pLines
   where
-    pLinesBeforeIndex myFirstPLine = filter (\a -> (fst myFirstPLine) `pLineIsLeft` (fst a) /= Just False)
-    pLinesAfterIndex myFirstPLine = filter (\a -> (fst myFirstPLine) `pLineIsLeft` (fst a) == Just False)
+    pLinesBeforeIndex myFirstPLine = filter (\a -> fst myFirstPLine `pLineIsLeft` fst a /= Just False)
+    pLinesAfterIndex myFirstPLine = filter (\a -> fst myFirstPLine `pLineIsLeft` fst a == Just False)
 
 -- | Find the last PLine of an INode.
 lastInOf :: INode -> (ProjectiveLine, PLine2Err)

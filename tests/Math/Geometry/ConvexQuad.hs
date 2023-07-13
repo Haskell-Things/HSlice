@@ -23,7 +23,10 @@ module Math.Geometry.ConvexQuad (
   convexQuadSpec
   ) where
 
-import Prelude (Bool(True), ($), (.), (<>), (==), (<$>), all, concat, error, otherwise, show)
+import Prelude (Bool(True), ($), (.), (<>), (==), (<$>), all, error, otherwise, show)
+
+-- The List library.
+import Data.List (concatMap)
 
 -- The Maybe library.
 import Data.Maybe (Maybe(Just), fromMaybe)
@@ -66,7 +69,7 @@ unit_ConvexQuadFacesAllWoundLeft :: Bool
 unit_ConvexQuadFacesAllWoundLeft
   | allIsLeft = True
   | otherwise = error $ "miswound face found:\n"
-                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> concatMap (show . faceLefts) faces <> "\n"
                      <> show skeleton <> "\n"
                      <> show faces <> "\n"
                      <> dumpGanjas ([toGanja contour]
@@ -75,7 +78,7 @@ unit_ConvexQuadFacesAllWoundLeft
   where
     allIsLeft = all faceAllIsLeft faces
     faceAllIsLeft face = all (== Just True) $ faceLefts face
-    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ eToPL edge : firstArc : midArcs <> [lastArc]
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
     contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1
@@ -97,7 +100,7 @@ unit_ConvexQuadFacesAllWoundLeft_2 :: Bool
 unit_ConvexQuadFacesAllWoundLeft_2
   | allIsLeft = True
   | otherwise = error $ "miswound face found:\n"
-                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> concatMap (show . faceLefts) faces <> "\n"
                      <> show skeleton <> "\n"
                      <> show faces <> "\n"
                      <> dumpGanjas ([toGanja contour]
@@ -106,7 +109,7 @@ unit_ConvexQuadFacesAllWoundLeft_2
   where
     allIsLeft = all faceAllIsLeft faces
     faceAllIsLeft face = all (== Just True) $ faceLefts face
-    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ eToPL edge : firstArc : midArcs <> [lastArc]
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
     contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1
@@ -128,7 +131,7 @@ unit_ConvexQuadFacesAllWoundLeft_3 :: Bool
 unit_ConvexQuadFacesAllWoundLeft_3
   | allIsLeft = True
   | otherwise = error $ "miswound face found:\n"
-                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> concatMap (show . faceLefts) faces <> "\n"
                      <> show skeleton <> "\n"
                      <> show faces <> "\n"
                      <> dumpGanjas ([toGanja contour]
@@ -137,7 +140,7 @@ unit_ConvexQuadFacesAllWoundLeft_3
   where
     allIsLeft = all faceAllIsLeft faces
     faceAllIsLeft face = all (== Just True) $ faceLefts face
-    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ eToPL edge : firstArc : midArcs <> [lastArc]
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
     contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1
@@ -155,17 +158,17 @@ unit_ConvexQuadFacesAllWoundLeft_4 :: Bool
 unit_ConvexQuadFacesAllWoundLeft_4
   | allIsLeft = True
   | otherwise = error $ "miswound face found:\n"
-                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> concatMap (show . faceLefts) faces <> "\n"
                      <> show skeleton <> "\n"
                      <> show faces <> "\n"
                      <> dumpGanjas ([toGanja contour]
                                     <> (toGanja <$> (\(Slist a _) -> a) faces))
-                     <> dumpGanjas ([toGanja contour, toGanja skeleton])
+                     <> dumpGanjas [toGanja contour, toGanja skeleton]
 
   where
     allIsLeft = all faceAllIsLeft faces
     faceAllIsLeft face = all (== Just True) $ faceLefts face
-    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ eToPL edge : firstArc : midArcs <> [lastArc]
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
     contour = randomConvexQuad x y tilt1 tilt2 tilt3 distance1
@@ -180,8 +183,8 @@ unit_ConvexQuadFacesAllWoundLeft_4
 
 convexQuadBrokenSpec :: Spec
 convexQuadBrokenSpec = do
-  describe "Convex Quads" $ do
-    it "each face is wound to the left (unit)" $
+  describe "Convex Quads" $
+    it "each face is wound to the left (unit)"
       unit_ConvexQuadFacesAllWoundLeft
 
 convexQuadSpec :: Spec
@@ -207,11 +210,11 @@ convexQuadSpec = do
       property (expectationFromConvexQuad prop_FacesInOrder)
     it "each face is wound to the left" $
       property (boolFromConvexQuad prop_FacesAllWoundLeft)
-    it "each face is wound to the left (unit) (2)" $
+    it "each face is wound to the left (unit) (2)"
       unit_ConvexQuadFacesAllWoundLeft_2
-    it "each face is wound to the left (unit) (3)" $
+    it "each face is wound to the left (unit) (3)"
       unit_ConvexQuadFacesAllWoundLeft_3
-    it "each face is wound to the left (unit) (4)" $
+    it "each face is wound to the left (unit) (4)"
       unit_ConvexQuadFacesAllWoundLeft_4
   where
     boolFromConvexQuad :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Positive ℝ -> Bool

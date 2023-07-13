@@ -172,8 +172,8 @@ unit_SquareFacesInsetWithoutRemainder = (length insetContours, length remainingF
 
 squareBrokenSpec :: Spec
 squareBrokenSpec = do
-  describe "Squares" $ do
-    it "finds that all of the outArcs of the ENodes intersect at the same point" $
+  describe "Squares" $
+    it "finds that all of the outArcs of the ENodes intersect at the same point"
       unit_SquareENodeArcsIntersectAtSamePoint
 
 squareSpec :: Spec
@@ -203,15 +203,15 @@ squareSpec = do
       property (boolFromSquare prop_FacesAllWoundLeft)
     it "insets halfway, finding a smaller inset" $
       property (boolFromSquareWithDistance prop_SquareFacesInsetWithRemainder)
-    it "insets halfway, finding a smaller inset(unit)" $
+    it "insets halfway, finding a smaller inset(unit)"
       unit_SquareFacesInsetWithRemainder
-    it "insets a square that is detected by the code as a rectangle(unit)" $
+    it "insets a square that is detected by the code as a rectangle(unit)"
       unit_squareFromRandomSquare
     it "insets halfway then a quarter way again, finding a smaller inset" $
       property (boolFromSquareWithDistance prop_SquareFacesInsetOfInsetWithRemainder)
     it "insets completely, finding 0 remaining faces" $
       property prop_SquareFacesInsetWithoutRemainder
-    it "insets a square that is detected by the code as a rectangle completely, finding 0 remaining faces(unit)" $
+    it "insets a square that is detected by the code as a rectangle completely, finding 0 remaining faces(unit)"
       unit_SquareFacesInsetWithoutRemainder
   where
     boolFromSquare :: (Contour -> Bool) -> ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Bool

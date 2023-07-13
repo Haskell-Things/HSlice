@@ -261,7 +261,7 @@ randomConvexQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian ℝ -> Posi
 randomConvexQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt firstDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
       distances = replicate 4 firstDistanceToCorner
-      radians = sort $ [firstTilt, secondTilt, thirdTilt, fourthTilt]
+      radians = sort [firstTilt, secondTilt, thirdTilt, fourthTilt]
       fourthTilt = flipRadian secondTilt
       [firstTilt, secondTilt, thirdTilt] = ensureUniqueClippedRadian rawRadians
       rawRadians = [rawFirstTilt, rawSecondTilt, rawThirdTilt]
@@ -296,7 +296,7 @@ ensureUniqueClippedRadian vals
   | allUnique res = res
   | otherwise = ensureUniqueRadian $ sort [v*m | m <- [2,3,5,8] | v <- res]
   where
-    res = (clipRadian <$> vals)
+    res = clipRadian <$> vals
 
 flipRadian :: Radian ℝ -> Radian ℝ
 flipRadian v
@@ -319,17 +319,17 @@ randomStarPoly centerX centerY radianDistPairs = fromMaybe dumpError $ maybeFlip
     pointsAroundCenter = (\(distanceFromPoint, angle) -> translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)) <$> radianDistPairs
     centerPPoint       = eToPP $ Point2 (centerX, centerY)
     dumpError          = error $ "failed to flip a contour.\n"
-                               <> (dumpGanjas $ [toGanja contour,
-                                                 toGanja "Center point", toGanja (Point2 (centerX, centerY)),
-                                                 toGanja "perp PLine", toGanja perpPl,
-                                                 toGanja "Other PLine", toGanja otherPl,
-                                                 toGanja "First MidPoint", toGanja midPoint,
-                                                 toGanja "First perpPoint", toGanja perpPoint,
-                                                 toGanja "Second otherPoint", toGanja otherPoint,
-                                                 toGanja "minDistance", toGanja (show minDistance),
-                                                 toGanja "intersection count1", toGanja (show intersectionCount1),
-                                                 toGanja "intersection count2", toGanja (show intersectionCount2)
-                                                ] <> (toGanja . fst . eToPL <$> lineSegsOfContour contour))<> "\n"
+                               <> dumpGanjas ( [toGanja contour,
+                                                toGanja "Center point", toGanja (Point2 (centerX, centerY)),
+                                                toGanja "perp PLine", toGanja perpPl,
+                                                toGanja "Other PLine", toGanja otherPl,
+                                                toGanja "First MidPoint", toGanja midPoint,
+                                                toGanja "First perpPoint", toGanja perpPoint,
+                                                toGanja "Second otherPoint", toGanja otherPoint,
+                                                toGanja "minDistance", toGanja (show minDistance),
+                                                toGanja "intersection count1", toGanja (show intersectionCount1),
+                                                toGanja "intersection count2", toGanja (show intersectionCount2)
+                                               ] <> (toGanja . fst . eToPL <$> lineSegsOfContour contour) ) <> "\n"
                                <> show (getLineContourIntersections (perpPl, pErr) contour) <> "\n"
                                <> show (getLineContourIntersections (otherPl, oErr) contour) <> "\n"
                                <> show (mostPerpPointAndLineSeg contour) <> "\n"
@@ -468,7 +468,7 @@ nodeTreesOf a = error $ "what is this?" <> show a <> "\n"
 oneNodeTreeOf :: StraightSkeleton -> NodeTree
 oneNodeTreeOf (StraightSkeleton (Slist [] _) _) = error "straight skeleton had no nodeTree?"
 oneNodeTreeOf (StraightSkeleton (Slist [[x]] _) _) = x
-oneNodeTreeOf (StraightSkeleton (Slist (_) _) _) = error "too many NodeTrees."
+oneNodeTreeOf (StraightSkeleton (Slist _ _) _) = error "too many NodeTrees."
 
 generationsOf :: NodeTree -> Int
 generationsOf (NodeTree _ maybeINodeSet)

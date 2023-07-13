@@ -151,7 +151,7 @@ rotateFaces nodeTree iNode = rTail <> [rHead]
 -- | Get the faces for all of the NodeTree under the given INode.
 -- uses a recursive resolver, and sometimes calls itsself, making it a co-recursive algorithm..
 getFaces :: NodeTree -> INode -> [Face]
-getFaces (NodeTree eNodes iNodeSet) iNode = getFaces' iNodeSet eNodes iNodeSet iNode
+getFaces (NodeTree eNodes iNodeSet) = getFaces' iNodeSet eNodes iNodeSet
 
 -- | Get the faces for all of the NodeTree under the given INode.
 -- May fail, as this is a recursive resolver, which might fail.
@@ -233,12 +233,11 @@ areaBetween eNodeSet@(ENodeSet (Slist [_] _)) iNodeSet pLine1 pLine2
 --                               <> show midArcs <> "\n"
       | otherwise = fromMaybe errMakingFace $ makeFace firstENode midArcs lastENode
       where
-        midArcs = (mergeWithoutNonIntersecting firstMidArcs lastMidArcs)
-        segment = if getFirstLineSeg firstENode == getLastLineSeg lastENode
-                  then Just $ getFirstLineSeg firstENode
-                  else if getFirstLineSeg lastENode == getLastLineSeg firstENode
-                       then Just $ getFirstLineSeg lastENode
-                       else Nothing
+        midArcs = mergeWithoutNonIntersecting firstMidArcs lastMidArcs
+        segment
+          | getFirstLineSeg firstENode == getLastLineSeg lastENode = Just $ getFirstLineSeg firstENode
+          | getFirstLineSeg lastENode == getLastLineSeg firstENode = Just $ getFirstLineSeg lastENode
+          | otherwise = Nothing
         -- our new error condition
         errMakingFace = error $ "miswound:\n"
                         <> dumpEverything
@@ -254,15 +253,15 @@ areaBetween eNodeSet@(ENodeSet (Slist [_] _)) iNodeSet pLine1 pLine2
                         <> show lastMidArcs <> "\n"
                         <> show lastENode <> "\n"
                         <> show (arcsAreLeft $
-                                 (if isJust segment then [eToPL $ fromJust segment] else []) <>
-                                 ([outAndErrOf firstENode]) <>
-                                 ((\(Slist a _) -> a) $ mergeWithoutNonIntersecting firstMidArcs lastMidArcs) <>
+                                 [eToPL $ fromJust segment | isJust segment] <>
+                                 [outAndErrOf firstENode] <>
+                                 (\(Slist a _) -> a) (mergeWithoutNonIntersecting firstMidArcs lastMidArcs) <>
                                  [outAndErrOf lastENode]) <> "\n"
                         <> show (arcsAreLeft $
-                                 (if isJust segment then [eToPL $ fromJust segment] else []) <>
-                                 ([outAndErrOf firstENode]) <>
+                                 [eToPL $ fromJust segment | isJust segment] <>
+                                 [outAndErrOf firstENode] <>
                                  (flipArc <$> (\(Slist a _) -> a) firstMidArcs) <>
-                                 ((\(Slist a _) -> a) lastMidArcs) <>
+                                 (\(Slist a _) -> a) lastMidArcs <>
                                  [flipArc $ outAndErrOf lastENode]) <> "\n"
 
 -- | Create a Face covering the space between two NodeTrees. like areaBetween, but for two separate NodeTrees.
@@ -358,13 +357,14 @@ makeFace e1 arcs e2
     makeFace' seg firstArc midArcs lastArc
   --  uncomment me when debugging miswound faces that should be convex.
   --  | not $ all (== True) $ catMaybes $ arcsAreLeft $ [eToPL seg] <> [firstArc] <> (\(Slist a _) -> a) midArcs <> [lastArc] = Nothing
-      | otherwise = res
+  --  | otherwise
+      = res
       where
         res = Just $ Face seg firstArc midArcs lastArc
 
 -- | Ensure the list of arcs given all are to the left of each other, such that following them results in a close contour wound to the left.
 arcsAreLeft :: [(ProjectiveLine, PLine2Err)] -> [Maybe Bool]
-arcsAreLeft myArcs = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2) myArcs
+arcsAreLeft = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)
 
 -- | Throw an error if one of the faces has two following arcs that do not have an intersection between them.
 findDegenerates :: Slist Face -> Slist Face

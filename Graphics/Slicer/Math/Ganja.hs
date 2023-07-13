@@ -152,7 +152,7 @@ instance GanjaAble ProjectivePoint where
       (GVec vals) = vecOfP point
 
 instance GanjaAble (ProjectivePoint, PPoint2Err) where
-  toGanja (point, _) varname = toGanja point varname
+  toGanja (point, _) = toGanja point
 
 instance GanjaAble ProjectiveLine where
   toGanja line varname = (
@@ -172,7 +172,7 @@ instance GanjaAble ProjectiveLine where
       (GVec vals) = vecOfL $ fst $ normalizeL line
 
 instance GanjaAble (ProjectiveLine, PLine2Err) where
-  toGanja (line, _) varname = toGanja line varname
+  toGanja (line, _) = toGanja line
 
 instance GanjaAble Contour where
   toGanja contour varname = (invars, inrefs)
@@ -268,13 +268,11 @@ instance GanjaAble MotorcycleCell where
           firstLine    = case sides of
                            (Slist [] _) -> []
                            (Slist [Side (firstNode,Slist [] _)] _) -> [getFirstLineSeg firstNode]
-                           (Slist [Side (firstNode,otherNodes)] _) -> if getFirstLineSeg firstNode /= getLastLineSeg (last otherNodes)
-                                                                      then [getFirstLineSeg firstNode]
-                                                                      else []
+                           (Slist [Side (firstNode,otherNodes)] _) -> [getFirstLineSeg firstNode | getFirstLineSeg firstNode /= getLastLineSeg (last otherNodes)]
                            (Slist _ _) -> error "too many sides."
           remainingLines
             | isEmpty sides = []
-            | otherwise = concat $ (\(Side (eNode, (Slist moreENodes _))) -> getLastLineSeg <$> eNode : moreENodes) <$>  sides
+            | otherwise = concatMap (\(Side (eNode, Slist moreENodes _)) -> getLastLineSeg <$> eNode : moreENodes) sides
           allSegs      = toGanja <$> listFromSlist segs
           allMotorcycles = toGanja <$> listFromSlist motorcycles
           allNodeTrees = [toGanja nodetree]
@@ -287,7 +285,7 @@ instance GanjaAble INode where
         where
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> zip allPLines allStrings
           allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
-          allPLines    = firstPLine:secondPLine:rawMorePLines <> (if hasArc iNode then [outAndErrOf iNode] else [])
+          allPLines    = firstPLine:secondPLine:rawMorePLines <> [outAndErrOf iNode | hasArc iNode]
 
 instance GanjaAble StraightSkeleton where
   toGanja (StraightSkeleton (Slist [[nodetree]] _) _) = toGanja nodetree
@@ -308,13 +306,11 @@ instance GanjaAble NodeTree where
           firstLine    = case sides of
                            (Slist [] _) -> []
                            (Slist [Side (firstNode,Slist [] _)] _) -> [getFirstLineSeg firstNode]
-                           (Slist [Side (firstNode,otherNodes)] _) -> if getFirstLineSeg firstNode /= getLastLineSeg (last otherNodes)
-                                                                      then [getFirstLineSeg firstNode]
-                                                                      else []
+                           (Slist [Side (firstNode,otherNodes)] _) -> [getFirstLineSeg firstNode | getFirstLineSeg firstNode /= getLastLineSeg (last otherNodes)]
                            (Slist _ _) -> error "too many sides."
           remainingLines
             | isEmpty sides = []
-            | otherwise = concat $ (\(Side (eNode, (Slist moreENodes _))) -> getLastLineSeg <$> eNode : moreENodes) <$>  sides
+            | otherwise = concatMap (\(Side (eNode, Slist moreENodes _)) -> getLastLineSeg <$> eNode : moreENodes) sides
           iNodesOf :: INodeSet -> [INode]
           iNodesOf (INodeSet (Slist inodes _) lastINode) = concat inodes <> [lastINode]
 

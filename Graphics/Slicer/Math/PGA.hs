@@ -16,9 +16,6 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
--- For adding Generic and NFData to our types.
-{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
-
 -- For using Rounded flexibly.
 {-# LANGUAGE DataKinds #-}
 
@@ -263,7 +260,7 @@ translateRotatePPoint2WithErr point d rotation = (res, resErr)
     -- Our translation motor, which translates the provided distance along the angled line.
     translator = addVecPairWithoutErr (gaIScaled • angledLineThroughPPoint2) (GVec [GVal 1 (singleton G0)])
     -- A line crossing the provided point, at the provided angle.
-    angledLineThroughPPoint2 = rotator•(vecOfL xLineThroughPPoint2)•reverseGVec rotator
+    angledLineThroughPPoint2 = rotator • vecOfL xLineThroughPPoint2 • reverseGVec rotator
     -- A line along the X axis, crossing the provided point.
     (xLineThroughPPoint2, (nYLineErr, cPointErr, xLineErr)) = perpLineAt yLine point
     -- A line along the Y axis, crossing the origin.
@@ -520,10 +517,10 @@ euclidianToProjectiveLine, eToPL :: LineSeg -> (ProjectiveLine, PLine2Err)
 euclidianToProjectiveLine l = (res, resErr)
   where
     (res, (_, _, resErr)) = join2PP (eToPP $ startPoint l) (eToPP $ endPoint l)
-eToPL l = euclidianToProjectiveLine l
+eToPL = euclidianToProjectiveLine
 
 joinTwoEuclidianPoints, join2EP :: Point2 -> Point2 -> (ProjectiveLine, PLine2Err)
 joinTwoEuclidianPoints p1 p2 = (res, resErr)
   where
     (res, (_, _, resErr)) = join2PP (eToPP p1) (eToPP p2)
-join2EP p1 p2 = joinTwoEuclidianPoints p1 p2
+join2EP = joinTwoEuclidianPoints

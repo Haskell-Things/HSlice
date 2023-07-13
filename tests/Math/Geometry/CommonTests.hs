@@ -36,7 +36,10 @@ module Math.Geometry.CommonTests (
   prop_StraightSkeletonHasOneNodeTree
   ) where
 
-import Prelude (Bool(True), ($), (<), (>), (.), (+), (&&), (<>), (==), (||), (<$>), all, concat, error, fst, head, length, otherwise, show, snd)
+import Prelude (Bool(True), ($), (<), (>), (.), (+), (&&), (<>), (==), (||), (<$>), all, error, fst, head, length, not, null, otherwise, show, snd)
+
+-- The List library.
+import Data.List (concatMap)
 
 -- The Maybe library.
 import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
@@ -104,21 +107,21 @@ prop_FacesAllWoundLeft  :: Contour -> Bool
 prop_FacesAllWoundLeft contour
   | allIsLeft = True
   | otherwise = error $ "miswound face found:\n"
-                     <> (concat $ show . faceLefts <$> faces) <> "\n"
+                     <> concatMap (show . faceLefts) faces <> "\n"
                      <> show skeleton <> "\n"
                      <> show faces <> "\n"
   where
     allIsLeft = all faceAllIsLeft faces
     faceAllIsLeft face = all (== Just True) $ faceLefts face
-    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ (eToPL edge) : firstArc : midArcs <> [lastArc]
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ eToPL edge : firstArc : midArcs <> [lastArc]
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
 
 prop_FacesHaveThreeSides :: Contour -> Bool
 prop_FacesHaveThreeSides contour
-  | res == True = True
+  | res = True
   | otherwise = error $ "Too many arcs found:\n"
-                     <> (concat $ show . arcCount <$> faces) <> "\n"
+                     <> concatMap (show . arcCount) faces <> "\n"
                      <> show skeleton <> "\n"
                      <> show faces <> "\n"
   where
@@ -130,9 +133,9 @@ prop_FacesHaveThreeSides contour
 -- | Ensure all of the faces placed on a contour have between three and five sides.
 prop_FacesHaveThreeToFiveSides :: Contour -> Bool
 prop_FacesHaveThreeToFiveSides contour
-  | res == True = True
+  | res = True
   | otherwise = error $ "Too many arcs found:\n"
-                     <> (concat $ show . arcCount <$> faces) <> "\n"
+                     <> concatMap (show . arcCount) faces <> "\n"
                      <> show skeleton <> "\n"
                      <> show faces <> "\n"
   where
@@ -163,8 +166,8 @@ prop_InsetIsSmaller distance contour
     where
       insetIsSmaller = minIX > minRX && minIY > minRY && maxRX > maxIX && maxRY > maxIY
         where
-          ((Point2 (minRX, minRY)) , (Point2 (maxRX, maxRY))) = minMaxPoints contour
-          ((Point2 (minIX, minIY)) , (Point2 (maxIX, maxIY))) = minMaxPoints insetContour
+          (Point2 (minRX, minRY), Point2 (maxRX, maxRY)) = minMaxPoints contour
+          (Point2 (minIX, minIY), Point2 (maxIX, maxIY)) = minMaxPoints insetContour
       insetContour = head foundContours
       (foundContours, _) = insetBy distance faces
       faces = facesOf $ fromMaybe (error $ "could not get a straight skeleton for: " <> show contour) $ findStraightSkeleton contour []
@@ -173,9 +176,8 @@ prop_InsetIsSmaller distance contour
 prop_InsetOfInsetIsSmaller :: ℝ -> ℝ -> Contour -> Bool
 prop_InsetOfInsetIsSmaller distance1 distance2 contour
   | length foundContours == 1 && contourContainsContour contour foundContour = insetIsSmaller
-  | length foundContours > 0 && contourContainsContour contour foundContour = error $ "wrong number of contours found when shrinking contour: " <> show (length foundContours) <> "\n" <> errorMessage
+  | null foundContours && contourContainsContour contour foundContour = error $ "no contours found when shrinking contour: " <> errorMessage
   | length foundContours == 1 = error $ "smaller contour was not inside of provided contour.\n" <> errorMessage
-  | length foundContours == 0 = error $ "no contour returned!\n" <> errorMessage
   | otherwise = error $ "wtf\n" <> errorMessage
     where
       errorMessage = "Provided contour: " <> show contour <> "\n"
@@ -184,11 +186,11 @@ prop_InsetOfInsetIsSmaller distance1 distance2 contour
                   <> "first inset faces:\n" <> show insetFaces <> "\n"
                   <> "final inset generation:\n" <> show foundContours <> "\n"
                   <> "final inset faces:\n" <> show foundFaces <> "\n"
-                  <> dumpGanjas ([toGanja contour] <> if length insetContours > 0 then [toGanja insetContour] else [])
+                  <> dumpGanjas ([toGanja contour] <> if not (null insetContours) then [toGanja insetContour] else [])
       insetIsSmaller = minIX > minRX && minIY > minRY && maxRX > maxIX && maxRY > maxIY
         where
-          ((Point2 (minRX, minRY)) , (Point2 (maxRX, maxRY))) = minMaxPoints contour
-          ((Point2 (minIX, minIY)) , (Point2 (maxIX, maxIY))) = minMaxPoints foundContour
+          (Point2 (minRX, minRY), Point2 (maxRX, maxRY)) = minMaxPoints contour
+          (Point2 (minIX, minIY), Point2 (maxIX, maxIY)) = minMaxPoints foundContour
       foundContour = head foundContours
       (foundContours, foundFaces) = insetBy distance2 (slist insetFaces)
       insetContour = head insetContours
