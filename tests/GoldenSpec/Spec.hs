@@ -48,6 +48,7 @@ goldenSpec :: Spec
 goldenSpec = describe "golden tests" $ do
   golden "C0-Cell1" $ cellFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []
   golden "C0-Cell1-NodeTree" $ getRawNodeTreeOfCell $ cellFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []
+  golden "C0-Remainder1" $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []
   golden "C0-Cell2" $ cellFrom $ findNextCell $ onlyOne $ fromMaybe (error "Got Nothing") $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c0 []
   golden "C0-Cell2-NodeTree" $ getRawNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []
   golden "C0-MotorcycleCell1" $ head $ allMotorcycleCells c0 $ fromJust $ crashMotorcycles c0 []
@@ -62,15 +63,22 @@ goldenSpec = describe "golden tests" $ do
   golden "C0-Faces-Ordered" $ orderedFacesOf c0l0 (fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])
   golden "C1-Cell1" $ cellFrom $ findFirstCellOfContour c1 $ findDivisions c1 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c1 []
   golden "C1-Cell1-NodeTree" $ getRawNodeTreeOfCell $ cellFrom $ findFirstCellOfContour c1 $ findDivisions c1 $ fromJust $ crashMotorcycles c1 []
+  golden "C1-Remainder1" $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findFirstCellOfContour c1 $ findDivisions c1 $ fromJust $ crashMotorcycles c1 []
+  golden "C1-Cell2" $ cellFrom $ findNextCell $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findFirstCellOfContour c1 $ findDivisions c1 $ fromJust $ crashMotorcycles c1 []
   golden "C1-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c1 []
   golden "C2-Cell1" $ cellFrom $ findFirstCellOfContour c2 $ findDivisions c2 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c2 []
   golden "C2-Cell1-NodeTree" $ getRawNodeTreeOfCell $ cellFrom $ findFirstCellOfContour c2 $ findDivisions c2 $ fromJust $ crashMotorcycles c2 []
+  golden "C2-Remainder1" $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findFirstCellOfContour c2 $ findDivisions c2 $ fromJust $ crashMotorcycles c2 []
   golden "C2-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c2 []
   golden "C3-Cell1" $ cellFrom $ findFirstCellOfContour c3 $ findDivisions c3 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c3 []
+  golden "C3-Remainder1" $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findFirstCellOfContour c3 $ findDivisions c3 $ fromJust $ crashMotorcycles c3 []
   golden "C3-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c3 []
   golden "C4-Cell1" $ cellFrom $ findFirstCellOfContour c4 $ findDivisions c4 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c4 []
+  golden "C4-Remainder1" $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findFirstCellOfContour c4 $ findDivisions c4 $ fromJust $ crashMotorcycles c4 []
+  golden "C4-Cell2" $ cellFrom $ findNextCell $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findFirstCellOfContour c4 $ findDivisions c4 $ fromJust $ crashMotorcycles c4 []
   golden "C4-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c4 []
   golden "C5-Cell1" $ cellFrom $ findFirstCellOfContour c5 $ findDivisions c5 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c5 []
+  golden "C5-Remainder1" $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findFirstCellOfContour c5 $ findDivisions c5 $ fromJust $ crashMotorcycles c5 []
   golden "C5-Cell2" $ cellFrom $ findNextCell $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findFirstCellOfContour c5 $ findDivisions c5 $ fromJust $ crashMotorcycles c5 []
   golden "C5-Divide" $ onlyOne $ findDivisions c5 $ fromJust $ crashMotorcycles c5 []
   golden "C5-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c5 []
@@ -82,11 +90,7 @@ goldenSpec = describe "golden tests" $ do
   golden "C7-Divide1" $ head $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
   golden "C7-Cell2" $ cellFrom $ findNextCell $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
   golden "C7-Remainder2" $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findNextCell $ onlyOne $ fromMaybe (error "no remainder?") $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
---  golden "C7-Cell2-NodeTree" $ getRawNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
---  golden "C7-Cell1_And_Divide_And_Cell2-NodeTree" $ addNodeTreesAlongDivide
---    (justSupported (getNodeTreeOfCell (cellFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 [])))
---    (justSupported (getNodeTreeOfCell (cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c0 $ fromJust $ crashMotorcycles c7 [])))
---    (head $ findDivisions c7 $ fromJust $ crashMotorcycles c7 [])
+  golden "C7-Cell2-NodeTree" $ getRawNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
   golden "C7-Cell3" $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
   golden "C7-Cell3-NodeTree" $ getRawNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour c7 $ findDivisions c7 $ fromJust $ crashMotorcycles c7 []
 --  golden "C7-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c7 []
