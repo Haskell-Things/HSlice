@@ -270,6 +270,11 @@ newtype Side = Side (ENode, Slist ENode)
   deriving Eq
   deriving stock Show
 
+-- | The exterior nodes of a region of a contour.
+newtype ENodeSet = ENodeSet { _eNodeSides :: Slist Side }
+  deriving Eq
+  deriving stock Show
+
 isOneSide :: ENodeSet -> Bool
 isOneSide (ENodeSet sides) = len sides == 1
 
@@ -279,11 +284,6 @@ makeSide (a:bs) = Side (a, slist bs)
 
 oneSideOf :: ENodeSet -> Side
 oneSideOf (ENodeSet sides) = SL.head sides
-
--- | The exterior nodes of a region of a contour.
-newtype ENodeSet = ENodeSet { _eNodeSides :: Slist Side }
-  deriving Eq
-  deriving stock Show
 
 -- | get the ENodes that a side is composed of.
 eNodesOfSide :: Side -> [ENode]
@@ -298,7 +298,7 @@ data INodeSet = INodeSet { _children :: Slist [INode], finalINodeOf :: INode}
   deriving stock Show
 
 -- | The complete graph of exterior nodes, and their interior intersection. note this may be for a cell, a contour, or the border between two cells.
-data NodeTree = NodeTree { _eNodes :: !ENodeSet, _iNodes :: !(Maybe INodeSet) }
+data NodeTree = NodeTree { _eNodes :: !ENodeSet, _iNodes :: !(Maybe INodeSet)}
   deriving stock Show
 
 -- | All nodetrees with identical eNodes have identical iNodes.
