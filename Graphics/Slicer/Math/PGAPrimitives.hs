@@ -280,6 +280,7 @@ flipProjectiveLine line = consLikeL line rawRes
              ]
     (GVec vals) = vecOfL line
 -- | Wrapper.
+{-# INLINABLE flipL #-}
 flipL = flipProjectiveLine
 
 -- | Ensure all of the '0' components exist on a Projective Line.
@@ -297,6 +298,7 @@ forceProjectiveLineBasis line
               _                                 -> Nothing
     vec@(GVec vals) = vecOfL line
 -- | Wrapper.
+{-# INLINABLE forceBasisOfL #-}
 forceBasisOfL = forceProjectiveLineBasis
 
 -- | Determine the amount of translation error when trying to resolve a projective line.
