@@ -680,7 +680,6 @@ nodeTreesDoNotOverlap nodeTree1 nodeTree2 cellDivide = res
     res = null (crossoverINodes nodeTree1 cellDivide) &&
           null (crossoverINodes nodeTree2 cellDivide)
 
-
 -- | Given a nodeTree and a closing division, return all of the INodes where the point of the INode is on the opposite side of the division to the points of the ENodes.
 crossoverINodes :: NodeTree -> CellDivide -> [INode]
 crossoverINodes nodeTree@(NodeTree _ maybeINodeSet) cellDivide

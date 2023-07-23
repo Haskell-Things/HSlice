@@ -118,7 +118,7 @@ mergeClusterPair cluster1 cluster2
         withoutJoiner :: MotorcycleCluster -> MotorcycleCell -> MotorcycleCluster
         withoutJoiner cluster@(MotorcycleCluster _ divide) joiner = MotorcycleCluster (slist $ cellsWithoutJoiner cluster joiner) divide
     addMotorcycleCellToCluster :: MotorcycleCell -> MotorcycleCluster -> MotorcycleCluster
-    addMotorcycleCellToCluster newCell (MotorcycleCluster (Slist rawCells _) divide)  = MotorcycleCluster (slist $ newCell : rawCells) divide 
+    addMotorcycleCellToCluster newCell (MotorcycleCluster (Slist rawCells _) divide)  = MotorcycleCluster (slist $ newCell : rawCells) divide
     joiningCell = case joiningCells of
                     [] -> error "failed to find any joining cells."
                     [a] -> a
