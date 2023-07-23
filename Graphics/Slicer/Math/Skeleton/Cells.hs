@@ -22,6 +22,7 @@
 -- |  This file contains the entry point for the logic and routines required for dividing
 --    a contour into cells.
 module Graphics.Slicer.Math.Skeleton.Cells (
+  INodeDirection(TowardIn, TowardOut),
   addNodeTreesAlongDivide,
   crossoverLinesOfDivision,
   crossoverPointOfDivision,
@@ -32,7 +33,10 @@ module Graphics.Slicer.Math.Skeleton.Cells (
   findRemainder,
   getRawNodeTreeOfCell,
   landingPointOf,
+  matchDirectionOfSegments,
+  nodeTreeFromDivision,
   nodeTreesDoNotOverlap,
+  redirectLastOut,
   startBeforeEnd,
   startOfDivide
   ) where
@@ -497,15 +501,15 @@ data INodeDirection =
   TowardMotorcycle
   | TowardIn
   | TowardOut
-  deriving Eq
+  deriving (Eq, Show)
 
 -- | Add a pair of NodeTrees together along a Divide, to create a new nodeTree.
 -- The intersection point for the nodeTrees along the CellDivide is calculated, and then the out of final INode of the two sides is adjusted to pass through that point.
 -- NOTE: since a division can generate two non-neighboring nodetrees, make sure to add them to a side first before adding them together..
 addNodeTreesAlongDivide :: NodeTree -> NodeTree -> CellDivide -> NodeTree
-addNodeTreesAlongDivide nodeTree1@(NodeTree _ maybeINodeSet1) nodeTree2@(NodeTree _ maybeINodeSet2) division = mergeNodeTrees [adjustedNodeTree1, divisionNodeTree, adjustedNodeTree2]
+addNodeTreesAlongDivide nodeTree1@(NodeTree _ maybeINodeSet1) nodeTree2@(NodeTree _ maybeINodeSet2) division = mergeNodeTrees [firstNodeTree, divisionNodeTree, lastNodeTree]
   where
-    (adjustedNodeTree1, adjustedNodeTree2)
+    (firstNodeTree, lastNodeTree)
       | matchDirection == FirstLast = (redirectLastOut nodeTree1 crossoverLine1,
                                        redirectLastOut nodeTree2 crossoverLine2)
       | matchDirection == LastFirst = (redirectLastOut nodeTree1 crossoverLine2,
@@ -517,66 +521,71 @@ addNodeTreesAlongDivide nodeTree1@(NodeTree _ maybeINodeSet1) nodeTree2@(NodeTre
      | isJust maybeINodeSet1 && isJust (finalOutAndErrOf nodeTree2) = case matchDirection of
                                                                         FirstLast -> (fst $ crossoverLinesOfDivision division, fromJust $ finalOutAndErrOf nodeTree2)
                                                                         LastFirst -> (fromJust $ finalOutAndErrOf nodeTree2, snd $ crossoverLinesOfDivision division)
-                                                                        _ -> error "no match direction"
+                                                                        NoMatch -> error "no match direction"
      | isJust (finalOutAndErrOf nodeTree1) && isJust maybeINodeSet2 = case matchDirection of
                                                                         FirstLast -> (fromJust $ finalOutAndErrOf nodeTree1, snd $ crossoverLinesOfDivision division)
                                                                         LastFirst -> (fst $ crossoverLinesOfDivision division, fromJust $ finalOutAndErrOf nodeTree1)
-                                                                        _ -> error "no match direction"
+                                                                        NoMatch -> error "no match direction"
      | isJust (finalOutAndErrOf nodeTree1) && isJust (finalOutAndErrOf nodeTree2) = case matchDirection of
                                                                         FirstLast -> (fromJust $ finalOutAndErrOf nodeTree1, fromJust $ finalOutAndErrOf nodeTree2)
                                                                         LastFirst -> (fromJust $ finalOutAndErrOf nodeTree2, fromJust $ finalOutAndErrOf nodeTree1)
-                                                                        _ -> error "no match direction"
-     | otherwise = error "tried to add a nodetree along a divide, when the nodetree has no output!"
-    matchDirection =
-      case division of
-        -- one motorcycle, hits one target.
-        (CellDivide (DividingMotorcycles ((Motorcycle (inSeg, outSeg) _ _)) (Slist [] 0)) _) -> findMatchDirection
-          where
-            findMatchDirection
-              | firstSegOf nodeTree1 == inSeg = FirstLast
-              | firstSegOf nodeTree1 == outSeg = LastFirst
-              | lastSegOf nodeTree1 == inSeg = FirstLast
-              | lastSegOf nodeTree1 == outSeg = LastFirst
-              | firstSegOf nodeTree2 == inSeg = LastFirst
-              | firstSegOf nodeTree2 == outSeg = FirstLast
-              | lastSegOf nodeTree2 == inSeg = LastFirst
-              | lastSegOf nodeTree2 == outSeg = FirstLast
-              | otherwise = NoMatch
-        _ -> error "oh no"
-    -- adjust the last output of the NodeTree so that it goes through the point it's supposed to.
-    redirectLastOut :: NodeTree -> (ProjectiveLine, PLine2Err) -> NodeTree
-    redirectLastOut inNodeTree@(NodeTree eNodes maybeINodeSet) myCrossoverLine
-      | isJust maybeINodeSet =
-        case insOf $ finalINodeOf $ fromJust maybeINodeSet of
-          [] -> error "unpossible."
-          [_] -> NodeTree eNodes $ if null $ ancestorsOf (fromJust maybeINodeSet)
-                                   then Nothing
-                                   else Just $ pruneParent (fromJust maybeINodeSet)
-          (_:_) -> NodeTree eNodes $ Just $ INodeSet childGens $ makeINode (insOf $ finalINodeOf $ fromJust maybeINodeSet) (Just myCrossoverLine)
-      -- No INodes? no adjustment, then.
-      | otherwise = inNodeTree
-      where
-        childGens
-          | isJust maybeINodeSet = (\(INodeSet foundChildGens _) -> foundChildGens) $ fromJust maybeINodeSet
-          | otherwise = error "no inode set to get child gens of."
-        pruneParent :: INodeSet -> INodeSet
-        pruneParent (INodeSet _ parent)
-          | isEmpty childGens = error "tried to prune the last INode from an INodeSet."
-          | otherwise = case lastGen of
-                          [] -> error "encountered an empty generation."
-                          [oneINode] -> INodeSet (init childGens) oneINode
-                          manyINodes -> INodeSet (init childGens <> manyINodes `withoutINode` newParent) newParent
-          where
-            lastGen = SL.last childGens
-            withoutINode iNodes iNode = slist [filter (/= iNode) iNodes]
-            newParent = DL.head $ filter (\a -> outAndErrOf a == DL.head (insOf parent)) lastGen
+                                                                        NoMatch -> error "no match direction"
+     | otherwise = error $ "tried to add a nodetree along a divide, when the nodetree has no output!\n" <> show nodeTree1 <> "\n" <> show (finalOutAndErrOf nodeTree2) <> "\n"
     -- when we create an INode for the divide, what direction should the output be?
     iNodeOutDirection
       | isJust (finalOutAndErrOf nodeTree1) &&
         isJust (finalOutAndErrOf nodeTree2) = TowardMotorcycle
       | matchDirection == FirstLast = TowardOut
       | otherwise = TowardIn
+    matchDirection = case matchDirectionOfSegments (firstSegOf nodeTree1) (lastSegOf nodeTree1) division of
+                       FirstLast -> FirstLast
+                       LastFirst -> LastFirst
+                       NoMatch -> case matchDirectionOfSegments (firstSegOf nodeTree2) (lastSegOf nodeTree2) division of
+                                    FirstLast -> LastFirst
+                                    LastFirst -> FirstLast
+                                    NoMatch -> error "could not find match direction."
     (crossoverLine1, crossoverLine2) = crossoverLinesOfDivision division
+
+-- Take two segments, representing the end of an opening of a cell, and determine what side of the divide the cell connects to.
+matchDirectionOfSegments :: LineSeg -> LineSeg -> CellDivide -> MaybeMatch
+matchDirectionOfSegments firstSegOfNodeTree lastSegOfNodeTree (CellDivide (DividingMotorcycles ((Motorcycle (inSeg, outSeg) _ _)) moreMotorcycles) _)
+  | null moreMotorcycles = findMatchDirection
+  | otherwise = error "complex divide."
+  where
+    findMatchDirection
+      | firstSegOfNodeTree == inSeg = FirstLast
+      | firstSegOfNodeTree == outSeg = LastFirst
+      | lastSegOfNodeTree == inSeg = FirstLast
+      | lastSegOfNodeTree == outSeg = LastFirst
+      | otherwise = NoMatch
+
+-- adjust the last output of the NodeTree so that it goes through the line it's supposed to.
+redirectLastOut :: NodeTree -> (ProjectiveLine, PLine2Err) -> NodeTree
+redirectLastOut inNodeTree@(NodeTree eNodes maybeINodeSet) myCrossoverLine
+  | isJust maybeINodeSet =
+      case insOf $ finalINodeOf $ fromJust maybeINodeSet of
+        [] -> error "unpossible."
+        [_] -> NodeTree eNodes $ if null $ ancestorsOf (fromJust maybeINodeSet)
+                                 then Nothing
+                                 else Just $ pruneParent (fromJust maybeINodeSet)
+        (_:_) -> NodeTree eNodes $ Just $ INodeSet childGens $ makeINode (insOf $ finalINodeOf $ fromJust maybeINodeSet) (Just myCrossoverLine)
+  -- No INodes? no adjustment, then.
+  | otherwise = inNodeTree
+  where
+    childGens
+      | isJust maybeINodeSet = (\(INodeSet foundChildGens _) -> foundChildGens) $ fromJust maybeINodeSet
+      | otherwise = error "no inode set to get child gens of."
+    pruneParent :: INodeSet -> INodeSet
+    pruneParent (INodeSet _ parent)
+      | isEmpty childGens = error "tried to prune the last INode from an INodeSet."
+      | otherwise = case lastGen of
+                      [] -> error "encountered an empty generation."
+                      [oneINode] -> INodeSet (init childGens) oneINode
+                      manyINodes -> INodeSet (init childGens <> manyINodes `withoutINode` newParent) newParent
+      where
+        lastGen = SL.last childGens
+        withoutINode iNodes iNode = slist [filter (/= iNode) iNodes]
+        newParent = DL.head $ filter (\a -> outAndErrOf a == DL.head (insOf parent)) lastGen
 
 -- | Find the single point that a straight skeleton passes through a cell division, assuming that there are no crossoverINodes in the cells on either side of the divide.
 crossoverPointOfDivision :: CellDivide -> ProjectivePoint
@@ -611,6 +620,7 @@ crossoverLinesOfDivision division@(CellDivide (DividingMotorcycles motorcycle@(M
                                     (WithMotorcycle (Motorcycle (myMotInSeg, myMotOutSeg) _ _)) -> (myMotInSeg, myMotOutSeg)
 
 -- | Create the NodeTrees corresponding to the CellDivide given.
+--   Note that we do not just call crossoverLinesOfDivision, so that the caller can handle cells that have no INodes.
 nodeTreeFromDivision :: CellDivide -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> INodeDirection -> MaybeMatch -> NodeTree
 nodeTreeFromDivision cellDivision@(CellDivide motorcycles target) crossoverIn crossoverOut iNodeDirection matchDirection =
   case motorcycles of
@@ -663,26 +673,25 @@ iNodeOfPlainDivision cellDivision crossoverIn crossoverOut iNodeDirection matchD
 nodeTreesDoNotOverlap :: NodeTree -> NodeTree -> CellDivide -> Bool
 nodeTreesDoNotOverlap nodeTree1 nodeTree2 cellDivide = res
   where
-    res = empty (crossoverINodes nodeTree1 cellDivide) &&
-          empty (crossoverINodes nodeTree2 cellDivide)
-      where
-        empty a = isJust a && null (fromJust a)
+    res = null (crossoverINodes nodeTree1 cellDivide) &&
+          null (crossoverINodes nodeTree2 cellDivide)
+
 
 -- | Given a nodeTree and a closing division, return all of the INodes where the point of the INode is on the opposite side of the division to the points of the ENodes.
-crossoverINodes :: NodeTree -> CellDivide -> Maybe [INode]
+crossoverINodes :: NodeTree -> CellDivide -> [INode]
 crossoverINodes nodeTree@(NodeTree _ maybeINodeSet) cellDivide
   | isJust maybeINodeSet = case cellDivide of
                              (CellDivide (DividingMotorcycles motorcycle (Slist [] 0)) _) -> res motorcycle
                              -- FIXME: we should be able to find some true cases for more of this.
                              (CellDivide (DividingMotorcycles firstMotorcycle (Slist [secondMotorcycle] 1)) _) -> if motorcyclesAreAntiCollinear firstMotorcycle secondMotorcycle
                                                                                                                   then res firstMotorcycle
-                                                                                                                  else Nothing
+                                                                                                                  else mempty
                              -- FIXME: we should be able to find some true cases for this.
-                             _ -> Nothing
+                             _ -> mempty
 
-  | otherwise = Just []
+  | otherwise = mempty
   where
-    res m = Just $ iNodesWhichCrossoverMotorcycle nodeTree m
+    res m = iNodesWhichCrossoverMotorcycle nodeTree m
 
 -- | Given a nodeTree and a closing motorcycle, return all of the INodes where the point of the INode is on the opposite side of the motorcycle.
 -- NOTE: this skips checking nodes that cannot be resolved to a point.
