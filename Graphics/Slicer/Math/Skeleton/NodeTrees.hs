@@ -183,7 +183,7 @@ mergeNodeTrees nodeTrees =
          | otherwise = Nothing -- error "nope."
     mergeINodeSets :: NodeTree -> NodeTree -> Maybe INodeSet
     mergeINodeSets myNodeTree1@(NodeTree eNodeSet1 _) myNodeTree2@(NodeTree eNodeSet2 _)
-      -- FIXME: technically, one a cell can have a one sided ENodeSet, but have more than one side.
+      -- FIXME: technically, a cell can have a one sided ENodeSet, but have more than one side.
       | isOneSide eNodeSet1 && isOneSide eNodeSet2 && canAttach (oneSideOf eNodeSet1) (oneSideOf eNodeSet2) = addOneSidedINodeSets myNodeTree1 myNodeTree2
       | isOneSide eNodeSet1 && canMergeIn eNodeSet1 eNodeSet2 = mergeINodesIn myNodeTree1 myNodeTree2
       | isOneSide eNodeSet2 && canMergeIn eNodeSet2 eNodeSet1 = mergeINodesIn myNodeTree2 myNodeTree1
@@ -211,7 +211,7 @@ mergeNodeTrees nodeTrees =
     addOneSidedINodeSets nt1@(NodeTree _ iNodeSet1) nt2@(NodeTree _ iNodeSet2)
       | isJust iNodeSet1 && isJust iNodeSet2 && isJust (finalOutAndErrOf nt1) && finalINodeOf (fromJust iNodeSet2) `iNodeHasIn` fromJust (finalOutAndErrOf nt1) = Just $ INodeSet (mergeAncestorsInOrder nt1 nt2 <> slist [[finalINodeOf $ fromJust iNodeSet1]]) (finalINodeOf $ fromJust iNodeSet2)
       | isJust iNodeSet1 && isJust iNodeSet2 && isJust (finalOutAndErrOf nt2) && finalINodeOf (fromJust iNodeSet1) `iNodeHasIn` fromJust (finalOutAndErrOf nt2) = Just $ INodeSet (mergeAncestorsInOrder nt2 nt1 <> slist [[finalINodeOf $ fromJust iNodeSet2]])  (finalINodeOf $ fromJust iNodeSet1)
-      | isJust iNodeSet1 && isJust iNodeSet2 = Nothing -- error $ "what do we do here?\n" <> show nt1 <> "\n" <> show nt2 <> "\n"
+      | isJust iNodeSet1 && isJust iNodeSet2 = error $ "what do we do here?\n" <> show nt1 <> "\n" <> show nt2 <> "\n"
       | otherwise = error $ "cannot merge two NodeTrees without outputs.\n" <> show nt1 <> "\n" <> show nt2 <> "\n"
     -- Create a merged set of ancestors.
     -- skips the final inodes.
