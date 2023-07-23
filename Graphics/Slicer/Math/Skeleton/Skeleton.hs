@@ -20,30 +20,22 @@
 --    a Straight Skeleton of a contour, with a set of sub-contours cut out of it.
 module Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton) where
 
-import Prelude (($), (<>), (<=), (||), (==), error, show)
+import Prelude ((<), ($), (<>), error, show)
 
 import Data.Either (Either (Left, Right))
 
-import Data.Maybe (Maybe(Just, Nothing), fromJust, fromMaybe)
+import Data.Maybe (Maybe(Just, Nothing), fromJust, isJust)
 
-import Slist.Type (Slist(Slist))
+import Slist (len)
 
-import Graphics.Slicer.Math.Definitions (Contour, makeLineSeg)
-
-import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
-
-import Graphics.Slicer.Math.Intersections (intersectionBetweenArcsOf)
-
-import Graphics.Slicer.Math.Lossy (eToPLine2, pToEPoint2)
-
-import Graphics.Slicer.Math.PGA (Pointable(ePointOf), angleBetween2PL, outOf)
+import Graphics.Slicer.Math.Definitions (Contour)
 
 import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton)
 
 -- Divide a contour into groups of motorcycle cells, based on the motorcycle tree...
-import Graphics.Slicer.Math.Skeleton.MotorcycleCells (findClusters, simplifyCluster)
+import Graphics.Slicer.Math.Skeleton.MotorcycleCells (findClusters, mergeClusterPair, simplifyCluster)
 
-import Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTree(CrashTree), crashMotorcycles, lastCrashType)
+import Graphics.Slicer.Math.Skeleton.Motorcycles (CrashTree(CrashTree), crashMotorcycles)
 
 -- import Graphics.Slicer.Math.Skeleton.Tscherne (applyTscherne)
 
@@ -55,35 +47,37 @@ import Graphics.Slicer.Math.Skeleton.Motorcycles (CollisionType(HeadOn), CrashTr
 --   Really, this is a dispatcher, to a series of algorithms for doing the actual work.
 -- FIXME: Does not know how to calculate a straight skeleton for :
 --        * contours with holes,
---        * contours with more than one motorcycle,
+--        * contours with more than two motorcycles,
 --        * contours with a motorcycle that is not a straight divide,
---        * contours with two motorcycles that are collinear,
---        * ...
+--        * contours with two motorcycles that are collinear..
 findStraightSkeleton :: Contour -> [Contour] -> Maybe StraightSkeleton
 findStraightSkeleton contour holes =
   case crashMotorcycles contour holes of
     Nothing -> Nothing
-    (Just (CrashTree (Slist [] _) _ _)) -> Just motorcycleCellRes
-    (Just (CrashTree (Slist [_] _) _ _)) -> Just motorcycleCellRes
-    (Just crashTree@(CrashTree (Slist [mcA, mcB] _) _ _)) -> if lastCrashType crashTree == Just HeadOn || intersectionIsBehind mcA || intersectionIsBehind mcB
-                                                             then Just motorcycleCellRes
-                                                             else Nothing
-      where
-        intersectionIsBehind m = angleFound <= ulpVal angleErr
-          where
-            (angleFound, (_,_, angleErr)) = angleBetween2PL (outOf m) (eToPLine2 lineSegToIntersection)
-            lineSegToIntersection = makeLineSeg (ePointOf m) (pToEPoint2 intersectionPPoint)
-            (intersectionPPoint, _) = fromMaybe (error "has arcs, but no intersection?") $ intersectionBetweenArcsOf mcA mcB
-    (Just _) -> Nothing
+    (Just (CrashTree motorcycles _ _)) -> if len motorcycles < 3
+                                          then if isJust clusters
+                                               then Just res
+                                               else Nothing
+                                          else
+                                            error "whoops!"
   where
     ------------------------------------
     ----- New Motorcycle Cell Code -----
     ------------------------------------
-    motorcycleCellRes = case cluster of
-                          (Right skeleton) -> skeleton
-                          (Left [_]) -> case simplifiedCluster of
-                                          (Right skeleton) -> skeleton
-                                          (Left simplerCluster) -> error $ "got a simpler cluster after simplification: " <> show simplerCluster <> "\n"
-                          _ -> error "more than one cluster?"
-    simplifiedCluster = simplifyCluster $ (\(Left [rawCluster]) -> rawCluster) cluster
-    cluster = findClusters contour $ fromJust $ crashMotorcycles contour holes
+    -- FIXME: this should probably be a recursive algorithm to start with.
+    res = case fromJust clusters of
+            -- must have been a single concave object.
+            (Right skeleton) -> skeleton
+            -- not concave, but all of the concave cells shaare a motorcycle.
+            (Left [c]) -> case simplifyCluster c of
+                            (Right skeleton) -> skeleton
+                            (Left complexCluster) -> error $ "got a complex cluster after simplification: " <> show complexCluster <> "\n"
+            -- not concave, and all of the cells do not share the same groupings of motorcycles..
+            (Left (c1:c2:[])) -> case mergeClusterPair c1 c2 of
+                                   (Right c) -> case simplifyCluster c of
+                                                  (Right skeleton) -> skeleton
+                                                  (Left complexCluster) -> error $ "got a complex cluster after simplification: " <> show complexCluster <> "\n"
+                                   (Left _) -> error $ "failed to merge cluster pair:\n" <> show c1 <> "\n" <> show c2 <> "\n"
+            other -> error $ "too many clusters?\n"
+                          <> show other <> "\n"
+    clusters = findClusters contour $ fromJust $ crashMotorcycles contour holes

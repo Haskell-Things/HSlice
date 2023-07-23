@@ -26,7 +26,17 @@
 -- So we can section tuples
 {-# LANGUAGE TupleSections #-}
 
-module Graphics.Slicer.Math.Skeleton.Concave (averageNodes, skeletonOfConcaveRegion, skeletonOfNodes, findINodes, makeENode, makeENodes, eNodesOfOutsideContour) where
+module Graphics.Slicer.Math.Skeleton.Concave (
+  averageNodes,
+  skeletonOfConcaveRegion,
+  skeletonOfNodes,
+  findINodes,
+  makeENode,
+  makeENodes,
+  makeInitialGeneration,
+  eNodesOfOutsideContour,
+  errorIfLeft
+  ) where
 
 import Prelude (Eq, Show, Bool(True, False), Either(Left, Right), String, Ord, Ordering(GT,LT), all, concatMap, notElem, otherwise, ($), (>), (<=), (<$>), (==), (/=), error, (&&), fst, (<>), show, not, max, compare, uncurry, null, (||), min, snd, filter, zip, any, (*), (+), Int, (.), (-), mempty)
 
@@ -85,9 +95,10 @@ justToSomething val = case val of
 
 -- | find a complete NodeTree for the given collection of line segments.
 --   Only works on a sequnce of concave line segments, when there are no holes in the effected area.
+--   Note: we also accept extra INodes, which are the INodes of divides we should take into account.
 -- FIXME: returns a NodeTree, not a skeleton.
-skeletonOfConcaveRegion :: Slist [LineSeg] -> NodeTree
-skeletonOfConcaveRegion inSegSets@(Slist rawInSegSets _)
+skeletonOfConcaveRegion :: Slist [LineSeg] -> [INode] -> NodeTree
+skeletonOfConcaveRegion inSegSets@(Slist rawInSegSets _) extraINodes
   | len inSegSets == 1 && length (PL.head rawInSegSets) == 1 = error "tried to find INodes in a segment set with only one segment!"
   | not (isLoop inSegSets) && isJust (finalOutOf result) = result
   | not (isLoop inSegSets) && isNothing (finalOutOf result) && isHallway result = result
@@ -97,17 +108,18 @@ skeletonOfConcaveRegion inSegSets@(Slist rawInSegSets _)
     result = makeNodeTree [makeSide initialENodes] $ if isJust foundINodes
                                                      then Just $ sortINodesByENodes (isLoop inSegSets) initialENodes inSegSets $ fromJust foundINodes
                                                      else Nothing
-    foundINodes = findINodes inSegSets
+    foundINodes = findINodes inSegSets extraINodes
     initialENodes = makeInitialGeneration (isLoop inSegSets) inSegSets
 
 -- | Find a raw set of INodes representing the INodes of the solved NodeTree for this part of a contour.
-findINodes :: Slist [LineSeg] -> Maybe INodeSet
-findINodes inSegSets@(Slist rawInSegSets _)
+--   Note: we also accept extra INodes, which are the INodes of divides we should take into account.
+findINodes :: Slist [LineSeg] -> [INode] -> Maybe INodeSet
+findINodes inSegSets@(Slist rawInSegSets _) extraINodes
   | len inSegSets == 1 && length (PL.head rawInSegSets) == 1 = error "tried to find INodes in a segment set with only one segment!"
   | len inSegSets == 1 =
       -- One continuous wall without gaps. may gap between the beginning and end of the contour, if this is not a loop.
       -- Just return the output of skeletonOfNodes.
-      errorIfLeft $ skeletonOfNodes (isLoop inSegSets) inSegSets inSegSets []
+      errorIfLeft $ skeletonOfNodes (isLoop inSegSets) inSegSets inSegSets extraINodes
   | len inSegSets == 2 =
     -- Two walls, no closed ends. solve the ends of a hallway region, so we can then hand off the solutioning to our regular process.
     case initialENodes of

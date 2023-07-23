@@ -45,7 +45,7 @@ import Prelude (Bool(True, False), Eq, Ordering(LT, GT, EQ), Show, ($), (>), (<$
 
 import Data.Either (Either(Left, Right))
 
-import Data.List (dropWhile, elemIndex, length, sortBy, takeWhile)
+import Data.List (dropWhile, elemIndex, sortBy, takeWhile)
 
 import qualified Data.List as DL (head)
 
@@ -77,14 +77,18 @@ import Graphics.Slicer.Math.PGA (Arcable(outOf), PLine2Err, Pointable(canPoint, 
 
 -- | Get a raw node tree for a given cell. This does not take into account any input segments from other cells, or divides.
 -- Warning: in the cases where the cell has nodes that cross over a divide, you must use tscherne's algorithm to merge two cells.
-getRawNodeTreeOfCell :: Cell -> NodeTree
-getRawNodeTreeOfCell (Cell (Slist [(Slist extSegs _, Nothing)] _))
-  | length extSegs < 2 = error $ "Cell has less than two segments, and no remainder?\n" <> show extSegs <> "\n"
-  | otherwise = skeletonOfConcaveRegion $ one extSegs
-getRawNodeTreeOfCell (Cell (Slist [(Slist extSegs _, Just _)] _))
-  | length extSegs < 2 = error $ "Cell has less than two segments?\n" <> show extSegs <> "\n"
-  | otherwise = skeletonOfConcaveRegion $ one extSegs
-getRawNodeTreeOfCell (Cell (Slist [(Slist extSegs1 _, Just _),(Slist extSegs2 _, Nothing)] _)) = skeletonOfConcaveRegion (slist [extSegs1, extSegs2])
+getRawNodeTreeOfCell :: Cell -> (NodeTree, Slist LineSeg)
+getRawNodeTreeOfCell (Cell (Slist [(extSegs@(Slist rawExtSegs _), Nothing)] _))
+  | len extSegs < 2 = error $ "Cell has less than two segments, and no remainder?\n" <> show extSegs <> "\n"
+  | otherwise = (skeletonOfConcaveRegion (one rawExtSegs) [], mempty)
+getRawNodeTreeOfCell (Cell (Slist [(extSegs@(Slist rawExtSegs _), Just _)] _))
+  | len extSegs < 2 = error $ "Cell has less than two segments?\n" <> show extSegs <> "\n"
+  | otherwise = (skeletonOfConcaveRegion (one rawExtSegs) [], mempty)
+getRawNodeTreeOfCell (Cell (Slist [(extSegs1@(Slist rawExtSegs1 _), Just _),(extSegs2@(Slist rawExtSegs2 _), Nothing)] _))
+  | len extSegs1 == 1 && len extSegs2 == 1 = (skeletonOfConcaveRegion (mempty) [], slist $ rawExtSegs1 <> rawExtSegs2)
+  | len extSegs1 == 1                      = (skeletonOfConcaveRegion (slist [rawExtSegs2]) [], extSegs1)
+  | len extSegs2 == 1                      = (skeletonOfConcaveRegion (slist [rawExtSegs1]) [], extSegs2)
+  | otherwise                              = (skeletonOfConcaveRegion (slist [rawExtSegs1, rawExtSegs2]) [], mempty)
 getRawNodeTreeOfCell input = error
                              $ "unsupported cell layout:\n"
                              <> show input <> "\n"
@@ -141,7 +145,7 @@ landingPointOf myContour myMotorcycle =
         opposingNodes c m = filter (\eNode -> isAntiCollinear (outAndErrOf eNode) (outAndErrOf m)) $ eNodesOfOutsideContour c
 
 -- | Find a single Cell of the given contour. always finds the cell on the 'open end' of the contour.
-findFirstCellOfContour :: Contour -> [CellDivide] -> ((Cell, Maybe CellDivide), Maybe [RemainingContour])
+findFirstCellOfContour :: Contour -> [CellDivide] -> ((Cell, Maybe CellDivide), [RemainingContour])
 findFirstCellOfContour contour divides = findNextCell $ RemainingContour (slist contourSegs) Nothing divides
   where
     -- | convert a single contour to a single cell.
@@ -149,18 +153,18 @@ findFirstCellOfContour contour divides = findNextCell $ RemainingContour (slist 
 
 -- | Find a single Cell of the given contour. always finds the cell on the 'open end' of the contour.
 -- FIXME: implement all of these!
-findNextCell :: RemainingContour -> ((Cell, Maybe CellDivide), Maybe [RemainingContour])
-findNextCell (RemainingContour (Slist [] _) _ _ ) = error "cannot handle no contour remainders."
+findNextCell :: RemainingContour -> ((Cell, Maybe CellDivide), [RemainingContour])
+findNextCell (RemainingContour (Slist [] _) _ _ ) = error "cannot get a cell when the remainder has no line segments."
 -- When there are no remaining motorcycles, and there are no holes, we can just treat the whole remainder as a single cell.
 findNextCell (RemainingContour lineSegs inDivide []) = case inDivide of
-                                                         Nothing -> ((contourFromCell, Nothing), Nothing)
-                                                         Just oneDivide -> ((contourFromCell, Just oneDivide), Nothing)
+                                                         Nothing -> ((contourFromCell, Nothing), mempty)
+                                                         Just oneDivide -> ((contourFromCell, Just oneDivide), mempty)
   where
     contourFromCell = Cell (slist [(lineSegs, Nothing)])
 findNextCell (RemainingContour lineSegs inDivide divides) =
       if len (remainingSegmentsOf remainder) < len lineSegs
       then if len (remainingSegmentsOf remainder) > 1
-           then ((cell, Just closestDivide), Just [remainder])
+           then ((cell, Just closestDivide), [remainder])
            else errorTooFew
       else errorTooMany
   where
