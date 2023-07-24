@@ -1681,6 +1681,8 @@ facetFlakeySpec = do
   describe "Stability (Intersections)" $ do
     it "finds that the intersection of two PLines at the origin are within the returned UlpSum" $
       property prop_PLinesIntersectAtOrigin
+    it "finds endpoints and startpoints in equal quantities at the origin" $
+      property prop_LineSegIntersectionStableAtOrigin
 
 facetSpec :: Spec
 facetSpec = do
@@ -1694,9 +1696,6 @@ facetSpec = do
       property prop_NormPLineIsPLine
     it "a projective line is colinear with itsself" $
       property prop_PLineSameDirectionID
-  describe "Stability (Intersections)" $ do
-    it "finds endpoints and startpoints in equal quantities at the origin" $
-      property prop_LineSegIntersectionStableAtOrigin
   describe "Stability (Error)" $ do
     it "finds that the X intersection of a random PLine is within the returned UlpSum" $
       property prop_PLineIntersectsAtXAxis

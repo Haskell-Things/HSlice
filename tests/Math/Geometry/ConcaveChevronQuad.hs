@@ -23,7 +23,7 @@ module Math.Geometry.ConcaveChevronQuad (
   concaveChevronQuadSpec
   ) where
 
-import Prelude (Bool(True), Show(show), ($), (<>), (==), error, head, length, otherwise)
+import Prelude (Bool(True), Show(show), ($), (<>), (==), error, fst, head, length, otherwise)
 
 -- The Maybe library.
 import Data.Maybe (fromJust, fromMaybe, isJust)
@@ -113,14 +113,14 @@ unit_ConcaveChevronQuadNodeTreeHasOneGeneration
                       <> show nodeTreeOfFirstCell <> "\n"
                       <> show nodeTreeOfSecondCell <> "\n"
                       <> show finalNodeTree <> "\n"
-                      <> dumpGanja nodeTreeOfFirstCell <> "\n"
-                      <> dumpGanja nodeTreeOfSecondCell <> "\n"
+                      <> dumpGanja (fst nodeTreeOfFirstCell) <> "\n"
+                      <> dumpGanja (fst nodeTreeOfSecondCell) <> "\n"
                       <> dumpGanja (fromJust $ findStraightSkeleton contour []) <> "\n"
   where
     res = generationsOf finalNodeTree
     finalNodeTree = oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton contour []
     nodeTreeOfFirstCell = getRawNodeTreeOfCell $ cellFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
-    nodeTreeOfSecondCell = getRawNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ fromJust $ remainderFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
+    nodeTreeOfSecondCell = getRawNodeTreeOfCell $ cellFrom $ findNextCell $ onlyOne $ remainderFrom $ findFirstCellOfContour contour $ findDivisions contour $ fromMaybe (error "failed to crash") $ crashMotorcycles contour []
     contour = randomConcaveChevronQuad x y tilt1 distance1 distance2
     x,y :: ℝ
     x = 0
