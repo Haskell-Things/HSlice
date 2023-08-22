@@ -9,6 +9,11 @@ Algebra(2,0,1,()=>{
   var ab = 2.8284271247461903e12-2.8284271247461903e02+0.0e01;
   var ac = 0.7071067811865476e1+0.7071067811865476e2-0.7071067811865476e0;
   var ad = 0.7071067811865476e1-0.7071067811865476e2-0.7071067811865476e0;
+  var aeaaa = point(1.0,-1.0);
+  var aeaab = point(2.0,0.0);
+  var aeaba = point(2.0,0.0);
+  var aeabb = point(1.0,1.0);
+  var aeac = 0.0e1+1.0e2+0.0e0;
   document.body.appendChild(this.graph([
     0x882288,
     [aaaa,aaab],
@@ -24,6 +29,17 @@ Algebra(2,0,1,()=>{
     ab, "ab",
     ac, "ac",
     ad, "ad",
+    0x882288,
+    [aeaaa,aeaab],
+    0x00AA88,
+    aeaaa, "aeaaa",
+    aeaab, "aeaab",
+    0x882288,
+    [aeaba,aeabb],
+    0x00AA88,
+    aeaba, "aeaba",
+    aeabb, "aeabb",
+    aeac, "aeac",
   ],{
     grid: true,
     labels: true,
