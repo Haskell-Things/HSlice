@@ -183,7 +183,6 @@ instance GanjaAble Contour where
           linePairs    = concat $ mapWithFollower (\(_,a) (_,b) -> "    [" <> varname <> a <> "," <> varname <> b <> "],\n") pairs
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> pairs
           pairs        = zip contourPoints allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
 
 instance GanjaAble ENode where
   toGanja eNode varname = (
@@ -222,7 +221,6 @@ instance GanjaAble Cell where
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip allSides allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
           allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
           allSegs      = concatMap (listFromSlist . fst) segsDivides
           allDivides   = catMaybes $ listFromSlist $ snd <$> segsDivides
@@ -237,7 +235,6 @@ instance GanjaAble CellDivide where
         where
           res            = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs          = zip allObjects allStrings
-          allStrings     = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
           allObjects     = (toGanja <$> allMotorcycles) <> [toGanja crossoverPoint] <> (toGanja <$> crossoverLines)
           allMotorcycles = firstMotorcycle:moreMotorcycles
           crossoverPoint = crossoverPointOfDivision divide
@@ -250,7 +247,6 @@ instance GanjaAble RemainingContour where
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip allSides allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
           allSides     = (toGanja <$> allSegs) <> (toGanja <$> allDivides)
           allDivides
             | isJust inDivide = fromJust inDivide : outDivides
@@ -263,7 +259,6 @@ instance GanjaAble MotorcycleCell where
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip (allEdges <> allSegs <> allMotorcycles <> allNodeTrees) allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
           allEdges     = toGanja <$> (firstLine <> remainingLines)
           firstLine    = case sides of
                            (Slist [] _) -> []
@@ -284,7 +279,6 @@ instance GanjaAble INode where
       (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> zip allPLines allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
           allPLines    = firstPLine:secondPLine:rawMorePLines <> [outAndErrOf iNode | hasArc iNode]
 
 instance GanjaAble StraightSkeleton where
@@ -298,7 +292,6 @@ instance GanjaAble NodeTree where
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip (allEdges <> allINodes) allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
           allEdges     = toGanja <$> (firstLine <> remainingLines)
           allINodes
             | isJust iNodeSet = toGanja <$> iNodesOf (fromJust iNodeSet)
@@ -321,7 +314,6 @@ instance GanjaAble Face where
         where
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip (toGanja edge : allPLines) allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
           allPLines    = toGanja <$> ([firstArc] <> arcs <> [lastArc])
 
 instance GanjaAble (Slist Face) where
@@ -333,8 +325,11 @@ instance GanjaAble (Slist Face) where
           allEdges     = (\(Face edge _ _ _) -> toGanja edge) <$> faces
           res          = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs        = zip (allEdges <> allPLines) allStrings
-          allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
           allPLines    = toGanja <$> allArcs
+
+-- | generate a list of javascript variable names.
+allStrings :: [String]
+allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['A'..'Z']]
 
 -- | Create a single program, covering a series of objects.
 dumpGanjas :: [String -> (String, String)] -> String
@@ -347,7 +342,6 @@ dumpGanjas xs = ganjaHeader <> vars <> ganjaFooterStart <> refs <> ganjaFooterEn
     (vars, refs) =  (concatMap fst res, concatMap snd res)
       where
         res          = (\(a,b) -> a b) <$> zip xs allStrings
-        allStrings   = [ c : s | s <- "": allStrings, c <- ['a'..'z'] <> ['0'..'9'] ]
 
 -- | create a single program for a single object.
 dumpGanja :: (GanjaAble a) => a -> String
