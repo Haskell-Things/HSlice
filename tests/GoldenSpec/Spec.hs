@@ -18,11 +18,13 @@
 
 module GoldenSpec.Spec (goldenSpec) where
 
-import Prelude (($), error, fst, head, last, sqrt)
+import Prelude (($), (<>), (<$>), error, fst, head, last, sqrt)
+
+import Data.List (concat)
 
 import Data.Maybe (fromMaybe, fromJust)
 
-import GoldenSpec.Util (golden)
+import GoldenSpec.Util (golden, goldens)
 
 import Test.Hspec (describe, Spec)
 
@@ -32,9 +34,11 @@ import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 import Graphics.Slicer.Math.Contour (makePointContour)
 
 -- A euclidian point.
-import Graphics.Slicer.Math.Definitions(Point2(Point2), LineSeg(LineSeg))
+import Graphics.Slicer.Math.Definitions (Point2(Point2), LineSeg(LineSeg))
 
-import Graphics.Slicer.Math.RandomGeometry (cellFrom, remainderFrom, onlyOne)
+import Graphics.Slicer.Math.Ganja (toGanja)
+
+import Graphics.Slicer.Math.RandomGeometry (cellFrom, contoursFrom, remainderFrom, onlyOne)
 
 import Graphics.Slicer.Math.Skeleton.Cells (addNodeTreesAlongDivide, findFirstCellOfContour, findNextCell, findDivisions, getRawNodeTreeOfCell)
 
@@ -43,6 +47,8 @@ import Graphics.Slicer.Math.Skeleton.MotorcycleCells (allMotorcycleCells)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
 
 import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
+
+import Graphics.Slicer.Math.Skeleton.Line (insetBy, infiniteInset)
 
 goldenSpec :: Spec
 goldenSpec = describe "golden tests" $ do
@@ -70,9 +76,12 @@ goldenSpec = describe "golden tests" $ do
   golden "C2-Cell1-NodeTree" $ fst $ getRawNodeTreeOfCell $ cellFrom $ findFirstCellOfContour c2 $ findDivisions c2 $ fromJust $ crashMotorcycles c2 []
   golden "C2-Remainder1" $ onlyOne $ remainderFrom $ findFirstCellOfContour c2 $ findDivisions c2 $ fromJust $ crashMotorcycles c2 []
   golden "C2-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c2 []
+  golden "C3-Divide" $ onlyOne $ findDivisions c3 $ fromJust $ crashMotorcycles c3 []
   golden "C3-Cell1" $ cellFrom $ findFirstCellOfContour c3 $ findDivisions c3 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c3 []
   golden "C3-Remainder1" $ onlyOne $ remainderFrom $ findFirstCellOfContour c3 $ findDivisions c3 $ fromJust $ crashMotorcycles c3 []
   golden "C3-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c3 []
+  goldens "C3-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c3 []] <>
+                                              (concat $ (\a -> toGanja <$> a) <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c3 [])))
   golden "C4-Cell1" $ cellFrom $ findFirstCellOfContour c4 $ findDivisions c4 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c4 []
   golden "C4-Remainder1" $ onlyOne $ remainderFrom $ findFirstCellOfContour c4 $ findDivisions c4 $ fromJust $ crashMotorcycles c4 []
   golden "C4-Cell2" $ cellFrom $ findNextCell $ onlyOne $ remainderFrom $ findFirstCellOfContour c4 $ findDivisions c4 $ fromJust $ crashMotorcycles c4 []
@@ -99,10 +108,22 @@ goldenSpec = describe "golden tests" $ do
   golden "C7-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c7 []
 --  golden "C7-Faces-Default" $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c7 []
   golden "triangle-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton triangle []
+  goldens "triangle-Straight_Skeleton_And_Inset" [ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton triangle []
+                                                 , toGanja $ onlyOne $ contoursFrom $ insetBy 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton triangle []]
+  goldens "triangle-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton triangle []] <>
+                                                  (concat $ (\a -> toGanja <$> a) <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton triangle [])))
   golden "triangle-Faces-Default" $ facesOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton triangle []
   golden "square-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton square []
+  goldens "square-Straight_Skeleton_And_Inset" [ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton square []
+                                                 , toGanja $ onlyOne $ contoursFrom $ insetBy 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton square []]
+  goldens "square-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton square []] <>
+                                                  (concat $ (\a -> toGanja <$> a) <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton square [])))
   golden "square-Faces-Default" $ facesOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton square []
   golden "rectangle-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []
+  goldens "rectangle-Straight_Skeleton_And_Inset" [ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []
+                                                 , toGanja $ onlyOne $ contoursFrom $ insetBy 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton rectangle []]
+--  goldens "rectangle-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []] <>
+--                                                  (concat $ (\a -> toGanja <$> a) <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton rectangle [])))
   golden "rectangle-Faces-Default" $ facesOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []
     where
       c0 = makePointContour [Point2 (0,0), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
@@ -119,4 +140,4 @@ goldenSpec = describe "golden tests" $ do
       -- A simple square.
       square = makePointContour [Point2 (-1,1), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1)]
       -- A simple rectangle.
-      rectangle = makePointContour [Point2 (-2,1), Point2 (-2,-1), Point2 (1,-1), Point2 (1,1)]
+      rectangle = makePointContour [Point2 (-1.5,1), Point2 (-1.5,-1), Point2 (1.5,-1), Point2 (1.5,1)]

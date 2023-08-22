@@ -1,20 +1,20 @@
 Algebra(2,0,1,()=>{
   var line = (a,b,c)=>a*1e1 + b*1e2 + c*1e0;
   var point = (x,y)=>!(1e0 + x*1e1 + y*1e2);
-  var aaa = point(-2.0,-1.0);
-  var aab = point(1.0,-1.0);
-  var aba = point(1.0,-1.0);
-  var abb = point(1.0,1.0);
-  var aca = point(1.0,1.0);
-  var acb = point(-2.0,1.0);
-  var ada = point(-2.0,1.0);
-  var adb = point(-2.0,-1.0);
-  var aea = 0.7071067811865475e1+0.7071067811865475e2+0.0e0;
-  var aeb = -0.7071067811865475e1+0.7071067811865475e2+0.0e0;
+  var aaa = point(-1.5,-1.0);
+  var aab = point(1.5,-1.0);
+  var aba = point(1.5,-1.0);
+  var abb = point(1.5,1.0);
+  var aca = point(1.5,1.0);
+  var acb = point(-1.5,1.0);
+  var ada = point(-1.5,1.0);
+  var adb = point(-1.5,-1.0);
+  var aea = 0.7071067811865475e1+0.7071067811865475e2-0.35355339059327373e0;
+  var aeb = -0.7071067811865475e1+0.7071067811865475e2+0.35355339059327373e0;
   var aec = 0.0e1+1.0e2+0.0e0;
-  var afa = 0.7071067811865475e1-0.7071067811865475e2+0.7071067811865475e0;
+  var afa = 0.7071067811865475e1-0.7071067811865475e2+0.35355339059327373e0;
   var afb = 0.0e1+1.0e2+0.0e0;
-  var afc = -0.7071067811865475e1-0.7071067811865475e2-0.7071067811865475e0;
+  var afc = -0.7071067811865475e1-0.7071067811865475e2-0.35355339059327373e0;
   document.body.appendChild(this.graph([
     0x882288,
     [aaa,aab],
