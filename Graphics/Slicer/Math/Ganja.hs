@@ -103,7 +103,7 @@ import Graphics.Slicer.Math.PGA (PLine2Err, PPoint2Err, ProjectivePoint, Project
 
 import Graphics.Slicer.Math.Skeleton.Cells (crossoverPointOfDivision, crossoverLinesOfDivision)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), MotorcycleCell(MotorcycleCell), NodeTree(NodeTree), Side(Side), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), getFirstLineSeg, getLastLineSeg)
+import Graphics.Slicer.Math.Skeleton.Definitions (Cell(Cell), ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), Motorcycle(Motorcycle), MotorcycleCell(MotorcycleCell), NodeTree(NodeTree), Side(Side), StraightSkeleton(StraightSkeleton), RemainingContour(RemainingContour), CellDivide(CellDivide), DividingMotorcycles(DividingMotorcycles), MotorcycleIntersection(WithENode, WithLineSeg, WithMotorcycle), getFirstLineSeg, getLastLineSeg)
 
 import Graphics.Slicer.Math.Skeleton.Face(Face(Face))
 
@@ -229,16 +229,36 @@ instance GanjaAble Cell where
 -- | render a CellDivide.
 --   Note that the ordering of the crossoverlines may be backwards, because we do not have a cell with which to orient ourselves.
 instance GanjaAble CellDivide where
-  toGanja divide@(CellDivide (DividingMotorcycles firstMotorcycle (Slist moreMotorcycles _)) _) varname = (invars, inrefs)
+  toGanja divide@(CellDivide (DividingMotorcycles firstMotorcycle (Slist moreMotorcycles _)) target) varname = (invars, inrefs)
     where
       (invars, inrefs) = (concatMap fst res, concatMap snd res)
         where
           res            = (\(a,b) -> a (varname <> b)) <$> pairs
           pairs          = zip allObjects allStrings
-          allObjects     = (toGanja <$> allMotorcycles) <> [toGanja crossoverPoint] <> (toGanja <$> crossoverLines)
+          allObjects     = (toGanja <$> allMotorcycles) <> [toGanja crossoverPoint] <> (toGanja <$> crossoverLines) <> [toGanja target]
           allMotorcycles = firstMotorcycle:moreMotorcycles
           crossoverPoint = crossoverPointOfDivision divide
           crossoverLines = (\(a,b) -> [a,b]) $ crossoverLinesOfDivision divide
+
+instance GanjaAble MotorcycleIntersection where
+  toGanja (WithLineSeg lineSeg) varname = (invars, inrefs)
+    where
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
+        where
+          res          = (\(a,b) -> a (varname <> b)) <$> pairs
+          pairs        = zip [toGanja lineSeg] allStrings
+  toGanja (WithENode eNode) varname = (invars, inrefs)
+    where
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
+        where
+          res          = (\(a,b) -> a (varname <> b)) <$> pairs
+          pairs        = zip [toGanja eNode] allStrings
+  toGanja (WithMotorcycle motorcycle) varname = (invars, inrefs)
+    where
+      (invars, inrefs) = (concatMap fst res, concatMap snd res)
+        where
+          res          = (\(a,b) -> a (varname <> b)) <$> pairs
+          pairs        = zip [toGanja motorcycle] allStrings
 
 instance GanjaAble RemainingContour where
   toGanja (RemainingContour (Slist allSegs _) inDivide outDivides) varname = (invars, inrefs)

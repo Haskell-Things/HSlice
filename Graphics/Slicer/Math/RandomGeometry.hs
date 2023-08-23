@@ -32,6 +32,7 @@ module Graphics.Slicer.Math.RandomGeometry (
   ListThree(ListThree),
   Radian(Radian),
   cellFrom,
+  contoursFrom,
   edgesOf,
   generationsOf,
   nodeTreesOf,
@@ -442,6 +443,9 @@ cellFrom = fst . fst
 
 remainderFrom :: (a,b) -> b
 remainderFrom = snd
+
+contoursFrom :: (a,b) -> a
+contoursFrom = fst
 
 onlyOne :: [a] -> a
 onlyOne as = case as of

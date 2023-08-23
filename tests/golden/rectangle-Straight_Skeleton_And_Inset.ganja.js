@@ -15,6 +15,10 @@ Algebra(2,0,1,()=>{
   var afa = 0.7071067811865475e1-0.7071067811865475e2+0.35355339059327373e0;
   var afb = 0.0e1+1.0e2+0.0e0;
   var afc = -0.7071067811865475e1-0.7071067811865475e2-0.35355339059327373e0;
+  var ba = point(1.4,0.9000000000000001);
+  var bb = point(-1.4,0.9000000000000001);
+  var bc = point(-1.4,-0.9000000000000001);
+  var bd = point(1.4,-0.9000000000000001);
   document.body.appendChild(this.graph([
     0x882288,
     [aaa,aab],
@@ -42,6 +46,15 @@ Algebra(2,0,1,()=>{
     afa, "afa",
     afb, "afb",
     afc, "afc",
+    ba, "ba",
+    bb, "bb",
+    bc, "bc",
+    bd, "bd",
+    0x882288,
+    [ba,bb],
+    [bb,bc],
+    [bc,bd],
+    [bd,ba],
   ],{
     grid: true,
     labels: true,
