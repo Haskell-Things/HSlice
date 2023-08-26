@@ -67,10 +67,8 @@ insetBy :: ℝ -> Slist Face -> ([Contour], [Face])
 insetBy distanceBetweenSegs faces
   -- no result? no resulting faces.
   | all null lineSegSets = mempty
-  -- if the input contour has so few line segments, that it's impossible to drop a segment,
+  -- there cannot be such a thing as 2 faces remaining.
   -- assume we passed the endpoints of all faces.
-  | len faces < 6 && len faces /= length remainingFaces = (contours, [])
-  -- there is no such thing as 2 faces remaining. assume we passed the endpoints of all faces.
   | length remainingFaces < 3 = (contours, [])
   | otherwise = (contours, remainingFaces)
   where
