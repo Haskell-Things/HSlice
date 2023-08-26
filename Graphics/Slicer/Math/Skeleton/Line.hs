@@ -352,10 +352,11 @@ findClosestArc edge firstArc rawMidArcs lastArc = case sortOn fst arcIntersectio
 
 -- | Take the output of many calls to addLineSegsToFace, and construct contours from them.
 reclaimContours :: [[LineSeg]] -> [Contour]
-reclaimContours lineSegSets = if all isJust reclaimedRings && all isJust cleanedContours
-                                 then catMaybes cleanedContours
-                                      -- FIXME: separate errors, from situations that should normally return nothing.
-                                 else [] -- error $ "failed to clean a contour in rings: " <> show rings <> "\n" <> "input linsSegSets:\n" <> show lineSegSets <> "\n"
+reclaimContours lineSegSets
+  -- every ring was reclaimed, and cleaned. return success.
+  | all isJust reclaimedRings && all isJust cleanedContours = catMaybes cleanedContours
+  | all isJust reclaimedRings = error $ "failed to clean a contour in rings: " <> show rings <> "\n" <> "input linsSegSets:\n" <> show lineSegSets <> "\n"
+  | otherwise = error $ "failed to reclaim a ring in rings: " <> show rings <> "\n" <> "input linsSegSets:\n" <> show lineSegSets <> "\n"
   where
     cleanedContours = cleanContour <$> concatMap fromJust reclaimedRings
     reclaimedRings = reclaimRing <$> rings
@@ -363,8 +364,8 @@ reclaimContours lineSegSets = if all isJust reclaimedRings && all isJust cleaned
     -- by transposing them, we get lists of rings around the object, rather than covered petals.
     rings = transpose lineSegSets
 
--- | tage a ring around N contours, and generate the contours.
--- FIXME: not handling breaks yet.
+-- | take a ring around N contours, and generate the contours.
+-- FIXME: not handling split events yet.
 reclaimRing :: [LineSeg] -> Maybe [Contour]
 reclaimRing ring
   -- don't try to reclaim something that can not qualify as a 2d contour.
