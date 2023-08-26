@@ -361,8 +361,10 @@ reclaimContours lineSegSets
     cleanedContours = cleanContour <$> concatMap fromJust reclaimedRings
     reclaimedRings = reclaimRing <$> rings
     -- The input set of line segments has all of the line segments that cover a face in the same list.
-    -- by transposing them, we get lists of rings around the object, rather than covered petals.
-    rings = transpose lineSegSets
+    -- by transposing them, we get lists of rings around the object, rather than individually covered faces.
+    -- by filtering lineSegSets we filter out any face that had no segments placed.
+    -- by filtering for the length, we handle merge events.
+    rings = filter (\a -> length a > 2) $ transpose $ filter (/= []) lineSegSets
 
 -- | take a ring around N contours, and generate the contours.
 -- FIXME: not handling split events yet.
