@@ -124,8 +124,8 @@ goldenSpec = describe "golden tests" $ do
   golden "rectangle-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []
   goldens "rectangle-Straight_Skeleton_And_Inset" [ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []
                                                  , toGanja $ onlyOne $ contoursFrom $ insetBy 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton rectangle []]
---  goldens "rectangle-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []] <>
---                                                  (concat $ (\a -> toGanja <$> a) <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton rectangle [])))
+  goldens "rectangle-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []] <>
+                                                  (concat $ (\a -> toGanja <$> a) <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton rectangle [])))
   golden "rectangle-Faces-Default" $ facesOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []
     where
       c0 = makePointContour [Point2 (0,0), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
