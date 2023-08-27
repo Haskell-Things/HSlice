@@ -60,6 +60,8 @@ goldenSpec = describe "golden tests" $ do
   golden "C0-MotorcycleCell1" $ head $ allMotorcycleCells c0 $ fromJust $ crashMotorcycles c0 []
   golden "C0-MotorcycleCell2" $ last $ allMotorcycleCells c0 $ fromJust $ crashMotorcycles c0 []
   golden "C0-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []
+--  goldens "C0-Straight_Skeleton_And_Inset" [ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []
+--                                           , toGanja $ onlyOne $ contoursFrom $ insetBy 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c0 []]
   golden "C0-NodeTree" $ addNodeTreesAlongDivide
       (fst $ getRawNodeTreeOfCell (cellFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []))
       (fst $ getRawNodeTreeOfCell (cellFrom $ findNextCell $ onlyOne $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []))
@@ -80,8 +82,8 @@ goldenSpec = describe "golden tests" $ do
   golden "C3-Cell1" $ cellFrom $ findFirstCellOfContour c3 $ findDivisions c3 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c3 []
   golden "C3-Remainder1" $ onlyOne $ remainderFrom $ findFirstCellOfContour c3 $ findDivisions c3 $ fromJust $ crashMotorcycles c3 []
   golden "C3-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c3 []
-  goldens "C3-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c3 []] <>
-                                              (concat $ (\a -> toGanja <$> a) <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c3 [])))
+--  goldens "C3-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c3 []] <>
+--                                              (concat $ (\a -> toGanja <$> a) <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c3 [])))
   golden "C4-Cell1" $ cellFrom $ findFirstCellOfContour c4 $ findDivisions c4 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c4 []
   golden "C4-Remainder1" $ onlyOne $ remainderFrom $ findFirstCellOfContour c4 $ findDivisions c4 $ fromJust $ crashMotorcycles c4 []
   golden "C4-Cell2" $ cellFrom $ findNextCell $ onlyOne $ remainderFrom $ findFirstCellOfContour c4 $ findDivisions c4 $ fromJust $ crashMotorcycles c4 []
