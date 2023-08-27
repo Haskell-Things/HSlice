@@ -182,7 +182,7 @@ prop_RectangleFacesInsetWithoutRemainder contour distanceToCorner
   | otherwise = error $ "fail!\n" <> "numInsetContours: " <> show (length insetContours) <> "\nnumRemainingFaces: " <> show (length remainingFaces) <> "\n" <> show insetContours <> "\n" <> show remainingFaces <> "\n"
   where
     -- FIXME: 0.01 is a fudge factor. should not be requiced, but..
-    (insetContours, remainingFaces) = insetBy (0.01 + coerce distanceToCorner) (facesOf $ fromMaybe (error $ show contour) $ findStraightSkeleton contour [])
+    (insetContours, remainingFaces) = insetBy (0.001 + coerce distanceToCorner) (facesOf $ fromMaybe (error $ show contour) $ findStraightSkeleton contour [])
 
 rectangleBrokenSpec :: Spec
 rectangleBrokenSpec = do
