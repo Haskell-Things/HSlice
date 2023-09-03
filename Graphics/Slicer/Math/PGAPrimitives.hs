@@ -90,7 +90,7 @@ import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2))
 
-import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (∧), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpRaw, valOf)
+import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (∧+), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpRaw, valOf)
 
 --------------------------------
 --- common support functions ---
@@ -369,7 +369,7 @@ meetOfProjectiveLines line1 line2
   | typeOf line1 == typeOf line2 && line1 == fromJust (cast line2) = (PPoint2 $ GVec [], mempty)
   -- Short circuit (returning an empty vector) if the two inputs are equvalent after normalization.
   | npl1 == npl2 = (PPoint2 $ GVec [], mempty)
-  -- Otherwise, calculate an answer. note the above can be commented out (ignored), as they are just speedups.
+  -- Otherwise, calculate an answer.
   | otherwise = (PPoint2 res,
                   (npl1Err,
                    npl2Err,
@@ -593,9 +593,12 @@ angleCosBetweenProjectiveLines, angleCosBetween2PL :: (ProjectiveLine2 a, Projec
 {-# INLINABLE angleCosBetweenProjectiveLines #-}
 angleCosBetweenProjectiveLines line1 line2
   | isNothing canonicalizedIntersection = (0, mempty)
-  | otherwise = (angle, (npl1Err, npl2Err, sumPPointErrs iPointErrVals))
+  | otherwise = (angle, (npl1Err, npl2Err, iErrSum))
   where
-    angle = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] $ (\(GVec a) -> a) $ lvec2 ∧ (motor • iPointVec • antiMotor)
+    -- FIXME: this is cursed, and wrong.
+    iErrSum = sumPPointErrs iPointErrVals <> sumIErrs rawAngleErrs
+    angle = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] rawAngle
+    (GVec rawAngle, rawAngleErrs)  = lvec2 ∧+ (motor • iPointVec • antiMotor)
     (CPPoint2 iPointVec, (npl1Err, npl2Err, PPoint2Err _ iPointErrVals _ _ _ _ _)) = fromJust canonicalizedIntersection
     motor                     = addVecPairWithoutErr (lvec1 • gaI) (GVec [GVal 1 (singleton G0)])
     antiMotor                 = addVecPairWithoutErr (lvec1 • gaI) (GVec [GVal (-1) (singleton G0)])
@@ -846,10 +849,16 @@ pToEP = projectivePointToEuclidianPoint
 --- Projective Point Error Calculation ---
 ------------------------------------------
 
+-- | Sum up the error values for a projective point.
 sumPPointErrs :: [ErrVal] -> UlpSum
 sumPPointErrs errs = eValOf mempty (getVal [GEZero 1, GEPlus 1] errs)
                   <> eValOf mempty (getVal [GEZero 1, GEPlus 2] errs)
                   <> eValOf mempty (getVal [GEPlus 1, GEPlus 2] errs)
+
+-- | Sum up the error values for I.
+sumIErrs :: ([ErrVal], [ErrVal], [ErrVal], [ErrVal], [ErrVal]) -> UlpSum
+sumIErrs (unlikeMulErrs, unlikeAddErrs, _, _, _) = eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeMulErrs)
+                                                <> eValOf mempty (getVal [GEZero 1, GEPlus 1, GEPlus 2] unlikeAddErrs)
 
 -- | Determine the amount of error in resolving a projective point. Returns the radius of a circle aroind the given point within which the 'correct' answer should be.
 -- FIXME: This 1000 here is completely made up BS.
