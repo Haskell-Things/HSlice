@@ -71,14 +71,13 @@ segmentFrom (InsetLine seg _ _ _) = seg
 lineFrom :: InsetLine -> (ProjectiveLine, PLine2Err)
 lineFrom (InsetLine _ line _ _) = line
 
--- Provide the projective start point of an inset.
+-- Provide the projective start point of an InsetLine.
 startFrom :: InsetLine -> (ProjectivePoint, PPoint2Err)
 startFrom (InsetLine _ _ point _) = point
 
--- Provide the projective end point of an inset.
+-- Provide the projective end point of an InsetLine.
 endFrom :: InsetLine -> (ProjectivePoint, PPoint2Err)
 endFrom (InsetLine _ _ _ point) = point
-
 
 -- | Inset the given set of faces, returning new outside contours, and a new set of faces.
 -- Requires the faces are a closed set, AKA, a set of faces created from a contour.
@@ -373,7 +372,7 @@ firstArcEndsFarthest edge firstArc midArc lastArc = distancePPointToPLineWithErr
               <> "lastArc: \n" <> show lastArc <> "\n"
     edgeLine = eToPL edge
 
-closestArcAndDistance :: Face -> (((ProjectiveLine, PLine2Err), (ProjectiveLine, PLine2Err)), ℝ) 
+closestArcAndDistance :: Face -> (((ProjectiveLine, PLine2Err), (ProjectiveLine, PLine2Err)), ℝ)
 closestArcAndDistance (Face edge firstArc (Slist rawMidArcs _) lastArc) = case sortOn snd arcIntersections of
                    [] -> error "empty arcIntersections?"
                    [pair] -> pair
