@@ -22,11 +22,11 @@
 -- | This file contains code for creating a series of Faces, covering a straight skeleton.
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
-import Prelude (Bool(False, True), Eq, Show, (<), (==), all, otherwise, (<$>), ($), length, error, (<>), show, (<>), null, not, and, snd, (&&), (.), (/=), fst)
+import Prelude (Bool(True), Eq, Show, (==), all, otherwise, (<$>), ($), length, error, (<>), show, (<>), null, not, and, snd, (&&), (.), (/=), fst)
 
 import Data.Either (isRight)
 
-import Data.List (filter, foldl', uncons)
+import Data.List (filter, uncons)
 
 import qualified Data.List as DL (head)
 
@@ -154,7 +154,7 @@ getFaces :: NodeTree -> INode -> [Face]
 getFaces (NodeTree eNodes iNodeSet) = getFaces' iNodeSet eNodes iNodeSet
 
 -- | Get the faces for all of the NodeTree under the given INode.
--- May fail, as this is a recursive resolver, which might fail.
+-- May fail, as this is a recursive resolver.
 getFaces' :: Maybe INodeSet -> ENodeSet -> Maybe INodeSet -> INode -> [Face]
 getFaces' origINodeSet eNodes iNodeSet iNode = findFacesRecurse iNode mySortedPLines
   where
@@ -203,34 +203,35 @@ areaBetween :: ENodeSet -> Maybe INodeSet -> (ProjectiveLine, PLine2Err) -> (Pro
 areaBetween (ENodeSet (Slist [] _)) _ _ _ = error "no sides?"
 areaBetween (ENodeSet (Slist (_:_:_) _)) _ _ _ = error "too many sides?"
 areaBetween eNodeSet@(ENodeSet (Slist [_] _)) iNodeSet pLine1 pLine2
-  | reverseTriangle = faceOrError (lastDescendent eNodeSet iNodeSet pLine1)
-                                  (SL.reverse $ flipArc <$> pathToLastDescendent eNodeSet iNodeSet pLine1)
-                                  (pathToFirstDescendent eNodeSet iNodeSet pLine2)
-                                  (firstDescendent eNodeSet iNodeSet pLine2)
-  | otherwise       = faceOrError (lastDescendent eNodeSet iNodeSet pLine1)
-                                  (SL.reverse $ flipArc <$> pathToLastDescendent eNodeSet iNodeSet pLine1)
-                                  (pathToFirstDescendent eNodeSet iNodeSet pLine2)
-                                  (firstDescendent eNodeSet iNodeSet pLine2)
+  | getFirstLineSeg eNode1 == getLastLineSeg eNode2 = faceOrError eNode1 (arcsToLastDescendent pLine1) (arcsToFirstDescendent pLine2) eNode2
+  | getLastLineSeg eNode1 == getFirstLineSeg eNode2 = faceOrError eNode2 (arcsToLastDescendent pLine2) (arcsToFirstDescendent pLine1) eNode1
+      | otherwise = error "found ENodes that do not follow."
   where
+    eNode1 = lastDescendent eNodeSet iNodeSet pLine1
+    eNode2 = firstDescendent eNodeSet iNodeSet pLine2
+    arcsToLastDescendent myPLine
+      | getFirstLineSeg eNode1 == getLastLineSeg eNode2 = flipArc <$> pathToLastDescendent eNodeSet iNodeSet myPLine
+      | getLastLineSeg eNode1 == getFirstLineSeg eNode2 = pathToLastDescendent eNodeSet iNodeSet myPLine
+      | otherwise = error "found ENodes that do not follow."
+    arcsToFirstDescendent myPLine
+      | getFirstLineSeg eNode1 == getLastLineSeg eNode2 = pathToFirstDescendent eNodeSet iNodeSet myPLine
+      | getLastLineSeg eNode1 == getFirstLineSeg eNode2 = flipArc <$> pathToFirstDescendent eNodeSet iNodeSet myPLine
+      | otherwise = error "found ENodes that do not follow."
     -- append two slists of arcs, checking and eliminating the case where the first slist ends with an arc that is anti-collinear with the head of the second slist.
     mergeWithoutNonIntersecting :: Slist (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err)
     mergeWithoutNonIntersecting arcs1 arcs2
       | isEmpty arcs1 = arcs2
       | isEmpty arcs2 = arcs1
       | otherwise = if noIntersection (last arcs1) (head arcs2)
-                    then arcs1 <> tail arcs2
+                       -- make sure that we remove the arc going against the winding.
+                    then if getFirstLineSeg eNode1 == getLastLineSeg eNode2
+                         then init arcs1 <> arcs2
+                         else arcs1 <> tail arcs2
                     else arcs1 <> arcs2
-    -- Detect the case where we are creating a face across the open end of the contour.
-    reverseTriangle
-      | isJust iNodeSet = pLine1 == lastInOf (finalINodeOf $ fromJust iNodeSet) &&
-                          pLine2 == firstInOf (finalINodeOf $ fromJust iNodeSet)
-      | otherwise = error "no INodes in this NodeTree."
     -- Generate a face, or dump a useful error.
     faceOrError firstENode firstMidArcs lastMidArcs lastENode
       | isNothing segment = error $ "segments do not line up.\n"
                                  <> dumpEverything
---      | len midArcs > 1 = error $ "boo!\n"
---                               <> show midArcs <> "\n"
       | otherwise = fromMaybe errMakingFace $ makeFace firstENode midArcs lastENode
       where
         midArcs = mergeWithoutNonIntersecting firstMidArcs lastMidArcs
@@ -244,7 +245,6 @@ areaBetween eNodeSet@(ENodeSet (Slist [_] _)) iNodeSet pLine1 pLine2
         dumpEverything =
                         show iNodeSet <> "\n"
                         <> show eNodeSet <> "\n"
-                        <> show reverseTriangle <> "\n"
                         <> show pLine1 <> "\n"
                         <> show pLine2 <> "\n"
                         <> show segment <> "\n"
@@ -347,12 +347,8 @@ pathToLastDescendent eNodeSet iNodeSet line@(pLine, _)
 
 -- | Construct a face from two nodes, and a set of arcs. the nodes must follow each other on the contour.
 makeFace :: ENode -> Slist (ProjectiveLine, PLine2Err) -> ENode -> Maybe Face
-makeFace e1 arcs e2
-  | getLastLineSeg e1 == getFirstLineSeg e2 = makeFace' (getFirstLineSeg e2) (outAndErrOf e2) filteredArcs (flipArc $ outAndErrOf e1)
-  | getFirstLineSeg e1 == getLastLineSeg e2 = makeFace' (getFirstLineSeg e1) (outAndErrOf e1) filteredArcs (flipArc $ outAndErrOf e2)
-  | otherwise = Nothing
+makeFace e1 arcs e2 = makeFace' (getFirstLineSeg e1) (outAndErrOf e1) arcs (flipArc $ outAndErrOf e2)
   where
-    filteredArcs = filterSingleNoIntersection arcs
     makeFace' :: LineSeg -> (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Maybe Face
     makeFace' seg firstArc midArcs lastArc
   --  uncomment me when debugging miswound faces that should be convex.
@@ -379,19 +375,3 @@ findDegenerates (Slist inFaces _) = slist $ checkFace <$> inFaces
 flipArc :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err)
 flipArc (arc, arcErr) = (flipL arc, arcErr)
 
--- | For when you're hunting for the place where you mis-fold a set of arcs...
-filterSingleNoIntersection :: Slist (ProjectiveLine, PLine2Err) -> Slist (ProjectiveLine, PLine2Err)
-filterSingleNoIntersection arcs
-  | len arcs < 2 = arcs
-  | otherwise = fst $ foldl' dropSingleNoIntersection (slist [head arcs], False) (tail arcs)
-  where
-    dropSingleNoIntersection :: (Slist (ProjectiveLine, PLine2Err), Bool) -> (ProjectiveLine, PLine2Err) -> (Slist (ProjectiveLine, PLine2Err), Bool)
-    dropSingleNoIntersection searched target = case searched of
-                                                 (Slist [] _,_) -> error "empty searched set?"
-                                                 (Slist xs _, True) -> (slist $ xs <> [target], True)
-                                                 (Slist [a] _, False) -> if noIntersection a target
-                                                                         then (slist [a], True)
-                                                                         else (slist $ [a] <> [target], False)
-                                                 (xs@(Slist rawxs _), False) -> if noIntersection (last xs) target
-                                                                                then (xs, True)
-                                                                                else (slist $ rawxs <> [target], False)
