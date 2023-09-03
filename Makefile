@@ -102,12 +102,12 @@ dist: $(TARGETS)
 	./Setup sdist
 
 # Generate examples.
-examples: $(EXTCURAENGINEBIN)
-	cd Examples && for each in `find ./ -name '*stl' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINEBIN) $$each $(RTSOPTS); } done
+#examples: $(EXTCURAENGINEBIN)
+#	cd Examples && for each in `find ./ -name '*stl' -type f | sort`; do { echo $$each ; ../$(EXTCURAENGINEBIN) $$each $(RTSOPTS); } done
 
 # Generate images from the examples, so we can upload the images to our website.
-images: examples
-	cd Examples && for each in `find ./ -name '*.stl' -type f | sort`; do { filename=$(basename "$$each"); filename="$${filename%.*}"; if [ -e $$filename.transform ] ; then echo ${stl2ps} $$each $$filename.ps `cat $$filename.transform`; else ${stl2ps} $$each $$filename.ps; fi; ${convert} $$filename.ps $$filename.png; } done
+#images: examples
+#	cd Examples && for each in `find ./ -name '*.stl' -type f | sort`; do { filename=$(basename "$$each"); filename="$${filename%.*}"; if [ -e $$filename.transform ] ; then echo ${stl2ps} $$each $$filename.ps `cat $$filename.transform`; else ${stl2ps} $$each $$filename.ps; fi; ${convert} $$filename.ps $$filename.png; } done
 
 # tests.
 tests: $(EXTCURAENGINEBIN)
