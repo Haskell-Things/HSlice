@@ -169,15 +169,15 @@ distanceProjectivePointToProjectiveLine (inPoint, inPointErr) (inLine, inLineErr
   where
     resErr = (cPointErr, nLineErr, (plMulErr, plAddErr), perpLineNormErr, crossPointErr, errSum)
       where
-        errSum = distanceErr <> fuzzinessOfP (inPoint, inPointErr) <> pLineErrAtPPoint (inLine, inLineErr) crossPoint <> pLineErrAtPPoint (PLine2 perpLine, perpLineNormErr) crossPoint
+        errSum = distanceErr <> fuzzinessOfP (inPoint, inPointErr) <> pLineErrAtPPoint (inLine, inLineErr) crossPoint <> pLineErrAtPPoint (perpLine, perpLineNormErr) crossPoint
     -- | use distance2PP to find the distance between this crossover point, and the given point.
     (res, (_, _, distanceErr)) = distance2PP (cPoint, pointErr) (crossPoint, crossPointErr)
     -- | Get the point where the perpendicular line and the input line meet.
     -- FIXME: how does perpLineErr effect the result of canonicalizedIntersectionOf2PL?
-    (crossPoint, (_, perpLineNormErr, crossPointErr)) = fromJust $ canonicalizedIntersectionOf2PL nLine (PLine2 perpLine)
+    (crossPoint, (_, perpLineNormErr, crossPointErr)) = fromJust $ canonicalizedIntersectionOf2PL nLine perpLine
     -- | Get a perpendicular line, crossing the input line at the given point.
     -- FIXME: where should we put this in PLine2Err?
-    (PLine2 perpLine, (_, _, (plMulErr, plAddErr))) = perpLineAt nLine cPoint
+    (perpLine, (_, _, (plMulErr, plAddErr))) = perpLineAt nLine cPoint
     pointErr = inPointErr <> cPointErr
     (nLine, nLineErr) = normalizeL inLine
     (cPoint, cPointErr) = canonicalizeP inPoint
