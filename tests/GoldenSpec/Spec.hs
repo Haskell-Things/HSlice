@@ -60,8 +60,10 @@ goldenSpec = describe "golden tests" $ do
   golden "C0-MotorcycleCell1" $ head $ allMotorcycleCells c0 $ fromJust $ crashMotorcycles c0 []
   golden "C0-MotorcycleCell2" $ last $ allMotorcycleCells c0 $ fromJust $ crashMotorcycles c0 []
   golden "C0-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []
---  goldens "C0-Straight_Skeleton_And_Inset" [ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []
---                                           , toGanja $ onlyOne $ contoursFrom $ insetBy 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c0 []]
+  goldens "C0-Straight_Skeleton_And_Inset" [ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []
+                                           , toGanja $ onlyOne $ contoursFrom $ insetBy 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c0 []]
+--  goldens "C0-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []] <>
+--                                             (concat $ (\a -> toGanja <$> a) <$> (insetMany 0.1 2 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])))
   golden "C0-NodeTree" $ addNodeTreesAlongDivide
       (fst $ getRawNodeTreeOfCell (cellFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []))
       (fst $ getRawNodeTreeOfCell (cellFrom $ findNextCell $ onlyOne $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []))
@@ -74,6 +76,8 @@ goldenSpec = describe "golden tests" $ do
   golden "C1-Remainder1" $ onlyOne $ remainderFrom $ findFirstCellOfContour c1 $ findDivisions c1 $ fromJust $ crashMotorcycles c1 []
   golden "C1-Cell2" $ cellFrom $ findNextCell $ onlyOne $ remainderFrom $ findFirstCellOfContour c1 $ findDivisions c1 $ fromJust $ crashMotorcycles c1 []
   golden "C1-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c1 []
+  goldens "C1-Straight_Skeleton_And_Inset" [ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c1 []
+                                           , toGanja $ onlyOne $ contoursFrom $ insetBy 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c1 []]
   golden "C2-Cell1" $ cellFrom $ findFirstCellOfContour c2 $ findDivisions c2 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c2 []
   golden "C2-Cell1-NodeTree" $ fst $ getRawNodeTreeOfCell $ cellFrom $ findFirstCellOfContour c2 $ findDivisions c2 $ fromJust $ crashMotorcycles c2 []
   golden "C2-Remainder1" $ onlyOne $ remainderFrom $ findFirstCellOfContour c2 $ findDivisions c2 $ fromJust $ crashMotorcycles c2 []
