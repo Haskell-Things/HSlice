@@ -18,7 +18,9 @@
 
 module GoldenSpec.Spec (goldenSpec) where
 
-import Prelude (($), (<>), (<$>), error, fst, head, last, sqrt)
+import Prelude (($), (<>), (<$>), error, fst, sqrt)
+
+import Data.List (head, last)
 
 import Data.Maybe (fromMaybe, fromJust)
 
@@ -46,7 +48,7 @@ import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
 
 import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 
-import Graphics.Slicer.Math.Skeleton.Line (insetBy, {- insetMany, -}infiniteInset)
+import Graphics.Slicer.Math.Skeleton.Line (insetBy, insetMany, infiniteInset)
 
 goldenSpec :: Spec
 goldenSpec = describe "golden tests" $ do
@@ -60,8 +62,8 @@ goldenSpec = describe "golden tests" $ do
   golden "C0-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []
   goldens "C0-Straight_Skeleton_And_Inset" [ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []
                                            , toGanja $ onlyOne $ contoursFrom $ insetBy 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c0 []]
---  goldens "C0-Straight_Skeleton_And_Two_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []] <>
---                                             (toGanja <$> (contoursFrom $ insetMany 0.1 2 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])))
+  goldens "C0-Straight_Skeleton_And_Four_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []] <>
+                                                  (toGanja <$> (contoursFrom $ insetMany 0.1 4 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])))
 --  goldens "C0-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []] <>
 --                                             (toGanja <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])))
   golden "C0-NodeTree" $ addNodeTreesAlongDivide
