@@ -15,76 +15,40 @@ Algebra(2,0,1,()=>{
   var aed = -0.7071067811865475e1-0.7071067811865475e2+0.0e0;
   var ba = point(0.9,0.9);
   var bb = point(-0.9,0.9);
-  var ca = point(-0.9,0.9);
-  var cb = point(-0.9,-0.9);
-  var da = point(-0.9,-0.9);
-  var db = point(0.9,-0.9);
-  var ea = point(0.9,-0.9);
-  var eb = point(0.9,0.9);
-  var fa = point(0.8,0.8);
-  var fb = point(-0.8,0.8);
-  var ga = point(-0.8,0.8);
-  var gb = point(-0.8,-0.8);
-  var ha = point(-0.8,-0.8);
-  var hb = point(0.8,-0.8);
-  var ia = point(0.8,-0.8);
-  var ib = point(0.8,0.8);
-  var ja = point(0.7,0.7);
-  var jb = point(-0.7,0.7);
-  var ka = point(-0.7,0.7);
-  var kb = point(-0.7,-0.7);
-  var la = point(-0.7,-0.7);
-  var lb = point(0.7,-0.7);
-  var ma = point(0.7,-0.7);
-  var mb = point(0.7,0.7);
-  var na = point(0.6,0.6);
-  var nb = point(-0.6,0.6);
-  var oa = point(-0.6,0.6);
-  var ob = point(-0.6,-0.6);
-  var pa = point(-0.6,-0.6);
-  var pb = point(0.6,-0.6);
-  var qa = point(0.6,-0.6);
-  var qb = point(0.6,0.6);
-  var ra = point(0.5,0.5);
-  var rb = point(-0.5,0.5);
-  var sa = point(-0.5,0.5);
-  var sb = point(-0.5,-0.5);
-  var ta = point(-0.5,-0.5);
-  var tb = point(0.5,-0.5);
-  var ua = point(0.5,-0.5);
-  var ub = point(0.5,0.5);
-  var va = point(0.39999999999999986,0.39999999999999986);
-  var vb = point(-0.39999999999999986,0.39999999999999986);
-  var wa = point(-0.39999999999999986,0.39999999999999986);
-  var wb = point(-0.39999999999999986,-0.39999999999999986);
-  var xa = point(-0.39999999999999986,-0.39999999999999986);
-  var xb = point(0.39999999999999986,-0.39999999999999986);
-  var ya = point(0.39999999999999986,-0.39999999999999986);
-  var yb = point(0.39999999999999986,0.39999999999999986);
-  var za = point(0.29999999999999993,0.29999999999999993);
-  var zb = point(-0.29999999999999993,0.29999999999999993);
-  var Aa = point(-0.29999999999999993,0.29999999999999993);
-  var Ab = point(-0.29999999999999993,-0.29999999999999993);
-  var Ba = point(-0.29999999999999993,-0.29999999999999993);
-  var Bb = point(0.29999999999999993,-0.29999999999999993);
-  var Ca = point(0.29999999999999993,-0.29999999999999993);
-  var Cb = point(0.29999999999999993,0.29999999999999993);
-  var Da = point(0.19999999999999993,0.19999999999999993);
-  var Db = point(-0.19999999999999993,0.19999999999999993);
-  var Ea = point(-0.19999999999999993,0.19999999999999993);
-  var Eb = point(-0.19999999999999993,-0.19999999999999993);
-  var Fa = point(-0.19999999999999993,-0.19999999999999993);
-  var Fb = point(0.19999999999999993,-0.19999999999999993);
-  var Ga = point(0.19999999999999993,-0.19999999999999993);
-  var Gb = point(0.19999999999999993,0.19999999999999993);
-  var Ha = point(0.09999999999999996,0.09999999999999996);
-  var Hb = point(-0.09999999999999996,0.09999999999999996);
-  var Ia = point(-0.09999999999999996,0.09999999999999996);
-  var Ib = point(-0.09999999999999996,-0.09999999999999996);
-  var Ja = point(-0.09999999999999996,-0.09999999999999996);
-  var Jb = point(0.09999999999999996,-0.09999999999999996);
-  var Ka = point(0.09999999999999996,-0.09999999999999996);
-  var Kb = point(0.09999999999999996,0.09999999999999996);
+  var bc = point(-0.9,-0.9);
+  var bd = point(0.9,-0.9);
+  var ca = point(0.8,0.8);
+  var cb = point(-0.8,0.8);
+  var cc = point(-0.8,-0.8);
+  var cd = point(0.8,-0.8);
+  var da = point(0.7,0.7);
+  var db = point(-0.7,0.7);
+  var dc = point(-0.7,-0.7);
+  var dd = point(0.7,-0.7);
+  var ea = point(0.6,0.6);
+  var eb = point(-0.6,0.6);
+  var ec = point(-0.6,-0.6);
+  var ed = point(0.6,-0.6);
+  var fa = point(0.5,0.5);
+  var fb = point(-0.5,0.5);
+  var fc = point(-0.5,-0.5);
+  var fd = point(0.5,-0.5);
+  var ga = point(0.39999999999999986,0.39999999999999986);
+  var gb = point(-0.39999999999999986,0.39999999999999986);
+  var gc = point(-0.39999999999999986,-0.39999999999999986);
+  var gd = point(0.39999999999999986,-0.39999999999999986);
+  var ha = point(0.29999999999999993,0.29999999999999993);
+  var hb = point(-0.29999999999999993,0.29999999999999993);
+  var hc = point(-0.29999999999999993,-0.29999999999999993);
+  var hd = point(0.29999999999999993,-0.29999999999999993);
+  var ia = point(0.19999999999999993,0.19999999999999993);
+  var ib = point(-0.19999999999999993,0.19999999999999993);
+  var ic = point(-0.19999999999999993,-0.19999999999999993);
+  var id = point(0.19999999999999993,-0.19999999999999993);
+  var ja = point(0.09999999999999996,0.09999999999999996);
+  var jb = point(-0.09999999999999996,0.09999999999999996);
+  var jc = point(-0.09999999999999996,-0.09999999999999996);
+  var jd = point(0.09999999999999996,-0.09999999999999996);
   document.body.appendChild(this.graph([
     0x882288,
     [aaa,aab],
@@ -110,186 +74,96 @@ Algebra(2,0,1,()=>{
     aeb, "aeb",
     aec, "aec",
     aed, "aed",
-    0x882288,
-    [ba,bb],
-    0x00AA88,
     ba, "ba",
     bb, "bb",
+    bc, "bc",
+    bd, "bd",
     0x882288,
-    [ca,cb],
+    [ba,bb],
+    [bb,bc],
+    [bc,bd],
+    [bd,ba],
     0x00AA88,
     ca, "ca",
     cb, "cb",
+    cc, "cc",
+    cd, "cd",
     0x882288,
-    [da,db],
+    [ca,cb],
+    [cb,cc],
+    [cc,cd],
+    [cd,ca],
     0x00AA88,
     da, "da",
     db, "db",
+    dc, "dc",
+    dd, "dd",
     0x882288,
-    [ea,eb],
+    [da,db],
+    [db,dc],
+    [dc,dd],
+    [dd,da],
     0x00AA88,
     ea, "ea",
     eb, "eb",
+    ec, "ec",
+    ed, "ed",
     0x882288,
-    [fa,fb],
+    [ea,eb],
+    [eb,ec],
+    [ec,ed],
+    [ed,ea],
     0x00AA88,
     fa, "fa",
     fb, "fb",
+    fc, "fc",
+    fd, "fd",
     0x882288,
-    [ga,gb],
+    [fa,fb],
+    [fb,fc],
+    [fc,fd],
+    [fd,fa],
     0x00AA88,
     ga, "ga",
     gb, "gb",
+    gc, "gc",
+    gd, "gd",
     0x882288,
-    [ha,hb],
+    [ga,gb],
+    [gb,gc],
+    [gc,gd],
+    [gd,ga],
     0x00AA88,
     ha, "ha",
     hb, "hb",
+    hc, "hc",
+    hd, "hd",
     0x882288,
-    [ia,ib],
+    [ha,hb],
+    [hb,hc],
+    [hc,hd],
+    [hd,ha],
     0x00AA88,
     ia, "ia",
     ib, "ib",
+    ic, "ic",
+    id, "id",
     0x882288,
-    [ja,jb],
+    [ia,ib],
+    [ib,ic],
+    [ic,id],
+    [id,ia],
     0x00AA88,
     ja, "ja",
     jb, "jb",
+    jc, "jc",
+    jd, "jd",
     0x882288,
-    [ka,kb],
+    [ja,jb],
+    [jb,jc],
+    [jc,jd],
+    [jd,ja],
     0x00AA88,
-    ka, "ka",
-    kb, "kb",
-    0x882288,
-    [la,lb],
-    0x00AA88,
-    la, "la",
-    lb, "lb",
-    0x882288,
-    [ma,mb],
-    0x00AA88,
-    ma, "ma",
-    mb, "mb",
-    0x882288,
-    [na,nb],
-    0x00AA88,
-    na, "na",
-    nb, "nb",
-    0x882288,
-    [oa,ob],
-    0x00AA88,
-    oa, "oa",
-    ob, "ob",
-    0x882288,
-    [pa,pb],
-    0x00AA88,
-    pa, "pa",
-    pb, "pb",
-    0x882288,
-    [qa,qb],
-    0x00AA88,
-    qa, "qa",
-    qb, "qb",
-    0x882288,
-    [ra,rb],
-    0x00AA88,
-    ra, "ra",
-    rb, "rb",
-    0x882288,
-    [sa,sb],
-    0x00AA88,
-    sa, "sa",
-    sb, "sb",
-    0x882288,
-    [ta,tb],
-    0x00AA88,
-    ta, "ta",
-    tb, "tb",
-    0x882288,
-    [ua,ub],
-    0x00AA88,
-    ua, "ua",
-    ub, "ub",
-    0x882288,
-    [va,vb],
-    0x00AA88,
-    va, "va",
-    vb, "vb",
-    0x882288,
-    [wa,wb],
-    0x00AA88,
-    wa, "wa",
-    wb, "wb",
-    0x882288,
-    [xa,xb],
-    0x00AA88,
-    xa, "xa",
-    xb, "xb",
-    0x882288,
-    [ya,yb],
-    0x00AA88,
-    ya, "ya",
-    yb, "yb",
-    0x882288,
-    [za,zb],
-    0x00AA88,
-    za, "za",
-    zb, "zb",
-    0x882288,
-    [Aa,Ab],
-    0x00AA88,
-    Aa, "Aa",
-    Ab, "Ab",
-    0x882288,
-    [Ba,Bb],
-    0x00AA88,
-    Ba, "Ba",
-    Bb, "Bb",
-    0x882288,
-    [Ca,Cb],
-    0x00AA88,
-    Ca, "Ca",
-    Cb, "Cb",
-    0x882288,
-    [Da,Db],
-    0x00AA88,
-    Da, "Da",
-    Db, "Db",
-    0x882288,
-    [Ea,Eb],
-    0x00AA88,
-    Ea, "Ea",
-    Eb, "Eb",
-    0x882288,
-    [Fa,Fb],
-    0x00AA88,
-    Fa, "Fa",
-    Fb, "Fb",
-    0x882288,
-    [Ga,Gb],
-    0x00AA88,
-    Ga, "Ga",
-    Gb, "Gb",
-    0x882288,
-    [Ha,Hb],
-    0x00AA88,
-    Ha, "Ha",
-    Hb, "Hb",
-    0x882288,
-    [Ia,Ib],
-    0x00AA88,
-    Ia, "Ia",
-    Ib, "Ib",
-    0x882288,
-    [Ja,Jb],
-    0x00AA88,
-    Ja, "Ja",
-    Jb, "Jb",
-    0x882288,
-    [Ka,Kb],
-    0x00AA88,
-    Ka, "Ka",
-    Kb, "Kb",
   ],{
     grid: true,
     labels: true,

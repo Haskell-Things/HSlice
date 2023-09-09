@@ -20,8 +20,6 @@ module GoldenSpec.Spec (goldenSpec) where
 
 import Prelude (($), (<>), (<$>), error, fst, head, last, sqrt)
 
-import Data.List (concat)
-
 import Data.Maybe (fromMaybe, fromJust)
 
 import GoldenSpec.Util (golden, goldens)
@@ -48,7 +46,7 @@ import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
 
 import Graphics.Slicer.Math.Skeleton.Face (facesOf, orderedFacesOf)
 
-import Graphics.Slicer.Math.Skeleton.Line (insetBy, infiniteInset)
+import Graphics.Slicer.Math.Skeleton.Line (insetBy, {- insetMany, -}infiniteInset)
 
 goldenSpec :: Spec
 goldenSpec = describe "golden tests" $ do
@@ -62,8 +60,10 @@ goldenSpec = describe "golden tests" $ do
   golden "C0-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []
   goldens "C0-Straight_Skeleton_And_Inset" [ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []
                                            , toGanja $ onlyOne $ contoursFrom $ insetBy 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c0 []]
+--  goldens "C0-Straight_Skeleton_And_Two_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []] <>
+--                                             (toGanja <$> (contoursFrom $ insetMany 0.1 2 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])))
 --  goldens "C0-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c0 []] <>
---                                             (concat $ (\a -> toGanja <$> a) <$> (insetMany 0.1 2 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])))
+--                                             (toGanja <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c0 [])))
   golden "C0-NodeTree" $ addNodeTreesAlongDivide
       (fst $ getRawNodeTreeOfCell (cellFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []))
       (fst $ getRawNodeTreeOfCell (cellFrom $ findNextCell $ onlyOne $ remainderFrom $ findFirstCellOfContour c0 $ findDivisions c0 $ fromJust $ crashMotorcycles c0 []))
@@ -87,7 +87,7 @@ goldenSpec = describe "golden tests" $ do
   golden "C3-Remainder1" $ onlyOne $ remainderFrom $ findFirstCellOfContour c3 $ findDivisions c3 $ fromJust $ crashMotorcycles c3 []
   golden "C3-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c3 []
 --  goldens "C3-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton c3 []] <>
---                                              (concat $ (\a -> toGanja <$> a) <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c3 [])))
+--                                              (toGanja <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton c3 [])))
   golden "C4-Cell1" $ cellFrom $ findFirstCellOfContour c4 $ findDivisions c4 $ fromMaybe (error "Got Nothing") $ crashMotorcycles c4 []
   golden "C4-Remainder1" $ onlyOne $ remainderFrom $ findFirstCellOfContour c4 $ findDivisions c4 $ fromJust $ crashMotorcycles c4 []
   golden "C4-Cell2" $ cellFrom $ findNextCell $ onlyOne $ remainderFrom $ findFirstCellOfContour c4 $ findDivisions c4 $ fromJust $ crashMotorcycles c4 []
@@ -117,19 +117,21 @@ goldenSpec = describe "golden tests" $ do
   goldens "triangle-Straight_Skeleton_And_Inset" [ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton triangle []
                                                  , toGanja $ onlyOne $ contoursFrom $ insetBy 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton triangle []]
   goldens "triangle-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton triangle []] <>
-                                                  (concat $ (\a -> toGanja <$> a) <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton triangle [])))
+                                                  (toGanja <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton triangle [])))
   golden "triangle-Faces-Default" $ facesOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton triangle []
   golden "square-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton square []
   goldens "square-Straight_Skeleton_And_Inset" [ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton square []
                                                  , toGanja $ onlyOne $ contoursFrom $ insetBy 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton square []]
   goldens "square-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton square []] <>
-                                                  (concat $ (\a -> toGanja <$> a) <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton square [])))
+                                                  (toGanja <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton square [])))
   golden "square-Faces-Default" $ facesOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton square []
   golden "rectangle-Straight_Skeleton" $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []
   goldens "rectangle-Straight_Skeleton_And_Inset" [ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []
                                                  , toGanja $ onlyOne $ contoursFrom $ insetBy 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton rectangle []]
+--  goldens "rectangle-Straight_Skeleton_And_Two_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []] <>
+--                                             (toGanja <$> (contoursFrom $ insetMany 0.1 2 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton rectangle [])))
   goldens "rectangle-Straight_Skeleton_And_Insets" ([ toGanja $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []] <>
-                                                  (concat $ (\a -> toGanja <$> a) <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton rectangle [])))
+                                                  (toGanja <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton rectangle [])))
   golden "rectangle-Faces-Default" $ facesOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []
     where
       c0 = makePointContour [Point2 (0,0), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
