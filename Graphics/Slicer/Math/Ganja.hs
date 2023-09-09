@@ -178,7 +178,7 @@ instance GanjaAble Contour where
   toGanja contour varname = (invars, inrefs)
     where
       contourPoints = pointsOfContour contour
-      (invars, inrefs) = (concatMap fst res, concatMap snd res <> "    0x882288,\n" <> linePairs <> "    0x00AA88,\n")
+      (invars, inrefs) = (concatMap fst res, "    0x882288,\n" <> linePairs <> "    0x00AA88,\n" <> concatMap snd res)
         where
           linePairs    = concat $ mapWithFollower (\(_,a) (_,b) -> "    [" <> varname <> a <> "," <> varname <> b <> "],\n") pairs
           res          = (\(a,b) -> toGanja a (varname <> b)) <$> pairs
