@@ -39,6 +39,7 @@ Algebra(2,0,1,()=>{
     [ba,bb],
     [bb,bc],
     [bc,ba],
+    0x00AA88,
   ],{
     grid: true,
     labels: true,

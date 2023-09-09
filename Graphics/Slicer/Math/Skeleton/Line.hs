@@ -38,7 +38,7 @@ import Slist.Type (Slist(Slist))
 
 import Graphics.Slicer.Math.Contour (makePointContour)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, distance, mapWithFollower, endPoint, lineSegsOfContour, makeLineSeg, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, Point2, distance, mapWithFollower, endPoint, makeLineSeg, startPoint)
 
 import Graphics.Slicer.Math.Ganja (dumpGanja)
 
@@ -121,11 +121,12 @@ insetMany distanceBetweenSegs count faces
 
 -- | Cover a contour with lines, aligned to the faces of the contour.
 -- FIXME: this should be returning a ContourTree.
-infiniteInset :: ℝ -> Slist Face -> [[LineSeg]]
+infiniteInset :: ℝ -> Slist Face -> [Contour]
 infiniteInset distanceBetweenSegs faces
+  -- no result? no resulting faces.
   | all null lineSegSets = mempty
   | length (concat lineSegSets) < 3 = error $ "less than three, but not zero?\n" <> show lineSegSets <> "\n"
-  | otherwise = lineSegsOfContour <$> contours
+  | otherwise = contours
   where
     contours = reclaimContours lineSegSets
     lineSegSets = fst <$> res

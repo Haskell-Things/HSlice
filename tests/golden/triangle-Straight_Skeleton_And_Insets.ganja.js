@@ -12,34 +12,19 @@ Algebra(2,0,1,()=>{
   var adc = 0.5000000000000001e1+0.8660254037844387e2-1.0000000000000002e0;
   var ba = point(1.826794919243112,0.1);
   var bb = point(1.0,1.5320508075688768);
-  var ca = point(1.0,1.5320508075688768);
-  var cb = point(0.17320508075688773,0.1);
-  var da = point(0.17320508075688773,0.1);
-  var db = point(1.826794919243112,0.1);
-  var ea = point(1.6535898384862244,0.2);
-  var eb = point(1.0000000000000002,1.3320508075688773);
-  var fa = point(1.0000000000000002,1.3320508075688773);
-  var fb = point(0.34641016151377546,0.2);
-  var ga = point(0.34641016151377546,0.2);
-  var gb = point(1.6535898384862244,0.2);
-  var ha = point(1.4803847577293368,0.3);
-  var hb = point(1.0,1.132050807568877);
-  var ia = point(1.0,1.132050807568877);
-  var ib = point(0.5196152422706632,0.3);
-  var ja = point(0.5196152422706632,0.3);
-  var jb = point(1.4803847577293368,0.3);
-  var ka = point(1.3071796769724493,0.4);
-  var kb = point(1.0,0.9320508075688773);
-  var la = point(1.0,0.9320508075688773);
-  var lb = point(0.6928203230275509,0.4);
-  var ma = point(0.6928203230275509,0.4);
-  var mb = point(1.3071796769724493,0.4);
-  var na = point(1.1339745962155614,0.5);
-  var nb = point(1.0,0.7320508075688773);
-  var oa = point(1.0,0.7320508075688773);
-  var ob = point(0.8660254037844386,0.5);
-  var pa = point(0.8660254037844386,0.5);
-  var pb = point(1.1339745962155614,0.5);
+  var bc = point(0.17320508075688773,0.1);
+  var ca = point(1.6535898384862244,0.2);
+  var cb = point(1.0000000000000002,1.3320508075688773);
+  var cc = point(0.34641016151377546,0.2);
+  var da = point(1.4803847577293368,0.3);
+  var db = point(1.0,1.132050807568877);
+  var dc = point(0.5196152422706632,0.3);
+  var ea = point(1.3071796769724493,0.4);
+  var eb = point(1.0,0.9320508075688773);
+  var ec = point(0.6928203230275509,0.4);
+  var fa = point(1.1339745962155614,0.5);
+  var fb = point(1.0,0.7320508075688773);
+  var fc = point(0.8660254037844386,0.5);
   document.body.appendChild(this.graph([
     0x882288,
     [aaa,aab],
@@ -59,81 +44,46 @@ Algebra(2,0,1,()=>{
     ada, "ada",
     adb, "adb",
     adc, "adc",
-    0x882288,
-    [ba,bb],
-    0x00AA88,
     ba, "ba",
     bb, "bb",
+    bc, "bc",
     0x882288,
-    [ca,cb],
+    [ba,bb],
+    [bb,bc],
+    [bc,ba],
     0x00AA88,
     ca, "ca",
     cb, "cb",
+    cc, "cc",
     0x882288,
-    [da,db],
+    [ca,cb],
+    [cb,cc],
+    [cc,ca],
     0x00AA88,
     da, "da",
     db, "db",
+    dc, "dc",
     0x882288,
-    [ea,eb],
+    [da,db],
+    [db,dc],
+    [dc,da],
     0x00AA88,
     ea, "ea",
     eb, "eb",
+    ec, "ec",
     0x882288,
-    [fa,fb],
+    [ea,eb],
+    [eb,ec],
+    [ec,ea],
     0x00AA88,
     fa, "fa",
     fb, "fb",
+    fc, "fc",
     0x882288,
-    [ga,gb],
+    [fa,fb],
+    [fb,fc],
+    [fc,fa],
     0x00AA88,
-    ga, "ga",
-    gb, "gb",
-    0x882288,
-    [ha,hb],
-    0x00AA88,
-    ha, "ha",
-    hb, "hb",
-    0x882288,
-    [ia,ib],
-    0x00AA88,
-    ia, "ia",
-    ib, "ib",
-    0x882288,
-    [ja,jb],
-    0x00AA88,
-    ja, "ja",
-    jb, "jb",
-    0x882288,
-    [ka,kb],
-    0x00AA88,
-    ka, "ka",
-    kb, "kb",
-    0x882288,
-    [la,lb],
-    0x00AA88,
-    la, "la",
-    lb, "lb",
-    0x882288,
-    [ma,mb],
-    0x00AA88,
-    ma, "ma",
-    mb, "mb",
-    0x882288,
-    [na,nb],
-    0x00AA88,
-    na, "na",
-    nb, "nb",
-    0x882288,
-    [oa,ob],
-    0x00AA88,
-    oa, "oa",
-    ob, "ob",
-    0x882288,
-    [pa,pb],
-    0x00AA88,
-    pa, "pa",
-    pb, "pb",
   ],{
     grid: true,
     labels: true,

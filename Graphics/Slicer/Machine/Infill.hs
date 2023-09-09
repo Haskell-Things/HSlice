@@ -39,7 +39,7 @@ import Data.Maybe (Maybe(Just, Nothing), mapMaybe, fromMaybe)
 
 import Graphics.Slicer.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg, addPoints, distance, minMaxPoints, xOf, yOf, roundToFifth)
+import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg, addPoints, distance, lineSegsOfContour, minMaxPoints, xOf, yOf, roundToFifth)
 
 import Graphics.Slicer.Math.ContourIntersections (getLineContourIntersections)
 
@@ -80,7 +80,7 @@ makeInfill contour insideContours ls layerType =
 infillConcentricInside :: Contour -> [Contour] -> ℝ -> [[LineSeg]]
 infillConcentricInside contour insideContours lineSpacing
   | null insideContours = case skeleton of
-                            (Just s) -> infiniteInset lineSpacing $ facesOf s
+                            (Just s) -> lineSegsOfContour <$> infiniteInset lineSpacing (facesOf s)
                             Nothing -> error $ "failed to find a skeleton when infilling contour:\n" <> show contour
   | otherwise = error "cannot have Concentric infill with holes (yet).."
   where

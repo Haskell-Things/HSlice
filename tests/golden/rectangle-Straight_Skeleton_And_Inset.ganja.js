@@ -55,6 +55,7 @@ Algebra(2,0,1,()=>{
     [bb,bc],
     [bc,bd],
     [bd,ba],
+    0x00AA88,
   ],{
     grid: true,
     labels: true,

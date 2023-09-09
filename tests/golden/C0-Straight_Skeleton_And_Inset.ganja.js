@@ -71,6 +71,7 @@ Algebra(2,0,1,()=>{
     [bc,bd],
     [bd,be],
     [be,ba],
+    0x00AA88,
   ],{
     grid: true,
     labels: true,
