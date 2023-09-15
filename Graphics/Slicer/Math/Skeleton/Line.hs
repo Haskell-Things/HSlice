@@ -308,7 +308,6 @@ addInsetsToFace distanceBetweenSegs insets face
                       PAntiParallel -> Just [makeFaceNoCheck (segmentFrom finalInset) firstArc midArcs lastArc]
                       _ -> Just [makeFaceNoCheck (segmentFrom finalInset) firstArc midArcs lastArc]
 
-
     -- Recurse, so we get the remainder and line segments of the three sided n-gon left over.
     (threeSideSubInsets, _)
       | null foundInsets = noResult
@@ -470,7 +469,7 @@ reclaimRing ring
     findSequences :: [(Point2, (InsetLine, InsetLine))] -> [[(Point2, (InsetLine, InsetLine))]]
     findSequences intersections
       | length intersections < 3 = error $ "too few intersections:" <> show (length intersections) <> "\n" <> show intersections <> "\n"
-      | otherwise = findSequences' $ shoreBeginning intersections 
+      | otherwise = findSequences' $ shoreBeginning intersections
       where
         findSequences' :: [(Point2, (InsetLine, InsetLine))] -> [[(Point2, (InsetLine, InsetLine))]]
         findSequences' incoming
