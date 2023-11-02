@@ -1,3 +1,14 @@
 packages: .
 tests: True
 documentation: True
+
+source-repository-package
+    type: git
+    location: https://github.com/julialongtin/floating-bits.git
+    tag: 3362f22
+
+source-repository-package
+    type: git
+    location: https://github.com/julialongtin/haskell-floating-point.git
+    tag: 76df773
+    subdir: rounded-hw
