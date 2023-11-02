@@ -5,10 +5,10 @@ license:       AGPL-3.0-or-later
 license-file:  LICENSE
 maintainer:    Julia Longtin <julia.longtin@gmail.com>
 author:        Julia Longtin <julia.longtin@gmail.com>
-tested-with:   ghc >=8.8
-homepage:      http://implicitcad.org/
+tested-with:   GHC == 8.8.4, GHC == 8.10.4, GHC == 9.4.6
+homepage:      https://implicitcad.org/
 synopsis:      A GCode generator, that accepts STL files.
-description:   A slicer in haskell. Use it to slice 3D prints.
+description:   A slicer in Haskell. Use it to slice 3D prints.
 category:      Graphics
 build-type:    Simple
 
