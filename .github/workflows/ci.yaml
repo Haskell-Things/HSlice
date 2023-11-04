@@ -33,8 +33,9 @@ jobs:
     strategy:
       matrix:
         cabal:
-          - '3.2'
+          - '3.10'
         ghc:
+	  - '9.4.6'
           - '8.10.4'
           - '8.8.4'
 name: Haskell CI
