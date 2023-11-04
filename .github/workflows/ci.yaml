@@ -1,6 +1,6 @@
 jobs:
   build:
-    runs-on: ubuntu-focal
+    runs-on: ubuntu-20.04
     steps:
       - uses: "actions/checkout@v1"
       - id: setup-haskell-cabal
