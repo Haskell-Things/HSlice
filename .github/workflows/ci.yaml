@@ -1,6 +1,6 @@
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: "actions/checkout@v1"
       - id: setup-haskell-cabal
@@ -33,9 +33,9 @@ jobs:
     strategy:
       matrix:
         cabal:
-          - '3.10'
+          - '3.4'
         ghc:
-	  - '9.4.6'
+          - '9.0.2'
           - '8.10.4'
           - '8.8.4'
 name: Haskell CI
