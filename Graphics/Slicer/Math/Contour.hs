@@ -45,13 +45,9 @@ module Graphics.Slicer.Math.Contour (
   numPointsOfContour
   ) where
 
-import Prelude ((==), (&&), (||), (>), (<), (*), (/), Int, (+), abs, even, mempty, otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
+import Prelude ((==), (&&), (||), (>), (<), (*), (/), Int, (+), abs, even, mempty, otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True), Eq, compare, maximum, minimum, min, (-), not)
 
 import Data.List (foldl', head, partition, reverse, sortBy, tail)
-
-import Data.List as DL (uncons)
-
-import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromJust, fromMaybe, isJust, mapMaybe)
 
@@ -93,9 +89,9 @@ import Graphics.Slicer.Math.PGA (ProjectivePoint, angleBetween2PL, distance2PP, 
 -- so that we have the loop, and also knowledge of how
 -- the list is built (the "sides" of it).
 
-getLoops :: (Show a, Eq a) => [[a]] -> Maybe [[[a]]]
+getLoops :: (Show a, Eq a) => [(a,a)] -> Maybe [[(a,a)]]
 getLoops [] = Just []
-getLoops (x:xs) = getLoops' xs (slist [x]) (snd $ fromMaybe (error "empty first sequence") $ unsnoc x)
+getLoops (x:xs) = getLoops' xs (slist [x]) (snd x)
 -- We will be actually doing the loop extraction with
 -- getLoops'
 
@@ -106,28 +102,27 @@ getLoops (x:xs) = getLoops' xs (slist [x]) (snd $ fromMaybe (error "empty first 
 -- | so we begin with the "building loop" being empty.
 getLoops'
   :: (Show a, Eq a)
-  => [[a]]     -- ^ input
-  -> Slist [a] -- ^ accumulator
+  => [(a,a)]     -- ^ input
+  -> Slist (a,a) -- ^ accumulator
   -> a         -- ^ last element in the acumulator
-  -> Maybe [[[a]]]
+  -> Maybe [[(a,a)]]
 
 -- | If there aren't any segments, and the "building loop" is empty, produce no loops.
 getLoops' [] (Slist [] _) _ = Just []
 
 -- | If the building loop is empty, stick the first segment we have onto it to give us something to build on.
-getLoops' (a:as) (Slist [] _) _ = getLoops' as (slist [a]) (snd $ fromMaybe (error "empty first sequence") $ unsnoc a)
+getLoops' (a:as) (Slist [] _) _ = getLoops' as (slist [a]) (snd a)
 
 -- | A loop is finished if its start and end are the same.
 -- Return it and start searching for another loop.
 getLoops' segs workingLoop ultima
+  -- FIXME: do we need ultima when recursing?
   | firstItemOf workingLoop == ultima = ([sListToList workingLoop] <>) <$> getLoops' segs (slist []) ultima
   where
-    firstItemOf :: Slist [a] -> a
+    firstItemOf :: Slist (a,a) -> a
     firstItemOf a = case safeHead a of
                       Nothing -> error "empty Slist in workingLoop"
-                      (Just v) -> case DL.uncons v of
-                                    Nothing -> error "empty first list in workingLoop"
-                                    (Just (val,_)) -> val
+                      (Just v) -> fst v
     sListToList (Slist a _) = a
 
 -- | Finally, we search for pieces that can continue the working loop,
@@ -135,49 +130,44 @@ getLoops' segs workingLoop ultima
 -- Otherwise... something is really screwed up.
 getLoops' segs workingLoop ultima =
   let
-    connects (x:_) = x == presEnd workingLoop
-    connects [] = False     -- Handle the empty case.
-    connectsBackwards (_:xs) = snd (fromMaybe (error "empty first sequence") $ unsnoc xs) == presEnd workingLoop
-    connectsBackwards [] = False
-    -- divide our set into sequences that connect, and sequences that don't.
+    connects x = fst x == presEnd workingLoop
+    connectsBackwards x = snd x == presEnd workingLoop
+    -- divide our set into segments that connect, and segments that don't.
     (possibleForwardConts, nonForwardConts) = partition connects segs
     (possibleBackConts, nonBackConts) = partition connectsBackwards segs
     (next, unused) = case possibleForwardConts of
                        (hf:tf) -> (hf, tf <> nonForwardConts)
                        [] -> case possibleBackConts of
-                               (hb:tb) -> (reverse hb, tb <> nonBackConts)
+                               (hb:tb) -> ((snd hb, fst hb), tb <> nonBackConts)
                                [] -> error $ "unclosed loop in paths given: \nWorking: " <> show workingLoop <> "\nRemainder:" <> show nonForwardConts <> "\n"
   in
     if null next
     then ([sListToList workingLoop] <>) <$> getLoops' segs (slist []) ultima
-    else getLoops' unused (workingLoop <> slist [next]) (snd $ fromMaybe (error "empty next?") $ unsnoc next)
+    else getLoops' unused (workingLoop <> slist [next]) (snd next)
   where
     sListToList (Slist a _) = a
-    -- | get the end of a working loop.
-    presEnd :: Slist [a] -> a
+    presEnd :: Slist (a,a) -> a
     presEnd a = case safeLast a of
                   Nothing -> error "impossible!"
-                  (Just b) -> case unsnoc b of
-                                Nothing -> error "more impossible!"
-                                (Just (_,c)) -> c
+                  (Just b) -> snd b
 
 -- | Turn pairs of points into lists of points in sequence.
 --   The point pairs are the beginning and end of a line segment.
 getContours :: [(Point2,Point2)] -> [Contour]
 getContours pointPairs = (\a -> fromMaybe (error $ "failed to flip a contour\n" <> show a <> "\n") $ maybeFlipContour a) <$> foundContours
   where
-    contourAsLineSegs :: [[Point2]] -> [LineSeg]
-    contourAsLineSegs contourPointPairs = (\[a,b] -> makeLineSeg a b) <$> contourPointPairs
+    contourAsLineSegs :: [(Point2,Point2)] -> [LineSeg]
+    contourAsLineSegs contourPointPairs = (\(a,b)  -> makeLineSeg a b) <$> contourPointPairs
     foundContours = makeLineSegContour . contourAsLineSegs <$> mapMaybe contourLongEnough foundContourSets
-    contourLongEnough :: [[Point2]] -> Maybe [[Point2]]
+    contourLongEnough :: [(Point2,Point2)] -> Maybe [(Point2,Point2)]
     contourLongEnough pts = case pts of
                               (_:_:_:_) -> Just pts
                               -- NOTE: returning nothing here, even though this is an error condition, and a sign that the input file is insane?
                               [] -> Nothing
                               -- NOTE: returning nothing here, even though this is an error condition, and a sign that the input file has two triangles that intersect. should not happen.
                               (_:_) -> Nothing
-    foundContourSets :: [[[Point2]]]
-    foundContourSets = fromMaybe (error "could not complete loop detection.") $ getLoops $ (\(a,b) -> [a,b]) <$> sortPairs pointPairs
+    foundContourSets :: [[(Point2,Point2)]]
+    foundContourSets = fromMaybe (error "could not complete loop detection.") $ getLoops $ sortPairs pointPairs
       where
         -- Sort the list, so that differently ordered input lists give the same output.
         sortPairs :: [(Point2,Point2)] -> [(Point2,Point2)]
