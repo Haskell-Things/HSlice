@@ -45,13 +45,9 @@ module Graphics.Slicer.Math.Contour (
   numPointsOfContour
   ) where
 
-import Prelude ((==), (&&), (||), (>), (<), (*), (/), Int, (+), abs, even, mempty, otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True,False), Eq, compare, maximum, minimum, min, (-), not)
+import Prelude ((==), (&&), (||), (>), (<), (*), (/), Int, (+), abs, even, mempty, otherwise, (.), null, (<$>), ($), Show, filter, (/=), odd, snd, error, (<>), show, fst, Bool(True), Eq, compare, maximum, minimum, min, (-), not)
 
 import Data.List (foldl', head, partition, reverse, sortBy, tail)
-
-import Data.List as DL (uncons)
-
-import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromJust, fromMaybe, isJust, mapMaybe)
 
@@ -150,7 +146,7 @@ getLoops' segs workingLoop ultima =
     else getLoops' unused (workingLoop <> slist [next]) (snd next)
   where
     sListToList (Slist a _) = a
-    presEnd :: (Show a, Eq a) => Slist (a,a) -> a
+    presEnd :: Slist (a,a) -> a
     presEnd a = case safeLast a of
                   Nothing -> error "impossible!"
                   (Just b) -> snd b
