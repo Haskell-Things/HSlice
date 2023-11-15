@@ -1,10 +1,10 @@
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
-      - uses: "actions/checkout@v1"
+      - uses: "actions/checkout@v3"
       - id: setup-haskell-cabal
-        uses: "haskell/actions/setup@v1.2"
+        uses: "haskell-actions/setup@v2"
         with:
           cabal-version: "${{ matrix.cabal }}"
           enable-stack: false
@@ -33,10 +33,10 @@ jobs:
     strategy:
       matrix:
         cabal:
-          - '3.4'
+          - '3.10'
         ghc:
           - '9.0.2'
-          - '8.10.4'
+          - '8.10.7'
           - '8.8.4'
 name: Haskell CI
 on:
