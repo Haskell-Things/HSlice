@@ -1,16 +1,10 @@
-let haskellCi = https://raw.githubusercontent.com/sorki/github-actions-dhall/pending/haskell-ci.dhall
+let haskellCi =
+      https://raw.githubusercontent.com/sorki/github-actions-dhall/main/haskell-ci.dhall
 
 in    haskellCi.generalCi
-        haskellCi.matrixSteps
-        ( Some
-            { ghc =
-              [ haskellCi.GHC.GHC8104
-              , haskellCi.GHC.GHC884
-              ]
-            , cabal = [ haskellCi.Cabal.Cabal32 ]
-            }
-        )
-        // { on = [ haskellCi.Event.push
-                  , haskellCi.Event.pull_request ]
-           }
+        haskellCi.defaultCabalSteps
+        haskellCi.DhallMatrix::{
+        , ghc =
+          [ haskellCi.GHC.GHC963, haskellCi.GHC.GHC947, haskellCi.GHC.GHC928 ]
+        }
     : haskellCi.CI.Type
