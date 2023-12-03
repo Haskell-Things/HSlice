@@ -341,7 +341,7 @@ pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
   | hasIntersection && endDistance <= ulpEndSum = Left $ HitEndPoint l1
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
   | hasRawIntersection = Left $ NoIntersection rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
-  | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (pl1Err, pl2Err, rawIntersectErr)
+  | otherwise = Left $ NoIntersection rawIntersect (pl1Err, pl2Err, rawIntersectErr)
   where
     res = plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
     ulpStartSum = ulpVal startDistanceErr
@@ -392,7 +392,7 @@ lineSegIntersectsLineSeg l1 l2
   | hasIntersection && end2Distance <= ulpEnd2Sum = Left $ HitEndPoint l2
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
   | hasRawIntersection = Left $ NoIntersection rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
-  | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (pl1Err, pl2Err, rawIntersectErr)
+  | otherwise = Left $ NoIntersection rawIntersect (pl1Err, pl2Err, rawIntersectErr)
   where
     res = plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
     start1FudgeFactor = start1DistanceErr <> pLineErrAtPPoint (pl1,pl1Err) start1
