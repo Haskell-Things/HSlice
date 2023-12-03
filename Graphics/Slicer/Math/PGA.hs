@@ -229,13 +229,14 @@ pPointOnPerpWithErr line point d = (PPoint2 res, resErr)
     -- translate the input point along the perpendicular bisector.
     res = motor•pVec•reverseGVec motor
     resErr = (nLineErr, cPointErr, perpLineErrs, gaIScaledErr)
-    motor = addVecPairWithoutErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
+    motor = addVecPairWithoutErr (perpLineVec • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
     gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
     gaIScaledErr = UlpSum $ realToFrac $ doubleUlp $ realToFrac (realToFrac (abs d) / 2 :: Rounded 'TowardInf ℝ)
     -- | Get a perpendicular line, crossing the input line at the given point.
     -- FIXME: where should we put this in the error quotent of PLine2Err?
-    (PLine2 perpLine, (nLineErr, _, perpLineErrs)) = perpLineAt line cPoint
+    perpLineVec = vecOfL perpLine
+    (perpLine, (nLineErr, _, perpLineErrs)) = perpLineAt line cPoint
     pVec = vecOfP $ forceBasisOfP cPoint
     (cPoint, cPointErr) = canonicalizeP point
 
