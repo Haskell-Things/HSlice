@@ -599,7 +599,8 @@ angleCosBetweenProjectiveLines line1 line2
     iErrSum = sumPPointErrs iPointErrVals <> sumIErrs rawAngleErrs
     angle = valOf 0 $ getVal [GEZero 1, GEPlus 1, GEPlus 2] rawAngle
     (GVec rawAngle, rawAngleErrs)  = lvec2 ∧+ (motor • iPointVec • antiMotor)
-    (CPPoint2 iPointVec, (npl1Err, npl2Err, PPoint2Err _ iPointErrVals _ _ _ _ _)) = fromJust canonicalizedIntersection
+    iPointVec = vecOfP iPoint
+    (iPoint, (npl1Err, npl2Err, PPoint2Err _ iPointErrVals _ _ _ _ _)) = fromJust canonicalizedIntersection
     motor                     = addVecPairWithoutErr (lvec1 • gaI) (GVec [GVal 1 (singleton G0)])
     antiMotor                 = addVecPairWithoutErr (lvec1 • gaI) (GVec [GVal (-1) (singleton G0)])
     canonicalizedIntersection = canonicalizedIntersectionOf2PL line1 line2
@@ -841,7 +842,8 @@ projectivePointToEuclidianPoint point
     res = Point2 (xVal, yVal)
     xVal = negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
-    (CPPoint2 (GVec vals), resErr) = canonicalizeP point
+    (GVec vals) = vecOfP pointRes
+    (pointRes, resErr) = canonicalizeP point
 -- | Wrapper.
 pToEP = projectivePointToEuclidianPoint
 
