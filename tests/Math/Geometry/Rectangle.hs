@@ -125,7 +125,10 @@ prop_RectangleFacesInsetWithRemainder :: Contour -> Positive ℝ -> Bool
 prop_RectangleFacesInsetWithRemainder contour maxInsetDistance = length faces == 4
   where
     faces = facesOf $ fromMaybe (error $ show insetContour) $ findStraightSkeleton insetContour []
-    ([insetContour],_) = insetBy (coerce $ maxInsetDistance/2) $ facesOf $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []
+    insetContour = case insetContours of
+                     [a] -> a
+                     _ -> error "found multiple inset contours."
+    (insetContours,_) = insetBy (coerce $ maxInsetDistance/2) $ facesOf $ fromMaybe (error $ show contour) $ findStraightSkeleton contour []
 
 prop_RectangleFacesInsetSmallerThanRectangle :: Contour -> Positive ℝ -> Bool
 prop_RectangleFacesInsetSmallerThanRectangle contour maxInsetDistance = prop_InsetIsSmaller (coerce $ maxInsetDistance/2) contour
@@ -257,13 +260,16 @@ maxInsetDistanceOfRectangle rawFirstTilt rawSecondTilt distanceToCorner = Positi
     (tilt1, tilt2)
       | r2 - r1 < r3 - r2 = (r1, r2)
       | otherwise = (r2, r3)
-    [r1, r2, r3, _] = sort
+    (r1, r2, r3, _) = fourTilts $ sort
                         [
                           firstTilt
                         , rawSecondTilt
                         , flipRadian firstTilt
                         , flipRadian rawSecondTilt
                         ]
+    fourTilts tilts = case tilts of
+                        [t1, t2, t3, t4] -> (t1, t2, t3, t4)
+                        _ -> error "too many tilts?"
     firstTilt
       | rawFirstTilt == rawSecondTilt = rawFirstTilt + rawSecondTilt
       | otherwise = rawFirstTilt

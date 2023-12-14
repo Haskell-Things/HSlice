@@ -162,7 +162,7 @@ instance Fractional (Radian a) where
   (/) (Radian r1) (Radian r2) = Radian $ r1 / r2
   fromRational a = Radian $ fromRational a
 
-instance (Ord a, Num a, Fractional a) => Fractional (Positive a) where
+instance (Ord a, Fractional a) => Fractional (Positive a) where
   (/) (Positive r1) (Positive r2) = Positive $ r1 / r2
   fromRational a = Positive $ fromRational a
 
@@ -223,6 +223,24 @@ randomRectangle centerX centerY rawFirstTilt secondTilt distanceToCorner = rando
         | otherwise = rawFirstTilt
       radians = sort [firstTilt, secondTilt, flipRadian firstTilt, flipRadian secondTilt]
 
+-- | Ensure only two distances are returned.
+twoDistances :: [Positive ℝ] -> (Positive ℝ, Positive ℝ)
+twoDistances distances = case distances of
+                           [a,b] -> (a,b)
+                           _ -> error "wrong distance count."
+
+-- | Ensure only two tilt angles are returned.
+twoTilts :: [Radian ℝ] -> (Radian ℝ, Radian ℝ)
+twoTilts tilts = case tilts of
+                   [a,b] -> (a,b)
+                   _ -> error "wrong tilt count."
+
+threeTilts :: [Radian ℝ] -> (Radian ℝ, Radian ℝ, Radian ℝ)
+threeTilts tilts = case tilts of
+                     [a,b,c] -> (a,b,c)
+                     _ -> error "wrong tilt count."
+
+
 -- | Generate a random convex four sided polygon, with two right angles.
 -- FIXME: only supports non-sequential right angles.
 -- FIXME: also only supports bisectable angles, where the line between the non-right angled sides intersects the origin.
@@ -231,7 +249,7 @@ randomDualRightQuad centerX centerY firstTilt rawFirstDistanceToCorner rawSecond
     where
       distances = [firstDistanceToCorner, secondDistanceToCorner, firstDistanceToCorner, fourthDistanceToCorner]
       fourthDistanceToCorner = (firstDistanceToCorner * firstDistanceToCorner) / secondDistanceToCorner
-      [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
+      (firstDistanceToCorner, secondDistanceToCorner) = twoDistances $ sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
       radians = [firstTilt, secondTilt, flipRadian firstTilt, flipRadian secondTilt]
       secondTilt = firstTilt + (Radian pi/2)
 
@@ -240,9 +258,9 @@ randomConvexSingleRightQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Radian 
 randomConvexSingleRightQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
       distances = replicate 3 secondDistanceToCorner <> [firstDistanceToCorner]
-      [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
+      (firstDistanceToCorner, secondDistanceToCorner) = twoDistances $ sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
       radians = sort [firstTilt, secondTilt, flipRadian firstTilt, flipRadian thirdTilt]
-      [firstTilt, secondTilt, thirdTilt] = sort $ ensureUniqueClippedRadian rawRadians
+      (firstTilt, secondTilt, thirdTilt) = threeTilts $ sort $ ensureUniqueClippedRadian rawRadians
       rawRadians = [rawFirstTilt, rawSecondTilt, rawThirdTilt]
 
 -- | Generate a random convex four sided polygon, with the property that it can be folded down an axis.
@@ -250,11 +268,11 @@ randomConvexBisectableQuad :: ℝ -> ℝ -> Radian ℝ -> Radian ℝ -> Positive
 randomConvexBisectableQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
       distances = [firstDistanceToCorner, secondDistanceToCorner, firstDistanceToCorner, secondDistanceToCorner]
-      [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
+      (firstDistanceToCorner, secondDistanceToCorner) = twoDistances $ sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
       radians = [firstTilt, secondTilt, thirdTilt, fourthTilt]
       thirdTilt = secondTilt + (secondTilt - firstTilt)
       fourthTilt = flipRadian secondTilt
-      [firstTilt, secondTilt] = sort $ ensureUniqueClippedRadian rawRadians
+      (firstTilt, secondTilt) = twoTilts $ sort $ ensureUniqueClippedRadian rawRadians
       rawRadians = [rawFirstTilt, rawSecondTilt]
 
 -- | Generate a random convex four sided polygon.
@@ -264,7 +282,7 @@ randomConvexQuad centerX centerY rawFirstTilt rawSecondTilt rawThirdTilt firstDi
       distances = replicate 4 firstDistanceToCorner
       radians = sort [firstTilt, secondTilt, thirdTilt, fourthTilt]
       fourthTilt = flipRadian secondTilt
-      [firstTilt, secondTilt, thirdTilt] = ensureUniqueClippedRadian rawRadians
+      (firstTilt, secondTilt, thirdTilt) = threeTilts $ ensureUniqueClippedRadian rawRadians
       rawRadians = [rawFirstTilt, rawSecondTilt, rawThirdTilt]
 
 -- | Generate a concave four sided polygon, with the convex motorcycle impacting the opposing bend (a 'dart' per wikipedia. a chevron, or a ^.)
@@ -273,7 +291,7 @@ randomConcaveChevronQuad :: ℝ -> ℝ -> Radian ℝ -> Positive ℝ -> Positive
 randomConcaveChevronQuad centerX centerY rawFirstTilt rawFirstDistanceToCorner rawSecondDistanceToCorner = randomStarPoly centerX centerY $ makePairs distances radians
     where
       distances = [firstDistanceToCorner, secondDistanceToCorner, firstDistanceToCorner, thirdDistanceToCorner]
-      [firstDistanceToCorner, secondDistanceToCorner] = sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
+      (firstDistanceToCorner, secondDistanceToCorner) = twoDistances $ sort $ ensureUniqueDistance [rawFirstDistanceToCorner, rawSecondDistanceToCorner]
       thirdDistanceToCorner = secondDistanceToCorner / 2
       radians = [firstTilt, secondTilt, flipRadian firstTilt, secondTilt]
       secondTilt = clipRadian $ firstTilt + (Radian pi/2)
