@@ -1049,7 +1049,7 @@ prop_translateRotateMovesY x y rawD
 prop_NormPLineIsPLine :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> Bool
 prop_NormPLineIsPLine x y dx dy = fst (normalizeL $ randomPLine x y dx dy)
                                   `sameDirection`
-                                  fst (normalizeL ((\(NPLine2 a) -> PLine2 a) $ fst $ normalizeL $ randomPLine x y dx dy))
+                                  fst (normalizeL (PLine2 $ vecOfL $ fst $ normalizeL $ randomPLine x y dx dy))
 
 prop_PLinesIntersectAtOrigin :: NonZero ℝ -> ℝ -> NonZero ℝ -> ℝ -> Bool
 prop_PLinesIntersectAtOrigin rawX y rawX2 rawY2
