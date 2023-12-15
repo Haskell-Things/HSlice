@@ -306,6 +306,7 @@ forceBasisOfL = forceProjectiveLineBasis
 --       For complete results, combine this with scaling xIntercept and yIntercept.
 fuzzinessOfProjectiveLine, fuzzinessOfL :: (ProjectiveLine2 a) => (a, PLine2Err) -> UlpSum
 -- | Actual implementation.
+{-# INLINABLE fuzzinessOfProjectiveLine #-}
 fuzzinessOfProjectiveLine (line, lineErr) = tUlp <> joinAddTErr <> joinMulTErr <> normalizeTErr <> additionTErr
   where
     (PLine2Err additionErr normalizeErr _ _ tUlp (joinMulErr, joinAddErr)) = lineErr <> normalizeErrRaw
@@ -315,6 +316,7 @@ fuzzinessOfProjectiveLine (line, lineErr) = tUlp <> joinAddTErr <> joinMulTErr <
     joinAddTErr = eValOf mempty (getVal [GEZero 1] joinAddErr)
     (_,normalizeErrRaw) = normalizeL line
 -- | Wrapper.
+{-# INLINABLE fuzzinessOfL #-}
 fuzzinessOfL = fuzzinessOfProjectiveLine
 
 -- | Find out where two lines intersect, returning a projective point, and the error quotents.
@@ -396,6 +398,7 @@ normalizeProjectiveLine line = (res, resErr)
 -- FIXME: should we be placing this error in the PLine2Err? it doesn't effect resolving the line...
 normOfProjectiveLine, normOfL :: (ProjectiveLine2 a) => a -> (ℝ, PLine2Err)
 -- | Actual implementation.
+{-# INLINABLE normOfProjectiveLine #-}
 normOfProjectiveLine line = (res, resErr)
   where
     (res, resErr) = case sqNormOfPLine2 of
@@ -405,11 +408,13 @@ normOfProjectiveLine line = (res, resErr)
     rawResUlp = UlpSum (abs $ realToFrac $ doubleUlp rawRes)
     (sqNormOfPLine2, sqNormUlp) = sqNormOfL line
 -- | Wrapper.
+{-# INLINABLE normOfL #-}
 normOfL = normOfProjectiveLine
 
 -- | Find the squared norm of a given Projective Line.
 squaredNormOfProjectiveLine, sqNormOfL :: (ProjectiveLine2 a) => a -> (ℝ, UlpSum)
 -- | Actual implementation.
+{-# INLINABLE squaredNormOfProjectiveLine #-}
 squaredNormOfProjectiveLine line = (res, ulpTotal)
   where
     res = a*a+b*b
@@ -421,10 +426,12 @@ squaredNormOfProjectiveLine line = (res, ulpTotal)
                + abs (realToFrac $ doubleUlp res)
     (GVec vals) = vecOfL line
 -- | Wrapper.
+{-# INLINABLE sqNormOfL#-}
 sqNormOfL = squaredNormOfProjectiveLine
 
 -- | Translate a line a given distance along it's perpendicular bisector.
 -- Uses the property that translation of a line is expressed on the GEZero component.
+{-# INLINABLE translateProjectiveLine #-}
 translateProjectiveLine, translateL :: (ProjectiveLine2 a) => a -> ℝ -> (ProjectiveLine, PLine2Err)
 -- | Actual implementation.
 translateProjectiveLine line d = (PLine2 res, normErr <> PLine2Err resErrs mempty mempty mempty tUlp mempty)
@@ -436,6 +443,7 @@ translateProjectiveLine line d = (PLine2 res, normErr <> PLine2Err resErrs mempt
     tUlp = UlpSum $ abs $ realToFrac $ doubleUlp tAdd
     (norm, normErr) = normOfL line
 -- | Wrapper.
+{-# INLINABLE translateL #-}
 translateL = translateProjectiveLine
 
 -----------------------------------------
@@ -444,6 +452,7 @@ translateL = translateProjectiveLine
 
 -- | When given a projective line, return the maximum distance between a projective point known to be on the line and the equivalent point on the 'real' line, which is to say, the projective line without floating point error.
 -- Note: We do not add fuzzinessOfL (nPLine, nPLineErr) here, so you have to add it to this result to get a full value.
+{-# INLINABLE pLineErrAtPPoint #-}
 pLineErrAtPPoint :: (ProjectiveLine2 a, ProjectivePoint2 b) => (a, PLine2Err) -> b -> UlpSum
 pLineErrAtPPoint (line, lineErr) errPoint
   -- Both intercepts are real. This line is not parallel or collinear to X or Y axises, and does not pass through the origin.
@@ -481,6 +490,7 @@ pLineErrAtPPoint (line, lineErr) errPoint
     (nPLine, nPLineErrRaw) = normalizeL line
 
 -- | is it possible that after taking error into account, both of the two given PLines may overlap?
+{-# INLINABLE pLinesWithinErr #-}
 pLinesWithinErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> Bool
 pLinesWithinErr (pl1, pl1Err) (pl2, pl2Err)
   | x1InterceptExists && x2InterceptExists && signum x1InterceptDistance == signum x2InterceptDistance &&
@@ -712,6 +722,7 @@ canonicalizeProjectivePoint point
     (GVec rawVals) = vecOfP point
 
 -- | Find the distance between two projective points, and the error component of the result.
+{-# INLINABLE distanceBetweenProjectivePoints #-}
 distanceBetweenProjectivePoints :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, PLine2Err, UlpSum))
 distanceBetweenProjectivePoints (point1, point1Err) (point2, point2Err)
   -- Short circuit (returning 0) if the two inputs are identical, and of the same type.
@@ -733,6 +744,7 @@ distanceBetweenProjectivePoints (point1, point1Err) (point2, point2Err)
     (cPoint2, cPoint2Err) = canonicalizeP point2
 
 -- | A wrapper for the above function, that removes error quotents that are not directly related to the input or result.
+{-# INLINABLE distance2PP #-}
 distance2PP :: (ProjectivePoint2 a, ProjectivePoint2 b) => (a, PPoint2Err) -> (b, PPoint2Err) -> (ℝ, (PPoint2Err, PPoint2Err, UlpSum))
 distance2PP p1 p2 = crushErr $ distanceBetweenProjectivePoints p1 p2
   where
@@ -741,6 +753,7 @@ distance2PP p1 p2 = crushErr $ distanceBetweenProjectivePoints p1 p2
 -- | Ensure all of the '0' components exist on a Projective Point. This is to ensure like, unlike, and reductive work properly.
 forceProjectivePointBasis, forceBasisOfP :: (ProjectivePoint2 a) => a -> a
 -- | Actual implementation.
+{-# INLINABLE forceProjectivePointBasis #-}
 forceProjectivePointBasis point
   | gnums == Just [fromList [GEZero 1, GEPlus 1],
                    fromList [GEZero 1, GEPlus 2],
@@ -753,11 +766,13 @@ forceProjectivePointBasis point
               _                                 -> Nothing
     vec@(GVec vals) = vecOfP point
 -- | Wrapper.
+{-# INLINABLE forceBasisOfP #-}
 forceBasisOfP = forceProjectivePointBasis
 
 -- | Find the idealized norm of a projective point (ideal or not).
 idealNormOfProjectivePoint, idealNormOfP :: (ProjectivePoint2 a) => a -> (ℝ, UlpSum)
 -- | Actual implementation.
+{-# INLINABLE idealNormOfProjectivePoint #-}
 idealNormOfProjectivePoint point
   | preRes == 0 = (0, mempty)
   | otherwise   = (res, ulpTotal)
@@ -776,6 +791,7 @@ idealNormOfProjectivePoint point
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
     (GVec rawVals) = vecOfP point
 -- | Wrapper.
+{-# INLINABLE idealNormOfP #-}
 idealNormOfP = idealNormOfProjectivePoint
 
 -- | Join two points, returning the line that connects them.
@@ -835,6 +851,7 @@ projectivePointIsIdeal point = isNothing $ getVal [GEPlus 1, GEPlus 2] $ (\(GVec
 -- | Maybe create a euclidian point from a projective point. Will fail if the projective point is ideal.
 projectivePointToEuclidianPoint, pToEP :: (ProjectivePoint2 a) => a -> (Point2, PPoint2Err)
 -- | Actual implementation.
+{-# INLINABLE projectivePointToEuclidianPoint #-}
 projectivePointToEuclidianPoint point
  | projectivePointIsIdeal point = error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point."
  | otherwise = (res, resErr)
@@ -845,6 +862,7 @@ projectivePointToEuclidianPoint point
     (GVec vals) = vecOfP pointRes
     (pointRes, resErr) = canonicalizeP point
 -- | Wrapper.
+{-# INLINABLE pToEP #-}
 pToEP = projectivePointToEuclidianPoint
 
 ------------------------------------------
@@ -866,6 +884,7 @@ sumIErrs (unlikeMulErrs, unlikeAddErrs, _, _, _) = eValOf mempty (getVal [GEZero
 -- FIXME: This 1000 here is completely made up BS.
 fuzzinessOfProjectivePoint, fuzzinessOfP :: (ProjectivePoint2 a) => (a, PPoint2Err) -> UlpSum
 -- | Actual implementation.
+{-# INLINABLE fuzzinessOfProjectivePoint #-}
 fuzzinessOfProjectivePoint (point, pointErr) = UlpSum $ sumTotal * realToFrac (1+(1000*(abs angleIn + realToFrac (ulpRaw $ sumPPointErrs angleUnlikeAddErr <> sumPPointErrs angleUnlikeMulErr))))
   where
     sumTotal = ulpRaw $ sumPPointErrs pJoinAddErr
@@ -877,4 +896,5 @@ fuzzinessOfProjectivePoint (point, pointErr) = UlpSum $ sumTotal * realToFrac (1
     (PPoint2Err (pJoinAddErr, pJoinMulErr) pCanonicalizeErr pAddErr pIn1MulErr pIn2MulErr angleIn (angleUnlikeAddErr,angleUnlikeMulErr)) = cPointErr <> pointErr
     (_, cPointErr) = canonicalizeP point
 -- | Wrapper.
+{-# INLINABLE fuzzinessOfP #-}
 fuzzinessOfP = fuzzinessOfProjectivePoint

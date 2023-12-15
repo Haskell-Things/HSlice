@@ -170,10 +170,12 @@ errorIfLeft (Right val)    = val
 -- | For a given pair of nodes, construct a new internal node, where it's parents are the given nodes, and the line leaving it is along the the obtuse bisector.
 --   Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
 averageNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> INode
+{-# INLINABLE averageNodes #-}
 averageNodes n1 n2 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (cPPointAndErrOf n1) (outAndErrOf n1) (cPPointAndErrOf n2) (outAndErrOf n2)
 
 -- | Take a pair of arcables, and return their outOfs, in a sorted order.
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [(ProjectiveLine, PLine2Err)]
+{-# INLINABLE sortedPair #-}
 sortedPair n1 n2
   | hasArc n1 && hasArc n2 = sortedPLines [outAndErrOf n1, outAndErrOf n2]
   | otherwise = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n"
