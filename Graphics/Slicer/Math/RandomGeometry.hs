@@ -240,7 +240,6 @@ threeTilts tilts = case tilts of
                      [a,b,c] -> (a,b,c)
                      _ -> error "wrong tilt count."
 
-
 -- | Generate a random convex four sided polygon, with two right angles.
 -- FIXME: only supports non-sequential right angles.
 -- FIXME: also only supports bisectable angles, where the line between the non-right angled sides intersects the origin.
