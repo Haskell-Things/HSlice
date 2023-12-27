@@ -95,7 +95,7 @@ import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersect
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), PPoint2Err, ProjectiveLine(PLine2), ProjectiveLine2, ProjectivePoint, distance2PP, eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), PPoint2Err, ProjectiveLine(PLine2), ProjectiveLine2, ProjectivePoint, distance2PP, eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft, vecOfL)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -429,8 +429,8 @@ concavePLines seg1 seg2
   | eToPLine2 seg1 `pLineIsLeft` eToPLine2 seg2 == Just True = Just $ PLine2 $ addVecPair pv1 pv2
   | otherwise = Nothing
   where
-    (PLine2 pv1) = eToPLine2 seg1
-    (PLine2 pv2) = flipL $ eToPLine2 seg2
+    pv1 = vecOfL $ eToPLine2 seg1
+    pv2 = vecOfL $ flipL $ eToPLine2 seg2
 
 -- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
 {-# INLINABLE sortedPLines #-}

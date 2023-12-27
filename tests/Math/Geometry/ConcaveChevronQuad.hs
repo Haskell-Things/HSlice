@@ -94,7 +94,10 @@ unit_ConcaveChevronQuadHasAStraightSkeleton
                 <> show (plinesIntersectIn (outAndErrOf motorcycle) (outAndErrOf eNode)) <> "\n"
                 <> show divides <> "\n"
   where
-    eNode = (\(WithENode a) -> a) $ landingPointOf contour motorcycle
+    eNode = onlyENode $ landingPointOf contour motorcycle
+    onlyENode landingPoint = case landingPoint of
+                               (WithENode enode) -> enode
+                               _ -> error "got something other than an ENode in our landing point."
     divides = findDivisions contour (fromMaybe (error "no") $ crashMotorcycles contour [])
     motorcycle = head $ convexMotorcycles contour
     contour = randomConcaveChevronQuad x y tilt1 distance1 distance2
@@ -202,7 +205,10 @@ unit_ConcaveChevronQuadCanPlaceFaces
   where
     faces = facesOf skeleton
     skeleton = fromJust $ findStraightSkeleton contour []
-    eNode = (\(WithENode a) -> a) $ landingPointOf contour motorcycle
+    eNode = onlyENode $ landingPointOf contour motorcycle
+    onlyENode landingPoint = case landingPoint of
+                               (WithENode enode) -> enode
+                               _ -> error "got something other than an ENode in our landing point."
     divides = findDivisions contour (fromMaybe (error "no") $ crashMotorcycles contour [])
     motorcycle = head $ convexMotorcycles contour
     contour = randomConcaveChevronQuad x y tilt1 distance1 distance2
@@ -230,7 +236,9 @@ unit_ConcaveChevronQuadCanPlaceFaces_2
     faces = facesOf skeleton
     skeleton = fromJust $ findStraightSkeleton contour []
     divides = findDivisions contour (fromMaybe (error "no") $ crashMotorcycles contour [])
-    [_, targetENode, _] = eNodes
+    targetENode = case eNodes of
+                    [_, t, _] -> t
+                    _ -> error "wrong amount of eNodes."
     eNodes = eNodesOfOutsideContour contour
     motorcycle = head $ convexMotorcycles contour
     contour = randomConcaveChevronQuad x y tilt1 distance1 distance2

@@ -126,6 +126,7 @@ data PIntersection =
   deriving (Show, Eq)
 
 -- | Determine the intersection point of two projective lines, if applicable. Otherwise, classify the relationship between the two line segments.
+{-# INLINABLE plinesIntersectIn #-}
 plinesIntersectIn :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> PIntersection
 plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
   | isNothing canonicalizedIntersection
@@ -162,6 +163,7 @@ pLineIsLeft line1 line2
 
 -- | Find the distance between a projective point and a projective line, along with the difference's error quotent.
 -- Note: Fails in the case of ideal points.
+{-# INLINABLE distanceProjectivePointToProjectiveLine #-}
 distanceProjectivePointToProjectiveLine, distancePPToPL :: (ProjectivePoint2 a, ProjectiveLine2 b) => (a, PPoint2Err) -> (b, PLine2Err) -> (ℝ, (PPoint2Err, PLine2Err, ([ErrVal],[ErrVal]), PLine2Err, PPoint2Err, UlpSum))
 distanceProjectivePointToProjectiveLine (inPoint, inPointErr) (inLine, inLineErr)
   | isIdealP inPoint = error "attempted to get the distance of an ideal point."
@@ -182,10 +184,12 @@ distanceProjectivePointToProjectiveLine (inPoint, inPointErr) (inLine, inLineErr
     (nLine, nLineErr) = normalizeL inLine
     (cPoint, cPointErr) = canonicalizeP inPoint
 -- FIXME: return result is a bit soupy.
+{-# INLINABLE distancePPToPL #-}
 distancePPToPL = distanceProjectivePointToProjectiveLine
 
 -- | Determine if two points are on the same side of a given line.
 -- Returns Nothing if one of the points is on the line.
+{-# INLINABLE pPointsOnSameSideOfPLine #-}
 pPointsOnSameSideOfPLine :: (ProjectivePoint2 a, ProjectivePoint2 b, ProjectiveLine2 c) => a -> b -> c -> Maybe Bool
 pPointsOnSameSideOfPLine point1 point2 line
   |  abs foundP1 < foundErr1 ||
@@ -203,6 +207,7 @@ pPointsOnSameSideOfPLine point1 point2 line
     lv1 = vecOfL $ forceBasisOfL line
 
 -- | A checker, to ensure two Projective Lines are going the same direction, and are parallel, or colinear.
+{-# INLINABLE sameDirection #-}
 sameDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
 sameDirection a b = res >= maxAngle
   where
@@ -212,6 +217,7 @@ sameDirection a b = res >= maxAngle
     (res, (_,_, resErr)) = angleBetween2PL a b
 
 -- | A checker, to ensure two Projective Lines are going the opposite direction, and are parallel.
+{-# INLINABLE oppositeDirection #-}
 oppositeDirection :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Bool
 oppositeDirection a b = res <= minAngle
   where
@@ -224,23 +230,26 @@ oppositeDirection a b = res <= minAngle
 -- FIXME: many operators here have error preserving forms, use those!
 -- FIXME: we were skipping canonicalization, are canonicalization and normalization necessary?
 pPointOnPerpWithErr :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> ℝ -> (ProjectivePoint, (PLine2Err, PPoint2Err, ([ErrVal],[ErrVal]), UlpSum))
+{-# INLINABLE pPointOnPerpWithErr #-}
 pPointOnPerpWithErr line point d = (PPoint2 res, resErr)
   where
     -- translate the input point along the perpendicular bisector.
     res = motor•pVec•reverseGVec motor
     resErr = (nLineErr, cPointErr, perpLineErrs, gaIScaledErr)
-    motor = addVecPairWithoutErr (perpLine • gaIScaled) (GVec [GVal 1 (singleton G0)])
+    motor = addVecPairWithoutErr (perpLineVec • gaIScaled) (GVec [GVal 1 (singleton G0)])
     -- I, in this geometric algebra system. we multiply it times d/2, to reduce the number of multiples we have to do when creating the motor.
     gaIScaled = GVec [GVal (d/2) (fromList [GEZero 1, GEPlus 1, GEPlus 2])]
     gaIScaledErr = UlpSum $ realToFrac $ doubleUlp $ realToFrac (realToFrac (abs d) / 2 :: Rounded 'TowardInf ℝ)
     -- | Get a perpendicular line, crossing the input line at the given point.
     -- FIXME: where should we put this in the error quotent of PLine2Err?
-    (PLine2 perpLine, (nLineErr, _, perpLineErrs)) = perpLineAt line cPoint
+    perpLineVec = vecOfL perpLine
+    (perpLine, (nLineErr, _, perpLineErrs)) = perpLineAt line cPoint
     pVec = vecOfP $ forceBasisOfP cPoint
     (cPoint, cPointErr) = canonicalizeP point
 
 -- Find a projective line crossing the given projective line at the given projective point at a 90 degree angle.
 perpLineAt :: (ProjectiveLine2 a, ProjectivePoint2 b) => a -> b -> (ProjectiveLine, (PLine2Err, PPoint2Err, ([ErrVal],[ErrVal])))
+{-# INLINABLE perpLineAt #-}
 perpLineAt line point = (PLine2 res, resErr)
   where
     (res, perpLineErrs) = lvec ⨅+ pvec
@@ -252,6 +261,7 @@ perpLineAt line point = (PLine2 res, resErr)
 
 -- | Translate a point a given distance away from where it is, rotating it a given amount clockwise (in radians) around it's original location, with 0 degrees being aligned to the X axis.
 -- FIXME: throw this error into PPoint2Err.
+{-# INLINABLE translateRotatePPoint2WithErr #-}
 translateRotatePPoint2WithErr :: (ProjectivePoint2 a) => a -> ℝ -> ℝ -> (ProjectivePoint, (UlpSum, UlpSum, [ErrVal], PLine2Err, PLine2Err, PPoint2Err, ([ErrVal],[ErrVal])))
 translateRotatePPoint2WithErr point d rotation = (res, resErr)
   where
@@ -322,6 +332,7 @@ data Intersection =
   deriving Show
 
 -- | Entry point usable for common intersection needs, complete with passed in error values.
+{-# INLINABLE intersectsWithErr #-}
 intersectsWithErr :: (ProjectiveLine2 a, ProjectiveLine2 b) => Either LineSeg (a, PLine2Err) -> Either LineSeg (b, PLine2Err) -> Either Intersection PIntersection
 intersectsWithErr (Left l1)   (Left l2)   =         lineSegIntersectsLineSeg l1 l2
 intersectsWithErr (Right pl1) (Right pl2) = Right $ plinesIntersectIn pl1 pl2
@@ -329,6 +340,7 @@ intersectsWithErr (Left l1)   (Right pl1) =         pLineIntersectsLineSeg pl1 l
 intersectsWithErr (Right pl1) (Left l1)   =         pLineIntersectsLineSeg pl1 l1
 
 -- | Check if/where a line segment and a PLine intersect.
+{-# INLINABLE pLineIntersectsLineSeg #-}
 pLineIntersectsLineSeg :: (ProjectiveLine2 a) => (a, PLine2Err) -> LineSeg -> Either Intersection PIntersection
 pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
   | res == PParallel = Right PParallel
@@ -340,7 +352,7 @@ pLineIntersectsLineSeg (pl1, pl1ErrOrigin) l1
   | hasIntersection && endDistance <= ulpEndSum = Left $ HitEndPoint l1
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
   | hasRawIntersection = Left $ NoIntersection rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
-  | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (pl1Err, pl2Err, rawIntersectErr)
+  | otherwise = Left $ NoIntersection rawIntersect (pl1Err, pl2Err, rawIntersectErr)
   where
     res = plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
     ulpStartSum = ulpVal startDistanceErr
@@ -391,7 +403,7 @@ lineSegIntersectsLineSeg l1 l2
   | hasIntersection && end2Distance <= ulpEnd2Sum = Left $ HitEndPoint l2
   | hasIntersection = Right $ IntersectsIn rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
   | hasRawIntersection = Left $ NoIntersection rawIntersection (pl1Err, pl2Err, rawIntersectionErr)
-  | otherwise = Left $ NoIntersection ((\(PPoint2 v) -> CPPoint2 v) rawIntersect) (pl1Err, pl2Err, rawIntersectErr)
+  | otherwise = Left $ NoIntersection rawIntersect (pl1Err, pl2Err, rawIntersectErr)
   where
     res = plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
     start1FudgeFactor = start1DistanceErr <> pLineErrAtPPoint (pl1,pl1Err) start1
@@ -435,6 +447,7 @@ lineSegIntersectsLineSeg l1 l2
 
 -- | Given the result of intersectionPoint, find out whether this intersection point is on the given segment, or not.
 onSegment :: (ProjectivePoint2 a) => LineSeg -> (a, PPoint2Err) -> Bool
+{-# INLINABLE onSegment #-}
 onSegment lineSeg iPoint@(iP, _) =
      (startDistance <= startFudgeFactor)
   || (lineDistance <= lineFudgeFactor && midDistance <= (lengthOfSegment/2) + midFudgeFactor)

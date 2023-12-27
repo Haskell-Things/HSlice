@@ -138,6 +138,7 @@ outputIntersectsPLineAt n line
   where
     res = plinesIntersectIn (outAndErrOf n) line
 
+-- | Check if two line segments intersect.
 lineSegsIntersect :: LineSeg -> LineSeg -> Bool
 lineSegsIntersect l1 l2 = isIntersection $ intersectsWithErr (Left l1 :: Either LineSeg (ProjectiveLine, PLine2Err)) (Left l2 :: Either LineSeg (ProjectiveLine, PLine2Err))
       where
@@ -146,6 +147,7 @@ lineSegsIntersect l1 l2 = isIntersection $ intersectsWithErr (Left l1 :: Either 
                              _                          -> False
 
 -- | Find out if all of the possible intersections between all of the given nodes are close enough to be considered intersecting at the same point.
+{-# INLINABLE intersectionsAtSamePoint #-}
 intersectionsAtSamePoint :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> Bool
 intersectionsAtSamePoint nodeOutsAndErrs
   = case nodeOutsAndErrs of
