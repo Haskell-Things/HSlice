@@ -77,7 +77,7 @@ import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), any, concatMap, el
 
 import qualified Prelude as PL (head, last)
 
-import Data.List (filter, length, nub, sortBy)
+import Data.List (filter, length, sortBy)
 
 import Data.List.NonEmpty (NonEmpty)
 
@@ -192,8 +192,8 @@ cPPointAndErrOfINode iNode
 -- | Get all of the PLines that come from, or exit an iNode.
 allPLinesOfINode :: INode -> Slist (ProjectiveLine, PLine2Err)
 allPLinesOfINode iNode@(INode firstPLine secondPLine (Slist morePLines _) _)
-  | hasArc iNode = slist $ nub $ outAndErrOf iNode : firstPLine : secondPLine : morePLines
-  | otherwise    = slist $ nub $ firstPLine : secondPLine : morePLines
+  | hasArc iNode = slist $ outAndErrOf iNode : firstPLine : secondPLine : morePLines
+  | otherwise    = slist $ firstPLine : secondPLine : morePLines
 
 -- | Produce a list of the inputs to a given INode.
 insOf :: INode -> [(ProjectiveLine, PLine2Err)]
