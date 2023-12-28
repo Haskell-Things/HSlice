@@ -37,7 +37,7 @@ STATTESTSUITE=${TESTBUILDROOT}/test-stat/build/test-stat/test-stat
 RTSOPTS=+RTS -N -qg -t
 
 # Uncomment for profiling support. Note that you will need to recompile all of the libraries, as well.
-PROFILING= --enable-profiling
+#PROFILING= --enable-profiling
 
 ## FIXME: escape this right
 # Uncomment for valgrind on the examples.
