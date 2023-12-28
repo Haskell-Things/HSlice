@@ -63,13 +63,17 @@ module Graphics.Slicer.Math.Skeleton.Definitions (
   isOneSide,
   lastInOf,
   linePairs,
+  loopOfSegSets,
+  makeENode,
+  makeENodes,
+  makeInitialGeneration,
   makeINode,
   makeSide,
   oneSideOf,
   sortedPLines
   ) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), any, elem, not, otherwise, ($), (<$>), (==), (/=), (<=), error, (&&), fst, (<>), show, snd, mempty)
+import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), any, concatMap, elem, not, otherwise, ($), (<$>), (==), (/=), (<=), error, (&&), fst, (<>), show, snd, mempty)
 
 import qualified Prelude as PL (head, last)
 
@@ -86,6 +90,8 @@ import Slist (isEmpty, len, safeLast, slist)
 import qualified Slist as SL (last, head, init)
 
 import Slist.Type (Slist(Slist))
+
+import Graphics.Slicer.Math.Arcs (getFirstArc)
 
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, lineSegsOfContour, makeLineSeg, mapWithFollower, startPoint)
 
@@ -454,4 +460,39 @@ lastInOf (INode _ secondPLine morePLines _)
 -- | Find the first PLine of an INode.
 firstInOf :: INode -> (ProjectiveLine, PLine2Err)
 firstInOf (INode a _ _ _) = a
+
+-- | Create the set of ENodes for a set of segments
+makeInitialGeneration :: Bool -> Slist [LineSeg] -> [ENode]
+makeInitialGeneration gensAreLoop inSegSets = concatMap firstENodes inSegSets <> maybeLoop
+  where
+    -- Generate the first generation of nodes, from the passed in line segments.
+    -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
+    firstENodes :: [LineSeg] -> [ENode]
+    firstENodes firstSegs = case firstSegs of
+                              [] -> []
+                              [LineSeg {}] -> []
+                              (_:_) -> makeENodes firstSegs
+    -- Add a closing ENode if this is a closed loop.
+    maybeLoop = [loopOfSegSets inSegSets | gensAreLoop]
+
+-- | Make a first generation node.
+makeENode :: Point2 -> Point2 -> Point2 -> ENode
+makeENode p1 p2 p3 = ENode (p1,p2,p3) arc arcErr
+  where
+    (arc, arcErr) = getFirstArc p1 p2 p3
+
+-- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
+makeENodes :: [LineSeg] -> [ENode]
+makeENodes segs = case segs of
+                         [] -> error "got empty list.\n"
+                         [a] -> error $ "not enough line segments: " <> show a <> "\n"
+                         [a,b] -> [makeENode (startPoint a) (startPoint b) (endPoint b)]
+                         (a:b:xs) -> [makeENode (startPoint a) (startPoint b) (endPoint b)] <> makeENodes (b:xs)
+
+loopOfSegSets :: Slist [LineSeg] -> ENode
+loopOfSegSets inSegSets = case inSegSets of
+                            (Slist [] _) -> error "no"
+                            oneOrMoreSets@(Slist ((_:_:_):_) _) -> makeENode (startPoint $ PL.last $ SL.last oneOrMoreSets) (startPoint $ PL.head $ SL.head oneOrMoreSets) (endPoint $ PL.head $ SL.head oneOrMoreSets)
+                            oneOrMoreSets@(Slist (_:_:_) _) -> makeENode (startPoint $ PL.last $ SL.last oneOrMoreSets) (startPoint $ PL.head $ SL.head oneOrMoreSets) (endPoint $ PL.head $ SL.head oneOrMoreSets)
+                            (Slist _ _) -> error "yes"
 

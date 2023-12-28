@@ -58,9 +58,9 @@ import qualified Slist as SL (head, init, last, tail)
 
 import Graphics.Implicit.Definitions (ℝ)
 
-import Graphics.Slicer.Math.Arcs (getFirstArc, getOutsideArc)
+import Graphics.Slicer.Math.Arcs (getOutsideArc)
 
-import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, lineSegsOfContour, mapWithFollower, startPoint)
+import Graphics.Slicer.Math.Definitions (Contour, LineSeg, endPoint, lineSegsOfContour, mapWithFollower, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (ulpVal)
 
@@ -70,7 +70,7 @@ import Graphics.Slicer.Math.Lossy (distanceBetweenPPointsWithErr)
 
 import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint), ProjectiveLine, PLine2Err, cPPointAndErrOf, cPPointOf, distance2PP, flipL, join2PP, outAndErrOf, pLineIsLeft)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode(ENode), ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, getFirstLineSeg, getLastLineSeg, finalOutOf, firstInOf, getPairs, indexPLinesTo, insOf, finalINodeOf, linePairs, makeINode, makeSide, sortedPLines, isLoop)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, finalINodeOf, finalOutOf, firstInOf, getFirstLineSeg, getLastLineSeg, getPairs, indexPLinesTo, insOf, isLoop, linePairs, loopOfSegSets, makeENode, makeENodes, makeInitialGeneration, makeINode, makeSide, sortedPLines)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree, findENodeByOutput, findINodeByOutput)
 
@@ -141,27 +141,6 @@ isHallway (NodeTree _ iNodeSet) = isJust iNodeSet && hasOneMember (fromJust iNod
   where
     hasOneMember (INodeSet children _) = isEmpty children
 
--- | Create the set of ENodes for a set of segments
-makeInitialGeneration :: Bool -> Slist [LineSeg] -> [ENode]
-makeInitialGeneration gensAreLoop inSegSets = concatMap firstENodes inSegSets <> maybeLoop
-  where
-    -- Generate the first generation of nodes, from the passed in line segments.
-    -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
-    firstENodes :: [LineSeg] -> [ENode]
-    firstENodes firstSegs = case firstSegs of
-                              [] -> []
-                              [LineSeg {}] -> []
-                              (_:_) -> makeENodes firstSegs
-    -- Add a closing ENode if this is a closed loop.
-    maybeLoop = [loopOfSegSets inSegSets | gensAreLoop]
-
-loopOfSegSets :: Slist [LineSeg] -> ENode
-loopOfSegSets inSegSets = case inSegSets of
-                            (Slist [] _) -> error "no"
-                            oneOrMoreSets@(Slist ((_:_:_):_) _) -> makeENode (startPoint $ PL.last $ SL.last oneOrMoreSets) (startPoint $ PL.head $ SL.head oneOrMoreSets) (endPoint $ PL.head $ SL.head oneOrMoreSets)
-                            oneOrMoreSets@(Slist (_:_:_) _) -> makeENode (startPoint $ PL.last $ SL.last oneOrMoreSets) (startPoint $ PL.head $ SL.head oneOrMoreSets) (endPoint $ PL.head $ SL.head oneOrMoreSets)
-                            (Slist _ _) -> error "yes"
-
 -- | Handle the recursive resolver failing.
 errorIfLeft :: Either PartialNodes (Maybe INodeSet) -> Maybe INodeSet
 errorIfLeft (Left failure) = error $ "Fail!\n" <> show failure
@@ -181,20 +160,6 @@ sortedPair n1 n2
   | otherwise = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n"
                       <> show n1 <> "\n"
                       <> show n2 <> "\n"
-
--- | Make a first generation node.
-makeENode :: Point2 -> Point2 -> Point2 -> ENode
-makeENode p1 p2 p3 = ENode (p1,p2,p3) arc arcErr
-  where
-    (arc, arcErr) = getFirstArc p1 p2 p3
-
--- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
-makeENodes :: [LineSeg] -> [ENode]
-makeENodes segs = case segs of
-                         [] -> error "got empty list.\n"
-                         [a] -> error $ "not enough line segments: " <> show a <> "\n"
-                         [a,b] -> [makeENode (startPoint a) (startPoint b) (endPoint b)]
-                         (a:b:xs) -> [makeENode (startPoint a) (startPoint b) (endPoint b)] <> makeENodes (b:xs)
 
 -- | Find the non-reflex virtexes of a contour, and create ENodes from them.
 --   This function is meant to be used on an exterior contour.
