@@ -233,12 +233,12 @@ findENodesInOrder a b = error $ "cannot find ENodes for :" <> show a <> "\n" <> 
 -- This ordering is required, so we can draw Faces using the INodeSet.
 sortINodesByENodes :: Bool -> [ENode] -> Slist [LineSeg] -> INodeSet -> INodeSet
 sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations inParent)
- | generationsIn res == 1 && inCountOf (onlyINodeOf res) > len (slist eNodes) + (len inSegSets*2-2) = errorTooManyIns
- -- skip the next property test for hallways.
- | len inSegSets == 2 = res
- -- test for the property that a walk of the INodes we are returning results in our input ENode list.
- | eNodes /= findENodesInOrder (eNodeSetOf $ slist eNodes) res = errorInsWrongOrder
- | otherwise = res
+  | generationsIn res == 1 && inCountOf (onlyINodeOf res) > len (slist eNodes) + (len inSegSets*2-2) = errorTooManyIns
+  -- skip the next property test for hallways.
+  | len inSegSets == 2 = res
+  -- test for the property that a walk of the INodes we are returning results in our input ENode list.
+  | eNodes /= findENodesInOrder (eNodeSetOf $ slist eNodes) res = errorInsWrongOrder
+  | otherwise = res
   where
     -- call our recursive handler.
     res :: INodeSet
