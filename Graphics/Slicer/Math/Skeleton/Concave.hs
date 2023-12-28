@@ -343,7 +343,9 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
                   | otherwise = error "tried to adjust an INode with no output!"
             (firstArc,(_,_,firstArcErr)) = join2PP (cPPointOf firstChild) (cPPointOf secondChild)
             (secondArc,(_,_,secondArcErr)) = join2PP (cPPointOf secondChild) (cPPointOf firstChild)
-            (firstChild, secondChild) = (PL.head children, PL.last children)
+            (firstChild, secondChild)
+              | length children > 1 = (PL.head children, PL.last children)
+              | otherwise = error "eep"
             children = (\(a,_) -> snd $ fromMaybe (error $ "could not find " <> show a)  $ findINodeByOutput iNodeSet a True) <$> insOf parent
 
         -- an INode that contains inputs both on one side, and on the other side of the first ENode's arc.
