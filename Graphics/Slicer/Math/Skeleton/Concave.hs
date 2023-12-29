@@ -150,7 +150,60 @@ errorIfLeft (Right val)    = val
 --   Note: this should be hidden in skeletonOfConcaveRegion, but it's exposed here, for testing.
 averageNodes :: (Arcable a, Pointable a, Arcable b, Pointable b) => a -> b -> INode
 {-# INLINABLE averageNodes #-}
-averageNodes n1 n2 = makeINode (sortedPair n1 n2) $ Just $ getOutsideArc (cPPointAndErrOf n1) (outAndErrOf n1) (cPPointAndErrOf n2) (outAndErrOf n2)
+averageNodes node1 node2 = makeINode (sortedNodeOuts node1 node2 outArc) $ Just outArc
+  where
+    outArc = getOutsideArc (cPPointAndErrOf node1) (outAndErrOf node1) (cPPointAndErrOf node2) (outAndErrOf node2)
+
+-- | sort the outs of the two given nodes
+sortedNodeOuts :: (Arcable a, Arcable b) => a -> b -> (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)]
+{-# INLINABLE sortedNodeOuts #-}
+sortedNodeOuts node1 node2 outside
+  | not (hasArc node1) || not (hasArc node2) = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n"
+                                                     <> show node1 <> "\n"
+                                                     <> show node2 <> "\n"
+  | otherwise = sortPLinePair (outAndErrOf node1) (outAndErrOf node2) outside
+
+-- | sort the two PLines against the guaranteed outside PLine. always returns the two PLines in a counterclockwise order.
+sortPLinePair :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)]
+{-# INLINABLE sortPLinePair #-}
+sortPLinePair pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) (rawOutsidePLine, rawOutsidePLineErr) =
+  case rawPLine1 `pLineIsLeft` outsidePLine of
+    Nothing -> -- so, these are roughly the same line.
+      case rawPLine2 `pLineIsLeft` rawPLine1 of
+        Nothing -> -- and this one too? then, in theory, our answer doesn't matter.
+          [pLine1, pLine2]
+        Just True -> -- ok, we know pline2 crosses pline1 toward the left..
+          case pLine1 `isAntiCollinear` outsidePLineWithErr of
+            True -> -- pLine1 and our outside PLine go separate ways. since we go to the left of pLine1...
+              [pLine1, pLine2]
+            False ->
+              [pLine2, pLine1]
+        Just False -> -- rawPLine2 crosses to the right of outsidePLine.
+          case pLine1 `isAntiCollinear` outsidePLineWithErr of
+            True -> -- pLine1 and our outside PLine go separate ways. since we go to the right of pLine1...
+              [pLine2, pLine1]
+            False ->
+              [pLine1, pLine2]
+    Just True -> -- rawPLine1 crosses to the left of outsidePLine.
+      case rawPLine2 `pLineIsLeft` outsidePLine of
+        Nothing -> -- rawPLine2 and outsidePLine are roughly the same line.
+          [pLine1, pLine2]
+        Just True -> -- rawPLine2 also crosses to the left of outsidePLine.
+          [pLine1, pLine2]
+        Just False -> -- rawPLine2 crosses to the right of outsidePLine.
+          [pLine2, pLine1]
+    Just False -> -- rawPLine1 crosses to the right of outsidePLine.
+      case rawPLine2 `pLineIsLeft` rawPLine1 of
+        Nothing -> -- rawPLine2 and rawPLine1 are roughly the same line.
+          [pLine1, pLine2]
+        Just True -> -- rawPLine2 crosses rawPLine1 towards the left.
+          [pLine2, pLine1]
+        Just False -> -- rawPLine2 crosses rawPLine1 towards the right.
+          [pLine1, pLine2]
+  where
+    outsidePLineWithErr = (outsidePLine, rawOutsidePLineErr)
+    -- we flip this, because outside PLines point away from a node, while the two PLines we're working with point toward.
+    outsidePLine = flipL rawOutsidePLine
 
 -- | Take a pair of arcables, and return their outOfs, in a sorted order.
 sortedPair :: (Arcable a, Arcable b) => a -> b -> [(ProjectiveLine, PLine2Err)]
