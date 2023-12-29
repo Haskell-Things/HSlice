@@ -167,39 +167,29 @@ sortedNodeOuts node1 node2 outside
 sortPLinePair :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)]
 {-# INLINABLE sortPLinePair #-}
 sortPLinePair pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) (rawOutsidePLine, rawOutsidePLineErr) =
-  case rawPLine1 `pLineIsLeft` outsidePLine of
-    Nothing -> -- so, these are roughly the same line.
-      case rawPLine2 `pLineIsLeft` rawPLine1 of
-        Nothing -> -- and this one too? then, in theory, our answer doesn't matter.
-          [pLine1, pLine2]
-        Just True -> -- ok, we know pline2 crosses pline1 toward the left..
-          case pLine1 `isAntiCollinear` outsidePLineWithErr of
-            True -> -- pLine1 and our outside PLine go separate ways. since we go to the left of pLine1...
-              [pLine1, pLine2]
-            False ->
-              [pLine2, pLine1]
-        Just False -> -- rawPLine2 crosses to the right of outsidePLine.
-          case pLine1 `isAntiCollinear` outsidePLineWithErr of
-            True -> -- pLine1 and our outside PLine go separate ways. since we go to the right of pLine1...
-              [pLine2, pLine1]
-            False ->
-              [pLine1, pLine2]
-    Just True -> -- rawPLine1 crosses to the left of outsidePLine.
-      case rawPLine2 `pLineIsLeft` outsidePLine of
-        Nothing -> -- rawPLine2 and outsidePLine are roughly the same line.
-          [pLine1, pLine2]
-        Just True -> -- rawPLine2 also crosses to the left of outsidePLine.
-          [pLine1, pLine2]
-        Just False -> -- rawPLine2 crosses to the right of outsidePLine.
-          [pLine2, pLine1]
-    Just False -> -- rawPLine1 crosses to the right of outsidePLine.
-      case rawPLine2 `pLineIsLeft` rawPLine1 of
-        Nothing -> -- rawPLine2 and rawPLine1 are roughly the same line.
-          [pLine1, pLine2]
-        Just True -> -- rawPLine2 crosses rawPLine1 towards the left.
-          [pLine2, pLine1]
-        Just False -> -- rawPLine2 crosses rawPLine1 towards the right.
-          [pLine1, pLine2]
+  case (rawPLine1 `pLineIsLeft` outsidePLine,
+        rawPLine2 `pLineIsLeft` rawPLine1,
+        outsidePLine `pLineIsLeft` rawPLine2,
+        pLine1 `isAntiCollinear` outsidePLineWithErr,
+        pLine2 `isAntiCollinear` outsidePLineWithErr) of
+    (Nothing, Nothing, Just _, _, _) -> error "impossible"
+    (Nothing, Nothing, Nothing, _, _) -> [pLine1, pLine2]
+    (Nothing, Just True, _, True, _) -> [pLine1, pLine2]
+    (Nothing, Just True, _, False, _) -> [pLine2, pLine1]
+    (Nothing, Just False, _, True, _) -> [pLine2, pLine1]
+    (Nothing, Just False, _, False, _) -> [pLine1, pLine2]
+    (Just True, Nothing, _, _, True) -> [pLine2, pLine1]
+    (Just True, Nothing, _, _, False) -> [pLine1, pLine2]
+    (Just True, Just True, Nothing, _, _) -> error "impossible!"
+    (Just True, Just True, Just True, _, _) -> [pLine2, pLine1]
+    (Just True, Just True, Just False, _, _) -> [pLine2, pLine1]
+    (Just True, Just False, _, _, _) -> [pLine1, pLine2]
+    (Just False, Nothing, _, _, True) -> [pLine2, pLine1]
+    (Just False, Nothing, _, _, False) -> [pLine1, pLine2]
+    (Just False, Just True, _, _, _) -> [pLine2, pLine1]
+    (Just False, Just False, Nothing, _, _) -> error "impossible!"
+    (Just False, Just False, Just True, _, _) -> [pLine2, pLine1]
+    (Just False, Just False, Just False, _, _) -> [pLine1, pLine2]
   where
     outsidePLineWithErr = (outsidePLine, rawOutsidePLineErr)
     -- we flip this, because outside PLines point away from a node, while the two PLines we're working with point toward.
