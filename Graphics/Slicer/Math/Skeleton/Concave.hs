@@ -163,7 +163,7 @@ sortedNodeOuts node1 node2 outside
                                                      <> show node2 <> "\n"
   | otherwise = sortPLinePair (outAndErrOf node1) (outAndErrOf node2) outside
 
--- | sort the two PLines against the guaranteed outside PLine. always returns the two PLines in a counterclockwise order.
+-- | sort two PLines against the guaranteed outside PLine. always returns the two PLines in a counterclockwise order, starting at outsidePLine.
 sortPLinePair :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)]
 {-# INLINABLE sortPLinePair #-}
 sortPLinePair pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) (rawOutsidePLine, rawOutsidePLineErr) =
@@ -566,7 +566,15 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
 
     -- Order the input nodes of an INode.
     orderInsByENodes :: INode -> INode
-    orderInsByENodes inode@(INode _ _ _ out) = makeINode (indexPLinesTo firstPLine $ sortedPLines $ indexPLinesTo firstPLine $ insOf inode) out
+    orderInsByENodes inode@(INode _ _ _ out)
+      | isJust out = outRes
+      | otherwise = noOutRes
+        where
+          outRes = makeINode (indexPLinesTo flippedOut $ sortedPLines $ insOf inode) out
+          noOutRes = makeINode (indexPLinesTo firstPLine $ sortedPLines $ indexPLinesTo firstPLine $ insOf inode) Nothing
+          flippedOut = case out of
+                         (Just (outPLine, outPLineErr)) -> (flipL outPLine, outPLineErr)
+                         Nothing -> error "tried to evaluate flippedOut when out was Nothing."
 
     -- The output PLine of the first ENode in the input ENode set. We use this when sorting INodes.
     firstPLine :: (ProjectiveLine, PLine2Err)
