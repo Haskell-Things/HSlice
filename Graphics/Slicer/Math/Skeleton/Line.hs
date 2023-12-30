@@ -64,28 +64,12 @@ import Graphics.Implicit.Definitions (ℝ, Fastℕ)
 ------------------ Line Segment Placement ------------------------
 ------------------------------------------------------------------
 
-data InsetLine = InsetLine { _segment :: LineSeg, _insetLine :: (ProjectiveLine, PLine2Err), _insetStart :: (ProjectivePoint, PPoint2Err), _insetStop :: (ProjectivePoint, PPoint2Err) }
+data InsetLine = InsetLine { segmentFrom :: LineSeg, lineFrom :: (ProjectiveLine, PLine2Err), startOfInset :: (ProjectivePoint, PPoint2Err), endOfInset :: (ProjectivePoint, PPoint2Err) }
   deriving (Eq, Show)
-
--- Provide just the segment of an InsetLine.
-segmentFrom :: InsetLine -> LineSeg
-segmentFrom (InsetLine seg _ _ _) = seg
-
--- Provide the Line of an InsetLine
-lineFrom :: InsetLine -> (ProjectiveLine, PLine2Err)
-lineFrom (InsetLine _ line _ _) = line
-
--- Provide the projective start point of an InsetLine.
-startFrom :: InsetLine -> (ProjectivePoint, PPoint2Err)
-startFrom (InsetLine _ _ point _) = point
-
--- Provide the projective end point of an InsetLine.
-endFrom :: InsetLine -> (ProjectivePoint, PPoint2Err)
-endFrom (InsetLine _ _ _ point) = point
 
 -- | Inset the given set of faces, returning new outside contours, and a new set of faces.
 -- Requires the faces are a closed set, AKA, a set of faces created from a contour.
--- FIXME: handle inset requests that result in multiple contours.
+-- FIXME: this should be returning a ContourTree.
 insetBy :: ℝ -> Slist Face -> ([Contour], [Face])
 insetBy distanceBetweenSegs faces
   -- no result? no resulting faces.
@@ -104,7 +88,7 @@ insetBy distanceBetweenSegs faces
 
 -- | Inset a set of faces a number of times, returning new outside contours, and a new set of faces.
 -- Requires the faces are a closed set, AKA, a set of faces created from a contour.
--- FIXME: handle inset requests that result in multiple contours.
+-- FIXME: this should be returning a ContourTree.
 insetMany :: ℝ -> Fastℕ -> Slist Face -> ([Contour], [Face])
 insetMany distanceBetweenSegs count faces
   | count < 1 = error $ "attempted to inset less than 1 time!" <> show count <> "\n"
@@ -124,8 +108,6 @@ insetMany distanceBetweenSegs count faces
     remainingFaces = concat $ mapMaybe snd res
     res = addInsetsToFace distanceBetweenSegs (Just count) <$> (\(Slist a _) -> a) faces
 
--- FUTUREWORK: Add a function that takes the contour formed by the remainders of the faces, and squeezes in a line segment, if possible.
-
 -- | Cover a the inside of a set of faces with contours.
 -- FIXME: this should be returning a ContourTree.
 infiniteInset :: ℝ -> Slist Face -> [Contour]
@@ -138,6 +120,8 @@ infiniteInset distanceBetweenSegs faces
     contours = reclaimContours insetSets
     insetSets = fst <$> res
     res = addInsetsToFace distanceBetweenSegs Nothing <$> (\(Slist a _) -> a) faces
+
+-- FUTUREWORK: Add a function that takes the contour formed by the remainders of the faces, and squeezes in a line segment, if possible.
 
 -- | Place inset line segments on a face, parallel to the edge. Might return remainders, in the form of un-filled faces.
 addInsetsToFace :: ℝ -> Maybe Fastℕ -> Face -> ([[InsetLine]], Maybe [Face])
@@ -516,8 +500,8 @@ reclaimRing ring
         seg2 = segmentFrom inset2
         line1 = lineFrom inset1
         line2 = lineFrom inset2
-        l1EndPoint = endFrom inset1
-        l2StartPoint = startFrom inset2
+        l1EndPoint = endOfInset inset1
+        l2StartPoint = startOfInset inset2
         leastErrPoint :: Point2
         leastErrPoint = pToEPoint2 leastErrPPoint
         leastErrPPoint
@@ -528,7 +512,7 @@ reclaimRing ring
           | otherwise = fst newPoint
           where
             newPoint = intersectionOf line1 line2
-        --- FIXME: magic number
+        -- FIXME: magic number
         l1l2DistanceErr = 512 * ulpVal (l1l2DistanceErrRaw
                                         <> pLineErrAtPPoint line1 (fst l1EndPoint)
                                         <> pLineErrAtPPoint line2 (fst l2StartPoint))
