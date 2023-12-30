@@ -195,15 +195,6 @@ sortPLinePair pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) (rawOutsidePLine, rawOut
     -- we flip this, because outside PLines point away from a node, while the two PLines we're working with point toward.
     outsidePLine = flipL rawOutsidePLine
 
--- | Take a pair of arcables, and return their outOfs, in a sorted order.
-sortedPair :: (Arcable a, Arcable b) => a -> b -> [(ProjectiveLine, PLine2Err)]
-{-# INLINABLE sortedPair #-}
-sortedPair n1 n2
-  | hasArc n1 && hasArc n2 = sortedPLines [outAndErrOf n1, outAndErrOf n2]
-  | otherwise = error $ "Cannot get the average of nodes if one of the nodes does not have an out!\n"
-                      <> show n1 <> "\n"
-                      <> show n2 <> "\n"
-
 -- | Find the non-reflex virtexes of a contour, and create ENodes from them.
 --   This function is meant to be used on an exterior contour.
 eNodesOfOutsideContour :: Contour -> [ENode]
@@ -638,7 +629,7 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
       | nodesAreAntiCollinear node1 node2 && contourLooped = Right $ Just $ INodeSet mempty $ makeLastPair node1 node2
       | contourLooped =
         -- this is a complete loop, so this last INode will be re-written in sortINodesByENodes anyways.
-        Right $ Just $ INodeSet mempty $ makeINode (sortedPLines [outAndErrOf node1,outAndErrOf node2]) Nothing
+        Right $ Just $ INodeSet mempty $ makeINode [outAndErrOf node1,outAndErrOf node2] Nothing
       | intersectsInPoint node1 node2 = Right $ Just $ INodeSet mempty $ safeAverageNodes node1 node2
       | otherwise = errorLen2
       where
@@ -647,9 +638,9 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
     handleThreeOrMoreNodes :: Either PartialNodes (Maybe INodeSet)
     handleThreeOrMoreNodes
       | not (all hasArc iNodes) = error "found an Inode without an output!"
-      | endsAtSamePoint && contourLooped = Right $ Just $ INodeSet mempty $ makeINode (sortedPLines $ (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)) Nothing
+      | endsAtSamePoint && contourLooped = Right $ Just $ INodeSet mempty $ makeINode ((outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)) Nothing
       -- FIXME: this can happen for non-loops. which means this Nothing is wrong. it should be the result of the intersection tree from the first and last node in the segment.
-      | endsAtSamePoint && not contourLooped = error $ show $ makeINode (sortedPLines $ (outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)) Nothing
+      | endsAtSamePoint && not contourLooped = error $ show $ makeINode ((outAndErrOf <$> eNodes) <> (outAndErrOf <$> iNodes)) Nothing
       | hasShortestNeighboringPair = Right $ Just $ addYoungerGen averageOfShortestPairs $ errorIfLeft (skeletonOfNodes remainingLoop origSegSets remainingLineSegs (remainingINodes <> averageOfShortestPairs))
       | otherwise = error $ "len3\n" <> errorLen3
     errorLen3 =    "shortestPairDistance: " <> show shortestPairDistance <> "\n"
@@ -681,7 +672,7 @@ skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =
 
     -- | construct the last pair of a closed concave region.
     makeLastPair :: (Arcable a, Arcable b) => a -> b -> INode
-    makeLastPair node1 node2 = makeINode (sortedPair node1 node2) Nothing
+    makeLastPair node1 node2 = makeINode [outAndErrOf node1, outAndErrOf node2] Nothing
 
     -- | which ENodes contributed to this generation.
     foundENodes = (fst <$> mixedPairsFound) <> (fst <$> ePairsFound) <> (snd <$> ePairsFound)
