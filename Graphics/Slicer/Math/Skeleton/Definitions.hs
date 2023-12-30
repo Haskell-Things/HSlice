@@ -463,7 +463,7 @@ sortPLinePair pLine1 pLine2 (rawOutsidePLine, rawOutsidePLineErr)
     -- we flip this, because outside PLines point away from a node, while the two PLines we're working with point toward.
     outsidePLine = flipL rawOutsidePLine
 
-pLineOrderCCW :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Bool
+pLineOrderCCW :: (ProjectiveLine2 a) => (a, PLine2Err) -> (a, PLine2Err) -> (a, PLine2Err) -> Bool
 {-# INLINABLE pLineOrderCCW #-}
 pLineOrderCCW pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) outsidePLine@(rawOutsidePLine, _) =
   case (rawPLine1 `pLineIsLeft` rawOutsidePLine,
