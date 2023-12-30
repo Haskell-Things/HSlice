@@ -154,7 +154,7 @@ averageNodes node1 node2 = makeINode (sortedNodeOuts node1 node2 outArc) $ Just 
   where
     outArc = getOutsideArc (cPPointAndErrOf node1) (outAndErrOf node1) (cPPointAndErrOf node2) (outAndErrOf node2)
 
--- | counterclockwise sort the outsputs of the two given nodes.
+-- | Provide the outputs of the two given nodes, in the order they would be found, if we started sweeping in a counterclockwise direction from the 'outside' PLine.
 sortedNodeOuts :: (Arcable a, Arcable b) => a -> b -> (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)]
 {-# INLINABLE sortedNodeOuts #-}
 sortedNodeOuts node1 node2 outside
@@ -553,6 +553,7 @@ addYoungerGen newGen maybeINodeSet
 -- | Apply a recursive algorithm to obtain a raw INodeSet.
 -- This generates an INodeSet where each generation is composed of the closest together intersection of arcs, and thus does not discover in ENode order.
 -- FIXME: does not handle more than two point intersections of arcs properly.
+-- NOTE: we do not try to sort the inputs of INodes here, that is done in a later step.
 -- NOTE: the first two arguments are passed through to later recursive calls.
 skeletonOfNodes :: Bool -> Slist [LineSeg] -> Slist [LineSeg] -> [INode] -> Either PartialNodes (Maybe INodeSet)
 skeletonOfNodes connectedLoop origSegSets inSegSets iNodes =

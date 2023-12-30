@@ -455,35 +455,40 @@ sortedPLines pLines
 -- | sort two PLines against the guaranteed outside PLine. always returns the two PLines in a counterclockwise order, starting at outsidePLine.
 sortPLinePair :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)]
 {-# INLINABLE sortPLinePair #-}
-sortPLinePair pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) (rawOutsidePLine, rawOutsidePLineErr) =
-  case (rawPLine1 `pLineIsLeft` outsidePLine,
-        rawPLine2 `pLineIsLeft` rawPLine1,
-        outsidePLine `pLineIsLeft` rawPLine2,
-        pLine1 `isAntiCollinear` outsidePLineWithErr,
-        pLine2 `isAntiCollinear` outsidePLineWithErr) of
-    (Nothing, Nothing, Just _, _, _) -> error "impossible"
-    (Nothing, Nothing, Nothing, _, _) -> [pLine1, pLine2]
-    (Nothing, Just True, _, True, _) -> [pLine1, pLine2]
-    (Nothing, Just True, _, False, _) -> [pLine2, pLine1]
-    (Nothing, Just False, _, True, _) -> [pLine2, pLine1]
-    (Nothing, Just False, _, False, _) -> [pLine1, pLine2]
-    (Just True, Nothing, _, _, True) -> [pLine2, pLine1]
-    (Just True, Nothing, _, _, False) -> [pLine1, pLine2]
-    (Just True, Just True, Nothing, _, _) -> error "impossible!"
-    (Just True, Just True, Just True, _, _) -> [pLine2, pLine1]
-    (Just True, Just True, Just False, _, _) -> [pLine2, pLine1]
-    (Just True, Just False, _, _, _) -> [pLine1, pLine2]
-    (Just False, Nothing, _, _, True) -> [pLine2, pLine1]
-    (Just False, Nothing, _, _, False) -> [pLine1, pLine2]
-    (Just False, Just True, _, _, _) -> [pLine2, pLine1]
-    (Just False, Just False, Nothing, _, _) -> error "impossible!"
-    (Just False, Just False, Just True, _, _) -> [pLine2, pLine1]
-    (Just False, Just False, Just False, _, _) -> [pLine1, pLine2]
+sortPLinePair pLine1 pLine2 (rawOutsidePLine, rawOutsidePLineErr)
+  | pLineOrderCCW pLine1 pLine2 outsidePLineWithErr = [pLine1, pLine2]
+  | otherwise = [pLine2, pLine1]
   where
     outsidePLineWithErr = (outsidePLine, rawOutsidePLineErr)
     -- we flip this, because outside PLines point away from a node, while the two PLines we're working with point toward.
     outsidePLine = flipL rawOutsidePLine
 
+pLineOrderCCW :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Bool
+{-# INLINABLE pLineOrderCCW #-}
+pLineOrderCCW pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) outsidePLine@(rawOutsidePLine, _) =
+  case (rawPLine1 `pLineIsLeft` rawOutsidePLine,
+        rawPLine2 `pLineIsLeft` rawPLine1,
+        rawOutsidePLine `pLineIsLeft` rawPLine2,
+        pLine1 `isAntiCollinear` outsidePLine,
+        pLine2 `isAntiCollinear` outsidePLine) of
+    (Nothing, Nothing, Just _, _, _) -> error "impossible"
+    (Nothing, Nothing, Nothing, _, _) -> True
+    (Nothing, Just True, _, True, _) -> True
+    (Nothing, Just True, _, False, _) -> False
+    (Nothing, Just False, _, True, _) -> False
+    (Nothing, Just False, _, False, _) -> True
+    (Just True, Nothing, _, _, True) -> False
+    (Just True, Nothing, _, _, False) -> True
+    (Just True, Just True, Nothing, _, _) -> error "impossible!"
+    (Just True, Just True, Just True, _, _) -> False
+    (Just True, Just True, Just False, _, _) -> False
+    (Just True, Just False, _, _, _) -> True
+    (Just False, Nothing, _, _, True) -> False
+    (Just False, Nothing, _, _, False) -> True
+    (Just False, Just True, _, _, _) -> False
+    (Just False, Just False, Nothing, _, _) -> error "impossible!"
+    (Just False, Just False, Just True, _, _) -> False
+    (Just False, Just False, Just False, _, _) -> True
 
 -- | Take a sorted list of PLines, and make sure the list starts with the pline closest to (but not left of) the given PLine.
 -- Does not require the input PLine to be in the set.
