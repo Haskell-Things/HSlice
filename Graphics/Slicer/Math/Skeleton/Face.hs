@@ -114,19 +114,20 @@ facesOfNodeTree nodeTree@(NodeTree eNodes iNodeSet)
       if allInsAreENodes parent
       then if hasArc parent
            then -- skip the last triangle, as the parent's output is somewhere within it.
-             case unsnoc $ rotateFaces nodeTree parent of
+             case unsnoc res of
                Nothing -> error "wtf"
                Just (xs,_) -> xs
-           else rotateFaces nodeTree parent
+           else res
       else errorNoMoreINodes
   | isJust iNodeSet = -- one or more ancestor generations
       if hasArc (finalINodeOf $ fromJust iNodeSet)
-      then case unsnoc $ rotateFaces nodeTree parent of
+      then case unsnoc res of
              Nothing -> error "wtf"
              Just (xs,_) -> xs
-      else rotateFaces nodeTree parent
+      else res
   | otherwise = error "undefined!"
   where
+    res = rotateFaces $ getFaces nodeTree parent
     parent = finalINodeOf $ fromJust iNodeSet
     children = childrenOf $ fromJust iNodeSet
     childrenOf :: INodeSet -> Slist [INode]
@@ -140,11 +141,11 @@ facesOfNodeTree nodeTree@(NodeTree eNodes iNodeSet)
         inArcsOf (INode firstArc secondArc (Slist rawMoreArcs _) _) = firstArc : secondArc : rawMoreArcs
 
 -- | wrap getFaces so the first line segment of the input set is the first face given.
-rotateFaces :: NodeTree -> INode -> [Face]
-rotateFaces nodeTree iNode = rTail <> [rHead]
+rotateFaces :: [Face] -> [Face]
+rotateFaces inFaces = rTail <> [rHead]
   where
     -- note that we place the first face last, because the first ENode is constructed from the first segment, which shifts the order of face placement one forward. this is to correct for that effect.
-    (rHead, rTail) = case uncons (getFaces nodeTree iNode) of
+    (rHead, rTail) = case uncons inFaces of
                        Nothing -> error "wtf?"
                        (Just (a,b)) -> (a,b)
 
