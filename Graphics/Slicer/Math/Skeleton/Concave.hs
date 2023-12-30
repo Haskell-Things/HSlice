@@ -70,7 +70,7 @@ import Graphics.Slicer.Math.Lossy (distanceBetweenPPointsWithErr)
 
 import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint), ProjectiveLine, PLine2Err, cPPointAndErrOf, cPPointOf, distance2PP, flipL, join2PP, outAndErrOf, pLineIsLeft)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, finalINodeOf, finalOutOf, firstInOf, getFirstLineSeg, getLastLineSeg, getPairs, indexPLinesTo, insOf, isLoop, linePairs, loopOfSegSets, makeENode, makeENodes, makeInitialGeneration, makeINode, makeSide, sortedPLines)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concavePLines, finalINodeOf, finalOutOf, firstInOf, getFirstLineSeg, getLastLineSeg, getPairs, indexPLinesTo, insOf, isLoop, linePairs, loopOfSegSets, makeENode, makeENodes, makeInitialGeneration, makeINode, makeSide, sortedPLines, sortPLinePair)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree, findENodeByOutput, findINodeByOutput)
 
@@ -154,7 +154,7 @@ averageNodes node1 node2 = makeINode (sortedNodeOuts node1 node2 outArc) $ Just 
   where
     outArc = getOutsideArc (cPPointAndErrOf node1) (outAndErrOf node1) (cPPointAndErrOf node2) (outAndErrOf node2)
 
--- | sort the outs of the two given nodes
+-- | counterclockwise sort the outsputs of the two given nodes.
 sortedNodeOuts :: (Arcable a, Arcable b) => a -> b -> (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)]
 {-# INLINABLE sortedNodeOuts #-}
 sortedNodeOuts node1 node2 outside
@@ -162,38 +162,6 @@ sortedNodeOuts node1 node2 outside
                                                      <> show node1 <> "\n"
                                                      <> show node2 <> "\n"
   | otherwise = sortPLinePair (outAndErrOf node1) (outAndErrOf node2) outside
-
--- | sort two PLines against the guaranteed outside PLine. always returns the two PLines in a counterclockwise order, starting at outsidePLine.
-sortPLinePair :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)]
-{-# INLINABLE sortPLinePair #-}
-sortPLinePair pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) (rawOutsidePLine, rawOutsidePLineErr) =
-  case (rawPLine1 `pLineIsLeft` outsidePLine,
-        rawPLine2 `pLineIsLeft` rawPLine1,
-        outsidePLine `pLineIsLeft` rawPLine2,
-        pLine1 `isAntiCollinear` outsidePLineWithErr,
-        pLine2 `isAntiCollinear` outsidePLineWithErr) of
-    (Nothing, Nothing, Just _, _, _) -> error "impossible"
-    (Nothing, Nothing, Nothing, _, _) -> [pLine1, pLine2]
-    (Nothing, Just True, _, True, _) -> [pLine1, pLine2]
-    (Nothing, Just True, _, False, _) -> [pLine2, pLine1]
-    (Nothing, Just False, _, True, _) -> [pLine2, pLine1]
-    (Nothing, Just False, _, False, _) -> [pLine1, pLine2]
-    (Just True, Nothing, _, _, True) -> [pLine2, pLine1]
-    (Just True, Nothing, _, _, False) -> [pLine1, pLine2]
-    (Just True, Just True, Nothing, _, _) -> error "impossible!"
-    (Just True, Just True, Just True, _, _) -> [pLine2, pLine1]
-    (Just True, Just True, Just False, _, _) -> [pLine2, pLine1]
-    (Just True, Just False, _, _, _) -> [pLine1, pLine2]
-    (Just False, Nothing, _, _, True) -> [pLine2, pLine1]
-    (Just False, Nothing, _, _, False) -> [pLine1, pLine2]
-    (Just False, Just True, _, _, _) -> [pLine2, pLine1]
-    (Just False, Just False, Nothing, _, _) -> error "impossible!"
-    (Just False, Just False, Just True, _, _) -> [pLine2, pLine1]
-    (Just False, Just False, Just False, _, _) -> [pLine1, pLine2]
-  where
-    outsidePLineWithErr = (outsidePLine, rawOutsidePLineErr)
-    -- we flip this, because outside PLines point away from a node, while the two PLines we're working with point toward.
-    outsidePLine = flipL rawOutsidePLine
 
 -- | Find the non-reflex virtexes of a contour, and create ENodes from them.
 --   This function is meant to be used on an exterior contour.
@@ -216,8 +184,8 @@ convexNodes contour = catMaybes $ onlyNodes <$> zip (linePairs contour) (mapWith
       | otherwise         = Nothing
 -}
 
--- | A better anticollinear checker.
--- distance is used here to get a better anticollinear than PGA has, because we have a point, and floating point hurts us.
+-- | A better anticollinear checker, for nodes.
+-- FIXME: distance can be used here to get a better anticollinear than PGA has, because we have a point, and floating point hurts us.
 -- FIXME: shouldn't this be pulled into PGA.hs, as part of an outsIntersectIn?
 nodesAreAntiCollinear :: (Arcable a, Arcable b) => a -> b -> Bool
 nodesAreAntiCollinear node1 node2

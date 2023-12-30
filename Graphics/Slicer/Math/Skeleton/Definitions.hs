@@ -70,7 +70,8 @@ module Graphics.Slicer.Math.Skeleton.Definitions (
   makeINode,
   makeSide,
   oneSideOf,
-  sortedPLines
+  sortedPLines,
+  sortPLinePair
   ) where
 
 import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), any, concatMap, elem, not, otherwise, ($), (<), (<$>), (==), (/=), (<=), error, (&&), fst, (<>), show, snd, mempty)
@@ -97,7 +98,7 @@ import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endP
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, ulpVal)
 
-import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersection)
+import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersection, isAntiCollinear)
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
@@ -438,7 +439,8 @@ concavePLines seg1 seg2
     pv1 = vecOfL $ eToPLine2 seg1
     pv2 = vecOfL $ flipL $ eToPLine2 seg2
 
--- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
+-- | Sort a set of PLines in counterclockwise order, to match the counterclockwise order of contours.
+-- NOTE: when given the same PLines in a different list, may chose a different head / tail.
 {-# INLINABLE sortedPLines #-}
 sortedPLines :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> [(a, PLine2Err)]
 sortedPLines pLines
@@ -450,7 +452,41 @@ sortedPLines pLines
                                 Just True -> LT
                                 _ -> GT
 
+-- | sort two PLines against the guaranteed outside PLine. always returns the two PLines in a counterclockwise order, starting at outsidePLine.
+sortPLinePair :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)]
+{-# INLINABLE sortPLinePair #-}
+sortPLinePair pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) (rawOutsidePLine, rawOutsidePLineErr) =
+  case (rawPLine1 `pLineIsLeft` outsidePLine,
+        rawPLine2 `pLineIsLeft` rawPLine1,
+        outsidePLine `pLineIsLeft` rawPLine2,
+        pLine1 `isAntiCollinear` outsidePLineWithErr,
+        pLine2 `isAntiCollinear` outsidePLineWithErr) of
+    (Nothing, Nothing, Just _, _, _) -> error "impossible"
+    (Nothing, Nothing, Nothing, _, _) -> [pLine1, pLine2]
+    (Nothing, Just True, _, True, _) -> [pLine1, pLine2]
+    (Nothing, Just True, _, False, _) -> [pLine2, pLine1]
+    (Nothing, Just False, _, True, _) -> [pLine2, pLine1]
+    (Nothing, Just False, _, False, _) -> [pLine1, pLine2]
+    (Just True, Nothing, _, _, True) -> [pLine2, pLine1]
+    (Just True, Nothing, _, _, False) -> [pLine1, pLine2]
+    (Just True, Just True, Nothing, _, _) -> error "impossible!"
+    (Just True, Just True, Just True, _, _) -> [pLine2, pLine1]
+    (Just True, Just True, Just False, _, _) -> [pLine2, pLine1]
+    (Just True, Just False, _, _, _) -> [pLine1, pLine2]
+    (Just False, Nothing, _, _, True) -> [pLine2, pLine1]
+    (Just False, Nothing, _, _, False) -> [pLine1, pLine2]
+    (Just False, Just True, _, _, _) -> [pLine2, pLine1]
+    (Just False, Just False, Nothing, _, _) -> error "impossible!"
+    (Just False, Just False, Just True, _, _) -> [pLine2, pLine1]
+    (Just False, Just False, Just False, _, _) -> [pLine1, pLine2]
+  where
+    outsidePLineWithErr = (outsidePLine, rawOutsidePLineErr)
+    -- we flip this, because outside PLines point away from a node, while the two PLines we're working with point toward.
+    outsidePLine = flipL rawOutsidePLine
+
+
 -- | Take a sorted list of PLines, and make sure the list starts with the pline closest to (but not left of) the given PLine.
+-- Does not require the input PLine to be in the set.
 {-# INLINABLE indexPLinesTo #-}
 indexPLinesTo :: (ProjectiveLine2 a) => (a, PLine2Err) -> [(a, PLine2Err)] -> [(a,PLine2Err)]
 indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesAfterIndex firstPLine pLines
