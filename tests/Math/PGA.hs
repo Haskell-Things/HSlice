@@ -974,8 +974,8 @@ unit_LineSegDistanceAway
 
 prop_obtuseBisectorOnBiggerSide_makeENode :: ℝ -> ℝ -> Positive ℝ -> Radian ℝ -> Positive ℝ -> Radian ℝ -> Bool -> Expectation
 prop_obtuseBisectorOnBiggerSide_makeENode x y d1 rawR1 d2 rawR2 testFirstLine
-  | testFirstLine = pLineIsLeft bisector pl1 --> Just True
-  | otherwise     = pLineIsLeft pl2 bisector --> Just True
+  | testFirstLine = pl1 `pLineIsLeft` bisector --> Just True
+  | otherwise     = bisector `pLineIsLeft` pl2 --> Just True
   where
     (pl1, _) = eToPL $ getFirstLineSeg eNode
     pl2 = flipL $ fst $ eToPL $ getLastLineSeg eNode

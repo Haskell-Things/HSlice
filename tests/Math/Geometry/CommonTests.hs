@@ -113,7 +113,7 @@ prop_FacesAllWoundLeft contour
   where
     allIsLeft = all faceAllIsLeft faces
     faceAllIsLeft face = all (== Just True) $ faceLefts face
-    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)  $ eToPL edge : firstArc : midArcs <> [lastArc]
+    faceLefts (Face edge firstArc (Slist midArcs _) lastArc) = mapWithFollower (\(pl1, _) (pl2, _) -> pl2 `pLineIsLeft` pl1)  $ eToPL edge : firstArc : midArcs <> [lastArc]
     faces = facesOf skeleton
     skeleton = fromMaybe (error $ show contour) $ findStraightSkeleton contour []
 
