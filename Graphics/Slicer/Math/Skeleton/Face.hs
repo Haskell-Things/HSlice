@@ -199,14 +199,16 @@ getFaces' origINodeSet eNodes iNodeSet iNode = findFacesRecurse iNode mySortedPL
                 -- FIXME: repair firstINodeOfPLine so it does not need the whole INodeSet.
                 firstINode = firstINodeOfPLine eNodes (fromJust iNodeSet) onePLine
 
--- | Create a face covering the space between two PLines with a single Face. Both PLines must be a part of the same INode.
+-- | Create a face covering the space between two PLines with a single Face.
+--   Both PLines must be a part of the same INode.
+--   No other PLines from this iNode must travel between the two given PLines.
 areaBetween :: ENodeSet -> Maybe INodeSet -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Face
 areaBetween (ENodeSet (Slist [] _)) _ _ _ = error "no sides?"
 areaBetween (ENodeSet (Slist (_:_:_) _)) _ _ _ = error "too many sides?"
 areaBetween eNodeSet@(ENodeSet (Slist [_] _)) iNodeSet pLine1 pLine2
   | getFirstLineSeg eNode1 == getLastLineSeg eNode2 = faceOrError eNode1 (arcsToLastDescendent pLine1) (arcsToFirstDescendent pLine2) eNode2
   | getLastLineSeg eNode1 == getFirstLineSeg eNode2 = faceOrError eNode2 (arcsToLastDescendent pLine2) (arcsToFirstDescendent pLine1) eNode1
-      | otherwise = error "found ENodes that do not follow."
+      | otherwise = error $ "found ENodes that do not follow.\n" <> show eNode1 <> "\n" <> show eNode2 <> "\n" <> show eNodeSet <> "\n" <> show iNodeSet <> "\n"
   where
     eNode1 = lastDescendent eNodeSet iNodeSet pLine1
     eNode2 = firstDescendent eNodeSet iNodeSet pLine2
@@ -361,7 +363,7 @@ makeFace e1 arcs e2 = makeFace' (getFirstLineSeg e1) (outAndErrOf e1) arcs (flip
 
 -- | Ensure the list of arcs given all are to the left of each other, such that following them results in a close contour wound to the left.
 arcsAreLeft :: [(ProjectiveLine, PLine2Err)] -> [Maybe Bool]
-arcsAreLeft = mapWithFollower (\(pl1, _) (pl2, _) -> pLineIsLeft pl1 pl2)
+arcsAreLeft = mapWithFollower (\(pl1, _) (pl2, _) -> pl2 `pLineIsLeft` pl1)
 
 -- | Throw an error if one of the faces has two following arcs that do not have an intersection between them.
 findDegenerates :: Slist Face -> Slist Face

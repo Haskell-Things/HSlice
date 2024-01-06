@@ -152,14 +152,14 @@ plinesIntersectIn (pl1, pl1Err) (pl2, pl2Err)
     (res, (npl1Err, npl2Err, resErr)) = fromJust canonicalizedIntersection
     canonicalizedIntersection = canonicalizedIntersectionOf2PL pl1 pl2
 
--- | Check if the second line's direction is on the 'left' side of the first line, assuming they intersect. If they don't intersect, return Nothing.
+-- | Check if the first line's direction is on the 'left' side of the second line, assuming they intersect. If they don't intersect, return Nothing.
 {-# INLINABLE pLineIsLeft #-}
 pLineIsLeft :: (ProjectiveLine2 a, ProjectiveLine2 b) => a -> b -> Maybe Bool
 pLineIsLeft line1 line2
   | abs res <= ulpVal angleFuzz = Nothing
   | otherwise                   = Just $ res > 0
   where
-    (res, (_,_, angleFuzz)) = angleCosBetween2PL line1 line2
+    (res, (_,_, angleFuzz)) = angleCosBetween2PL line2 line1
 
 -- | Find the distance between a projective point and a projective line, along with the difference's error quotent.
 -- Note: Fails in the case of ideal points.

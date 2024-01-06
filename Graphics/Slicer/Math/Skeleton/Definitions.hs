@@ -433,7 +433,7 @@ iNodeHasIn iNode outAndErr = elem outAndErr $ insOf iNode
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a ProjectiveLine bisecting them, pointing toward the interior of the Contour.
 concavePLines :: LineSeg -> LineSeg -> Maybe ProjectiveLine
 concavePLines seg1 seg2
-  | eToPLine2 seg1 `pLineIsLeft` eToPLine2 seg2 == Just True = Just $ PLine2 $ addVecPair pv1 pv2
+  | eToPLine2 seg2 `pLineIsLeft` eToPLine2 seg1 == Just True = Just $ PLine2 $ addVecPair pv1 pv2
   | otherwise = Nothing
   where
     pv1 = vecOfL $ eToPLine2 seg1
@@ -496,8 +496,8 @@ pLineOrderCCW pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) outsidePLine@(rawOutside
 indexPLinesTo :: (ProjectiveLine2 a) => (a, PLine2Err) -> [(a, PLine2Err)] -> [(a,PLine2Err)]
 indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesAfterIndex firstPLine pLines
   where
-    pLinesBeforeIndex myFirstPLine = filter (\a -> fst myFirstPLine `pLineIsLeft` fst a /= Just False)
-    pLinesAfterIndex myFirstPLine = filter (\a -> fst myFirstPLine `pLineIsLeft` fst a == Just False)
+    pLinesBeforeIndex myFirstPLine = filter (\a -> fst a `pLineIsLeft` fst myFirstPLine /= Just False)
+    pLinesAfterIndex myFirstPLine = filter (\a -> fst a `pLineIsLeft` fst myFirstPLine == Just False)
 
 -- | Find the last PLine of an INode.
 lastInOf :: INode -> (ProjectiveLine, PLine2Err)

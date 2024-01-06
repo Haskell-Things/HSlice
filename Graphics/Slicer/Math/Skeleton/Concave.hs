@@ -367,9 +367,9 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
     indexTo iNodes = iNodesBeforePLine iNodes <> iNodesAfterPLine iNodes
       where
         iNodesBeforePLine :: [INode] -> [INode]
-        iNodesBeforePLine = filter (\a -> fst firstPLine `pLineIsLeft` fst (firstInOf a) /= Just False)
+        iNodesBeforePLine = filter (\a -> fst (firstInOf a)  `pLineIsLeft` fst firstPLine /= Just False)
         -- nodes in the right order, after the divide.
-        iNodesAfterPLine myINodes = withoutFlippedINodes $ filter (\a -> fst firstPLine `pLineIsLeft` fst (firstInOf a) == Just False) myINodes
+        iNodesAfterPLine myINodes = withoutFlippedINodes $ filter (\a -> fst (firstInOf a) `pLineIsLeft` fst firstPLine == Just False) myINodes
         withoutFlippedINodes maybeFlippedINodes = case flippedINodeOf maybeFlippedINodes of
                                                     Nothing -> maybeFlippedINodes
                                                     (Just a) -> filter (/= a) maybeFlippedINodes
@@ -493,14 +493,15 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
                     <> show eNodes <> "\n"
                     <> show inChildGenerations <> "\n"
 
-    -- | Sort a generation by the first in PLine.
+    -- | Sort a list of INodes by the first input PLine.
+    -- FIXME: this may be wrong, because our input INodes do not have their inputs in order.
     sortGeneration :: [INode] -> [INode]
-    sortGeneration = sortBy (\a b -> if fst (firstInOf a) `pLineIsLeft` fst (firstInOf b) == Just False then LT else GT)
+    sortGeneration = sortBy (\a b -> if fst (firstInOf b) `pLineIsLeft` fst (firstInOf a) == Just False then LT else GT)
 
     -- Find an inode connecting the first and last ENode, if it exists.
     -- FIXME: this functions, but i don't know why. :)
     flippedINodeOf :: [INode] -> Maybe INode
-    flippedINodeOf inodes = case filter (\a -> fst firstPLine `pLineIsLeft` fst (firstInOf a) == Just False) inodes of
+    flippedINodeOf inodes = case filter (\a -> fst (firstInOf a) `pLineIsLeft` fst firstPLine == Just False) inodes of
                               [] -> Nothing
                               [a] -> -- if there is only one result, it's going to only point to enodes.
                                 Just a
@@ -539,7 +540,7 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
     firstPLine :: (ProjectiveLine, PLine2Err)
     firstPLine = outAndErrOf firstENode
       where
-        -- the first ENode given to us. for sorting uses.
+        -- The first ENode given to us. for sorting uses.
         firstENode = fromMaybe (error "no ENodes?") $ safeHead $ slist eNodes
 
 -- | Add a new generation to an existing INodeSet.

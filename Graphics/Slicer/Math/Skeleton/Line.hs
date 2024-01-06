@@ -157,7 +157,7 @@ addInsetsToFace distanceBetweenSegs insets face
     -- functions that are the same, regardless of number of sides of the ngon we are filling.
     -----------------------------------------------------------------------------------------
     -- | The direction we need to translate our edge in order for it to be going inward.
-    translateDir v         = case fst edgeLine `pLineIsLeft` fst firstArc of
+    translateDir v         = case fst firstArc `pLineIsLeft` fst edgeLine of
                                (Just True) -> (-v)
                                (Just False) -> v
                                Nothing -> error $ "cannot happen: edge and firstArc do not intersect?\n"
