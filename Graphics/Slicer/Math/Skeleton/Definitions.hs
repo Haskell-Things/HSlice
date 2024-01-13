@@ -46,7 +46,7 @@ module Graphics.Slicer.Math.Skeleton.Definitions (
   ancestorsOf,
   allINodesOf,
   allPLinesOfINode,
-  concavePLines,
+  concaveLines,
   eNodesOfSide,
   firstInOf,
   finalINodeOf,
@@ -63,17 +63,23 @@ module Graphics.Slicer.Math.Skeleton.Definitions (
   isOneSide,
   lastInOf,
   linePairs,
+  loopOfSegSets,
+  makeENode,
+  makeENodes,
+  makeInitialGeneration,
   makeINode,
   makeSide,
   oneSideOf,
-  sortedPLines
+  sortedPLines,
+  sortPLinePair,
+  sortPLinesByReference
   ) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), any, elem, not, otherwise, ($), (<$>), (==), (/=), (<=), error, (&&), fst, (<>), show, snd, mempty)
+import Prelude (Eq, Show, Bool(True, False), Ordering(EQ, LT,GT), any, concatMap, elem, not, otherwise, (.), ($), (<), (<$>), (==), (/=), (<=), error, (&&), fst, (<>), show, snd, mempty)
 
 import qualified Prelude as PL (head, last)
 
-import Data.List (filter, length, nub, sortBy)
+import Data.List (filter, length, sortBy)
 
 import Data.List.NonEmpty (NonEmpty)
 
@@ -87,15 +93,17 @@ import qualified Slist as SL (last, head, init)
 
 import Slist.Type (Slist(Slist))
 
+import Graphics.Slicer.Math.Arcs (getFirstArc)
+
 import Graphics.Slicer.Math.Definitions (Contour, LineSeg(LineSeg), Point2, endPoint, lineSegsOfContour, makeLineSeg, mapWithFollower, startPoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPair, ulpVal)
 
-import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersection)
+import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersection, isAntiCollinear)
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), PPoint2Err, ProjectiveLine(PLine2), ProjectiveLine2, ProjectivePoint, distance2PP, eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft, vecOfL)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), PPoint2Err, ProjectiveLine(PLine2), ProjectiveLine2, ProjectivePoint, distance2PP, eToPP, flipL, normalizeL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft, vecOfL)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -186,8 +194,8 @@ cPPointAndErrOfINode iNode
 -- | Get all of the PLines that come from, or exit an iNode.
 allPLinesOfINode :: INode -> Slist (ProjectiveLine, PLine2Err)
 allPLinesOfINode iNode@(INode firstPLine secondPLine (Slist morePLines _) _)
-  | hasArc iNode = slist $ nub $ outAndErrOf iNode : firstPLine : secondPLine : morePLines
-  | otherwise    = slist $ nub $ firstPLine : secondPLine : morePLines
+  | hasArc iNode = slist $ outAndErrOf iNode : firstPLine : secondPLine : morePLines
+  | otherwise    = slist $ firstPLine : secondPLine : morePLines
 
 -- | Produce a list of the inputs to a given INode.
 insOf :: INode -> [(ProjectiveLine, PLine2Err)]
@@ -424,26 +432,104 @@ iNodeHasIn :: INode -> (ProjectiveLine, PLine2Err) -> Bool
 iNodeHasIn iNode outAndErr = elem outAndErr $ insOf iNode
 
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a ProjectiveLine bisecting them, pointing toward the interior of the Contour.
-concavePLines :: LineSeg -> LineSeg -> Maybe ProjectiveLine
-concavePLines seg1 seg2
-  | eToPLine2 seg1 `pLineIsLeft` eToPLine2 seg2 == Just True = Just $ PLine2 $ addVecPair pv1 pv2
-  | otherwise = Nothing
+concaveLines :: LineSeg -> LineSeg -> Maybe ProjectiveLine
+concaveLines seg1 seg2
+  = case eToPLine2 seg2 `pLineIsLeft` eToPLine2 seg1 of
+      Just True -> Just $ PLine2 $ addVecPair pv1 pv2
+      Just False -> Nothing
+      Nothing -> error $ "asked whether two (anti)colinear lines are concave:\n" <> show seg1 <> "\n" <> show seg2 <> "\n"
   where
     pv1 = vecOfL $ eToPLine2 seg1
     pv2 = vecOfL $ flipL $ eToPLine2 seg2
 
--- | Sort a set of PLines. yes, this is 'backwards', to match the counterclockwise order of contours.
+-- | Sort a set of PLines in counterclockwise order, to match the counterclockwise order of contours.
+-- NOTE: when given the same PLines in a different list, may chose a different head / tail.
 {-# INLINABLE sortedPLines #-}
 sortedPLines :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> [(a, PLine2Err)]
-sortedPLines = sortBy (\(n1,_) (n2,_) -> if n1 `pLineIsLeft` n2 == Just True then LT else GT)
+sortedPLines pLines
+  -- we cannot sort two or less PLines.
+  | length pLines < 3 = pLines
+  | otherwise = sortBy sortFun pLines
+    where
+      sortFun (pLine1,_) (pLine2,_) = case pLine2 `pLineIsLeft` pLine1 of
+                                        Just True -> LT
+                                        _ -> GT
+
+-- | Sort a set of PLines in counterclockwise order, starting with the PLine clesest to the reference PLine.
+-- Assumes all PLines meet in a point?
+{-# INLINABLE sortPLinesByReference #-}
+sortPLinesByReference :: (ProjectiveLine2 a) => (a, PLine2Err) -> [(a, PLine2Err)] -> [(a, PLine2Err)]
+sortPLinesByReference refPLine@(rawRefPLine, _) pLines
+  -- we cannot sort less than two plines
+  | length pLines < 2 = pLines
+  | otherwise = sortBy sortFun pLines
+    where
+      sortFun pLine1@(rawPLine1, _) pLine2@(rawPLine2, _) =
+        case pLineOrderCCW pLine1 pLine2 refPLine of
+          Nothing -> error $ "two or more (anti)colinear lines?\n"
+                                    <> "PLine1: " <> show (fst $ normalizeL rawPLine1) <> "\n"
+                                    <> "pLine2: " <> show (fst $ normalizeL rawPLine2) <> "\n"
+                                    <> "Reference: " <> show (fst $ normalizeL rawRefPLine) <> "\n"
+                                    <> "PLine1 `pLineIsLeft` Reference: " <> show (rawPLine1 `pLineIsLeft` rawRefPLine) <> "\n"
+                                    <> "PLine2 `pLineIsLeft` Reference: " <> show (rawPLine2 `pLineIsLeft` rawRefPLine) <> "\n"
+                                    <> "PLine1 `pLineIsLeft` PLine2: " <> show (rawPLine1 `pLineIsLeft` rawPLine2) <> "\n"
+                                    <> "pLines: " <> show (fst . normalizeL . fst <$> pLines) <> "\n"
+          (Just a) -> a
+
+-- | sort two PLines against the reference PLine, flipped.
+-- Returns the two PLines in a counterclockwise order, from the perspective of our reference PLine after flipping.
+sortPLinePair :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)]
+{-# INLINABLE sortPLinePair #-}
+sortPLinePair pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) (rawRefPLine, rawRefPLineErr)
+  | refPLineFlipped == rawPLine2 = error "here."
+  | otherwise = case pLineOrderCCW pLine1 pLine2 refPLineWithErr of
+                  Just LT -> [pLine1, pLine2]
+                  Just GT -> [pLine2, pLine1]
+                  _ -> error $ "two or more (anti)colinear lines?\n"
+                             <> "PLine1: " <> show rawPLine1 <> "\n"
+                             <> "pLine2: " <> show rawPLine2 <> "\n"
+                             <> "Reference: " <> show rawRefPLine <> "\n"
+  where
+    refPLineWithErr = (refPLineFlipped, rawRefPLineErr)
+    -- We flip this, because for INodes, the outgoing PLines point away from a node, while the two PLines we're working with point toward.
+    refPLineFlipped = flipL rawRefPLine
+
+-- | When scanning where three lines meet, starting at the reference PLine, and going counterclockwise, the first PLine you run into is lesser..
+-- Note: Nothing as a result is an error condition.
+pLineOrderCCW :: (ProjectiveLine2 a) => (a, PLine2Err) -> (a, PLine2Err) -> (a, PLine2Err) -> Maybe Ordering
+{-# INLINABLE pLineOrderCCW #-}
+pLineOrderCCW pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) refPLine@(rawRefPLine, _)
+  | pLine1 == pLine2 = Just EQ
+  | otherwise =
+    case (rawPLine1 `pLineIsLeft` rawRefPLine, rawPLine2 `pLineIsLeft` rawRefPLine) of
+        (Nothing, Nothing) -> Nothing
+        (Nothing, Just True) -> compareWithAntiColinear pLine1 GT
+        (Nothing, Just False) -> compareWithAntiColinear pLine1 LT
+        (Just True, Nothing) -> compareWithAntiColinear pLine2 LT
+        (Just False, Nothing) -> compareWithAntiColinear pLine2 GT
+        (Just True, Just False) -> Just LT
+        (Just False, Just True) -> Just GT
+        _ -> -- dir1 and dir2 must be equal at this point.
+          case (rawPLine1 `pLineIsLeft` rawPLine2) of
+            Just True -> Just GT
+            Just False -> Just LT
+            Nothing -> Just EQ
+  where
+    compareWithAntiColinear colinearPLine ordering
+      | colinearPLine `isAntiCollinear` refPLine = Just ordering
+      | otherwise = case ordering of
+                      GT -> Just LT
+                      LT -> Just GT
+                      _ -> error "wat"
 
 -- | Take a sorted list of PLines, and make sure the list starts with the pline closest to (but not left of) the given PLine.
+-- Does not require the input PLine to be in the set.
 {-# INLINABLE indexPLinesTo #-}
 indexPLinesTo :: (ProjectiveLine2 a) => (a, PLine2Err) -> [(a, PLine2Err)] -> [(a,PLine2Err)]
 indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesAfterIndex firstPLine pLines
   where
-    pLinesBeforeIndex myFirstPLine = filter (\a -> fst myFirstPLine `pLineIsLeft` fst a /= Just False)
-    pLinesAfterIndex myFirstPLine = filter (\a -> fst myFirstPLine `pLineIsLeft` fst a == Just False)
+    pLinesBeforeIndex myFirstPLine = filter (\a -> fst a `pLineIsLeft` fst myFirstPLine /= Just False)
+    pLinesAfterIndex myFirstPLine = filter (\a -> fst a `pLineIsLeft` fst myFirstPLine == Just False)
 
 -- | Find the last PLine of an INode.
 lastInOf :: INode -> (ProjectiveLine, PLine2Err)
@@ -454,4 +540,39 @@ lastInOf (INode _ secondPLine morePLines _)
 -- | Find the first PLine of an INode.
 firstInOf :: INode -> (ProjectiveLine, PLine2Err)
 firstInOf (INode a _ _ _) = a
+
+-- | Create the set of ENodes for a set of segments
+makeInitialGeneration :: Bool -> Slist [LineSeg] -> [ENode]
+makeInitialGeneration gensAreLoop inSegSets = concatMap firstENodes inSegSets <> maybeLoop
+  where
+    -- Generate the first generation of nodes, from the passed in line segments.
+    -- If the line segments are a loop, use the appropriate function to create the initial Nodes.
+    firstENodes :: [LineSeg] -> [ENode]
+    firstENodes firstSegs = case firstSegs of
+                              [] -> []
+                              [LineSeg {}] -> []
+                              (_:_) -> makeENodes firstSegs
+    -- Add a closing ENode if this is a closed loop.
+    maybeLoop = [loopOfSegSets inSegSets | gensAreLoop]
+
+-- | Make a first generation node.
+makeENode :: Point2 -> Point2 -> Point2 -> ENode
+makeENode p1 p2 p3 = ENode (p1,p2,p3) arc arcErr
+  where
+    (arc, arcErr) = getFirstArc p1 p2 p3
+
+-- | Make a first generation set of nodes, AKA, a set of arcs that come from the points where line segments meet, toward the inside of the contour.
+makeENodes :: [LineSeg] -> [ENode]
+makeENodes segs = case segs of
+                         [] -> error "got empty list.\n"
+                         [a] -> error $ "not enough line segments: " <> show a <> "\n"
+                         [a,b] -> [makeENode (startPoint a) (startPoint b) (endPoint b)]
+                         (a:b:xs) -> [makeENode (startPoint a) (startPoint b) (endPoint b)] <> makeENodes (b:xs)
+
+loopOfSegSets :: Slist [LineSeg] -> ENode
+loopOfSegSets inSegSets = case inSegSets of
+                            (Slist [] _) -> error "no"
+                            oneOrMoreSets@(Slist ((_:_:_):_) _) -> makeENode (startPoint $ PL.last $ SL.last oneOrMoreSets) (startPoint $ PL.head $ SL.head oneOrMoreSets) (endPoint $ PL.head $ SL.head oneOrMoreSets)
+                            oneOrMoreSets@(Slist (_:_:_) _) -> makeENode (startPoint $ PL.last $ SL.last oneOrMoreSets) (startPoint $ PL.head $ SL.head oneOrMoreSets) (endPoint $ PL.head $ SL.head oneOrMoreSets)
+                            (Slist _ _) -> error "yes"
 

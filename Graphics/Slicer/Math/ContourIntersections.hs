@@ -138,7 +138,7 @@ data Crossover = EPoint Point2
                | Segment LineSeg
 
 segIsLeft :: LineSeg -> LineSeg -> Maybe Bool
-segIsLeft a b = pLineIsLeft (fst $ eToPL a) (fst $ eToPL b)
+segIsLeft a b = (fst $ eToPL b) `pLineIsLeft` (fst $ eToPL a)
 
 -- | Filter the intersections, only returning results when it is appropriate to do so..
 -- The purpose of this function is to ensure we only count the crossing over of a contour's edge once. So if it hits a startpoint, make sure we don't count the endpoint of the next line.. etc.

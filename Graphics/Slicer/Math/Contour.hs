@@ -244,7 +244,7 @@ followingLineSeg x = followingLineSegLooped x x
 -- | Check if the left hand side of the first line segment of a contour is toward the inside of the contour.
 insideIsLeft :: Contour -> Maybe Bool
 insideIsLeft contour
-  | isJust (innerContourPoint contour) = Just $ line1 `pLineIsLeft` lineToInside == Just True
+  | isJust (innerContourPoint contour) = Just $ lineToInside `pLineIsLeft` line1 == Just True
   | otherwise = Nothing
   where
     (lineToInside, _) = join2PP (eToPP midPoint) innerPoint
