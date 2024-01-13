@@ -470,9 +470,9 @@ sortPLinesByReference refPLine@(rawRefPLine, _) pLines
                                     <> "PLine1: " <> show (fst $ normalizeL rawPLine1) <> "\n"
                                     <> "pLine2: " <> show (fst $ normalizeL rawPLine2) <> "\n"
                                     <> "Reference: " <> show (fst $ normalizeL rawRefPLine) <> "\n"
-                                    <> "PLine1 `pLineIsLeft` Reference: " <> show (rawPLine1 `pLineIsLeft` rawRefPLine) <> "\n" 
-                                    <> "PLine2 `pLineIsLeft` Reference: " <> show (rawPLine2 `pLineIsLeft` rawRefPLine) <> "\n" 
-                                    <> "PLine1 `pLineIsLeft` PLine2: " <> show (rawPLine1 `pLineIsLeft` rawPLine2) <> "\n" 
+                                    <> "PLine1 `pLineIsLeft` Reference: " <> show (rawPLine1 `pLineIsLeft` rawRefPLine) <> "\n"
+                                    <> "PLine2 `pLineIsLeft` Reference: " <> show (rawPLine2 `pLineIsLeft` rawRefPLine) <> "\n"
+                                    <> "PLine1 `pLineIsLeft` PLine2: " <> show (rawPLine1 `pLineIsLeft` rawPLine2) <> "\n"
                                     <> "pLines: " <> show (fst . normalizeL . fst <$> pLines) <> "\n"
           (Just a) -> a
 
