@@ -80,7 +80,7 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 -- Our Facet library.
 import Graphics.Slicer.Math.Arcs (towardIntersection)
 import Graphics.Slicer.Math.Skeleton.Concave (averageNodes, makeENode, makeENodes)
-import Graphics.Slicer.Math.Skeleton.Definitions (INode(INode), Motorcycle(Motorcycle), getFirstLineSeg, getLastLineSeg)
+import Graphics.Slicer.Math.Skeleton.Definitions (INode(INode), Motorcycle(Motorcycle), getFirstLineSeg, getLastLineSeg, sortPLinesByReference)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
@@ -1764,7 +1764,46 @@ facetSpec = do
       unit_LineContourIntersection1
     it "flips a contour (unit)"
       unit_ContourFlip1
-    where
+  describe "Sorting (Skeleton)" $ do
+    it "sorts PLines (normal ID)" $
+      sortPLinesByReference pl1 [pl3, pl2] --> [pl3, pl2]
+    it "sorts PLines (normal 1)" $
+      sortPLinesByReference pl1 [pl2, pl3] --> [pl3, pl2]
+    it "sorts PLines (normal 2)" $
+      sortPLinesByReference pl3 [pl2, pl1] --> [pl2, pl1]
+    it "sorts PLines (normal 3)" $
+      sortPLinesByReference pl2 [pl1, pl3] --> [pl1, pl3]
+    it "sorts PLines (anticolinear ID)" $
+      sortPLinesByReference pl1 [pl4, pl2] --> [pl4, pl2]
+    it "sorts PLines (anticolinear 1)" $
+      sortPLinesByReference pl1 [pl2, pl4] --> [pl4, pl2]
+    it "sorts PLines (anticolinear 2)" $
+      sortPLinesByReference pl4 [pl1, pl2] --> [pl2, pl1]
+    it "sorts PLines (anticolinear 3)" $
+      sortPLinesByReference pl2 [pl4, pl1] --> [pl1, pl4]
+    it "sorts PLines (anticolinear 4)" $
+      sortPLinesByReference pl1 [pl2, pl4, pl3] --> [pl3, pl4, pl2]
+    it "sorts PLines (anticolinear 4A)" $
+      sortPLinesByReference pl1 [pl4, pl3, pl2] --> [pl3, pl4, pl2]
+    it "sorts PLines (anticolinear 4B)" $
+      sortPLinesByReference pl1 [pl3, pl2, pl4] --> [pl3, pl4, pl2]
+    it "sorts PLines (anticolinear 4C)" $
+      sortPLinesByReference pl1 [pl3, pl4, pl2] --> [pl3, pl4, pl2]
+    it "sorts PLines (anticolinear 4D)" $
+      sortPLinesByReference pl1 [pl4, pl2, pl3] --> [pl3, pl4, pl2]
+    it "sorts PLines (anticolinear 4E)" $
+      sortPLinesByReference pl1 [pl2, pl3, pl4] --> [pl3, pl4, pl2]
+    it "sorts PLines (anticolinear 5)" $
+      sortPLinesByReference pl3 [pl1, pl2, pl4] --> [pl4, pl2, pl1]
+    it "sorts PLines (anticolinear 5A)" $
+      sortPLinesByReference pl3 [pl2, pl4, pl1] --> [pl4, pl2, pl1]
+    it "sorts PLines (anticolinear 5B)" $
+      sortPLinesByReference pl3 [pl4, pl1, pl2] --> [pl4, pl2, pl1]
+    it "sorts PLines (anticolinear 6)" $
+      sortPLinesByReference pl4 [pl3, pl1, pl2] --> [pl2, pl1, pl3]
+    it "sorts PLines (anticolinear 7)" $
+      sortPLinesByReference pl2 [pl4, pl3, pl1] --> [pl1, pl3, pl4]
+  where
       c1 = makePointContour [Point2 (-1,-1), Point2 (0,0), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       -- The next corners are part of a 2x2 square around the origin with a piece missing: (c2 from above)
       --    __  <-- corner 1
@@ -1787,3 +1826,11 @@ facetSpec = do
       --      └───┘
       c7c1E1 = makeENode (Point2 (1.0,-1.0)) (Point2 (1.0,1.0)) (Point2 (0.5,1.0))
       c7c2E1 = makeENode (Point2 (1.0,1.0)) (Point2 (0.5,1.0)) (Point2 (0.5,0.0))
+      -- a line to the origin, from the positive Y direction
+      pl1 = eToPL $ makeLineSeg (Point2 (0,1)) (Point2 (0,0))
+      -- a line to the origin, from the positive X direction
+      pl2 = eToPL $ makeLineSeg (Point2 (2,0)) (Point2 (0,0))
+      -- a line to the origin, from the -x-y direction.
+      pl3 = eToPL $ makeLineSeg (Point2 (-3,-3)) (Point2 (0,0))
+      -- a line to the origin, from the negative Y direction
+      pl4 = eToPL $ makeLineSeg (Point2 (0,-4)) (Point2 (0,0))
