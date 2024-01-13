@@ -109,7 +109,7 @@ facesOf straightSkeleton@(StraightSkeleton nodeLists spine)
 
 -- | Create a set of faces from a single nodetree.
 facesOfNodeTree :: NodeTree -> [Face]
-facesOfNodeTree nodeTree@(NodeTree eNodes iNodeSet)
+facesOfNodeTree nodeTree@(NodeTree eNodeSet iNodeSet)
   | isJust iNodeSet && isEmpty children = -- no ancestor generations.
       if allInsAreENodes parent
       then if hasArc parent
@@ -135,7 +135,7 @@ facesOfNodeTree nodeTree@(NodeTree eNodes iNodeSet)
     errorNoMoreINodes = error "one parent, no generations, and parent needs inodes?\n"
     -- Check the ins of an INode, and make sure all of them point to an ENode.
     allInsAreENodes :: INode -> Bool
-    allInsAreENodes myParent = and $ isJust <$> (findENodeByOutput eNodes <$> (fst <$> inArcsOf myParent))
+    allInsAreENodes myParent = and $ isJust <$> (findENodeByOutput eNodeSet <$> (fst <$> inArcsOf myParent))
       where
         -- Make a list of an INode's input arcs.
         inArcsOf (INode firstArc secondArc (Slist rawMoreArcs _) _) = firstArc : secondArc : rawMoreArcs
@@ -152,12 +152,14 @@ rotateFaces inFaces = rTail <> [rHead]
 -- | Get the faces for all of the NodeTree under the given INode.
 -- uses a recursive resolver, and sometimes calls itsself, making it a co-recursive algorithm..
 getFaces :: NodeTree -> INode -> [Face]
-getFaces (NodeTree eNodes iNodeSet) = getFaces' iNodeSet eNodes iNodeSet
+getFaces (NodeTree eNodeSet iNodeSet) = getFaces' iNodeSet eNodeSet iNodeSet
 
 -- | Get the faces for all of the NodeTree under the given INode.
 -- May fail, as this is a recursive resolver.
 getFaces' :: Maybe INodeSet -> ENodeSet -> Maybe INodeSet -> INode -> [Face]
-getFaces' origINodeSet eNodes iNodeSet iNode = findFacesRecurse iNode mySortedPLines
+getFaces' _ (ENodeSet (Slist [] _)) _ _ = error "no sides?"
+getFaces' _ (ENodeSet (Slist (_:_:_) _)) _ _ = error "too many sides?"
+getFaces' origINodeSet eNodeSet iNodeSet iNode = findFacesRecurse iNode mySortedPLines
   where
     mySortedPLines = (\(Slist a _) -> sortedPLines a) $ allPLinesOfINode iNode
     firstPLine = DL.head mySortedPLines
@@ -179,10 +181,10 @@ getFaces' origINodeSet eNodes iNodeSet iNode = findFacesRecurse iNode mySortedPL
         placeFaceBetween onePLine anotherPLine
          | hasArc myINode && isCollinear (outAndErrOf myINode) onePLine     = [] -- don't place faces along the incoming PLine. the caller does that.
          | hasArc myINode && isCollinear (outAndErrOf myINode) anotherPLine = [] -- don't place faces along the incoming PLine. the caller does that.
-         | otherwise = [areaBetween eNodes origINodeSet onePLine anotherPLine]
+         | otherwise = [areaBetween eNodeSet origINodeSet onePLine anotherPLine]
         placeFacesBeneath :: (ProjectiveLine, PLine2Err) -> [Face]
         placeFacesBeneath onePLine
-         | isENode eNodes (fst onePLine)                                    = [] -- don't climb down an enode, you're done
+         | isENode eNodeSet (fst onePLine)                                  = [] -- don't climb down an enode, you're done
          | hasArc myINode && isCollinear (outAndErrOf myINode) onePLine     = [] -- don't try to climb back up the tree
          | isNothing iNodeSet = error "we need INodes here."
          | ancestorsOf (fromJust iNodeSet) /= [] = myGetFaces $ onlyOne $ filter (\a -> outAndErrOf (finalINodeOf a) == onePLine) $ ancestorsOf (fromJust iNodeSet)
@@ -193,11 +195,11 @@ getFaces' origINodeSet eNodes iNodeSet iNode = findFacesRecurse iNode mySortedPL
             onlyOne [a] = a
             onlyOne xs = error $ "too many items." <> show xs <> "\n"
             myGetFaces newINodeSet
-              | isJust firstINode = getFaces' origINodeSet eNodes (Just newINodeSet) $ fromJust firstINode
+              | isJust firstINode = getFaces' origINodeSet eNodeSet (Just newINodeSet) $ fromJust firstINode
               | otherwise = error "fail!"
               where
                 -- FIXME: repair firstINodeOfPLine so it does not need the whole INodeSet.
-                firstINode = firstINodeOfPLine eNodes (fromJust iNodeSet) onePLine
+                firstINode = firstINodeOfPLine eNodeSet (fromJust iNodeSet) onePLine
 
 -- | Create a face covering the space between two PLines with a single Face.
 --   Both PLines must be a part of the same INode.
