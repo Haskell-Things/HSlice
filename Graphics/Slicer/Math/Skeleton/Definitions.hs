@@ -46,7 +46,7 @@ module Graphics.Slicer.Math.Skeleton.Definitions (
   ancestorsOf,
   allINodesOf,
   allPLinesOfINode,
-  concavePLines,
+  concaveLines,
   eNodesOfSide,
   firstInOf,
   finalINodeOf,
@@ -431,10 +431,12 @@ iNodeHasIn :: INode -> (ProjectiveLine, PLine2Err) -> Bool
 iNodeHasIn iNode outAndErr = elem outAndErr $ insOf iNode
 
 -- | Examine two line segments that are part of a Contour, and determine if they are concave toward the interior of the Contour. if they are, construct a ProjectiveLine bisecting them, pointing toward the interior of the Contour.
-concavePLines :: LineSeg -> LineSeg -> Maybe ProjectiveLine
-concavePLines seg1 seg2
-  | eToPLine2 seg2 `pLineIsLeft` eToPLine2 seg1 == Just True = Just $ PLine2 $ addVecPair pv1 pv2
-  | otherwise = Nothing
+concaveLines :: LineSeg -> LineSeg -> Maybe ProjectiveLine
+concaveLines seg1 seg2
+  = case eToPLine2 seg2 `pLineIsLeft` eToPLine2 seg1 of
+      Just True -> Just $ PLine2 $ addVecPair pv1 pv2
+      Just False -> Nothing
+      Nothing -> error $ "asked whether two (anti)colinear lines are concave:\n" <> show seg1 <> "\n" <> show seg2 <> "\n"
   where
     pv1 = vecOfL $ eToPLine2 seg1
     pv2 = vecOfL $ flipL $ eToPLine2 seg2
