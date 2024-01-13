@@ -71,10 +71,11 @@ module Graphics.Slicer.Math.Skeleton.Definitions (
   makeSide,
   oneSideOf,
   sortedPLines,
-  sortPLinePair
+  sortPLinePair,
+  sortPLinesByReference
   ) where
 
-import Prelude (Eq, Show, Bool(True, False), Ordering(LT,GT), any, concatMap, elem, not, otherwise, ($), (<), (<$>), (==), (/=), (<=), error, (&&), fst, (<>), show, snd, mempty)
+import Prelude (Eq, Show, Bool(True, False), Ordering(EQ, LT,GT), any, concatMap, elem, not, otherwise, (.), ($), (<), (<$>), (==), (/=), (<=), error, (&&), fst, (<>), show, snd, mempty)
 
 import qualified Prelude as PL (head, last)
 
@@ -102,7 +103,7 @@ import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint, noIntersect
 
 import Graphics.Slicer.Math.Lossy (eToPLine2)
 
-import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), PPoint2Err, ProjectiveLine(PLine2), ProjectiveLine2, ProjectivePoint, distance2PP, eToPP, flipL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft, vecOfL)
+import Graphics.Slicer.Math.PGA (Arcable(errOfOut, hasArc, outOf), PIntersection(IntersectsIn), PLine2Err, Pointable(canPoint, cPPointOf, errOfCPPoint, ePointOf), PPoint2Err, ProjectiveLine(PLine2), ProjectiveLine2, ProjectivePoint, distance2PP, eToPP, flipL, normalizeL, outAndErrOf, pToEP, plinesIntersectIn, pLineIsLeft, vecOfL)
 
 -- | A point where two lines segments that are part of a contour intersect, emmiting an arc toward the interior of a contour.
 -- FIXME: a source should have a different UlpSum for it's point and it's output.
@@ -450,47 +451,76 @@ sortedPLines pLines
   | length pLines < 3 = pLines
   | otherwise = sortBy sortFun pLines
     where
-      sortFun (n1,_) (n2,_) = case n1 `pLineIsLeft` n2 of
-                                Just True -> LT
-                                _ -> GT
+      sortFun (pLine1,_) (pLine2,_) = case pLine2 `pLineIsLeft` pLine1 of
+                                        Just True -> LT
+                                        _ -> GT
 
--- | sort two PLines against the guaranteed outside PLine. always returns the two PLines in a counterclockwise order, starting at outsidePLine.
+-- | Sort a set of PLines in counterclockwise order, starting with the PLine clesest to the reference PLine.
+-- Assumes all PLines meet in a point?
+{-# INLINABLE sortPLinesByReference #-}
+sortPLinesByReference :: (ProjectiveLine2 a) => (a, PLine2Err) -> [(a, PLine2Err)] -> [(a, PLine2Err)]
+sortPLinesByReference refPLine@(rawRefPLine, _) pLines
+  -- we cannot sort less than two plines
+  | length pLines < 2 = pLines
+  | otherwise = sortBy sortFun pLines
+    where
+      sortFun pLine1@(rawPLine1, _) pLine2@(rawPLine2, _) =
+        case pLineOrderCCW pLine1 pLine2 refPLine of
+          Nothing -> error $ "two or more (anti)colinear lines?\n"
+                                    <> "PLine1: " <> show (fst $ normalizeL rawPLine1) <> "\n"
+                                    <> "pLine2: " <> show (fst $ normalizeL rawPLine2) <> "\n"
+                                    <> "Reference: " <> show (fst $ normalizeL rawRefPLine) <> "\n"
+                                    <> "PLine1 `pLineIsLeft` Reference: " <> show (rawPLine1 `pLineIsLeft` rawRefPLine) <> "\n" 
+                                    <> "PLine2 `pLineIsLeft` Reference: " <> show (rawPLine2 `pLineIsLeft` rawRefPLine) <> "\n" 
+                                    <> "PLine1 `pLineIsLeft` PLine2: " <> show (rawPLine1 `pLineIsLeft` rawPLine2) <> "\n" 
+                                    <> "pLines: " <> show (fst . normalizeL . fst <$> pLines) <> "\n"
+          (Just a) -> a
+
+-- | sort two PLines against the reference PLine, flipped.
+-- Returns the two PLines in a counterclockwise order, from the perspective of our reference PLine after flipping.
 sortPLinePair :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)]
 {-# INLINABLE sortPLinePair #-}
-sortPLinePair pLine1 pLine2 (rawOutsidePLine, rawOutsidePLineErr)
-  | pLineOrderCCW pLine1 pLine2 outsidePLineWithErr = [pLine1, pLine2]
-  | otherwise = [pLine2, pLine1]
+sortPLinePair pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) (rawRefPLine, rawRefPLineErr)
+  | refPLineFlipped == rawPLine2 = error "here."
+  | otherwise = case pLineOrderCCW pLine1 pLine2 refPLineWithErr of
+                  Just LT -> [pLine1, pLine2]
+                  Just GT -> [pLine2, pLine1]
+                  _ -> error $ "two or more (anti)colinear lines?\n"
+                             <> "PLine1: " <> show rawPLine1 <> "\n"
+                             <> "pLine2: " <> show rawPLine2 <> "\n"
+                             <> "Reference: " <> show rawRefPLine <> "\n"
   where
-    outsidePLineWithErr = (outsidePLine, rawOutsidePLineErr)
-    -- we flip this, because outside PLines point away from a node, while the two PLines we're working with point toward.
-    outsidePLine = flipL rawOutsidePLine
+    refPLineWithErr = (refPLineFlipped, rawRefPLineErr)
+    -- We flip this, because for INodes, the outgoing PLines point away from a node, while the two PLines we're working with point toward.
+    refPLineFlipped = flipL rawRefPLine
 
-pLineOrderCCW :: (ProjectiveLine2 a) => (a, PLine2Err) -> (a, PLine2Err) -> (a, PLine2Err) -> Bool
+-- | When scanning where three lines meet, starting at the reference PLine, and going counterclockwise, the first PLine you run into is lesser..
+-- Note: Nothing as a result is an error condition.
+pLineOrderCCW :: (ProjectiveLine2 a) => (a, PLine2Err) -> (a, PLine2Err) -> (a, PLine2Err) -> Maybe Ordering
 {-# INLINABLE pLineOrderCCW #-}
-pLineOrderCCW pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) outsidePLine@(rawOutsidePLine, _) =
-  case (rawPLine1 `pLineIsLeft` rawOutsidePLine,
-        rawPLine2 `pLineIsLeft` rawPLine1,
-        rawOutsidePLine `pLineIsLeft` rawPLine2,
-        pLine1 `isAntiCollinear` outsidePLine,
-        pLine2 `isAntiCollinear` outsidePLine) of
-    (Nothing, Nothing, Just _, _, _) -> error "impossible"
-    (Nothing, Nothing, Nothing, _, _) -> True
-    (Nothing, Just True, _, True, _) -> True
-    (Nothing, Just True, _, False, _) -> False
-    (Nothing, Just False, _, True, _) -> False
-    (Nothing, Just False, _, False, _) -> True
-    (Just True, Nothing, _, _, True) -> False
-    (Just True, Nothing, _, _, False) -> True
-    (Just True, Just True, Nothing, _, _) -> error "impossible!"
-    (Just True, Just True, Just True, _, _) -> False
-    (Just True, Just True, Just False, _, _) -> False
-    (Just True, Just False, _, _, _) -> True
-    (Just False, Nothing, _, _, True) -> False
-    (Just False, Nothing, _, _, False) -> True
-    (Just False, Just True, _, _, _) -> False
-    (Just False, Just False, Nothing, _, _) -> error "impossible!"
-    (Just False, Just False, Just True, _, _) -> False
-    (Just False, Just False, Just False, _, _) -> True
+pLineOrderCCW pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) refPLine@(rawRefPLine, _)
+  | pLine1 == pLine2 = Just EQ
+  | otherwise =
+    case (rawPLine1 `pLineIsLeft` rawRefPLine, rawPLine2 `pLineIsLeft` rawRefPLine) of
+        (Nothing, Nothing) -> Nothing
+        (Nothing, Just True) -> compareWithAntiColinear pLine1 GT
+        (Nothing, Just False) -> compareWithAntiColinear pLine1 LT
+        (Just True, Nothing) -> compareWithAntiColinear pLine2 LT
+        (Just False, Nothing) -> compareWithAntiColinear pLine2 GT
+        (Just True, Just False) -> Just LT
+        (Just False, Just True) -> Just GT
+        _ -> -- dir1 and dir2 must be equal at this point.
+          case (rawPLine1 `pLineIsLeft` rawPLine2) of
+            Just True -> Just GT
+            Just False -> Just LT
+            Nothing -> Just EQ
+  where
+    compareWithAntiColinear colinearPLine ordering
+      | colinearPLine `isAntiCollinear` refPLine = Just ordering
+      | otherwise = case ordering of
+                      GT -> Just LT
+                      LT -> Just GT
+                      _ -> error "wat"
 
 -- | Take a sorted list of PLines, and make sure the list starts with the pline closest to (but not left of) the given PLine.
 -- Does not require the input PLine to be in the set.
