@@ -81,6 +81,8 @@ import qualified Prelude as PL (head, last)
 
 import Data.List (filter, length, sortBy)
 
+import qualified Data.List as DL (head, last)
+
 import Data.List.NonEmpty (NonEmpty)
 
 import Data.List.Unique (count_)
@@ -178,7 +180,7 @@ cPPointAndErrOfINode :: INode -> (ProjectivePoint, PPoint2Err)
 cPPointAndErrOfINode iNode
   | allPointsSame = case results of
                       [] -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
-                      l -> PL.head l
+                      l -> DL.head l
   -- Allow the pebbles to vote.
   | otherwise = case safeLast (slist $ count_ results) of
                   Nothing -> error $ "cannot get a PPoint of this iNode: " <> show iNode <> "/n"
@@ -335,15 +337,15 @@ getPairs (x:xs) = ((x,) <$> xs) <> getPairs xs
 -- | Determine if the given line segment set contains just one loop.
 isLoop :: Slist [LineSeg] -> Bool
 isLoop inSegSets@(Slist rawSegSets _)
-  | len inSegSets == 1 && length (PL.head rawSegSets) == 1 = False
+  | len inSegSets == 1 && length (DL.head rawSegSets) == 1 = False
   | startPoint firstSeg == endPoint lastSeg = True
   | otherwise = gapDistance <= ulpVal gapDistanceErr
   where
     (gapDistance, (_,_, gapDistanceErr)) = distance2PP (eToPP $ endPoint lastSeg, mempty) (eToPP $ startPoint firstSeg, mempty)
     (lastSeg, firstSeg) = case inSegSets of
                             (Slist [] _) -> error "no segments!"
-                            oneOrMoreSets@(Slist ((_:_:_):_) _) -> (PL.last $ SL.last oneOrMoreSets, PL.head $ SL.head oneOrMoreSets)
-                            oneOrMoreSets@(Slist (_:_:_) _) -> (PL.last $ SL.last oneOrMoreSets, PL.head $ SL.head oneOrMoreSets)
+                            oneOrMoreSets@(Slist ((_:_:_):_) _) -> (DL.last $ SL.last oneOrMoreSets, DL.head $ SL.head oneOrMoreSets)
+                            oneOrMoreSets@(Slist (_:_:_) _) -> (DL.last $ SL.last oneOrMoreSets, DL.head $ SL.head oneOrMoreSets)
                             (Slist _ _) -> error "just one segment?"
 
 -- | Get the first line segment of an ENode.
@@ -362,8 +364,8 @@ linePairs c = mapWithFollower (,) $ lineSegsOfContour c
 linePairs contour = rotateRight $ mapWithNeighbors (\a b c -> (handleLineSegError $ lineSegFromEndpoints a b,
                                                                handleLineSegError $ lineSegFromEndpoints b c)) $ pointsOfContour contour
   where
-    rotateLeft a = PL.last a : PL.init a
-    rotateRight a = PL.init a <> [PL.last a]
+    rotateLeft a = DL.last a : DL.init a
+    rotateRight a = DL.init a <> [DL.last a]
 -}
 
 -- | A smart constructor for INodes.
@@ -456,7 +458,8 @@ sortedPLines pLines
                                         _ -> GT
 
 -- | Sort a set of PLines in counterclockwise order, starting with the PLine clesest to the reference PLine.
--- Assumes all PLines meet in a point?
+-- Assumes all PLines meet in a point.
+-- May fail, if multiple input PLines are (anti)collinear to the reference PLine.
 {-# INLINABLE sortPLinesByReference #-}
 sortPLinesByReference :: (ProjectiveLine2 a) => (a, PLine2Err) -> [(a, PLine2Err)] -> [(a, PLine2Err)]
 sortPLinesByReference refPLine@(rawRefPLine, _) pLines
@@ -478,7 +481,7 @@ sortPLinesByReference refPLine@(rawRefPLine, _) pLines
 
 -- | sort two PLines against the reference PLine, flipped.
 -- Returns the two PLines in a counterclockwise order, from the perspective of our reference PLine after flipping.
-sortPLinePair :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)]
+sortPLinePair :: (ProjectiveLine2 a) => (a, PLine2Err) -> (a, PLine2Err) -> (a, PLine2Err) -> [(a, PLine2Err)]
 {-# INLINABLE sortPLinePair #-}
 sortPLinePair pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) (rawRefPLine, rawRefPLineErr)
   | refPLineFlipped == rawPLine2 = error "here."
@@ -572,7 +575,7 @@ makeENodes segs = case segs of
 loopOfSegSets :: Slist [LineSeg] -> ENode
 loopOfSegSets inSegSets = case inSegSets of
                             (Slist [] _) -> error "no"
-                            oneOrMoreSets@(Slist ((_:_:_):_) _) -> makeENode (startPoint $ PL.last $ SL.last oneOrMoreSets) (startPoint $ PL.head $ SL.head oneOrMoreSets) (endPoint $ PL.head $ SL.head oneOrMoreSets)
-                            oneOrMoreSets@(Slist (_:_:_) _) -> makeENode (startPoint $ PL.last $ SL.last oneOrMoreSets) (startPoint $ PL.head $ SL.head oneOrMoreSets) (endPoint $ PL.head $ SL.head oneOrMoreSets)
+                            oneOrMoreSets@(Slist ((_:_:_):_) _) -> makeENode (startPoint $ DL.last $ SL.last oneOrMoreSets) (startPoint $ DL.head $ SL.head oneOrMoreSets) (endPoint $ DL.head $ SL.head oneOrMoreSets)
+                            oneOrMoreSets@(Slist (_:_:_) _) -> makeENode (startPoint $ DL.last $ SL.last oneOrMoreSets) (startPoint $ DL.head $ SL.head oneOrMoreSets) (endPoint $ DL.head $ SL.head oneOrMoreSets)
                             (Slist _ _) -> error "yes"
 
