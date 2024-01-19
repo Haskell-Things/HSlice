@@ -77,8 +77,6 @@ module Graphics.Slicer.Math.Skeleton.Definitions (
 
 import Prelude (Eq, Show, Bool(True, False), Ordering(EQ, LT,GT), any, concatMap, elem, not, otherwise, (.), ($), (<), (<$>), (==), (/=), (<=), error, (&&), fst, (<>), show, snd, mempty)
 
-import qualified Prelude as PL (head, last)
-
 import Data.List (filter, length, sortBy)
 
 import qualified Data.List as DL (head, last)
