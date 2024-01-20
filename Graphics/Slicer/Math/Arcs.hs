@@ -60,6 +60,8 @@ getAcuteArcFromPoints p1 p2 p3
 
 -- | Get a projective line along the angle bisector of the intersection of the two given lines, pointing in the 'acute' direction.
 --   A wrapper of getAcuteAngleBisectorFromLines, dropping the returning of normalization error of the inputs.
+-- Warning: assumes one PLine is toward the point of intersection, and the other is away from the point of intersection
+-- FIXME: Precision Loss
 getInsideArc :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectiveLine, PLine2Err)
 getInsideArc line1 line2 = (res, resErr)
   where
@@ -70,9 +72,9 @@ getInsideArc line1 line2 = (res, resErr)
 {-# INLINABLE getAcuteAngleBisectorFromLines #-}
 getAcuteAngleBisectorFromLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
 getAcuteAngleBisectorFromLines line1@(pl1, _) line2@(pl2, _)
-  | isCollinear line1 line2 = error "Asked to find the acute bisector of two colinear lines!"
-  | isAntiCollinear line1 line2 = error "Asked to find the acute bisector of two anti-colinear lines!"
-  | noIntersection line1 line2 = error $ "No intersection between line " <> show line1 <> " and line " <> show line2 <> ".\n"
+  | isCollinear line1 line2 = error $ "Asked to find the acute bisector of two colinear lines!\n" <> show pl1 <> "\n" <> show pl2 <> "\n"
+  | isAntiCollinear line1 line2 = error $ "Asked to find the acute bisector of two anti-colinear lines!\n" <> show pl1 <> "\n" <> show pl2 <> "\n"
+  | noIntersection line1 line2 = error $ "No intersection between line " <> show pl1 <> " and line " <> show pl2 <> ".\n"
   | otherwise = (PLine2 addVecRes, (npline1Err, npline2Err, PLine2Err addVecErrs mempty mempty mempty mempty mempty))
   where
     (addVecRes, addVecErrs) = addVecPairWithErr lv1 lv2
