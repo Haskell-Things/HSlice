@@ -188,11 +188,11 @@ getFaces' origINodeSet eNodeSet iNodeSet iNode = findFacesRecurse iNode myPLines
              eNode1 = lastDescendent eNodeSet origINodeSet pLine1
              eNode2 = firstDescendent eNodeSet origINodeSet pLine2
         placeFacesBeneath :: (ProjectiveLine, PLine2Err) -> [Face]
-        placeFacesBeneath pLine1
-         | isENode eNodeSet (fst pLine1)                              = [] -- don't climb down an enode, you're done
-         | hasArc myINode && isCollinear (outAndErrOf myINode) pLine1 = [] -- don't try to climb back up the tree
+        placeFacesBeneath pLine
+         | isENode eNodeSet (fst pLine)                              = [] -- don't climb down an enode, you're done
+         | hasArc myINode && isCollinear (outAndErrOf myINode) pLine = [] -- don't try to climb back up the tree
          | isNothing iNodeSet = error "we need INodes here."
-         | ancestorsOf (fromJust iNodeSet) /= [] = myGetFaces $ onlyOne $ filter (\a -> outAndErrOf (finalINodeOf a) == pLine1) $ ancestorsOf (fromJust iNodeSet)
+         | ancestorsOf (fromJust iNodeSet) /= [] = myGetFaces $ onlyOne $ filter (\a -> outAndErrOf (finalINodeOf a) == pLine) $ ancestorsOf (fromJust iNodeSet)
          | otherwise = error "no between to plant?"
           where
             onlyOne :: (Show a) => [a] -> a
@@ -204,7 +204,7 @@ getFaces' origINodeSet eNodeSet iNodeSet iNode = findFacesRecurse iNode myPLines
               | otherwise = error "fail!"
               where
                 -- FIXME: repair firstINodeOfPLine so it does not need the whole INodeSet.
-                firstINode = firstINodeOfPLine eNodeSet (fromJust iNodeSet) pLine1
+                firstINode = firstINodeOfPLine eNodeSet (fromJust iNodeSet) pLine
 
 -- | Create a single face covering the space between two PLine.
 --   Both PLines must be a part of the same INode.
