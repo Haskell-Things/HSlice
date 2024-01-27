@@ -70,7 +70,7 @@ import Graphics.Slicer.Math.Lossy (distanceBetweenPPointsWithErr)
 
 import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint), ProjectiveLine, PLine2Err, cPPointAndErrOf, cPPointOf, distance2PP, flipL, join2PP, outAndErrOf, pLineIsLeft)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concaveLines, finalINodeOf, finalOutOf, firstInOf, getFirstLineSeg, getLastLineSeg, getPairs, indexPLinesTo, insOf, isLoop, linePairs, loopOfSegSets, makeENode, makeENodes, makeInitialGeneration, makeINode, makeSide, sortedPLines, sortPLinePair, sortPLinesByReference, sortPLinesByReferenceSafe)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concaveLines, finalINodeOf, finalOutOf, firstInOf, getFirstLineSeg, getLastLineSeg, getPairs, insOf, isLoop, linePairs, loopOfSegSets, makeENode, makeENodes, makeInitialGeneration, makeINode, makeSide, sortPLinePair, sortPLinesByReferenceSafe)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree, findENodeByOutput, findINodeByOutput)
 
