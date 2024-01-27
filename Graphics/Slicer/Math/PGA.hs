@@ -299,6 +299,7 @@ class (Show a) => Arcable a where
 
 -- | If there is an output arc, return it, along with it's error quotent.
 outAndErrOf :: (Arcable a) => a -> (ProjectiveLine, PLine2Err)
+{-# INLINABLE outAndErrOf #-}
 outAndErrOf a
   | hasArc a = (outOf a, errOfOut a)
   | otherwise = error $ "Asked for out and err of Arcable with no out!\n" <> show a <> "\n"
