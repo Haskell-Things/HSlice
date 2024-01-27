@@ -528,12 +528,12 @@ sortPLinesByReferenceSafe inReference pLines
 --                                Just True -> error "went backwards"
                                 _ -> False
 
--- | Sort a set of PLines in counterclockwise order, starting with the PLine clesest to the reference PLine.
--- Assumes all PLines meet in a point.
--- Contains logic to select a new PLine from the PLine set to sort by..
+-- | Sort a set of PLines in counterclockwise order, starting with the PLine closest to the reference PLine.
+-- Assumes all PLines meet in a common single point.
+-- Contains logic to select a new PLine from the PLine set to sort by.
 sortPLinesWithoutReference :: [(ProjectiveLine, PLine2Err)] -> [(ProjectiveLine, PLine2Err)]
 sortPLinesWithoutReference pLines
-  | length pLines < 2 = pLines
+  | length pLines < 3 = pLines
   | otherwise = sortPLinesByReferenceSafe foundReference pLines
   where
     foundReference = reference' pLines []
@@ -543,14 +543,13 @@ sortPLinesWithoutReference pLines
           case inPLines of
             [] -> error "impossible"
             [a] -> a
-            -- FIXME: shouldn't we bisect the two PLines the largest distance apart?
             [a,b] -> if any (\x -> (fst a) `pLineIsLeft` (fst x) == Nothing) $ b:checkedPLines
                      then if any (\x -> (fst b) `pLineIsLeft` (fst x) == Nothing) $ a:checkedPLines
                           then reference' [newPLine,a,b] checkedPLines
                           else b
                      else a
               where
-                newPLine = getInsideArc a (first flipL b)
+                newPLine = getInsideArc a b
             (a:xs) -> if any (\x -> (fst a) `pLineIsLeft` (fst x) == Nothing) $ xs <> checkedPLines
                       then reference' xs (a:checkedPLines)
                       else a

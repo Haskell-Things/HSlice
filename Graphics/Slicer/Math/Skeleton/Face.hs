@@ -22,7 +22,7 @@
 -- | This file contains code for creating a series of Faces, covering a straight skeleton.
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
-import Prelude (Bool(True), Eq, Show, (==), all, any, otherwise, (<$>), ($), length, error, (<>), show, (<>), null, not, and, snd, (&&), (.), (/=), fst)
+import Prelude (Bool(True), Eq, Show, (==), all, otherwise, (<$>), ($), length, error, (<>), show, (<>), null, not, and, snd, (&&), (.), (/=), fst)
 
 import Data.Either (isRight)
 
@@ -40,13 +40,11 @@ import Slist (slist, isEmpty, len, init, tail, take, dropWhile, head, one, last)
 
 import Slist as SL (reverse)
 
-import Graphics.Slicer.Math.Arcs (getInsideArc)
-
 import Graphics.Slicer.Math.Definitions (LineSeg, mapWithFollower)
 
 import Graphics.Slicer.Math.Intersections (noIntersection, intersectionBetween, isCollinear)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), allPLinesOfINode, eNodesOfSide, getFirstLineSeg, getLastLineSeg, oneSideOf, finalINodeOf, finalOutOf, ancestorsOf, firstInOf, lastInOf, sortPLinesByReference)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), allPLinesOfINode, getFirstLineSeg, getLastLineSeg, finalINodeOf, finalOutOf, ancestorsOf, firstInOf, lastInOf, sortPLinesByReference, sortPLinesWithoutReference)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, findENodeByOutput, findINodeByOutput, firstSegOf, lastENodeOf, firstENodeOf, pathFirst, pathLast)
 
@@ -170,7 +168,7 @@ getFaces' origINodeSet eNodeSet iNodeSet iNode = findFacesRecurse iNode mySorted
           iNodeRes = (\(Slist a _) -> sortPLinesByReference flippedOut a) $ allPLinesOfINode iNode
             where
               flippedOut = (\(outPLine, outPLineErr) -> (flipL outPLine, outPLineErr)) $ outAndErrOf iNode
-          noINodeRes = (\(Slist a _) -> sortPLinesByReference foundReference a)$ allPLinesOfINode iNode
+          noINodeRes = (\(Slist a _) -> sortPLinesWithoutReference a) $ allPLinesOfINode iNode
     firstPLine = DL.head mySortedPLines
     -- | responsible for placing faces under the first pline given (if applicable), and between that pline, and the following pline. then.. recurse!
     findFacesRecurse :: INode -> [(ProjectiveLine, PLine2Err)] -> [Face]
@@ -209,24 +207,6 @@ getFaces' origINodeSet eNodeSet iNodeSet iNode = findFacesRecurse iNode mySorted
               where
                 -- FIXME: repair firstINodeOfPLine so it does not need the whole INodeSet.
                 firstINode = firstINodeOfPLine eNodeSet (fromJust iNodeSet) onePLine
-    foundReference = reference' (outAndErrOf <$> (eNodesOfSide $ oneSideOf eNodeSet)) []
-      where
-        reference' :: [(ProjectiveLine, PLine2Err)] -> [(ProjectiveLine, PLine2Err)] -> (ProjectiveLine, PLine2Err)
-        reference'  inPLines checkedPLines =
-          case inPLines of
-            [] -> error "impossible"
-            [a] -> a
-            -- FIXME: shouldn't we bisect the two PLines the largest distance apart?
-            [a,b] -> if any (\x -> (fst a) `pLineIsLeft` (fst x) == Nothing) $ b:checkedPLines
-                     then if any (\x -> (fst b) `pLineIsLeft` (fst x) == Nothing) $ a:checkedPLines
-                          then reference' [newPLine,a,b] checkedPLines
-                          else b
-                     else a
-              where
-                newPLine = getInsideArc a b
-            (a:xs) -> if any (\x -> (fst a) `pLineIsLeft` (fst x) == Nothing) $ xs <> checkedPLines
-                      then reference' xs (a:checkedPLines)
-                      else a
 
 -- | Create a face covering the space between two PLines with a single Face.
 --   Both PLines must be a part of the same INode.
