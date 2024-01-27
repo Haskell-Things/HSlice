@@ -24,6 +24,8 @@ module Graphics.Slicer.Math.Arcs (getFirstArc, getInsideArc, getOutsideArc, towa
 
 import Prelude (Bool, ($), (<>), (==), (>), (<=), (&&), (||), error, mempty, otherwise, show)
 
+import Data.Maybe (isNothing)
+
 import Graphics.Slicer.Math.Definitions (Point2, addPoints, distance, makeLineSeg, scalePoint)
 
 import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
@@ -31,6 +33,8 @@ import Graphics.Slicer.Math.GeometricAlgebra (addVecPairWithErr, ulpVal)
 import Graphics.Slicer.Math.Intersections (intersectionOf, isAntiCollinear, isCollinear, noIntersection)
 
 import Graphics.Slicer.Math.PGA (PLine2Err(PLine2Err), PPoint2Err, ProjectiveLine(PLine2), ProjectiveLine2, ProjectivePoint2, angleBetween2PL, distance2PP, eToPL, flipL, join2PP, normalizeL, vecOfL)
+
+import Graphics.Slicer.Math.PGAPrimitives (canonicalizedIntersectionOf2PL)
 
 -- | Get a Projective Line in the direction of the inside of a contour. Generates a line bisecting the angle of the intersection between a line constructed from the first two points, and another line constrected from the last two points.
 getFirstArc :: Point2 -> Point2 -> Point2 -> (ProjectiveLine, PLine2Err)
@@ -72,11 +76,15 @@ getInsideArc line1 line2 = (res, resErr)
 {-# INLINABLE getAcuteAngleBisectorFromLines #-}
 getAcuteAngleBisectorFromLines :: (ProjectiveLine2 a, ProjectiveLine2 b) => (a, PLine2Err) -> (b, PLine2Err) -> (ProjectiveLine, (PLine2Err, PLine2Err, PLine2Err))
 getAcuteAngleBisectorFromLines line1@(pl1, _) line2@(pl2, _)
-  | isCollinear line1 line2 = error $ "Asked to find the acute bisector of two colinear lines!\n" <> show pl1 <> "\n" <> show pl2 <> "\n"
-  | isAntiCollinear line1 line2 = error $ "Asked to find the acute bisector of two anti-colinear lines!\n" <> show pl1 <> "\n" <> show pl2 <> "\n"
-  | noIntersection line1 line2 = error $ "No intersection between line " <> show pl1 <> " and line " <> show pl2 <> ".\n"
+  -- something is wrong? throw an error.
+  | isNothing (canonicalizedIntersectionOf2PL pl1 pl2) = makeError
   | otherwise = (PLine2 addVecRes, (npline1Err, npline2Err, PLine2Err addVecErrs mempty mempty mempty mempty mempty))
   where
+    makeError
+      | isCollinear line1 line2 = error $ "Asked to find the acute bisector of two colinear lines!\n" <> show pl1 <> "\n" <> show pl2 <> "\n"
+      | isAntiCollinear line1 line2 = error $ "Asked to find the acute bisector of two anti-colinear lines!\n" <> show pl1 <> "\n" <> show pl2 <> "\n"
+      | noIntersection line1 line2 = error $ "No intersection between line " <> show pl1 <> " and line " <> show pl2 <> ".\n"
+      | otherwise = error "no error. just seeing how you're doing."
     (addVecRes, addVecErrs) = addVecPairWithErr lv1 lv2
     lv1 = vecOfL $ flipL npline1
     lv2 = vecOfL npline2
