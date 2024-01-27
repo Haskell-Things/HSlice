@@ -22,13 +22,11 @@
 -- | This file contains code for creating a series of Faces, covering a straight skeleton.
 module Graphics.Slicer.Math.Skeleton.Face (Face(Face), orderedFacesOf, facesOf) where
 
-import Prelude (Bool(True), Eq, Show, (==), all, otherwise, (<$>), ($), length, error, (<>), show, (<>), null, not, and, snd, (&&), (.), (/=), fst)
+import Prelude (Bool(True), Eq, Show, (==), (||), all, otherwise, (<$>), ($), length, error, (<>), show, null, not, and, snd, (&&), (.), (/=), fst)
 
 import Data.Either (isRight)
 
 import Data.List (filter, uncons)
-
-import qualified Data.List as DL (head)
 
 import Data.List.Extra (unsnoc)
 
@@ -38,7 +36,9 @@ import Slist.Type (Slist(Slist))
 
 import Slist (slist, isEmpty, len, init, tail, take, dropWhile, head, one, last)
 
-import Slist as SL (reverse)
+import qualified Data.List as DL (head)
+
+import qualified Slist as SL (reverse)
 
 import Graphics.Slicer.Math.Definitions (LineSeg, mapWithFollower)
 
@@ -176,25 +176,30 @@ getFaces' origINodeSet eNodeSet iNodeSet iNode = findFacesRecurse iNode mySorted
       case pLines of
         [] -> error "we should never get here."
         -- Just one PLine? assume we're the last one. do not place a face, but do place faces under the PLine.
-        [onePLine] -> placeFacesBeneath onePLine
-                      <> placeFaceBetween onePLine firstPLine
-        -- More than one PLine? place faces under onePLine, place a face between onePLine and anotherPLine, and recurse!
-        (onePLine : anotherPLine : myMorePLines) -> placeFacesBeneath onePLine
-                                                    <> placeFaceBetween onePLine anotherPLine
-                                                    <> findFacesRecurse myINode (anotherPLine:myMorePLines)
+        [pLine] -> placeFacesBeneath pLine
+                      <> placeFaceBetween pLine firstPLine
+        -- More than one PLine? place faces under pLine1, place a face between pLine1 and pLine2, and recurse!
+        (pLine1 : pLine2 : myMorePLines) -> placeFacesBeneath pLine1
+                                            <> placeFaceBetween pLine1 pLine2
+                                            <> findFacesRecurse myINode (pLine2:myMorePLines)
       where
-        -- zero or one face, not a real list.
+        -- returns only zero or one face. not a real list.
         placeFaceBetween :: (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> [Face]
-        placeFaceBetween onePLine anotherPLine
-         | hasArc myINode && isCollinear (outAndErrOf myINode) onePLine     = [] -- don't place faces along the incoming PLine. the caller does that.
-         | hasArc myINode && isCollinear (outAndErrOf myINode) anotherPLine = [] -- don't place faces along the incoming PLine. the caller does that.
-         | otherwise = [areaBetween eNodeSet origINodeSet onePLine anotherPLine]
+        placeFaceBetween pLine1 pLine2
+         | hasArc myINode && isCollinear (outAndErrOf myINode) pLine1 = [] -- don't place faces along the incoming PLine. the caller does that.
+         | hasArc myINode && isCollinear (outAndErrOf myINode) pLine2 = [] -- don't place faces along the incoming PLine. the caller does that.
+         | getFirstLineSeg eNode1 == getLastLineSeg eNode2 ||
+           getLastLineSeg eNode1 == getFirstLineSeg eNode2 = [areaBetween eNodeSet origINodeSet pLine1 pLine2]
+         | otherwise = error $ "asked to place a face between two ENodes that do not neighbor:\n" <> show eNode1 <> "\n" <> show eNode2 <> "\n" <> show myINode <> "\n" <> show origINodeSet <> "\n"
+           where
+             eNode1 = lastDescendent eNodeSet origINodeSet pLine1
+             eNode2 = firstDescendent eNodeSet origINodeSet pLine2
         placeFacesBeneath :: (ProjectiveLine, PLine2Err) -> [Face]
-        placeFacesBeneath onePLine
-         | isENode eNodeSet (fst onePLine)                                  = [] -- don't climb down an enode, you're done
-         | hasArc myINode && isCollinear (outAndErrOf myINode) onePLine     = [] -- don't try to climb back up the tree
+        placeFacesBeneath pLine1
+         | isENode eNodeSet (fst pLine1)                              = [] -- don't climb down an enode, you're done
+         | hasArc myINode && isCollinear (outAndErrOf myINode) pLine1 = [] -- don't try to climb back up the tree
          | isNothing iNodeSet = error "we need INodes here."
-         | ancestorsOf (fromJust iNodeSet) /= [] = myGetFaces $ onlyOne $ filter (\a -> outAndErrOf (finalINodeOf a) == onePLine) $ ancestorsOf (fromJust iNodeSet)
+         | ancestorsOf (fromJust iNodeSet) /= [] = myGetFaces $ onlyOne $ filter (\a -> outAndErrOf (finalINodeOf a) == pLine1) $ ancestorsOf (fromJust iNodeSet)
          | otherwise = error "no between to plant?"
           where
             onlyOne :: (Show a) => [a] -> a
@@ -206,9 +211,9 @@ getFaces' origINodeSet eNodeSet iNodeSet iNode = findFacesRecurse iNode mySorted
               | otherwise = error "fail!"
               where
                 -- FIXME: repair firstINodeOfPLine so it does not need the whole INodeSet.
-                firstINode = firstINodeOfPLine eNodeSet (fromJust iNodeSet) onePLine
+                firstINode = firstINodeOfPLine eNodeSet (fromJust iNodeSet) pLine1
 
--- | Create a face covering the space between two PLines with a single Face.
+-- | Create a single face covering the space between two PLine.
 --   Both PLines must be a part of the same INode.
 --   No other PLines from this iNode must travel between the two given PLines.
 areaBetween :: ENodeSet -> Maybe INodeSet -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Face
@@ -217,7 +222,7 @@ areaBetween (ENodeSet (Slist (_:_:_) _)) _ _ _ = error "too many sides?"
 areaBetween eNodeSet@(ENodeSet (Slist [_] _)) iNodeSet pLine1 pLine2
   | getFirstLineSeg eNode1 == getLastLineSeg eNode2 = faceOrError eNode1 (arcsToLastDescendent pLine1) (arcsToFirstDescendent pLine2) eNode2
   | getLastLineSeg eNode1 == getFirstLineSeg eNode2 = faceOrError eNode2 (arcsToLastDescendent pLine2) (arcsToFirstDescendent pLine1) eNode1
-      | otherwise = error $ "found ENodes that do not follow.\n" <> show eNode1 <> "\n" <> show eNode2 <> "\n" <> show eNodeSet <> "\n" <> show iNodeSet <> "\n"
+  | otherwise = error $ "found ENodes that do not follow.\n" <> show eNode1 <> "\n" <> show eNode2 <> "\n" <> show eNodeSet <> "\n" <> show iNodeSet <> "\n"
   where
     eNode1 = lastDescendent eNodeSet iNodeSet pLine1
     eNode2 = firstDescendent eNodeSet iNodeSet pLine2
