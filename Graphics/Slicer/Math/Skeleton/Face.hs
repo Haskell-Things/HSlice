@@ -159,17 +159,10 @@ getFaces (NodeTree eNodeSet iNodeSet) = getFaces' iNodeSet eNodeSet iNodeSet
 getFaces' :: Maybe INodeSet -> ENodeSet -> Maybe INodeSet -> INode -> [Face]
 getFaces' _ (ENodeSet (Slist [] _)) _ _ = error "no sides?"
 getFaces' _ (ENodeSet (Slist (_:_:_) _)) _ _ = error "too many sides?"
-getFaces' origINodeSet eNodeSet iNodeSet iNode = findFacesRecurse iNode mySortedPLines
+getFaces' origINodeSet eNodeSet iNodeSet iNode = findFacesRecurse iNode myPLines
   where
-    mySortedPLines
-      | hasArc iNode = iNodeRes
-      | otherwise = noINodeRes
-        where
-          iNodeRes = (\(Slist a _) -> sortPLinesByReference flippedOut a) $ allPLinesOfINode iNode
-            where
-              flippedOut = (\(outPLine, outPLineErr) -> (flipL outPLine, outPLineErr)) $ outAndErrOf iNode
-          noINodeRes = (\(Slist a _) -> sortPLinesWithoutReference a) $ allPLinesOfINode iNode
-    firstPLine = DL.head mySortedPLines
+    myPLines = (\(Slist a _) -> a) $ allPLinesOfINode iNode
+    firstPLine = DL.head myPLines
     -- | responsible for placing faces under the first pline given (if applicable), and between that pline, and the following pline. then.. recurse!
     findFacesRecurse :: INode -> [(ProjectiveLine, PLine2Err)] -> [Face]
     findFacesRecurse myINode pLines =
@@ -177,7 +170,7 @@ getFaces' origINodeSet eNodeSet iNodeSet iNode = findFacesRecurse iNode mySorted
         [] -> error "we should never get here."
         -- Just one PLine? assume we're the last one. do not place a face, but do place faces under the PLine.
         [pLine] -> placeFacesBeneath pLine
-                      <> placeFaceBetween pLine firstPLine
+                   <> placeFaceBetween pLine firstPLine
         -- More than one PLine? place faces under pLine1, place a face between pLine1 and pLine2, and recurse!
         (pLine1 : pLine2 : myMorePLines) -> placeFacesBeneath pLine1
                                             <> placeFaceBetween pLine1 pLine2
