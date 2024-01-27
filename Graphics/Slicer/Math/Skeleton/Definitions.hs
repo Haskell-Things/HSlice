@@ -56,7 +56,6 @@ module Graphics.Slicer.Math.Skeleton.Definitions (
   getFirstLineSeg,
   getLastLineSeg,
   getPairs,
-  indexPLinesTo,
   iNodeHasIn,
   insOf,
   isLoop,
@@ -601,15 +600,6 @@ pLineOrderCCW pLine1@(rawPLine1,_) pLine2@(rawPLine2,_) refPLine@(rawRefPLine, _
                       GT -> Just LT
                       LT -> Just GT
                       _ -> error "wat"
-
--- | Take a sorted list of PLines, and make sure the list starts with the pline closest to (but not left of) the given PLine.
--- Does not require the input PLine to be in the set.
-{-# INLINABLE indexPLinesTo #-}
-indexPLinesTo :: (ProjectiveLine2 a) => (a, PLine2Err) -> [(a, PLine2Err)] -> [(a,PLine2Err)]
-indexPLinesTo firstPLine pLines = pLinesBeforeIndex firstPLine pLines <> pLinesAfterIndex firstPLine pLines
-  where
-    pLinesBeforeIndex myFirstPLine = filter (\a -> fst a `pLineIsLeft` fst myFirstPLine /= Just False)
-    pLinesAfterIndex myFirstPLine = filter (\a -> fst a `pLineIsLeft` fst myFirstPLine == Just False)
 
 -- | Find the last PLine of an INode.
 lastInOf :: INode -> (ProjectiveLine, PLine2Err)
