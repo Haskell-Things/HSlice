@@ -524,14 +524,14 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
         withoutPLine :: (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)] -> [(ProjectiveLine, PLine2Err)]
         withoutPLine myPLine = filter (\a -> fst a /= fst myPLine)
 
-    -- Order the input nodes of an INode.
+    -- Order the inputs of an INode.
     orderInsByENodes :: INode -> INode
     orderInsByENodes inode@(INode _ _ _ out)
       | isJust out = outRes
       | otherwise = noOutRes
         where
           outRes = makeINode (sortPLinesByReferenceSafe flippedOut $ insOf inode) out
-          noOutRes = makeINode (indexPLinesTo firstPLine $ sortedPLines $ indexPLinesTo firstPLine $ insOf inode) Nothing
+          noOutRes = makeINode (sortPLinesByReferenceSafe firstPLine $ insOf inode) Nothing
           flippedOut = case out of
                          (Just (outPLine, outPLineErr)) -> (flipL outPLine, outPLineErr)
                          Nothing -> error "tried to evaluate flippedOut when out was Nothing."

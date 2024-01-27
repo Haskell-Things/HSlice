@@ -70,18 +70,17 @@ module Graphics.Slicer.Math.Skeleton.Definitions (
   makeINode,
   makeSide,
   oneSideOf,
-  sortedPLines,
   sortPLinePair,
   sortPLinesByReference,
   sortPLinesByReferenceSafe,
   sortPLinesWithoutReference
   ) where
 
-import Prelude (Eq, Int, Show, Bool(True, False), Ordering(EQ, LT,GT), any, concatMap, elem, not, null, otherwise, (.), ($), (<), (+), (<$>), (==), (/=), (<=), error, (&&), fst, (<>), show, snd, mempty)
+import Prelude (Eq, Int, Show, Bool(True, False), Ordering(EQ, LT,GT), any,  elem, not, null, otherwise, (.), ($), (<), (+), (<$>), (==), (/=), (<=), error, (&&), fst, (<>), show, snd, mempty)
 
 import Data.Bifunctor (first)
 
-import Data.List (filter, length, sortBy)
+import Data.List (concatMap, filter, length, sortBy)
 
 import qualified Data.List as DL (head, last)
 
@@ -446,19 +445,6 @@ concaveLines seg1 seg2
     pv1 = vecOfL $ eToPLine2 seg1
     pv2 = vecOfL $ flipL $ eToPLine2 seg2
 
--- | Sort a set of PLines in counterclockwise order, to match the counterclockwise order of contours.
--- NOTE: when given the same PLines in a different list, may chose a different head / tail.
-{-# INLINABLE sortedPLines #-}
-sortedPLines :: (ProjectiveLine2 a) => [(a, PLine2Err)] -> [(a, PLine2Err)]
-sortedPLines pLines
-  -- we cannot sort two or less PLines.
-  | length pLines < 3 = pLines
-  | otherwise = sortBy sortFun pLines
-    where
-      sortFun (pLine1,_) (pLine2,_) = case pLine2 `pLineIsLeft` pLine1 of
-                                        Just True -> LT
-                                        _ -> GT
-
 -- | Sort a set of PLines in counterclockwise order, starting with the PLine clesest to the reference PLine.
 -- Assumes all PLines meet in a point.
 -- May fail, if multiple input PLines are (anti)collinear to the reference PLine.
@@ -521,25 +507,27 @@ sortPLinesByReferenceSafe inReference pLines
                          <> "remainingAntiColinearPLines: " <> show (fst . normalizeL . fst <$> remainingAntiColinearPLines) <> "\n"
                          <> "leftPLines: " <> show (fst . normalizeL . fst <$> leftPLines) <> "\n"
                          <> "rightPLines: " <> show (fst . normalizeL . fst <$> rightPLines) <> "\n"
-                         <> "remainingRightPLines: " <> show (fst . normalizeL . fst <$> remainingRightPLines) <> "\n"
                          <> "maybeReference `pLineIsLeft` inReference: " <> show (fst maybeReference `pLineIsLeft` fst inReference) <> "\n"
             loop = reference' newPLine (count+1)
             leftPLines = filter (\b -> (fst b) `pLineIsLeft` (fst inReference) == Just True) pLines
             rightPLines = filter (\b -> (fst b) `pLineIsLeft` (fst inReference) == Just False) pLines
             colinearPLines = filter (\b -> (fst b) `pLineIsLeft` (fst inReference) == Nothing && isCollinear inReference b) pLines
-            antiColinearPLines = filter (\b -> (fst b) `pLineIsLeft` (fst maybeReference) == Nothing && isAntiCollinear inReference b) pLines
-            remainingRightPLines = filter (\b -> (fst b) `pLineIsLeft` (fst maybeReference) == Just False) pLines
+            antiColinearPLines = filter (\b -> (fst b) `pLineIsLeft` (fst inReference) == Nothing && isAntiCollinear inReference b) pLines
             remainingColinearPLines = filter (\b -> (fst b) `pLineIsLeft` (fst maybeReference) == Nothing && isCollinear maybeReference b) pLines
             remainingAntiColinearPLines = filter (\b -> (fst b) `pLineIsLeft` (fst maybeReference) == Nothing && isAntiCollinear maybeReference b) pLines
             newPLine
-              | maybeReference /= inReference &&
-                fst inReference `pLineIsLeft` fst maybeReference /= Nothing = getInsideArc (first flipL maybeReference) inReference
-              | not (null rightPLines) &&
-                fst (first flipL maybeReference) `pLineIsLeft` fst (DL.head rightPLines) /= Nothing = getInsideArc (first flipL maybeReference) (DL.head rightPLines)
-              | not (null leftPLines) &&
-                fst maybeReference `pLineIsLeft` fst ( DL.head leftPLines) /= Nothing = first flipL $ getInsideArc (maybeReference) (DL.head leftPLines) 
+              | maybeReference /= inReference = getInsideArc (first flipL maybeReference) inReference
+              | not (null goodRightRes) = DL.head goodRightRes
+              | not (null goodLeftRes) = DL.head goodLeftRes
               | otherwise = whoops
               where
+                goodRightRes = filter filterFun $ getInsideArc (first flipL maybeReference) <$> rightPLines
+                goodLeftRes = filter filterFun $ first flipL . getInsideArc maybeReference <$> leftPLines
+                -- FIXME: sometimes we end up with an insideArc that is Just True. filter it out.
+                filterFun v = case fst v `pLineIsLeft` fst inReference of
+                                Just False -> True
+--                                Just True -> error "went backwards"
+                                _ -> False
 
 -- | Sort a set of PLines in counterclockwise order, starting with the PLine clesest to the reference PLine.
 -- Assumes all PLines meet in a point.
