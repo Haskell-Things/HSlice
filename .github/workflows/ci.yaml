@@ -40,7 +40,6 @@ jobs:
           - '9.2.8'
           - '9.0.2'
           - '8.10.7'
-          - '8.8.4'
 name: Haskell CI
 on:
   - push
