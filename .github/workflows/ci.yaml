@@ -94,6 +94,17 @@ jobs:
         run: cabal build all --enable-tests --enable-benchmarks --only-dependencies
       - name: build all
         run: cabal build all --enable-tests --enable-benchmarks
+      - name: Save build artifacts
+        uses: "actions/cache/save@v4"
+        with:
+          key: "${{ runner.os }}-${{ matrix.ghc }}-cabal-${{ hashFiles('cabal.project.freeze') }}"
+          path: |
+            "${{ steps.setup-haskell-cabal.outputs.cabal-store }}"
+            ~/.cabal/packages
+            ~/.cabal/store
+            ~/.cabal/bin
+            dist-newstyle
+            ~/.local/bin
       - name: test all
         run: cabal test test-hslice --enable-tests
     strategy:
@@ -141,6 +152,17 @@ jobs:
         run: cabal build all --enable-tests --enable-benchmarks --only-dependencies
       - name: build all
         run: cabal build all --enable-tests --enable-benchmarks
+      - name: Save build artifacts
+        uses: "actions/cache/save@v4"
+        with:
+          key: "${{ runner.os }}-${{ matrix.ghc }}-cabal-${{ hashFiles('cabal.project.freeze') }}"
+          path: |
+            "${{ steps.setup-haskell-cabal.outputs.cabal-store }}"
+            ~/.cabal/packages
+            ~/.cabal/store
+            ~/.cabal/bin
+            dist-newstyle
+            ~/.local/bin
       - name: haddock all
         run: cabal haddock all 
     strategy:
