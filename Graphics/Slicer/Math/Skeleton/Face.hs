@@ -44,7 +44,7 @@ import Graphics.Slicer.Math.Definitions (LineSeg, mapWithFollower)
 
 import Graphics.Slicer.Math.Intersections (noIntersection, intersectionBetween, isCollinear)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), allPLinesOfINode, getFirstLineSeg, getLastLineSeg, finalINodeOf, finalOutOf, ancestorsOf, firstInOf, lastInOf, sortPLinesByReference, sortPLinesWithoutReference)
+import Graphics.Slicer.Math.Skeleton.Definitions (StraightSkeleton(StraightSkeleton), ENode, INode(INode), ENodeSet(ENodeSet), INodeSet(INodeSet), NodeTree(NodeTree), allPLinesOfINode, getFirstLineSeg, getLastLineSeg, finalINodeOf, finalOutOf, ancestorsOf, firstInOf, lastInOf)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (lastSegOf, findENodeByOutput, findINodeByOutput, firstSegOf, lastENodeOf, firstENodeOf, pathFirst, pathLast)
 
@@ -181,12 +181,36 @@ getFaces' origINodeSet eNodeSet iNodeSet iNode = findFacesRecurse iNode myPLines
         placeFaceBetween pLine1 pLine2
          | hasArc myINode && isCollinear (outAndErrOf myINode) pLine1 = [] -- don't place faces along the incoming PLine. the caller does that.
          | hasArc myINode && isCollinear (outAndErrOf myINode) pLine2 = [] -- don't place faces along the incoming PLine. the caller does that.
-         | getFirstLineSeg eNode1 == getLastLineSeg eNode2 ||
-           getLastLineSeg eNode1 == getFirstLineSeg eNode2 = [areaBetween eNodeSet origINodeSet pLine1 pLine2]
-         | otherwise = error $ "asked to place a face between two ENodes that do not neighbor:\n" <> show eNode1 <> "\n" <> show eNode2 <> "\n" <> show myINode <> "\n" <> show origINodeSet <> "\n"
-           where
-             eNode1 = lastDescendent eNodeSet origINodeSet pLine1
-             eNode2 = firstDescendent eNodeSet origINodeSet pLine2
+         | getFirstLineSeg eNode1Last == getLastLineSeg eNode2First ||
+           getLastLineSeg eNode1Last == getFirstLineSeg eNode2First = [areaBetween eNodeSet origINodeSet pLine1 eNode1Last pLine2 eNode2First]
+         | getFirstLineSeg eNode1First == getLastLineSeg eNode2Last ||
+           getLastLineSeg eNode1First == getFirstLineSeg eNode2Last = errBackwards -- [areaBetween eNodeSet origINodeSet pLine2 eNode2Last pLine1 eNode1First]
+         | otherwise = errNotNeighbors
+          where
+             eNode1Last = lastDescendent eNodeSet origINodeSet pLine1
+             eNode1First = firstDescendent eNodeSet origINodeSet pLine1
+             eNode2First = firstDescendent eNodeSet origINodeSet pLine2
+             eNode2Last = lastDescendent eNodeSet origINodeSet pLine2
+             errNotNeighbors = error $ "asked to place a face between two ENodes that do not neighbor:\n"
+                                     <> "ENode1Last: " <> show eNode1Last <> "\n"
+                                     <> "ENode1First: " <> show eNode1First <> "\n"
+                                     <> "ENode2First: " <> show eNode2First <> "\n"
+                                     <> "ENode2Last: " <> show eNode2Last <> "\n"
+                                     <> "origINodeSet: " <> show origINodeSet <> "\n"
+                                     <> "myINode: " <> show myINode <> "\n"
+                                     <> "pLines: " <> show pLines <> "\n"
+                                     <> "pLine1: " <> show pLine1 <> "\n"
+                                     <> "pLine2: " <> show pLine2 <> "\n"
+             errBackwards = error $ "asked to place a face between two ENodes in reverse order:\n"
+                                     <> "ENode1Last: " <> show eNode1Last <> "\n"
+                                     <> "ENode1First: " <> show eNode1First <> "\n"
+                                     <> "ENode2First: " <> show eNode2First <> "\n"
+                                     <> "ENode2Last: " <> show eNode2Last <> "\n"
+                                     <> "origINodeSet: " <> show origINodeSet <> "\n"
+                                     <> "myINode: " <> show myINode <> "\n"
+                                     <> "pLines: " <> show pLines <> "\n"
+                                     <> "pLine1: " <> show pLine1 <> "\n"
+                                     <> "pLine2: " <> show pLine2 <> "\n"
         placeFacesBeneath :: (ProjectiveLine, PLine2Err) -> [Face]
         placeFacesBeneath pLine
          | isENode eNodeSet (fst pLine)                              = [] -- don't climb down an enode, you're done
@@ -209,16 +233,14 @@ getFaces' origINodeSet eNodeSet iNodeSet iNode = findFacesRecurse iNode myPLines
 -- | Create a single face covering the space between two PLine.
 --   Both PLines must be a part of the same INode.
 --   No other PLines from this iNode must travel between the two given PLines.
-areaBetween :: ENodeSet -> Maybe INodeSet -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> Face
-areaBetween (ENodeSet (Slist [] _)) _ _ _ = error "no sides?"
-areaBetween (ENodeSet (Slist (_:_:_) _)) _ _ _ = error "too many sides?"
-areaBetween eNodeSet@(ENodeSet (Slist [_] _)) iNodeSet pLine1 pLine2
+areaBetween :: ENodeSet -> Maybe INodeSet -> (ProjectiveLine, PLine2Err) -> ENode -> (ProjectiveLine, PLine2Err) -> ENode -> Face
+areaBetween (ENodeSet (Slist [] _)) _ _ _ _ _ = error "no sides?"
+areaBetween (ENodeSet (Slist (_:_:_) _)) _ _ _ _ _ = error "too many sides?"
+areaBetween eNodeSet@(ENodeSet (Slist [_] _)) iNodeSet pLine1 eNode1 pLine2 eNode2
   | getFirstLineSeg eNode1 == getLastLineSeg eNode2 = faceOrError eNode1 (arcsToLastDescendent pLine1) (arcsToFirstDescendent pLine2) eNode2
   | getLastLineSeg eNode1 == getFirstLineSeg eNode2 = faceOrError eNode2 (arcsToLastDescendent pLine2) (arcsToFirstDescendent pLine1) eNode1
   | otherwise = error $ "found ENodes that do not follow.\n" <> show eNode1 <> "\n" <> show eNode2 <> "\n" <> show eNodeSet <> "\n" <> show iNodeSet <> "\n"
   where
-    eNode1 = lastDescendent eNodeSet iNodeSet pLine1
-    eNode2 = firstDescendent eNodeSet iNodeSet pLine2
     arcsToLastDescendent myPLine
       | getFirstLineSeg eNode1 == getLastLineSeg eNode2 = flipArc <$> pathToLastDescendent eNodeSet iNodeSet myPLine
       | getLastLineSeg eNode1 == getFirstLineSeg eNode2 = pathToLastDescendent eNodeSet iNodeSet myPLine
