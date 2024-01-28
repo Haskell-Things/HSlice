@@ -27,7 +27,13 @@ jobs:
         uses: "actions/cache/restore@v4"
         with:
           key: "${{ runner.os }}-${{ matrix.ghc }}-cabal-${{ hashFiles('cabal.project.freeze') }}"
-          path: "${{ steps.setup-haskell-cabal.outputs.cabal-store }} dist-newstyle"
+          path: |
+            "${{ steps.setup-haskell-cabal.outputs.cabal-store }}"
+            ~/.cabal/packages
+            ~/.cabal/store
+            ~/.cabal/bin
+            dist-newstyle
+            ~/.local/bin
       - name: Install dependencies
         run: cabal build all --enable-tests --enable-benchmarks --only-dependencies
       - name: build all
@@ -36,7 +42,13 @@ jobs:
         uses: "actions/cache/save@v4"
         with:
           key: "${{ runner.os }}-${{ matrix.ghc }}-cabal-${{ hashFiles('cabal.project.freeze') }}"
-          path: "${{ steps.setup-haskell-cabal.outputs.cabal-store }} dist-newstyle"
+          path: |
+            "${{ steps.setup-haskell-cabal.outputs.cabal-store }}"
+            ~/.cabal/packages
+            ~/.cabal/store
+            ~/.cabal/bin
+            dist-newstyle
+            ~/.local/bin
     strategy:
       matrix:
         cabal:
@@ -71,7 +83,13 @@ jobs:
         id: build-hslice-restore
         with:
           key: "${{ runner.os }}-${{ matrix.ghc }}-cabal-${{ hashFiles('cabal.project.freeze') }}"
-          path: "${{ steps.setup-haskell-cabal.outputs.cabal-store }} dist-newstyle"
+          path: |
+            "${{ steps.setup-haskell-cabal.outputs.cabal-store }}"
+            ~/.cabal/packages
+            ~/.cabal/store
+            ~/.cabal/bin
+            dist-newstyle
+            ~/.local/bin
       - name: Install dependencies
         run: cabal build all --enable-tests --enable-benchmarks --only-dependencies
       - name: build all
@@ -80,7 +98,13 @@ jobs:
         uses: "actions/cache/save@v4"
         with:
           key: "${{ runner.os }}-${{ matrix.ghc }}-cabal-${{ hashFiles('cabal.project.freeze') }}"
-          path: "${{ steps.setup-haskell-cabal.outputs.cabal-store }} dist-newstyle"
+          path: |
+            "${{ steps.setup-haskell-cabal.outputs.cabal-store }}"
+            ~/.cabal/packages
+            ~/.cabal/store
+            ~/.cabal/bin
+            dist-newstyle
+            ~/.local/bin
       - name: test all
         run: cabal test test-hslice --enable-tests
     strategy:
