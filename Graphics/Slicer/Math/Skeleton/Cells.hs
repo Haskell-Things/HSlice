@@ -563,7 +563,7 @@ matchDirectionOfSegments firstSegOfNodeTree lastSegOfNodeTree (CellDivide (Divid
       | lastSegOfNodeTree == outSeg = LastFirst
       | otherwise = NoMatch
 
--- adjust the last output of the NodeTree so that it goes through the line it's supposed to.
+-- | Adjust the last inode of the NodeTree's output so that it goes through the line it's supposed to.
 redirectLastOut :: NodeTree -> (ProjectiveLine, PLine2Err) -> NodeTree
 redirectLastOut inNodeTree@(NodeTree eNodes maybeINodeSet) myCrossoverLine
   | isJust maybeINodeSet =
@@ -645,12 +645,12 @@ nodeTreeFromDivision cellDivision@(CellDivide motorcycles target) crossoverIn cr
 -- Note: If we are using the motorcycle as an out, we use nothing as an out, and use the motorcycle as an in.
 iNodeOfENodeDivision :: CellDivide -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> INodeDirection -> MaybeMatch -> ENode -> INode
 iNodeOfENodeDivision cellDivision crossoverIn crossoverOut iNodeDirection matchDirection eNode
+  -- FIXME: we don't care about match direction here? flipping the order causes fun. maybe call a sort instead of hand building this?
+  | iNodeDirection == TowardMotorcycle = makeINode [eNodeOut, crossoverIn, motorcycle, crossoverOut] Nothing
   | iNodeDirection == TowardOut && matchDirection == LastFirst = makeINode [motorcycle, crossoverIn, eNodeOut] (Just crossoverOut)
   | iNodeDirection == TowardOut && matchDirection == FirstLast = makeINode [eNodeOut, crossoverIn, motorcycle] (Just crossoverOut)
   | iNodeDirection == TowardIn  && matchDirection == LastFirst = makeINode [motorcycle, crossoverOut, eNodeOut] (Just crossoverIn)
   | iNodeDirection == TowardIn  && matchDirection == FirstLast = makeINode [eNodeOut, crossoverOut, motorcycle] (Just crossoverIn)
-  | iNodeDirection == TowardMotorcycle && matchDirection == LastFirst = makeINode [crossoverOut, motorcycle, crossoverIn, eNodeOut] Nothing
-  | iNodeDirection == TowardMotorcycle && matchDirection == FirstLast = makeINode [eNodeOut, crossoverIn, motorcycle, crossoverOut] Nothing
   | matchDirection == NoMatch = error "no match!"
   | otherwise = error "wtf!"
   where
@@ -662,12 +662,12 @@ iNodeOfENodeDivision cellDivision crossoverIn crossoverOut iNodeDirection matchD
 -- Note: If we are using the motorcycle as an out, we use nothing as an out, and use the motorcycle as an in.
 iNodeOfPlainDivision :: CellDivide -> (ProjectiveLine, PLine2Err) -> (ProjectiveLine, PLine2Err) -> INodeDirection -> MaybeMatch -> INode
 iNodeOfPlainDivision cellDivision crossoverIn crossoverOut iNodeDirection matchDirection
+  -- FIXME: we don't care about match direction here? flipping the order causes fun. maybe call a sort instead of hand building this?
+  | iNodeDirection == TowardMotorcycle = makeINode [crossoverIn, motorcycle, crossoverOut] Nothing
   | iNodeDirection == TowardOut && matchDirection == LastFirst = makeINode [motorcycle, crossoverIn] (Just crossoverOut)
   | iNodeDirection == TowardOut && matchDirection == FirstLast = makeINode [crossoverIn, motorcycle] (Just crossoverOut)
   | iNodeDirection == TowardIn  && matchDirection == LastFirst = makeINode [motorcycle, crossoverOut] (Just crossoverIn)
   | iNodeDirection == TowardIn  && matchDirection == FirstLast = makeINode [crossoverOut, motorcycle] (Just crossoverIn)
-  | iNodeDirection == TowardMotorcycle && matchDirection == LastFirst = makeINode [crossoverOut, motorcycle, crossoverIn] Nothing
-  | iNodeDirection == TowardMotorcycle && matchDirection == FirstLast = makeINode [crossoverIn, motorcycle, crossoverOut] Nothing
   | matchDirection == NoMatch = error "no match!"
   | otherwise = error "wtf!"
   where

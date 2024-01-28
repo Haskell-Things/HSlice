@@ -23,7 +23,7 @@ module Math.Geometry.ConvexBisectableQuad (
   convexBisectableQuadSpec
   ) where
 
-import Prelude (Bool, Show(show), ($), (<$>), error)
+import Prelude (Bool, Show(show), (<), ($), (<$>), error)
 
 -- The Maybe library.
 import Data.Maybe (fromMaybe)
@@ -47,7 +47,7 @@ import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint)
 import Graphics.Slicer.Math.PGA (outAndErrOf)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), randomConvexBisectableQuad)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), generationsOf, oneNodeTreeOf, randomConvexBisectableQuad)
 
 -- Our logic for dividing a contour into cells, which each get nodetrees for them, which are combined into a straight skeleton.
 import Graphics.Slicer.Math.Skeleton.Cells (findDivisions)
@@ -57,6 +57,9 @@ import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour)
 
 -- The portion of our library that reasons about motorcycles, emiting from the concave nodes of our contour.
 import Graphics.Slicer.Math.Skeleton.Motorcycles (crashMotorcycles)
+
+-- The entry point for getting the straight skeleton of a contour.
+import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
 -- Shared tests, between different geometry.
 import Math.Geometry.CommonTests (prop_CanPlaceFaces, prop_ENodeArcsIntersectAtSamePoint, prop_FacesAllWoundLeft, prop_FacesHaveThreeSides, prop_FacesInOrder, prop_HasFourFaces, prop_HasAStraightSkeleton, prop_NodeTreeHasFewerThanThreeGenerations, prop_NoDivides, prop_NoMotorcycles, prop_StraightSkeletonHasOneNodeTree)
@@ -85,15 +88,29 @@ unit_ConvexBisectableQuadENodeArcsIntersectAtSamePoint = retVal
     retVal = intersectionsAtSamePoint nodeOutsAndErrs
     nodeOutsAndErrs = outAndErrOf <$> eNodes
     eNodes = eNodesOfOutsideContour convexBisectableQuad
-    convexBisectableQuad = randomConvexBisectableQuad centerX centerY rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
-    centerX,centerY :: ℝ
-    centerX = -1.0
-    centerY = 0.0
+    convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+    x,y :: ℝ
+    x = -1.0
+    y = 0.0
     rawFirstTilt = Radian 1.0
     rawSecondTilt = Radian 4.1
     rawFirstDistanceToCorner, rawSecondDistanceToCorner :: Positive ℝ
     rawFirstDistanceToCorner = 3.0
     rawSecondDistanceToCorner = 1.0e-3
+
+-- | Causes the generation of a backwards going insideArc in sortPLinesByReferenceSafe. Error filtered out, for now.
+unit_ConvexBisectableQuadNodeTreeHasFewerThanThreeGenerations :: Bool
+unit_ConvexBisectableQuadNodeTreeHasFewerThanThreeGenerations = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton convexBisectableQuad []) < 3
+  where
+    convexBisectableQuad = randomConvexBisectableQuad x y rawFirstTilt rawSecondTilt rawFirstDistanceToCorner rawSecondDistanceToCorner
+    x,y :: ℝ
+    x = -0.0
+    y = 2.0
+    rawFirstTilt = Radian 0.5
+    rawSecondTilt = Radian 0.48
+    rawFirstDistanceToCorner, rawSecondDistanceToCorner :: Positive ℝ
+    rawFirstDistanceToCorner = 20.0
+    rawSecondDistanceToCorner = 6.0e-2
 
 -- | Tests that are expected to fail.
 convexBisectableQuadBrokenSpec :: Spec
@@ -118,6 +135,8 @@ convexBisectableQuadSpec = do
       property (expectationFromConvexBisectableQuad prop_StraightSkeletonHasOneNodeTree)
     it "generates fewer than three generations of INodes" $
       property (boolFromConvexBisectableQuad prop_NodeTreeHasFewerThanThreeGenerations)
+    it "generates fewer than three generations of INodes (unit)" $
+      unit_ConvexBisectableQuadNodeTreeHasFewerThanThreeGenerations
     it "finds that all of the outArcs of the ENodes intersect at the same point" $
       property (boolFromConvexBisectableQuad prop_ENodeArcsIntersectAtSamePoint)
     it "can place faces on the straight skeleton" $

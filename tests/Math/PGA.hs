@@ -80,7 +80,7 @@ import Graphics.Slicer.Machine.Infill (InfillType(Horiz, Vert), makeInfill)
 -- Our Facet library.
 import Graphics.Slicer.Math.Arcs (towardIntersection)
 import Graphics.Slicer.Math.Skeleton.Concave (averageNodes, makeENode, makeENodes)
-import Graphics.Slicer.Math.Skeleton.Definitions (INode(INode), Motorcycle(Motorcycle), getFirstLineSeg, getLastLineSeg, sortPLinesByReference)
+import Graphics.Slicer.Math.Skeleton.Definitions (INode(INode), Motorcycle(Motorcycle), getFirstLineSeg, getLastLineSeg, sortPLinesByReference, sortPLinesByReferenceSafe)
 import Graphics.Slicer.Math.Skeleton.Motorcycles (convexMotorcycles, crashMotorcycles)
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
 
@@ -1765,6 +1765,46 @@ facetSpec = do
     it "flips a contour (unit)"
       unit_ContourFlip1
   describe "Sorting (Skeleton)" $ do
+    it "sorts PLines safely (normal ID)" $
+      sortPLinesByReferenceSafe pl1 [pl3, pl2] --> [pl3, pl2]
+    it "sorts PLines safely (normal 1)" $
+      sortPLinesByReferenceSafe pl1 [pl2, pl3] --> [pl3, pl2]
+    it "sorts PLines safely (normal 2)" $
+      sortPLinesByReferenceSafe pl3 [pl2, pl1] --> [pl2, pl1]
+    it "sorts PLines safely (normal 3)" $
+      sortPLinesByReferenceSafe pl2 [pl1, pl3] --> [pl1, pl3]
+    it "sorts PLines safely (anticolinear ID)" $
+      sortPLinesByReferenceSafe pl1 [pl4, pl2] --> [pl4, pl2]
+    it "sorts PLines safely (anticolinear 1)" $
+      sortPLinesByReferenceSafe pl1 [pl2, pl4] --> [pl4, pl2]
+    it "sorts PLines safely (anticolinear 2)" $
+      sortPLinesByReferenceSafe pl4 [pl1, pl2] --> [pl2, pl1]
+    it "sorts PLines safely (anticolinear 3)" $
+      sortPLinesByReferenceSafe pl2 [pl4, pl1] --> [pl1, pl4]
+    it "sorts PLines safely (anticolinear 4)" $
+      sortPLinesByReferenceSafe pl1 [pl2, pl4, pl3] --> [pl3, pl4, pl2]
+    it "sorts PLines safely (anticolinear 4A)" $
+      sortPLinesByReferenceSafe pl1 [pl4, pl3, pl2] --> [pl3, pl4, pl2]
+    it "sorts PLines safely (anticolinear 4B)" $
+      sortPLinesByReferenceSafe pl1 [pl3, pl2, pl4] --> [pl3, pl4, pl2]
+    it "sorts PLines safely (anticolinear 4C)" $
+      sortPLinesByReferenceSafe pl1 [pl3, pl4, pl2] --> [pl3, pl4, pl2]
+    it "sorts PLines safely (anticolinear 4D)" $
+      sortPLinesByReferenceSafe pl1 [pl4, pl2, pl3] --> [pl3, pl4, pl2]
+    it "sorts PLines safely (anticolinear 4E)" $
+      sortPLinesByReferenceSafe pl1 [pl2, pl3, pl4] --> [pl3, pl4, pl2]
+    it "sorts PLines safely (anticolinear 5)" $
+      sortPLinesByReferenceSafe pl3 [pl1, pl2, pl4] --> [pl4, pl2, pl1]
+    it "sorts PLines safely (anticolinear 5A)" $
+      sortPLinesByReferenceSafe pl3 [pl2, pl4, pl1] --> [pl4, pl2, pl1]
+    it "sorts PLines safely (anticolinear 5B)" $
+      sortPLinesByReferenceSafe pl3 [pl4, pl1, pl2] --> [pl4, pl2, pl1]
+    it "sorts PLines safely (anticolinear 6)" $
+      sortPLinesByReferenceSafe pl4 [pl3, pl1, pl2] --> [pl2, pl1, pl3]
+    it "sorts PLines safely (anticolinear 7)" $
+      sortPLinesByReferenceSafe pl2 [pl4, pl3, pl1] --> [pl1, pl3, pl4]
+    it "sorts PLines safely (rectangle 1)" $
+      sortPLinesByReferenceSafe pl7 [pl6, pl5] --> [pl5, pl6]
     it "sorts PLines (normal ID)" $
       sortPLinesByReference pl1 [pl3, pl2] --> [pl3, pl2]
     it "sorts PLines (normal 1)" $
@@ -1803,6 +1843,8 @@ facetSpec = do
       sortPLinesByReference pl4 [pl3, pl1, pl2] --> [pl2, pl1, pl3]
     it "sorts PLines (anticolinear 7)" $
       sortPLinesByReference pl2 [pl4, pl3, pl1] --> [pl1, pl3, pl4]
+    it "sorts PLines (rectangle 1)" $
+      sortPLinesByReference pl7 [pl6, pl5] --> [pl5, pl6]
   where
       c1 = makePointContour [Point2 (-1,-1), Point2 (0,0), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
       -- The next corners are part of a 2x2 square around the origin with a piece missing: (c2 from above)
@@ -1834,3 +1876,6 @@ facetSpec = do
       pl3 = eToPL $ makeLineSeg (Point2 (-3,-3)) (Point2 (0,0))
       -- a line to the origin, from the negative Y direction
       pl4 = eToPL $ makeLineSeg (Point2 (0,-4)) (Point2 (0,0))
+      pl5 = eToPL $ makeLineSeg (Point2 (1,0.5)) (Point2 (0.5,0))
+      pl6 = eToPL $ makeLineSeg (Point2 (1,-0.5)) (Point2 (0.5,0))
+      pl7 = eToPL $ makeLineSeg (Point2 (0.5,0)) (Point2 (-0.5,0))

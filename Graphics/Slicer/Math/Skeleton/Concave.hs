@@ -70,7 +70,7 @@ import Graphics.Slicer.Math.Lossy (distanceBetweenPPointsWithErr)
 
 import Graphics.Slicer.Math.PGA (Arcable(hasArc, outOf), Pointable(canPoint), ProjectiveLine, PLine2Err, cPPointAndErrOf, cPPointOf, distance2PP, flipL, join2PP, outAndErrOf, pLineIsLeft)
 
-import Graphics.Slicer.Math.Skeleton.Definitions (ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concaveLines, finalINodeOf, finalOutOf, firstInOf, getFirstLineSeg, getLastLineSeg, getPairs, indexPLinesTo, insOf, isLoop, linePairs, loopOfSegSets, makeENode, makeENodes, makeInitialGeneration, makeINode, makeSide, sortedPLines, sortPLinePair)
+import Graphics.Slicer.Math.Skeleton.Definitions (ENode, ENodeSet(ENodeSet), INode(INode), INodeSet(INodeSet), NodeTree(NodeTree), concaveLines, finalINodeOf, finalOutOf, firstInOf, getFirstLineSeg, getLastLineSeg, getPairs, insOf, isLoop, linePairs, loopOfSegSets, makeENode, makeENodes, makeInitialGeneration, makeINode, makeSide, sortPLinePair, sortPLinesByReferenceSafe)
 
 import Graphics.Slicer.Math.Skeleton.NodeTrees (makeNodeTree, findENodeByOutput, findINodeByOutput)
 
@@ -524,14 +524,14 @@ sortINodesByENodes loop eNodes inSegSets inINodeSet@(INodeSet inChildGenerations
         withoutPLine :: (ProjectiveLine, PLine2Err) -> [(ProjectiveLine, PLine2Err)] -> [(ProjectiveLine, PLine2Err)]
         withoutPLine myPLine = filter (\a -> fst a /= fst myPLine)
 
-    -- Order the input nodes of an INode.
+    -- Order the inputs of an INode.
     orderInsByENodes :: INode -> INode
     orderInsByENodes inode@(INode _ _ _ out)
       | isJust out = outRes
       | otherwise = noOutRes
         where
-          outRes = makeINode (indexPLinesTo flippedOut $ sortedPLines $ insOf inode) out
-          noOutRes = makeINode (indexPLinesTo firstPLine $ sortedPLines $ indexPLinesTo firstPLine $ insOf inode) Nothing
+          outRes = makeINode (sortPLinesByReferenceSafe flippedOut $ insOf inode) out
+          noOutRes = makeINode (sortPLinesByReferenceSafe firstPLine $ insOf inode) Nothing
           flippedOut = case out of
                          (Just (outPLine, outPLineErr)) -> (flipL outPLine, outPLineErr)
                          Nothing -> error "tried to evaluate flippedOut when out was Nothing."

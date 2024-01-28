@@ -23,7 +23,7 @@ module Math.Geometry.Square (
   squareSpec
   ) where
 
-import Prelude (Bool(True), Show(show), ($), (/), (<>), (<$>), error, length, otherwise)
+import Prelude (Bool(True), Show(show), (<), ($), (/), (<>), (<$>), error, length, otherwise)
 
 -- The List library.
 import Data.List (head)
@@ -57,7 +57,7 @@ import Graphics.Slicer.Math.Intersections (intersectionsAtSamePoint)
 import Graphics.Slicer.Math.PGA (outAndErrOf)
 
 -- The functions for generating random geometry, for testing purposes.
-import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), randomSquare)
+import Graphics.Slicer.Math.RandomGeometry (Radian(Radian), generationsOf, oneNodeTreeOf, randomSquare)
 
 -- The logic for creating straight skeletons from concave contours.
 import Graphics.Slicer.Math.Skeleton.Concave (eNodesOfOutsideContour)
@@ -170,6 +170,18 @@ unit_SquareFacesInsetWithoutRemainder = (length insetContours, length remainingF
     distanceToCorner :: Positive ℝ
     distanceToCorner = Positive 2.0e-3
 
+-- | Failed to find a reference when sorting PLines. Fixed.
+unit_SquareFacesFewerThanThreeGenerations :: Bool
+unit_SquareFacesFewerThanThreeGenerations = generationsOf (oneNodeTreeOf $ fromMaybe (error "no straight skeleton?") $ findStraightSkeleton square []) < 3
+  where
+    square = randomSquare x y tilt distanceToCorner
+    x,y :: ℝ
+    x = 0.2
+    y = 0.0
+    tilt = Radian 1.5
+    distanceToCorner :: Positive ℝ
+    distanceToCorner = Positive 1.0
+
 squareBrokenSpec :: Spec
 squareBrokenSpec = do
   describe "Squares" $
@@ -189,6 +201,8 @@ squareSpec = do
       property (expectationFromSquare prop_StraightSkeletonHasOneNodeTree)
     it "has fewer than three generations of INodes in the NodeTree" $
       property (boolFromSquare prop_NodeTreeHasFewerThanThreeGenerations)
+    it "has fewer than three generations of INodes in the NodeTree (unit)" $
+      unit_SquareFacesFewerThanThreeGenerations
     it "finds that all of the outArcs of the ENodes intersect at the same point" $
       property (boolFromSquare prop_ENodeArcsIntersectAtSamePoint)
     it "can place faces on the straight skeleton" $
