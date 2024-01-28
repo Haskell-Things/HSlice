@@ -22,9 +22,9 @@ jobs:
           fi
       - name: freeze
         run: cabal freeze
-      - uses: "actions/cache/restore@v4"
       - name: Restore build artifacts
         id: build-hslice-restore
+        uses: "actions/cache/restore@v4"
         with:
           key: "${{ runner.os }}-${{ matrix.ghc }}-cabal-${{ hashFiles('cabal.project.freeze') }}"
           path: "${{ steps.setup-haskell-cabal.outputs.cabal-store }} dist-newstyle"
@@ -32,8 +32,8 @@ jobs:
         run: cabal build all --enable-tests --enable-benchmarks --only-dependencies
       - name: build all
         run: cabal build all --enable-tests --enable-benchmarks
-      - uses: "actions/cache/save@v4"
       - name: Save build artifacts
+        uses: "actions/cache/save@v4"
         with:
           key: "${{ runner.os }}-${{ matrix.ghc }}-cabal-${{ hashFiles('cabal.project.freeze') }}"
           path: "${{ steps.setup-haskell-cabal.outputs.cabal-store }} dist-newstyle"
@@ -66,8 +66,8 @@ jobs:
           fi
       - name: freeze
         run: cabal freeze
-      - uses: "actions/cache/restore@v4"
       - name: Restore build artifacts
+        uses: "actions/cache/restore@v4"
         id: build-hslice-restore
         with:
           key: "${{ runner.os }}-${{ matrix.ghc }}-cabal-${{ hashFiles('cabal.project.freeze') }}"
@@ -76,8 +76,8 @@ jobs:
         run: cabal build all --enable-tests --enable-benchmarks --only-dependencies
       - name: build all
         run: cabal build all --enable-tests --enable-benchmarks
-      - uses: "actions/cache/save@v4"
       - name: Save build artifacts
+        uses: "actions/cache/save@v4"
         with:
           key: "${{ runner.os }}-${{ matrix.ghc }}-cabal-${{ hashFiles('cabal.project.freeze') }}"
           path: "${{ steps.setup-haskell-cabal.outputs.cabal-store }} dist-newstyle"
