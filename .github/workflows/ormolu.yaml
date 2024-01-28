@@ -8,18 +8,26 @@ jobs:
   ormolu:
     runs-on: ubuntu-latest
     steps:
-      - uses: "actions/checkout@v1"
+      - uses: "actions/checkout@v3"
 
-      - uses: "haskell/actions/setup@v1"
+      - uses: "haskell-actions/setup@v2"
         with:
           cabal-version: "${{ matrix.cabal }}"
           enable-stack: false
           ghc-version: "${{ matrix.ghc }}"
-
+      - name: Update Hackage repository
+        run: cabal update
+      - name: cabal.project.local.ci
+        run: |
+          if [ -e cabal.project.local.ci ]; then
+            cp cabal.project.local.ci cabal.project.local
+          fi
+      - name: freeze
+        run: cabal freeze
       - uses: "actions/cache@v2"
         name: Cache
         with:
-          key: "${{ runner.os }}"
+          key: "${{ runner.os }}-${{ matrix.ghc }}-cabal-${{ hashFiles('cabal.project.freeze') }}"
           path: |
             "${{ steps.setup-haskell-cabal.outputs.cabal-store }}"
             ~/.cabal/packages
@@ -32,11 +40,11 @@ jobs:
         run: |
           export PATH=$PATH:$HOME/.cabal/bin:$HOME/.local/bin
           export ORMOLU_VERSION=$(cat ./layout/ormolu.version)
-          (ormolu -v 2>/dev/null | grep -q $ORMOLU_VERSION) || (cabal update && cabal install ormolu --constraint="ormolu ==$ORMOLU_VERSION")
+          (ormolu -v 2>/dev/null | grep -q $ORMOLU_VERSION) || (cabal install ormolu --constraint="ormolu ==$ORMOLU_VERSION")
           test -e $HOME/.local/bin/yq || pip3 install yq
         shell: bash
 
-      - name: Ormolu
+      - name: Run Ormolu
         run: |
           export PATH=$PATH:$HOME/.cabal/bin:$HOME/.local/bin
           ./layout/ormolu.sh -c
