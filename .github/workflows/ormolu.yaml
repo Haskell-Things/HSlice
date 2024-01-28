@@ -45,6 +45,6 @@ jobs:
     strategy:
       matrix:
         cabal:
-          - '3.6.2.0'
+          - '3.10'
         ghc:
-          - '8.8.1'
+          - '9.4.6'
