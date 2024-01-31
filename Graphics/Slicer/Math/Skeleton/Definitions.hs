@@ -414,7 +414,7 @@ ancestorsOf :: INodeSet -> [INodeSet]
 ancestorsOf (INodeSet children _)
   | isEmpty children = []
   | otherwise = case SL.last children of
-                  [] -> error "encountered an empty generation."
+                  [] -> [] -- error $ "encountered an empty generation: \n" <> show children <> "\n"
                   [a] -> [INodeSet (SL.init children) a]
                   newParents -> case SL.init children of
                                   (Slist [] 0) -> INodeSet mempty <$> newParents

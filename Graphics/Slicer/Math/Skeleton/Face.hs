@@ -216,11 +216,11 @@ getFaces' origINodeSet eNodeSet iNodeSet iNode = findFacesRecurse iNode myPLines
          | isENode eNodeSet (fst pLine)                              = [] -- don't climb down an enode, you're done
          | hasArc myINode && isCollinear (outAndErrOf myINode) pLine = [] -- don't try to climb back up the tree
          | isNothing iNodeSet = error "we need INodes here."
-         | ancestorsOf (fromJust iNodeSet) /= [] = myGetFaces $ onlyOne $ filter (\a -> outAndErrOf (finalINodeOf a) == pLine) $ ancestorsOf (fromJust iNodeSet)
+         | not $ null (ancestorsOf $ fromJust iNodeSet) = myGetFaces $ onlyOne $ filter (\a -> outAndErrOf (finalINodeOf a) == pLine) $ ancestorsOf (fromJust iNodeSet)
          | otherwise = error "no between to plant?"
           where
             onlyOne :: (Show a) => [a] -> a
-            onlyOne [] = error "no item"
+            onlyOne [] = error $ "no item!\n" <> show pLine <> "\n" <> show iNodeSet <> "\n"
             onlyOne [a] = a
             onlyOne xs = error $ "too many items." <> show xs <> "\n"
             myGetFaces newINodeSet
