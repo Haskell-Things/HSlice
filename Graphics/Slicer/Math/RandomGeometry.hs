@@ -71,6 +71,8 @@ import Data.List.Unique (allUnique)
 
 import Data.Maybe (Maybe(Nothing, Just), fromJust, fromMaybe, isJust)
 
+import Linear (V2(V2))
+
 import Math.Tau (tau)
 
 import Numeric (pi)
@@ -193,7 +195,7 @@ randomTriangle centerX centerY rawRadians rawDists = randomStarPoly centerX cent
                             a3 = (ad+0.2, if aa == 0 then 0.2 else aa/3)
                             pointAroundCenter :: (Positive ℝ, Radian ℝ) -> ProjectivePoint
                             pointAroundCenter (distanceFromPoint, angle) = translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)
-                            centerPPoint      = eToPP $ Point2 (centerX, centerY)
+                            centerPPoint      = eToPP $ Point2 $ V2 centerX centerY
                         _ -> error "too many points."
     radians :: [Radian ℝ]
     radians = ensureUnique $ coerce rawRadians
@@ -335,10 +337,10 @@ randomStarPoly centerX centerY radianDistPairs = fromMaybe dumpError $ maybeFlip
     contour            = makePointContour points
     points             = pToEPoint2 <$> pointsAroundCenter
     pointsAroundCenter = (\(distanceFromPoint, angle) -> translateRotatePPoint2 centerPPoint (coerce distanceFromPoint) (coerce angle)) <$> radianDistPairs
-    centerPPoint       = eToPP $ Point2 (centerX, centerY)
+    centerPPoint       = eToPP $ Point2 $ V2 centerX centerY
     dumpError          = error $ "failed to flip a contour.\n"
                                <> dumpGanjas ( [toGanja contour,
-                                                toGanja "Center point", toGanja (Point2 (centerX, centerY)),
+                                                toGanja "Center point", toGanja (Point2 $ V2 centerX centerY),
                                                 toGanja "perp PLine", toGanja perpPl,
                                                 toGanja "Other PLine", toGanja otherPl,
                                                 toGanja "First MidPoint", toGanja midPoint,
@@ -369,7 +371,7 @@ randomENode x y d1 rawR1 d2 rawR2 = makeENode p1 intersectionPoint p2
   where
     r1 = rawR1 / 2
     r2 = r1 + (rawR2 / 2)
-    intersectionPoint = Point2 (x,y)
+    intersectionPoint = Point2 $ V2 x y
     pp1 = translateRotatePPoint2 intersectionPPoint (coerce d1) (coerce r1)
     pp2 = translateRotatePPoint2 intersectionPPoint (coerce d2) (coerce r2)
     p1 = pToEPoint2 pp1
@@ -399,25 +401,25 @@ randomPLine x y dx dy = fst $ randomPLineWithErr x y dx dy
 
 -- | A helper function. constructs a random PLine.
 randomPLineWithErr :: ℝ -> ℝ -> NonZero ℝ -> NonZero ℝ -> (ProjectiveLine, PLine2Err)
-randomPLineWithErr x y dx dy = eToPL $ makeLineSeg (Point2 (x, y)) (Point2 (x + coerce dx, y + coerce dy))
+randomPLineWithErr x y dx dy = eToPL $ makeLineSeg (Point2 (V2 x y)) (Point2 (V2 (x + coerce dx) (y + coerce dy)))
 
 -- | A helper function. constructs a random LineSeg.
 randomLineSeg :: ℝ -> ℝ -> ℝ -> ℝ -> LineSeg
-randomLineSeg x y dx dy = makeLineSeg (Point2 (x,y)) (Point2 (dx, dy))
+randomLineSeg x y dx dy = makeLineSeg (Point2 (V2 x y)) (Point2 (V2 dx dy))
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
 randomPLineThroughOrigin :: ℝ -> ℝ -> (ProjectiveLine, PLine2Err)
-randomPLineThroughOrigin x y = eToPL $ makeLineSeg (Point2 (x,y)) (Point2 (0,0))
+randomPLineThroughOrigin x y = eToPL $ makeLineSeg (Point2 (V2 x y)) (Point2 (V2 0 0))
 
 -- | A PLine that does not follow the X = Y line, and does not follow the other given line.
 randomPLineThroughPoint :: ℝ -> ℝ -> ℝ -> (ProjectiveLine, PLine2Err)
-randomPLineThroughPoint x y d = eToPL $ makeLineSeg (Point2 (x,y)) (Point2 (d,d))
+randomPLineThroughPoint x y d = eToPL $ makeLineSeg (Point2 (V2 x y)) (Point2 (V2 d d))
 
 -- | A line segment ending at the origin. additionally, guaranteed not to be on the X = Y line.
 randomLineSegFromPointNotX1Y1 :: ℝ -> ℝ -> ℝ -> LineSeg
 randomLineSegFromPointNotX1Y1 rawX rawY d = res
   where
-    res = makeLineSeg (Point2 (d, d)) (Point2 (x, y))
+    res = makeLineSeg (Point2 (V2 d d)) (Point2 (V2 x y))
     (x, y)
       | rawX == 0 && rawY == 0 = (0,0.1)
       | rawX == rawY = (rawX,0.1)
@@ -427,7 +429,7 @@ randomLineSegFromPointNotX1Y1 rawX rawY d = res
 randomLineSegFromOriginNotX1Y1 :: ℝ -> ℝ -> LineSeg
 randomLineSegFromOriginNotX1Y1 rawX rawY = res
   where
-    res = makeLineSeg (Point2 (0, 0)) (Point2 (x, y))
+    res = makeLineSeg (Point2 (V2 0 0)) (Point2 (V2 x y))
     (x, y)
       | rawX == 0 && rawY == 0 = (0,0.1)
       | rawX == rawY = (rawX,0.1)
@@ -436,14 +438,14 @@ randomLineSegFromOriginNotX1Y1 rawX rawY = res
 randomX1Y1LineSegToOrigin :: NonZero ℝ -> LineSeg
 randomX1Y1LineSegToOrigin rawD = res
   where
-    res = makeLineSeg (Point2 (d,d)) (Point2 (0,0))
+    res = makeLineSeg (Point2 (V2 d d)) (Point2 (V2 0 0))
     d :: ℝ
     d = coerce rawD
 
 randomX1Y1LineSegToPoint :: NonZero ℝ -> ℝ -> LineSeg
 randomX1Y1LineSegToPoint rawD1 d2 = res
   where
-    res = makeLineSeg (Point2 (d1,d1)) (Point2 (d2,d2))
+    res = makeLineSeg (Point2 (V2 d1 d1)) (Point2 (V2 d2 d2))
     d1 :: ℝ
     d1 = coerce rawD1
 

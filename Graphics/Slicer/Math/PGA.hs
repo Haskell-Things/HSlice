@@ -98,6 +98,8 @@ import Data.Maybe (Maybe(Just, Nothing), fromJust, fromMaybe, isJust, isNothing)
 
 import Data.Set (singleton, fromList)
 
+import Linear (V2(V2))
+
 import Numeric.Rounded.Hardware (Rounded, RoundingMode(TowardInf, TowardNegInf))
 
 import Graphics.Slicer.Definitions (ℝ)
@@ -274,7 +276,7 @@ translateRotatePPoint2WithErr point d rotation = (res, resErr)
     -- A line along the X axis, crossing the provided point.
     (xLineThroughPPoint2, (nYLineErr, cPointErr, xLineErr)) = perpLineAt yLine point
     -- A line along the Y axis, crossing the origin.
-    (yLine, yLineErr) = eToPL $ makeLineSeg (Point2 (0,0)) (Point2 (0,1))
+    (yLine, yLineErr) = eToPL $ makeLineSeg (Point2 (V2 0 0)) (Point2 (V2 0 1))
     -- Our rotation motor, which rotates the provided angle around the provided point, in the clockwise direction.
     rotator = addVecPairWithoutErr scaledPVec (GVec [GVal (cos $ rotation/2) (singleton G0)])
     (scaledPVec, scaledPVecErr) = mulScalarVecWithErr (sin $ rotation/2) pVec
@@ -502,7 +504,7 @@ combineConsecutiveLineSegs lines = case lines of
 
 -- | Create a canonical euclidian projective point from the given euclidian point.
 euclidianToProjectivePoint2, eToPP :: Point2 -> ProjectivePoint
-euclidianToProjectivePoint2 (Point2 (x,y)) = res
+euclidianToProjectivePoint2 (Point2 (V2 x y)) = res
   where
     res = makeCPPoint2 x y
 eToPP = euclidianToProjectivePoint2

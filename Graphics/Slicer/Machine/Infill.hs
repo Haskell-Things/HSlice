@@ -37,6 +37,8 @@ import Data.List.Ordered (sort)
 
 import Data.Maybe (Maybe(Just, Nothing), mapMaybe, fromMaybe)
 
+import Linear (V2(V2))
+
 import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point2(Point2), Contour, LineSeg, addPoints, distance, lineSegsOfContour, minMaxPoints, xOf, yOf, roundToFifth)
@@ -111,8 +113,8 @@ coveringPLinesPositive contour ls = makeLine <$> [0,lss..(xMax-xMinRaw)+(yMax-yM
     where
       makeLine a = join2EP (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
-      slope = Point2 (1,1)
-      f v = Point2 (v-xDiff,0)
+      slope = Point2 $ V2 1 1
+      f v = Point2 $ V2 (v-xDiff) 0
       xDiff = -(xMin - yMax)
       yMin = yOf minPoint
       yMax = yOf maxPoint
@@ -131,8 +133,8 @@ coveringPLinesNegative contour ls = makeLine <$> [0,lss..(xMax-xMin)+(yMax-yMin)
     where
       makeLine a = join2EP (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
-      slope =  Point2 (1,-1)
-      f v = Point2 (v+yDiff,0)
+      slope =  Point2 $ V2 1 (-1)
+      f v = Point2 $ V2 (v+yDiff) 0
       yDiff = xMin + yMin
       yMinRaw = yOf minPoint
       yMin = case yMinRaw `compare` 0 of
@@ -151,8 +153,8 @@ coveringPLinesVertical contour ls = makeLine <$> [xMin,xMin+ls..xMax]
     where
       makeLine a = join2EP (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
-      slope = Point2 (0,1)
-      f v = Point2 (v,0)
+      slope = Point2 $ V2 0 1
+      f v = Point2 $ V2 v 0
       xMinRaw = xOf minPoint
       xMin = case xMinRaw `compare` 0 of
         GT -> ls * fromIntegral (ceiling (xMinRaw / ls) :: Integer)
@@ -166,8 +168,8 @@ coveringPLinesHorizontal contour ls = makeLine <$> [yMin,yMin+ls..yMax]
     where
       makeLine a = join2EP (f a) $ addPoints (f a) slope
       (minPoint, maxPoint) = minMaxPoints contour
-      slope = Point2 (1,0)
-      f v = Point2 (0,v)
+      slope = Point2 $ V2  1 0
+      f v = Point2 $ V2 0 v
       yMinRaw = yOf minPoint
       yMin = case yMinRaw `compare` 0 of
         GT -> ls * fromIntegral (ceiling (yMinRaw / ls) :: Integer)

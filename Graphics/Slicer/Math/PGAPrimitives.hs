@@ -92,6 +92,8 @@ import Graphics.Slicer.Math.Definitions (Point2(Point2))
 
 import Graphics.Slicer.Math.GeometricAlgebra (ErrVal(ErrVal), GNum(G0, GEPlus, GEZero), GVal(GVal), GVec(GVec), UlpSum(UlpSum), (⎣+), (⎤+), (∧+), (•), addErr, addValWithoutErr, addVecPairWithErr, addVecPairWithoutErr, divVecScalarWithErr, eValOf, getVal, mulScalarVecWithErr, scalarPart, sumErrVals, ulpRaw, valOf)
 
+import Linear (V2(V2))
+
 --------------------------------
 --- common support functions ---
 --------------------------------
@@ -485,7 +487,7 @@ pLineErrAtPPoint (line, lineErr) errPoint
     xInterceptDistance = fromRight 0 $ fst $ fromJust $ xIntercept (nPLine, nPLineErr)
     yInterceptDistance = fromRight 0 $ fst $ fromJust $ yIntercept (nPLine, nPLineErr)
     -- FIXME: collect this error, and take it into account.
-    (Point2 (xPos,yPos),_) = pToEP errPoint
+    (Point2 (V2 xPos yPos),_) = pToEP errPoint
     nPLineErr = nPLineErrRaw <> lineErr
     (nPLine, nPLineErrRaw) = normalizeL line
 
@@ -787,7 +789,7 @@ idealNormOfProjectivePoint point
     (x,y)
      | e12Val == 0 = ( negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] rawVals
                      ,          valOf 0 $ getVal [GEZero 1, GEPlus 1] rawVals)
-     | otherwise = (\(Point2 (x1,y1),_) -> (x1,y1)) $ pToEP point
+     | otherwise = (\(Point2 (V2 x1 y1),_) -> (x1,y1)) $ pToEP point
     e12Val = valOf 0 (getVal [GEPlus 1, GEPlus 2] rawVals)
     (GVec rawVals) = vecOfP point
 -- | Wrapper.
@@ -856,7 +858,7 @@ projectivePointToEuclidianPoint point
  | projectivePointIsIdeal point = error "Attempted to create an infinite point when trying to convert from a Projective Point to a Euclidian Point."
  | otherwise = (res, resErr)
   where
-    res = Point2 (xVal, yVal)
+    res = Point2 $ V2 xVal yVal
     xVal = negate $ valOf 0 $ getVal [GEZero 1, GEPlus 2] vals
     yVal =          valOf 0 $ getVal [GEZero 1, GEPlus 1] vals
     (GVec vals) = vecOfP pointRes

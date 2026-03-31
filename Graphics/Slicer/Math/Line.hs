@@ -24,6 +24,8 @@ import Prelude ((/), (<), ($), (-), otherwise, (&&), (<=), (==), error, zipWith,
 
 import Data.Maybe (Maybe(Just, Nothing))
 
+import Linear (V3(V3))
+
 import Graphics.Slicer.Definitions (ℝ)
 
 import Graphics.Slicer.Math.Definitions (Point3(Point3), LineSeg(LineSeg), Point2, addPoints, scalePoint, zOf, flatten, makeLineSeg)
@@ -56,7 +58,7 @@ pointAtZValue (startPoint,stopPoint) v
   | otherwise = Nothing
   where
     t = (v - zOf lineSegStart) / zOf lineEnd
-    lineEnd = (\ (Point3 (x1,y1,z1)) (Point3 (x2,y2,z2)) -> Point3 (x2-x1, y2-y1, z2-z1)) lineSegStart lineSegEnd
+    lineEnd = (\ (Point3 (V3 x1 y1 z1)) (Point3 (V3 x2 y2 z2)) -> Point3 (V3 (x2-x1) (y2-y1) (z2-z1))) lineSegStart lineSegEnd
     (lineSegStart,lineSegEnd) = if zOf startPoint < zOf stopPoint
-                                then (startPoint,stopPoint)
-                                else (stopPoint,startPoint)
+                                then (startPoint, stopPoint)
+                                else (stopPoint, startPoint)

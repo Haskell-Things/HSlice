@@ -26,6 +26,8 @@ import Data.Maybe (fromMaybe, fromJust)
 
 import GoldenSpec.Util (golden, goldens)
 
+import Linear (V2(V2))
+
 import Test.Hspec (describe, Spec)
 
 import Graphics.Slicer.Math.Skeleton.Skeleton (findStraightSkeleton)
@@ -144,18 +146,18 @@ goldenSpec = describe "golden tests" $ do
                                                   (toGanja <$> (infiniteInset 0.1 $ facesOf $ fromMaybe (error "got Nothing") $ findStraightSkeleton rectangle [])))
   golden "rectangle-Faces-Default" $ facesOf $ fromMaybe (error "no skeleton?") $ findStraightSkeleton rectangle []
     where
-      c0 = makePointContour [Point2 (0,0), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
-      c0l0 = LineSeg (Point2 (0,0)) (Point2 (-1,-1))
-      c1 = makePointContour [Point2 (-1,-1), Point2 (0,0), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
-      c2 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (0,0), Point2 (1,1), Point2 (-1,1)]
-      c3 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (0,0), Point2 (-1,1)]
-      c4 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
-      c5 = makePointContour [Point2 (-1,-1), Point2 (1,-1), Point2 (2,0), Point2 (1,1), Point2 (-1,1), Point2 (0,0)]
-      c6 = makePointContour [Point2 (-1,-1), Point2 (-0.5,-1), Point2 (0,0), Point2 (0.5,-1), Point2 (1,-1), Point2 (1,1), Point2 (-1,1)]
-      c7 = makePointContour [Point2 (0,-1), Point2 (1,-1), Point2 (1,1), Point2 (0.5,1), Point2 (0.5,0), Point2 (0,1), Point2 (-1,1), Point2 (-1,0), Point2 (0,0)]
+      c0 = makePointContour [Point2 (V2 0 0), Point2 (V2 (-1) (-1)), Point2 (V2 1 (-1)), Point2 (V2 1 1), Point2 (V2 (-1) 1)]
+      c0l0 = LineSeg (Point2 (V2 0 0)) (Point2 (V2 (-1) (-1)))
+      c1 = makePointContour [Point2 (V2 (-1) (-1)), Point2 (V2 0 0), Point2 (V2 1 (-1)), Point2 (V2 1 1), Point2 (V2 (-1) 1)]
+      c2 = makePointContour [Point2 (V2 (-1) (-1)), Point2 (V2 1 (-1)), Point2 (V2 0 0), Point2 (V2 1 1), Point2 (V2 (-1) 1)]
+      c3 = makePointContour [Point2 (V2 (-1) (-1)), Point2 (V2 1 (-1)), Point2 (V2 1 1), Point2 (V2 0 0), Point2 (V2 (-1) 1)]
+      c4 = makePointContour [Point2 (V2 (-1) (-1)), Point2 (V2 1 (-1)), Point2 (V2 1 1), Point2 (V2 (-1) 1), Point2 (V2 0 0)]
+      c5 = makePointContour [Point2 (V2 (-1) (-1)), Point2 (V2 1 (-1)), Point2 (V2 2 0), Point2 (V2 1 1), Point2 (V2 (-1) 1), Point2 (V2 0 0)]
+      c6 = makePointContour [Point2 (V2 (-1) (-1)), Point2 (V2 (-0.5) (-1)), Point2 (V2 0 0), Point2 (V2 0.5 (-1)), Point2 (V2 1 (-1)), Point2 (V2 1 1), Point2 (V2 (-1) 1)]
+      c7 = makePointContour [Point2 (V2 0 (-1)), Point2 (V2 1 (-1)), Point2 (V2 1 1), Point2 (V2 0.5 1), Point2 (V2 0.5 0), Point2 (V2 0 1), Point2 (V2 (-1) 1), Point2 (V2 (-1) 0), Point2 (V2 0 0)]
       -- A simple triangle.
-      triangle = makePointContour [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
+      triangle = makePointContour [Point2 (V2 2 0), Point2 (V2 1.0 (sqrt 3)), Point2 (V2 0 0)]
       -- A simple square.
-      square = makePointContour [Point2 (-1,1), Point2 (-1,-1), Point2 (1,-1), Point2 (1,1)]
+      square = makePointContour [Point2 (V2 (-1) 1), Point2 (V2 (-1) (-1)), Point2 (V2 1 (-1)), Point2 (V2 1 1)]
       -- A simple rectangle.
-      rectangle = makePointContour [Point2 (-1.5,1), Point2 (-1.5,-1), Point2 (1.5,-1), Point2 (1.5,1)]
+      rectangle = makePointContour [Point2 (V2 (-1.5) 1), Point2 (V2 (-1.5) (-1)), Point2 (V2 1.5 (-1)), Point2 (V2 1.5 1)]

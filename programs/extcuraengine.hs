@@ -39,7 +39,7 @@ import Control.Monad ((>>=))
 
 import Data.Bool(Bool(True, False), otherwise)
 
-import Data.ByteString.UTF8 (fromString)
+import Data.Text.Lazy.Encoding (encodeUtf8)
 
 import Data.Eq ((==), (/=))
 
@@ -51,7 +51,9 @@ import Data.List.Extra (unsnoc)
 
 import Data.Maybe (Maybe(Just, Nothing), catMaybes, fromMaybe, mapMaybe)
 
-import Data.String (String)
+import Data.String (String, fromString)
+
+import Linear (V2(V2), V3(V3))
 
 import Slist.Type (Slist(Slist))
 
@@ -59,7 +61,7 @@ import System.IO (IO)
 
 import Text.Show(show)
 
-import Data.ByteString (readFile, writeFile, ByteString)
+import Data.ByteString (readFile, writeFile, toStrict, ByteString)
 
 import Data.ByteString.Char8 (unlines)
 
@@ -125,7 +127,7 @@ https://cadquery.readthedocs.io/en/latest/apireference.html#selectors
 ---------------------------------------------------------------------------
 
 centeredTrisFromSTLNonTotal :: BuildArea -> ByteString -> [Tri]
-centeredTrisFromSTLNonTotal (RectArea (bedX,bedY,_)) stl = centeredTrisFromSTL bedX bedY stl
+centeredTrisFromSTLNonTotal (RectArea (V3 bedX bedY _)) stl = centeredTrisFromSTL bedX bedY stl
 centeredTrisFromSTLNonTotal _ _ = error "centeredTrisFromSTLNonTotal: bad arguments."
 
 -- Center triangles relative to the center of the build area.
@@ -133,7 +135,7 @@ centeredTrisFromSTLNonTotal _ _ = error "centeredTrisFromSTLNonTotal: bad argume
 centeredTrisFromSTL :: ℝ -> ℝ -> ByteString -> [Tri]
 centeredTrisFromSTL bedX bedY stl = shiftedTris
     where
-      centerPoint = Point3 (dx,dy,dz)
+      centerPoint = Point3 $ V3 dx dy dz
       shiftedTris = [shiftTri centerPoint tri | tri <- tris] `using` parListChunk (div (length tris) (fromFastℕ threads)) rseq
       tris = trianglesFromSTL threads stl
       (dx,dy,dz) = (bedX/2-x0, bedY/2-y0, -zMin)
@@ -310,12 +312,12 @@ sliceLayer printer print@(Print _ infillRatio _ _ _ _ _ _ ls outerWallBeforeInne
   let
     -- FIXME: make travel gcode from the previous contour's last position?
     travelToContour :: Contour -> [GCode]
-    travelToContour contour = [addFeedRate travelFeedRate $ make3DTravelGCode (Point3 (0,0,0)) (raise $ firstPointOfContour contour)]
+    travelToContour contour = [addFeedRate travelFeedRate $ make3DTravelGCode (Point3 (V3 0 0 0)) (raise $ firstPointOfContour contour)]
     travelBetweenContours :: Contour -> Contour -> [GCode]
     travelBetweenContours source dest = [addFeedRate travelFeedRate $ make2DTravelGCode (firstPointOfContour source) $ firstPointOfContour dest]
     travelFromContourToInfill :: Contour -> [[LineSeg]] -> [GCode]
     travelFromContourToInfill source lines
-     | firstPointOfInfill lines /= Nothing = [addFeedRate travelFeedRate $ make2DTravelGCode (lastPointOfContour source) $ fromMaybe (Point2 (0,0)) $ firstPointOfInfill lines]
+     | firstPointOfInfill lines /= Nothing = [addFeedRate travelFeedRate $ make2DTravelGCode (lastPointOfContour source) $ fromMaybe (Point2 (V2 0 0)) $ firstPointOfInfill lines]
      | otherwise = []
     renderContourTreeSet :: ContourTreeSet -> [GCode]
     renderContourTreeSet (ContourTreeSet firstContourTree moreContourTrees) = renderContourTree firstContourTree <> concatMap renderContourTree  moreContourTrees
@@ -421,7 +423,7 @@ sliceLayer printer print@(Print _ infillRatio _ _ _ _ _ _ ls outerWallBeforeInne
       layerStart = [GCMarkLayerStart layerNumber]
       -- FIXME: make travel gcode from the previous contour's last position?
       travelToLayerChange :: [GCode]
-      travelToLayerChange = [addFeedRate travelFeedRate $ make2DTravelGCode (Point2 (0,0)) $ firstPointOfContour $ firstContourOfContourTreeSet allContours]
+      travelToLayerChange = [addFeedRate travelFeedRate $ make2DTravelGCode (Point2 (V2 0 0)) $ firstPointOfContour $ firstContourOfContourTreeSet allContours]
       -- FIXME: not all support is support. what about supportInterface?
       support :: [GCode]
       support = [] -- if null supportGCode then [] else GCMarkSupportStart : supportGCode
@@ -452,7 +454,7 @@ sliceLayer printer print@(Print _ infillRatio _ _ _ _ _ _ ls outerWallBeforeInne
         | layerNumber == 0 = layer0Speed print
         | otherwise = travelSpeed print
       -- convert a 2D point to a 3D location.
-      raise (Point2 (x,y)) = Point3 (x, y, zHeightOfLayer print layerNumber)
+      raise (Point2 (V2 x y)) = Point3 $ V3 x y (zHeightOfLayer print layerNumber)
       extruder = getExtruder printer
 
 ----------------------------------------------------------
@@ -618,7 +620,7 @@ run rawArgs = do
       inFile = fromMaybe "in.stl" $ inputFileOpt args
     stl <- readFile inFile
     -- FIXME: do something with messages.
-    (settings, _messages) <- addConstants $ settingOpts args
+    (settings, _messages) <- addConstants (settingOpts args) False
     let
       printer   = printerFromSettings settings
       buildarea = getBuildArea printer
@@ -656,12 +658,12 @@ run rawArgs = do
 
               -- FIXME: interpret 'machine_shape', and implement eliptic beds.
               -- The bed of the printer. assumed to be some form of rectangle, with the build area coresponding to all of the space above it.
-              getPrintBed var = RectBed ( fromMaybe 100 $ maybeX var
-                                        , fromMaybe 100 $ maybeY var )
+              getPrintBed var = RectBed $ V2 (fromMaybe 100 $ maybeX var)
+                                             (fromMaybe 100 $ maybeY var)
               -- The area we can print inside of.
-              defaultBuildArea var = RectArea ( fromMaybe 100 $ maybeX var
-                                              , fromMaybe 100 $ maybeY var
-                                              , fromMaybe 100 $ maybeZ var )
+              defaultBuildArea var = RectArea $ V3 (fromMaybe 100 $ maybeX var)
+                                                   (fromMaybe 100 $ maybeY var)
+                                                   (fromMaybe 100 $ maybeZ var)
               -- The Extruder. note that this includes the diameter of the feed filament.
               defaultExtruder :: VarLookup -> Extruder
               defaultExtruder var = Extruder (fromMaybe 2.85 $ maybeFilamentDiameter var)
@@ -739,7 +741,7 @@ run rawArgs = do
 --            maybeTopBottomSpeed (lookupVarIn "speed_topbottom" -> Just (ONum speed)) = Just speed
 --            maybeTopBottomSpeed _ = Nothing
         startingGCode, endingGCode :: VarLookup -> ByteString
-        startingGCode (lookupVarIn "machine_start_gcode" -> Just (OString startGCode)) = fromString startGCode
+        startingGCode (lookupVarIn "machine_start_gcode" -> Just (OString startGCode)) = toStrict $ encodeUtf8 startGCode
         startingGCode _ = ";FLAVOR:Marlin\n"
                        <> "G21 ;metric values\n"
                        <> "G90 ;absolute positioning\n"
@@ -755,7 +757,7 @@ run rawArgs = do
                        <> "G1 F4200 ;default speed\n"
                        <> ";Put printing message on LCD screen\n"
                        <> "M117\n"
-        endingGCode (lookupVarIn "machine_end_gcode" -> Just (OString endGCode)) = fromString endGCode
+        endingGCode (lookupVarIn "machine_end_gcode" -> Just (OString endGCode)) = toStrict $ encodeUtf8 endGCode
         endingGCode _ = ";End GCode\n"
                       <> "M104 S0 ;extruder heater off\n"
                       <> "M140 S0 ;heated bed heater off (if you have it)\n"

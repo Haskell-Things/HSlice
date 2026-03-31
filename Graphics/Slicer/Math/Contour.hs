@@ -53,6 +53,8 @@ import Data.Maybe (Maybe(Just,Nothing), catMaybes, fromJust, fromMaybe, isJust, 
 
 import Data.MemoTrie (memo)
 
+import Linear (V2(V2))
+
 import Slist (len, slist, safeLast, safeLast, safeHead)
 
 import Slist as SL (last)
@@ -314,8 +316,8 @@ mostPerpPointAndLineSeg contour = (resPoint, resSeg)
         lineSegsAndAnglesNeg = [(lineSeg, outsideNegPoint, abs $ fst $ angleBetween2PL (fst $ join2EP outsideNegPoint $ midPoint lineSeg) (eToPLine2 lineSeg)) | lineSeg <- lineSegsOfContour myContour]
         midPoint lineSeg = pointBetweenPoints (startPoint lineSeg) (endPoint lineSeg)
         outsideMidPoint = pointBetweenPoints outsidePosPoint outsideNegPoint
-        outsidePosPoint = Point2 (xOf minPoint - 0.1 , yOf maxPoint + 0.1)
-        outsideNegPoint = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.1)
+        outsidePosPoint = Point2 $ V2 (xOf minPoint - 0.1) (yOf maxPoint + 0.1)
+        outsideNegPoint = Point2 $ V2 (xOf minPoint - 0.1) (yOf minPoint - 0.1)
         (minPoint, maxPoint) = minMaxPoints contour
 
 -- | Find a point that is guaranteed to be outside of the given contour, and is not on the same line as the first line segment of the contour.
@@ -328,7 +330,7 @@ pointFarOutsideContours contour1 contour2
   where
     (minPoint1, _)= minMaxPoints contour1
     (minPoint2, _)= minMaxPoints contour2
-    minPoint      = Point2 (min (xOf minPoint1) (xOf minPoint2),min (yOf minPoint1) (yOf minPoint2))
+    minPoint      = Point2 $ V2 (min (xOf minPoint1) (xOf minPoint2)) (min (yOf minPoint1) (yOf minPoint2))
     (p1, p2)      = firstPointPairOfContour contour1
     (p3, p4)      = firstPointPairOfContour contour2
     firstLine     = join2EP p1 p2
@@ -336,9 +338,9 @@ pointFarOutsideContours contour1 contour2
     line1         = join2EP p1 outsidePoint1
     line2         = join2EP p1 outsidePoint2
     line3         = join2EP p1 outsidePoint3
-    outsidePoint1 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.1)
-    outsidePoint2 = Point2 (xOf minPoint - 0.2 , yOf minPoint - 0.1)
-    outsidePoint3 = Point2 (xOf minPoint - 0.1 , yOf minPoint - 0.2)
+    outsidePoint1 = Point2 $ V2 (xOf minPoint - 0.1) (yOf minPoint - 0.1)
+    outsidePoint2 = Point2 $ V2 (xOf minPoint - 0.2) (yOf minPoint - 0.1)
+    outsidePoint3 = Point2 $ V2 (xOf minPoint - 0.1) (yOf minPoint - 0.2)
 
 -- | return the number of points in a contour.
 numPointsOfContour :: Contour -> Int
@@ -383,8 +385,8 @@ makePointContour points = case points of
                             [p1,p2] -> error $ "tried to create a contour with only two points:\n" <> show p1 <> "\n" <> show p2 <> "\n"
                             (p1:p2:p3:pts) -> PointContour pL pH p1 p2 p3 (slist pts)
   where
-    pL = Point2 (minimum $ xOf <$> points, minimum $ yOf <$> points)
-    pH = Point2 (maximum $ xOf <$> points, maximum $ yOf <$> points)
+    pL = Point2 $ V2 (minimum $ xOf <$> points) (minimum $ yOf <$> points)
+    pH = Point2 $ V2 (maximum $ xOf <$> points) (maximum $ yOf <$> points)
 
 makeLineSegContour :: [LineSeg] -> Contour
 makeLineSegContour lineSegs = case lineSegs of
@@ -395,8 +397,8 @@ makeLineSegContour lineSegs = case lineSegs of
                                            else LineSegContour pL pH l1 l2 (slist [])
                                 (l1:l2:lns) -> LineSegContour pL pH l1 l2 (slist lns)
   where
-    pL = Point2 (minimum $ xOf <$> allPoints, minimum $ yOf <$> allPoints)
-    pH = Point2 (maximum $ xOf <$> allPoints, maximum $ yOf <$> allPoints)
+    pL = Point2 $ V2 (minimum $ xOf <$> allPoints) (minimum $ yOf <$> allPoints)
+    pH = Point2 $ V2 (maximum $ xOf <$> allPoints) (maximum $ yOf <$> allPoints)
     allPoints = case lineSegs of
                   [] -> error "tried to create an empty contour"
                   (x:xs) -> startPoint x:endPoint x:(endPoint <$> xs)

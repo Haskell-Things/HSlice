@@ -48,6 +48,8 @@ import Data.Maybe ( Maybe(Just, Nothing), fromMaybe )
 
 import Control.DeepSeq (NFData)
 
+import Linear (V2(V2), V3(V3))
+
 import Graphics.Slicer.Definitions(ℝ, ℝ2, ℝ3, ℕ, Fastℕ, fromFastℕ)
 
 import Graphics.Slicer.Math.Contour (lastPointOfContour)
@@ -138,7 +140,7 @@ cookGCode printer gcodes threads = do
 
 -- | Construct a GCode to travel to a point without extruding (2D)
 make2DTravelGCode :: Point2 -> Point2 -> GCode
-make2DTravelGCode (Point2 (x1,y1)) (Point2 (x2,y2)) = GCMove2 (x1,y1) (x2,y2)
+make2DTravelGCode (Point2 (V2 x1 y1)) (Point2 (V2 x2 y2)) = GCMove2 (V2 x1 y1) (V2 x2 y2)
 
 -- | Construct a GCode to travel to a point without extruding (3D)
 make3DTravelGCode :: Point3 -> Point3 -> GCode
@@ -146,7 +148,7 @@ make3DTravelGCode (Point3 p1) (Point3 p2) = GCMove3 p1 p2
 
 -- | Construct a GCode to travel to a point while extruding.
 make2DExtrudeGCode :: ℝ -> ℝ -> Point2 -> Point2 -> GCode
-make2DExtrudeGCode pathThickness pathWidth p1@(Point2 (x1,y1)) p2@(Point2 (x2,y2)) = GCRawExtrude2 (x1, y1) (x2, y2) (RawExtrude pathLength pathWidth pathThickness)
+make2DExtrudeGCode pathThickness pathWidth p1@(Point2 (V2 x1 y1)) p2@(Point2 (V2 x2 y2)) = GCRawExtrude2 (V2 x1 y1) (V2 x2 y2) (RawExtrude pathLength pathWidth pathThickness)
   where
     pathLength = distance p1 p2
 
@@ -167,16 +169,16 @@ infixl 9 ~==
 
 -- | Render a GCode into a piece of text, ready to print. Only handles 'cooked' gcode, that has had extrusion values calculated.
 gcodeToText :: GCode -> ByteString
-gcodeToText (GCFeedRate f (GCMove2 (x1,y1) (x2,y2))) = "G0 F" <> posIze f <> " " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ")
+gcodeToText (GCFeedRate f (GCMove2 (V2 x1 y1) (V2 x2 y2))) = "G0 F" <> posIze f <> " " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ")
 
-gcodeToText (GCFeedRate f (GCMove3 (x1,y1,z1) (x2,y2,z2))) = "G0 F" <> posIze f <> " " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2)
-gcodeToText (GCFeedRate f (GCExtrude2 (x1,y1) (x2,y2) e)) = "G1 F" <> posIze f <> " " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> "E" <> posIze e
+gcodeToText (GCFeedRate f (GCMove3 (V3 x1 y1 z1) (V3 x2 y2 z2))) = "G0 F" <> posIze f <> " " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2)
+gcodeToText (GCFeedRate f (GCExtrude2 (V2 x1 y1) (V2 x2 y2) e)) = "G1 F" <> posIze f <> " " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> "E" <> posIze e
 
-gcodeToText (GCFeedRate f (GCExtrude3 (x1,y1,z1) (x2,y2,z2) e)) = "G1 F" <> posIze f <> " " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2) <> "E" <> posIze e
-gcodeToText (GCMove2 (x1,y1) (x2,y2)) = "G0 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ")
-gcodeToText (GCMove3 (x1,y1,z1) (x2,y2,z2)) = "G0 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2)
-gcodeToText (GCExtrude2 (x1,y1) (x2,y2) e) = "G1 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> "E" <> posIze e
-gcodeToText (GCExtrude3 (x1,y1,z1) (x2,y2,z2) e) = "G1 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2 <> " ") <> "E" <> posIze e
+gcodeToText (GCFeedRate f (GCExtrude3 (V3 x1 y1 z1) (V3 x2 y2 z2) e)) = "G1 F" <> posIze f <> " " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2) <> "E" <> posIze e
+gcodeToText (GCMove2 (V2 x1 y1) (V2 x2 y2)) = "G0 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ")
+gcodeToText (GCMove3 (V3 x1 y1 z1) (V3 x2 y2 z2)) = "G0 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2)
+gcodeToText (GCExtrude2 (V2 x1 y1) (V2 x2 y2) e) = "G1 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> "E" <> posIze e
+gcodeToText (GCExtrude3 (V3 x1 y1 z1) (V3 x2 y2 z2) e) = "G1 " <> (if x1 ~== x2 then "" else "X" <> posIze x2 <> " ") <> (if y1 ~== y2 then "" else "Y" <> posIze y2 <> " ") <> (if z1 ~== z2 then "" else "Z" <> posIze z2 <> " ") <> "E" <> posIze e
 gcodeToText (GCFeedRate f wtf) = error $ "applying feedrate " <> show (posIze f) <> " to something other than a GCmove(2,3) or a GCExtrude(2,3): " <> show wtf
 gcodeToText (GCRawFeedRate a b) = error $ "Attempting to generate gcode for a feedrate change command that has not yet been cooked:\nRate: " <> show a <> "\nGCode: " <> show b <> "\n"
 gcodeToText (GCRawExtrude2 a b c) = error $ "Attempting to generate gcode for a 2D extrude command that has not yet been cooked:\nStart: " <> show a <> "\nStop: " <> show b <> "\nExtrude: " <> show c <> "\n"

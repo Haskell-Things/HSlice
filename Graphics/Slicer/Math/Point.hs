@@ -27,13 +27,15 @@ import Graphics.Slicer.Math.Definitions (Point3(Point3), Point2(Point2), zOf)
 
 import Graphics.Slicer.Definitions (ℝ)
 
+import Linear(V3(V3), V2(V2))
+
 -- Basic Arithmatic
 crossProduct :: Point3 -> Point3 -> Point3
-crossProduct (Point3 (x1,y1,z1)) (Point3 (x2,y2,z2)) = Point3 (y1*z2 - z1*y2 , z1*x2 - x1*z2, x1*y2 - y1*x2)
+crossProduct (Point3 (V3 x1 y1 z1)) (Point3 (V3 x2 y2 z2)) = Point3 $ V3 (y1*z2 - z1*y2) (z1*x2 - x1*z2) (x1*y2 - y1*x2)
 
 twoDCrossProduct :: Point2 -> Point2 -> ℝ
 twoDCrossProduct p1 p2 = zOf $ crossProduct (zeroPoint p1) (zeroPoint p2)
   where
     zeroPoint :: Point2 -> Point3
-    zeroPoint (Point2 (x,y)) = Point3 (x,y,0)
+    zeroPoint (Point2 (V2 x y)) = Point3 $ V3 x y 0
 
