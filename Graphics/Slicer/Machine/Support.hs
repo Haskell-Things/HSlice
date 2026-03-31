@@ -31,6 +31,8 @@ import Data.List (concat)
 
 import Data.Maybe(mapMaybe)
 
+import Linear (V2(V2))
+
 import Graphics.Slicer.Definitions (ℝ,ℝ2)
 
 import Graphics.Slicer.Math.Contour (makePointContour)
@@ -45,7 +47,7 @@ shortenLineBy amt (LineSeg p m) = LineSeg newStart newSlope
   where pct = amt / magnitude m
         newStart = addPoints p $ scalePoint pct m
         newSlope = scalePoint (1 - 2 * pct) m
-        magnitude (Point2 (x1,y1)) = sqrt (x1 * x1 + y1 * y1)
+        magnitude (Point2 (V2 x1 y1)) = sqrt (x1 * x1 + y1 * y1)
 
 -- Generate support
 -- FIXME: hard coded infill amount.
@@ -66,17 +68,17 @@ data BBox = BBox !ℝ2 !ℝ2
 
 -- | Check if a bounding box is empty.
 isEmptyBBox :: BBox -> Bool
-isEmptyBBox (BBox (x1,y1) (x2,y2)) = x1 == x2 || y1 == y2
+isEmptyBBox (BBox (V2 x1 y1) (V2 x2 y2)) = x1 == x2 || y1 == y2
 
 -- Get a bounding box of all contours.
 boundingBoxAll :: [Contour] -> BBox
 boundingBoxAll contours = if isEmptyBBox box then error "empty box with a contour" else box
     where
-      box  = BBox (minX, minY) (maxX, maxY)
-      minX = minimum $ (\(BBox (x1,_) _) -> x1) <$> bBoxes
-      minY = minimum $ (\(BBox (_,y1) _) -> y1) <$> bBoxes
-      maxX = maximum $ (\(BBox _ (x2,_)) -> x2) <$> bBoxes
-      maxY = maximum $ (\(BBox _ (_,y2)) -> y2) <$> bBoxes
+      box  = BBox (V2 minX minY) (V2 maxX maxY)
+      minX = minimum $ (\(BBox (V2 x1 _) _) -> x1) <$> bBoxes
+      minY = minimum $ (\(BBox (V2 _ y1) _) -> y1) <$> bBoxes
+      maxX = maximum $ (\(BBox _ (V2 x2 _)) -> x2) <$> bBoxes
+      maxY = maximum $ (\(BBox _ (V2 _ y2)) -> y2) <$> bBoxes
       bBoxes = boundingBox <$> contours
 
 -- Get a bounding box of a contour.
@@ -84,7 +86,7 @@ boundingBox :: Contour -> BBox
 boundingBox contour = if isEmptyBBox box then error "empty box with a contour" else box
   where
     (minPoint, maxPoint) = minMaxPoints contour
-    box  = BBox (minX, minY) (maxX, maxY)
+    box  = BBox (V2 minX minY) (V2 maxX maxY)
     minX = xOf minPoint
     minY = yOf minPoint
     maxX = xOf maxPoint
@@ -93,9 +95,9 @@ boundingBox contour = if isEmptyBBox box then error "empty box with a contour" e
 -- add a bounding box to a list of contours, as the first contour in the list.
 -- FIXME: what is this for?
 addBBox :: [Contour] -> [Contour]
-addBBox contours = makePointContour [Point2 (x1,y1),Point2 (x2,y1),Point2 (x2,y2),Point2 (x1,y2), Point2 (x1,y1)] : contours
+addBBox contours = makePointContour [Point2 (V2 x1 y1),Point2 (V2 x2 y1),Point2 (V2 x2 y2),Point2 (V2 x1 y2), Point2 (V2 x1 y1)] : contours
     where
       bbox = boundingBoxAll contours
-      (BBox (x1, y1) (x2, y2)) = incBBox bbox 1
+      (BBox (V2 x1 y1) (V2 x2 y2)) = incBBox bbox 1
       -- Put a fixed amount around the 2d bounding box.
-      incBBox (BBox (nx1,ny1) (nx2,ny2)) amount = BBox (nx1+amount, ny1+amount) (nx2-amount, ny2-amount)
+      incBBox (BBox (V2 nx1 ny1) (V2 nx2 ny2)) amount = BBox (V2 (nx1+amount) (ny1+amount)) (V2 (nx2-amount) (ny2-amount))

@@ -45,6 +45,8 @@ import Graphics.Slicer.Math.Tri (Tri(Tri))
 
 import Graphics.Slicer.Definitions (Fastℕ, fromFastℕ)
 
+import Linear (V3(V3))
+
 ----------------------------------------------------------------
 ----------- Functions to deal with ASCII STL reading -----------
 ----------------------------------------------------------------
@@ -82,7 +84,7 @@ readVertex s = readVertex' $ words s
     readVertex' :: [ByteString] -> Maybe Point3
     readVertex' [vertex,xs,ys,zs]
       | vertex == "vertex" = case (readMaybe $ unpack xs, readMaybe $ unpack ys, readMaybe $ unpack zs) of
-                               (Just x, Just y, Just z) -> Just $ Point3 (x,y,z)
+                               (Just x, Just y, Just z) -> Just $ Point3 $ V3 x y z
                                (_maybex,_maybey,_maybez) -> error "error reading."
     readVertex' _ = Nothing
 

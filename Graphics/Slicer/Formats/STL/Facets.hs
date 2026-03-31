@@ -50,6 +50,8 @@ import Text.Read (readMaybe)
 
 import GHC.Base (Int(I#), Char(C#), chr#, ord#, (+#))
 
+import Linear (V3(V3))
+
 import Graphics.Slicer.Math.Definitions (Point3(Point3))
 
 import Graphics.Slicer.Math.Facet (Facet(Facet))
@@ -110,10 +112,10 @@ readVertexOrNormal s = readVertexOrNormal' $ words s
                                    ["endloop"] -> Nothing
                                    ["outer", "loop"] -> Nothing
                                    ["facet", "normal", xs, ys, zs] -> case (readMaybe $ unpack xs, readMaybe $ unpack ys, readMaybe $ unpack zs) of
-                                                                        (Just xv, Just yv, Just zv) -> Just $ Right $ Point3 (xv,yv,zv)
+                                                                        (Just xv, Just yv, Just zv) -> Just $ Right $ Point3 $ V3 xv yv zv
                                                                         (_maybex, _maybey, _maybez) -> error "could not read normal point."
                                    ["vertex" ,xs,ys,zs] -> case (readMaybe $ unpack xs,readMaybe $ unpack ys,readMaybe $ unpack zs) of
-                                                             (Just xv, Just yv, Just zv) -> Just $ Left $ Point3 (xv,yv,zv)
+                                                             (Just xv, Just yv, Just zv) -> Just $ Left $ Point3 $ V3 xv yv zv
                                                              (_maybex, _maybey, _maybez) -> error "error reading vertex point."
                                    xs -> error $ "unexpected input in STL file: " <> concatMap show xs <> "\n"
 
@@ -131,11 +133,11 @@ writeFacet (Facet ((p1,_),(p2,_),(p3,_)) n1) = stringUtf8 "facet " <> writeNorma
 
 -- | Generate the normal for a facet. Note that the caller is assumed to have already placed "facet " on the line of text being generated.
 writeNormal :: Point3 -> Builder
-writeNormal (Point3 (x,y,z)) = "normal " <> formatFloat x <> " " <> formatFloat y <> " " <> formatFloat z <> "\n"
+writeNormal (Point3 (V3 x y z)) = "normal " <> formatFloat x <> " " <> formatFloat y <> " " <> formatFloat z <> "\n"
 
 -- | Generate a vertex of a facet.
 writeVertex :: Point3 -> Builder
-writeVertex (Point3 (x,y,z)) = "vertex " <> formatFloat x <> " " <> formatFloat y <> " " <> formatFloat z <> "\n"
+writeVertex (Point3 (V3 x y z)) = "vertex " <> formatFloat x <> " " <> formatFloat y <> " " <> formatFloat z <> "\n"
 
 -- | Generate a formatted float for placement in an STL file.
 -- Inspired from code in cassava, and the scientific library.

@@ -1,6 +1,6 @@
 {- ORMOLU_DISABLE -}
 {- HSlice.
- - Copyright 2020-2022 Julia Longtin
+ - Copyright 2020-2026 Julia Longtin
  -
  - This program is free software: you can redistribute it and/or modify
  - it under the terms of the GNU Affero General Public License as published by
@@ -43,6 +43,9 @@ import Data.List (concatMap)
 
 -- The Maybe library.
 import Data.Maybe (Maybe(Just, Nothing), fromMaybe)
+
+-- Import the types used to store Point(2|3)s.
+import Linear (V2(V2), V3(V3))
 
 -- Slists, a form of list with a stated size in the structure.
 import Slist (len, slist)
@@ -166,8 +169,8 @@ prop_InsetIsSmaller distance contour
     where
       insetIsSmaller = minIX > minRX && minIY > minRY && maxRX > maxIX && maxRY > maxIY
         where
-          (Point2 (minRX, minRY), Point2 (maxRX, maxRY)) = minMaxPoints contour
-          (Point2 (minIX, minIY), Point2 (maxIX, maxIY)) = minMaxPoints insetContour
+          (Point2 (V2 minRX minRY), Point2 (V2 maxRX maxRY)) = minMaxPoints contour
+          (Point2 (V2 minIX minIY), Point2 (V2 maxIX maxIY)) = minMaxPoints insetContour
       insetContour = head foundContours
       (foundContours, _) = insetBy distance faces
       faces = facesOf $ fromMaybe (error $ "could not get a straight skeleton for: " <> show contour) $ findStraightSkeleton contour []
@@ -189,8 +192,8 @@ prop_InsetOfInsetIsSmaller distance1 distance2 contour
                   <> dumpGanjas ([toGanja contour] <> if not (null insetContours) then [toGanja insetContour] else [])
       insetIsSmaller = minIX > minRX && minIY > minRY && maxRX > maxIX && maxRY > maxIY
         where
-          (Point2 (minRX, minRY), Point2 (maxRX, maxRY)) = minMaxPoints contour
-          (Point2 (minIX, minIY), Point2 (maxIX, maxIY)) = minMaxPoints foundContour
+          (Point2 (V2 minRX minRY), Point2 (V2 maxRX maxRY)) = minMaxPoints contour
+          (Point2 (V2 minIX minIY), Point2 (V2 maxIX maxIY)) = minMaxPoints foundContour
       foundContour = head foundContours
       (foundContours, foundFaces) = insetBy distance2 (slist insetFaces)
       insetContour = head insetContours

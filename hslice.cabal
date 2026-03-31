@@ -5,7 +5,7 @@ license:       AGPL-3.0-or-later
 license-file:  LICENSE
 maintainer:    Julia Longtin <julia.longtin@gmail.com>
 author:        Julia Longtin <julia.longtin@gmail.com>
-tested-with:   GHC == 8.8.4, GHC == 8.10.4, GHC == 9.4.6
+tested-with:   GHC == 9.6.6, GHC == 9.10.1
 homepage:      https://implicitcad.org/
 synopsis:      A GCode generator, that accepts STL files.
 description:   A slicer in Haskell. Use it to slice 3D prints.
@@ -80,7 +80,8 @@ library
         double-conversion -any,
         extra -any,
         floating-bits >0.3.0.0,
-        implicit >0.2.0.0 && <0.4.0.0,
+        implicit >0.4.0.0,
+        linear -any,
         MemoTrie -any,
         mtl -any,
         numbers -any,
@@ -111,7 +112,9 @@ executable extcuraengine
         extra -any,
         hslice -any,
         implicit -any,
+        linear -any,
         mtl -any,
+        text -any,
         optparse-applicative -any,
         parallel -any,
         slist >=0.2.0.0,
@@ -175,6 +178,7 @@ test-suite test-hslice
         directory -any,
         hspec -any,
         hslice -any,
+        linear -any,
         QuickCheck -any,
         quickcheck-io -any,
         rounded-hw -any,
@@ -215,6 +219,7 @@ test-suite test-broken
         directory -any,
         hspec -any,
         hslice -any,
+        linear -any,
         QuickCheck -any,
         quickcheck-io -any,
         rounded-hw -any,
@@ -254,6 +259,7 @@ test-suite test-stat
         directory -any,
         hspec -any,
         hslice -any,
+        linear -any,
         QuickCheck -any,
         quickcheck-io -any,
         rounded-hw -any,

@@ -35,6 +35,9 @@ import Data.List (concat, concatMap, transpose)
 -- The Maybe library.
 import Data.Maybe (fromMaybe, fromJust)
 
+-- The type used for 2D points.
+import Linear (V2(V2))
+
 -- Slists, a form of list with a stated size in the structure.
 import Slist (len)
 
@@ -202,4 +205,4 @@ triangleSpec = do
     expectationFromTriangle f x y rawRadians rawDists = f triangle
       where
         triangle = randomTriangle x y rawRadians rawDists
-    unitTriangle = makePointContour [Point2 (2,0), Point2 (1.0,sqrt 3), Point2 (0,0)]
+    unitTriangle = makePointContour [Point2 (V2 2 0), Point2 (V2 1.0 (sqrt 3)), Point2 (V2 0 0)]

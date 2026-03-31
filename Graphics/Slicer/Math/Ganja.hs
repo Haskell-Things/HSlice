@@ -90,6 +90,8 @@ import Data.List (concatMap)
 
 import Data.Maybe (Maybe(Nothing), catMaybes, fromJust, isJust)
 
+import Linear (V2(V2))
+
 import Numeric (showFFloat)
 
 import Slist (isEmpty, last)
@@ -114,7 +116,7 @@ instance GanjaAble String where
   toGanja string varname = (" // " <> varname <> " -- " <> string <> "\n","")
 
 instance GanjaAble Point2 where
-  toGanja (Point2 (x,y)) varname = (
+  toGanja (Point2 (V2 x y)) varname = (
     "  var " <> varname <> " = point(" <> showFullPrecision x <> "," <> showFullPrecision y <> ");\n",
     "    " <> varname <> ", " <> show varname <> ",\n")
     where

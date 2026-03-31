@@ -71,6 +71,8 @@ import Data.MemoTrie (HasTrie(enumerate, trie, untrie), Reg, (:->:), enumerateGe
 
 import GHC.Generics (Generic)
 
+import Linear (V3(V3), V2(V2))
+
 import Slist.Type (Slist(Slist), size)
 
 import Slist.Size (Size(Infinity))
@@ -108,10 +110,10 @@ class LinAlg p where
 instance LinAlg Point3 where
   distance p1 p2 = magnitude $ addPoints p1 (negatePoint p2)
     where
-      magnitude (Point3 (x1,y1,z1)) = sqrt (x1 * x1 + y1 * y1 + z1 * z1)
-  addPoints (Point3 (x1,y1,z1)) (Point3 (x2,y2,z2)) = Point3 (x1+x2 ,y1+y2 ,z1+z2)
-  scalePoint val (Point3 (a,b,c)) = Point3 (val*a ,val*b ,val*c)
-  negatePoint (Point3 (a,b,c)) = Point3 (negate a, negate b, negate c)
+      magnitude (Point3 (V3 x1 y1 z1)) = sqrt (x1 * x1 + y1 * y1 + z1 * z1)
+  addPoints (Point3 (V3 x1 y1 z1)) (Point3 (V3 x2 y2 z2)) = Point3 $ V3 (x1+x2) (y1+y2) (z1+z2)
+  scalePoint val (Point3 (V3 a b c)) = Point3 $ V3 (val*a) (val*b) (val*c)
+  negatePoint (Point3 (V3 a b c)) = Point3 $ V3 (negate a) (negate b) (negate c)
   (~=) p1 p2 = roundPoint3 p1 == roundPoint3 p2
 
 -- | perform linear algebra on 2D points.
@@ -120,10 +122,10 @@ instance LinAlg Point2 where
     | p1 == p2 = 0
     | otherwise = magnitude $ addPoints p1 (negatePoint p2)
     where
-      magnitude (Point2 (x1,y1)) = sqrt (x1 * x1 + y1 * y1)
-  addPoints (Point2 (x1,y1)) (Point2 (x2,y2)) = Point2 (x1+x2, y1+y2)
-  scalePoint val (Point2 (a,b)) = Point2 (val*a ,val*b)
-  negatePoint (Point2 (a,b)) = Point2 (negate a, negate b)
+      magnitude (Point2 (V2 x1 y1)) = sqrt (x1 * x1 + y1 * y1)
+  addPoints (Point2 (V2 x1 y1)) (Point2 (V2 x2 y2)) = Point2 $ V2 (x1+x2) (y1+y2)
+  scalePoint val (Point2 (V2 a b)) = Point2 $ V2 (val*a) (val*b)
+  negatePoint (Point2 (V2 a b)) = Point2 $ V2 (negate a) (negate b)
   (~=) p1 p2 = roundPoint2 p1 == roundPoint2 p2
 
 -- | functions for working on points as if they are in a 2D plane.
@@ -139,6 +141,12 @@ instance HasTrie Point2 where
   untrie = untrieGeneric unPoint2Trie
   enumerate = enumerateGeneric unPoint2Trie
 
+instance HasTrie (V2 ℝ) where
+  newtype ((V2 ℝ):->: b) = V2Trie { unV2Trie :: Reg (V2 ℝ) :->: b }
+  trie = trieGeneric V2Trie
+  untrie = untrieGeneric unV2Trie
+  enumerate = enumerateGeneric unV2Trie
+
 instance Ord Point2 where
   -- Orders points by x and y (x first, then sorted by y for the same x-values)
   compare p1 p2
@@ -150,13 +158,13 @@ instance Ord Point2 where
 
 -- | functions for getting a point's position on a 2D plane. If the point is 3d, assume the plane is aligned with the xy basis axes.
 instance PlanePoint Point3 where
-  xOf (Point3 (x,_,_)) = x
-  yOf (Point3 (_,y,_)) = y
+  xOf (Point3 (V3 x _ _)) = x
+  yOf (Point3 (V3 _ y _)) = y
 
 instance PlanePoint Point2 where
-  xOf (Point2 (x,_))   = x
+  xOf (Point2 (V2 x _))   = x
   {-# INLINABLE xOf #-}
-  yOf (Point2 (_,y))   = y
+  yOf (Point2 (V2 _ y))   = y
   {-# INLINABLE yOf #-}
 
 -- | functions for working on points in 3D space.
@@ -167,8 +175,8 @@ class SpacePoint p where
   flatten :: p -> Point2
 
 instance SpacePoint Point3 where
-  zOf (Point3 (_,_,z)) = z
-  flatten (Point3 (x,y,_)) = Point2 (x,y)
+  zOf (Point3 (V3 _ _ z)) = z
+  flatten (Point3 (V3 x y _)) = Point2 $ V2 x y
 
 -- | A euclidian line segment, starting at startPoint and stopping at endPoint.
 data LineSeg = LineSeg { startPoint :: !Point2, endPoint :: !Point2 }
@@ -208,11 +216,11 @@ roundToFifth a = fromIntegral (round (100000 * a) :: Fastℕ) / 100000
 
 -- | round a point (3d)
 roundPoint3 :: Point3 -> Point3
-roundPoint3 (Point3 (x1,y1,z1)) = Point3 (roundToFifth x1, roundToFifth y1, roundToFifth z1)
+roundPoint3 (Point3 (V3 x1 y1 z1)) = Point3 $ V3 (roundToFifth x1) (roundToFifth y1) (roundToFifth z1)
 
 -- | round a point (2d)
 roundPoint2 :: Point2 -> Point2
-roundPoint2 (Point2 (x1,y1)) = Point2 (roundToFifth x1, roundToFifth y1)
+roundPoint2 (Point2 (V2 x1 y1)) = Point2 $ V2 (roundToFifth x1) (roundToFifth y1)
 
 -- | like map, only with previous, current, and next item, and wrapping around so the first entry gets the last entry as previous, and vica versa.
 {-# INLINABLE mapWithNeighbors #-}
